@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
-  Instagram, Linkedin, Twitter, Globe, Cpu, Zap, ShieldAlert, UserPlus, 
+  Instagram, Linkedin, Globe, Cpu, Zap, ShieldAlert, UserPlus, 
   Mail, Lock, Download, Scale, Languages, Moon, Sun, CreditCard, 
   Trash2, MessageSquareQuote, Eye, Palette
 } from "lucide-react";
@@ -18,15 +18,6 @@ interface SocialHandles {
   youtube: string;
   [key: string]: string;
 }
-
-const PLATFORM_ICONS: Record<string, any> = {
-  instagram: Instagram,
-  linkedin: Linkedin,
-  twitter: Twitter,
-  tiktok: Globe,
-  facebook: Globe,
-  youtube: Globe,
-};
 
 const AUTHORIZED_ROLES = ["owner", "admin", "manager"];
 
@@ -162,6 +153,7 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {Object.keys(handles).map((key) => (
                   <div key={key} className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl flex items-center gap-3">
+                    {/* Replaced Twitter-specific icon logic with Globe for stability */}
                     <Globe size={14} className="text-stone-300" />
                     <input 
                       value={handles[key]} 

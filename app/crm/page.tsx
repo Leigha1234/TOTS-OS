@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { getUserTeam, getUserRole, canCreate } from "@/lib/permissions";
 import Button from "@/app/components/Button"; 
-import { User, Building2, Mail, Trash2, Plus, Search, ChevronRight } from "lucide-react";
+import { User, Building2, Mail, Trash2, Plus, Search, ChevronRight, Contact2 } from "lucide-react";
 import Link from "next/link";
 
 export default function CRMPage() {
@@ -24,6 +24,18 @@ export default function CRMPage() {
     status: "live",
   });
 
+  // --- DATA ACTIONS ---
+  const loadData = useCallback(async (team: string, searchTerm: string = "") => {
+    let query = supabase.from("customers").select("*").eq("team_id", team);
+    
+    if (searchTerm) {
+      query = query.or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,company.ilike.%${searchTerm}%`);
+    }
+
+    const { data } = await query.order("created_at", { ascending: false });
+    if (data) setCustomers(data);
+  }, []);
+
   // --- INITIALIZE ---
   useEffect(() => {
     async function init() {
@@ -37,19 +49,7 @@ export default function CRMPage() {
       setLoading(false);
     }
     init();
-  }, []);
-
-  // --- DATA ACTIONS ---
-  async function loadData(team: string) {
-    let query = supabase.from("customers").select("*").eq("team_id", team);
-    
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
-    }
-
-    const { data } = await query.order("created_at", { ascending: false });
-    if (data) setCustomers(data);
-  }
+  }, [loadData]);
 
   async function addCustomer() {
     if (!teamId || !canCreate(role)) {
@@ -87,17 +87,22 @@ export default function CRMPage() {
   return (
     <div className="p-8 space-y-12 max-w-7xl mx-auto min-h-screen text-white">
       {/* HEADER */}
-      <header>
-        <h1 className="text-5xl font-serif italic tracking-tighter">Network Directory</h1>
-        <p className="text-stone-500 text-[10px] uppercase tracking-[0.4em] mt-2">
-          Clearance Level: <span className="text-[#a9b897]">{role}</span>
-        </p>
+      <header className="flex justify-between items-end">
+        <div>
+            <h1 className="text-5xl font-serif italic tracking-tighter">Network Directory</h1>
+            <p className="text-stone-500 text-[10px] uppercase tracking-[0.4em] mt-2">
+            Clearance Level: <span className="text-[#a9b897]">{role}</span>
+            </p>
+        </div>
+        <Link href="/campaigns" className="text-[10px] font-black uppercase tracking-widest text-stone-600 hover:text-[#a9b897] transition-colors border-b border-stone-800 pb-1">
+            Global Campaigns →
+        </Link>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         
         {/* ADD PROFILE FORM */}
-        <div className="bg-stone-950 border border-stone-800 p-8 rounded-[2.5rem] space-y-5 h-fit lg:sticky lg:top-8">
+        <div className="bg-stone-950 border border-stone-800 p-8 rounded-[2.5rem] space-y-5 h-fit lg:sticky lg:top-8 shadow-2xl">
           <h2 className="text-[10px] font-black uppercase tracking-widest text-[#a9b897] mb-2 flex items-center gap-2 font-sans">
             <Plus size={14} /> Initialize Node
           </h2>
@@ -133,33 +138,43 @@ export default function CRMPage() {
             <input 
               placeholder="Search intelligence records..." 
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && loadData(teamId!)}
+              onChange={e => {
+                  setSearch(e.target.value);
+                  loadData(teamId!, e.target.value);
+              }}
               className="w-full bg-stone-950 border border-stone-800 p-5 pl-14 rounded-[1.5rem] text-white outline-none focus:border-[#a9b897] transition-all"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {customers.map((c) => (
-              <Link href={`/customers/${c.id}`} key={c.id}>
-                <div className="group bg-stone-950 border border-stone-800 p-6 rounded-[2rem] hover:border-[#a9b897]/40 transition-all cursor-pointer relative shadow-lg">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="p-3 bg-stone-900 rounded-2xl text-[#a9b897] group-hover:scale-110 transition-transform">
-                      <User size={20} />
-                    </div>
-                    <ChevronRight size={18} className="text-stone-700 group-hover:text-[#a9b897] transition-all" />
+              <Link href={`/customers/${c.id}`} key={c.id} className="block group">
+                <div className="bg-stone-950 border border-stone-800 p-6 rounded-[2rem] group-hover:border-[#a9b897] transition-all cursor-pointer relative shadow-lg overflow-hidden">
+                  
+                  {/* Background Decoration */}
+                  <div className="absolute top-0 right-0 p-8 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity">
+                    <Contact2 size={120} />
                   </div>
 
-                  <div className="space-y-1">
-                    <h3 className="text-xl font-serif italic text-white group-hover:translate-x-1 transition-transform">{c.name}</h3>
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="p-3 bg-stone-900 rounded-2xl text-[#a9b897] group-hover:bg-[#a9b897] group-hover:text-black transition-all">
+                      <User size={20} />
+                    </div>
+                    <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-tighter text-stone-600 group-hover:text-[#a9b897]">
+                        View Profile <ChevronRight size={14} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 relative z-10">
+                    <h3 className="text-xl font-serif italic text-white">{c.name}</h3>
                     <div className="flex items-center gap-2 text-stone-500">
                       <Building2 size={12} />
                       <p className="text-[10px] font-bold uppercase tracking-widest">{c.company || "Independent Record"}</p>
                     </div>
                   </div>
 
-                  <div className="mt-8 pt-6 border-t border-stone-900 flex justify-between items-center">
-                    <div className="flex gap-2 items-center text-stone-600">
+                  <div className="mt-8 pt-6 border-t border-stone-900 flex justify-between items-center relative z-10">
+                    <div className="flex gap-2 items-center text-stone-600 group-hover:text-stone-400">
                        <Mail size={12} />
                        <span className="text-[10px]">{c.email}</span>
                     </div>

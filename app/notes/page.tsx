@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams } from "next/navigation";
 import { 
@@ -88,7 +88,7 @@ function SystemNavigator() {
   );
 }
 
-// --- MAIN PAGE ---
+// --- MAIN PAGE CONTENT ---
 function NotesContent() {
   const params = useSearchParams();
   const [user, setUser] = useState<any>(null);
@@ -99,6 +99,9 @@ function NotesContent() {
   const [newNote, setNewNote] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
+  
+  // Use a ref to manage the channel across render cycles
+  const channelRef = useRef<any>(null);
 
   const fetchPulse = useCallback(async (userId: string) => {
     const [{ data: cust }, { data: nts }, { data: tsk }, { data: mem }] = await Promise.all([
@@ -113,14 +116,10 @@ function NotesContent() {
     setTasks(tsk || []);
   }, []);
 
-  // Handle Realtime Sync and Invites
   useEffect(() => {
-    let channel: any;
-
     const checkInvite = async (userId: string) => {
       const token = params.get("token");
       if (!token) return;
-
       const { data: invite } = await supabase.from("invites").select("*").eq("token", token).single();
       if (!invite) return;
 
@@ -136,28 +135,45 @@ function NotesContent() {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
       setUser(authUser);
-      fetchPulse(authUser.id);
-      checkInvite(authUser.id);
+      await fetchPulse(authUser.id);
+      await checkInvite(authUser.id);
 
-      // Initialize Realtime Channel with fixed event chaining
-      channel = supabase.channel('ledger-sync')
+      // Clean up existing channel stored in ref before creating a new one
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+
+      // Create a unique ID for the channel to bypass Supabase's internal caching
+      const channelId = `ledger-${Math.random().toString(36).slice(2, 9)}`;
+      
+      const channel = supabase.channel(channelId)
         .on(
           'postgres_changes', 
-          { event: '*', schema: 'public', table: 'notes' }, 
+          { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${authUser.id}` }, 
           () => fetchPulse(authUser.id)
         )
         .on(
           'postgres_changes', 
-          { event: '*', schema: 'public', table: 'tasks' }, 
+          { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${authUser.id}` }, 
           () => fetchPulse(authUser.id)
-        )
-        .subscribe();
+        );
+
+      channelRef.current = channel;
+      
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Clarity Sync Active: ${channelId}`);
+        }
+      });
     };
 
     init();
 
+    // Mandatory cleanup on unmount
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
     };
   }, [fetchPulse, params]);
 
@@ -192,7 +208,7 @@ function NotesContent() {
 
     setNewNote("");
     setSelectedCustomer("");
-    toast.success("Node Synchronized");
+    toast.success("Entry Committed");
   }
 
   const filteredNotes = notes.filter((note) =>
@@ -210,7 +226,12 @@ function NotesContent() {
           </header>
 
           <div id="ledger-input" className="bg-white p-8 rounded-[3rem] shadow-sm border border-stone-100 space-y-6 focus-within:border-[#a9b897] transition-all">
-            <textarea className="w-full min-h-[140px] text-xl outline-none resize-none bg-transparent font-serif italic text-stone-700" placeholder="Type intent (e.g. Spent £40 on travel)..." value={newNote} onChange={(e) => setNewNote(e.target.value)} />
+            <textarea 
+              className="w-full min-h-[140px] text-xl outline-none resize-none bg-transparent font-serif italic text-stone-700" 
+              placeholder="Type intent (e.g. Invoice Acme £400)..." 
+              value={newNote} 
+              onChange={(e) => setNewNote(e.target.value)} 
+            />
             <div className="flex justify-between items-center pt-6 border-t border-stone-50">
               <select className="bg-stone-50 text-[10px] font-black uppercase px-4 py-3 rounded-2xl outline-none" value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)}>
                 <option value="">Global Node</option>
@@ -228,7 +249,7 @@ function NotesContent() {
                     placeholder="Search ledger items..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-6 py-4 bg-white border border-stone-100 rounded-2xl outline-none shadow-sm focus:ring-2 ring-[#a9b897]/20 transition-all"
+                    className="w-full pl-12 pr-6 py-4 bg-white border border-stone-100 rounded-2xl outline-none shadow-sm focus:ring-2 ring-[#a9b897]/20 transition-all font-serif italic"
                 />
             </div>
 
@@ -238,8 +259,13 @@ function NotesContent() {
                   <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} key={note.id} className="p-8 rounded-[2.5rem] border border-stone-100 flex flex-col justify-between min-h-[220px] group relative" style={{ background: note.color }}>
                      <p className="text-stone-800 leading-relaxed font-serif italic text-lg z-10">{note.content}</p>
                      <div className="flex justify-between items-end z-10">
-                        <div className="flex items-center gap-2 opacity-30"><Zap size={12} /><span className="text-[9px] font-black uppercase">{detectIntent(note.content)}</span></div>
-                        <button onClick={() => supabase.from("notes").delete().eq("id", note.id)} className="p-2 text-stone-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
+                        <div className="flex items-center gap-2 opacity-30">
+                          <Zap size={12} />
+                          <span className="text-[9px] font-black uppercase tracking-widest">{detectIntent(note.content)}</span>
+                        </div>
+                        <button onClick={() => supabase.from("notes").delete().eq("id", note.id)} className="p-2 text-stone-300 hover:text-red-500 transition-colors">
+                          <Trash2 size={16}/>
+                        </button>
                      </div>
                   </motion.div>
                 ))}
@@ -252,14 +278,19 @@ function NotesContent() {
           <h2 className="text-2xl font-serif italic text-stone-800 px-4">Action Queue</h2>
           <div id="task-list" className="space-y-4">
             {tasks.map((task) => (
-              <div key={task.id} className="bg-white p-6 rounded-[2rem] border border-stone-100 flex items-start gap-4 group shadow-sm hover:shadow-md transition-shadow">
-                <button onClick={() => supabase.from("tasks").update({ status: 'done' }).eq("id", task.id)} className="mt-1 text-stone-200 hover:text-[#a9b897] transition-colors"><Circle size={24} /></button>
+              <div key={task.id} className="bg-white p-6 rounded-[2rem] border border-stone-100 flex items-start gap-4 group shadow-sm hover:shadow-md transition-all">
+                <button onClick={() => supabase.from("tasks").update({ status: 'done' }).eq("id", task.id)} className="mt-1 text-stone-200 hover:text-[#a9b897] transition-colors">
+                  <Circle size={24} />
+                </button>
                 <div>
                   <p className="text-sm font-bold text-stone-800 leading-tight">{task.title}</p>
                   <p className="text-[9px] font-black text-stone-400 uppercase mt-1 tracking-widest">{task.customers?.name || 'Internal'}</p>
                 </div>
               </div>
             ))}
+            {tasks.length === 0 && (
+               <p className="text-center py-12 text-stone-300 font-serif italic">Queue clear. Ready for capture.</p>
+            )}
           </div>
         </div>
       </div>
@@ -270,7 +301,7 @@ function NotesContent() {
 // Main export with Suspense boundary
 export default function NotesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-serif italic text-stone-400">Loading Clarity Ledger...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-serif italic text-stone-400">Syncing with TOTs OS...</div>}>
       <NotesContent />
     </Suspense>
   );

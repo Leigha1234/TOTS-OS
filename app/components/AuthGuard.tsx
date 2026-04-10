@@ -2,36 +2,51 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { usePathname } from "next/navigation";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
 
   useEffect(() => {
-    checkUser();
-  }, []);
-
- async function checkUser() {
-  // Give Supabase a heartbeat to catch the session from the URL
-  const { data: { session }, error } = await supabase.auth.getSession();
-
-  if (!session && window.location.pathname !== "/login") {
-    // Check if we are currently "in the middle" of a login redirect
-    const isRecoveringSession = window.location.hash.includes('access_token');
-    
-    if (!isRecoveringSession) {
-      window.location.href = "/login";
+    // 1. If we are on the login page, just stop loading and show the page
+    if (pathname === "/login") {
+      setLoading(false);
       return;
     }
-  }
 
-  setLoading(false);
-}
+    const initAuth = async () => {
+      // 2. Check if we already have a session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        setLoading(false);
+      } else {
+        // 3. IMPORTANT: Wait a split second to see if a session is currently being 
+        // recovered from the URL hash (common with Magic Links)
+        const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+          if (session) {
+            setLoading(false);
+          } else if (event === 'SIGNED_OUT') {
+            window.location.href = "/login";
+          } else {
+            // No session and no sign-in event? Boot to login.
+            window.location.href = "/login";
+          }
+        });
 
-  // Prevent a "flash" of protected content while checking session
-  if (loading) {
+        // Cleanup listener on unmount
+        return () => listener.subscription.unsubscribe();
+      }
+    };
+
+    initAuth();
+  }, [pathname]);
+
+  if (loading && pathname !== "/login") {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-sm font-medium text-gray-500">Loading TOTS OS...</div>
+      <div className="flex h-screen items-center justify-center bg-stone-50">
+        <p className="text-sm font-medium animate-pulse">Authenticating TOTS OS...</p>
       </div>
     );
   }

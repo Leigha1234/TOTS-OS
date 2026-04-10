@@ -1,12 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* This empty object tells Next.js 16: 
-     "I know Turbopack exists, but I am choosing not to use it right now."
-     This silences the ERROR you are seeing.
-  */
-  turbopack: {}, 
-
+  // We remove the turbopack {} key because it's invalid here.
+  // Custom webpack config to handle browser-side fallbacks (PDF/Canvas)
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

@@ -1,15 +1,25 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-// Next.js API Routes must export a named function like GET, POST, etc.
-// They cannot use "use client" or React Hooks like useEffect.
+/**
+ * Next.js 16+ Dynamic Route Configuration
+ * The 'params' object must be awaited as it is a Promise.
+ */
+
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> } // params is now a Promise
+  context: RouteContext
 ) {
-  // We must await params before accessing the id
-  const { id } = await params;
+  // Extract and await the params from the context
+  const { id } = await context.params;
+
+  if (!id) {
+    return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+  }
 
   try {
     const { data, error } = await supabase
@@ -24,6 +34,10 @@ export async function GET(
 
     return NextResponse.json(data);
   } catch (err) {
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("Payment API Error:", err);
+    return NextResponse.json(
+      { error: "Internal Server Error" }, 
+      { status: 500 }
+    );
   }
 }

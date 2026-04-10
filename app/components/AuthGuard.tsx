@@ -10,26 +10,22 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     checkUser();
   }, []);
 
-  async function checkUser() {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+ async function checkUser() {
+  // Give Supabase a heartbeat to catch the session from the URL
+  const { data: { session }, error } = await supabase.auth.getSession();
 
-      // If no session exists AND we aren't already on the login page, redirect
-      // This "window.location.pathname" check is what breaks the infinite loop
-      if (!session && window.location.pathname !== "/login") {
-        window.location.href = "/login";
-        return;
-      }
-
-      // If there is a session or we are on the login page, stop loading
-      setLoading(false);
-    } catch (error) {
-      console.error("Auth check failed:", error);
-      setLoading(false);
+  if (!session && window.location.pathname !== "/login") {
+    // Check if we are currently "in the middle" of a login redirect
+    const isRecoveringSession = window.location.hash.includes('access_token');
+    
+    if (!isRecoveringSession) {
+      window.location.href = "/login";
+      return;
     }
   }
+
+  setLoading(false);
+}
 
   // Prevent a "flash" of protected content while checking session
   if (loading) {

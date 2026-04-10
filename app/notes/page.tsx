@@ -113,8 +113,10 @@ function NotesContent() {
     setTasks(tsk || []);
   }, []);
 
-  // Handle Team Invites (Logic from your Join page)
+  // Handle Realtime Sync and Invites
   useEffect(() => {
+    let channel: any;
+
     const checkInvite = async (userId: string) => {
       const token = params.get("token");
       if (!token) return;
@@ -130,7 +132,6 @@ function NotesContent() {
       toast.success("Joined team successfully");
     };
 
-    let channel: any;
     const init = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
@@ -138,13 +139,26 @@ function NotesContent() {
       fetchPulse(authUser.id);
       checkInvite(authUser.id);
 
+      // Initialize Realtime Channel with fixed event chaining
       channel = supabase.channel('ledger-sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchPulse(authUser.id))
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchPulse(authUser.id))
+        .on(
+          'postgres_changes', 
+          { event: '*', schema: 'public', table: 'notes' }, 
+          () => fetchPulse(authUser.id)
+        )
+        .on(
+          'postgres_changes', 
+          { event: '*', schema: 'public', table: 'tasks' }, 
+          () => fetchPulse(authUser.id)
+        )
         .subscribe();
     };
+
     init();
-    return () => { if (channel) supabase.removeChannel(channel); };
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [fetchPulse, params]);
 
   const detectIntent = (text: string) => {
@@ -181,7 +195,6 @@ function NotesContent() {
     toast.success("Node Synchronized");
   }
 
-  // Filter notes based on search
   const filteredNotes = notes.filter((note) =>
     note.content?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -215,7 +228,7 @@ function NotesContent() {
                     placeholder="Search ledger items..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-6 py-4 bg-white border border-stone-100 rounded-2xl outline-none"
+                    className="w-full pl-12 pr-6 py-4 bg-white border border-stone-100 rounded-2xl outline-none shadow-sm focus:ring-2 ring-[#a9b897]/20 transition-all"
                 />
             </div>
 
@@ -226,7 +239,7 @@ function NotesContent() {
                      <p className="text-stone-800 leading-relaxed font-serif italic text-lg z-10">{note.content}</p>
                      <div className="flex justify-between items-end z-10">
                         <div className="flex items-center gap-2 opacity-30"><Zap size={12} /><span className="text-[9px] font-black uppercase">{detectIntent(note.content)}</span></div>
-                        <button onClick={() => supabase.from("notes").delete().eq("id", note.id)} className="p-2 text-stone-300 hover:text-red-500"><Trash2 size={16}/></button>
+                        <button onClick={() => supabase.from("notes").delete().eq("id", note.id)} className="p-2 text-stone-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
                      </div>
                   </motion.div>
                 ))}
@@ -239,7 +252,7 @@ function NotesContent() {
           <h2 className="text-2xl font-serif italic text-stone-800 px-4">Action Queue</h2>
           <div id="task-list" className="space-y-4">
             {tasks.map((task) => (
-              <div key={task.id} className="bg-white p-6 rounded-[2rem] border border-stone-100 flex items-start gap-4 group shadow-sm">
+              <div key={task.id} className="bg-white p-6 rounded-[2rem] border border-stone-100 flex items-start gap-4 group shadow-sm hover:shadow-md transition-shadow">
                 <button onClick={() => supabase.from("tasks").update({ status: 'done' }).eq("id", task.id)} className="mt-1 text-stone-200 hover:text-[#a9b897] transition-colors"><Circle size={24} /></button>
                 <div>
                   <p className="text-sm font-bold text-stone-800 leading-tight">{task.title}</p>
@@ -254,11 +267,11 @@ function NotesContent() {
   );
 }
 
-// Wrapper to handle useSearchParams suspense boundary
+// Main export with Suspense boundary
 export default function NotesPage() {
-    return (
-        <Suspense fallback={<div>Loading...</div>}>
-            <NotesContent />
-        </Suspense>
-    );
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-serif italic text-stone-400">Loading Clarity Ledger...</div>}>
+      <NotesContent />
+    </Suspense>
+  );
 }

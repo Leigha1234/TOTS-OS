@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/clarity/run",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}

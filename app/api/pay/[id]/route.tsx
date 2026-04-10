@@ -6,9 +6,10 @@ import { supabase } from "@/lib/supabase";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // params is now a Promise
 ) {
-  const id = params.id;
+  // We must await params before accessing the id
+  const { id } = await params;
 
   try {
     const { data, error } = await supabase

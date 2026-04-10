@@ -1,4 +1,7 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @import "react-grid-layout/css/styles.css";
 @import "react-resizable/css/styles.css";
 
@@ -19,6 +22,8 @@ html, body {
   background: var(--bg) !important;
   color: var(--text);
   font-family: "Poppins", Inter, system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
 }
 
 /* ✨ BACKGROUND */
@@ -67,6 +72,7 @@ button {
   border-radius: 12px;
   padding: 9px 16px;
   font-weight: 500;
+  transition: background 0.2s ease;
 }
 
 button:hover {
@@ -142,20 +148,23 @@ input, select, textarea {
   to { opacity: 1; transform: translateY(0);}
 }
 
-/* 🚫 REMOVE DARK */
+/* 🚫 REMOVE DARK ELEMENTS */
 .bg-black,
 .bg-gray-900,
 .bg-gray-800 {
   background: transparent !important;
 }
+
+/* 🖱️ DYNAMIC MOUSE GLOW */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   background: radial-gradient(
-    circle at var(--x) var(--y),
+    circle at var(--x, 50%) var(--y, 50%),
     rgba(169,184,151,0.15),
     transparent 40%
   );
   pointer-events: none;
+  z-index: 9999;
 }

@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState, use } from "react"; // Added 'use'
+import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabase";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function PayPage({ params }: { params: Promise<{ id: string }> }) {
-  // We unwrap the params promise using the 'use' hook
-  const resolvedParams = use(params); 
+  const resolvedParams = use(params);
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -17,24 +19,24 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
         .eq("id", resolvedParams.id)
         .single();
 
-      if (error) {
-        console.error("Error fetching invoice:", error.message);
+      if (error || !data) {
+        console.error("Error fetching invoice:", error?.message);
+        setNotFound(true);
         return;
       }
       setInvoice(data);
     }
 
-    if (resolvedParams.id) {
-      load();
-    }
+    if (resolvedParams.id) load();
   }, [resolvedParams.id]);
 
   async function pay() {
+    if (!invoice) return;
     setLoading(true);
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" }, // Added headers
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: invoice.amount,
           invoiceId: invoice.id,
@@ -45,18 +47,26 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert("Checkout session failed to start.");
+        toast.error("Checkout failed to initialize.");
       }
     } catch (err) {
       console.error("Payment error:", err);
+      toast.error("A connection error occurred.");
     } finally {
       setLoading(false);
     }
   }
 
+  if (notFound) return (
+    <div className="min-h-screen flex items-center justify-center font-serif italic text-stone-500">
+      Invoice not found or already processed.
+    </div>
+  );
+
   if (!invoice) return (
-    <div className="flex justify-center items-center min-h-screen">
-      <p className="animate-pulse font-serif italic text-stone-500">Loading invoice details...</p>
+    <div className="flex flex-col justify-center items-center min-h-screen gap-4">
+      <Loader2 className="animate-spin text-stone-300" size={32} />
+      <p className="font-serif italic text-stone-500">Retrieving Treasury Record...</p>
     </div>
   );
 
@@ -70,20 +80,21 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
 
         <div className="py-8 border-y border-stone-50">
           <span className="text-5xl font-serif italic text-stone-900">
-            £{invoice.amount}
+            £{invoice.amount.toLocaleString()}
           </span>
         </div>
 
         <button
           onClick={pay}
           disabled={loading}
-          className="w-full bg-[#a9b897] text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100"
+          className="w-full bg-[#a9b897] text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100 flex justify-center items-center gap-2"
         >
-          {loading ? "Processing..." : "Pay Now"}
+          {loading && <Loader2 className="animate-spin" size={14} />}
+          {loading ? "Routing to Stripe..." : "Confirm Payment"}
         </button>
         
-        <p className="text-[9px] text-stone-300 uppercase tracking-tight">
-          Secure transaction via TOTs OS
+        <p className="text-[9px] text-stone-300 uppercase tracking-tight font-bold">
+          Encrypted via TOTs OS Protocol
         </p>
       </div>
     </div>

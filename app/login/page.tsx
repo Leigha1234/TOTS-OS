@@ -11,10 +11,8 @@ export default function LoginPage() {
   const [isInviteMode, setIsInviteMode] = useState(false);
   const router = useRouter();
 
-  // FLOW 1: Standard Password Login
   const handleLogin = async () => {
     if (!email || !password) return alert("Please enter both email and password");
-
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -29,11 +27,11 @@ export default function LoginPage() {
     }
   };
 
-  // FLOW 2: Send Password Setup Email (Reset Password flow)
   const handleSendSetupLink = async () => {
     if (!email) return alert("Please enter your email");
-
     setLoading(true);
+    
+    // This uses the Reset Password flow to let users set their first password
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/set-password`,
     });
@@ -43,7 +41,7 @@ export default function LoginPage() {
     if (error) {
       alert(error.message);
     } else {
-      alert("Password setup link sent! Check your inbox.");
+      alert("Success! Check your email for the activation link.");
     }
   };
 
@@ -63,7 +61,7 @@ export default function LoginPage() {
               placeholder="name@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-300 transition-all text-sm"
+              className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-300 transition-all text-sm text-black"
             />
           </div>
 
@@ -75,15 +73,31 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-300 transition-all text-sm"
+                className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-300 transition-all text-sm text-black"
               />
             </div>
           )}
 
+          {/* FORCED BLACK BUTTON */}
           <button
             onClick={isInviteMode ? handleSendSetupLink : handleLogin}
             disabled={loading}
-            className="w-full py-4 bg-black text-white rounded-2xl font-bold text-sm hover:bg-stone-800 transition-all shadow-lg shadow-stone-200 active:scale-[0.98]"
+            style={{
+              width: '100%',
+              padding: '18px',
+              backgroundColor: '#000000',
+              color: '#ffffff',
+              borderRadius: '20px',
+              fontWeight: '900',
+              fontSize: '13px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              border: 'none',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              marginTop: '10px',
+              display: 'block',
+              opacity: loading ? 0.7 : 1
+            }}
           >
             {loading ? "Processing..." : isInviteMode ? "Send Setup Link" : "Sign In"}
           </button>
@@ -92,7 +106,7 @@ export default function LoginPage() {
         <div className="mt-8 pt-6 border-t border-stone-50">
           <button 
             onClick={() => setIsInviteMode(!isInviteMode)}
-            className="text-stone-400 text-[10px] uppercase tracking-widest font-bold hover:text-black transition-colors"
+            className="text-stone-400 text-[10px] uppercase tracking-widest font-bold hover:text-black transition-colors bg-transparent border-none cursor-pointer"
           >
             {isInviteMode ? "Back to Login" : "First time? Set your password"}
           </button>

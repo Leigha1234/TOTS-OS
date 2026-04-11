@@ -14,10 +14,7 @@ export default function LoginPage() {
   const handleLogin = async () => {
     if (!email || !password) return alert("Please enter both email and password");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       alert(error.message);
@@ -31,14 +28,12 @@ export default function LoginPage() {
     if (!email) return alert("Please enter your email");
     setLoading(true);
     
-    // This uses the Reset Password flow to let users set their first password
-   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-  redirectTo: `${window.location.origin}/set-password`,
-});
-   
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Directs the user to the simple set-password page
+      redirectTo: `${window.location.origin}/set-password`,
+    });
 
     setLoading(false);
-
     if (error) {
       alert(error.message);
     } else {
@@ -79,7 +74,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* FORCED BLACK BUTTON */}
           <button
             onClick={isInviteMode ? handleSendSetupLink : handleLogin}
             disabled={loading}
@@ -95,9 +89,7 @@ export default function LoginPage() {
               letterSpacing: '0.1em',
               border: 'none',
               cursor: loading ? 'not-allowed' : 'pointer',
-              marginTop: '10px',
-              display: 'block',
-              opacity: loading ? 0.7 : 1
+              marginTop: '10px'
             }}
           >
             {loading ? "Processing..." : isInviteMode ? "Send Setup Link" : "Sign In"}

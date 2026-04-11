@@ -1,11 +1,11 @@
 "use client";
 
 import "./globals.css";
-import Sidebar from "./components/Sidebar";
-import Footer from "./components/Footer";
-import AuthGuard from "./components/AuthGuard";
-import SetupTeam from "./components/SetupTeam";
-import ErrorBoundary from "./components/ErrorBoundary";
+import Sidebar from "../components/Sidebar";
+import Footer from "../components/Footer";
+import AuthGuard from "../components/AuthGuard";
+import SetupTeam from "../components/SetupTeam";
+import ErrorBoundary from "../components/ErrorBoundary";
 import { useState, useEffect } from "react";
 import { 
   Menu, X, Command, Search, Zap, BookOpen, 

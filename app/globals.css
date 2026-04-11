@@ -1,43 +1,171 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import "tailwindcss";
+
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
+
 /* 🌿 THE ORGANISED TYPES DESIGN SYSTEM */
 :root {
   --bg: #ece5de;
-  --bg-panel: rgba(255, 255, 255, 0.4);
-  --card-bg: rgba(255, 255, 255, 0.7);
-  --border: rgba(0, 0, 0, 0.08);
-  --text-main: #1a1a1a;
-  --text-muted: #797870;
+  --bg-soft: #f6f3ef;
+  --card: rgba(255, 255, 255, 0.7);
+  --border: #d6d1cb;
+  --text: #000000;
+  --muted: #797870;
   --accent: #a9b897;
-  --glass-blur: blur(12px);
+  --accent-strong: #8fa07d;
 }
 
-.dark {
-  --bg: #050505;
-  --bg-panel: rgba(20, 20, 20, 0.4);
-  --card-bg: rgba(255, 255, 255, 0.03);
-  --border: rgba(255, 255, 255, 0.1);
-  --text-main: #ece5de;
-  --text-muted: #555544;
-  --accent: #a9b897;
-  --glass-blur: blur(20px);
+/* 🌍 GLOBAL RESET */
+html, body {
+  background: var(--bg) !important;
+  color: var(--text);
+  font-family: "Poppins", Inter, system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
 }
 
-/* 🧊 RE-ENABLING THE "NICE" STUFF */
-.glass-panel {
-  background: var(--bg-panel);
-  backdrop-filter: var(--glass-blur);
+/* ✨ BACKGROUND */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(169,184,151,0.15), transparent 40%),
+    radial-gradient(circle at 80% 30%, rgba(169,184,151,0.1), transparent 40%);
+  z-index: -1;
+}
+
+/* 🧊 GLASS */
+.glass {
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+/* 🧾 CARD */
+.card {
+  background: var(--card);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border);
-  border-radius: 2.5rem;
+  border-radius: 18px;
+  padding: 18px;
+  transition: all 0.25s ease;
 }
 
-.card-fancy {
-  background: var(--card-bg);
-  backdrop-filter: var(--glass-blur);
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+}
+
+/* 📄 PAPER */
+.paper {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+/* 🔘 BUTTON */
+button {
+  background: var(--accent);
+  border-radius: 12px;
+  padding: 9px 16px;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+button:hover {
+  background: var(--accent-strong);
+}
+
+/* ✏️ INPUT */
+input, select, textarea {
+  background: #fff !important;
   border: 1px solid var(--border);
-  border-radius: 2rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 12px;
+  padding: 10px;
 }
 
-.card-fancy:hover {
-  transform: translateY(-4px);
-  background: var(--accent); /* Classic TOTS hover */
+/* 🧠 CLARITY */
+.clarity {
+  background: rgba(255,255,255,0.65);
+  backdrop-filter: blur(14px);
+  border-radius: 20px;
+  padding: 22px;
+}
+
+/* 🦶 FOOTER */
+.footer {
+  margin-top: 60px;
+  padding: 30px 20px;
+  border-top: 1px solid var(--border);
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(10px);
+}
+
+.footer-inner {
+  max-width: 1100px;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.footer-row {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.footer-logo {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.footer-muted {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 📬 NEWSLETTER POPUP */
+.newsletter {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  width: 280px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  animation: fadeUp 0.4s ease;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px);}
+  to { opacity: 1; transform: translateY(0);}
+}
+
+/* 🚫 REMOVE DARK ELEMENTS */
+.bg-black,
+.bg-gray-900,
+.bg-gray-800 {
+  background: transparent !important;
+}
+
+/* 🖱️ DYNAMIC MOUSE GLOW */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--x, 50%) var(--y, 50%),
+    rgba(169,184,151,0.15),
+    transparent 40%
+  );
+  pointer-events: none;
+  z-index: 9999;
 }

@@ -24,20 +24,20 @@ export default function LoginPage() {
   };
 
   const handleSendSetupLink = async () => {
-    if (!email) return alert("Please enter your email");
-    setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // This path must match your folder name in Step 4
-      redirectTo: `${window.location.origin}/auth/set-password`,
-    });
-    setLoading(true);
-    if (error) {
-      alert(error.message);
-      setLoading(false);
-    } else {
-      alert("Success! Check your email for the activation link.");
-      setLoading(false);
-    }
+  if (!email) return alert("Please enter your email");
+  setLoading(true);
+  
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    // This MUST match your folder: app/(auth)/auth/set-password
+    redirectTo: `${window.location.origin}/auth/set-password`,
+  });
+
+  setLoading(false);
+  if (error) {
+    alert(error.message);
+  } else {
+    alert("Success! Check your email for the new activation link.");
+  }
   };
 
   return (

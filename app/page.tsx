@@ -24,20 +24,21 @@ export default function LoginPage() {
   };
 
   const handleSendSetupLink = async () => {
-  if (!email) return alert("Please enter your email");
-  setLoading(true);
-  
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    // This MUST match your folder: app/(auth)/auth/set-password
-    redirectTo: `${window.location.origin}/auth/set-password`,
-  });
+    if (!email) return alert("Please enter your email");
+    setLoading(true);
+    
+    // Switch to signUp to trigger the 'Confirm Sign Up' email template
+    const { error } = await supabase.auth.signUp({
+      email,
+      password: Math.random().toString(36).slice(-12), // Temporary random password
+      options: {
+        emailRedirectTo: `${window.location.origin}/set-password`,
+      },
+    });
 
-  setLoading(false);
-  if (error) {
-    alert(error.message);
-  } else {
-    alert("Success! Check your email for the new activation link.");
-  }
+    setLoading(false);
+    if (error) alert(error.message);
+    else alert("Check your email to confirm your account!");
   };
 
   return (
@@ -59,7 +60,7 @@ export default function LoginPage() {
             </div>
           )}
           <button onClick={isInviteMode ? handleSendSetupLink : handleLogin} disabled={loading} style={{ width: '100%', padding: '18px', backgroundColor: '#000000', color: '#ffffff', borderRadius: '20px', fontWeight: '900', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '10px' }}>
-            {loading ? "Processing..." : isInviteMode ? "Send Setup Link" : "Sign In"}
+            {loading ? "Processing..." : isInviteMode ? "Send Activation Link" : "Sign In"}
           </button>
         </div>
         <div className="mt-8 pt-6 border-t border-stone-50">

@@ -1,4 +1,6 @@
-import Sidebar from "../components/Sidebar"; // Adjust path if needed
+"use client";
+
+import Sidebar from "../components/Sidebar";
 import AuthGuard from "../components/AuthGuard";
 
 export default function InternalLayout({
@@ -12,7 +14,7 @@ export default function InternalLayout({
         {/* Sidebar is fixed on the left */}
         <Sidebar />
 
-        {/* The current page (Dashboard, CRM, etc.) loads on the right */}
+        {/* Main content area on the right */}
         <main className="flex-1 h-screen overflow-y-auto">
           {children}
         </main>

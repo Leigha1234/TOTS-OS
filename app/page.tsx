@@ -29,7 +29,6 @@ export default function LoginPage() {
     setLoading(true);
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // Directs the user to the simple set-password page
       redirectTo: `${window.location.origin}/set-password`,
     });
 
@@ -62,7 +61,7 @@ export default function LoginPage() {
           </div>
 
           {!isInviteMode && (
-            <div className="text-left animate-in fade-in slide-in-from-top-2">
+            <div className="text-left">
               <label className="text-[10px] font-black uppercase text-stone-400 ml-2 mb-1 block">Password</label>
               <input
                 type="password"

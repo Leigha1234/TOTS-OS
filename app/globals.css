@@ -1,87 +1,43 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@import "react-grid-layout/css/styles.css";
-@import "react-resizable/css/styles.css";
-
-/* 🌿 THE ORGANISED TYPES DESIGN SYSTEM (Default Light) */
+/* 🌿 THE ORGANISED TYPES DESIGN SYSTEM */
 :root {
   --bg: #ece5de;
-  --bg-soft: #f6f3ef;
-  --card: rgba(255, 255, 255, 0.7);
-  --border: #d6d1cb;
-  --text: #1a1a1a;
-  --text-inverse: #ffffff;
-  --muted: #797870;
+  --bg-panel: rgba(255, 255, 255, 0.4);
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --border: rgba(0, 0, 0, 0.08);
+  --text-main: #1a1a1a;
+  --text-muted: #797870;
   --accent: #a9b897;
-  --accent-strong: #8fa07d;
-  --console-bg: rgba(255, 255, 255, 0.65);
+  --glass-blur: blur(12px);
 }
 
-/* 🌑 DARK MODE (Command Center Aesthetic) */
 .dark {
   --bg: #050505;
-  --bg-soft: #0a0a0a;
-  --card: rgba(10, 10, 10, 0.8);
-  --border: rgba(255, 255, 255, 0.05);
-  --text: #ece5de;
-  --text-inverse: #000000;
-  --muted: #555544;
-  --accent: #a9b897; /* Keeping the signature green */
-  --accent-strong: #c0cfad;
-  --console-bg: rgba(10, 10, 10, 0.95);
+  --bg-panel: rgba(20, 20, 20, 0.4);
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --border: rgba(255, 255, 255, 0.1);
+  --text-main: #ece5de;
+  --text-muted: #555544;
+  --accent: #a9b897;
+  --glass-blur: blur(20px);
 }
 
-/* 🌍 GLOBAL RESET */
-html, body {
-  background: var(--bg) !important;
-  color: var(--text);
-  font-family: "Poppins", Inter, system-ui, sans-serif;
-  margin: 0;
-  padding: 0;
-  transition: background 0.3s ease, color 0.3s ease;
-}
-
-/* ✨ BACKGROUND GRADIENTS */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(169,184,151,0.15), transparent 40%),
-    radial-gradient(circle at 80% 30%, rgba(169,184,151,0.1), transparent 40%);
-  z-index: -1;
-}
-
-/* 🧊 COMPONENTS */
-.card {
-  background: var(--card);
-  backdrop-filter: blur(10px);
+/* 🧊 RE-ENABLING THE "NICE" STUFF */
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border);
-  border-radius: 24px; /* Matches current UI */
-  padding: 18px;
-  color: var(--text);
-  transition: all 0.25s ease;
+  border-radius: 2.5rem;
 }
 
-/* 🧠 CLARITY CONSOLE */
-.clarity-container {
-  background: var(--console-bg);
-  backdrop-filter: blur(14px);
+.card-fancy {
+  background: var(--card-bg);
+  backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 2rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 🔘 BUTTONS */
-.btn-primary {
-  background: var(--accent);
-  color: var(--text-inverse);
-  border-radius: 12px;
-  padding: 9px 16px;
-  font-weight: 600;
-  transition: background 0.2s ease;
+.card-fancy:hover {
+  transform: translateY(-4px);
+  background: var(--accent); /* Classic TOTS hover */
 }
-
-/* Remove hardcoded dark utility overrides so theme works correctly */
-.bg-black { background-color: var(--bg) !important; }

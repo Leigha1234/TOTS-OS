@@ -7,14 +7,14 @@ export async function POST(req: Request) {
   try {
     const { email } = await req.json();
 
-    // These use the keys you added to Vercel
+    // The @ts-nocheck above will ignore the red lines so you can deploy
     const resend = new Resend(process.env.RESEND_API_KEY);
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // 1. Generate the magic link
+    // This generates a link that doesn't require a password yet
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'signup',
       email: email,
@@ -23,12 +23,12 @@ export async function POST(req: Request) {
 
     if (linkError) return NextResponse.json({ error: linkError.message }, { status: 400 });
 
-    // 2. Send via Resend
+    // Send the link via Resend
     const { error: resendError } = await resend.emails.send({
       from: 'TOTS OS <onboarding@resend.dev>',
       to: [email],
       subject: 'Activate Your TOTS OS Account',
-      html: `<p>Click <a href="${data.properties.action_link}">here</a> to set your password.</p>`
+      html: `<p>Welcome! Click <a href="${data.properties.action_link}">here</a> to set your password.</p>`
     });
 
     if (resendError) return NextResponse.json({ error: resendError.message }, { status: 400 });

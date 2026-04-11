@@ -8,22 +8,26 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [isInviteMode, setIsInviteMode] = useState(false);
 
- const handleSendSetupLink = async () => {
+const handleSendSetupLink = async () => {
   if (!email) return alert("Please enter your email");
   setLoading(true);
 
-  const res = await fetch('/api/send-activation', {
-    method: 'POST',
-    body: JSON.stringify({ email }),
+  // Use Magic Link (OTP) to bypass the "password required" error
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      // This forces the link to take them to the set-password page
+      emailRedirectTo: `${window.location.origin}/set-password`,
+      // This ensures a new user record is created if they don't exist yet
+      shouldCreateUser: true, 
+    },
   });
 
-  const result = await res.json();
   setLoading(false);
-
-  if (res.ok) {
-    alert("Email sent via Resend!");
+  if (error) {
+    alert(error.message);
   } else {
-    alert(`Error: ${result.error}`);
+    alert("Check your email! A login/activation link has been sent.");
   }
 };
 

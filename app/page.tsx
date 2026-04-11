@@ -9,37 +9,25 @@ export default function LoginPage() {
   const [isInviteMode, setIsInviteMode] = useState(false);
 
   const handleSendSetupLink = async () => {
-    if (!email) return alert("Please enter your email");
-    setLoading(true);
+  if (!email) return alert("Please enter your email");
+  setLoading(true);
 
-    try {
-      // 1. Sign up the user in Supabase
-      // This creates the record so they can set a password later
-      const { data, error: signupError } = await supabase.auth.signUp({
-        email,
-        password: Math.random().toString(36).slice(-12),
-        options: {
-          emailRedirectTo: `${window.location.origin}/set-password`,
-        },
-      });
+  // This creates the user in Supabase and triggers the email template we just edited
+  const { error } = await supabase.auth.signUp({
+    email,
+    password: Math.random().toString(36).slice(-12), // Temporary random password
+    options: {
+      emailRedirectTo: 'https://tots-os.co.uk/set-password',
+    },
+  });
 
-      if (signupError) throw signupError;
-
-      // 2. Call our Resend trigger (we'll make this next)
-      const res = await fetch("/api/send-resend", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-      });
-
-      if (!res.ok) throw new Error("Resend failed to dispatch");
-
-      alert("Check your email! A link has been sent via Resend.");
-    } catch (err: any) {
-      alert(err.message || "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(false);
+  if (error) {
+    alert(error.message);
+  } else {
+    alert("Activation link sent! Check your inbox.");
+  }
+};
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-stone-50 p-6">

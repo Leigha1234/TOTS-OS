@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import Page from "../components/Page";
+import Page from "../../components/Page";
 import { motion, AnimatePresence } from "framer-motion";
 
 type DocType = "invoices" | "quotes" | "expenses" | "payroll" | "self_assessment" | "end_of_year";

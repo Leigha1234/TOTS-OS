@@ -2,49 +2,44 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isInviteMode, setIsInviteMode] = useState(false);
-  const router = useRouter();
 
-  const handleLogin = async () => {
-    if (!email || !password) return alert("Please enter both email and password");
+  const handleSendSetupLink = async () => {
+    if (!email) return alert("Please enter your email");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      alert(error.message);
+
+    try {
+      // 1. Sign up the user in Supabase
+      // This creates the record so they can set a password later
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email,
+        password: Math.random().toString(36).slice(-12),
+        options: {
+          emailRedirectTo: `${window.location.origin}/set-password`,
+        },
+      });
+
+      if (signupError) throw signupError;
+
+      // 2. Call our Resend trigger (we'll make this next)
+      const res = await fetch("/api/send-resend", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) throw new Error("Resend failed to dispatch");
+
+      alert("Check your email! A link has been sent via Resend.");
+    } catch (err: any) {
+      alert(err.message || "An error occurred");
+    } finally {
       setLoading(false);
-    } else {
-      router.push("/dashboard");
     }
   };
-
-const handleSendSetupLink = async () => {
-  if (!email) return alert("Please enter your email");
-  setLoading(true);
-
-  const { error } = await supabase.auth.signUp({
-    email,
-    password: Math.random().toString(36).slice(-12), // Temporary random password
-    options: {
-      // THIS IS THE KEY: It tells Supabase where to send them after they click
-      emailRedirectTo: `${window.location.origin}/set-password`,
-    },
-  });
-
-  setLoading(false);
-  if (error) {
-    alert(error.message);
-  } else {
-    alert("Activation link sent! Please check your email to set your password.");
-  }
-};
-
-  
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-stone-50 p-6">
@@ -53,56 +48,21 @@ const handleSendSetupLink = async () => {
         <p className="text-stone-400 text-xs uppercase tracking-[0.2em] mb-8">
           {isInviteMode ? "Account Activation" : "Authorized Access"}
         </p>
-        <div className="space-y-4">
-          <div className="text-left">
-            <label className="text-[10px] font-black uppercase text-stone-400 ml-2 mb-1 block">Email Address</label>
-            <input 
-              type="email" 
-              placeholder="name@company.com" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-300 transition-all text-sm text-black" 
-            />
-          </div>
-          {!isInviteMode && (
-            <div className="text-left">
-              <label className="text-[10px] font-black uppercase text-stone-400 ml-2 mb-1 block">Password</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-300 transition-all text-sm text-black" 
-              />
-            </div>
-          )}
+        <div className="space-y-4 text-left">
+          <label className="text-[10px] font-black uppercase text-stone-400 ml-2 mb-1 block">Email Address</label>
+          <input 
+            type="email" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none text-sm" 
+            placeholder="name@company.com"
+          />
           <button 
-            onClick={isInviteMode ? handleSendSetupLink : handleLogin} 
-            disabled={loading} 
-            style={{ 
-              width: '100%', 
-              padding: '18px', 
-              backgroundColor: '#000000', 
-              color: '#ffffff', 
-              borderRadius: '20px', 
-              fontWeight: '900', 
-              fontSize: '13px', 
-              textTransform: 'uppercase', 
-              letterSpacing: '0.1em', 
-              border: 'none', 
-              cursor: loading ? 'not-allowed' : 'pointer', 
-              marginTop: '10px' 
-            }}
+            onClick={handleSendSetupLink} 
+            disabled={loading}
+            style={{ width: '100%', padding: '18px', backgroundColor: '#000', color: '#fff', borderRadius: '20px', fontWeight: '900', textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer' }}
           >
-            {loading ? "Processing..." : isInviteMode ? "Send Activation Link" : "Sign In"}
-          </button>
-        </div>
-        <div className="mt-8 pt-6 border-t border-stone-50">
-          <button 
-            onClick={() => setIsInviteMode(!isInviteMode)} 
-            className="text-stone-400 text-[10px] uppercase tracking-widest font-bold hover:text-black transition-colors bg-transparent border-none cursor-pointer"
-          >
-            {isInviteMode ? "Back to Login" : "First time? Set your password"}
+            {loading ? "Sending..." : "Send Activation Link"}
           </button>
         </div>
       </div>

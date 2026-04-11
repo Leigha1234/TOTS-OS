@@ -32,9 +32,10 @@ export default function LoginPage() {
     setLoading(true);
     
     // This uses the Reset Password flow to let users set their first password
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/set-password`,
-    });
+   const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  redirectTo: `${window.location.origin}/set-password`,
+});
+   
 
     setLoading(false);
 

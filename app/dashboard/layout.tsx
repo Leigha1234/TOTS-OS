@@ -1,6 +1,5 @@
 "use client";
 
-import "./globals.css";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import AuthGuard from "../components/AuthGuard";
@@ -8,8 +7,8 @@ import SetupTeam from "../components/SetupTeam";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { useState, useEffect } from "react";
 import { 
-  Menu, X, Command, Search, Zap, BookOpen, 
-  ChevronLeft, ChevronRight, Target, Play 
+  X, Command, Search, Zap, BookOpen, 
+  ChevronLeft, ChevronRight, Target 
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -116,14 +115,12 @@ function SystemNavigator() {
   );
 }
 
-// --- MAIN ROOT LAYOUT ---
-export default function RootLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [insights, setInsights] = useState<string[]>([]);
@@ -177,67 +174,65 @@ export default function RootLayout({
   );
 
   return (
-    <html lang="en">
-      <body className="bg-[#e9e9e1] text-stone-900 antialiased font-sans">
-        <Toaster position="top-right" toastOptions={{ style: { background: '#1c1c1c', color: '#fff', border: 'none', borderRadius: '1rem' } }} />
-        
-        <SystemNavigator />
+    <div className="min-h-screen flex relative bg-[#e9e9e1] text-stone-900 antialiased font-sans">
+      <Toaster position="top-right" toastOptions={{ style: { background: '#1c1c1c', color: '#fff', border: 'none', borderRadius: '1rem' } }} />
+      
+      <SystemNavigator />
 
-        {/* COMMAND PALETTE */}
-        <AnimatePresence>
-          {showCommandPalette && (
+      {/* COMMAND PALETTE */}
+      <AnimatePresence>
+        {showCommandPalette && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[160] flex items-start justify-center pt-[15vh] px-4 bg-stone-900/40 backdrop-blur-sm"
+            onClick={() => setShowCommandPalette(false)}
+          >
             <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[160] flex items-start justify-center pt-[15vh] px-4 bg-stone-900/40 backdrop-blur-sm"
-              onClick={() => setShowCommandPalette(false)}
+              initial={{ scale: 0.95, y: -10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: -10 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white w-full max-w-xl rounded-[2rem] shadow-2xl border border-stone-200 overflow-hidden"
             >
-              <motion.div 
-                initial={{ scale: 0.95, y: -10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: -10 }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-white w-full max-w-xl rounded-[2rem] shadow-2xl border border-stone-200 overflow-hidden"
-              >
-                <div className="flex items-center px-6 py-4 border-b border-stone-100">
-                  <Search size={20} className="text-stone-400 mr-3" />
-                  <input autoFocus placeholder="Jump to node..." className="w-full outline-none text-lg bg-transparent" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                </div>
-                <div className="p-2 max-h-[300px] overflow-y-auto">
-                  {filteredNav.map((item) => (
-                    <button key={item.href} onClick={() => { router.push(item.href); setShowCommandPalette(false); setSearchQuery(""); }} className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-stone-50 group transition-colors">
-                      <span className="text-sm font-medium text-stone-600 group-hover:text-black">{item.name}</span>
-                      <Command size={14} className="text-stone-300" />
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
+              <div className="flex items-center px-6 py-4 border-b border-stone-100">
+                <Search size={20} className="text-stone-400 mr-3" />
+                <input autoFocus placeholder="Jump to node..." className="w-full outline-none text-lg bg-transparent" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              </div>
+              <div className="p-2 max-h-[300px] overflow-y-auto">
+                {filteredNav.map((item) => (
+                  <button key={item.href} onClick={() => { router.push(item.href); setShowCommandPalette(false); setSearchQuery(""); }} className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-stone-50 group transition-colors">
+                    <span className="text-sm font-medium text-stone-600 group-hover:text-black">{item.name}</span>
+                    <Command size={14} className="text-stone-300" />
+                  </button>
+                ))}
+              </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-        
-        <div className="min-h-screen flex relative">
-          <div className="hidden md:block"><Sidebar /></div>
-          
-          <main className="flex-1 min-h-screen p-8 flex flex-col">
-            <AuthGuard>
-              <SetupTeam />
-              <div className="bg-stone-200/50 p-6 rounded-2xl border border-stone-300/50 mb-8">
-                <div className="flex items-center gap-2 mb-4 text-stone-500">
-                  <div className="w-1.5 h-1.5 rounded-full bg-stone-400" />
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em]">Clarity AI</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {insights.map((i, idx) => (
-                    <p key={idx} className="text-sm font-medium text-stone-600 italic font-serif leading-relaxed">"{i}"</p>
-                  ))}
-                </div>
-              </div>
-              <div className="max-w-7xl w-full flex-grow">
-                <ErrorBoundary>{children}</ErrorBoundary>
-              </div>
-            </AuthGuard>
-            <Footer />
-          </main>
-        </div>
-      </body>
-    </html>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
+      
+      <main className="flex-1 min-h-screen p-8 flex flex-col">
+        <AuthGuard>
+          <SetupTeam />
+          <div className="bg-stone-200/50 p-6 rounded-2xl border border-stone-300/50 mb-8">
+            <div className="flex items-center gap-2 mb-4 text-stone-500">
+              <div className="w-1.5 h-1.5 rounded-full bg-stone-400" />
+              <p className="text-[10px] font-black uppercase tracking-[0.3em]">Clarity AI</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {insights.map((i, idx) => (
+                <p key={idx} className="text-sm font-medium text-stone-600 italic font-serif leading-relaxed">"{i}"</p>
+              ))}
+            </div>
+          </div>
+          <div className="max-w-7xl w-full flex-grow">
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </div>
+        </AuthGuard>
+        <Footer />
+      </main>
+    </div>
   );
 }

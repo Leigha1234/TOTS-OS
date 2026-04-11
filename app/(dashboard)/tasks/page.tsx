@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
-import Page from "../components/Page";
+import Page from "../../components/Page";
 
 interface Task {
   id: string;

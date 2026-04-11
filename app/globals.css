@@ -1,33 +1,50 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import "tailwindcss";
 
 @import "react-grid-layout/css/styles.css";
 @import "react-resizable/css/styles.css";
 
 /* 🌿 THE ORGANISED TYPES DESIGN SYSTEM */
 :root {
+  /* Light Mode (TOTS Beige) */
   --bg: #ece5de;
+  --bg-panel: rgba(255, 255, 255, 0.4);
   --bg-soft: #f6f3ef;
-  --card: rgba(255, 255, 255, 0.7);
-  --border: #d6d1cb;
-  --text: #000000;
-  --muted: #797870;
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --border: rgba(0, 0, 0, 0.08);
+  --text-main: #1a1a1a;
+  --text-muted: #797870;
   --accent: #a9b897;
   --accent-strong: #8fa07d;
+  --glass-blur: blur(12px);
+}
+
+.dark {
+  /* Dark Mode (Command Center) */
+  --bg: #050505;
+  --bg-panel: rgba(20, 20, 20, 0.4);
+  --bg-soft: #111111;
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --border: rgba(255, 255, 255, 0.1);
+  --text-main: #ece5de;
+  --text-muted: #888877;
+  --accent: #a9b897;
+  --accent-strong: #c2d1b0;
+  --glass-blur: blur(20px);
 }
 
 /* 🌍 GLOBAL RESET */
 html, body {
   background: var(--bg) !important;
-  color: var(--text);
+  color: var(--text-main);
   font-family: "Poppins", Inter, system-ui, sans-serif;
   margin: 0;
   padding: 0;
+  transition: background 0.5s ease, color 0.5s ease;
 }
 
-/* ✨ BACKGROUND */
+/* ✨ BACKGROUND GRADIENTS */
 body::before {
   content: "";
   position: fixed;
@@ -38,122 +55,66 @@ body::before {
   z-index: -1;
 }
 
-/* 🧊 GLASS */
-.glass {
-  background: rgba(255,255,255,0.6);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-}
-
-/* 🧾 CARD */
-.card {
-  background: var(--card);
-  backdrop-filter: blur(10px);
+/* 🧊 GLASS PANEL (Clarity Console) */
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 18px;
-  transition: all 0.25s ease;
+  border-radius: 2.5rem;
 }
 
-.card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+/* 🧾 CARD FANCY (The Stats Cards) */
+.card-fancy {
+  background: var(--card-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: 2rem;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 📄 PAPER */
-.paper {
-  background: #fff;
-  border-radius: 16px;
-  padding: 20px;
-}
-
-/* 🔘 BUTTON */
-button {
+.card-fancy:hover {
   background: var(--accent);
-  border-radius: 12px;
-  padding: 9px 16px;
-  font-weight: 500;
-  transition: background 0.2s ease;
+  transform: translateY(-5px);
+  border-color: var(--accent);
+  box-shadow: 0 20px 40px rgba(169, 184, 151, 0.2);
 }
 
-button:hover {
-  background: var(--accent-strong);
+/* Ensure text inside card turns white on hover */
+.card-fancy:hover p, 
+.card-fancy:hover span, 
+.card-fancy:hover h1 {
+  color: white !important;
 }
 
-/* ✏️ INPUT */
+/* 🔘 BUTTONS */
+button {
+  transition: all 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+/* ✏️ FORM ELEMENTS */
 input, select, textarea {
-  background: #fff !important;
+  background: var(--bg-soft) !important;
+  color: var(--text-main) !important;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px;
+  transition: border-color 0.2s ease;
 }
 
-/* 🧠 CLARITY */
-.clarity {
-  background: rgba(255,255,255,0.65);
-  backdrop-filter: blur(14px);
-  border-radius: 20px;
-  padding: 22px;
+input:focus {
+  border-color: var(--accent) !important;
+  outline: none;
 }
 
-/* 🦶 FOOTER */
-.footer {
-  margin-top: 60px;
-  padding: 30px 20px;
-  border-top: 1px solid var(--border);
-  background: rgba(255,255,255,0.6);
-  backdrop-filter: blur(10px);
+/* 🚫 UTILITY OVERRIDES */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
-
-.footer-inner {
-  max-width: 1100px;
-  margin: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.footer-row {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.footer-logo {
-  font-weight: 600;
-  font-size: 16px;
-}
-
-.footer-muted {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-/* 📬 NEWSLETTER POPUP */
-.newsletter {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 16px;
-  width: 280px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  animation: fadeUp 0.4s ease;
-}
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px);}
-  to { opacity: 1; transform: translateY(0);}
-}
-
-/* 🚫 REMOVE DARK ELEMENTS */
-.bg-black,
-.bg-gray-900,
-.bg-gray-800 {
-  background: transparent !important;
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* 🖱️ DYNAMIC MOUSE GLOW */
@@ -163,8 +124,8 @@ body::after {
   inset: 0;
   background: radial-gradient(
     circle at var(--x, 50%) var(--y, 50%),
-    rgba(169,184,151,0.15),
-    transparent 40%
+    rgba(169,184,151,0.12),
+    transparent 35%
   );
   pointer-events: none;
   z-index: 9999;

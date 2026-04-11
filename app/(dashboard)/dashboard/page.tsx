@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import Card from "../../components/Card";
 import { 
   Terminal, Send, ChevronRight, Activity, Zap, Loader2, Lock 
 } from "lucide-react";
@@ -23,44 +22,52 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function loadStats() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setIsSyncing(false);
-          return;
-        }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return setIsSyncing(false);
 
-        const today = new Date().toISOString().split('T')[0];
-        const [hoursRes, tasksRes, profileRes] = await Promise.all([
-          supabase.from("timesheets").select("hours").eq("user_id", user.id).eq("date", today),
-          supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("user_id", user.id).neq("status", "done"),
-          supabase.from("profiles").select("tier").eq("id", user.id).single()
-        ]);
+      const today = new Date().toISOString().split('T')[0];
+      
+      const [hoursRes, tasksRes, profileRes] = await Promise.all([
+        supabase.from("timesheets").select("hours").eq("user_id", user.id).eq("date", today),
+        supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("user_id", user.id).neq("status", "done"),
+        supabase.from("profiles").select("tier").eq("id", user.id).single()
+      ]);
 
-        setTodayHours(hoursRes.data?.reduce((s, h) => s + h.hours, 0) || 0);
-        setActiveTasks(tasksRes.count || 0);
-        if (profileRes.data?.tier) {
-          setCurrentTier(profileRes.data.tier.charAt(0).toUpperCase() + profileRes.data.tier.slice(1) + " Node");
-        }
-        setIsSyncing(false);
-      } catch (err) {
-        setIsSyncing(false);
+      setTodayHours(hoursRes.data?.reduce((s, h) => s + h.hours, 0) || 0);
+      setActiveTasks(tasksRes.count || 0);
+      if (profileRes.data?.tier) {
+        setCurrentTier(profileRes.data.tier.charAt(0).toUpperCase() + profileRes.data.tier.slice(1) + " Node");
       }
+      setIsSyncing(false);
     }
+
     loadStats();
+
+    // REAL-TIME SUBSCRIPTION FIX: Listen for tier changes in the database
+    const profileSubscription = supabase
+      .channel('profile_changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, payload => {
+        if (payload.new.tier) {
+          setCurrentTier(payload.new.tier.charAt(0).toUpperCase() + payload.new.tier.slice(1) + " Node");
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(profileSubscription); };
   }, []);
 
   const askClarity = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
-    const userQuery = query;
+    setChatHistory(prev => [...prev, { role: 'user', content: query }]);
     setQuery("");
-    setChatHistory(prev => [...prev, { role: 'user', content: userQuery }]);
     setIsThinking(true);
+    
+    // Simulate AI parsing
     setTimeout(() => {
       setChatHistory(prev => [...prev, { 
         role: 'clarity', 
-        content: `Analysis complete. You have ${activeTasks} pending cycles. Current node status is ${currentTier}.` 
+        content: `Analysis complete. You have ${activeTasks} pending cycles. Optimization recommended for ${currentTier}.` 
       }]);
       setIsThinking(false);
     }, 1200);
@@ -73,7 +80,7 @@ export default function Dashboard() {
   return (
     <div className="p-6 md:p-10 space-y-10 bg-[var(--bg)] min-h-screen text-[var(--text-main)] transition-all duration-500">
       
-      {/* RESTORED PREMIUM HEADER */}
+      {/* HEADER */}
       <header className="flex justify-between items-end pb-2">
         <div className="space-y-1">
           <p className="text-[var(--accent)] font-black uppercase text-[10px] tracking-[0.5em] opacity-80">Operational Overview</p>
@@ -85,7 +92,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* STATS GRID: High-end Typography & Glass effects */}
+      {/* STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="card-fancy p-10 group transition-all cursor-default">
           <p className="text-[10px] text-[var(--text-muted)] group-hover:text-white/70 uppercase tracking-[0.3em] mb-4 font-black">Daily Velocity</p>
@@ -113,9 +120,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* CLARITY CONSOLE: Restored OS-style depth */}
+      {/* CLARITY CONSOLE */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
         <div className="lg:col-span-8">
           <div className="glass-panel h-[550px] flex flex-col shadow-2xl overflow-hidden">
             <div className="px-8 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-panel)]">
@@ -129,25 +135,14 @@ export default function Dashboard() {
             <div className="flex-grow overflow-y-auto p-10 space-y-8 font-mono scrollbar-hide">
               <AnimatePresence mode="popLayout">
                 {chatHistory.map((msg, i) => (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} 
-                    key={i} 
-                    className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={i} className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[75%] p-5 rounded-2xl text-[11px] leading-relaxed shadow-sm ${
-                      msg.role === 'user' 
-                      ? 'bg-[var(--accent)] text-white font-bold rounded-tr-none' 
-                      : 'bg-[var(--card-bg)] text-[var(--text-main)] border border-[var(--border)] rounded-tl-none'
+                      msg.role === 'user' ? 'bg-[var(--accent)] text-white font-bold rounded-tr-none' : 'bg-[var(--card-bg)] text-[var(--text-main)] border border-[var(--border)] rounded-tl-none'
                     }`}>
                       {msg.content}
                     </div>
                   </motion.div>
                 ))}
-                {isThinking && (
-                  <div className="flex gap-2 items-center text-[var(--text-muted)] text-[10px] italic">
-                    <Loader2 size={12} className="animate-spin" /> Deep parsing in progress...
-                  </div>
-                )}
               </AnimatePresence>
               <div ref={chatEndRef} />
             </div>
@@ -157,10 +152,10 @@ export default function Dashboard() {
                 <ChevronRight size={18} className="absolute left-5 text-[var(--accent)]" />
                 <input 
                   type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-2xl py-5 pl-14 pr-16 outline-none focus:border-[var(--accent)] transition-all text-[11px] font-mono text-[var(--text-main)]"
                   placeholder="Ask Clarity..."
-                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-2xl py-5 pl-14 pr-16 outline-none focus:border-[var(--accent)] transition-all text-[11px] font-mono text-[var(--text-main)] shadow-inner"
                 />
-                <button type="submit" className="absolute right-4 bg-[var(--accent)] text-white hover:opacity-90 p-3 rounded-xl transition-all shadow-lg">
+                <button type="submit" className="absolute right-4 bg-[var(--accent)] text-white p-3 rounded-xl shadow-lg hover:opacity-90">
                   <Send size={18} />
                 </button>
               </div>
@@ -171,7 +166,7 @@ export default function Dashboard() {
         {/* SIDEBAR WIDGETS */}
         <div className="lg:col-span-4 space-y-8">
           <div className="glass-panel p-10 shadow-xl">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-main)] mb-8">System Access</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-main)] mb-8">Quick Navigation</h4>
             <div className="space-y-5 font-mono text-[10px]">
               {['/billing', '/status', '/logs'].map((path) => (
                 <div key={path} className="flex justify-between items-center py-3 border-b border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--accent)] cursor-pointer transition-all hover:pl-2">
@@ -181,14 +176,7 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-          
-          <div className="p-10 rounded-[2.5rem] border border-[var(--border)] bg-[var(--card-bg)] flex items-center justify-center italic backdrop-blur-md">
-            <p className="text-[12px] text-[var(--text-muted)] font-serif text-center leading-relaxed">
-              "Clarity is the reward for relentless simplification."
-            </p>
-          </div>
         </div>
-
       </section>
     </div>
   );

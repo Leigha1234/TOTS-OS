@@ -15,7 +15,6 @@ export default function LoginPage() {
     if (!email || !password) return alert("Please enter both email and password");
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-
     if (error) {
       alert(error.message);
       setLoading(false);
@@ -27,16 +26,17 @@ export default function LoginPage() {
   const handleSendSetupLink = async () => {
     if (!email) return alert("Please enter your email");
     setLoading(true);
-    
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/set-password`,
+      // This path must match your folder name in Step 4
+      redirectTo: `${window.location.origin}/auth/set-password`,
     });
-
-    setLoading(false);
+    setLoading(true);
     if (error) {
       alert(error.message);
+      setLoading(false);
     } else {
       alert("Success! Check your email for the activation link.");
+      setLoading(false);
     }
   };
 
@@ -47,59 +47,23 @@ export default function LoginPage() {
         <p className="text-stone-400 text-xs uppercase tracking-[0.2em] mb-8">
           {isInviteMode ? "Account Activation" : "Authorized Access"}
         </p>
-
         <div className="space-y-4">
           <div className="text-left">
             <label className="text-[10px] font-black uppercase text-stone-400 ml-2 mb-1 block">Email Address</label>
-            <input
-              type="email"
-              placeholder="name@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-300 transition-all text-sm text-black"
-            />
+            <input type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-300 transition-all text-sm text-black" />
           </div>
-
           {!isInviteMode && (
             <div className="text-left">
               <label className="text-[10px] font-black uppercase text-stone-400 ml-2 mb-1 block">Password</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-300 transition-all text-sm text-black"
-              />
+              <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-300 transition-all text-sm text-black" />
             </div>
           )}
-
-          <button
-            onClick={isInviteMode ? handleSendSetupLink : handleLogin}
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '18px',
-              backgroundColor: '#000000',
-              color: '#ffffff',
-              borderRadius: '20px',
-              fontWeight: '900',
-              fontSize: '13px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              border: 'none',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              marginTop: '10px'
-            }}
-          >
+          <button onClick={isInviteMode ? handleSendSetupLink : handleLogin} disabled={loading} style={{ width: '100%', padding: '18px', backgroundColor: '#000000', color: '#ffffff', borderRadius: '20px', fontWeight: '900', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '10px' }}>
             {loading ? "Processing..." : isInviteMode ? "Send Setup Link" : "Sign In"}
           </button>
         </div>
-
         <div className="mt-8 pt-6 border-t border-stone-50">
-          <button 
-            onClick={() => setIsInviteMode(!isInviteMode)}
-            className="text-stone-400 text-[10px] uppercase tracking-widest font-bold hover:text-black transition-colors bg-transparent border-none cursor-pointer"
-          >
+          <button onClick={() => setIsInviteMode(!isInviteMode)} className="text-stone-400 text-[10px] uppercase tracking-widest font-bold hover:text-black transition-colors bg-transparent border-none cursor-pointer">
             {isInviteMode ? "Back to Login" : "First time? Set your password"}
           </button>
         </div>

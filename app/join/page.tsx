@@ -1,16 +1,17 @@
 "use client";
 
 import { Suspense } from "react";
-// Import your JoinComponent logic here
+import JoinForm from "../components/JoinForm"; // Ensure your logic is in a component
 
 export default function JoinPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-stone-50">Loading...</div>}>
-      {/* YOUR ACTUAL JOIN PAGE CONTENT HERE */}
-      <div className="max-w-md mx-auto mt-20 p-10 bg-white rounded-3xl border border-stone-100 shadow-sm">
-        <h1 className="text-2xl font-serif italic mb-4">Joining the Firm...</h1>
-        {/* Component that uses useSearchParams() goes here */}
-      </div>
-    </Suspense>
+    <div className="min-h-screen flex items-center justify-center bg-stone-50 p-6">
+      <Suspense fallback={<div className="text-stone-400 animate-pulse">Initializing invitation...</div>}>
+        <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-stone-100 w-full max-w-md text-center">
+          <h1 className="text-2xl font-serif italic mb-6">Join TOTS OS</h1>
+          <JoinForm />
+        </div>
+      </Suspense>
+    </div>
   );
 }

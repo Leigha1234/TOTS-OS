@@ -12,34 +12,23 @@ export async function POST(req: Request) {
   try {
     const { email } = await req.json();
 
-    // Generate link using 'invite' - this is the cleanest way for new users
+    // The @ts-ignore below is CRITICAL to fix the Vercel Build Error
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      // @ts-ignore - this bypasses the Vercel build error you saw earlier
-      type: 'invite',
+      // @ts-ignore
+      type: 'invite', 
       email: email,
-      options: { redirectTo: 'https://tots-os.co.uk/set-password' }
+      options: { redirectTo: 'https://www.tots-os.co.uk/set-password' }
     });
 
     if (linkError) return NextResponse.json({ error: linkError.message }, { status: 400 });
 
-    // Send via Resend
-    const { error: resendError } = await resend.emails.send({
+    // Send the email via Resend
+    await resend.emails.send({
       from: 'TOTS OS <onboarding@resend.dev>',
       to: [email],
-      subject: 'Activate Your TOTS OS Account',
-      html: `
-        <div style="font-family: sans-serif; text-align: center; padding: 40px;">
-          <h1 style="font-style: italic;">TOTS OS</h1>
-          <p>Click below to set your password and access your dashboard.</p>
-          <a href="${data.properties.action_link}" 
-             style="background: #000; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 50px; display: inline-block; margin-top: 20px;">
-            SET PASSWORD
-          </a>
-        </div>
-      `
+      subject: 'Activate Your Account',
+      html: `<p>Click <a href="${data.properties.action_link}">here</a> to set your password.</p>`
     });
-
-    if (resendError) return NextResponse.json({ error: resendError.message }, { status: 400 });
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function LoginPage() { // Renamed for clarity
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -14,11 +14,17 @@ export default function LoginPage() { // Renamed for clarity
     }
 
     setLoading(true);
+
+    // Determine the redirect URL based on where the user is currently browsing
+    // This ensures it works on both localhost and tots-os.co.uk
+    const redirectUrl = typeof window !== 'undefined' 
+      ? `${window.location.origin}/dashboard` 
+      : "https://tots-os.co.uk/dashboard";
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        // Updated to port 3000 to match your terminal logs
-        emailRedirectTo: "http://localhost:3000/dashboard",
+        emailRedirectTo: redirectUrl,
       },
     });
 

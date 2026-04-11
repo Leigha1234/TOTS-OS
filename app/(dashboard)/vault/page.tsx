@@ -6,7 +6,7 @@ import {
   Search, ShoppingBag, AlertCircle, CheckCircle2,
   ExternalLink, Globe, Heart, Zap, Clock, ChevronRight, X, Download, Edit3, Info, Lightbulb, MessageSquare, Send, MapPin, Folder, ChevronDown
 } from "lucide-react";
-import Page from "../components/Page";
+import Page from "../../components/Page";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { getUserRole, canCreate } from "@/lib/permissions";
-import Button from "../components/Button";
+import Button from "../../components/Button";
 import { 
   Sparkles, Wand2, FolderPlus, ArrowRight, 
   Briefcase, Target, ShieldCheck, Activity,

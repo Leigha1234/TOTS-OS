@@ -16,7 +16,7 @@ import {
   Loader2,
   BarChart3
 } from "lucide-react";
-import Page from "../components/Page";
+import Page from "../../components/Page";
 
 interface ScheduledPost {
   id: string;

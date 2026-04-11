@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import ThemeToggle from "./ThemeToggle"; // Make sure the file path matches
 import {
   LayoutDashboard, Users, CheckSquare, CreditCard, BarChart,
   StickyNote, Settings, Menu, LogOut, Clock,
@@ -43,9 +44,8 @@ export default function Sidebar() {
     targetTier: null
   });
 
-  // 1. SAFETY CHECK: If we are on the login page, don't show the sidebar at all
-  // This prevents the Sidebar logic from interfering with the AuthGuard/Login flow
-  if (pathname === "/login") return null;
+  // Safety check: Don't show on login/signup pages
+  if (pathname === "/login" || pathname === "/signup") return null;
 
   const hasAccess = (linkTier: string) => {
     if (currentTier === "elite") return true;
@@ -74,28 +74,41 @@ export default function Sidebar() {
 
   return (
     <>
-      <div className={`h-screen bg-[var(--bg)] border-r border-[var(--border)] px-4 py-4 flex flex-col transition-all sticky top-0 z-40 ${collapsed ? "w-20" : "w-64"}`}>
-        <div className="flex flex-col gap-2 mb-8">
-          <div className="flex items-center justify-between">
-            {!collapsed && <h1 className="text-lg font-semibold italic uppercase tracking-widest text-stone-800">TOTs OS</h1>}
-            <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 hover:bg-stone-100 rounded-md transition-colors">
+      <div className={`h-screen bg-[var(--bg)] border-r border-[var(--border)] px-4 py-4 flex flex-col transition-all duration-300 sticky top-0 z-40 ${collapsed ? "w-20" : "w-64"}`}>
+        
+        {/* LOGO & TOGGLE */}
+        <div className="flex flex-col gap-4 mb-8">
+          <div className="flex items-center justify-between px-2">
+            {!collapsed && (
+              <h1 className="text-sm font-black italic uppercase tracking-[0.3em] text-[var(--text)]">
+                TOTs OS
+              </h1>
+            )}
+            <button 
+              onClick={() => setCollapsed(!collapsed)} 
+              className="p-1.5 hover:bg-[var(--accent)] hover:text-white rounded-md transition-colors text-[var(--muted)]"
+            >
               <Menu size={20} />
             </button>
           </div>
+
           {!collapsed && (
-            <select 
-              value={currentTier} 
-              onChange={(e) => setCurrentTier(e.target.value as Tier)} 
-              className="text-[9px] font-black uppercase tracking-widest bg-stone-100 border-none rounded-full px-3 py-1 outline-none cursor-pointer"
-            >
-              <option value="standard">Standard Node</option>
-              <option value="premium">Premium Node</option>
-              <option value="elite">Elite Node</option>
-            </select>
+            <div className="px-2">
+               <select 
+                value={currentTier} 
+                onChange={(e) => setCurrentTier(e.target.value as Tier)} 
+                className="w-full text-[9px] font-black uppercase tracking-widest bg-[var(--bg-soft)] text-[var(--text)] border border-[var(--border)] rounded-full px-3 py-2 outline-none cursor-pointer hover:border-[var(--accent)] transition-all"
+              >
+                <option value="standard">Standard Node</option>
+                <option value="premium">Premium Node</option>
+                <option value="elite">Elite Node</option>
+              </select>
+            </div>
           )}
         </div>
 
-        <nav className="space-y-1 flex-grow overflow-y-auto no-scrollbar">
+        {/* NAVIGATION */}
+        <nav className="space-y-1 flex-grow overflow-y-auto no-scrollbar px-1">
           {links.map((link) => {
             const active = pathname === link.href;
             const locked = !hasAccess(link.tier);
@@ -106,27 +119,35 @@ export default function Sidebar() {
                 <Link
                   href={locked ? "#" : link.href}
                   onClick={(e) => handleLinkClick(e, link.tier as Tier)}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all ${
                     active 
-                      ? "bg-white text-black font-medium border border-gray-200 shadow-sm" 
-                      : "text-stone-500 hover:bg-stone-100"
-                  } ${locked ? "opacity-80" : ""}`}
+                      ? "bg-[var(--accent)] text-white shadow-md shadow-[var(--accent)]/20" 
+                      : "text-[var(--muted)] hover:bg-[var(--bg-soft)] hover:text-[var(--text)]"
+                  } ${locked ? "opacity-60" : ""}`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon size={18} className={active ? "text-black" : "text-stone-400 group-hover:text-stone-600"} />
-                    {!collapsed && <span className="text-sm">{link.label}</span>}
+                    <Icon size={18} className={active ? "text-white" : "opacity-70 group-hover:opacity-100"} />
+                    {!collapsed && <span className="text-[13px] font-medium tracking-tight">{link.label}</span>}
                   </div>
-                  {!collapsed && locked && <Lock size={12} className="text-stone-300" />}
+                  {!collapsed && locked && <Lock size={12} className="opacity-40" />}
                 </Link>
               </div>
             );
           })}
         </nav>
 
-        <div className="mt-auto pt-4 border-t border-[var(--border)]">
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
+        {/* FOOTER ACTIONS */}
+        <div className="mt-auto pt-4 space-y-2 border-t border-[var(--border)]">
+          <div className="flex items-center justify-center py-2">
+             <ThemeToggle />
+          </div>
+
+          <button 
+            onClick={handleLogout} 
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors"
+          >
             <LogOut size={18} />
-            {!collapsed && <span className="text-sm font-medium">Logout</span>}
+            {!collapsed && <span className="text-[13px] font-black uppercase tracking-widest">Logout</span>}
           </button>
         </div>
       </div>
@@ -134,32 +155,36 @@ export default function Sidebar() {
       {/* Upgrade Modal */}
       <AnimatePresence>
         {showUpgradeModal.show && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }} 
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl relative overflow-hidden"
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden"
             >
               <button 
                 onClick={() => setShowUpgradeModal({show: false, targetTier: null})} 
-                className="absolute top-6 right-6 text-stone-300 hover:text-stone-800 transition-colors"
+                className="absolute top-6 right-6 text-[var(--muted)] hover:text-[var(--text)] transition-colors"
               >
                 <X size={24} />
               </button>
               
               <div className="space-y-6">
-                <div className="inline-flex p-4 bg-purple-50 rounded-2xl text-purple-500">
+                <div className="inline-flex p-4 bg-[var(--accent)]/10 rounded-2xl text-[var(--accent)]">
                   <Zap size={32} fill="currentColor" />
                 </div>
                 <div>
-                  <h2 className="text-4xl font-serif italic text-stone-800 leading-tight">Unlock {showUpgradeModal.targetTier} Tier</h2>
-                  <p className="text-stone-400 mt-2 font-medium italic">Upgrade to access this node.</p>
+                  <h2 className="text-4xl font-serif italic text-[var(--text)] leading-tight capitalize">
+                    {showUpgradeModal.targetTier} Tier
+                  </h2>
+                  <p className="text-[var(--muted)] mt-2 font-medium italic">
+                    This node requires a higher clearancce level.
+                  </p>
                 </div>
 
                 <button 
                   onClick={() => window.open(TOTS_STORE_URL, '_blank')}
-                  className="w-full py-5 bg-stone-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3"
+                  className="w-full py-5 bg-[var(--text)] text-[var(--bg)] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:opacity-90 transition-all flex items-center justify-center gap-3"
                 >
                   Initiate Secure Upgrade <ChevronRight size={14} />
                 </button>

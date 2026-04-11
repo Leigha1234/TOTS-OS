@@ -24,26 +24,46 @@ export default function LoginPage() {
   };
 
   const handleSendSetupLink = async () => {
-    if (!email) return alert("Please enter your email");
-    setLoading(true);
-    
-    // Switch to signUp to trigger the 'Confirm Sign Up' email template
-    const { error } = await supabase.auth.signUp({
-      email,
-      password: Math.random().toString(36).slice(-12), // Temporary random password
-      options: {
-        // This MUST match your Supabase Dashboard 'Redirect URLs'
-        emailRedirectTo: `${window.location.origin}/set-password`,
-      },
-    });
+  if (!email) return alert("Please enter your email");
+  setLoading(true);
 
+  // 1. Generate the magic link using Supabase Admin
+  // Note: This requires the SERVICE_ROLE_KEY to be used on the server side
+  // For simplicity here, we'll trigger the signup which generates the link
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password: Math.random().toString(36).slice(-12),
+    options: {
+      emailRedirectTo: `${window.location.origin}/set-password`,
+    },
+  });
+
+  if (error) {
+    alert(error.message);
     setLoading(false);
-    if (error) {
-      alert(error.message);
-    } else {
-      alert("Check your email for the activation link! Once confirmed, you will be taken to the password setup page.");
-    }
-  };
+    return;
+  }
+
+  // 2. Call your Resend API route
+  // Note: In a production app, you'd usually do step 1 and 2 inside the API route itself
+  const res = await fetch('/api/send-activation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: email,
+      signupLink: `${window.location.origin}/set-password` 
+    }),
+  });
+
+  setLoading(false);
+  if (res.ok) {
+    alert("Activation email sent via Resend! Check your inbox.");
+  } else {
+    alert("Resend failed to deliver. Check your API logs.");
+  }
+};
+
+  
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-stone-50 p-6">

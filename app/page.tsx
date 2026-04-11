@@ -23,43 +23,24 @@ export default function LoginPage() {
     }
   };
 
-  const handleSendSetupLink = async () => {
+const handleSendSetupLink = async () => {
   if (!email) return alert("Please enter your email");
   setLoading(true);
 
-  // 1. Generate the magic link using Supabase Admin
-  // Note: This requires the SERVICE_ROLE_KEY to be used on the server side
-  // For simplicity here, we'll trigger the signup which generates the link
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
-    password: Math.random().toString(36).slice(-12),
+    password: Math.random().toString(36).slice(-12), // Temporary random password
     options: {
+      // THIS IS THE KEY: It tells Supabase where to send them after they click
       emailRedirectTo: `${window.location.origin}/set-password`,
     },
   });
 
+  setLoading(false);
   if (error) {
     alert(error.message);
-    setLoading(false);
-    return;
-  }
-
-  // 2. Call your Resend API route
-  // Note: In a production app, you'd usually do step 1 and 2 inside the API route itself
-  const res = await fetch('/api/send-activation', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: email,
-      signupLink: `${window.location.origin}/set-password` 
-    }),
-  });
-
-  setLoading(false);
-  if (res.ok) {
-    alert("Activation email sent via Resend! Check your inbox.");
   } else {
-    alert("Resend failed to deliver. Check your API logs.");
+    alert("Activation link sent! Please check your email to set your password.");
   }
 };
 

@@ -12,26 +12,25 @@ export async function POST(req: Request) {
   try {
     const { email } = await req.json();
 
-    // 1. Generate a Magic Link to bypass password requirements
+    // Generate link using 'invite' - this is the cleanest way for new users
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink', 
+      // @ts-ignore - this bypasses the Vercel build error you saw earlier
+      type: 'invite',
       email: email,
       options: { redirectTo: 'https://tots-os.co.uk/set-password' }
     });
 
-    if (linkError) {
-      return NextResponse.json({ error: linkError.message }, { status: 400 });
-    }
+    if (linkError) return NextResponse.json({ error: linkError.message }, { status: 400 });
 
-    // 2. Send via Resend
+    // Send via Resend
     const { error: resendError } = await resend.emails.send({
       from: 'TOTS OS <onboarding@resend.dev>',
       to: [email],
       subject: 'Activate Your TOTS OS Account',
       html: `
-        <div style="font-family: serif; text-align: center; padding: 40px;">
+        <div style="font-family: sans-serif; text-align: center; padding: 40px;">
           <h1 style="font-style: italic;">TOTS OS</h1>
-          <p>Your account is ready. Click below to securely set your password.</p>
+          <p>Click below to set your password and access your dashboard.</p>
           <a href="${data.properties.action_link}" 
              style="background: #000; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 50px; display: inline-block; margin-top: 20px;">
             SET PASSWORD

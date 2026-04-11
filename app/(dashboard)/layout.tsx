@@ -1,4 +1,5 @@
-import Sidebar from "../components/Sidebar"; // Double check this path matches your project
+import Sidebar from "../components/Sidebar"; // Adjust path if needed
+import AuthGuard from "../components/AuthGuard";
 
 export default function InternalLayout({
   children,
@@ -6,14 +7,16 @@ export default function InternalLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-stone-50">
-      {/* Sidebar stays fixed for every page inside the (dashboard) group */}
-      <Sidebar />
-      
-      {/* This 'main' area is where your Dashboard or CRM page content will load */}
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
-    </div>
+    <AuthGuard>
+      <div className="flex min-h-screen bg-[#050505]">
+        {/* Sidebar is fixed on the left */}
+        <Sidebar />
+
+        {/* The current page (Dashboard, CRM, etc.) loads on the right */}
+        <main className="flex-1 h-screen overflow-y-auto">
+          {children}
+        </main>
+      </div>
+    </AuthGuard>
   );
 }

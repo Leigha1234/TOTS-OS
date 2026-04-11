@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import AuthGuard from "../components/AuthGuard";
-import Card from "../components/Card";
+import AuthGuard from "../../components/AuthGuard";
+import Card from "../../components/Card";
 import { 
   Sparkles, Terminal, Send, 
   ChevronRight, Activity, Zap, Loader2, Lock 

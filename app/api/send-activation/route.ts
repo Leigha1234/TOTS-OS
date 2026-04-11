@@ -2,7 +2,6 @@ import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-// Using ! ensures TypeScript knows these exist in Vercel
 const resend = new Resend(process.env.RESEND_API_KEY!);
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,30 +12,40 @@ export async function POST(req: Request) {
   try {
     const { email } = await req.json();
 
-    if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 });
+    // 1. Create the user with a temporary random password
+    // This allows the build to pass and the user to be created
+    const { data: user, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: email,
+      password: Math.random().toString(36).slice(-10),
+      email_confirm: true
+    });
 
-    // 1. Generate an INVITE link instead of signup
-    // This removes the password requirement entirely
+    // If user already exists, we just proceed to send the password-set link
+    if (createError && !createError.message.includes('already registered')) {
+      return NextResponse.json({ error: createError.message }, { status: 400 });
+    }
+
+    // 2. Generate a 'recovery' link so they can set their own password
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'invite',
+      type: 'recovery',
       email: email,
       options: { redirectTo: 'https://tots-os.co.uk/set-password' }
     });
 
     if (linkError) return NextResponse.json({ error: linkError.message }, { status: 400 });
 
-    // 2. Send the link via Resend
+    // 3. Send via Resend
     const { error: resendError } = await resend.emails.send({
       from: 'TOTS OS <onboarding@resend.dev>',
       to: [email],
-      subject: 'Activate Your Account',
+      subject: 'Activate Your TOTS OS Account',
       html: `
-        <div style="font-family: sans-serif; padding: 20px; text-align: center;">
+        <div style="font-family: serif; text-align: center; padding: 40px;">
           <h1 style="font-style: italic;">TOTS OS</h1>
-          <p>Click below to set your password and access your dashboard:</p>
+          <p>Click below to set your password and activate your account:</p>
           <a href="${data.properties.action_link}" 
-             style="background: #000; color: #fff; padding: 14px 28px; text-decoration: none; border-radius: 10px; display: inline-block;">
-            Set Password
+             style="background: #000; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 50px; display: inline-block; margin-top: 20px;">
+            SET PASSWORD
           </a>
         </div>
       `

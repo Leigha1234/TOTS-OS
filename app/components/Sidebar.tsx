@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import ThemeToggle from "./ThemeToggle"; // Make sure the file path matches
+import ThemeToggle from "./ThemeToggle";
 import {
   LayoutDashboard, Users, CheckSquare, CreditCard, BarChart,
   StickyNote, Settings, Menu, LogOut, Clock,
@@ -39,12 +39,53 @@ export default function Sidebar() {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [currentTier, setCurrentTier] = useState<Tier>("standard");
+  const [loading, setLoading] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState<{show: boolean, targetTier: Tier | null}>({
     show: false,
     targetTier: null
   });
 
-  // Safety check: Don't show on login/signup pages
+  // 1. Load Tier from Supabase on Mount
+  useEffect(() => {
+    async function fetchUserTier() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("tier")
+            .eq("id", user.id)
+            .single();
+
+          if (data?.tier) {
+            setCurrentTier(data.tier as Tier);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching tier:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchUserTier();
+  }, []);
+
+  // 2. Persist Tier Change to Supabase
+  const handleTierChange = async (newTier: Tier) => {
+    setCurrentTier(newTier); // Optimistic Update
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({ tier: newTier })
+          .eq("id", user.id);
+      }
+    } catch (err) {
+      console.error("Error updating tier:", err);
+    }
+  };
+
   if (pathname === "/login" || pathname === "/signup") return null;
 
   const hasAccess = (linkTier: string) => {
@@ -76,7 +117,6 @@ export default function Sidebar() {
     <>
       <div className={`h-screen bg-[var(--bg)] border-r border-[var(--border)] px-4 py-4 flex flex-col transition-all duration-300 sticky top-0 z-40 ${collapsed ? "w-20" : "w-64"}`}>
         
-        {/* LOGO & TOGGLE */}
         <div className="flex flex-col gap-4 mb-8">
           <div className="flex items-center justify-between px-2">
             {!collapsed && (
@@ -94,20 +134,23 @@ export default function Sidebar() {
 
           {!collapsed && (
             <div className="px-2">
-               <select 
-                value={currentTier} 
-                onChange={(e) => setCurrentTier(e.target.value as Tier)} 
-                className="w-full text-[9px] font-black uppercase tracking-widest bg-[var(--bg-soft)] text-[var(--text)] border border-[var(--border)] rounded-full px-3 py-2 outline-none cursor-pointer hover:border-[var(--accent)] transition-all"
-              >
-                <option value="standard">Standard Node</option>
-                <option value="premium">Premium Node</option>
-                <option value="elite">Elite Node</option>
-              </select>
+               {loading ? (
+                 <div className="h-8 w-full bg-[var(--bg-soft)] animate-pulse rounded-full" />
+               ) : (
+                 <select 
+                  value={currentTier} 
+                  onChange={(e) => handleTierChange(e.target.value as Tier)} 
+                  className="w-full text-[9px] font-black uppercase tracking-widest bg-[var(--bg-soft)] text-[var(--text)] border border-[var(--border)] rounded-full px-3 py-2 outline-none cursor-pointer hover:border-[var(--accent)] transition-all"
+                >
+                  <option value="standard">Standard Node</option>
+                  <option value="premium">Premium Node</option>
+                  <option value="elite">Elite Node</option>
+                </select>
+               )}
             </div>
           )}
         </div>
 
-        {/* NAVIGATION */}
         <nav className="space-y-1 flex-grow overflow-y-auto no-scrollbar px-1">
           {links.map((link) => {
             const active = pathname === link.href;
@@ -136,7 +179,6 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* FOOTER ACTIONS */}
         <div className="mt-auto pt-4 space-y-2 border-t border-[var(--border)]">
           <div className="flex items-center justify-center py-2">
              <ThemeToggle />
@@ -152,7 +194,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Upgrade Modal */}
       <AnimatePresence>
         {showUpgradeModal.show && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
@@ -178,7 +219,7 @@ export default function Sidebar() {
                     {showUpgradeModal.targetTier} Tier
                   </h2>
                   <p className="text-[var(--muted)] mt-2 font-medium italic">
-                    This node requires a higher clearancce level.
+                    This node requires a higher clearance level.
                   </p>
                 </div>
 

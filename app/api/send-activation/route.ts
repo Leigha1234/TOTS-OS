@@ -12,15 +12,14 @@ export async function POST(req: Request) {
   try {
     const { email } = await req.json();
 
-    // 1. Generate a "Magic Link" (The most stable way to authenticate via email)
+    // 1. Generate a Magic Link to bypass password requirements
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink', // Changed to magiclink for maximum compatibility
+      type: 'magiclink', 
       email: email,
       options: { redirectTo: 'https://tots-os.co.uk/set-password' }
     });
 
     if (linkError) {
-      console.error('Supabase Link Error:', linkError.message);
       return NextResponse.json({ error: linkError.message }, { status: 400 });
     }
 
@@ -32,10 +31,10 @@ export async function POST(req: Request) {
       html: `
         <div style="font-family: serif; text-align: center; padding: 40px;">
           <h1 style="font-style: italic;">TOTS OS</h1>
-          <p>Click below to securely access your account and set your password.</p>
+          <p>Your account is ready. Click below to securely set your password.</p>
           <a href="${data.properties.action_link}" 
              style="background: #000; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 50px; display: inline-block; margin-top: 20px;">
-            ACTIVATE ACCOUNT
+            SET PASSWORD
           </a>
         </div>
       `

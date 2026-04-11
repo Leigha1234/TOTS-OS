@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
-import Page from "../../components/Page";
+import { Search, Mic, Trash2, CheckCircle, Plus } from "lucide-react";
 
 interface Task {
   id: string;
@@ -15,17 +15,15 @@ interface Task {
 }
 
 const FOLDER_COLORS = ["#adb591", "#d6ffba", "#ffc8f6", "#c8f1ff"];
+const POSTIT_COLORS = ["#fff9c4", "#f8bbd0", "#e1f5fe", "#f1f8e9"];
 
 export default function WorkspacePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Gamification State
   const [xp, setXp] = useState(0);
 
-  // Search & Input States
   const [searchTerm, setSearchTerm] = useState("");
   const [command, setCommand] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -39,18 +37,28 @@ export default function WorkspacePage() {
   async function init() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data: pData } = await supabase.from("projects").select("*").order('created_at');
-    setProjects(pData || []);
-    const initial = pData?.[0] || { id: "daily", name: "Today" };
+
+    // Fetch Projects, XP, and Tasks in parallel
+    const [pRes, profileRes] = await Promise.all([
+      supabase.from("projects").select("*").order('created_at'),
+      supabase.from("profiles").select("xp").eq("id", user.id).single()
+    ]);
+
+    if (profileRes.data) setXp(profileRes.data.xp || 0);
+    
+    const projectList = pRes.data || [];
+    setProjects(projectList);
+    
+    const initial = projectList[0] || { id: "daily", name: "Today" };
     setSelectedProject(initial);
     loadTasks(initial.id);
     setLoading(false);
   }
 
   function initSpeech() {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRec) {
+      recognitionRef.current = new SpeechRec();
       recognitionRef.current.continuous = false;
       recognitionRef.current.onresult = (e: any) => setCommand(e.results[0][0].transcript);
       recognitionRef.current.onend = () => setIsListening(false);
@@ -59,17 +67,13 @@ export default function WorkspacePage() {
 
   async function loadTasks(pId: string) {
     const { data } = await supabase.from("tasks").select("*").eq("project_id", pId).eq("status", "active");
-    const colors = ["#fff9c4", "#f8bbd0", "#e1f5fe", "#f1f8e9"];
     setTasks((data || []).map((t, i) => ({
       ...t,
-      color: colors[i % colors.length],
-      rotation: Math.random() * 6 - 3,
+      // Use the ID to generate a stable color so it doesn't change on refresh
+      color: POSTIT_COLORS[t.title.length % POSTIT_COLORS.length],
+      rotation: (t.title.length % 6) - 3,
     })));
   }
-
-  const filteredTasks = tasks.filter(task => 
-    task.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   async function createPostIt() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -82,37 +86,48 @@ export default function WorkspacePage() {
       user_id: user.id
     }).select().single();
 
-    if (data) setTasks(prev => [{ ...data, color: "#fff9c4", rotation: Math.random() * 4 - 2 }, ...prev]);
-    setCommand("");
+    if (data) {
+      setTasks(prev => [{ 
+        ...data, 
+        color: POSTIT_COLORS[Math.floor(Math.random() * POSTIT_COLORS.length)], 
+        rotation: Math.random() * 4 - 2 
+      }, ...prev]);
+      setCommand("");
+    }
   }
 
   const handleAction = async (id: string, dir: 'left' | 'right') => {
-    // 🏆 Reward XP on completion (Swipe Right)
+    const { data: { user } } = await supabase.auth.getUser();
+    
     if (dir === 'right') {
-      setXp(prev => prev + 25);
+      const newXp = xp + 25;
+      setXp(newXp);
+      // Persist XP to database
+      if (user) {
+        await supabase.from("profiles").update({ xp: newXp }).eq("id", user.id);
+      }
     }
 
     setTasks(prev => prev.filter(t => t.id !== id));
     await supabase.from("tasks").update({ status: dir === 'right' ? 'completed' : 'binned' }).eq("id", id);
   };
 
-  if (loading) return <div className="p-10 font-bold opacity-30">Opening Desk...</div>;
+  if (loading) return <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center font-serif italic text-[var(--text-muted)] text-2xl">Opening Desk...</div>;
 
   return (
-    <Page title="">
-      <div className="relative min-h-screen w-full bg-[#e9e9e1] overflow-hidden">
+    <div className="relative min-h-screen w-full bg-[var(--bg)] overflow-hidden transition-colors duration-500">
         
-        {/* --- HEADER BANNER --- */}
-        <div className="w-full h-32 bg-[#e2e2d9] border-b border-stone-300 relative flex items-end px-16">
+        {/* --- FOLDER TABS --- */}
+        <div className="w-full h-32 bg-[var(--bg-soft)] border-b border-[var(--border)] relative flex items-end px-16">
           <div className="flex gap-1 z-10">
             {projects.map((p, i) => (
               <button
                 key={p.id}
                 onClick={() => { setSelectedProject(p); loadTasks(p.id); }}
-                className={`px-8 py-3 rounded-t-xl font-bold text-[11px] uppercase tracking-widest transition-all ${
+                className={`px-8 py-3 rounded-t-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${
                   selectedProject?.id === p.id 
-                  ? "bg-[#adb591] text-stone-800 translate-y-[1px] h-12" 
-                  : "bg-[#d1d1c7] text-stone-500 h-10 hover:bg-[#c8c8bd]"
+                  ? "translate-y-[1px] h-14 shadow-lg text-stone-800" 
+                  : "bg-stone-300/30 text-[var(--text-muted)] h-11 hover:h-12"
                 }`}
                 style={{ backgroundColor: selectedProject?.id === p.id ? FOLDER_COLORS[i % FOLDER_COLORS.length] : undefined }}
               >
@@ -123,96 +138,86 @@ export default function WorkspacePage() {
         </div>
 
         {/* --- MAIN WORKSPACE --- */}
-        <div className="relative mx-8 mt-4 min-h-[80vh] bg-[#f7f7f2] rounded-t-[3rem] shadow-inner p-12">
+        <div className="relative mx-4 md:mx-10 mt-6 min-h-[80vh] glass-panel p-12 shadow-2xl">
           
-          {/* 🎮 GAMIFICATION PROGRESS BAR */}
-          <div className="flex items-center gap-6 mb-8 px-4 select-none">
-            <div className="flex flex-col min-w-[100px]">
-              <span className="text-[10px] font-black text-stone-300 uppercase tracking-widest">Level</span>
-              <span className="text-3xl font-serif font-bold text-[#adb591] leading-none">
+          {/* XP PROGRESS BAR */}
+          <div className="flex items-center gap-8 mb-12 select-none">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.4em]">Level</span>
+              <span className="text-4xl font-serif italic font-bold text-[var(--accent)] leading-none">
                 {Math.floor(xp / 100) + 1}
               </span>
             </div>
             
-            <div className="h-2 flex-1 bg-stone-200/50 rounded-full overflow-hidden relative border border-stone-300/10 shadow-inner">
+            <div className="h-3 flex-1 bg-[var(--bg)] rounded-full overflow-hidden border border-[var(--border)] shadow-inner">
               <motion.div 
-                className="absolute inset-y-0 left-0 bg-[#adb591]" 
+                className="h-full bg-[var(--accent)]" 
                 initial={{ width: 0 }}
                 animate={{ width: `${(xp % 100)}%` }}
-                transition={{ type: "spring", stiffness: 40, damping: 10 }}
+                transition={{ type: "spring", stiffness: 50 }}
               />
             </div>
 
             <div className="text-right">
-              <span className="text-[10px] font-black text-stone-300 uppercase tracking-widest block">Exp Points</span>
-              <span className="text-[12px] font-bold text-stone-400 tabular-nums">
-                {xp} XP
-              </span>
+              <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.4em]">Experience</span>
+              <span className="text-sm font-mono font-bold text-[var(--text-muted)]">{xp} XP</span>
             </div>
           </div>
 
-          {/* SEARCH & FILTERS BAR */}
-          <div className="flex items-center gap-4 mb-10 w-full max-w-md">
-            <div className="relative flex-1">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30">🔍</span>
+          <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-16">
+            {/* SEARCH */}
+            <div className="relative w-full max-w-sm">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] opacity-40" />
               <input 
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search notes by keyword..."
-                className="w-full pl-12 pr-4 py-3 bg-stone-100/50 border border-stone-200 rounded-2xl outline-none focus:bg-white transition-all font-medium text-stone-600"
+                placeholder="Search archive..."
+                className="w-full pl-12 pr-4 py-4 bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl outline-none focus:border-[var(--accent)] text-sm font-medium"
               />
             </div>
-          </div>
 
-          {/* OVERLAPPING SPEAKER INPUT CARD */}
-          <div className="absolute -top-16 right-16 z-50 w-[420px]">
-            <motion.div className="bg-white p-8 rounded-sm shadow-2xl border-b-[10px] border-stone-100">
-              <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-[#eb4132] shadow-xl border-b-4 border-black/10" />
-              
+            {/* INPUT CARD */}
+            <motion.div className="bg-white p-8 rounded-2xl shadow-2xl border-b-[8px] border-stone-100 w-full md:w-[450px]">
               <textarea 
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && createPostIt()}
-                placeholder="Write or Speak..."
-                className="w-full h-24 bg-transparent outline-none text-stone-700 font-serif text-3xl placeholder:text-stone-200 resize-none leading-tight"
+                placeholder="New thought..."
+                className="w-full h-20 bg-transparent outline-none text-stone-800 font-serif text-3xl placeholder:text-stone-200 resize-none leading-tight"
               />
 
-              <div className="flex items-center justify-between mt-8">
+              <div className="flex items-center justify-between mt-6">
                 <button 
                   onMouseDown={() => { setIsListening(true); recognitionRef.current?.start(); }}
                   onMouseUp={() => { recognitionRef.current?.stop(); setTimeout(createPostIt, 500); }}
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-md ${
-                    isListening ? "bg-red-500 scale-90 animate-pulse" : "bg-[#adb591] hover:brightness-105"
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                    isListening ? "bg-red-500 scale-95 animate-pulse" : "bg-[var(--accent)] hover:brightness-105"
                   }`}
                 >
-                  <span className="text-2xl filter brightness-0 opacity-40">🎤</span>
+                  <Mic size={24} className={isListening ? "text-white" : "text-stone-700"} />
                 </button>
                 <div className="text-right">
-                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Hold to speak</p>
-                  <p className="text-[9px] font-bold text-[#adb591] uppercase mt-0.5 italic">Adding to {selectedProject?.name}</p>
+                  <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest">Hold to transcribe</p>
+                  <p className="text-[10px] font-bold text-[var(--accent)] italic mt-1 uppercase tracking-tighter">Adding to {selectedProject?.name}</p>
                 </div>
               </div>
             </motion.div>
           </div>
 
-          {/* DYNAMIC POST-ITS GRID */}
-          <div className="flex flex-wrap gap-12 justify-start items-start">
+          {/* POST-ITS GRID */}
+          <div className="flex flex-wrap gap-10 justify-start items-start pb-20">
             <AnimatePresence mode="popLayout">
-              {filteredTasks.map((task) => (
-                <Note key={task.id} task={task} onAction={handleAction} />
-              ))}
+              {tasks
+                .filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase()))
+                .map((task) => (
+                  <Note key={task.id} task={task} onAction={handleAction} />
+                ))
+              }
             </AnimatePresence>
-            
-            {filteredTasks.length === 0 && (
-              <div className="w-full text-center py-20 opacity-20 font-serif italic text-3xl">
-                {searchTerm ? "No matching notes found..." : "This folder is empty."}
-              </div>
-            )}
           </div>
         </div>
-      </div>
-    </Page>
+    </div>
   );
 }
 
@@ -225,32 +230,27 @@ function Note({ task, onAction }: { task: Task; onAction: (id: string, dir: 'lef
       drag="x"
       dragConstraints={{ left: 0, right: 0 }}
       onDragEnd={(_, info) => {
-        if (info.offset.x > 120) { setExitDir("right"); onAction(task.id, 'right'); }
-        else if (info.offset.x < -120) { setExitDir("left"); onAction(task.id, 'left'); }
+        if (info.offset.x > 100) { setExitDir("right"); onAction(task.id, 'right'); }
+        else if (info.offset.x < -100) { setExitDir("left"); onAction(task.id, 'left'); }
       }}
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1, rotate: task.rotation }}
       exit={{ 
-        x: exitDir === 'right' ? 800 : -800,
-        y: 200,
-        scale: 0.2, 
-        rotate: exitDir === 'right' ? 360 : -360, 
-        borderRadius: "100%", 
+        x: exitDir === 'right' ? 600 : -600,
+        rotate: exitDir === 'right' ? 45 : -45,
         opacity: 0,
-        transition: { duration: 0.5 }
+        transition: { duration: 0.4 }
       }}
       style={{ backgroundColor: task.color }}
-      className="relative w-64 h-64 p-8 shadow-[10px_20px_40px_-15px_rgba(0,0,0,0.1)] cursor-grab active:cursor-grabbing flex flex-col group border-b border-black/5"
+      className="relative w-64 h-64 p-8 shadow-xl cursor-grab active:cursor-grabbing flex flex-col group border-b-4 border-black/10 rounded-sm"
     >
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#3b5998] shadow-md border-b-2 border-black/20" />
-      <p className="text-stone-800 font-serif text-2xl font-bold leading-tight pt-5 select-none">{task.title}</p>
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-stone-800/20 shadow-inner" />
+      <p className="text-stone-800 font-serif text-2xl font-bold leading-tight pt-4 select-none italic">{task.title}</p>
       
-      <div className="mt-auto flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <button onClick={() => { setExitDir("left"); onAction(task.id, 'left'); }} className="text-[10px] font-black text-stone-400 hover:text-red-500 uppercase tracking-widest">🗑️ Bin</button>
-        <button onClick={() => { setExitDir("right"); onAction(task.id, 'right'); }} className="text-[10px] font-black text-stone-400 hover:text-green-600 uppercase tracking-widest">Done ✅</button>
+      <div className="mt-auto flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={() => { setExitDir("left"); onAction(task.id, 'left'); }} className="p-2 hover:text-red-600 transition-colors"><Trash2 size={18}/></button>
+        <button onClick={() => { setExitDir("right"); onAction(task.id, 'right'); }} className="p-2 hover:text-green-700 transition-colors"><CheckCircle size={18}/></button>
       </div>
-      
-      <div className="absolute bottom-[-8px] left-0 w-full h-3 opacity-[0.05] bg-black" style={{ clipPath: "polygon(0% 0%, 5% 100%, 10% 0%, 15% 100%, 20% 0%, 25% 100%, 30% 0%, 35% 100%, 40% 0%, 45% 100%, 50% 0%, 55% 100%, 60% 0%, 65% 100%, 70% 0%, 75% 100%, 80% 0%, 85% 100%, 90% 0%, 95% 100%, 100% 0%)" }} />
     </motion.div>
   );
 }

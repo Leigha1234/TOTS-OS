@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-import Page from "../../components/Page";
-import Card from "../../components/Card";
+import Page from "../../../components/Page";
+import Card from "../../../components/Card";
 
 const stages = ["lead", "contacted", "won", "lost"];
 

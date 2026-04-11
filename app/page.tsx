@@ -8,24 +8,22 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [isInviteMode, setIsInviteMode] = useState(false);
 
-  const handleSendSetupLink = async () => {
+ const handleSendSetupLink = async () => {
   if (!email) return alert("Please enter your email");
   setLoading(true);
 
-  // This creates the user in Supabase and triggers the email template we just edited
-  const { error } = await supabase.auth.signUp({
-    email,
-    password: Math.random().toString(36).slice(-12), // Temporary random password
-    options: {
-      emailRedirectTo: 'https://tots-os.co.uk/set-password',
-    },
+  const res = await fetch('/api/send-activation', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
   });
 
+  const result = await res.json();
   setLoading(false);
-  if (error) {
-    alert(error.message);
+
+  if (res.ok) {
+    alert("Email sent via Resend!");
   } else {
-    alert("Activation link sent! Check your inbox.");
+    alert(`Error: ${result.error}`);
   }
 };
 

@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import Papa from "papaparse"; // Import the parser
+import Papa from "papaparse"; 
 import { 
   UploadCloud, CheckCircle2, Loader2, Database, AlertCircle, Info 
 } from "lucide-react";
@@ -20,6 +20,7 @@ export default function DataImportPage() {
     if (e.target.files?.[0]) {
       setFile(e.target.files[0]);
       setStatus('idle');
+      setErrorMessage("");
     }
   };
 
@@ -27,7 +28,6 @@ export default function DataImportPage() {
     if (!file) return;
     setStatus('processing');
 
-    // 1. Get current user/team info
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         setStatus('error');
@@ -35,54 +35,43 @@ export default function DataImportPage() {
         return;
     }
 
-    // 2. Parse CSV
+    // Parse the CSV file
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
         const rawData = results.data;
         
-        // 3. Map CSV headers to Supabase schema
-        // This assumes your CSV has headers like "Name", "Email", "Company"
+        // Map CSV headers to your database columns
+        // Assumes headers: Name, Email, Company
         const formattedData = rawData.map((row: any) => ({
           name: row.Name || row.name || "Unknown Entity",
           email: row.Email || row.email || null,
           company: row.Company || row.company || "Independent Record",
-          user_id: user.id, // Assign to current user
-          stage: "Lead",   // Default stage
+          user_id: user.id, // Links data to the current user
         }));
 
-        // 4. Ingest into Supabase
         const { error } = await supabase
           .from("customers")
           .insert(formattedData);
 
         if (error) {
-          console.error(error);
           setStatus('error');
           setErrorMessage(error.message);
         } else {
           setRowCount(formattedData.length);
           setStatus('success');
-          
-          // Log Activity
-          await supabase.from("activity").insert({
-            user_id: user.id,
-            action: `Injected ${formattedData.length} client nodes via migration.`
-          });
         }
       },
-      error: (error) => {
+      error: (err) => {
         setStatus('error');
-        setErrorMessage(error.message);
+        setErrorMessage("Parsing error: Check file formatting.");
       }
     });
   };
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] p-8 md:p-16 max-w-5xl mx-auto space-y-12">
-      
-      {/* HEADER */}
       <header className="space-y-2 border-b border-[var(--border)] pb-10">
         <div className="flex items-center gap-2 text-[var(--accent)]">
           <Database size={14} />
@@ -93,7 +82,6 @@ export default function DataImportPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         <div className="lg:col-span-7 space-y-8">
-          
           <div 
             onClick={() => status !== 'processing' && fileInputRef.current?.click()}
             className={`relative border-2 border-dashed rounded-[3rem] p-16 transition-all duration-500 flex flex-col items-center justify-center text-center space-y-6 ${
@@ -131,20 +119,18 @@ export default function DataImportPage() {
           <div className="glass-panel p-8 flex gap-6 items-start opacity-70">
             <Info className="text-[var(--accent)]" size={20} />
             <p className="font-serif italic text-sm leading-relaxed">
-              Required CSV Headers: <span className="font-mono text-[var(--accent)]">Name, Email, Company</span>. 
-              Clarity OS will automatically map these to your database schema.
+              Required CSV Headers: <span className="font-mono text-[var(--accent)]">Name, Email, Company</span>.
             </p>
           </div>
         </div>
 
-        {/* STATS / HELP */}
         <div className="lg:col-span-5">
            <div className="card-fancy p-10 space-y-6">
               <h4 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Rules</h4>
               <ul className="space-y-4 font-serif italic text-sm">
-                <li>• Duplicates are skipped based on Email.</li>
-                <li>• Max upload limit: 5,000 nodes per cycle.</li>
-                <li>• Data is encrypted during migration.</li>
+                <li>• Duplicates skipped based on Email.</li>
+                <li>• Max upload: 5,000 nodes.</li>
+                <li>• Encrypted migration.</li>
               </ul>
            </div>
         </div>

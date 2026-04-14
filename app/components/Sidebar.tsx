@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Users, CheckSquare, CreditCard, BarChart,
   StickyNote, Settings, Menu, LogOut, Clock,
   Briefcase, Sparkles, Calendar, Mail, 
-  Lock, ChevronRight, X, Zap
+  Lock, ChevronRight, X, Zap, Database
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -31,6 +31,7 @@ const links = [
   { href: "/social", label: "Social Lab", icon: Sparkles, tier: "elite" },
   { href: "/scheduler", label: "Scheduler", icon: Calendar, tier: "elite" },
   { href: "/campaigns", label: "Campaigns", icon: Mail, tier: "elite" },
+  { href: "/settings/import", label: "Data Migration", icon: Database, tier: "standard" },
   { href: "/settings", label: "Settings", icon: Settings, tier: "standard" },
 ];
 
@@ -45,13 +46,12 @@ export default function Sidebar() {
     targetTier: null
   });
 
-  // 1. Load Tier from Supabase on Mount
   useEffect(() => {
     async function fetchUserTier() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { data, error } = await supabase
+          const { data } = await supabase
             .from("profiles")
             .select("tier")
             .eq("id", user.id)
@@ -70,9 +70,8 @@ export default function Sidebar() {
     fetchUserTier();
   }, []);
 
-  // 2. Persist Tier Change to Supabase
   const handleTierChange = async (newTier: Tier) => {
-    setCurrentTier(newTier); // Optimistic Update
+    setCurrentTier(newTier);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -103,44 +102,40 @@ export default function Sidebar() {
   };
 
   async function handleLogout() {
-    try {
-        await supabase.auth.signOut();
-        router.push("/login");
-        router.refresh();
-    } catch (err) {
-        console.error("Logout error:", err);
-        router.push("/login"); 
-    }
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
   }
 
   return (
     <>
-      <div className={`h-screen bg-[var(--bg)] border-r border-[var(--border)] px-4 py-4 flex flex-col transition-all duration-300 sticky top-0 z-40 ${collapsed ? "w-20" : "w-64"}`}>
+      <div className={`h-screen bg-[var(--bg)] border-r border-[var(--border)] px-4 py-6 flex flex-col transition-all duration-500 sticky top-0 z-40 ${collapsed ? "w-20" : "w-64"}`}>
         
-        <div className="flex flex-col gap-4 mb-8">
-          <div className="flex items-center justify-between px-2">
+        {/* BRANDING */}
+        <div className="flex flex-col gap-6 mb-10">
+          <div className="flex items-center justify-between px-3">
             {!collapsed && (
-              <h1 className="text-sm font-black italic uppercase tracking-[0.3em] text-[var(--text)]">
-                TOTs OS
+              <h1 className="text-[11px] font-black italic uppercase tracking-[0.5em] text-[var(--text-main)]">
+                TOTS OS
               </h1>
             )}
             <button 
               onClick={() => setCollapsed(!collapsed)} 
-              className="p-1.5 hover:bg-[var(--accent)] hover:text-white rounded-md transition-colors text-[var(--muted)]"
+              className="p-2 hover:bg-[var(--bg-soft)] rounded-xl transition-all text-[var(--text-muted)] hover:text-[var(--accent)]"
             >
-              <Menu size={20} />
+              <Menu size={18} />
             </button>
           </div>
 
           {!collapsed && (
-            <div className="px-2">
+            <div className="px-3">
                {loading ? (
-                 <div className="h-8 w-full bg-[var(--bg-soft)] animate-pulse rounded-full" />
+                 <div className="h-9 w-full bg-[var(--bg-soft)] animate-pulse rounded-xl" />
                ) : (
                  <select 
                   value={currentTier} 
                   onChange={(e) => handleTierChange(e.target.value as Tier)} 
-                  className="w-full text-[9px] font-black uppercase tracking-widest bg-[var(--bg-soft)] text-[var(--text)] border border-[var(--border)] rounded-full px-3 py-2 outline-none cursor-pointer hover:border-[var(--accent)] transition-all"
+                  className="w-full text-[9px] font-black uppercase tracking-[0.3em] bg-[var(--card-bg)] text-[var(--text-main)] border border-[var(--border)] rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-[var(--accent)] transition-all shadow-sm"
                 >
                   <option value="standard">Standard Node</option>
                   <option value="premium">Premium Node</option>
@@ -151,7 +146,8 @@ export default function Sidebar() {
           )}
         </div>
 
-        <nav className="space-y-1 flex-grow overflow-y-auto no-scrollbar px-1">
+        {/* NAVIGATION */}
+        <nav className="space-y-1.5 flex-grow overflow-y-auto no-scrollbar px-2">
           {links.map((link) => {
             const active = pathname === link.href;
             const locked = !hasAccess(link.tier);
@@ -162,15 +158,19 @@ export default function Sidebar() {
                 <Link
                   href={locked ? "#" : link.href}
                   onClick={(e) => handleLinkClick(e, link.tier as Tier)}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all ${
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${
                     active 
-                      ? "bg-[var(--accent)] text-white shadow-md shadow-[var(--accent)]/20" 
-                      : "text-[var(--muted)] hover:bg-[var(--bg-soft)] hover:text-[var(--text)]"
-                  } ${locked ? "opacity-60" : ""}`}
+                      ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20 scale-[1.02]" 
+                      : "text-[var(--text-muted)] hover:bg-[var(--bg-soft)] hover:text-[var(--text-main)]"
+                  } ${locked ? "opacity-40 grayscale" : ""}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon size={18} className={active ? "text-white" : "opacity-70 group-hover:opacity-100"} />
-                    {!collapsed && <span className="text-[13px] font-medium tracking-tight">{link.label}</span>}
+                  <div className="flex items-center gap-4">
+                    <Icon size={18} className={active ? "text-white" : "opacity-70 group-hover:opacity-100 group-hover:text-[var(--accent)]"} />
+                    {!collapsed && (
+                      <span className={`text-[12px] font-bold uppercase tracking-wider ${active ? "font-black" : "font-medium"}`}>
+                        {link.label}
+                      </span>
+                    )}
                   </div>
                   {!collapsed && locked && <Lock size={12} className="opacity-40" />}
                 </Link>
@@ -179,53 +179,59 @@ export default function Sidebar() {
           })}
         </nav>
 
-        <div className="mt-auto pt-4 space-y-2 border-t border-[var(--border)]">
-          <div className="flex items-center justify-center py-2">
-             <ThemeToggle />
-          </div>
+        {/* FOOTER */}
+        <div className="mt-auto pt-6 space-y-4 border-t border-[var(--border)]">
+          {!collapsed && (
+            <div className="flex justify-center bg-[var(--bg-soft)] py-2 rounded-2xl mx-2">
+               <ThemeToggle />
+            </div>
+          )}
 
           <button 
             onClick={handleLogout} 
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors"
+            className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-500/70 hover:text-red-500 hover:bg-red-500/5 transition-all"
           >
             <LogOut size={18} />
-            {!collapsed && <span className="text-[13px] font-black uppercase tracking-widest">Logout</span>}
+            {!collapsed && <span className="text-[10px] font-black uppercase tracking-[0.3em]">Logout</span>}
           </button>
         </div>
       </div>
 
+      {/* UPGRADE MODAL */}
       <AnimatePresence>
         {showUpgradeModal.show && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-xl">
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 20 }} 
-              animate={{ scale: 1, opacity: 1, y: 0 }} 
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden"
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-md rounded-[3rem] p-12 shadow-2xl relative overflow-hidden"
             >
+              <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+                <Zap size={120} className="text-[var(--accent)]" />
+              </div>
+              
               <button 
                 onClick={() => setShowUpgradeModal({show: false, targetTier: null})} 
-                className="absolute top-6 right-6 text-[var(--muted)] hover:text-[var(--text)] transition-colors"
+                className="absolute top-8 right-8 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
               >
                 <X size={24} />
               </button>
               
-              <div className="space-y-6">
-                <div className="inline-flex p-4 bg-[var(--accent)]/10 rounded-2xl text-[var(--accent)]">
+              <div className="space-y-8">
+                <div className="inline-flex p-5 bg-[var(--accent)]/10 rounded-3xl text-[var(--accent)] shadow-inner">
                   <Zap size={32} fill="currentColor" />
                 </div>
                 <div>
-                  <h2 className="text-4xl font-serif italic text-[var(--text)] leading-tight capitalize">
+                  <h2 className="text-5xl font-serif italic text-[var(--text-main)] leading-tight capitalize">
                     {showUpgradeModal.targetTier} Tier
                   </h2>
-                  <p className="text-[var(--muted)] mt-2 font-medium italic">
-                    This node requires a higher clearance level.
+                  <p className="text-[var(--text-muted)] mt-4 font-serif italic text-lg leading-relaxed">
+                    This sector of the OS requires higher architectural clearance.
                   </p>
                 </div>
 
                 <button 
                   onClick={() => window.open(TOTS_STORE_URL, '_blank')}
-                  className="w-full py-5 bg-[var(--text)] text-[var(--bg)] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:opacity-90 transition-all flex items-center justify-center gap-3"
+                  className="w-full py-6 bg-[var(--text-main)] text-[var(--bg)] rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] shadow-2xl hover:brightness-125 transition-all flex items-center justify-center gap-3"
                 >
                   Initiate Secure Upgrade <ChevronRight size={14} />
                 </button>

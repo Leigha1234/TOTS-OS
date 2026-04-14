@@ -19,7 +19,7 @@ export default function DataImportPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      // Basic check to ensure it's not a rich text file
+      // Logic to prevent RTF files from being processed as CSV
       if (selectedFile.name.endsWith('.rtf')) {
         setStatus('error');
         setErrorMessage("Format Error: Please save your file as a Plain Text CSV, not RTF.");
@@ -49,27 +49,30 @@ export default function DataImportPage() {
         const rawData = results.data;
         
         const formattedData = rawData.map((row: any) => {
+          // Robust mapping to handle exact matches in test.csv like "Company"
           const findValue = (possibleKeys: string[]) => {
             const actualKey = Object.keys(row).find(k => 
+              possibleKeys.includes(k.trim()) || 
               possibleKeys.includes(k.trim().toLowerCase())
             );
             return actualKey ? row[actualKey] : null;
           };
 
           return {
-            name: findValue(['name', 'full name', 'client', 'entity']) || "Unknown Entity",
-            email: findValue(['email', 'email address', 'mail']),
-            company: findValue(['company', 'business', 'organization', 'firm']) || "Independent Record",
+            name: findValue(['Name', 'name', 'full name', 'client']) || "Unknown Entity",
+            email: findValue(['Email', 'email', 'email address']),
+            company: findValue(['Company', 'company', 'business', 'organization']) || "Independent Record",
             user_id: user.id,
             stage: "Lead",
           };
         });
 
+        // Filter out effectively empty rows
         const validData = formattedData.filter(d => d.name !== "Unknown Entity" || d.email);
 
         if (validData.length === 0) {
           setStatus('error');
-          setErrorMessage("No valid nodes found. Ensure your CSV is Plain Text.");
+          setErrorMessage("No valid nodes found. Ensure your CSV headers are correct.");
           return;
         }
 
@@ -124,7 +127,7 @@ export default function DataImportPage() {
             </div>
 
             {file && status === 'idle' && (
-              <Button onClick={() => startMigration()}>
+              <Button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); startMigration(); }}>
                 Begin Ingestion
               </Button>
             )}
@@ -135,12 +138,24 @@ export default function DataImportPage() {
               </div>
             )}
           </div>
+
+          <div className="glass-panel p-8 flex gap-6 items-start opacity-70">
+            <Info className="text-[var(--accent)]" size={20} />
+            <p className="font-serif italic text-sm leading-relaxed">
+              Required CSV Headers: <span className="font-mono text-[var(--accent)]">Name, Email, Company</span>. 
+              TOTS OS will map variations like "Full Name" automatically.
+            </p>
+          </div>
         </div>
 
         <div className="lg:col-span-5">
            <div className="card-fancy p-10 space-y-6 border border-[var(--border)] rounded-[2.5rem]">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">Verification Logic</h4>
-              <p className="font-serif italic text-sm">To avoid 'Unknown Entities', ensure your file is saved as <strong>Comma Separated Values (.csv)</strong> and NOT as Rich Text.</p>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Rules</h4>
+              <ul className="space-y-4 font-serif italic text-sm">
+                <li>• Duplicates are skipped based on Email.</li>
+                <li>• Max upload limit: 5,000 nodes per cycle.</li>
+                <li>• Data is encrypted during migration.</li>
+              </ul>
            </div>
         </div>
       </div>

@@ -42,28 +42,51 @@ export default function DataImportPage() {
       complete: async (results) => {
         const rawData = results.data;
         
-        // Map CSV headers to your database columns
-        // Assumes headers: Name, Email, Company
-        const formattedData = rawData.map((row: any) => ({
-          name: row.Name || row.name || "Unknown Entity",
-          email: row.Email || row.email || null,
-          company: row.Company || row.company || "Independent Record",
-          user_id: user.id, // Links data to the current user
-        }));
+        const formattedData = rawData.map((row: any) => {
+          // HELPER: Find value by checking multiple possible header names
+          // This ignores spaces and capitalization (e.g. " Name" vs "name")
+          const findValue = (possibleKeys: string[]) => {
+            const actualKey = Object.keys(row).find(k => 
+              possibleKeys.includes(k.trim().toLowerCase())
+            );
+            return actualKey ? row[actualKey] : null;
+          };
+
+          return {
+            name: findValue(['name', 'full name', 'client', 'entity', 'customer']) || "Unknown Entity",
+            email: findValue(['email', 'email address', 'mail', 'e-mail']),
+            company: findValue(['company', 'business', 'organization', 'firm', 'work']) || "Independent Record",
+            user_id: user.id,
+            stage: "Lead",
+          };
+        });
+
+        // Cleanup: Filter out rows that are effectively empty (no name and no email)
+        const validData = formattedData.filter(d => 
+          d.name !== "Unknown Entity" || (d.email && d.email.trim() !== "")
+        );
+
+        if (validData.length === 0) {
+          setStatus('error');
+          setErrorMessage("No valid data detected. Check your CSV headers.");
+          return;
+        }
 
         const { error } = await supabase
           .from("customers")
-          .insert(formattedData);
+          .insert(validData);
 
         if (error) {
+          console.error("Supabase Error:", error);
           setStatus('error');
           setErrorMessage(error.message);
         } else {
-          setRowCount(formattedData.length);
+          setRowCount(validData.length);
           setStatus('success');
         }
       },
       error: (err) => {
+        console.error("Parser Error:", err);
         setStatus('error');
         setErrorMessage("Parsing error: Check file formatting.");
       }
@@ -78,6 +101,9 @@ export default function DataImportPage() {
           <p className="font-black uppercase text-[9px] tracking-[0.5em]">System Infrastructure</p>
         </div>
         <h1 className="text-6xl font-serif italic tracking-tighter uppercase">Data Migration</h1>
+        <p className="text-[var(--text-muted)] font-serif italic text-lg opacity-70">
+          Inject external datasets into the TOTS OS neural network.
+        </p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -90,17 +116,21 @@ export default function DataImportPage() {
           >
             <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".csv" />
             
-            <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center transition-all ${
-              status === 'success' ? 'bg-green-500 text-white' : 'bg-[var(--bg-soft)] text-[var(--text-muted)]'
+            <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center transition-all duration-700 ${
+              status === 'success' ? 'bg-green-500 text-white scale-110' : 'bg-[var(--bg-soft)] text-[var(--text-muted)]'
             }`}>
               {status === 'processing' ? <Loader2 className="animate-spin" /> : status === 'success' ? <CheckCircle2 /> : <UploadCloud />}
             </div>
 
             <div className="space-y-2">
               <h3 className="text-2xl font-serif italic">
-                {status === 'success' ? `Migration Successful` : file ? file.name : "Select Source Architecture"}
+                {status === 'success' ? `Migration Complete` : file ? file.name : "Select Source Architecture"}
               </h3>
-              {status === 'success' && <p className="text-[10px] font-black uppercase text-[var(--accent)]">{rowCount} Nodes Injected</p>}
+              {status === 'success' && (
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[10px] font-black uppercase text-[var(--accent)]">
+                  {rowCount} Nodes successfully Injected
+                </motion.p>
+              )}
             </div>
 
             {file && status === 'idle' && (
@@ -110,7 +140,7 @@ export default function DataImportPage() {
             )}
 
             {status === 'error' && (
-              <div className="flex items-center gap-2 text-red-500 font-mono text-[10px] uppercase">
+              <div className="flex items-center gap-2 text-red-500 font-mono text-[10px] uppercase bg-red-500/10 px-4 py-2 rounded-full">
                 <AlertCircle size={14} /> {errorMessage}
               </div>
             )}
@@ -118,20 +148,29 @@ export default function DataImportPage() {
 
           <div className="glass-panel p-8 flex gap-6 items-start opacity-70">
             <Info className="text-[var(--accent)]" size={20} />
-            <p className="font-serif italic text-sm leading-relaxed">
-              Required CSV Headers: <span className="font-mono text-[var(--accent)]">Name, Email, Company</span>.
-            </p>
+            <div className="space-y-1">
+               <p className="text-[10px] font-black uppercase tracking-widest">Header Sensitivity</p>
+               <p className="font-serif italic text-sm leading-relaxed">
+                Required Headers: <span className="font-mono text-[var(--accent)]">Name, Email, Company</span>. 
+                System will attempt to auto-map variations like "Full Name" or "Work Email".
+              </p>
+            </div>
           </div>
         </div>
 
         <div className="lg:col-span-5">
-           <div className="card-fancy p-10 space-y-6">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Rules</h4>
+           <div className="card-fancy p-10 space-y-8">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Logic</h4>
               <ul className="space-y-4 font-serif italic text-sm">
-                <li>• Duplicates skipped based on Email.</li>
-                <li>• Max upload: 5,000 nodes.</li>
-                <li>• Encrypted migration.</li>
+                <li className="flex gap-3"><span>•</span> <span>Duplicate emails are allowed (Manual review recommended).</span></li>
+                <li className="flex gap-3"><span>•</span> <span>Max limit: 5,000 nodes per sync.</span></li>
+                <li className="flex gap-3"><span>•</span> <span>Data is sanitized and encrypted during ingestion.</span></li>
               </ul>
+              
+              <div className="pt-6 border-t border-[var(--border)]">
+                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Target Table</p>
+                 <p className="font-mono text-xs mt-1 text-[var(--accent)]">supabase.database.customers</p>
+              </div>
            </div>
         </div>
       </div>

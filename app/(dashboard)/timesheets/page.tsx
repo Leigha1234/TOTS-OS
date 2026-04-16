@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import Button from "@/app/components/Button";
 import Card from "@/app/components/Card";
 import { 
   Zap, Clock, ChevronLeft, ChevronRight, 
-  Save, Plus, Info, CheckCircle2, Loader2
+  Save, Plus, Info, CheckCircle2, Loader2,
+  Calendar as CalendarIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -16,14 +17,27 @@ export default function WeeklyTimesheetPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-
-  // --- Week Management ---
   const [currentDate, setCurrentDate] = useState(new Date());
-  
-  // States for the UI Matrix
+
+  // Row Matrix State
   const [rows, setRows] = useState<any[]>([
     { project_id: "", days: { mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" }, description: "" }
   ]);
+
+  // --- Date Logic ---
+  const weekDays = useMemo(() => {
+    const start = new Date(currentDate);
+    const day = start.getDay();
+    // Monday adjustment (handling Sunday as 0)
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1); 
+    const monday = new Date(new Date(start).setDate(diff));
+    
+    return Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return d;
+    });
+  }, [currentDate]);
 
   useEffect(() => { init(); }, [currentDate]);
 
@@ -32,44 +46,18 @@ export default function WeeklyTimesheetPage() {
     if (!user) return;
     setUserId(user.id);
 
-    const { data: mem } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).maybeSingle();
+    const { data: mem } = await supabase.from("team_members")
+      .select("team_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
     if (mem?.team_id) {
       setTeamId(mem.team_id);
-      const { data: p } = await supabase.from("projects").select("*").eq("team_id", mem.team_id);
+      const { data: p } = await supabase.from("projects")
+        .select("*")
+        .eq("team_id", mem.team_id);
       setProjects(p || []);
-      loadWeeklyLogs(mem.team_id, user.id);
-    }
-  }
-
-  const getWeekDays = () => {
-    const start = new Date(currentDate);
-    const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
-    const monday = new Date(start.setDate(diff));
-    
-    return Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      return d;
-    });
-  };
-
-  const weekDays = getWeekDays();
-
-  async function loadWeeklyLogs(tId: string, uId: string) {
-    setLoading(true);
-    const startStr = weekDays[0].toISOString().split('T')[0];
-    const endStr = weekDays[6].toISOString().split('T')[0];
-
-    const { data: logs } = await supabase.from("timesheets")
-      .select(`*, projects(name)`)
-      .eq("user_id", uId)
-      .gte("date", startStr)
-      .lte("date", endStr);
-
-    if (logs && logs.length > 0) {
-      // Logic to transform flat logs back into the row/day matrix if needed
-      // For now, we start with a fresh row for ease of entry
+      // Optional: Load existing data for this week here
     }
     setLoading(false);
   }
@@ -85,182 +73,204 @@ export default function WeeklyTimesheetPage() {
     setRows(newRows);
   };
 
-  const addRow = () => setRows([...rows, { project_id: "", days: { mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" }, description: "" }]);
+  const addRow = () => setRows([...rows, { 
+    project_id: "", 
+    days: { mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" }, 
+    description: "" 
+  }]);
+
+  const totalHours = useMemo(() => {
+    return rows.reduce((acc, row) => {
+      return acc + Object.values(row.days).reduce((dayAcc: number, val: any) => 
+        dayAcc + (parseFloat(val) || 0), 0);
+    }, 0);
+  }, [rows]);
 
   const saveWeeklyBatch = async () => {
+    if (totalHours === 0) return;
     setIsSaving(true);
-    const entries: any[] = [];
-
-    rows.forEach(row => {
-      if (!row.project_id) return;
+    
+    const entries = rows.flatMap(row => {
+      if (!row.project_id) return [];
       
-      Object.keys(row.days).forEach((dayKey, i) => {
+      return Object.keys(row.days).map((dayKey, i) => {
         const hours = parseFloat(row.days[dayKey]);
-        if (hours > 0) {
-          entries.push({
-            project_id: row.project_id,
-            user_id: userId,
-            team_id: teamId,
-            hours: hours,
-            date: weekDays[i].toISOString().split('T')[0],
-            description: row.description,
-            metadata: { week_commencing: weekDays[0].toISOString().split('T')[0] }
-          });
-        }
-      });
+        if (isNaN(hours) || hours <= 0) return null;
+        
+        return {
+          project_id: row.project_id,
+          user_id: userId,
+          team_id: teamId,
+          hours: hours,
+          date: weekDays[i].toISOString().split('T')[0],
+          description: row.description,
+          metadata: { week_commencing: weekDays[0].toISOString().split('T')[0] }
+        };
+      }).filter(Boolean);
     });
 
     const { error } = await supabase.from("timesheets").insert(entries);
+    
     if (!error) {
-      alert("Weekly batch committed to payroll.");
       setRows([{ project_id: "", days: { mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" }, description: "" }]);
     }
     setIsSaving(false);
   };
 
-  const totalHours = rows.reduce((acc, row) => {
-    return acc + Object.values(row.days).reduce((dayAcc: number, val: any) => dayAcc + (parseFloat(val) || 0), 0);
-  }, 0);
-
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 md:p-12">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-6 md:p-12 lg:p-20 font-sans">
       
-      {/* HEADER SECTION */}
-      <header className="max-w-[1600px] mx-auto mb-12 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8">
-        <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Chronos Intelligence</p>
-          <h1 className="text-6xl font-serif italic tracking-tighter text-stone-800">Weekly Pulse</h1>
-          <div className="flex items-center gap-4 mt-4">
-            <button onClick={() => {
-              const d = new Date(currentDate);
-              d.setDate(d.getDate() - 7);
-              setCurrentDate(d);
-            }} className="p-2 hover:bg-stone-100 rounded-full transition-all"><ChevronLeft size={18}/></button>
-            <span className="text-xs font-bold uppercase tracking-widest bg-white px-6 py-2 rounded-full border border-stone-200 shadow-sm">
-              Week of {weekDays[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-            </span>
-            <button onClick={() => {
-              const d = new Date(currentDate);
-              d.setDate(d.getDate() + 7);
-              setCurrentDate(d);
-            }} className="p-2 hover:bg-stone-100 rounded-full transition-all"><ChevronRight size={18}/></button>
+      {/* HEADER: Editorial Layout */}
+      <header className="max-w-[1600px] mx-auto mb-16 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-12">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+             <div className="w-8 h-[1px] bg-[#a9b897]" />
+             <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897]">Chronos System v.3</p>
+          </div>
+          <h1 className="text-7xl md:text-8xl font-serif italic tracking-tighter text-stone-800 leading-none">
+            Weekly Pulse
+          </h1>
+          
+          <div className="flex items-center gap-2 mt-6">
+            <button 
+              onClick={() => setCurrentDate(new Date(currentDate.setDate(currentDate.getDate() - 7)))}
+              className="p-3 hover:bg-stone-200/50 rounded-full transition-all"
+            >
+              <ChevronLeft size={20}/>
+            </button>
+            <div className="flex items-center gap-4 bg-white px-8 py-3 rounded-full border border-stone-200 shadow-sm">
+              <CalendarIcon size={14} className="text-stone-400" />
+              <span className="text-[11px] font-black uppercase tracking-widest text-stone-600">
+                {weekDays[0].toLocaleDateString(undefined, { month: 'long', day: 'numeric' })} — {weekDays[6].toLocaleDateString(undefined, { day: 'numeric' })}
+              </span>
+            </div>
+            <button 
+              onClick={() => setCurrentDate(new Date(currentDate.setDate(currentDate.getDate() + 7)))}
+              className="p-3 hover:bg-stone-200/50 rounded-full transition-all"
+            >
+              <ChevronRight size={20}/>
+            </button>
           </div>
         </div>
 
-        {/* CLARITY INSIGHT BOX */}
-        <div className="bg-[#1c1c1c] text-white p-8 rounded-[2.5rem] shadow-2xl flex items-center gap-10 border border-stone-800 min-w-[400px]">
-          <div className="space-y-2">
-            <p className="text-[9px] font-black uppercase tracking-widest text-stone-500 flex items-center gap-2">
-              <Zap size={12} className="text-[#a9b897]" /> Clarity Synthesis
+        {/* INSIGHT BOX: Dark Glassmorphism */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#141414] text-white p-10 rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] flex items-center gap-12 border border-stone-800 relative overflow-hidden group"
+        >
+          <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Clock size={120} />
+          </div>
+          <div className="space-y-3 relative z-10">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-500 flex items-center gap-2">
+              <Zap size={14} className={totalHours > 40 ? "text-orange-400" : "text-[#a9b897]"} /> 
+              Load Analysis
             </p>
-            <p className="text-xs text-stone-400 italic leading-relaxed">
-              {totalHours > 40 ? "Capacity threshold exceeded. Reviewing high-tier delegation." : "Optimal load detected for the current week."}
+            <p className="text-sm text-stone-400 italic leading-relaxed max-w-[240px]">
+              {totalHours > 40 
+                ? "Threshold alert: High-velocity output detected. Optimization recommended." 
+                : "Efficiency stabilized. Current load aligns with project velocity."}
             </p>
           </div>
-          <div className="text-right border-l border-stone-800 pl-10">
-            <p className="text-5xl font-serif italic text-[#a9b897]">{totalHours}</p>
-            <p className="text-[9px] font-black uppercase tracking-tighter text-stone-500">Billable Hours</p>
+          <div className="text-right border-l border-stone-800 pl-12 relative z-10">
+            <p className={`text-6xl font-serif italic ${totalHours > 40 ? "text-orange-400" : "text-[#a9b897]"}`}>
+              {totalHours.toFixed(1)}
+            </p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 mt-2">Billable Units</p>
           </div>
-        </div>
+        </motion.div>
       </header>
 
-      {/* THE MATRIX */}
+      {/* MATRIX TABLE */}
       <main className="max-w-[1600px] mx-auto">
-        <Card className="rounded-[3rem] overflow-hidden border-stone-200 shadow-xl bg-white">
+        <Card className="rounded-[4rem] overflow-hidden border-stone-100 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.05)] bg-white">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-stone-50/50 border-b border-stone-100">
-                  <th className="p-8 text-[10px] font-black uppercase tracking-widest text-stone-400 w-64">Project Selection</th>
+                  <th className="p-10 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 w-80">Project Stream</th>
                   {weekDays.map((date, i) => (
-                    <th key={i} className="p-8 text-center border-l border-stone-50">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">{date.toLocaleDateString(undefined, { weekday: 'short' })}</p>
-                      <p className="text-lg font-serif italic text-stone-800 mt-1">{date.getDate()}</p>
+                    <th key={i} className={`p-8 text-center border-l border-stone-100/50 ${i > 4 ? 'bg-stone-100/30' : ''}`}>
+                      <p className="text-[10px] font-black uppercase tracking-tighter text-stone-400">{date.toLocaleDateString(undefined, { weekday: 'short' })}</p>
+                      <p className="text-2xl font-serif italic text-stone-800 mt-1">{date.getDate()}</p>
                     </th>
                   ))}
-                  <th className="p-8 text-[10px] font-black uppercase tracking-widest text-stone-400">Notes</th>
+                  <th className="p-10 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">Context</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-50">
-                {rows.map((row, index) => (
-                  <tr key={index} className="group hover:bg-stone-50/30 transition-colors">
-                    <td className="p-6">
-                      <select 
-                        className="w-full bg-stone-100/50 border-none p-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest outline-none focus:ring-2 ring-[#a9b897]"
-                        value={row.project_id}
-                        onChange={(e) => updateRow(index, 'project_id', e.target.value)}
-                      >
-                        <option value="">Choose Node</option>
-                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                    </td>
-                    {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => (
-                      <td key={day} className="p-4 border-l border-stone-50">
+                <AnimatePresence>
+                  {rows.map((row, index) => (
+                    <motion.tr 
+                      key={index}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="group hover:bg-stone-50/50 transition-colors"
+                    >
+                      <td className="p-8">
+                        <select 
+                          className="w-full bg-stone-100/50 border-none px-6 py-4 rounded-2xl text-[11px] font-bold uppercase tracking-widest outline-none focus:ring-2 ring-[#a9b897] appearance-none"
+                          value={row.project_id}
+                          onChange={(e) => updateRow(index, 'project_id', e.target.value)}
+                        >
+                          <option value="">Select Project</option>
+                          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </td>
+                      {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day, i) => (
+                        <td key={day} className={`p-4 border-l border-stone-50 ${i > 4 ? 'bg-stone-50/20' : ''}`}>
+                          <input 
+                            type="number"
+                            placeholder="0"
+                            className="w-full bg-transparent text-center text-3xl font-serif italic outline-none placeholder:text-stone-100 focus:text-[#a9b897] transition-colors"
+                            value={row.days[day]}
+                            onChange={(e) => updateRow(index, `day-${day}`, e.target.value)}
+                          />
+                        </td>
+                      ))}
+                      <td className="p-8 border-l border-stone-50">
                         <input 
-                          type="number"
-                          placeholder="0"
-                          className="w-full bg-transparent text-center text-xl font-serif italic outline-none placeholder:text-stone-200"
-                          value={row.days[day]}
-                          onChange={(e) => updateRow(index, `day-${day}`, e.target.value)}
+                          type="text"
+                          placeholder="Project notes..."
+                          className="w-full bg-transparent text-[11px] font-bold uppercase tracking-tight outline-none placeholder:text-stone-200 focus:placeholder:text-stone-400"
+                          value={row.description}
+                          onChange={(e) => updateRow(index, 'description', e.target.value)}
                         />
                       </td>
-                    ))}
-                    <td className="p-6 border-l border-stone-50">
-                      <input 
-                        type="text"
-                        placeholder="Context..."
-                        className="w-full bg-transparent text-[10px] font-bold uppercase tracking-tight outline-none placeholder:text-stone-200"
-                        value={row.description}
-                        onChange={(e) => updateRow(index, 'description', e.target.value)}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
               </tbody>
             </table>
           </div>
 
-          {/* TABLE FOOTER */}
-          <div className="p-8 bg-stone-50/50 border-t border-stone-100 flex justify-between items-center">
+          {/* TABLE ACTIONS */}
+          <div className="p-10 bg-stone-50/30 border-t border-stone-100 flex flex-col md:flex-row justify-between items-center gap-8">
             <button 
               onClick={addRow}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#a9b897] hover:text-stone-900 transition-all"
+              className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.2em] text-[#a9b897] hover:text-stone-900 transition-all group"
             >
-              <Plus size={14} /> Add Project Line
+              <Plus size={16} className="group-hover:rotate-90 transition-transform" /> 
+              Add New Stream
             </button>
-            <div className="flex items-center gap-8">
-               <div className="flex items-center gap-2 text-stone-400 italic text-[10px]">
-                 <Info size={14} />
-                 <span>Entries are automatically timestamped for payroll.</span>
+            
+            <div className="flex flex-col md:flex-row items-center gap-10">
+               <div className="flex items-center gap-3 text-stone-400 italic text-[11px]">
+                 <Info size={16} className="text-[#a9b897]" />
+                 <span>Verified commits are finalized every Sunday at 23:59.</span>
                </div>
                <Button 
                 onClick={saveWeeklyBatch} 
                 disabled={isSaving || totalHours === 0}
-                className="bg-stone-950 text-white px-10 py-4 rounded-2xl flex items-center gap-3 shadow-xl hover:scale-105 transition-all"
+                className="bg-stone-950 text-white px-12 py-5 rounded-[2rem] flex items-center gap-4 shadow-2xl hover:scale-105 active:scale-95 transition-all disabled:opacity-20 disabled:hover:scale-100"
                >
-                 {isSaving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />}
-                 <span className="text-[10px] font-black uppercase tracking-widest">Commit Week</span>
+                 {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18} />}
+                 <span className="text-[11px] font-black uppercase tracking-[0.3em]">Commit Sequence</span>
                </Button>
             </div>
           </div>
         </Card>
-
-        {/* RECENT ACTIVITY / PAYSLIP PREVIEW */}
-        <section className="mt-12">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6">Recent Commits</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-             <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-                <div className="flex justify-between items-start">
-                  <div className="p-3 bg-green-50 text-green-600 rounded-xl"><CheckCircle2 size={18}/></div>
-                  <span className="text-[9px] font-black uppercase text-stone-300">April Cycle</span>
-                </div>
-                <div>
-                  <p className="text-2xl font-serif italic text-stone-800">38.5h</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Total Billable Week 14</p>
-                </div>
-             </div>
-          </div>
-        </section>
       </main>
     </div>
   );

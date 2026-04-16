@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { getUserRole, canCreate } from "@/lib/permissions";
-import Button from "../../components/Button";
+import Button from "@/components/Button";
 import { 
-  Sparkles, Wand2, FolderPlus, ArrowRight, 
-  Briefcase, Target, ShieldCheck, Activity,
-  Users, Search, Plus, X, Loader2, Zap
+  Sparkles, FolderPlus, ArrowRight, 
+  Briefcase, ShieldCheck, Activity,
+  Plus, X, Loader2, Zap, Globe
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -19,7 +19,7 @@ export default function ProjectsPage() {
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // -- Clarity Intelligence States --
+  // -- Intelligence States --
   const [isScanActive, setIsScanActive] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
 
@@ -28,29 +28,7 @@ export default function ProjectsPage() {
     customer_id: "",
   });
 
-  useEffect(() => {
-    init();
-  }, []);
-
-  async function init() {
-    const team = await getUserTeam();
-    const r = await getUserRole();
-
-    if (!team) return;
-
-    setTeamId(team);
-    setRole(r);
-
-    const { data: c } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("team_id", team);
-
-    setCustomers(c || []);
-    load(team);
-  }
-
-  async function load(team: string) {
+  const loadData = useCallback(async (team: string) => {
     const { data } = await supabase
       .from("projects")
       .select("*, customers(name)")
@@ -59,23 +37,44 @@ export default function ProjectsPage() {
 
     setProjects(data || []);
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    async function init() {
+      const team = await getUserTeam();
+      const r = await getUserRole();
+
+      if (!team) return;
+
+      setTeamId(team);
+      setRole(r);
+
+      const { data: c } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("team_id", team);
+
+      setCustomers(c || []);
+      loadData(team);
+    }
+    init();
+  }, [loadData]);
 
   const runClarityScan = () => {
     setIsScanActive(true);
-    // Logic: Analyzes existing project count and customer nodes
+    // Simulation of heuristic analysis
     setTimeout(() => {
       const clientCount = customers.length;
       const projectCount = projects.length;
       setInsight(
-        `Architectural Scan Complete: You are managing ${projectCount} active nodes across ${clientCount} entities. Clarity suggests auditing the oldest project for potential high-ticket expansion.`
+        `Architectural Analysis: ${projectCount} active nodes identified across ${clientCount} entities. System detects a high concentration in your newest sector. Consider re-allocating assets to stabilize the pipeline.`
       );
       setIsScanActive(false);
-    }, 1800);
+    }, 2200);
   };
 
   async function createProject() {
-    if (!canCreate(role)) return alert("Access restricted: Administrative clearance required.");
+    if (!canCreate(role)) return alert("Permission Denied: Administrative clearance required.");
     if (!form.name || !form.customer_id || !teamId) return;
 
     const { error } = await supabase.from("projects").insert({
@@ -85,81 +84,84 @@ export default function ProjectsPage() {
 
     if (error) return alert(error.message);
 
-    // Update Internal OS Logs
+    // Internal OS Log
     await supabase.from("activity").insert({
       team_id: teamId,
-      action: `Deployed Project Architecture: ${form.name}`,
+      action: `Architecture Deployed: ${form.name}`,
       entity: "project",
     });
 
     setForm({ name: "", customer_id: "" });
-    load(teamId);
-  }
+    loadData(teamId);
+  };
 
   if (loading) return (
-    <div className="p-20 bg-[#faf9f6] min-h-screen flex items-center justify-center font-serif italic text-stone-400">
-      Synchronizing Project Nodes...
+    <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
+      <Loader2 className="animate-spin text-stone-300" size={32} />
+      <p className="font-serif italic text-stone-400 text-lg animate-pulse">Initializing Architecture...</p>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 lg:p-12 space-y-12 max-w-[1600px] mx-auto">
       
-      {/* HEADER SECTION */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-10 gap-6">
-        <div className="space-y-2">
+      {/* HEADER: TITLE & INTELLIGENCE */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-12 gap-8">
+        <div className="space-y-3">
           <div className="flex items-center gap-2 text-[#a9b897]">
-            <Briefcase size={14} />
-            <p className="font-black uppercase text-[9px] tracking-[0.4em]">Operations Management</p>
+            <Globe size={14} className="animate-pulse" />
+            <p className="font-black uppercase text-[9px] tracking-[0.4em]">Node Ecosystem</p>
           </div>
-          <h1 className="text-6xl font-serif italic tracking-tighter">Architecture</h1>
+          <h1 className="text-7xl font-serif italic tracking-tighter leading-none">Architecture</h1>
         </div>
 
-        <button 
+        <motion.button 
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={runClarityScan}
           disabled={isScanActive}
-          className="flex items-center gap-3 bg-white border border-stone-200 px-6 py-4 rounded-2xl shadow-sm hover:shadow-md transition-all group overflow-hidden relative"
+          className="flex items-center gap-4 bg-white border border-stone-200 px-8 py-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all group overflow-hidden"
         >
           <AnimatePresence mode="wait">
             {isScanActive ? (
               <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <Loader2 className="animate-spin text-[#a9b897]" size={18} />
+                <Loader2 className="animate-spin text-[#a9b897]" size={20} />
               </motion.div>
             ) : (
               <motion.div key="icon" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <Sparkles className="text-[#a9b897] group-hover:scale-125 transition-transform" size={18} />
+                <Sparkles className="text-[#a9b897] group-hover:rotate-12 transition-transform" size={20} />
               </motion.div>
             )}
           </AnimatePresence>
-          <span className="text-xs font-bold uppercase tracking-widest text-stone-600">
-            {isScanActive ? "Scanning Nodes..." : "Clarity Intelligence Scan"}
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-600">
+            {isScanActive ? "Running Heuristics..." : "Request Intelligence Scan"}
           </span>
-        </button>
+        </motion.button>
       </header>
 
-      {/* CLARITY INTELLIGENCE FEEDBACK */}
+      {/* CLARITY INSIGHT PANEL */}
       <AnimatePresence>
         {insight && (
           <motion.div 
-            initial={{ opacity: 0, height: 0, scale: 0.95 }}
-            animate={{ opacity: 1, height: "auto", scale: 1 }}
-            exit={{ opacity: 0, height: 0, scale: 0.95 }}
-            className="bg-[#1c1c1c] text-stone-100 p-8 rounded-[2.5rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 border border-[#a9b897]/20"
+            initial={{ opacity: 0, y: -20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="bg-[#1c1c1c] text-stone-100 p-10 rounded-[3rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 border border-[#a9b897]/30"
           >
-            <div className="flex items-center gap-6">
-              <div className="w-14 h-14 bg-stone-800 rounded-2xl flex items-center justify-center shrink-0">
-                <Zap className="text-[#a9b897]" size={28} />
+            <div className="flex items-center gap-8">
+              <div className="w-16 h-16 bg-[#a9b897]/10 rounded-3xl flex items-center justify-center shrink-0 border border-[#a9b897]/20">
+                <Zap className="text-[#a9b897]" size={32} />
               </div>
               <div>
-                <p className="text-[#a9b897] font-black uppercase text-[8px] tracking-[0.3em] mb-1">Live Insight Synthesis</p>
-                <p className="font-serif italic text-xl text-stone-200 leading-relaxed">{insight}</p>
+                <p className="text-[#a9b897] font-black uppercase text-[9px] tracking-[0.3em] mb-2">Synthetic Insight</p>
+                <p className="font-serif italic text-2xl text-stone-200 leading-snug max-w-3xl">{insight}</p>
               </div>
             </div>
             <button 
               onClick={() => setInsight(null)} 
-              className="p-2 hover:bg-stone-800 rounded-full text-stone-500 transition-colors"
+              className="p-3 hover:bg-stone-800 rounded-full text-stone-500 transition-colors"
             >
-              <X size={20}/>
+              <X size={24}/>
             </button>
           </motion.div>
         )}
@@ -167,58 +169,56 @@ export default function ProjectsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
         
-        {/* SIDEBAR: DEPLOYMENT (4 Cols) */}
-        <aside className="lg:col-span-4 space-y-8">
-          <div className="bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm space-y-8 sticky top-32">
-            <div className="space-y-1">
-              <h3 className="text-xl font-serif italic text-stone-800">Deploy Node</h3>
-              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Project Architect</p>
+        {/* DEPLOYMENT FORM */}
+        <aside className="lg:col-span-4">
+          <div className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm space-y-10 sticky top-32">
+            <div className="space-y-2">
+              <h3 className="text-2xl font-serif italic text-stone-800 tracking-tight">Deployment Hub</h3>
+              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Initialize New Project Node</p>
             </div>
             
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-widest">Project Name</label>
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Objective Designation</label>
                 <input
-                  placeholder="e.g. Identity Restoration"
+                  placeholder="e.g. Project Overclock"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/10 outline-none transition-all font-medium"
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-6 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none transition-all font-medium placeholder:text-stone-300"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-widest">Assign Entity</label>
+              <div className="space-y-3">
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Associated Entity</label>
                 <div className="relative">
                   <select
                     value={form.customer_id}
                     onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
-                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/10 outline-none appearance-none transition-all cursor-pointer font-medium"
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-6 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none appearance-none transition-all cursor-pointer font-medium"
                   >
-                    <option value="">Select client node...</option>
+                    <option value="">Select Entity Node...</option>
                     {customers.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
-                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-stone-300">
-                    <Plus size={16} />
-                  </div>
+                  <Plus size={16} className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-stone-300" />
                 </div>
               </div>
 
               <Button
                 onClick={createProject}
                 disabled={!canCreate(role) || !form.name || !form.customer_id}
-                className="w-full py-5 rounded-2xl flex justify-center items-center gap-3 group shadow-xl"
+                className="w-full py-6 rounded-[2rem] flex justify-center items-center gap-4 group shadow-xl bg-stone-900 text-white"
               >
                 {canCreate(role) ? (
                   <>
-                    <FolderPlus size={18} className="group-hover:rotate-12 transition-transform" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Deploy Architecture</span>
+                    <FolderPlus size={20} className="group-hover:scale-110 transition-transform text-[#a9b897]" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em]">Commit Deployment</span>
                   </>
                 ) : (
                   <>
-                    <ShieldCheck size={18} />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Clearance Required</span>
+                    <ShieldCheck size={20} className="text-red-400" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em]">Clearance Inhibited</span>
                   </>
                 )}
               </Button>
@@ -226,53 +226,55 @@ export default function ProjectsPage() {
           </div>
         </aside>
 
-        {/* MAIN: PROJECT GRID (8 Cols) */}
-        <div className="lg:col-span-8">
+        {/* PROJECT GRID */}
+        <main className="lg:col-span-8">
           {projects.length === 0 ? (
-            <div className="h-full border-2 border-dashed border-stone-200 rounded-[3rem] flex flex-col items-center justify-center p-20 text-center space-y-4">
-              <Briefcase size={40} className="text-stone-200" />
-              <p className="text-stone-400 font-serif italic text-xl">No project nodes currently deployed.</p>
+            <div className="h-[600px] border-2 border-dashed border-stone-200 rounded-[4rem] flex flex-col items-center justify-center p-20 text-center space-y-6">
+              <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center">
+                <Briefcase size={32} className="text-stone-300" />
+              </div>
+              <p className="text-stone-400 font-serif italic text-2xl">No architecture nodes detected in current ecosystem.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               {projects.map((p) => (
                 <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  whileHover={{ y: -8 }}
+                  whileHover={{ y: -10 }}
                   key={p.id} 
-                  className="bg-white border border-stone-100 p-10 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:border-[#a9b897]/30 transition-all group flex flex-col justify-between h-72"
+                  className="bg-white border border-stone-100 p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl hover:border-[#a9b897]/20 transition-all group flex flex-col justify-between h-[360px]"
                 >
                   <div>
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="bg-[#faf9f6] p-4 rounded-2xl text-stone-300 group-hover:text-[#a9b897] group-hover:bg-[#a9b897]/5 transition-all">
-                        <Activity size={24} />
+                    <div className="flex justify-between items-start mb-10">
+                      <div className="bg-[#faf9f6] p-5 rounded-[1.5rem] text-stone-300 group-hover:text-[#a9b897] group-hover:bg-[#a9b897]/5 transition-all">
+                        <Activity size={28} />
                       </div>
-                      <div className="flex items-center gap-1.5 px-3 py-1 bg-stone-50 rounded-full border border-stone-100">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-[8px] font-black uppercase text-stone-400 tracking-widest">Active</span>
+                      <div className="flex items-center gap-2 px-4 py-1.5 bg-stone-50 rounded-full border border-stone-100">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">Operational</span>
                       </div>
                     </div>
-                    <h3 className="text-3xl font-serif italic text-stone-800 leading-tight group-hover:text-black transition-colors">{p.name}</h3>
-                    <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-[0.2em]">
+                    <h3 className="text-4xl font-serif italic text-stone-800 leading-tight group-hover:text-black transition-colors">{p.name}</h3>
+                    <p className="text-[11px] text-[#a9b897] uppercase font-black mt-4 tracking-[0.3em]">
                       {p.customers?.name || "Independent Node"}
                     </p>
                   </div>
 
-                  <div className="flex justify-end pt-8 border-t border-stone-50">
+                  <div className="flex justify-end pt-10 border-t border-stone-50">
                     <a 
                       href={`/projects/${p.id}`} 
-                      className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 group-hover:text-[#a9b897] transition-all"
+                      className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 group-hover:text-stone-900 transition-all"
                     >
-                      Access Node <ArrowRight size={16} />
+                      Connect to Node <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                     </a>
                   </div>
                 </motion.div>
               ))}
             </div>
           )}
-        </div>
+        </main>
       </div>
     </div>
   );

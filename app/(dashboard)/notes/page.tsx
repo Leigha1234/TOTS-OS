@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams } from "next/navigation";
 import { 
-  Trash2, Zap, Plus, Circle, BookOpen, X, ChevronLeft, ChevronRight, Target, Play, Search, StickyNote
+  Trash2, Zap, Circle, BookOpen, X, ChevronLeft, ChevronRight, Target, Play, Search 
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -19,22 +19,22 @@ function SystemNavigator() {
   const STEPS = [
     {
       title: "Welcome to TOTs OS",
-      description: "Your firm’s new nervous system. A unified environment where notes become formal financial records instantly.",
+      description: "A unified environment where notes become formal financial records instantly.",
       icon: <Zap className="text-yellow-400" />,
     },
     {
       title: "The Clarity Ledger",
-      description: "This is your capture zone. Type naturally here. If you type 'Invoice Acme £500', the system detects the intent automatically.",
+      description: "Type naturally. If you type 'Invoice Acme £500', the system detects the intent automatically.",
       icon: <BookOpen className="text-blue-400" />,
     },
     {
       title: "Treasury Execution",
-      description: "The system monitors your notes. Entries with currency symbols (£) are auto-synced to your formal Treasury ledger.",
+      description: "Entries with currency symbols (£) are auto-synced to your formal Treasury ledger.",
       icon: <Target className="text-[#a9b897]" />,
     },
     {
       title: "Action Queue",
-      description: "Tasks with keywords like 'Remind' or 'Todo' end up here. Check them off to maintain momentum.",
+      description: "Tasks with keywords like 'Remind' or 'Todo' end up here automatically.",
       icon: <Play className="text-stone-400" />,
     }
   ];
@@ -52,7 +52,7 @@ function SystemNavigator() {
   if (!isOpen) return (
     <button onClick={() => setIsOpen(true)} className="fixed bottom-8 right-8 z-50 bg-stone-900 text-[#a9b897] p-4 rounded-2xl shadow-2xl hover:scale-110 transition-all flex items-center gap-3 group">
       <BookOpen size={20} />
-      <span className="text-[10px] font-black uppercase tracking-widest hidden group-hover:block transition-all">Training Guide</span>
+      <span className="text-[10px] font-black uppercase tracking-widest hidden group-hover:block">Training Guide</span>
     </button>
   );
 
@@ -65,20 +65,27 @@ function SystemNavigator() {
           ))}
         </div>
         <div className="p-12 space-y-8">
-          <div className="flex justify-between">
+          <div className="flex justify-between items-start">
             <div className="p-4 bg-stone-50 rounded-3xl">{STEPS[currentStep].icon}</div>
             <button onClick={finishTour}><X size={24} className="text-stone-300 hover:text-stone-900" /></button>
           </div>
           <div className="space-y-4">
             <h2 className="text-4xl font-serif italic text-stone-800 leading-tight">{STEPS[currentStep].title}</h2>
-            <p className="text-stone-500 text-lg font-serif italic">{STEPS[currentStep].description}</p>
+            <p className="text-stone-500 text-lg font-serif italic leading-relaxed">{STEPS[currentStep].description}</p>
           </div>
           <div className="flex justify-between items-center pt-8 border-t border-stone-50">
-            <button onClick={finishTour} className="text-[10px] font-black uppercase text-stone-300">Skip Guide</button>
+            <button onClick={finishTour} className="text-[10px] font-black uppercase text-stone-300 hover:text-stone-500">Skip Guide</button>
             <div className="flex gap-4">
-              {currentStep > 0 && <button onClick={() => setCurrentStep(s => s - 1)} className="p-4 rounded-2xl border border-stone-100"><ChevronLeft size={20} /></button>}
-              <button onClick={() => currentStep === STEPS.length - 1 ? finishTour() : setCurrentStep(s => s + 1)} className="bg-stone-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">
-                {currentStep === STEPS.length - 1 ? "Start" : "Next"}
+              {currentStep > 0 && (
+                <button onClick={() => setCurrentStep(s => s - 1)} className="p-4 rounded-2xl border border-stone-100 hover:bg-stone-50">
+                  <ChevronLeft size={20} />
+                </button>
+              )}
+              <button 
+                onClick={() => currentStep === STEPS.length - 1 ? finishTour() : setCurrentStep(s => s + 1)} 
+                className="bg-stone-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all"
+              >
+                {currentStep === STEPS.length - 1 ? "Initialize" : "Next"}
               </button>
             </div>
           </div>
@@ -99,8 +106,6 @@ function NotesContent() {
   const [newNote, setNewNote] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
-  
-  // Use a ref to manage the channel across render cycles
   const channelRef = useRef<any>(null);
 
   const fetchPulse = useCallback(async (userId: string) => {
@@ -117,65 +122,26 @@ function NotesContent() {
   }, []);
 
   useEffect(() => {
-    const checkInvite = async (userId: string) => {
-      const token = params.get("token");
-      if (!token) return;
-      const { data: invite } = await supabase.from("invites").select("*").eq("token", token).single();
-      if (!invite) return;
-
-      await supabase.from("team_members").insert({
-        user_id: userId,
-        team_id: invite.team_id,
-        role: "member",
-      });
-      toast.success("Joined team successfully");
-    };
-
     const init = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
       setUser(authUser);
       await fetchPulse(authUser.id);
-      await checkInvite(authUser.id);
 
-      // Clean up existing channel stored in ref before creating a new one
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
 
-      // Create a unique ID for the channel to bypass Supabase's internal caching
       const channelId = `ledger-${Math.random().toString(36).slice(2, 9)}`;
-      
       const channel = supabase.channel(channelId)
-        .on(
-          'postgres_changes', 
-          { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${authUser.id}` }, 
-          () => fetchPulse(authUser.id)
-        )
-        .on(
-          'postgres_changes', 
-          { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${authUser.id}` }, 
-          () => fetchPulse(authUser.id)
-        );
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(authUser.id))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(authUser.id))
+        .subscribe();
 
       channelRef.current = channel;
-      
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`Clarity Sync Active: ${channelId}`);
-        }
-      });
     };
 
     init();
-
-    // Mandatory cleanup on unmount
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
-    };
-  }, [fetchPulse, params]);
+    return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
+  }, [fetchPulse]);
 
   const detectIntent = (text: string) => {
     const t = text.toLowerCase();
@@ -188,27 +154,34 @@ function NotesContent() {
   async function addNote() {
     if (!newNote.trim() || !user || !teamId) return;
     const intent = detectIntent(newNote);
-    
+    const amountMatch = newNote.match(/£?(\d+(\.\d{2})?)/);
+    const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
+
+    // 1. Create the Note entry (The visual "Sticky Note")
     await supabase.from("notes").insert({
-      content: newNote, user_id: user.id, customer_id: selectedCustomer || null,
+      content: newNote, 
+      user_id: user.id, 
+      customer_id: selectedCustomer || null,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
     });
 
+    // 2. Logic-based routing
     if (intent === "task") {
       await supabase.from("tasks").insert({ title: newNote, user_id: user.id, customer_id: selectedCustomer || null });
     } else if (intent === "invoice" || intent === "expense") {
       const table = intent === "invoice" ? "invoices" : "expenses";
-      const amount = (newNote.match(/£?(\d+(\.\d{2})?)/) || [])[1] || 0;
       await supabase.from(table).insert({
-        team_id: teamId, amount: parseFloat(amount.toString()), 
+        team_id: teamId, 
+        amount: amount, 
         entity_name: selectedCustomer ? customers.find(c => c.id === selectedCustomer)?.name : "Clarity Capture",
-        date: new Date().toISOString().split("T")[0], status: "committed"
+        date: new Date().toISOString().split("T")[0], 
+        status: "committed"
       });
     }
 
     setNewNote("");
     setSelectedCustomer("");
-    toast.success("Entry Committed");
+    toast.success("Intent Captured & Routed");
   }
 
   const filteredNotes = notes.filter((note) =>
@@ -219,54 +192,73 @@ function NotesContent() {
     <div className="min-h-screen bg-[#faf9f6] p-8 md:p-12">
       <SystemNavigator />
       <div className="max-w-[1400px] mx-auto grid lg:grid-cols-12 gap-12">
+        
+        {/* LEFT COLUMN: INPUT & LEDGER */}
         <div className="lg:col-span-8 space-y-12">
           <header className="space-y-2">
-            <h1 className="text-6xl font-serif italic text-stone-800 tracking-tighter leading-none">Clarity Ledger</h1>
-            <p className="text-stone-400 font-medium tracking-tight">Rapid intent capture. Automatic Treasury bridge.</p>
+            <h1 className="text-6xl font-serif italic text-stone-800 tracking-tighter">Clarity Ledger</h1>
+            <p className="text-stone-400 font-medium tracking-tight uppercase text-[10px] tracking-[0.2em]">Automated Intent Bridge</p>
           </header>
 
-          <div id="ledger-input" className="bg-white p-8 rounded-[3rem] shadow-sm border border-stone-100 space-y-6 focus-within:border-[#a9b897] transition-all">
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-stone-100 space-y-6 focus-within:border-[#a9b897] transition-all">
             <textarea 
-              className="w-full min-h-[140px] text-xl outline-none resize-none bg-transparent font-serif italic text-stone-700" 
-              placeholder="Type intent (e.g. Invoice Acme £400)..." 
+              className="w-full min-h-[140px] text-xl outline-none resize-none bg-transparent font-serif italic text-stone-700 placeholder:text-stone-200" 
+              placeholder="Record intent (e.g. Invoice Acme £400)..." 
               value={newNote} 
               onChange={(e) => setNewNote(e.target.value)} 
             />
             <div className="flex justify-between items-center pt-6 border-t border-stone-50">
-              <select className="bg-stone-50 text-[10px] font-black uppercase px-4 py-3 rounded-2xl outline-none" value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)}>
-                <option value="">Global Node</option>
+              <select 
+                className="bg-stone-50 text-[10px] font-black uppercase px-6 py-3 rounded-2xl outline-none border border-transparent focus:border-stone-200 transition-all" 
+                value={selectedCustomer} 
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+              >
+                <option value="">Global Context</option>
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <button onClick={addNote} className="bg-[#a9b897] text-white px-10 py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-xl hover:scale-105 transition-all">Commit Entry</button>
+              <button onClick={addNote} className="bg-[#a9b897] text-white px-10 py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-xl hover:shadow-[#a9b897]/20 hover:-translate-y-1 transition-all">
+                Commit Entry
+              </button>
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+          <div className="space-y-8">
+            <div className="relative group">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-[#a9b897] transition-colors" size={20} />
                 <input 
                     type="text"
-                    placeholder="Search ledger items..."
+                    placeholder="Filter ledger history..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-6 py-4 bg-white border border-stone-100 rounded-2xl outline-none shadow-sm focus:ring-2 ring-[#a9b897]/20 transition-all font-serif italic"
+                    className="w-full pl-16 pr-8 py-5 bg-white border border-stone-100 rounded-[2rem] outline-none shadow-sm focus:ring-4 ring-[#a9b897]/5 transition-all font-serif italic text-lg"
                 />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 gap-8">
               <AnimatePresence mode="popLayout">
                 {filteredNotes.map((note) => (
-                  <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} key={note.id} className="p-8 rounded-[2.5rem] border border-stone-100 flex flex-col justify-between min-h-[220px] group relative" style={{ background: note.color }}>
-                     <p className="text-stone-800 leading-relaxed font-serif italic text-lg z-10">{note.content}</p>
-                     <div className="flex justify-between items-end z-10">
-                        <div className="flex items-center gap-2 opacity-30">
-                          <Zap size={12} />
-                          <span className="text-[9px] font-black uppercase tracking-widest">{detectIntent(note.content)}</span>
+                  <motion.div 
+                    layout 
+                    initial={{ opacity: 0, scale: 0.95 }} 
+                    animate={{ opacity: 1, scale: 1 }} 
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    key={note.id} 
+                    className="p-10 rounded-[3rem] border border-stone-100 flex flex-col justify-between min-h-[260px] relative shadow-sm hover:shadow-md transition-shadow" 
+                    style={{ background: note.color }}
+                  >
+                      <p className="text-stone-800 leading-relaxed font-serif italic text-xl">{note.content}</p>
+                      <div className="flex justify-between items-end">
+                        <div className="flex items-center gap-3 bg-white/40 px-4 py-2 rounded-full border border-black/5">
+                          <Zap size={12} className="text-stone-600" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">{detectIntent(note.content)}</span>
                         </div>
-                        <button onClick={() => supabase.from("notes").delete().eq("id", note.id)} className="p-2 text-stone-300 hover:text-red-500 transition-colors">
-                          <Trash2 size={16}/>
+                        <button 
+                          onClick={() => supabase.from("notes").delete().eq("id", note.id)} 
+                          className="p-3 text-stone-400 hover:text-red-500 hover:bg-white/50 rounded-2xl transition-all"
+                        >
+                          <Trash2 size={18}/>
                         </button>
-                     </div>
+                      </div>
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -274,22 +266,40 @@ function NotesContent() {
           </div>
         </div>
 
-        <div className="lg:col-span-4 space-y-8">
-          <h2 className="text-2xl font-serif italic text-stone-800 px-4">Action Queue</h2>
-          <div id="task-list" className="space-y-4">
+        {/* RIGHT COLUMN: ACTION QUEUE */}
+        <div className="lg:col-span-4 space-y-10">
+          <div className="px-4">
+            <h2 className="text-3xl font-serif italic text-stone-800">Action Queue</h2>
+            <p className="text-stone-400 text-xs mt-1 uppercase tracking-widest font-bold">Priority Execution</p>
+          </div>
+          
+          <div className="space-y-4">
             {tasks.map((task) => (
-              <div key={task.id} className="bg-white p-6 rounded-[2rem] border border-stone-100 flex items-start gap-4 group shadow-sm hover:shadow-md transition-all">
-                <button onClick={() => supabase.from("tasks").update({ status: 'done' }).eq("id", task.id)} className="mt-1 text-stone-200 hover:text-[#a9b897] transition-colors">
-                  <Circle size={24} />
+              <motion.div 
+                initial={{ x: 20, opacity: 0 }} 
+                animate={{ x: 0, opacity: 1 }}
+                key={task.id} 
+                className="bg-white p-6 rounded-[2.5rem] border border-stone-100 flex items-start gap-5 group shadow-sm hover:border-[#a9b897]/30 transition-all"
+              >
+                <button 
+                  onClick={() => supabase.from("tasks").update({ status: 'done' }).eq("id", task.id)} 
+                  className="mt-1 text-stone-100 hover:text-[#a9b897] transition-all"
+                >
+                  <Circle size={28} strokeWidth={1.5} />
                 </button>
-                <div>
-                  <p className="text-sm font-bold text-stone-800 leading-tight">{task.title}</p>
-                  <p className="text-[9px] font-black text-stone-400 uppercase mt-1 tracking-widest">{task.customers?.name || 'Internal'}</p>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-stone-800 leading-tight group-hover:text-stone-900 transition-colors">{task.title}</p>
+                  <span className="inline-block text-[9px] font-black text-[#a9b897] uppercase tracking-[0.2em]">{task.customers?.name || 'Firm Internal'}</span>
                 </div>
-              </div>
+              </motion.div>
             ))}
             {tasks.length === 0 && (
-               <p className="text-center py-12 text-stone-300 font-serif italic">Queue clear. Ready for capture.</p>
+               <div className="py-20 text-center space-y-4">
+                 <div className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center mx-auto">
+                    <Target size={20} className="text-stone-200" />
+                 </div>
+                 <p className="text-stone-300 font-serif italic text-sm">Queue clear. Ready for capture.</p>
+               </div>
             )}
           </div>
         </div>
@@ -298,10 +308,14 @@ function NotesContent() {
   );
 }
 
-// Main export with Suspense boundary
 export default function NotesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-serif italic text-stone-400">Syncing with TOTs OS...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#faf9f6] gap-4">
+        <div className="w-8 h-8 border-2 border-[#a9b897] border-t-transparent rounded-full animate-spin" />
+        <p className="font-serif italic text-stone-400 text-sm">Synchronizing Clarity Ledger...</p>
+      </div>
+    }>
       <NotesContent />
     </Suspense>
   );

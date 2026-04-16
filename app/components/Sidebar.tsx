@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import ThemeToggle from "./ThemeToggle";
+import ThemeToggle from "./ThemeToggle"; // Assumed existing component
 import {
   LayoutDashboard, Users, CheckSquare, CreditCard, BarChart,
   StickyNote, Settings, Menu, LogOut, Clock,
@@ -46,6 +46,7 @@ export default function Sidebar() {
     targetTier: null
   });
 
+  // 1. Fetch User Tier on Mount
   useEffect(() => {
     async function fetchUserTier() {
       try {
@@ -57,12 +58,10 @@ export default function Sidebar() {
             .eq("id", user.id)
             .single();
 
-          if (data?.tier) {
-            setCurrentTier(data.tier as Tier);
-          }
+          if (data?.tier) setCurrentTier(data.tier as Tier);
         }
       } catch (err) {
-        console.error("Error fetching tier:", err);
+        console.error("Tier fetch error:", err);
       } finally {
         setLoading(false);
       }
@@ -70,21 +69,7 @@ export default function Sidebar() {
     fetchUserTier();
   }, []);
 
-  const handleTierChange = async (newTier: Tier) => {
-    setCurrentTier(newTier);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from("profiles")
-          .update({ tier: newTier })
-          .eq("id", user.id);
-      }
-    } catch (err) {
-      console.error("Error updating tier:", err);
-    }
-  };
-
+  // 2. Safety Check: No Sidebar on Auth Pages
   if (pathname === "/login" || pathname === "/signup") return null;
 
   const hasAccess = (linkTier: string) => {
@@ -94,24 +79,29 @@ export default function Sidebar() {
     return false;
   };
 
-  const handleLinkClick = (e: React.MouseEvent, linkTier: Tier) => {
-    if (!hasAccess(linkTier)) {
-      e.preventDefault();
-      setShowUpgradeModal({ show: true, targetTier: linkTier });
+  const handleTierChange = async (newTier: Tier) => {
+    setCurrentTier(newTier);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("profiles").update({ tier: newTier }).eq("id", user.id);
+      }
+    } catch (err) {
+      console.error("Tier update error:", err);
     }
   };
 
-  async function handleLogout() {
+  const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
-  }
+  };
 
   return (
     <>
       <div className={`h-screen bg-[var(--bg)] border-r border-[var(--border)] px-4 py-6 flex flex-col transition-all duration-500 sticky top-0 z-40 ${collapsed ? "w-20" : "w-64"}`}>
         
-        {/* BRANDING */}
+        {/* Branding & Collapse Toggle */}
         <div className="flex flex-col gap-6 mb-10">
           <div className="flex items-center justify-between px-3">
             {!collapsed && (
@@ -127,12 +117,13 @@ export default function Sidebar() {
             </button>
           </div>
 
+          {/* Tier Selector */}
           {!collapsed && (
             <div className="px-3">
-               {loading ? (
-                 <div className="h-9 w-full bg-[var(--bg-soft)] animate-pulse rounded-xl" />
-               ) : (
-                 <select 
+              {loading ? (
+                <div className="h-10 w-full bg-[var(--bg-soft)] animate-pulse rounded-xl" />
+              ) : (
+                <select 
                   value={currentTier} 
                   onChange={(e) => handleTierChange(e.target.value as Tier)} 
                   className="w-full text-[9px] font-black uppercase tracking-[0.3em] bg-[var(--card-bg)] text-[var(--text-main)] border border-[var(--border)] rounded-xl px-4 py-3 outline-none cursor-pointer hover:border-[var(--accent)] transition-all shadow-sm"
@@ -141,12 +132,12 @@ export default function Sidebar() {
                   <option value="premium">Premium Node</option>
                   <option value="elite">Elite Node</option>
                 </select>
-               )}
+              )}
             </div>
           )}
         </div>
 
-        {/* NAVIGATION */}
+        {/* Navigation Links */}
         <nav className="space-y-1.5 flex-grow overflow-y-auto no-scrollbar px-2">
           {links.map((link) => {
             const active = pathname === link.href;
@@ -154,39 +145,42 @@ export default function Sidebar() {
             const Icon = link.icon;
 
             return (
-              <div key={link.href} className="relative group">
-                <Link
-                  href={locked ? "#" : link.href}
-                  onClick={(e) => handleLinkClick(e, link.tier as Tier)}
-                  className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${
-                    active 
-                      ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20 scale-[1.02]" 
-                      : "text-[var(--text-muted)] hover:bg-[var(--bg-soft)] hover:text-[var(--text-main)]"
-                  } ${locked ? "opacity-40 grayscale" : ""}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <Icon size={18} className={active ? "text-white" : "opacity-70 group-hover:opacity-100 group-hover:text-[var(--accent)]"} />
-                    {!collapsed && (
-                      <span className={`text-[12px] font-bold uppercase tracking-wider ${active ? "font-black" : "font-medium"}`}>
-                        {link.label}
-                      </span>
-                    )}
-                  </div>
-                  {!collapsed && locked && <Lock size={12} className="opacity-40" />}
-                </Link>
-              </div>
+              <Link
+                key={link.href}
+                href={locked ? "#" : link.href}
+                onClick={(e) => {
+                  if (locked) {
+                    e.preventDefault();
+                    setShowUpgradeModal({ show: true, targetTier: link.tier as Tier });
+                  }
+                }}
+                className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${
+                  active 
+                    ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20 scale-[1.02]" 
+                    : "text-[var(--text-muted)] hover:bg-[var(--bg-soft)] hover:text-[var(--text-main)]"
+                } ${locked ? "opacity-40 grayscale" : ""}`}
+              >
+                <div className="flex items-center gap-4">
+                  <Icon size={18} className={active ? "text-white" : "opacity-70 group-hover:opacity-100 group-hover:text-[var(--accent)]"} />
+                  {!collapsed && (
+                    <span className={`text-[12px] font-bold uppercase tracking-wider ${active ? "font-black" : "font-medium"}`}>
+                      {link.label}
+                    </span>
+                  )}
+                </div>
+                {!collapsed && locked && <Lock size={12} className="opacity-40" />}
+              </Link>
             );
           })}
         </nav>
 
-        {/* FOOTER */}
+        {/* Footer Actions */}
         <div className="mt-auto pt-6 space-y-4 border-t border-[var(--border)]">
           {!collapsed && (
             <div className="flex justify-center bg-[var(--bg-soft)] py-2 rounded-2xl mx-2">
-               <ThemeToggle />
+              <ThemeToggle />
             </div>
           )}
-
           <button 
             onClick={handleLogout} 
             className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-500/70 hover:text-red-500 hover:bg-red-500/5 transition-all"
@@ -197,18 +191,14 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* UPGRADE MODAL */}
+      {/* Upgrade Modal */}
       <AnimatePresence>
         {showUpgradeModal.show && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-xl">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-md rounded-[3rem] p-12 shadow-2xl relative overflow-hidden"
+              className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-md rounded-[3rem] p-12 shadow-2xl relative overflow-hidden text-center"
             >
-              <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-                <Zap size={120} className="text-[var(--accent)]" />
-              </div>
-              
               <button 
                 onClick={() => setShowUpgradeModal({show: false, targetTier: null})} 
                 className="absolute top-8 right-8 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
@@ -216,8 +206,8 @@ export default function Sidebar() {
                 <X size={24} />
               </button>
               
-              <div className="space-y-8">
-                <div className="inline-flex p-5 bg-[var(--accent)]/10 rounded-3xl text-[var(--accent)] shadow-inner">
+              <div className="space-y-8 flex flex-col items-center">
+                <div className="p-5 bg-[var(--accent)]/10 rounded-3xl text-[var(--accent)]">
                   <Zap size={32} fill="currentColor" />
                 </div>
                 <div>
@@ -225,13 +215,12 @@ export default function Sidebar() {
                     {showUpgradeModal.targetTier} Tier
                   </h2>
                   <p className="text-[var(--text-muted)] mt-4 font-serif italic text-lg leading-relaxed">
-                    This sector of the OS requires higher architectural clearance.
+                    Higher architectural clearance required.
                   </p>
                 </div>
-
                 <button 
                   onClick={() => window.open(TOTS_STORE_URL, '_blank')}
-                  className="w-full py-6 bg-[var(--text-main)] text-[var(--bg)] rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] shadow-2xl hover:brightness-125 transition-all flex items-center justify-center gap-3"
+                  className="w-full py-6 bg-[var(--text-main)] text-[var(--bg)] rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] hover:brightness-125 transition-all flex items-center justify-center gap-3"
                 >
                   Initiate Secure Upgrade <ChevronRight size={14} />
                 </button>

@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
   Settings, Sparkles, Globe, ShieldCheck, 
-  Save, Moon, Sun, Instagram, Linkedin, 
-  Twitter, Facebook, Youtube 
+  Save, Moon, Sun, Fingerprint, Activity,
+  Lock, ArrowRight, Loader2
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SocialHandles {
   instagram: string;
@@ -19,44 +19,38 @@ interface SocialHandles {
   [key: string]: string;
 }
 
-// Updated roles to be more inclusive for your OS
 const AUTHORIZED_ROLES = ["owner", "admin", "manager", "elite"];
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  
   const [toneOfVoice, setToneOfVoice] = useState("Professional, yet empathetic.");
   const [handles, setHandles] = useState<SocialHandles>({
     instagram: "", linkedin: "", twitter: "", tiktok: "", facebook: "", youtube: ""
   });
   const [website, setWebsite] = useState("");
 
-  useEffect(() => {
-    init();
-  }, []);
+  useEffect(() => { init(); }, []);
 
   async function init() {
     try {
-      setLoading(true);
       const { data: authData } = await supabase.auth.getUser();
-      const currentUser = authData?.user;
-      if (!currentUser) return;
-      setUser(currentUser);
+      if (!authData?.user) return;
+      setUser(authData.user);
 
-      // Fetch Profile
-      let { data: p } = await supabase.from("profiles").select("*").eq("id", currentUser.id).maybeSingle();
-      
-      // If no profile exists, create a default owner profile
+      let { data: p } = await supabase.from("profiles").select("*").eq("id", authData.user.id).maybeSingle();
       if (!p) {
-        const { data: newProfile } = await supabase.from("profiles").insert({ id: currentUser.id, role: "owner", tier: "standard" }).select().single();
+        const { data: newProfile } = await supabase.from("profiles").insert({ id: authData.user.id, role: "owner" }).select().single();
         p = newProfile;
       }
       setProfile(p);
 
-      // Fetch Team & Settings
-      const { data: membership } = await supabase.from("team_members").select("team_id").eq("user_id", currentUser.id).maybeSingle();
+      const { data: membership } = await supabase.from("team_members").select("team_id").eq("user_id", authData.user.id).maybeSingle();
       if (membership?.team_id) {
         setTeamId(membership.team_id);
         const { data: settings } = await supabase.from("settings").select("*").eq("team_id", membership.team_id).maybeSingle();
@@ -74,6 +68,7 @@ export default function SettingsPage() {
   }
 
   const saveSettings = async () => {
+    setSaving(true);
     const { error } = await supabase.from("settings").upsert({
       team_id: teamId,
       handles, 
@@ -81,123 +76,164 @@ export default function SettingsPage() {
       website,
       updated_at: new Date().toISOString()
     });
+    setSaving(false);
     if (error) alert(error.message);
     else alert("System Synced Successfully");
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
-       <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin"></div>
+    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-4">
+      <Loader2 className="animate-spin text-[#a9b897]" size={32} />
+      <p className="font-serif italic text-stone-400 animate-pulse">Initializing Global Node...</p>
     </div>
   );
 
-  // AUTH CHECK: Allows access if email matches OR if role is in authorized list OR if it's Sam's Hotmail
-  const isAuthorized = 
-    user?.email === "hill.samantha@hotmail.co.uk" || 
-    (profile && AUTHORIZED_ROLES.includes(profile.role)) ||
-    profile?.tier === "elite";
+  const isAuthorized = user?.email === "hill.samantha@hotmail.co.uk" || (profile && AUTHORIZED_ROLES.includes(profile.role));
 
   if (!isAuthorized) return (
-    <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center p-12 text-center">
-      <ShieldCheck size={48} className="text-red-500 mb-6" />
-      <h2 className="text-4xl font-serif italic text-[var(--text-main)]">Access Level Denied</h2>
-      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)] mt-4">
-        Insufficient clearance for Global System Settings
+    <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center p-12 text-center">
+      <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mb-8 border border-red-500/20">
+        <Lock className="text-red-500" size={32} />
+      </div>
+      <h2 className="text-4xl font-serif italic text-stone-200">Access Level Denied</h2>
+      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-500 mt-4 max-w-xs leading-relaxed">
+        Insufficient clearance for Global System Settings. ContactSam or a System Administrator.
       </p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] p-8 md:p-16 transition-colors duration-500">
-      <div className="max-w-6xl mx-auto space-y-12 pb-24">
+    <div className={`min-h-screen transition-all duration-700 ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-800'}`}>
+      <div className="max-w-7xl mx-auto p-8 md:p-16 space-y-12 pb-40">
         
-        {/* HEADER */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-[var(--border)] pb-10 gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-[var(--accent)]">
-              <Settings size={14} />
-              <p className="font-black uppercase text-[9px] tracking-[0.5em]">System Core</p>
+        {/* TOP BAR / NAVIGATION STYLE */}
+        <motion.header 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`flex flex-col md:flex-row justify-between items-center p-12 rounded-[3.5rem] border shadow-2xl gap-8 relative overflow-hidden transition-colors ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}
+        >
+          <div className="relative z-10 text-center md:text-left">
+            <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+              <Activity size={14} className="text-[#a9b897]" />
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">Operational Status: Active</span>
             </div>
-            <h1 className="text-6xl font-serif italic tracking-tighter uppercase">Settings</h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent)] opacity-70"> Clearance: {profile?.role} node </p>
+            <h1 className="text-6xl font-serif italic tracking-tighter">Global Settings</h1>
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] mt-3 inline-block px-3 py-1 bg-[#a9b897]/10 text-[#a9b897] rounded-full border border-[#a9b897]/20">
+              Identity Node: {profile?.role}
+            </p>
           </div>
 
-          <button 
-            onClick={saveSettings} 
-            className="flex items-center gap-3 bg-[var(--text-main)] text-[var(--bg)] px-8 py-4 rounded-2xl shadow-xl hover:scale-105 transition-all group"
-          >
-            <Save size={18} className="group-hover:rotate-12 transition-transform" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Commit Changes</span>
-          </button>
-        </header>
+          <div className="flex gap-4 relative z-10">
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)} 
+              className={`p-5 rounded-2xl transition-all border ${isDarkMode ? 'bg-stone-800 border-stone-700 hover:bg-stone-700' : 'bg-stone-50 border-stone-200 hover:bg-stone-100'}`}
+            >
+              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <button 
+              onClick={saveSettings} 
+              disabled={saving}
+              className="flex items-center gap-4 bg-[#1c1c1c] text-[#a9b897] px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+              Commit Sync
+            </button>
+          </div>
+        </motion.header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          
-          {/* LEFT COLUMN: AI & CONTENT */}
-          <div className="lg:col-span-7 space-y-10">
-            <section className="card-fancy p-10 space-y-6">
-              <div className="flex items-center gap-3">
-                <Sparkles size={18} className="text-[var(--accent)]" />
-                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Clarity AI: Tone of Voice</h2>
+          {/* MAIN CONFIGURATION */}
+          <div className="lg:col-span-8 space-y-12">
+            
+            <motion.section 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className={`p-12 rounded-[3.5rem] border transition-colors ${isDarkMode ? 'bg-stone-900 border-stone-800 shadow-none' : 'bg-white border-stone-100 shadow-sm'}`}
+            >
+              <div className="flex items-center gap-3 mb-8">
+                <Sparkles size={18} className="text-[#a9b897]" />
+                <h2 className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40">Clarity AI: Vocal DNA</h2>
               </div>
               <textarea 
                 value={toneOfVoice}
                 onChange={(e) => setToneOfVoice(e.target.value)}
-                className="w-full h-40 p-6 bg-[var(--bg)] border border-[var(--border)] rounded-3xl text-sm outline-none resize-none focus:border-[var(--accent)] transition-all font-serif italic text-lg"
-                placeholder="Describe how the AI should communicate..."
+                className={`w-full h-48 p-8 rounded-[2rem] text-xl font-serif italic outline-none transition-all resize-none border ${isDarkMode ? 'bg-stone-800 border-stone-700 focus:border-[#a9b897]' : 'bg-stone-50 border-stone-100 focus:border-[#a9b897]'}`}
+                placeholder="Describe the soul of your communication..."
               />
-            </section>
+            </motion.section>
 
-            <section className="card-fancy p-10 space-y-8">
-              <div className="flex items-center gap-3">
-                <Globe size={18} className="text-[var(--accent)]" />
-                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Social Architecture</h2>
+            <motion.section 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className={`p-12 rounded-[3.5rem] border transition-colors ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-sm'}`}
+            >
+              <div className="flex items-center gap-3 mb-10">
+                <Globe size={18} className="text-[#a9b897]" />
+                <h2 className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40">Social Architecture</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {Object.keys(handles).map((key) => (
-                  <div key={key} className="group space-y-2">
-                    <label className="text-[9px] font-black uppercase text-[var(--text-muted)] ml-2 tracking-widest group-focus-within:text-[var(--accent)] transition-colors">
-                      {key}
-                    </label>
-                    <input 
-                      value={handles[key]} 
-                      onChange={(e) => setHandles({...handles, [key]: e.target.value})}
-                      className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl p-4 text-sm focus:border-[var(--accent)] outline-none transition-all"
-                      placeholder={`@yourusername`}
-                    />
+                {Object.keys(handles).map((key, i) => (
+                  <div key={key} className={`group p-6 rounded-3xl border transition-all ${isDarkMode ? 'bg-stone-800/50 border-stone-700 focus-within:border-[#a9b897]' : 'bg-stone-50 border-stone-100 focus-within:border-[#a9b897]'}`}>
+                    <label className="text-[8px] font-black uppercase tracking-widest opacity-40 group-focus-within:opacity-100 transition-opacity mb-2 block">{key}</label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[#a9b897] text-xs opacity-50 font-mono">@</span>
+                      <input 
+                        value={handles[key]} 
+                        onChange={(e) => setHandles({...handles, [key]: e.target.value})}
+                        className="bg-transparent w-full text-sm font-bold outline-none placeholder:opacity-20"
+                        placeholder="..."
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
-            </section>
+            </motion.section>
           </div>
 
-          {/* RIGHT COLUMN: SYSTEM INFO */}
-          <aside className="lg:col-span-5">
-            <div className="glass-panel p-10 sticky top-32 space-y-8">
-              <div className="space-y-1">
-                <h3 className="text-2xl font-serif italic">Node Identity</h3>
-                <p className="text-[10px] font-black uppercase tracking-widest text-[var(--accent)]">System Profile</p>
-              </div>
-
-              <div className="space-y-6">
-                <div className="p-4 bg-[var(--bg-soft)] rounded-2xl border border-[var(--border)]">
-                  <p className="text-[8px] font-black uppercase opacity-40 mb-1">Authenticated Email</p>
-                  <p className="text-sm font-medium">{user?.email}</p>
+          {/* SIDEBAR / NODE INFO */}
+          <motion.aside 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="lg:col-span-4"
+          >
+            <div className={`p-10 rounded-[3rem] border sticky top-12 transition-colors ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-xl shadow-stone-200/50'}`}>
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-[#a9b897]/10 flex items-center justify-center">
+                  <Fingerprint className="text-[#a9b897]" size={24} />
                 </div>
-
-                <div className="p-4 bg-[var(--bg-soft)] rounded-2xl border border-[var(--border)]">
-                  <p className="text-[8px] font-black uppercase opacity-40 mb-1">Current Tier</p>
-                  <p className="text-sm font-black uppercase tracking-widest text-[var(--accent)]">{profile?.tier || 'Standard'}</p>
+                <div>
+                  <h3 className="text-xl font-serif italic leading-none">Node Profile</h3>
+                  <p className="text-[8px] font-black uppercase tracking-widest opacity-40 mt-1">System Auth Verified</p>
                 </div>
               </div>
 
-              <div className="pt-8 border-t border-[var(--border)] opacity-50">
-                <p className="text-[9px] font-serif italic leading-relaxed">
-                  Modifying global settings will propagate changes across all Clarity AI modules and automated report generation.
-                </p>
+              <div className="space-y-4">
+                <div className={`p-6 rounded-2xl border ${isDarkMode ? 'bg-stone-800/30 border-stone-700' : 'bg-stone-50/50 border-stone-100'}`}>
+                  <p className="text-[8px] font-black uppercase opacity-40 mb-2">Auth Point</p>
+                  <p className="text-xs font-mono truncate">{user?.email}</p>
+                </div>
+
+                <div className={`p-6 rounded-2xl border ${isDarkMode ? 'bg-stone-800/30 border-stone-700' : 'bg-stone-50/50 border-stone-100'}`}>
+                  <p className="text-[8px] font-black uppercase opacity-40 mb-2">Clearance Level</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-black text-[#a9b897] uppercase tracking-tighter italic">Alpha Node</p>
+                    <ShieldCheck size={14} className="text-[#a9b897]" />
+                  </div>
+                </div>
+
+                <div className={`p-8 rounded-2xl bg-[#1c1c1c] text-stone-400 mt-8`}>
+                   <p className="text-[9px] font-serif italic leading-relaxed">
+                     Changes made to the Tone of Voice will immediately recalibrate the 
+                     <span className="text-[#a9b897] mx-1">Clarity Engine</span> 
+                     outputs for all users in this team node.
+                   </p>
+                </div>
               </div>
             </div>
-          </aside>
+          </motion.aside>
         </div>
       </div>
     </div>

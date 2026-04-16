@@ -16,7 +16,7 @@ import {
   Loader2,
   BarChart3
 } from "lucide-react";
-import Page from "../../components/Page";
+import Page from "@/components/Page"; // Adjusted to a standard alias
 
 interface ScheduledPost {
   id: string;
@@ -61,7 +61,8 @@ export default function Scheduler() {
         return acc;
       }, {});
       
-      const primary = Object.keys(platformCounts)[0] || "None";
+      const platforms = Object.keys(platformCounts);
+      const primary = platforms[0] || "None";
       
       setStrategicInsight(
         `Audit Complete: Your narrative is currently ${primary}-heavy. To maintain architectural balance, Clarity suggests introducing a high-fidelity visual anchor for the upcoming weekend gap.`
@@ -94,22 +95,28 @@ export default function Scheduler() {
           {/* HEADER SECTION */}
           <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-stone-300 pb-10">
             <div className="space-y-2">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 italic">
-                Strategic Timeline
-              </h2>
+              <div className="flex items-center gap-2 text-stone-400">
+                <Zap size={12} fill="currentColor" />
+                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] italic">
+                  Strategic Timeline
+                </h2>
+              </div>
               <h1 className="text-5xl md:text-6xl font-serif text-stone-800 italic tracking-tighter">
                 The Horizon
               </h1>
             </div>
 
             <div className="flex items-center gap-4">
-               {/* CLARITY AUDIT TRIGGER */}
               <button 
                 onClick={runStrategicAudit}
                 disabled={isAuditing || posts.length === 0}
-                className="flex items-center gap-3 bg-[#1c1c1c] text-[#a9b897] px-6 py-4 rounded-2xl shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:grayscale group"
+                className="flex items-center gap-3 bg-[#1c1c1c] text-[#a9b897] px-6 py-4 rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale group"
               >
-                {isAuditing ? <Loader2 className="animate-spin" size={18} /> : <Sparkles className="group-hover:rotate-12 transition-transform" size={18} />}
+                {isAuditing ? (
+                  <Loader2 className="animate-spin" size={18} />
+                ) : (
+                  <Sparkles className="group-hover:rotate-12 transition-transform" size={18} />
+                )}
                 <span className="text-[10px] font-black uppercase tracking-widest">Run Strategic Audit</span>
               </button>
 
@@ -123,25 +130,27 @@ export default function Scheduler() {
           <AnimatePresence>
             {strategicInsight && (
               <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="bg-[#1c1c1c] border border-[#a9b897]/30 p-8 rounded-[2rem] shadow-2xl group relative overflow-hidden"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
               >
-                <div className="absolute top-0 right-0 p-4">
-                  <button onClick={() => setStrategicInsight(null)} className="text-stone-500 hover:text-white transition-colors">
-                    <X size={20} />
-                  </button>
-                </div>
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
-                  <div className="h-16 w-16 bg-stone-800 rounded-2xl flex items-center justify-center shrink-0 border border-stone-700">
-                    <BarChart3 className="text-[#a9b897]" size={32} />
+                <div className="bg-[#1c1c1c] border border-[#a9b897]/30 p-8 rounded-[2rem] shadow-2xl group relative mb-6">
+                  <div className="absolute top-0 right-0 p-4">
+                    <button onClick={() => setStrategicInsight(null)} className="text-stone-500 hover:text-white transition-colors">
+                      <X size={20} />
+                    </button>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[#a9b897] font-black uppercase text-[8px] tracking-[0.4em]">Audit Intelligence Output</p>
-                    <p className="text-stone-200 font-serif italic text-2xl leading-snug">
-                      {strategicInsight}
-                    </p>
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
+                    <div className="h-16 w-16 bg-stone-800 rounded-2xl flex items-center justify-center shrink-0 border border-stone-700">
+                      <BarChart3 className="text-[#a9b897]" size={32} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[#a9b897] font-black uppercase text-[8px] tracking-[0.4em]">Audit Intelligence Output</p>
+                      <p className="text-stone-200 font-serif italic text-2xl leading-snug">
+                        {strategicInsight}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -169,7 +178,7 @@ export default function Scheduler() {
             </motion.div>
           ) : (
             <div className="grid gap-6">
-              <AnimatePresence>
+              <AnimatePresence mode="popLayout">
                 {posts.map((post) => {
                   const date = formatDate(post.scheduled_for);
                   return (
@@ -178,7 +187,7 @@ export default function Scheduler() {
                       layout
                       initial={{ x: -20, opacity: 0 }}
                       animate={{ x: 0, opacity: 1 }}
-                      exit={{ scale: 0.9, opacity: 0 }}
+                      exit={{ scale: 0.95, opacity: 0 }}
                       className="group bg-white border border-stone-200 rounded-[2rem] p-6 md:p-8 flex flex-col md:flex-row items-center gap-8 hover:shadow-2xl transition-all duration-500 relative"
                     >
                       {/* DATE ARCHITECTURE */}

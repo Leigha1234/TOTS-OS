@@ -2,20 +2,33 @@
 
 import { motion } from "framer-motion";
 
-export default function Card({
-  children,
-  className,
-}: {
+type CardProps = {
   children: React.ReactNode;
-  className?: string; // Added this
-}) {
+  className?: string;
+};
+
+export default function Card({ children, className = "" }: CardProps) {
   return (
     <motion.div
+      layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      // Combining base styles with the incoming className
-      className={`p-5 rounded-2xl bg-white/5 backdrop-blur border border-white/10 shadow-lg ${className}`}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ 
+        duration: 0.3,
+        ease: "easeOut" 
+      }}
+      // Glassmorphism base styles + custom className
+      className={`
+        p-5 
+        rounded-2xl 
+        bg-white/5 
+        backdrop-blur-md 
+        border 
+        border-white/10 
+        shadow-xl 
+        ${className}
+      `.trim()}
     >
       {children}
     </motion.div>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client"; // IMPORTANT: Use your singleton file
+import { supabase } from "@/lib/supabase-client"; // Singleton import
 import ThemeToggle from "./ThemeToggle";
 import {
   LayoutDashboard, Users, CheckSquare, CreditCard, BarChart,
@@ -12,8 +12,6 @@ import {
   Lock, ChevronRight, X, Zap, Database
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const TOTS_STORE_URL = "https://xiaiqp-g3.myshopify.com/";
 
 type Tier = "standard" | "premium" | "elite";
 
@@ -42,10 +40,6 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [currentTier, setCurrentTier] = useState<Tier>("standard");
   const [loading, setLoading] = useState(true);
-  const [showUpgradeModal, setShowUpgradeModal] = useState<{show: boolean, targetTier: Tier | null}>({
-    show: false,
-    targetTier: null
-  });
 
   useEffect(() => {
     async function fetchUserTier() {
@@ -57,7 +51,6 @@ export default function Sidebar() {
             .select("tier")
             .eq("id", user.id)
             .single();
-
           if (data?.tier) setCurrentTier(data.tier as Tier);
         }
       } catch (err) {
@@ -71,30 +64,19 @@ export default function Sidebar() {
 
   if (pathname === "/login" || pathname === "/signup") return null;
 
-  const hasAccess = (linkTier: string) => {
-    if (currentTier === "elite") return true;
-    if (currentTier === "premium" && linkTier !== "elite") return true;
-    if (currentTier === "standard" && linkTier === "standard") return true;
-    return false;
-  };
-
   return (
-    // Added 'bg-white' and 'border' explicitly for debugging visibility
-    <div className={`h-screen bg-white border-r border-gray-200 px-4 py-6 flex flex-col transition-all duration-500 z-40 ${collapsed ? "w-20" : "w-64"}`}>
-      
-      {/* Branding */}
+    <div className={`h-screen bg-white border-r border-gray-200 px-4 py-6 flex flex-col transition-all duration-300 z-40 ${collapsed ? "w-20" : "w-64"}`}>
       <div className="flex items-center justify-between px-3 mb-10">
         {!collapsed && <h1 className="text-[11px] font-black italic uppercase tracking-[0.5em]">TOTS OS</h1>}
-        <button onClick={() => setCollapsed(!collapsed)}><Menu size={18} /></button>
+        <button onClick={() => setCollapsed(!collapsed)} className="p-2"><Menu size={18} /></button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-grow space-y-1.5 overflow-y-auto px-2">
+      <nav className="flex-grow space-y-1.5 px-2 overflow-y-auto">
         {links.map((link) => (
           <Link
             key={link.href}
             href={link.href}
-            className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-gray-100"
+            className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-gray-100 transition-colors"
           >
             <link.icon size={18} />
             {!collapsed && <span className="text-[12px] font-bold uppercase">{link.label}</span>}

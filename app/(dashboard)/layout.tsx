@@ -1,24 +1,16 @@
-"use client";
-
+// app/(dashboard)/layout.tsx
 import Sidebar from "@/app/components/Sidebar";
-import AuthGuard from "@/app/components/AuthGuard";
 
-export default function InternalLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthGuard>
-      <div className="flex min-h-screen bg-[#050505]">
-        {/* Sidebar is fixed on the left */}
-        <Sidebar />
-
-        {/* Main content area on the right */}
-        <main className="flex-1 h-screen overflow-y-auto">
-          {children}
-        </main>
-      </div>
-    </AuthGuard>
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar is now integrated */}
+      <Sidebar /> 
+      
+      {/* Scrollable Main Content */}
+      <main className="flex-1 overflow-y-auto bg-[var(--bg)]">
+        {children}
+      </main>
+    </div>
   );
 }

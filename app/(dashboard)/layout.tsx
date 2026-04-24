@@ -1,22 +1,22 @@
 // app/(dashboard)/layout.tsx
 import Sidebar from "@/app/components/Sidebar";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ 
+  children 
+}: { 
+  children: React.ReactNode 
+}) {
   return (
-    // 'flex h-screen' ensures the layout fills the viewport
-    // 'overflow-hidden' prevents the body from scrolling, allowing the sidebar/main to manage their own scroll
-    <div className="flex h-screen overflow-hidden bg-[var(--bg)]">
+    <div className="flex h-screen w-full overflow-hidden bg-[var(--bg)]">
       
-      {/* Sidebar container - flex-shrink-0 prevents it from squishing */}
-      <div className="flex-shrink-0">
-        <Sidebar /> 
-      </div>
+      {/* Sidebar - Ensures it keeps its width and does not shrink */}
+      <aside className="flex-shrink-0">
+        <Sidebar />
+      </aside>
       
-      {/* Main content area - 'flex-1' takes remaining space, 'min-w-0' fixes flexbox text overflow issues */}
+      {/* Main Content - Flex-1 takes remaining width, min-w-0 allows content to shrink appropriately */}
       <main className="flex-1 overflow-y-auto min-w-0">
-        <div className="w-full">
-          {children}
-        </div>
+        {children}
       </main>
       
     </div>

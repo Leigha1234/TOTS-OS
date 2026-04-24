@@ -1,9 +1,9 @@
 "use client";
 
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase"; // Updated import
+import { createClient } from "@/lib/supabase"; 
 import ThemeToggle from "./ThemeToggle";
 import {
   LayoutDashboard, Users, CheckSquare, CreditCard, BarChart,
@@ -36,9 +36,11 @@ const links = [
 ];
 
 export default function Sidebar() {
-  const supabase = createClient(); // Initialize client inside component
+  // Stabilize client initialization to prevent 400 errors and re-renders
+  const supabase = useMemo(() => createClient(), []);
   const pathname = usePathname();
   const router = useRouter();
+  
   const [collapsed, setCollapsed] = useState(false);
   const [currentTier, setCurrentTier] = useState<Tier>("standard");
   const [loading, setLoading] = useState(true);
@@ -47,18 +49,22 @@ export default function Sidebar() {
     targetTier: null
   });
 
-  // 1. Fetch User Tier on Mount
+  // Fetch User Tier
   useEffect(() => {
     async function fetchUserTier() {
+      // Ensure we are in a client environment before calling Auth
+      if (typeof window === 'undefined') return;
+
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from("profiles")
             .select("tier")
             .eq("id", user.id)
             .single();
 
+          if (error) throw error;
           if (data?.tier) setCurrentTier(data.tier as Tier);
         }
       } catch (err) {
@@ -68,9 +74,9 @@ export default function Sidebar() {
       }
     }
     fetchUserTier();
-  }, [supabase]); // Added dependency
+  }, [supabase]);
 
-  // 2. Safety Check: No Sidebar on Auth Pages
+  // Safety Check
   if (pathname === "/login" || pathname === "/signup") return null;
 
   const hasAccess = (linkTier: string) => {
@@ -82,20 +88,15 @@ export default function Sidebar() {
 
   const handleTierChange = async (newTier: Tier) => {
     setCurrentTier(newTier);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from("profiles").update({ tier: newTier }).eq("id", user.id);
-      }
-    } catch (err) {
-      console.error("Tier update error:", err);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("profiles").update({ tier: newTier }).eq("id", user.id);
     }
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
-    router.refresh();
   };
 
   return (
@@ -118,7 +119,6 @@ export default function Sidebar() {
             </button>
           </div>
 
-          {/* Tier Selector */}
           {!collapsed && (
             <div className="px-3">
               {loading ? (
@@ -138,7 +138,7 @@ export default function Sidebar() {
           )}
         </div>
 
-        {/* Navigation Links */}
+        {/* Navigation */}
         <nav className="space-y-1.5 flex-grow overflow-y-auto no-scrollbar px-2">
           {links.map((link) => {
             const active = pathname === link.href;
@@ -175,13 +175,8 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Footer Actions */}
+        {/* Logout */}
         <div className="mt-auto pt-6 space-y-4 border-t border-[var(--border)]">
-          {!collapsed && (
-            <div className="flex justify-center bg-[var(--bg-soft)] py-2 rounded-2xl mx-2">
-              <ThemeToggle />
-            </div>
-          )}
           <button 
             onClick={handleLogout} 
             className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-500/70 hover:text-red-500 hover:bg-red-500/5 transition-all"
@@ -198,32 +193,20 @@ export default function Sidebar() {
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-xl">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-md rounded-[3rem] p-12 shadow-2xl relative overflow-hidden text-center"
+              className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-md rounded-[3rem] p-12 shadow-2xl text-center"
             >
-              <button 
-                onClick={() => setShowUpgradeModal({show: false, targetTier: null})} 
-                className="absolute top-8 right-8 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
-              >
-                <X size={24} />
-              </button>
-              
+              <button onClick={() => setShowUpgradeModal({show: false, targetTier: null})} className="absolute top-8 right-8"><X size={24} /></button>
               <div className="space-y-8 flex flex-col items-center">
-                <div className="p-5 bg-[var(--accent)]/10 rounded-3xl text-[var(--accent)]">
-                  <Zap size={32} fill="currentColor" />
-                </div>
+                <div className="p-5 bg-[var(--accent)]/10 rounded-3xl text-[var(--accent)]"><Zap size={32} fill="currentColor" /></div>
                 <div>
-                  <h2 className="text-5xl font-serif italic text-[var(--text-main)] leading-tight capitalize">
-                    {showUpgradeModal.targetTier} Tier
-                  </h2>
-                  <p className="text-[var(--text-muted)] mt-4 font-serif italic text-lg leading-relaxed">
-                    Higher architectural clearance required.
-                  </p>
+                  <h2 className="text-5xl font-serif italic text-[var(--text-main)] capitalize">{showUpgradeModal.targetTier} Tier</h2>
+                  <p className="text-[var(--text-muted)] mt-4 font-serif italic text-lg">Higher architectural clearance required.</p>
                 </div>
                 <button 
                   onClick={() => window.open(TOTS_STORE_URL, '_blank')}
-                  className="w-full py-6 bg-[var(--text-main)] text-[var(--bg)] rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] hover:brightness-125 transition-all flex items-center justify-center gap-3"
+                  className="w-full py-6 bg-[var(--text-main)] text-[var(--bg)] rounded-2xl font-black text-[10px] uppercase tracking-[0.4em]"
                 >
-                  Initiate Secure Upgrade <ChevronRight size={14} />
+                  Initiate Secure Upgrade
                 </button>
               </div>
             </motion.div>

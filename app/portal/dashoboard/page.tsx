@@ -29,6 +29,7 @@ function PortalDashboard() {
 
   useEffect(() => {
     async function checkUser() {
+      const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {

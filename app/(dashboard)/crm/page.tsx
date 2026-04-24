@@ -11,18 +11,23 @@ export default function CRMDirectory() {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    fetchDirectory();
+    const supabase = createClient();
+    
+    // Initial fetch
+    fetchDirectory(supabase);
 
-    // Real-time listener: Syncs directory if database changes
+    // Real-time listener
     const channel = supabase
       .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, fetchDirectory)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchDirectory(supabase))
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
   }, []);
 
-  async function fetchDirectory() {
+  async function fetchDirectory(supabase: any) {
     const { data } = await supabase
       .from("customers")
       .select("*")

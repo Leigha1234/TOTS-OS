@@ -1,10 +1,16 @@
 import { createClient } from "@/lib/supabase";
 
 export async function GET() {
-  const { data } = await supabase
+  const supabase = createClient();
+  
+  const { data, error } = await supabase
     .from("invoices")
     .select("*")
     .eq("status", "unpaid");
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
 
   for (const inv of data || []) {
     const age =
@@ -13,8 +19,7 @@ export async function GET() {
 
     if (age > 3) {
       console.log("REMINDER:", inv.id);
-
-      // send email here
+      // Logic for sending emails would go here
     }
 
     if (age > 7) {

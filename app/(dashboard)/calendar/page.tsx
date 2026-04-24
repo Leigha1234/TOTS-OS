@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase"; // Import the factory
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
   Clock, Zap, Plus, Landmark 
@@ -29,6 +29,9 @@ export default function CalendarPage() {
 
   async function fetchEvents() {
     setLoading(true);
+    // Initialize the client here
+    const supabase = createClient();
+    
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return;
@@ -189,7 +192,6 @@ export default function CalendarPage() {
   );
 }
 
-// Sub-component for clean buttons
 function NavButton({ onClick, icon }: { onClick: () => void, icon: React.ReactNode }) {
   return (
     <button onClick={onClick} className="p-4 bg-white rounded-full border border-stone-100 hover:bg-stone-50 transition-all hover:shadow-md active:scale-90">

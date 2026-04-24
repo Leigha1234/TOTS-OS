@@ -19,6 +19,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     async function init() {
+      const supabase = createClient();
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;

@@ -18,12 +18,15 @@ export default function PipelinePage() {
   }, []);
 
   async function load() {
+    const supabase = createClient();
     const { data } = await supabase.from("customers").select("*");
     setCustomers(data || []);
     setLoading(false);
   }
 
   async function move(id: string, stage: string) {
+    const supabase = createClient();
+    
     // Optimistic Update: Change UI immediately
     const previousCustomers = [...customers];
     setCustomers(customers.map(c => c.id === id ? { ...c, stage } : c));

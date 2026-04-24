@@ -35,6 +35,7 @@ export default function WorkspacePage() {
   }, []);
 
   async function init() {
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -64,6 +65,7 @@ export default function WorkspacePage() {
   }
 
   async function loadTasks(pId: string) {
+    const supabase = createClient();
     const { data } = await supabase.from("tasks").select("*").eq("project_id", pId).eq("status", "active");
     setTasks((data || []).map((t) => ({
       ...t,
@@ -73,6 +75,7 @@ export default function WorkspacePage() {
   }
 
   async function createPostIt() {
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const finalCommand = command.trim();
     if (!finalCommand || !selectedProject || !user) return;
@@ -95,6 +98,7 @@ export default function WorkspacePage() {
   }
 
   const handleAction = async (id: string, dir: 'left' | 'right') => {
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
     if (dir === 'right') {
@@ -117,7 +121,6 @@ export default function WorkspacePage() {
 
   return (
     <div className="relative min-h-screen w-full bg-[#faf9f6] overflow-x-hidden font-sans">
-        
         {/* TABS NAVIGATION */}
         <div className="w-full h-32 bg-[#f0efe9] border-b border-stone-200 relative flex items-end px-16">
           <div className="flex gap-1 z-10">
@@ -139,7 +142,6 @@ export default function WorkspacePage() {
         </div>
 
         <div className="max-w-[1400px] mx-auto p-8 md:p-12 space-y-12">
-          
           {/* XP ENGINE BAR */}
           <div className="flex flex-col md:flex-row items-center justify-between gap-8 bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm">
             <div className="flex items-center gap-8 flex-1 w-full">
@@ -166,8 +168,6 @@ export default function WorkspacePage() {
 
           {/* UTILITY GRID */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-            
-            {/* SEARCH */}
             <div className="lg:col-span-5 bg-white p-6 rounded-[2rem] flex items-center gap-5 border border-stone-100 shadow-sm h-full">
               <Search className="text-stone-300" size={20} />
               <input 
@@ -177,8 +177,6 @@ export default function WorkspacePage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-
-            {/* INPUT CARD */}
             <div className="lg:col-span-7 bg-white p-10 rounded-[3rem] shadow-2xl border-b-[10px] border-black/5 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <Zap size={40} />

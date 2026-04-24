@@ -23,6 +23,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -37,6 +38,7 @@ export default function NotificationsPage() {
   }, []);
 
   useEffect(() => {
+    const supabase = createClient();
     fetchNotifications();
     
     // Real-time subscription for instant alerts
@@ -52,11 +54,13 @@ export default function NotificationsPage() {
   }, [fetchNotifications]);
 
   const markAsRead = async (id: string) => {
+    const supabase = createClient();
     await supabase.from("notifications").update({ read: true }).eq("id", id);
     setItems(prev => prev.map(i => i.id === id ? { ...i, read: true } : i));
   };
 
   const clearAll = async () => {
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     

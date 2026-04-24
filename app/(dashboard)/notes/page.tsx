@@ -97,7 +97,6 @@ function SystemNavigator() {
 
 // --- MAIN PAGE CONTENT ---
 function NotesContent() {
-  const params = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -108,7 +107,7 @@ function NotesContent() {
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const channelRef = useRef<any>(null);
 
-  const fetchPulse = useCallback(async (userId: string) => {
+  const fetchPulse = useCallback(async (supabase: any, userId: string) => {
     const [{ data: cust }, { data: nts }, { data: tsk }, { data: mem }] = await Promise.all([
       supabase.from("customers").select("*").eq("user_id", userId),
       supabase.from("notes").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
@@ -122,18 +121,19 @@ function NotesContent() {
   }, []);
 
   useEffect(() => {
+    const supabase = createClient();
     const init = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
       setUser(authUser);
-      await fetchPulse(authUser.id);
+      await fetchPulse(supabase, authUser.id);
 
       if (channelRef.current) supabase.removeChannel(channelRef.current);
 
       const channelId = `ledger-${Math.random().toString(36).slice(2, 9)}`;
       const channel = supabase.channel(channelId)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(authUser.id))
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(authUser.id))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(supabase, authUser.id))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(supabase, authUser.id))
         .subscribe();
 
       channelRef.current = channel;
@@ -153,11 +153,11 @@ function NotesContent() {
 
   async function addNote() {
     if (!newNote.trim() || !user || !teamId) return;
+    const supabase = createClient();
     const intent = detectIntent(newNote);
     const amountMatch = newNote.match(/£?(\d+(\.\d{2})?)/);
     const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
 
-    // 1. Create the Note entry (The visual "Sticky Note")
     await supabase.from("notes").insert({
       content: newNote, 
       user_id: user.id, 
@@ -165,7 +165,6 @@ function NotesContent() {
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
     });
 
-    // 2. Logic-based routing
     if (intent === "task") {
       await supabase.from("tasks").insert({ title: newNote, user_id: user.id, customer_id: selectedCustomer || null });
     } else if (intent === "invoice" || intent === "expense") {
@@ -184,6 +183,16 @@ function NotesContent() {
     toast.success("Intent Captured & Routed");
   }
 
+  const deleteNote = async (id: string) => {
+    const supabase = createClient();
+    await supabase.from("notes").delete().eq("id", id);
+  }
+
+  const completeTask = async (id: string) => {
+    const supabase = createClient();
+    await supabase.from("tasks").update({ status: 'done' }).eq("id", id);
+  }
+
   const filteredNotes = notes.filter((note) =>
     note.content?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -192,8 +201,6 @@ function NotesContent() {
     <div className="min-h-screen bg-[#faf9f6] p-8 md:p-12">
       <SystemNavigator />
       <div className="max-w-[1400px] mx-auto grid lg:grid-cols-12 gap-12">
-        
-        {/* LEFT COLUMN: INPUT & LEDGER */}
         <div className="lg:col-span-8 space-y-12">
           <header className="space-y-2">
             <h1 className="text-6xl font-serif italic text-stone-800 tracking-tighter">Clarity Ledger</h1>
@@ -253,7 +260,7 @@ function NotesContent() {
                           <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">{detectIntent(note.content)}</span>
                         </div>
                         <button 
-                          onClick={() => supabase.from("notes").delete().eq("id", note.id)} 
+                          onClick={() => deleteNote(note.id)} 
                           className="p-3 text-stone-400 hover:text-red-500 hover:bg-white/50 rounded-2xl transition-all"
                         >
                           <Trash2 size={18}/>
@@ -266,7 +273,6 @@ function NotesContent() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: ACTION QUEUE */}
         <div className="lg:col-span-4 space-y-10">
           <div className="px-4">
             <h2 className="text-3xl font-serif italic text-stone-800">Action Queue</h2>
@@ -282,7 +288,7 @@ function NotesContent() {
                 className="bg-white p-6 rounded-[2.5rem] border border-stone-100 flex items-start gap-5 group shadow-sm hover:border-[#a9b897]/30 transition-all"
               >
                 <button 
-                  onClick={() => supabase.from("tasks").update({ status: 'done' }).eq("id", task.id)} 
+                  onClick={() => completeTask(task.id)} 
                   className="mt-1 text-stone-100 hover:text-[#a9b897] transition-all"
                 >
                   <Circle size={28} strokeWidth={1.5} />

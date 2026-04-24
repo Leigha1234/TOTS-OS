@@ -28,7 +28,7 @@ export default function ProjectsPage() {
     customer_id: "",
   });
 
-  const loadData = useCallback(async (team: string) => {
+  const loadData = useCallback(async (supabase: any, team: string) => {
     const { data } = await supabase
       .from("projects")
       .select("*, customers(name)")
@@ -40,6 +40,7 @@ export default function ProjectsPage() {
   }, []);
 
   useEffect(() => {
+    const supabase = createClient();
     async function init() {
       const team = await getUserTeam();
       const r = await getUserRole();
@@ -55,14 +56,13 @@ export default function ProjectsPage() {
         .eq("team_id", team);
 
       setCustomers(c || []);
-      loadData(team);
+      loadData(supabase, team);
     }
     init();
   }, [loadData]);
 
   const runClarityScan = () => {
     setIsScanActive(true);
-    // Simulation of heuristic analysis
     setTimeout(() => {
       const clientCount = customers.length;
       const projectCount = projects.length;
@@ -77,6 +77,7 @@ export default function ProjectsPage() {
     if (!canCreate(role)) return alert("Permission Denied: Administrative clearance required.");
     if (!form.name || !form.customer_id || !teamId) return;
 
+    const supabase = createClient();
     const { error } = await supabase.from("projects").insert({
       ...form,
       team_id: teamId,
@@ -84,7 +85,6 @@ export default function ProjectsPage() {
 
     if (error) return alert(error.message);
 
-    // Internal OS Log
     await supabase.from("activity").insert({
       team_id: teamId,
       action: `Architecture Deployed: ${form.name}`,
@@ -92,7 +92,7 @@ export default function ProjectsPage() {
     });
 
     setForm({ name: "", customer_id: "" });
-    loadData(teamId);
+    loadData(supabase, teamId);
   };
 
   if (loading) return (

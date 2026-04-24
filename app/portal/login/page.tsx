@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   const loadStats = useCallback(async () => {
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -45,6 +46,7 @@ export default function Dashboard() {
   }, [loadStats]);
 
   async function toggleTask(id: string) {
+    const supabase = createClient();
     // Optimistic Update
     setTodoList(prev => prev.filter(t => t.id !== id));
     setActiveTasks(prev => prev - 1);
@@ -125,7 +127,7 @@ export default function Dashboard() {
               <AnimatePresence initial={false}>
                 {todoList.length > 0 ? (
                   todoList.map((task) => (
-                    <motion.div 
+                    <motion.div 
                       key={task.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}

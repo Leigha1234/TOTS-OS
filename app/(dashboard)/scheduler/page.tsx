@@ -16,7 +16,7 @@ import {
   Loader2,
   BarChart3
 } from "lucide-react";
-import Page from "@/app/components/Page"; // Adjusted to a standard alias
+import Page from "@/app/components/Page"; 
 
 interface ScheduledPost {
   id: string;
@@ -41,6 +41,7 @@ export default function Scheduler() {
 
   const fetchScheduledPosts = async () => {
     setLoading(true);
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("social_posts")
       .select("*")
@@ -72,6 +73,7 @@ export default function Scheduler() {
   };
 
   const deletePost = async (id: string) => {
+    const supabase = createClient();
     const { error } = await supabase.from("social_posts").delete().eq("id", id);
     if (!error) setPosts(posts.filter(p => p.id !== id));
   };

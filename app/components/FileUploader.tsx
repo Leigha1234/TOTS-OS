@@ -13,6 +13,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
   const [uploading, setUploading] = useState(false);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const supabase = createClient();
     try {
       if (!e.target.files || e.target.files.length === 0) return;
       
@@ -80,7 +81,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
           className="hidden" 
           onChange={handleUpload} 
           disabled={uploading}
-          accept="image/*,application/pdf,.doc,.docx,.txt" // Suggested: limit file types
+          accept="image/*,application/pdf,.doc,.docx,.txt"
         />
       </label>
     </div>

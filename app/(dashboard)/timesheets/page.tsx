@@ -42,6 +42,7 @@ export default function WeeklyTimesheetPage() {
   useEffect(() => { init(); }, [currentDate]);
 
   async function init() {
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
@@ -57,7 +58,6 @@ export default function WeeklyTimesheetPage() {
         .select("*")
         .eq("team_id", mem.team_id);
       setProjects(p || []);
-      // Optional: Load existing data for this week here
     }
     setLoading(false);
   }
@@ -89,6 +89,7 @@ export default function WeeklyTimesheetPage() {
   const saveWeeklyBatch = async () => {
     if (totalHours === 0) return;
     setIsSaving(true);
+    const supabase = createClient();
     
     const entries = rows.flatMap(row => {
       if (!row.project_id) return [];

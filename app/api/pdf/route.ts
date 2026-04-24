@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase";
 import { jsPDF } from "jspdf";
 
 export async function GET(req: Request) {
+  const supabase = createClient();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 

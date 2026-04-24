@@ -10,6 +10,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    const supabase = createClient();
+
     // 1. If we are on the login page, no need to guard
     if (pathname === "/login") {
       setLoading(false);
@@ -24,6 +26,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       
       if (session && mounted) {
         setLoading(false);
+      } else if (!session && mounted) {
+        router.push("/login");
       }
     };
 

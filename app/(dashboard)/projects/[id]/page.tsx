@@ -37,7 +37,7 @@ export default function ProjectPage() {
   const [newTask, setNewTask] = useState("");
   const [dragged, setDragged] = useState<any>(null);
 
-  const loadTasks = useCallback(async (team: string) => {
+  const loadTasks = useCallback(async (supabase: any, team: string) => {
     const { data } = await supabase
       .from("tasks")
       .select("*")
@@ -47,6 +47,7 @@ export default function ProjectPage() {
   }, [id]);
 
   useEffect(() => {
+    const supabase = createClient();
     async function init() {
       const [team, p, r] = await Promise.all([
         getUserTeam(),
@@ -66,12 +67,12 @@ export default function ProjectPage() {
         .eq("team_id", team);
 
       setUsers(profiles || []);
-      loadTasks(team);
+      loadTasks(supabase, team);
 
       const channel = supabase
         .channel(`project-${id}`)
         .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${id}` }, 
-        () => loadTasks(team))
+        () => loadTasks(supabase, team))
         .subscribe();
 
       return () => { supabase.removeChannel(channel); };
@@ -84,6 +85,7 @@ export default function ProjectPage() {
     if (!canCreate(role)) return alert("Access Denied: Insufficient Permissions");
     if (!newTask || !teamId) return;
 
+    const supabase = createClient();
     await supabase.from("tasks").insert({
       title: newTask,
       project_id: id,
@@ -93,12 +95,12 @@ export default function ProjectPage() {
     });
 
     setNewTask("");
-    loadTasks(teamId);
+    loadTasks(supabase, teamId);
   }
 
   async function updateTask(taskId: string, updates: any) {
+    const supabase = createClient();
     await supabase.from("tasks").update(updates).eq("id", taskId);
-    // Realtime will handle the UI update
   }
 
   const priorityMeta = (p: string) => {
@@ -111,8 +113,6 @@ export default function ProjectPage() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] p-8 md:p-12 space-y-12">
-      
-      {/* HEADER SECTION */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-200 pb-10">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-[#a9b897]">
@@ -136,7 +136,6 @@ export default function ProjectPage() {
         )}
       </header>
 
-      {/* INPUT AREA */}
       <div className="max-w-2xl relative group">
         <input
           placeholder={plan === "free" ? "Tasks locked on Free Plan..." : "Enter new objective..."}
@@ -149,7 +148,6 @@ export default function ProjectPage() {
         <Plus className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-[#a9b897] transition-colors" size={20} />
       </div>
 
-      {/* KANBAN BOARD */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {COLUMNS.map((col) => (
           <div
@@ -188,9 +186,7 @@ export default function ProjectPage() {
                             onChange={(e) => updateTask(t.id, { title: e.target.value })}
                             className="bg-transparent w-full outline-none font-serif italic text-stone-900 text-lg leading-tight"
                           />
-                          
                           <div className="flex flex-wrap items-center gap-3">
-                            {/* PRIORITY SELECT */}
                             <select
                               value={t.priority || "medium"}
                               onChange={(e) => updateTask(t.id, { priority: e.target.value })}
@@ -200,8 +196,6 @@ export default function ProjectPage() {
                               <option value="medium">Medium</option>
                               <option value="high">High</option>
                             </select>
-
-                            {/* DATE PICKER */}
                             <div className="relative flex items-center text-stone-400">
                               <Calendar size={12} className="absolute left-2 pointer-events-none" />
                               <input
@@ -211,8 +205,6 @@ export default function ProjectPage() {
                                 className="bg-stone-50 text-[9px] font-black uppercase tracking-widest pl-7 pr-2 py-1.5 rounded-lg outline-none"
                               />
                             </div>
-
-                            {/* ASSIGNEE */}
                             <div className="relative flex items-center text-stone-400">
                               <UserIcon size={12} className="absolute left-2 pointer-events-none" />
                               <select

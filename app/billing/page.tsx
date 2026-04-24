@@ -18,6 +18,7 @@ export default function BillingPage() {
   }, []);
 
   async function init() {
+    const supabase = createClient();
     try {
       const { data } = await supabase.auth.getUser();
 

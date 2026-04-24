@@ -1,10 +1,16 @@
 import { createClient } from "@/lib/supabase";
 
 export async function GET() {
-  const { data } = await supabase
+  const supabase = createClient();
+
+  const { data, error } = await supabase
     .from("subscriptions")
     .select("*")
     .eq("active", true);
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
 
   for (const sub of data || []) {
     if (new Date(sub.next_run) <= new Date()) {
@@ -20,7 +26,7 @@ export async function GET() {
 
       await supabase
         .from("subscriptions")
-        .update({ next_run: next })
+        .update({ next_run: next.toISOString() })
         .eq("id", sub.id);
     }
   }

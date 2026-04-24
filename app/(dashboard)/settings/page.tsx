@@ -38,6 +38,7 @@ export default function SettingsPage() {
   useEffect(() => { init(); }, []);
 
   async function init() {
+    const supabase = createClient();
     try {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user) return;
@@ -69,6 +70,7 @@ export default function SettingsPage() {
 
   const saveSettings = async () => {
     setSaving(true);
+    const supabase = createClient();
     const { error } = await supabase.from("settings").upsert({
       team_id: teamId,
       handles, 

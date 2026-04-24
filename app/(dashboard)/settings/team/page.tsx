@@ -34,6 +34,7 @@ export default function SettingsPage() {
   useEffect(() => { init(); }, []);
 
   async function init() {
+    const supabase = createClient();
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) return;
     setUser(currentUser);
@@ -69,6 +70,7 @@ export default function SettingsPage() {
 
   const saveSettings = async () => {
     setSaving(true);
+    const supabase = createClient();
     const { error } = await supabase.from("settings").upsert({
       team_id: teamId,
       logo, 

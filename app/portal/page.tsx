@@ -13,6 +13,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function loadStats() {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -39,6 +40,7 @@ export default function Dashboard() {
   }, []);
 
   async function toggleTask(id: string) {
+    const supabase = createClient();
     // Optimistic Update
     setTodoList(prev => prev.filter(t => t.id !== id));
     setActiveTasks(prev => prev - 1);

@@ -14,6 +14,7 @@ export default function ActivityPage() {
   }, []);
 
   async function load() {
+    const supabase = createClient();
     try {
       setLoading(true);
       

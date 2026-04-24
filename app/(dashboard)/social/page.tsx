@@ -52,6 +52,7 @@ export default function SocialLab() {
   }, []);
 
   const fetchWeeklyCount = async () => {
+    const supabase = createClient();
     try {
       const now = new Date();
       const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay())).toISOString();
@@ -95,6 +96,7 @@ export default function SocialLab() {
   };
 
   const schedulePost = async (index: number) => {
+    const supabase = createClient();
     const post = drafts[index];
     if (!post.scheduled_for) return alert("Please select a date.");
 

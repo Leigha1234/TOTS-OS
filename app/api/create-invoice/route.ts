@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
   const body = await req.json();
+  const supabase = createClient();
 
   const { teamId, customerId, note } = body;
 
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
   const branding = await getBranding(teamId);
 
   // 💾 CREATE INVOICE
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("invoices")
     .insert({
       team_id: teamId,
@@ -26,6 +27,10 @@ export async function POST(req: Request) {
     })
     .select()
     .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ invoice: data });
 }

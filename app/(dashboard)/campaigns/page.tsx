@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
-import Card from "@/components/Card"; 
-import Button from "@/components/Button";
+import Card from "@/app/components/Card"; 
+import Button from "@/app/components/Button";
 import { 
   Plus, X, Clock, Type, Image as ImageIcon, 
   ShoppingBag, FileText, Wand2, Upload, User 

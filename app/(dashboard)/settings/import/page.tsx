@@ -7,7 +7,7 @@ import {
   UploadCloud, CheckCircle2, Loader2, Database, AlertCircle, Info, ChevronRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Button from "@/components/Button";
+import Button from "@/app/components/Button";
 
 export default function DataImportPage() {
   const [file, setFile] = useState<File | null>(null);

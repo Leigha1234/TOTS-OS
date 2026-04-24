@@ -1,7 +1,7 @@
 "use client";
 
-import Sidebar from "@/components/Sidebar";
-import AuthGuard from "@/components/AuthGuard";
+import Sidebar from "@/app/components/Sidebar";
+import AuthGuard from "@/app/components/AuthGuard";
 
 export default function InternalLayout({
   children,

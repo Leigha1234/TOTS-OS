@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import Page from "@/components/Page";
-import Card from "@/components/Card";
+import Page from "@/app/components/Page";
+import Card from "@/app/components/Card";
 import { motion, AnimatePresence } from "framer-motion";
 
 const STAGES = ["lead", "contacted", "won", "lost"];

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../../../lib/supabase";
-import AuthGuard from "@/components/AuthGuard";
+import AuthGuard from "@/app/components/AuthGuard";
 import { 
   Terminal, Send, ChevronRight, Activity, Zap, Lock, Loader2, Sparkles 
 } from "lucide-react";

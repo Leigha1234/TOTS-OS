@@ -16,7 +16,7 @@ import {
   Loader2,
   BarChart3
 } from "lucide-react";
-import Page from "@/components/Page"; // Adjusted to a standard alias
+import Page from "@/app/components/Page"; // Adjusted to a standard alias
 
 interface ScheduledPost {
   id: string;

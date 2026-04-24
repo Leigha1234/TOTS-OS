@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import ThemeToggle from "./ThemeToggle"; // Assumed existing component
+import { createClient } from "@/lib/supabase"; // Updated import
+import ThemeToggle from "./ThemeToggle";
 import {
   LayoutDashboard, Users, CheckSquare, CreditCard, BarChart,
   StickyNote, Settings, Menu, LogOut, Clock,
@@ -36,6 +36,7 @@ const links = [
 ];
 
 export default function Sidebar() {
+  const supabase = createClient(); // Initialize client inside component
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
@@ -67,7 +68,7 @@ export default function Sidebar() {
       }
     }
     fetchUserTier();
-  }, []);
+  }, [supabase]); // Added dependency
 
   // 2. Safety Check: No Sidebar on Auth Pages
   if (pathname === "/login" || pathname === "/signup") return null;

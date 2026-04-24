@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
   Clock, Zap, Plus, Landmark 

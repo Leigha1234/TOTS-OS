@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { getUserPlan } from "@/lib/getUserPlan";
 import { getUserRole, canCreate } from "@/lib/permissions";

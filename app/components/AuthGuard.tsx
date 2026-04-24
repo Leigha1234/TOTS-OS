@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { usePathname, useRouter } from "next/navigation";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {

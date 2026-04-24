@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { jsPDF } from "jspdf";
 
 export async function GET(req: Request) {

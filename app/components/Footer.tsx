@@ -1,6 +1,6 @@
 "use client";
 
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { useState, useEffect } from "react";
 import { Copy, Check, X } from "lucide-react";
 

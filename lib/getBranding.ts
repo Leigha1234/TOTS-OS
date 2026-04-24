@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 
 export async function getBranding(teamId: string) {
   const { data } = await supabase

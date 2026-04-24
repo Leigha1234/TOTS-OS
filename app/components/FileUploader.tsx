@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 

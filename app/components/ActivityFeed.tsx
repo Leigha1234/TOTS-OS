@@ -1,14 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useState, useMemo } from "react";
+import { createClient } from "@/lib/supabase";
 
 export default function ActivityFeed() {
+  // Initialize the client once for this component instance
+  const supabase = useMemo(() => createClient(), []);
+  
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Initial data fetch
+    async function load() {
+      try {
+        const { data } = await supabase
+          .from("activity_logs")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        setLogs(data || []);
+      } catch (error) {
+        console.error("Failed to load activity feed:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     load();
 
     // Subscribe to REALTIME changes in the activity_logs table
@@ -28,23 +47,7 @@ export default function ActivityFeed() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
-
-  async function load() {
-    try {
-      const { data } = await supabase
-        .from("activity_logs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      setLogs(data || []);
-    } catch (error) {
-      console.error("Failed to load activity feed:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
+  }, [supabase]);
 
   return (
     <div className="border border-white/10 rounded-xl p-5 bg-white/5">

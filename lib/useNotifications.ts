@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { getUserTeam } from "@/lib/getUserTeam";
 
 export function useNotifications() {

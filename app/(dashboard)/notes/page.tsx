@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { useSearchParams } from "next/navigation";
 import { 
   Trash2, Zap, Circle, BookOpen, X, ChevronLeft, ChevronRight, Target, Play, Search 

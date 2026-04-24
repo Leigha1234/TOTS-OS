@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import AuthGuard from "@/app/components/AuthGuard";
 import Card from "@/app/components/Card";
 import { CheckCircle2, Circle } from "lucide-react";

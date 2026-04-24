@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, CheckCircle2, Circle, Clock, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBranding } from "@/lib/getBranding";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
   const body = await req.json();

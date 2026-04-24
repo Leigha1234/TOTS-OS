@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { getUserRole, canCreate } from "@/lib/permissions";
 import Button from "@/app/components/Button";

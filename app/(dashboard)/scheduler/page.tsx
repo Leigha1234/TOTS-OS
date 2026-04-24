@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Calendar as CalendarIcon, 

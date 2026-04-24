@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
 export default function SetPassword() {
+  const supabase = createClient(); // Initialize client
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();

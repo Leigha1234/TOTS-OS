@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "../../../lib/supabase";
+import { createClient } from "@/lib/supabase";
 import AuthGuard from "@/app/components/AuthGuard";
 import { 
   Terminal, Send, ChevronRight, Activity, Zap, Lock, Loader2, Sparkles 
@@ -9,6 +9,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Dashboard() {
+  const supabase = createClient();
   const [todayHours, setTodayHours] = useState(0);
   const [activeTasks, setActiveTasks] = useState(0);
   const [currentTier, setCurrentTier] = useState("STANDARD NODE");

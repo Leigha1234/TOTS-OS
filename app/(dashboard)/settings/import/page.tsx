@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { supabase } from "../../../../lib/supabase";
+import { createClient } from "@/lib/supabase";
 import Papa from "papaparse"; 
 import { 
   UploadCloud, CheckCircle2, Loader2, Database, AlertCircle, Info, ChevronRight
@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/app/components/Button";
 
 export default function DataImportPage() {
+  const supabase = createClient();
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState("");
@@ -94,7 +95,7 @@ export default function DataImportPage() {
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] border-none">
       <div className="max-w-7xl mx-auto p-6 space-y-10 pb-40">
         
-        {/* HEADER SECTION - Matches Settings Header Style */}
+        {/* HEADER SECTION */}
         <div className="flex flex-col md:flex-row justify-between items-center p-10 rounded-[3rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm gap-6">
           <div>
             <div className="flex items-center gap-2 text-[#a9b897] mb-1">

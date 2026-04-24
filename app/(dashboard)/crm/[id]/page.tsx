@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { supabase } from "../../../../lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { 
   User, Building2, Mail, ArrowLeft, ShieldCheck, 
   AlertCircle, Edit3, Trash2, X, Check, Save 
@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 export default function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const supabase = createClient();
   
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -233,7 +234,6 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   );
 }
 
-// Minimal Loader component for the button
 function Loader2({ className, size }: { className?: string, size?: number }) {
   return <div className={`border-2 border-stone-900 border-t-transparent rounded-full animate-spin ${className}`} style={{ width: size, height: size }} />
 }

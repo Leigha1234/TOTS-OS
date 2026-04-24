@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { supabase } from "../../../lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { 
   Plus, FileText, X, Landmark, Trash2, 
   ShieldAlert, DownloadCloud, ChevronRight, 
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import Page from "@/app/components/Page"; // Fixed import path
+import Page from "@/app/components/Page"; 
 import { motion, AnimatePresence } from "framer-motion";
 
 type DocType = "invoices" | "quotes" | "expenses" | "payroll" | "self_assessment" | "end_of_year";
@@ -28,6 +28,7 @@ const CURRENCIES = [
 ];
 
 export default function FinancePage() {
+  const supabase = createClient();
   const [teamId, setTeamId] = useState<string | null>(null);
   const [brand, setBrand] = useState<any>(null);
   const [docs, setDocs] = useState<any[]>([]);
@@ -73,12 +74,6 @@ export default function FinancePage() {
     d.entity_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     d.tax_year?.includes(searchTerm)
   );
-
-  const updateLine = (index: number, field: string, value: string) => {
-    const newLines = [...form.lines] as any;
-    newLines[index][field] = value;
-    setForm({ ...form, lines: newLines });
-  };
 
   const netTotal = form.lines.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
   const vatAmount = form.include_vat ? (netTotal * (form.vat_rate / 100)) : 0;
@@ -208,10 +203,6 @@ export default function FinancePage() {
           </AnimatePresence>
         </div>
       </div>
-
-      {/* RENDER MODALS (Omitted for brevity, logic remains same as provided) */}
-      {/* Ensure the PDF Preview modal uses the `printRef` for high-quality capture */}
-      
     </Page>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { createClient } from "@/lib/supabase";
 import Card from "@/app/components/Card"; 
 import Button from "@/app/components/Button";
 import { 
@@ -41,6 +41,8 @@ export default function CampaignsPage() {
     scheduled_for: "",
     content: ""
   });
+
+  const supabase = createClient();
 
   useEffect(() => { init(); }, []);
 
@@ -93,13 +95,12 @@ export default function CampaignsPage() {
     if (!form.content || isEnhancing) return;
     setIsEnhancing(true);
     
-    // Simulate processing for UX "Premium" feel
     setTimeout(() => {
       const refined = form.content
         .replace(/\b(just|actually|really|maybe|basically)\b/gi, "")
         .replace(/\b(help)\b/gi, "facilitate")
         .replace(/\b(contact us)\b/gi, "initiate correspondence")
-        .replace(/\s\s+/g, ' '); // Clean double spaces
+        .replace(/\s\s+/g, ' ');
       
       setForm(prev => ({ ...prev, content: refined.trim() }));
       setIsEnhancing(false);
@@ -120,7 +121,7 @@ export default function CampaignsPage() {
       team_id: teamId, 
       status: 'scheduled',
       content: finalContent,
-      meta_branding: branding // Store branding separately for re-editing
+      meta_branding: branding
     }]);
 
     if (error) {
@@ -135,8 +136,6 @@ export default function CampaignsPage() {
 
   return (
     <main className="p-8 md:p-12 space-y-12 max-w-7xl mx-auto min-h-screen bg-[#faf9f6] text-stone-900">
-      
-      {/* HEADER */}
       <header className="flex justify-between items-end border-b border-stone-200 pb-12">
         <div className="space-y-1">
           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Communications</p>
@@ -147,7 +146,6 @@ export default function CampaignsPage() {
         </Button>
       </header>
 
-      {/* DASHBOARD GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         <section className="lg:col-span-8 space-y-6">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Queue</h2>
@@ -186,7 +184,6 @@ export default function CampaignsPage() {
         </aside>
       </div>
 
-      {/* COMPOSER MODAL */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xl z-50 flex items-center justify-center p-6">
@@ -200,7 +197,6 @@ export default function CampaignsPage() {
             >
               <button onClick={() => setShowModal(false)} className="absolute top-8 right-8 p-3 rounded-full hover:bg-stone-50 text-stone-400 z-20"><X size={24} /></button>
 
-              {/* LEFT: CONFIG */}
               <div className="w-80 bg-stone-50 border-r border-stone-100 flex flex-col p-10 overflow-y-auto shrink-0">
                 <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-400 mb-8">Structure</p>
                 <div className="space-y-2 mb-10">
@@ -230,7 +226,6 @@ export default function CampaignsPage() {
                 </div>
               </div>
 
-              {/* CENTER: EDITOR */}
               <div className="flex-1 bg-[#fcfbf9] overflow-y-auto p-12 flex flex-col items-center">
                 <div className="w-full max-w-2xl flex justify-end mb-6">
                   <button 
@@ -243,9 +238,7 @@ export default function CampaignsPage() {
                   </button>
                 </div>
 
-                {/* THE TEMPLATE CARD */}
                 <div className={`bg-white w-full max-w-2xl min-h-[800px] shadow-2xl rounded-[3.5rem] p-16 flex flex-col border border-stone-100 relative ${form.template_id === 'letter' ? 'text-center' : ''}`}>
-                  
                   <header className="mb-12 flex justify-center">
                     <label className="h-14 w-14 bg-stone-50 rounded-full border-2 border-dashed border-stone-200 flex items-center justify-center cursor-pointer hover:bg-stone-100 overflow-hidden transition-all">
                       {branding.logo_url ? 

@@ -1,6 +1,7 @@
-import { supabase } from "./supabase";
+import { createClient } from "./supabase";
 
 export async function getUserPlan() {
+  const supabase = createClient();
   const { data: auth } = await supabase.auth.getUser();
 
   if (!auth.user) return "free";

@@ -1,26 +1,24 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
-// Standard CORS headers to allow the function to be called from your dashboard
+// Standard CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    );
 
     // 1. Get posts that are 'scheduled' where the time has passed
-    // We use ISO string for comparison
     const now = new Date().toISOString();
     
     const { data: posts, error: fetchError } = await supabase
@@ -51,8 +49,8 @@ serve(async (req) => {
           "Content-Type": "application/json" 
         },
         body: JSON.stringify({
-          post: post.content || post.caption, // Ensure this matches your DB column
-          platforms: [post.platform.toLowerCase()] // Ayrshare expects lowercase (e.g., 'instagram')
+          post: post.content || post.caption,
+          platforms: [post.platform.toLowerCase()]
         })
       });
 
@@ -65,7 +63,7 @@ serve(async (req) => {
           .update({ 
             status: 'posted',
             posted_at: new Date().toISOString(),
-            external_id: resData.id || null // Store Ayrshare ID for tracking
+            external_id: resData.id || null
           })
           .eq('id', post.id);
         
@@ -82,9 +80,9 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
   }
-})
+});

@@ -1,16 +1,19 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useEffect } from 'react';
+import { createClient } from '@/lib/supabase';
 
 export default function GlobalError({
   error,
   reset,
 }: {
-  error: Error & { digest?: string }
-  reset: () => void
+  error: Error & { digest?: string };
+  reset: () => void;
 }) {
   useEffect(() => {
+    // Initialize the client locally for the error report
+    const supabase = createClient();
+
     // 🕵️‍♂️ THE SNITCH LOGIC
     const reportBug = async () => {
       await supabase.functions.invoke('report-bug', {
@@ -19,12 +22,12 @@ export default function GlobalError({
           location: window.location.href,
           userEmail: "active_user_session" // You can pull this from your Auth context
         }
-      })
-    }
+      });
+    };
     
-    reportBug()
-    console.error(error)
-  }, [error])
+    reportBug();
+    console.error(error);
+  }, [error]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#faf9f6] p-12 text-center">
@@ -41,5 +44,5 @@ export default function GlobalError({
         </button>
       </div>
     </div>
-  )
+  );
 }

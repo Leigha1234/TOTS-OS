@@ -1,10 +1,14 @@
 // app/layout.tsx
-import "./globals.css"; // Ensure this path is correct
+import "./globals.css"; // Ensure this import is here!
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body className="antialiased bg-stone-50">
+      <body>
         {children}
       </body>
     </html>

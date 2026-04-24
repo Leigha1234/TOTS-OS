@@ -7,23 +7,26 @@ export default function DashboardLayout({
   children: React.ReactNode 
 }) {
   return (
-    // We use 'fixed inset-0' to force this layout to take over the entire viewport.
-    // This prevents the root layout (or other styles) from collapsing its height to 0.
-    <div className="fixed inset-0 flex w-full overflow-hidden bg-[var(--bg)]">
+    // 'fixed inset-0' ensures the layout fills the browser viewport exactly
+    // 'flex' establishes the horizontal alignment for the sidebar + main
+    <div className="fixed inset-0 flex w-full h-full overflow-hidden bg-stone-50">
       
       {/* Sidebar container 
-          'flex-shrink-0' ensures the sidebar never gets compressed.
+         'flex-shrink-0' keeps it from squishing.
+         'w-64' sets the sidebar width (ensure this matches Sidebar.tsx).
       */}
-      <aside className="z-50 h-full flex-shrink-0">
+      <aside className="z-50 h-full flex-shrink-0 border-r border-stone-200">
         <Sidebar />
       </aside>
       
       {/* Main content area 
-          'flex-1' makes it fill all remaining horizontal space.
-          'overflow-y-auto' enables scrolling for your dashboard content.
+         'flex-1' takes up the remaining horizontal space.
+         'overflow-y-auto' allows the dashboard content to scroll independently.
       */}
-      <main className="flex-1 overflow-y-auto min-w-0 bg-white">
-        {children}
+      <main className="flex-1 h-full overflow-y-auto bg-white">
+        <div className="p-8">
+          {children}
+        </div>
       </main>
       
     </div>

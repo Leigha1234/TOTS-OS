@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { 
   Plus, FileText, X, Landmark, Trash2, 
   ShieldAlert, DownloadCloud, ChevronRight, 
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import Page from "../components/Page"; // Fixed import path
+import Page from "@/components/Page"; // Fixed import path
 import { motion, AnimatePresence } from "framer-motion";
 
 type DocType = "invoices" | "quotes" | "expenses" | "payroll" | "self_assessment" | "end_of_year";

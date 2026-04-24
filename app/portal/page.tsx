@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import AuthGuard from "../components/AuthGuard";
-import Card from "../components/Card";
+import AuthGuard from "@/components/AuthGuard";
+import Card from "@/components/Card";
 import { CheckCircle2, Circle } from "lucide-react";
 
 export default function Dashboard() {

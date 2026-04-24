@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 import Papa from "papaparse"; 
 import { 
   UploadCloud, CheckCircle2, Loader2, Database, AlertCircle, Info, ChevronRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Button from "../../../components/Button";
+import Button from "@/components/Button";
 
 export default function DataImportPage() {
   const [file, setFile] = useState<File | null>(null);

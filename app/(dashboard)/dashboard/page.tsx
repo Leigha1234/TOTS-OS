@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase";
-import AuthGuard from "../components/AuthGuard";
+import { supabase } from "../../../lib/supabase";
+import AuthGuard from "@/components/AuthGuard";
 import { 
   Terminal, Send, ChevronRight, Activity, Zap, Lock, Loader2, Sparkles 
 } from "lucide-react";

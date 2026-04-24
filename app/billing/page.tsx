@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getUserPlan } from "@/lib/getUserPlan";
-import Button from "../components/Button";
+import Button from "@/components/Button";
 
 export default function BillingPage() {
   const router = useRouter();

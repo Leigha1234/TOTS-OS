@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 import { 
   User, Building2, Mail, ArrowLeft, ShieldCheck, 
   AlertCircle, Edit3, Trash2, X, Check, Save 

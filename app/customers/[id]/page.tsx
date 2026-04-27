@@ -46,7 +46,7 @@ export default function CampaignsPage() {
   useEffect(() => { init(); }, []);
 
   async function init() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: mem } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).maybeSingle();
@@ -57,11 +57,11 @@ export default function CampaignsPage() {
   }
 
   async function loadData(tId: string) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: camps } = await supabase.from("campaigns").select("*, subscriber_lists(name)").eq("team_id", tId).order("scheduled_for", { ascending: true });
     const { data: listRes } = await supabase.from("subscriber_lists").select("*").eq("team_id", tId);
     const { data: custRes } = await supabase.from("customers").select("*").eq("team_id", tId);
-    
+
     setCampaigns(camps || []);
     setLists(listRes || []);
     setCustomers(custRes || []);
@@ -73,10 +73,10 @@ export default function CampaignsPage() {
     if (!targetSet || !form.title || !form.subject) return alert("Missing required fields.");
 
     setLoading(true);
-    const supabase = createClient();
-    const payload = { 
-      ...form, 
-      team_id: teamId, 
+    const supabase = await createClient();
+    const payload = {
+      ...form,
+      team_id: teamId,
       status: 'scheduled',
       content: `${form.content}\n\n---\n${branding.company_name}\n${branding.contact_details}`
     };

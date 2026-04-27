@@ -25,11 +25,11 @@ export default function PortalPage() {
 function PortalDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ email?: string } | null>(null);
 
   useEffect(() => {
     async function checkUser() {
-      const supabase = createClient();
+      const supabase = await createClient();
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
@@ -46,7 +46,7 @@ function PortalDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#faf9f6] p-12 flex items-center justify-center">
+      <div key="loading-state" className="min-h-screen bg-[#faf9f6] p-12 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Fingerprint className="text-stone-300 animate-pulse" size={48} />
           <p className="font-serif italic text-stone-400">Verifying session...</p>
@@ -56,7 +56,7 @@ function PortalDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] p-8 md:p-16 lg:p-24">
+    <div key="dashboard-content" className="min-h-screen bg-[#faf9f6] p-8 md:p-16 lg:p-24">
       <div className="max-w-6xl mx-auto space-y-16">
         
         {/* HEADER SECTION */}
@@ -77,65 +77,39 @@ function PortalDashboard() {
             </div>
             <div>
               <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Authorized Session</p>
-              <p className="text-sm font-mono text-stone-900">{user?.email}</p>
+              <p className="text-sm font-mono text-stone-900">{user?.email || "No session"}</p>
             </div>
           </div>
         </header>
 
         {/* ACCESS CARDS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          
-          {/* STATUS CARD */}
-          <motion.div 
-            whileHover={{ y: -5 }}
-            className="group bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm hover:shadow-xl hover:border-[#a9b897] transition-all cursor-pointer"
-          >
-            <div className="flex justify-between items-start mb-12">
-              <div className="p-4 bg-stone-50 rounded-2xl group-hover:bg-[#a9b897]/10 transition-colors">
-                <ShieldCheck className="text-stone-400 group-hover:text-[#a9b897]" size={24} />
+          {[
+            { id: 'status', label: 'Account Status', title: 'Fully Verified', icon: ShieldCheck, color: 'text-stone-400' },
+            { id: 'projects', label: 'Project Portfolio', title: 'View All Works', icon: Layers, color: 'text-[#a9b897]', isDark: true },
+            { id: 'support', label: 'Concierge', title: 'Open Ticket', icon: LifeBuoy, color: 'text-stone-400' }
+          ].map((card) => (
+            <motion.div 
+              key={card.id}
+              whileHover={{ y: -5 }}
+              className={`group p-10 rounded-[3rem] transition-all cursor-pointer ${
+                card.isDark 
+                  ? 'bg-stone-900 border border-stone-800 shadow-2xl' 
+                  : 'bg-white border border-stone-200 shadow-sm hover:shadow-xl hover:border-[#a9b897]'
+              }`}
+            >
+              <div className="flex justify-between items-start mb-12">
+                <div className={`p-4 rounded-2xl ${card.isDark ? 'bg-stone-800' : 'bg-stone-50 group-hover:bg-[#a9b897]/10'}`}>
+                  <card.icon className={card.isDark ? 'text-[#a9b897]' : `${card.color} group-hover:text-[#a9b897]`} size={24} />
+                </div>
+                <ArrowUpRight className={card.isDark ? 'text-stone-500' : 'text-stone-300 opacity-0 group-hover:opacity-100'} size={20} />
               </div>
-              <ArrowUpRight className="text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity" size={20} />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">Account Status</p>
-            <p className="text-3xl font-serif italic text-stone-900 group-hover:text-[#a9b897] transition-colors">
-              Fully Verified
-            </p>
-          </motion.div>
-
-          {/* PROJECTS CARD */}
-          <motion.div 
-            whileHover={{ y: -5 }}
-            className="group bg-stone-900 border border-stone-800 p-10 rounded-[3rem] shadow-2xl cursor-pointer"
-          >
-            <div className="flex justify-between items-start mb-12">
-              <div className="p-4 bg-stone-800 rounded-2xl">
-                <Layers className="text-[#a9b897]" size={24} />
-              </div>
-              <ArrowUpRight className="text-stone-500" size={20} />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2">Project Portfolio</p>
-            <p className="text-3xl font-serif italic text-white">
-              View All Works
-            </p>
-          </motion.div>
-
-          {/* SUPPORT CARD */}
-          <motion.div 
-            whileHover={{ y: -5 }}
-            className="group bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm hover:shadow-xl hover:border-[#a9b897] transition-all cursor-pointer"
-          >
-            <div className="flex justify-between items-start mb-12">
-              <div className="p-4 bg-stone-50 rounded-2xl group-hover:bg-[#a9b897]/10 transition-colors">
-                <LifeBuoy className="text-stone-400 group-hover:text-[#a9b897]" size={24} />
-              </div>
-              <ArrowUpRight className="text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity" size={20} />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">Concierge</p>
-            <p className="text-3xl font-serif italic text-stone-900 group-hover:text-[#a9b897] transition-colors">
-              Open Ticket
-            </p>
-          </motion.div>
-
+              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">{card.label}</p>
+              <p className={`text-3xl font-serif italic ${card.isDark ? 'text-white' : 'text-stone-900 group-hover:text-[#a9b897]'}`}>
+                {card.title}
+              </p>
+            </motion.div>
+          ))}
         </div>
 
         {/* FOOTER METADATA */}

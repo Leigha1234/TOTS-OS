@@ -6,10 +6,10 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<any[]>([]);
 
   useEffect(() => {
-    // Initialize the client once inside the effect
-    const supabase = createClient();
-
     async function init() {
+      // Initialize the client once inside the effect
+      const supabase = await createClient();
+
       const teamId = await getUserTeam();
       if (!teamId) return;
 

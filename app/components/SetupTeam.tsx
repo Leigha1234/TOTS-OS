@@ -10,9 +10,10 @@ import { createClient } from "@/lib/supabase";
 export default function SetupTeam() {
   useEffect(() => {
     let isMounted = true;
-    const supabase = createClient();
 
     async function provisionTeam() {
+      const supabase = await createClient();
+
       // 1. Get session (avoids navigator lock issues)
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;

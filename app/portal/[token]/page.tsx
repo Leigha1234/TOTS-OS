@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/auth";
 import { generateInsights } from "@/lib/clarity";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 
 export default function ClientDashboard() {
-  const supabase = createClient();
+  // Memoize client to prevent unnecessary re-instantiation
+  const supabase = useMemo(() => createClient(), []);
 
   const [docs, setDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,20 +25,29 @@ export default function ClientDashboard() {
 
   const init = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("invoices")
       .select("*")
       .eq("customer_id", user.id)
       .order("due_date", { ascending: true });
 
+    if (error) {
+      console.error("Fetch Error:", error);
+      setLoading(false);
+      return;
+    }
+
     const invoices = data || [];
     setDocs(invoices);
 
     const result = generateInsights(invoices, []);
-    setInsights(result.insights);
-    setHeadline(result.headline);
+    setInsights(result.insights || []);
+    setHeadline(result.headline || "Portal Status");
     setLoading(false);
   }, [supabase]);
 
@@ -47,7 +57,7 @@ export default function ClientDashboard() {
 
   // Insights Rotation Logic
   useEffect(() => {
-    if (!insights.length) return;
+    if (insights.length <= 1) return;
     const i = setInterval(() => {
       setActiveSlide((p) => (p + 1) % insights.length);
     }, 4000);
@@ -55,16 +65,20 @@ export default function ClientDashboard() {
   }, [insights]);
 
   async function pay(inv: any) {
-    const res = await fetch("/api/checkout", {
-      method: "POST",
-      body: JSON.stringify({
-        amount: inv.amount,
-        invoiceId: inv.id,
-      }),
-    });
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        body: JSON.stringify({
+          amount: inv.amount,
+          invoiceId: inv.id,
+        }),
+      });
 
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch (err) {
+      console.error("Payment initiation failed:", err);
+    }
   }
 
   if (loading) {
@@ -114,7 +128,6 @@ export default function ClientDashboard() {
                 </AnimatePresence>
               </div>
 
-              {/* Progress Indicators */}
               <div className="flex gap-2">
                 {insights.map((_, idx) => (
                   <div 
@@ -124,8 +137,6 @@ export default function ClientDashboard() {
                 ))}
               </div>
             </div>
-            
-            {/* Background Decor */}
             <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-[#a9b897] blur-[120px] opacity-20 pointer-events-none" />
           </section>
         )}

@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
 export default function SetPassword() {
-  const supabase = createClient(); // Initialize client
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -16,6 +15,8 @@ export default function SetPassword() {
     }
 
     setLoading(true);
+
+    const supabase = await createClient(); // Initialize client
 
     // This updates the user's password in the Supabase Auth system
     const { error } = await supabase.auth.updateUser({

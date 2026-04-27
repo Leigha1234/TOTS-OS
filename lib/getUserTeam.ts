@@ -1,21 +1,35 @@
 import { createClient } from "./supabase";
 
 export async function getUserTeam() {
-  const supabase = createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const supabase = await createClient();
 
-  if (authError || !user) return null;
+  // ✅ Always safely extract user
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
+  if (authError) {
+    console.error("AUTH ERROR:", authError.message);
+    return null;
+  }
+
+  if (!user) {
+    console.warn("No authenticated user found");
+    return null;
+  }
+
+  // ✅ Query team
   const { data, error } = await supabase
     .from("team_members")
     .select("team_id")
     .eq("user_id", user.id)
-    .maybeSingle(); // Use maybeSingle to avoid 406 errors if empty
+    .maybeSingle();
 
   if (error) {
-    console.error("GET TEAM ERROR:", error);
+    console.error("GET TEAM ERROR:", error.message);
     return null;
   }
 
-  return data?.team_id || null;
+  return data?.team_id ?? null;
 }

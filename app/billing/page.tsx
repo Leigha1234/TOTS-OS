@@ -2,9 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
+import { createBrowserClient } from "@supabase/ssr"; // Use browser client directly
 import { getUserPlan } from "@/lib/getUserPlan";
 import Button from "@/app/components/Button";
+
+// Initialize client outside the component
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function BillingPage() {
   const router = useRouter();
@@ -14,57 +20,43 @@ export default function BillingPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
-    init();
-  }, []);
+    async function init() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
 
-  async function init() {
-    const supabase = createClient();
-    try {
-      const { data } = await supabase.auth.getUser();
+        if (!user) {
+          router.push("/login"); // Redirect to login
+          return;
+        }
 
-      if (!data.user) {
-        router.push("/");
-        return;
+        setUser(user);
+        const p = await getUserPlan();
+        setPlan(p || "free");
+      } catch (err) {
+        console.error("Initialization failed:", err);
+      } finally {
+        setLoading(false);
       }
-
-      setUser(data.user);
-      const p = await getUserPlan();
-      setPlan(p || "free");
-    } catch (err) {
-      console.error("Initialization failed:", err);
-    } finally {
-      setLoading(false);
     }
-  }
+
+    init();
+  }, [router]);
 
   async function upgrade() {
     setCheckoutLoading(true);
-
     try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-      });
-
+      const res = await fetch("/api/stripe/checkout", { method: "POST" });
       const data = await res.json();
-
       if (!data.url) throw new Error("No checkout URL");
-
-      // Redirect to Stripe Checkout
       window.location.href = data.url;
     } catch (err) {
-      console.error("Stripe redirection failed:", err);
-      alert("Stripe checkout failed to load. Please try again.");
+      console.error("Stripe failed:", err);
+      alert("Stripe checkout failed. Please try again.");
       setCheckoutLoading(false);
     }
   }
 
-  if (loading) {
-    return (
-      <div className="p-6 max-w-xl mx-auto text-gray-500">
-        Loading billing details...
-      </div>
-    );
-  }
+  if (loading) return <div className="p-6 text-gray-500">Loading billing details...</div>;
 
   return (
     <div className="p-6 max-w-xl mx-auto space-y-6">
@@ -81,31 +73,20 @@ export default function BillingPage() {
 
       <div className="border border-gray-200 p-6 rounded-xl space-y-4 shadow-sm">
         <h2 className="text-xl font-semibold">Pro Plan</h2>
-
-        <p className="text-gray-500">
-          £19/month — Full system unlocked
-        </p>
-
+        <p className="text-gray-500">£19/month — Full system unlocked</p>
         <ul className="text-sm space-y-2">
-          <li className="flex items-center gap-2">✅ Unlimited CRM</li>
-          <li className="flex items-center gap-2">✅ Projects + Tasks</li>
-          <li className="flex items-center gap-2">✅ Team system</li>
-          <li className="flex items-center gap-2">✅ Notifications</li>
+          <li>✅ Unlimited CRM</li>
+          <li>✅ Projects + Tasks</li>
+          <li>✅ Team system</li>
+          <li>✅ Notifications</li>
         </ul>
-
-        <div className="pt-4">
-          <Button 
-            onClick={upgrade} 
-            disabled={checkoutLoading || plan === "pro"}
-            className="w-full"
-          >
-            {plan === "pro"
-              ? "Already Pro"
-              : checkoutLoading
-              ? "Redirecting to Stripe..."
-              : "Upgrade 🚀"}
-          </Button>
-        </div>
+        <Button 
+          onClick={upgrade} 
+          disabled={checkoutLoading || plan === "pro"}
+          className="w-full"
+        >
+          {plan === "pro" ? "Already Pro" : checkoutLoading ? "Redirecting..." : "Upgrade 🚀"}
+        </Button>
       </div>
     </div>
   );

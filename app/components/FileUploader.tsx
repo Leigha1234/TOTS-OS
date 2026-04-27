@@ -13,7 +13,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
   const [uploading, setUploading] = useState(false);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const supabase = createClient();
+    const supabase = await createClient();
     try {
       if (!e.target.files || e.target.files.length === 0) return;
       

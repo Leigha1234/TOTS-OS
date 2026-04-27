@@ -10,47 +10,51 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const supabase = createClient();
+    const init = async () => {
+      const supabase = await createClient();
 
-    // 1. If we are on the login page, no need to guard
-    if (pathname === "/login") {
-      setLoading(false);
-      return;
-    }
-
-    let mounted = true;
-
-    const initAuth = async () => {
-      // 2. Initial check for existing session
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session && mounted) {
+      // 1. If we are on the login page, no need to guard
+      if (pathname === "/login") {
         setLoading(false);
-      } else if (!session && mounted) {
-        router.push("/login");
+        return;
       }
-    };
 
-    // 3. Listen for auth changes (Magic links, sign-outs, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
+      let mounted = true;
 
-      if (session) {
-        setLoading(false);
-      } else if (event === "SIGNED_OUT" || (event === "INITIAL_SESSION" && !session)) {
-        // Only redirect if we aren't already going to login
-        if (pathname !== "/login") {
+      const initAuth = async () => {
+        // 2. Initial check for existing session
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session && mounted) {
+          setLoading(false);
+        } else if (!session && mounted) {
           router.push("/login");
         }
-      }
-    });
+      };
 
-    initAuth();
+      // 3. Listen for auth changes (Magic links, sign-outs, etc.)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!mounted) return;
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
+        if (session) {
+          setLoading(false);
+        } else if (event === "SIGNED_OUT" || (event === "INITIAL_SESSION" && !session)) {
+          // Only redirect if we aren't already going to login
+          if (pathname !== "/login") {
+            router.push("/login");
+          }
+        }
+      });
+
+      initAuth();
+
+      return () => {
+        mounted = false;
+        subscription.unsubscribe();
+      };
     };
+
+    init();
   }, [pathname, router]);
 
   // Loading state (Splash screen)

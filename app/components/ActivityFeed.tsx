@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase";
+import { useEffect, useState } from "react";
+import { createBrowserClient } from "@supabase/ssr";
+
+// Initialize the client ONCE outside the component
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function ActivityFeed() {
-  // Initialize the client once for this component instance
-  const supabase = useMemo(() => createClient(), []);
-  
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -14,12 +17,13 @@ export default function ActivityFeed() {
     // Initial data fetch
     async function load() {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("activity_logs")
           .select("*")
           .order("created_at", { ascending: false })
           .limit(10);
 
+        if (error) throw error;
         setLogs(data || []);
       } catch (error) {
         console.error("Failed to load activity feed:", error);
@@ -30,15 +34,13 @@ export default function ActivityFeed() {
 
     load();
 
-    // Subscribe to REALTIME changes in the activity_logs table
+    // Subscribe to REALTIME changes
     const channel = supabase
       .channel("activity-feed")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "activity_logs" },
         (payload) => {
-          // Optimization: Manually add the new log to the top of the list 
-          // instead of refetching everything from the DB
           setLogs((prev) => [payload.new, ...prev].slice(0, 10));
         }
       )
@@ -47,13 +49,12 @@ export default function ActivityFeed() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, []); // Empty dependency array is fine now because 'supabase' is defined outside
 
   return (
     <div className="border border-white/10 rounded-xl p-5 bg-white/5">
       <h2 className="font-semibold mb-4 flex items-center gap-2">
         Activity
-        {/* Small live indicator */}
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
           <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>

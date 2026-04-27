@@ -21,7 +21,7 @@ export default function Footer() {
   }, []);
 
   async function load() {
-    const supabase = createClient();
+    const supabase = await createClient();
     try {
       // ✅ FIX: getSession is less aggressive than getUser and avoids lock collisions
       const { data: { session } } = await supabase.auth.getSession();

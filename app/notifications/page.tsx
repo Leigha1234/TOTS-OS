@@ -23,7 +23,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -38,32 +38,43 @@ export default function NotificationsPage() {
   }, []);
 
   useEffect(() => {
-    const supabase = createClient();
-    fetchNotifications();
-    
-    // Real-time subscription for instant alerts
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'notifications' }, 
-        () => fetchNotifications()
-      )
-      .subscribe();
+    let supabase: any;
+    const setup = async () => {
+      supabase = await createClient();
+      await fetchNotifications();
 
-    return () => { supabase.removeChannel(channel); };
+      // Real-time subscription for instant alerts
+      const channel = supabase
+        .channel('schema-db-changes')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'notifications' },
+          () => fetchNotifications()
+        )
+        .subscribe();
+
+      return channel;
+    };
+
+    let channelPromise = setup();
+
+    return () => {
+      channelPromise.then(channel => {
+        if (channel) supabase.removeChannel(channel);
+      });
+    };
   }, [fetchNotifications]);
 
   const markAsRead = async (id: string) => {
-    const supabase = createClient();
+    const supabase = await createClient();
     await supabase.from("notifications").update({ read: true }).eq("id", id);
     setItems(prev => prev.map(i => i.id === id ? { ...i, read: true } : i));
   };
 
   const clearAll = async () => {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    
+
     await supabase.from("notifications").delete().eq("user_id", user.id);
     setItems([]);
     toast.success("Notification Ledger Cleared");

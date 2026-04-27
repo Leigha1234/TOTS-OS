@@ -11,20 +11,20 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Initialize the client locally for the error report
-    const supabase = createClient();
-
-    // 🕵️‍♂️ THE SNITCH LOGIC
     const reportBug = async () => {
+      // Initialize the client locally for the error report
+      const supabase = await createClient();
+
+      // 🕵️‍♂️ THE SNITCH LOGIC
       await supabase.functions.invoke('report-bug', {
-        body: { 
+        body: {
           errorDetails: error.message,
           location: window.location.href,
           userEmail: "active_user_session" // You can pull this from your Auth context
         }
       });
     };
-    
+
     reportBug();
     console.error(error);
   }, [error]);

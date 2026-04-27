@@ -1,9 +1,7 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  // This silences the "Turbopack vs Webpack" error
-  turbopack: {}, 
-
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Webpack fallbacks to prevent "Module not found" errors
+  // for server-side modules being used in client-side code
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

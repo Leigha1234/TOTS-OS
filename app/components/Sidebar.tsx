@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabase-client"; 
+import { createClient } from "@/lib/supabase"; 
 import { LayoutDashboard, Users, CheckSquare, Briefcase, Settings, Menu } from "lucide-react";
 
 export default function Sidebar() {
@@ -12,7 +12,11 @@ export default function Sidebar() {
 
   useEffect(() => {
     // Non-blocking auth check
-    supabase.auth.getUser().catch(console.error);
+    const fetchUser = async () => {
+      const supabase = await createClient();
+      supabase.auth.getUser().catch(console.error);
+    };
+    fetchUser();
   }, []);
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Import the synchronous client
 import { User, Plus, Building2, ArrowRight, Search } from "lucide-react";
 import Link from "next/link";
 
@@ -11,15 +11,13 @@ export default function CRMDirectory() {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    const supabase = createClient();
-    
     // Initial fetch
-    fetchDirectory(supabase);
+    fetchDirectory();
 
     // Real-time listener
     const channel = supabase
       .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchDirectory(supabase))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchDirectory())
       .subscribe();
 
     return () => { 
@@ -27,7 +25,7 @@ export default function CRMDirectory() {
     };
   }, []);
 
-  async function fetchDirectory(supabase: any) {
+  async function fetchDirectory() {
     const { data } = await supabase
       .from("customers")
       .select("*")

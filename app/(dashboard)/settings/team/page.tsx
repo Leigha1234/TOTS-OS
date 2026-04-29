@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Import sync client
 import { 
   Globe, Mail, Upload, Phone, Share2, 
   Check, Loader2
@@ -34,7 +34,6 @@ export default function SettingsPage() {
   useEffect(() => { init(); }, []);
 
   async function init() {
-    const supabase = createClient();
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) return;
     setUser(currentUser);
@@ -70,7 +69,6 @@ export default function SettingsPage() {
 
   const saveSettings = async () => {
     setSaving(true);
-    const supabase = createClient();
     const { error } = await supabase.from("settings").upsert({
       team_id: teamId,
       logo, 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Import sync client
 import { getUserTeam } from "@/lib/getUserTeam";
 import { getUserPlan } from "@/lib/getUserPlan";
 import { getUserRole, canCreate } from "@/lib/permissions";
@@ -12,9 +12,7 @@ import {
   GripVertical, 
   Calendar, 
   User as UserIcon, 
-  AlertCircle, 
   Lock,
-  ArrowRight,
   Filter
 } from "lucide-react";
 
@@ -37,7 +35,7 @@ export default function ProjectPage() {
   const [newTask, setNewTask] = useState("");
   const [dragged, setDragged] = useState<any>(null);
 
-  const loadTasks = useCallback(async (supabase: any, team: string) => {
+  const loadTasks = useCallback(async (team: string) => {
     const { data } = await supabase
       .from("tasks")
       .select("*")
@@ -47,7 +45,6 @@ export default function ProjectPage() {
   }, [id]);
 
   useEffect(() => {
-    const supabase = createClient();
     async function init() {
       const [team, p, r] = await Promise.all([
         getUserTeam(),
@@ -67,12 +64,12 @@ export default function ProjectPage() {
         .eq("team_id", team);
 
       setUsers(profiles || []);
-      loadTasks(supabase, team);
+      loadTasks(team);
 
       const channel = supabase
         .channel(`project-${id}`)
         .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${id}` }, 
-        () => loadTasks(supabase, team))
+        () => loadTasks(team))
         .subscribe();
 
       return () => { supabase.removeChannel(channel); };
@@ -85,7 +82,6 @@ export default function ProjectPage() {
     if (!canCreate(role)) return alert("Access Denied: Insufficient Permissions");
     if (!newTask || !teamId) return;
 
-    const supabase = createClient();
     await supabase.from("tasks").insert({
       title: newTask,
       project_id: id,
@@ -95,11 +91,10 @@ export default function ProjectPage() {
     });
 
     setNewTask("");
-    loadTasks(supabase, teamId);
+    loadTasks(teamId);
   }
 
   async function updateTask(taskId: string, updates: any) {
-    const supabase = createClient();
     await supabase.from("tasks").update(updates).eq("id", taskId);
   }
 

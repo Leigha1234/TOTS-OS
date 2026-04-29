@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
-import { createClient } from "@/lib/supabase";
-import { useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase-client"; // Import sync client
 import { 
   Trash2, Zap, Circle, BookOpen, X, ChevronLeft, ChevronRight, Target, Play, Search 
 } from "lucide-react";
@@ -107,7 +106,7 @@ function NotesContent() {
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const channelRef = useRef<any>(null);
 
-  const fetchPulse = useCallback(async (supabase: any, userId: string) => {
+  const fetchPulse = useCallback(async (userId: string) => {
     const [{ data: cust }, { data: nts }, { data: tsk }, { data: mem }] = await Promise.all([
       supabase.from("customers").select("*").eq("user_id", userId),
       supabase.from("notes").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
@@ -121,19 +120,17 @@ function NotesContent() {
   }, []);
 
   useEffect(() => {
-    const supabase = createClient();
     const init = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
       setUser(authUser);
-      await fetchPulse(supabase, authUser.id);
+      await fetchPulse(authUser.id);
 
       if (channelRef.current) supabase.removeChannel(channelRef.current);
 
-      const channelId = `ledger-${Math.random().toString(36).slice(2, 9)}`;
-      const channel = supabase.channel(channelId)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(supabase, authUser.id))
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(supabase, authUser.id))
+      const channel = supabase.channel("ledger-channel")
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(authUser.id))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(authUser.id))
         .subscribe();
 
       channelRef.current = channel;
@@ -153,7 +150,6 @@ function NotesContent() {
 
   async function addNote() {
     if (!newNote.trim() || !user || !teamId) return;
-    const supabase = createClient();
     const intent = detectIntent(newNote);
     const amountMatch = newNote.match(/£?(\d+(\.\d{2})?)/);
     const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
@@ -184,12 +180,10 @@ function NotesContent() {
   }
 
   const deleteNote = async (id: string) => {
-    const supabase = createClient();
     await supabase.from("notes").delete().eq("id", id);
   }
 
   const completeTask = async (id: string) => {
-    const supabase = createClient();
     await supabase.from("tasks").update({ status: 'done' }).eq("id", id);
   }
 

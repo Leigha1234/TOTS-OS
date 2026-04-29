@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Use sync client
 import Button from "@/app/components/Button";
 import Card from "@/app/components/Card";
 import { 
@@ -42,7 +42,6 @@ export default function WeeklyTimesheetPage() {
   useEffect(() => { init(); }, [currentDate]);
 
   async function init() {
-    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
@@ -87,9 +86,8 @@ export default function WeeklyTimesheetPage() {
   }, [rows]);
 
   const saveWeeklyBatch = async () => {
-    if (totalHours === 0) return;
+    if (totalHours === 0 || !userId) return;
     setIsSaving(true);
-    const supabase = createClient();
     
     const entries = rows.flatMap(row => {
       if (!row.project_id) return [];

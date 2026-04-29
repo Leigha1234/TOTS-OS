@@ -1,7 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Webpack fallbacks to prevent "Module not found" errors
-  // for server-side modules being used in client-side code
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -13,6 +11,16 @@ const nextConfig = {
       };
     }
     return config;
+  },
+
+  // Add this to proxy API requests and stop CORS errors
+  async rewrites() {
+    return [
+      {
+        source: '/api/supabase/:path*',
+        destination: 'https://onytzlfsegmcngchsnnl.supabase.co/rest/v1/:path*',
+      },
+    ];
   },
 };
 

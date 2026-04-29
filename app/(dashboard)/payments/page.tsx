@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Use sync client
 import { 
   Plus, FileText, X, Landmark, Trash2, 
   ShieldAlert, DownloadCloud, ChevronRight, 
@@ -28,7 +28,6 @@ const CURRENCIES = [
 ];
 
 export default function FinancePage() {
-  const supabase = createClient();
   const [teamId, setTeamId] = useState<string | null>(null);
   const [brand, setBrand] = useState<any>(null);
   const [docs, setDocs] = useState<any[]>([]);
@@ -103,20 +102,10 @@ export default function FinancePage() {
     }
   };
 
-  const downloadPDF = async () => {
-    const element = printRef.current;
-    if (!element) return;
-    const canvas = await html2canvas(element, { scale: 2 });
-    const pdf = new jsPDF("p", "mm", "a4");
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 210, (canvas.height * 210) / canvas.width);
-    pdf.save(`${type}_${selectedDoc.entity_name}.pdf`);
-  };
-
   return (
     <Page title="Treasury">
       <div className="min-h-screen bg-[#ecebe6] p-6 md:p-16">
         
-        {/* UPPER DASHBOARD */}
         <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row justify-between items-start gap-12 mb-16">
           <div className="space-y-6">
             <p className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400 flex items-center gap-3">
@@ -147,7 +136,6 @@ export default function FinancePage() {
           </div>
         </div>
 
-        {/* SEARCH & DOC SELECTOR */}
         <div className="max-w-[1400px] mx-auto mb-10 space-y-6">
           <div className="relative">
             <Search className="absolute left-8 top-1/2 -translate-y-1/2 text-stone-300" size={24} />
@@ -173,7 +161,6 @@ export default function FinancePage() {
           </div>
         </div>
 
-        {/* LEDGER FEED */}
         <div className="max-w-[1400px] mx-auto space-y-4">
           <AnimatePresence mode="popLayout">
             {loading ? (

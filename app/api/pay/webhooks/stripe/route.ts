@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
   const body = await req.text();
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // 1. Await headers (Required in newer Next.js versions)
   const headerPayload = await headers();

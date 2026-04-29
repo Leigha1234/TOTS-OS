@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; 
 import Card from "@/app/components/Card"; 
 import Button from "@/app/components/Button";
 import { 
@@ -41,8 +41,6 @@ export default function CampaignsPage() {
     scheduled_for: "",
     content: ""
   });
-
-  const supabase = createClient();
 
   useEffect(() => { init(); }, []);
 

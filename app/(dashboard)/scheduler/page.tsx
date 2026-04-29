@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Import sync client
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Calendar as CalendarIcon, 
@@ -41,7 +41,6 @@ export default function Scheduler() {
 
   const fetchScheduledPosts = async () => {
     setLoading(true);
-    const supabase = createClient();
     const { data, error } = await supabase
       .from("social_posts")
       .select("*")
@@ -73,7 +72,6 @@ export default function Scheduler() {
   };
 
   const deletePost = async (id: string) => {
-    const supabase = createClient();
     const { error } = await supabase.from("social_posts").delete().eq("id", id);
     if (!error) setPosts(posts.filter(p => p.id !== id));
   };

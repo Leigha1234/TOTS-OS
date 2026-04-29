@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Use sync client
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Zap, 
@@ -52,7 +52,6 @@ export default function SocialLab() {
   }, []);
 
   const fetchWeeklyCount = async () => {
-    const supabase = createClient();
     try {
       const now = new Date();
       const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay())).toISOString();
@@ -96,7 +95,6 @@ export default function SocialLab() {
   };
 
   const schedulePost = async (index: number) => {
-    const supabase = createClient();
     const post = drafts[index];
     if (!post.scheduled_for) return alert("Please select a date.");
 

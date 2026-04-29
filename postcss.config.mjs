@@ -1,5 +1,5 @@
 export default {
   plugins: {
-    '@tailwindcss/postcss': {},
+    '@tailwindcss/postcss': {}, // This matches the module causing the error
   },
-};
+}

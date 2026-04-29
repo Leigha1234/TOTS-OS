@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Import sync client
 import { getUserTeam } from "@/lib/getUserTeam";
 import { getUserRole, canCreate } from "@/lib/permissions";
 import Button from "@/app/components/Button";
@@ -28,7 +28,7 @@ export default function ProjectsPage() {
     customer_id: "",
   });
 
-  const loadData = useCallback(async (supabase: any, team: string) => {
+  const loadData = useCallback(async (team: string) => {
     const { data } = await supabase
       .from("projects")
       .select("*, customers(name)")
@@ -40,7 +40,6 @@ export default function ProjectsPage() {
   }, []);
 
   useEffect(() => {
-    const supabase = createClient();
     async function init() {
       const team = await getUserTeam();
       const r = await getUserRole();
@@ -56,7 +55,7 @@ export default function ProjectsPage() {
         .eq("team_id", team);
 
       setCustomers(c || []);
-      loadData(supabase, team);
+      loadData(team);
     }
     init();
   }, [loadData]);
@@ -77,7 +76,6 @@ export default function ProjectsPage() {
     if (!canCreate(role)) return alert("Permission Denied: Administrative clearance required.");
     if (!form.name || !form.customer_id || !teamId) return;
 
-    const supabase = createClient();
     const { error } = await supabase.from("projects").insert({
       ...form,
       team_id: teamId,
@@ -92,7 +90,7 @@ export default function ProjectsPage() {
     });
 
     setForm({ name: "", customer_id: "" });
-    loadData(supabase, teamId);
+    loadData(teamId);
   };
 
   if (loading) return (

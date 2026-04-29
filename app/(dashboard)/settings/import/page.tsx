@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Use sync client
 import Papa from "papaparse"; 
 import { 
   UploadCloud, CheckCircle2, Loader2, Database, AlertCircle, Info, ChevronRight
@@ -10,7 +10,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/app/components/Button";
 
 export default function DataImportPage() {
-  const supabase = createClient();
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState("");

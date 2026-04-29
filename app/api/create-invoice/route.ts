@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { teamId, customerId, note } = body;
 

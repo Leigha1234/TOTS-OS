@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Use sync client
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Mic, Trash2, CheckCircle, Zap, Layers } from "lucide-react";
 
@@ -29,13 +29,9 @@ export default function WorkspacePage() {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  useEffect(() => {
-    init();
-    initSpeech();
-  }, []);
+  useEffect(() => { init(); initSpeech(); }, []);
 
   async function init() {
-    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -65,7 +61,6 @@ export default function WorkspacePage() {
   }
 
   async function loadTasks(pId: string) {
-    const supabase = createClient();
     const { data } = await supabase.from("tasks").select("*").eq("project_id", pId).eq("status", "active");
     setTasks((data || []).map((t) => ({
       ...t,
@@ -75,7 +70,6 @@ export default function WorkspacePage() {
   }
 
   async function createPostIt() {
-    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const finalCommand = command.trim();
     if (!finalCommand || !selectedProject || !user) return;
@@ -98,7 +92,6 @@ export default function WorkspacePage() {
   }
 
   const handleAction = async (id: string, dir: 'left' | 'right') => {
-    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
     if (dir === 'right') {

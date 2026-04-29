@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Use sync client
 import { motion } from "framer-motion";
 import { 
   Globe, 
@@ -19,7 +19,6 @@ export default function ReportsPage() {
 
   useEffect(() => {
     async function init() {
-      const supabase = createClient();
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;

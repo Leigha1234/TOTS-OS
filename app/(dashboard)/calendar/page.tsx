@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase"; // Import the factory
+import { supabase } from "@/lib/supabase-client"; // Import sync client
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
   Clock, Zap, Plus, Landmark 
@@ -29,17 +29,16 @@ export default function CalendarPage() {
 
   async function fetchEvents() {
     setLoading(true);
-    // Initialize the client here
-    const supabase = createClient();
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+      // Use the synchronous supabase client
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
       const { data, error } = await supabase
         .from("tasks")
         .select("*, customers(name)")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .order("priority", { ascending: false });
 
       if (!error) setTasks(data || []);

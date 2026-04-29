@@ -10,7 +10,7 @@ export async function GET(
   request: Request,
   context: RouteContext
 ) {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // This is the 'await' part—we wait for the ID to be ready
   const { id } = await context.params;

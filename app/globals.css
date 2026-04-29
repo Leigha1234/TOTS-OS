@@ -1,8 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* 1. NEW TAILWIND V4 IMPORT */
 @import "tailwindcss";
 
+/* 2. EXTERNAL UI LIBRARIES */
 @import "react-grid-layout/css/styles.css";
 @import "react-resizable/css/styles.css";
 

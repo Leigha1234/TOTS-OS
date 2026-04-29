@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Use your sync client
 import { 
   User, Building2, Mail, ArrowLeft, ShieldCheck, 
-  AlertCircle, Edit3, Trash2, X, Check, Save 
+  AlertCircle, Edit3, Trash2, X, Check 
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,6 @@ import { useRouter } from "next/navigation";
 export default function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
-  const supabase = createClient();
   
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +27,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   }, [resolvedParams.id]);
 
   async function fetchProfile() {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("customers")
@@ -82,15 +82,15 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   };
 
   if (loading) return (
-    <div className="h-screen bg-[var(--bg)] flex flex-col items-center justify-center">
+    <div className="h-screen bg-[#faf9f6] flex flex-col items-center justify-center">
       <div className="w-12 h-12 border-4 border-[#a9b897] border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
 
   if (debugError || !customer) return (
-    <div className="h-screen bg-[var(--bg)] flex flex-col items-center justify-center p-6 text-center">
+    <div className="h-screen bg-[#faf9f6] flex flex-col items-center justify-center p-6 text-center">
       <AlertCircle className="text-red-500 mb-4" size={48} />
-      <p className="font-serif italic text-[var(--text-muted)] text-xl">Record Access Denied</p>
+      <p className="font-serif italic text-stone-500 text-xl">Record Access Denied</p>
       <Link href="/crm" className="mt-6 text-[#a9b897] uppercase text-[10px] tracking-widest font-black hover:opacity-70 transition-opacity">
         ← Back to Directory
       </Link>
@@ -98,12 +98,10 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   );
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] p-8 md:p-16 transition-colors duration-500">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 md:p-16">
       <div className="max-w-5xl mx-auto space-y-12">
-        
-        {/* TOP BAR / ACTIONS */}
         <div className="flex justify-between items-center">
-          <Link href="/crm" className="flex items-center gap-2 text-[var(--text-muted)] hover:text-[#a9b897] group w-fit transition-colors">
+          <Link href="/crm" className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] group w-fit transition-colors">
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             <span className="text-[10px] font-black uppercase tracking-[0.4em]">Directory Access</span>
           </Link>
@@ -111,7 +109,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
           <div className="flex gap-3">
             {!isEditing ? (
               <>
-                <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-6 py-3 bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl text-[9px] font-black uppercase tracking-widest hover:border-[#a9b897] transition-all">
+                <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-6 py-3 bg-white border border-stone-200 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:border-[#a9b897] transition-all">
                   <Edit3 size={14} /> Edit Node
                 </button>
                 <button onClick={handleDelete} className="flex items-center gap-2 px-6 py-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
@@ -120,7 +118,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
               </>
             ) : (
               <>
-                <button onClick={() => setIsEditing(false)} className="flex items-center gap-2 px-6 py-3 bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl text-[9px] font-black uppercase tracking-widest">
+                <button onClick={() => setIsEditing(false)} className="flex items-center gap-2 px-6 py-3 bg-white border border-stone-200 rounded-2xl text-[9px] font-black uppercase tracking-widest">
                   <X size={14} /> Cancel
                 </button>
                 <button onClick={handleUpdate} disabled={isSaving} className="flex items-center gap-2 px-8 py-3 bg-[#a9b897] text-stone-900 rounded-2xl text-[9px] font-black uppercase tracking-widest">
@@ -131,10 +129,9 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
           </div>
         </div>
 
-        {/* PROFILE HEADER */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-[var(--border)] pb-12">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-stone-200 pb-12">
           <div className="space-y-4 flex-1">
-            <div className="p-4 bg-[var(--bg-soft)] w-fit rounded-3xl text-[#a9b897] shadow-sm border border-[var(--border)]">
+            <div className="p-4 bg-white w-fit rounded-3xl text-[#a9b897] shadow-sm border border-stone-100">
               <User size={32} />
             </div>
             
@@ -148,14 +145,14 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
               <h1 className="text-6xl font-serif italic tracking-tighter uppercase">{customer.name}</h1>
             )}
 
-            <div className="flex flex-wrap items-center gap-8 text-[var(--text-muted)] italic font-serif text-xl">
+            <div className="flex flex-wrap items-center gap-8 text-stone-400 italic font-serif text-xl">
                 <div className="flex items-center gap-3">
                   <Building2 size={18} className="text-[#a9b897]" />
                   {isEditing ? (
                     <input 
                       value={editForm.company} 
                       onChange={(e) => setEditForm({...editForm, company: e.target.value})}
-                      className="bg-transparent border-b border-[var(--border)] outline-none text-lg"
+                      className="bg-transparent border-b border-stone-200 outline-none text-lg"
                     />
                   ) : (
                     <span>{customer.company || "Independent Record"}</span>
@@ -167,7 +164,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                     <input 
                       value={editForm.email} 
                       onChange={(e) => setEditForm({...editForm, email: e.target.value})}
-                      className="bg-transparent border-b border-[var(--border)] outline-none text-lg"
+                      className="bg-transparent border-b border-stone-200 outline-none text-lg"
                     />
                   ) : (
                     <span>{customer.email}</span>
@@ -176,9 +173,9 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
             </div>
           </div>
 
-          <div className="glass-panel p-8 px-10 flex items-center gap-6 shadow-sm border-l-4 border-l-[#a9b897]">
+          <div className="p-8 px-10 flex items-center gap-6 shadow-sm border-l-4 border-l-[#a9b897] bg-white">
             <div>
-                <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-[0.3em]">Neural Status</p>
+                <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.3em]">Neural Status</p>
                 {isEditing ? (
                   <select 
                     value={editForm.stage}
@@ -197,24 +194,19 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
           </div>
         </div>
 
-        {/* INTELLIGENCE GRID */}
         <div className="grid md:grid-cols-2 gap-10">
-            <div className="card-fancy p-10 space-y-6 bg-[var(--card-bg)] rounded-[3rem] border border-[var(--border)]">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)] border-b border-[var(--border)] pb-4">
+            <div className="p-10 space-y-6 bg-white rounded-[3rem] border border-stone-100 shadow-sm">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 border-b border-stone-100 pb-4">
                   Intelligence Profile
                 </h3>
                 <div className="space-y-8">
                     <div className="group">
-                        <label className="text-[9px] text-[var(--text-muted)] uppercase block mb-1 tracking-[0.2em] font-black group-hover:text-[#a9b897]">
-                          Record Hash
-                        </label>
+                        <label className="text-[9px] text-stone-400 uppercase block mb-1 tracking-[0.2em] font-black">Record Hash</label>
                         <p className="font-mono text-[10px] opacity-40 truncate">{customer.id}</p>
                     </div>
                     
                     <div className="group">
-                        <label className="text-[9px] text-[var(--text-muted)] uppercase block mb-1 tracking-[0.2em] font-black group-hover:text-[#a9b897]">
-                          Creation Date
-                        </label>
+                        <label className="text-[9px] text-stone-400 uppercase block mb-1 tracking-[0.2em] font-black">Creation Date</label>
                         <p className="font-serif italic text-2xl">
                           {new Date(customer.created_at).toLocaleDateString(undefined, { dateStyle: 'long' })}
                         </p>
@@ -222,7 +214,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                 </div>
             </div>
 
-            <div className="p-10 rounded-[3rem] border border-dashed border-[var(--border)] flex flex-col justify-center items-center text-center space-y-4 opacity-60">
+            <div className="p-10 rounded-[3rem] border border-dashed border-stone-200 flex flex-col justify-center items-center text-center space-y-4 opacity-60">
                <ShieldCheck size={32} className="text-[#a9b897]" />
                <p className="font-serif italic text-stone-500 leading-relaxed text-sm">
                  Encrypted record. Changes to this node are logged in the system activity audit trail.

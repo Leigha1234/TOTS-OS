@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-client"; // Use sync client
 import { 
   Settings, Sparkles, Globe, ShieldCheck, 
   Save, Moon, Sun, Fingerprint, Activity,
@@ -38,7 +38,6 @@ export default function SettingsPage() {
   useEffect(() => { init(); }, []);
 
   async function init() {
-    const supabase = createClient();
     try {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user) return;
@@ -70,7 +69,6 @@ export default function SettingsPage() {
 
   const saveSettings = async () => {
     setSaving(true);
-    const supabase = createClient();
     const { error } = await supabase.from("settings").upsert({
       team_id: teamId,
       handles, 

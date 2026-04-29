@@ -4,33 +4,25 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase"; 
-import { LayoutDashboard, Users, CheckSquare, Briefcase, Settings, Menu } from "lucide-react";
+import { 
+  LayoutDashboard, Users, CheckSquare, Briefcase, 
+  Settings, Menu, User // 1. Import User icon
+} from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
-  useEffect(() => {
-    // Non-blocking auth check
-    const fetchUser = async () => {
-      const supabase = await createClient();
-      supabase.auth.getUser().catch(console.error);
-    };
-    fetchUser();
-  }, []);
+  // ... rest of your useEffect ...
 
   return (
     <aside className={`h-screen bg-stone-50 border-r border-stone-200 transition-all duration-300 flex flex-col ${collapsed ? "w-20" : "w-64"}`}>
-      <div className="flex items-center justify-between p-6 h-20">
-        {!collapsed && <h1 className="font-black italic uppercase tracking-widest text-sm">TOTS OS</h1>}
-        <button onClick={() => setCollapsed(!collapsed)} className="p-2 hover:bg-stone-200 rounded-lg">
-          <Menu size={18} />
-        </button>
-      </div>
+      {/* ... header code ... */}
 
       <nav className="flex-1 space-y-1.5 px-4 overflow-y-auto">
         {[
           { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+          { href: "/profile", label: "Profile", icon: User }, // 2. Add Profile Link
           { href: "/crm", label: "Contacts", icon: Users },
           { href: "/tasks", label: "Tasks", icon: CheckSquare },
           { href: "/projects", label: "Projects", icon: Briefcase },

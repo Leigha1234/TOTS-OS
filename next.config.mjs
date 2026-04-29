@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // This allows Turbopack to exist alongside your custom Webpack config
+  turbopack: {},
+
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -13,7 +16,7 @@ const nextConfig = {
     return config;
   },
 
-  // Add this to proxy API requests and stop CORS errors
+  // Proxy API requests to stop CORS errors
   async rewrites() {
     return [
       {

@@ -9,22 +9,47 @@ import {
   Settings, Menu, User 
 } from "lucide-react";
 
+// 1. Define tier-based module visibility
+const MODULE_PERMISSIONS: Record<string, string[]> = {
+  STANDARD: ["Home", "Profile", "Contacts", "Tasks"],
+  PREMIUM: ["Home", "Profile", "Contacts", "Tasks", "Projects"],
+  ELITE: ["Home", "Profile", "Contacts", "Tasks", "Projects", "Settings"],
+};
+
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [userTier, setUserTier] = useState("STANDARD");
 
   useEffect(() => {
-    // Non-blocking auth check
-    const fetchUser = async () => {
+    const fetchUserData = async () => {
       const supabase = await createClient();
-      supabase.auth.getUser().catch(console.error);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const { data } = await supabase.from("profiles").select("tier").eq("id", user.id).single();
+        if (data) setUserTier(data.tier.toUpperCase());
+      }
     };
-    fetchUser();
+    fetchUserData();
   }, []);
+
+  const allLinks = [
+    { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+    { href: "/profile", label: "Profile", icon: User },
+    { href: "/crm", label: "Contacts", icon: Users },
+    { href: "/tasks", label: "Tasks", icon: CheckSquare },
+    { href: "/projects", label: "Projects", icon: Briefcase },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  // 2. Filter links based on current user tier
+  const visibleLinks = allLinks.filter(link => 
+    MODULE_PERMISSIONS[userTier]?.includes(link.label)
+  );
 
   return (
     <aside className={`h-screen bg-stone-50 border-r border-stone-200 transition-all duration-300 flex flex-col ${collapsed ? "w-20" : "w-64"}`}>
-      {/* Header */}
       <div className="flex items-center justify-between p-6 h-20">
         {!collapsed && (
           <h1 className="font-black italic uppercase tracking-widest text-sm">
@@ -39,16 +64,8 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 space-y-1.5 px-4 overflow-y-auto">
-        {[
-          { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-          { href: "/profile", label: "Profile", icon: User },
-          { href: "/crm", label: "Contacts", icon: Users },
-          { href: "/tasks", label: "Tasks", icon: CheckSquare },
-          { href: "/projects", label: "Projects", icon: Briefcase },
-          { href: "/settings", label: "Settings", icon: Settings },
-        ].map((item) => (
+        {visibleLinks.map((item) => (
           <Link 
             key={item.href} 
             href={item.href}
@@ -68,11 +85,10 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer / User Status (Optional) */}
       <div className="p-6 border-t border-stone-200">
         {!collapsed && (
           <p className="text-[9px] uppercase tracking-widest text-stone-400 font-bold">
-            System Online
+            {userTier} NODE ONLINE
           </p>
         )}
       </div>

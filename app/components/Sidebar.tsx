@@ -9,7 +9,7 @@ import {
   Calendar, Megaphone, StickyNote, DollarSign, BarChart3, Share2, Globe, Clock, Lock
 } from "lucide-react";
 
-// 1. Expanded permission groups
+// 1. Define tier-based module visibility
 const MODULE_PERMISSIONS: Record<string, string[]> = {
   STANDARD: ["Dashboard", "Profile", "Contacts", "Tasks", "Notes", "Calendar"],
   PREMIUM: ["Dashboard", "Profile", "Contacts", "Tasks", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets"],
@@ -51,6 +51,7 @@ export default function Sidebar() {
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
+  // 2. Filter links based on current user tier
   const visibleLinks = allLinks.filter(link => 
     MODULE_PERMISSIONS[userTier]?.includes(link.label)
   );
@@ -59,7 +60,9 @@ export default function Sidebar() {
     <aside className={`h-screen bg-stone-50 border-r border-stone-200 transition-all duration-300 flex flex-col overflow-y-auto ${collapsed ? "w-20" : "w-64"}`}>
       <div className="flex items-center justify-between p-6 h-20">
         {!collapsed && <h1 className="font-black italic uppercase tracking-widest text-sm">TOTS OS</h1>}
-        <button onClick={() => setCollapsed(!collapsed)} className="p-2 hover:bg-stone-200 rounded-lg"><Menu size={18} /></button>
+        <button onClick={() => setCollapsed(!collapsed)} className="p-2 hover:bg-stone-200 rounded-lg">
+          <Menu size={18} />
+        </button>
       </div>
 
       <nav className="flex-1 space-y-1 px-4 mb-6">
@@ -67,16 +70,28 @@ export default function Sidebar() {
           <Link 
             key={item.href} 
             href={item.href}
-            className={`flex items-center gap-4 p-2.5 rounded-lg transition-colors ${pathname === item.href ? "bg-stone-200 text-stone-900" : "text-stone-600 hover:bg-stone-100"}`}
+            className={`flex items-center gap-4 p-2.5 rounded-lg transition-colors ${
+              pathname === item.href 
+                ? "bg-stone-200 text-stone-900" 
+                : "text-stone-600 hover:bg-stone-100"
+            }`}
           >
             <item.icon size={16} />
-            {!collapsed && <span className="font-bold uppercase text-[9px] tracking-wider">{item.label}</span>}
+            {!collapsed && (
+              <span className="font-bold uppercase text-[9px] tracking-wider">
+                {item.label}
+              </span>
+            )}
           </Link>
         ))}
       </nav>
 
       <div className="p-4 border-t border-stone-200">
-        {!collapsed && <p className="text-[8px] uppercase tracking-widest text-stone-400 font-bold text-center">{userTier} NODE</p>}
+        {!collapsed && (
+          <p className="text-[8px] uppercase tracking-widest text-stone-400 font-bold text-center">
+            {userTier} NODE ONLINE
+          </p>
+        )}
       </div>
     </aside>
   );

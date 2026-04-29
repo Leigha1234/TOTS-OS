@@ -6,23 +6,44 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase"; 
 import { 
   LayoutDashboard, Users, CheckSquare, Briefcase, 
-  Settings, Menu, User // 1. Import User icon
+  Settings, Menu, User 
 } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
-  // ... rest of your useEffect ...
+  useEffect(() => {
+    // Non-blocking auth check
+    const fetchUser = async () => {
+      const supabase = await createClient();
+      supabase.auth.getUser().catch(console.error);
+    };
+    fetchUser();
+  }, []);
 
   return (
     <aside className={`h-screen bg-stone-50 border-r border-stone-200 transition-all duration-300 flex flex-col ${collapsed ? "w-20" : "w-64"}`}>
-      {/* ... header code ... */}
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 h-20">
+        {!collapsed && (
+          <h1 className="font-black italic uppercase tracking-widest text-sm">
+            TOTS OS
+          </h1>
+        )}
+        <button 
+          onClick={() => setCollapsed(!collapsed)} 
+          className="p-2 hover:bg-stone-200 rounded-lg transition-colors"
+        >
+          <Menu size={18} />
+        </button>
+      </div>
 
+      {/* Navigation */}
       <nav className="flex-1 space-y-1.5 px-4 overflow-y-auto">
         {[
           { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-          { href: "/profile", label: "Profile", icon: User }, // 2. Add Profile Link
+          { href: "/profile", label: "Profile", icon: User },
           { href: "/crm", label: "Contacts", icon: Users },
           { href: "/tasks", label: "Tasks", icon: CheckSquare },
           { href: "/projects", label: "Projects", icon: Briefcase },
@@ -31,13 +52,30 @@ export default function Sidebar() {
           <Link 
             key={item.href} 
             href={item.href}
-            className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${pathname === item.href ? "bg-stone-200 text-stone-900" : "text-stone-600 hover:bg-stone-100"}`}
+            className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${
+              pathname === item.href 
+                ? "bg-stone-200 text-stone-900" 
+                : "text-stone-600 hover:bg-stone-100"
+            }`}
           >
             <item.icon size={18} />
-            {!collapsed && <span className="font-bold uppercase text-[10px] tracking-wider">{item.label}</span>}
+            {!collapsed && (
+              <span className="font-bold uppercase text-[10px] tracking-wider">
+                {item.label}
+              </span>
+            )}
           </Link>
         ))}
       </nav>
+
+      {/* Footer / User Status (Optional) */}
+      <div className="p-6 border-t border-stone-200">
+        {!collapsed && (
+          <p className="text-[9px] uppercase tracking-widest text-stone-400 font-bold">
+            System Online
+          </p>
+        )}
+      </div>
     </aside>
   );
 }

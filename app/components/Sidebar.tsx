@@ -40,7 +40,7 @@ export default function Sidebar() {
     { href: "/campaigns", label: "Campaigns", icon: Megaphone },
     { href: "/crm", label: "Contacts", icon: Users },
     { href: "/notes", label: "Notes", icon: StickyNote },
-    { href: "/finance", label: "Finance", icon: DollarSign },
+    { href: "/payments", label: "Finance", icon: DollarSign },
     { href: "/projects", label: "Projects", icon: Briefcase },
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/scheduler", label: "Social Scheduler", icon: Share2 },

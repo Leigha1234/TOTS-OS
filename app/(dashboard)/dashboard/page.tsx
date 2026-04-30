@@ -1,176 +1,194 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase-client"; // Use your sync client here
-import AuthGuard from "@/app/components/AuthGuard";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase-client";
+import { getUserTeam } from "@/lib/getUserTeam";
+import { getUserRole } from "@/lib/permissions";
 import { 
-  Terminal, Send, ChevronRight, Activity, Zap, Lock, Loader2, Sparkles 
+  Sparkles, ArrowRight, Briefcase, Activity,
+  Plus, X, Loader2, Zap, Globe,
+  FileText, Share2, Mail, Layers
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function Dashboard() {
-  // Removed "await createClient()"
-  const [todayHours, setTodayHours] = useState(0);
-  const [activeTasks, setActiveTasks] = useState(0);
-  const [currentTier, setCurrentTier] = useState("STANDARD NODE");
-  const [isSyncing, setIsSyncing] = useState(true);
-  
-  // Clarity Chat States
-  const [query, setQuery] = useState("");
-  const [isThinking, setIsThinking] = useState(false);
-  const [chatHistory, setChatHistory] = useState([
-    { role: 'clarity', content: 'Systems online. How can I sharpen your focus today?' }
-  ]);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+export default function DashboardPage() {
+  const router = useRouter();
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadStats() {
-      // supabase is now imported, no await needed for the client
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return setIsSyncing(false);
+  // -- Dashboard Intelligence Metrics --
+  const [stats, setStats] = useState({
+    activeProjects: 0,
+    invoicesDue: 0,
+    socialsPending: 0,
+    emailsScheduled: 0
+  });
 
-      const today = new Date().toISOString().split('T')[0];
-      
-      const [hoursRes, tasksRes, profileRes] = await Promise.all([
-        supabase.from("timesheets").select("hours").eq("user_id", user.id).eq("date", today),
-        supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("user_id", user.id).neq("status", "done"),
-        supabase.from("profiles").select("tier").eq("id", user.id).maybeSingle()
-      ]);
+  const [isScanActive, setIsScanActive] = useState(false);
+  const [insight, setInsight] = useState<string | null>(null);
 
-      setTodayHours(hoursRes.data?.reduce((s, h) => s + h.hours, 0) || 0);
-      setActiveTasks(tasksRes.count || 0);
-      if (profileRes.data?.tier) {
-        setCurrentTier(`${profileRes.data.tier.toUpperCase()} NODE`);
-      }
-      setIsSyncing(false);
+  const loadDashboardData = useCallback(async (team: string) => {
+    try {
+      // Fetching real project count
+      const { count: projectCount, error: pError } = await supabase
+        .from("projects")
+        .select("*", { count: 'exact', head: true })
+        .eq("team_id", team);
+
+      if (pError) throw pError;
+
+      // Note: For a real dashboard, you would fetch these from your 'invoices', 'posts', and 'campaigns' tables.
+      // Mocking the non-existent tables for now to avoid 'table not found' errors.
+      setStats({
+        activeProjects: projectCount || 0,
+        invoicesDue: 2, 
+        socialsPending: 8, 
+        emailsScheduled: 5 
+      });
+    } catch (err) {
+      console.error("Dashboard Load Error:", err);
+    } finally {
+      setLoading(false);
     }
-
-    loadStats();
-
-    const profileSubscription = supabase
-      .channel('profile_changes')
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'profiles' 
-      }, payload => {
-        if (payload.new.tier) {
-          setCurrentTier(`${payload.new.tier.toUpperCase()} NODE`);
-        }
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(profileSubscription); };
   }, []);
 
-  const askClarity = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  useEffect(() => {
+    async function init() {
+      const team = await getUserTeam();
+      const r = await getUserRole();
+      
+      if (!team) {
+        setLoading(false);
+        return;
+      }
 
-    const userQuery = query;
-    setChatHistory(prev => [...prev, { role: 'user', content: userQuery }]);
-    setQuery("");
-    setIsThinking(true);
-    
+      setTeamId(team);
+      setRole(r);
+      await loadDashboardData(team);
+    }
+    init();
+  }, [loadDashboardData]);
+
+  const runClarityScan = () => {
+    setIsScanActive(true);
     setTimeout(() => {
-      setChatHistory(prev => [...prev, { 
-        role: 'clarity', 
-        content: `Analysis of "${userQuery}" complete. Velocity: ${todayHours}h. Cycles: ${activeTasks}. Optimization recommended.` 
-      }]);
-      setIsThinking(false);
-    }, 1000);
+      setInsight(
+        `Ecosystem Analysis: ${stats.activeProjects} active nodes are stable. However, system detects ${stats.invoicesDue} pending financial nodes. Recommend finalizing billing protocols to maintain liquidity.`
+      );
+      setIsScanActive(false);
+    }, 2200);
   };
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory]);
-
-  return (
-    <AuthGuard>
-      <div className="p-8 md:p-12 space-y-12 max-w-[1600px] mx-auto bg-[#050505] min-h-screen text-stone-200">
-        <header className="flex justify-between items-end border-b border-white/5 pb-8">
-          <div className="space-y-2">
-            <p className="text-[#a9b897] font-black uppercase text-[10px] tracking-[0.6em]">Operational Overview</p>
-            <h1 className="text-6xl font-serif italic tracking-tighter text-white">Command Center</h1>
-          </div>
-          <div className="flex items-center gap-4 bg-white/5 px-6 py-3 rounded-full border border-white/5 backdrop-blur-xl">
-            <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-[#a9b897] shadow-[0_0_10px_#a9b897]'}`} />
-            <span className="text-[10px] font-mono font-bold tracking-widest text-stone-500 uppercase">
-              {isSyncing ? "Syncing..." : `Node Active // ${new Date().toLocaleDateString()}`}
-            </span>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          <StatCard label="Daily Velocity" value={todayHours} unit="HRS" color="text-[#a9b897]" />
-          <StatCard label="Active Cycles" value={activeTasks} unit="TASKS" color="text-blue-400" />
-          <div className="bg-[#0a0a0a] border border-white/5 p-10 rounded-[2.5rem] relative overflow-hidden group transition-all hover:border-[#a9b897]/30">
-            <p className="text-[10px] text-stone-500 uppercase tracking-[0.4em] mb-6 font-black">Distribution Level</p>
-            <div className="flex items-center gap-3">
-              <h2 className="text-4xl font-serif italic text-[#a9b897] uppercase tracking-tighter">{currentTier}</h2>
-              <Lock size={16} className="text-stone-700" />
-            </div>
-            <Zap size={120} className="absolute -right-8 -bottom-8 text-[#a9b897] opacity-5 group-hover:opacity-15 transition-all duration-700 rotate-12" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          <div className="lg:col-span-8 bg-[#0a0a0a] border border-white/5 rounded-[3rem] h-[550px] flex flex-col relative overflow-hidden shadow-2xl">
-            <div className="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-500">Clarity OS v1.0.4</span>
-              <Terminal size={14} className="opacity-30" />
-            </div>
-            <div className="flex-grow p-10 space-y-6 overflow-y-auto scrollbar-hide">
-              <AnimatePresence mode="popLayout">
-                {chatHistory.map((msg, i) => (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] p-5 rounded-2xl font-mono text-[11px] leading-relaxed ${msg.role === 'user' ? 'bg-[#a9b897] text-black font-bold' : 'bg-white/[0.03] border border-white/5 text-stone-300'}`}>
-                      {msg.role === 'clarity' && <Sparkles size={14} className="inline mr-2 text-[#a9b897]" />}
-                      {msg.content}
-                    </div>
-                  </motion.div>
-                ))}
-                {isThinking && <div className="flex items-center gap-3 text-stone-600 text-[10px] font-mono animate-pulse"><Loader2 size={12} className="animate-spin" /> SYNTHESIZING_VECTORS...</div>}
-              </AnimatePresence>
-              <div ref={chatEndRef} />
-            </div>
-            <form onSubmit={askClarity} className="p-8 bg-white/[0.01] border-t border-white/5">
-              <div className="relative flex items-center">
-                <ChevronRight size={18} className="absolute left-5 text-[#a9b897]" />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} className="w-full bg-[#050505] border border-white/10 rounded-2xl py-5 pl-14 pr-16 outline-none focus:border-[#a9b897]/50 transition-all font-mono text-[11px] text-white" placeholder="Enter command..." />
-                <button className="absolute right-4 bg-[#a9b897] text-black p-3 rounded-xl hover:bg-white transition-colors"><Send size={18}/></button>
-              </div>
-            </form>
-          </div>
-          <div className="lg:col-span-4 space-y-8">
-             <div className="bg-[#0a0a0a] border border-white/5 p-10 rounded-[3rem] shadow-xl">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] mb-8 text-stone-500">Quick Links</h3>
-                <div className="space-y-4 font-mono text-[11px]">
-                  {['/billing', '/status', '/logs', '/settings'].map(link => (
-                    <div key={link} className="flex justify-between py-3 border-b border-white/5 hover:text-[#a9b897] hover:pl-2 cursor-pointer transition-all text-stone-400">
-                      <span className="font-bold">{link.replace('/', '').toUpperCase()}</span>
-                      <span className="opacity-30">{link}</span>
-                    </div>
-                  ))}
-                </div>
-             </div>
-             <div className="p-10 rounded-[2.5rem] border border-white/5 italic text-stone-600 text-center text-sm font-serif leading-relaxed">
-               "System efficiency is the product of focused intent."
-             </div>
-          </div>
-        </div>
-      </div>
-    </AuthGuard>
+  if (loading) return (
+    <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
+      <Loader2 className="animate-spin text-stone-300" size={32} />
+      <p className="font-serif italic text-stone-400 text-lg">Initializing TOTS OS...</p>
+    </div>
   );
-}
 
-function StatCard({ label, value, unit, color }: { label: string, value: number, unit: string, color: string }) {
   return (
-    <div className="bg-[#0a0a0a] border border-white/5 p-10 rounded-[2.5rem] group transition-all hover:border-white/10">
-      <p className="text-[10px] text-stone-500 uppercase tracking-[0.4em] mb-6 font-black">{label}</p>
-      <div className="flex items-baseline gap-3">
-        <span className={`text-7xl font-serif italic tracking-tighter ${color}`}>{value}</span>
-        <span className="text-xs font-mono text-stone-600 uppercase">{unit}</span>
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 lg:p-12 space-y-12 max-w-[1600px] mx-auto">
+      
+      {/* HEADER */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-12 gap-8">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-[#a9b897]">
+            <Activity size={14} className="animate-pulse" />
+            <p className="font-black uppercase text-[9px] tracking-[0.4em]">Central Command</p>
+          </div>
+          <h1 className="text-7xl font-serif italic tracking-tighter leading-none">Dashboard</h1>
+        </div>
+
+        <motion.button 
+          whileHover={{ scale: 1.02 }}
+          onClick={runClarityScan}
+          disabled={isScanActive}
+          className="flex items-center gap-4 bg-white border border-stone-200 px-8 py-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all"
+        >
+          {isScanActive ? <Loader2 className="animate-spin text-[#a9b897]" size={20} /> : <Sparkles className="text-[#a9b897]" size={20} />}
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-600">
+            {isScanActive ? "Scanning..." : "Intelligence Scan"}
+          </span>
+        </motion.button>
+      </header>
+
+      {/* NODE GRID - CLICKABLE METRICS */}
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { label: "Active Nodes", value: stats.activeProjects, icon: Briefcase, path: "/projects" },
+          { label: "Invoices Due", value: stats.invoicesDue, icon: FileText, path: "/billing" },
+          { label: "Next Socials", value: stats.socialsPending, icon: Share2, path: "/scheduler" },
+          { label: "Next Emails", value: stats.emailsScheduled, icon: Mail, path: "/campaigns" },
+        ].map((node) => (
+          <motion.div
+            key={node.label}
+            whileHover={{ y: -5 }}
+            onClick={() => router.push(node.path)}
+            className="bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm hover:shadow-md transition-all cursor-pointer group relative"
+          >
+            <div className="p-4 bg-stone-50 rounded-2xl text-stone-400 group-hover:text-[#a9b897] group-hover:bg-[#a9b897]/5 transition-all w-fit mb-6">
+              <node.icon size={24} />
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-2">{node.label}</p>
+            <p className="text-5xl font-serif italic text-stone-900 leading-none">{node.value}</p>
+            <ArrowRight size={16} className="absolute right-10 bottom-10 text-stone-200 group-hover:text-stone-900 group-hover:translate-x-1 transition-all" />
+          </motion.div>
+        ))}
+      </section>
+
+      {/* INSIGHT PANEL */}
+      <AnimatePresence>
+        {insight && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="bg-[#1c1c1c] text-stone-100 p-12 rounded-[3.5rem] flex items-center justify-between border border-[#a9b897]/30 shadow-2xl"
+          >
+            <div className="flex items-center gap-8">
+              <Zap className="text-[#a9b897]" size={32} />
+              <div className="space-y-1">
+                <p className="text-[#a9b897] font-black uppercase text-[9px] tracking-[0.4em]">Synthetic Analysis</p>
+                <p className="font-serif italic text-2xl text-stone-200 max-w-3xl leading-snug">{insight}</p>
+              </div>
+            </div>
+            <button onClick={() => setInsight(null)} className="p-4 text-stone-500 hover:text-white transition-colors">
+              <X size={24}/>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* FOOTER ACTIONS */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 pt-6">
+        <div className="lg:col-span-4 space-y-6">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400 px-2">Rapid Access</h2>
+          <div className="space-y-3">
+            {["New Project", "New Invoice", "Schedule Content"].map((btn) => (
+              <button 
+                key={btn}
+                className="w-full flex items-center justify-between p-6 bg-white border border-stone-200 rounded-2xl hover:border-[#a9b897] transition-all group"
+              >
+                <span className="text-sm font-medium text-stone-600 group-hover:text-stone-900">{btn}</span>
+                <Plus size={16} className="text-stone-300 group-hover:text-[#a9b897]" />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="lg:col-span-8">
+          <div className="bg-white border border-stone-200 rounded-[3.5rem] p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[350px]">
+             <div className="p-6 bg-stone-50 rounded-full text-stone-200">
+                <Layers size={40} />
+             </div>
+             <div className="space-y-2">
+                <h3 className="text-3xl font-serif italic text-stone-800">System Clear</h3>
+                <p className="text-sm text-stone-400 max-w-sm mx-auto">All operational nodes are synced with the TOTS OS core. No immediate action required from administrative staff.</p>
+             </div>
+          </div>
+        </div>
       </div>
     </div>
   );

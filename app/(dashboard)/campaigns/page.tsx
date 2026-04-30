@@ -6,7 +6,7 @@ import Card from "@/app/components/Card";
 import Button from "@/app/components/Button";
 import { 
   Plus, X, Clock, Type, Image as ImageIcon, 
-  ShoppingBag, FileText, Wand2, Upload, User 
+  ShoppingBag, FileText, Wand2, Upload, User, Loader2, Sparkles
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -81,7 +81,7 @@ export default function CampaignsPage() {
       .upload(filePath, file);
 
     if (uploadError) {
-      alert("Upload failed: " + uploadError.message);
+      console.error("Upload failed: " + uploadError.message);
     } else {
       const { data } = supabase.storage.from('branding').getPublicUrl(filePath);
       setBranding(prev => ({ ...prev, logo_url: data.publicUrl }));
@@ -89,27 +89,29 @@ export default function CampaignsPage() {
     setIsUploading(false);
   };
 
+  // --- REPAIRED CLARITY ENGINE ---
   const applyClarity = () => {
     if (!form.content || isEnhancing) return;
     setIsEnhancing(true);
     
     setTimeout(() => {
       const refined = form.content
-        .replace(/\b(just|actually|really|maybe|basically)\b/gi, "")
+        .replace(/\b(just|actually|really|maybe|basically|very|simply)\b/gi, "")
         .replace(/\b(help)\b/gi, "facilitate")
-        .replace(/\b(contact us)\b/gi, "initiate correspondence")
-        .replace(/\s\s+/g, ' ');
+        .replace(/\b(contact us|email us)\b/gi, "initiate correspondence")
+        .replace(/\b(get started)\b/gi, "commence protocol")
+        .replace(/\b(fast|quick)\b/gi, "expeditious")
+        .replace(/\s\s+/g, ' ')
+        .trim();
       
-      setForm(prev => ({ ...prev, content: refined.trim() }));
+      setForm(prev => ({ ...prev, content: refined }));
       setIsEnhancing(false);
-    }, 800);
+    }, 1200); // Added slight delay for "feeling" the processing
   };
 
   const handleSchedule = async () => {
-    if (!teamId) return alert("Authentication error.");
-    if (!form.title || !form.subject || !form.scheduled_for || !form.list_id) {
-      return alert("Required fields: Title, Subject, Audience, and Schedule Date.");
-    }
+    if (!teamId) return;
+    if (!form.title || !form.subject || !form.scheduled_for || !form.list_id) return;
 
     setLoading(true);
     const finalContent = `${form.content}\n\n---\n${branding.company_name}\n${branding.contact_details}`;
@@ -122,9 +124,7 @@ export default function CampaignsPage() {
       meta_branding: branding
     }]);
 
-    if (error) {
-      alert("Transmission error: " + error.message);
-    } else {
+    if (!error) {
       setShowModal(false);
       loadData(teamId);
       setForm({ title: "", subject: "", list_id: "", template_id: "minimal", scheduled_for: "", content: "" });
@@ -133,163 +133,204 @@ export default function CampaignsPage() {
   };
 
   return (
-    <main className="p-8 md:p-12 space-y-12 max-w-7xl mx-auto min-h-screen bg-[#faf9f6] text-stone-900">
-      <header className="flex justify-between items-end border-b border-stone-200 pb-12">
-        <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Communications</p>
-          <h1 className="text-5xl font-serif italic text-stone-800 tracking-tighter">Campaigns</h1>
+    <main className="p-8 md:p-12 space-y-12 max-w-[1600px] mx-auto min-h-screen bg-[#faf9f6] text-stone-900 font-sans">
+      <header className="flex flex-col md:flex-row justify-between items-end border-b border-stone-200 pb-16 gap-8">
+        <div className="space-y-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897]">Communications Hub</p>
+          <h1 className="text-8xl font-serif italic text-stone-800 tracking-tighter leading-none">Campaigns</h1>
         </div>
-        <Button onClick={() => setShowModal(true)} className="bg-stone-900 text-[#a9b897] flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-stone-800 transition-colors">
-          <Plus size={16} /> New Dispatch
-        </Button>
+        <button 
+          onClick={() => setShowModal(true)} 
+          className="bg-stone-900 text-[#a9b897] flex items-center gap-4 px-10 py-6 rounded-[2rem] font-black text-[10px] uppercase tracking-[0.4em] shadow-2xl hover:scale-[1.02] active:scale-95 transition-all"
+        >
+          <Plus size={18} /> New Dispatch
+        </button>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-        <section className="lg:col-span-8 space-y-6">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Queue</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+        <section className="lg:col-span-8 space-y-8">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 ml-4">Scheduled Queue</h2>
           {campaigns.length === 0 ? (
-            <div className="p-16 text-center bg-white border border-stone-100 rounded-[3rem] italic text-stone-300">Horizon Clear.</div>
+            <div className="p-24 text-center bg-white border border-stone-100 rounded-[4rem] italic font-serif text-stone-300 text-xl shadow-sm">
+              Horizon is currently clear.
+            </div>
           ) : (
             campaigns.map(c => (
-              <Card key={c.id} className="bg-white p-8 rounded-[2.5rem] flex justify-between items-center group border-stone-100 hover:shadow-lg transition-all">
-                <div className="flex items-center gap-6">
-                  <div className="p-4 bg-stone-50 rounded-2xl text-stone-200 group-hover:text-[#a9b897] transition-colors">
-                    <Clock size={20} />
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                key={c.id} 
+                className="bg-white p-10 rounded-[3.5rem] border border-stone-100 flex justify-between items-center group hover:shadow-xl transition-all"
+              >
+                <div className="flex items-center gap-8">
+                  <div className="p-6 bg-stone-50 rounded-3xl text-stone-200 group-hover:text-[#a9b897] transition-colors group-hover:bg-stone-900">
+                    <Clock size={24} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg">{c.title}</h3>
-                    <p className="text-[10px] text-stone-400 uppercase tracking-widest">
-                      {new Date(c.scheduled_for).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    <h3 className="font-serif italic text-3xl text-stone-800">{c.title}</h3>
+                    <p className="text-[9px] font-black text-stone-400 uppercase tracking-[0.3em] mt-2">
+                      {new Date(c.scheduled_for).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>
-                <div className="text-[9px] font-black uppercase tracking-widest px-4 py-2 bg-stone-50 rounded-full text-[#a9b897]">{c.status}</div>
-              </Card>
+                <div className="flex flex-col items-end gap-2">
+                   <div className="text-[9px] font-black uppercase tracking-[0.3em] px-5 py-2 bg-[#a9b897] rounded-full text-white shadow-lg shadow-[#a9b897]/20">{c.status}</div>
+                   <p className="text-[8px] font-bold text-stone-300 uppercase tracking-widest">{c.subscriber_lists?.name}</p>
+                </div>
+              </motion.div>
             ))
           )}
         </section>
 
-        <aside className="lg:col-span-4 bg-[#1c1c1c] rounded-[3rem] p-10 text-white h-fit shadow-2xl">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-500 mb-6">Segments</h2>
-          <div className="space-y-1">
-            {lists.map(l => (
-              <div key={l.id} className="flex justify-between items-center border-b border-stone-800 py-4 text-xs font-bold hover:text-[#a9b897] cursor-default transition-colors">
-                {l.name} 
-                <div className="h-1.5 w-1.5 rounded-full bg-[#a9b897] shadow-[0_0_8px_#a9b897]" />
+        <aside className="lg:col-span-4 space-y-8">
+          <div className="bg-[#1c1c1c] rounded-[3.5rem] p-12 text-white shadow-2xl relative overflow-hidden">
+             <div className="relative z-10">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-500 mb-10">Active Segments</h2>
+              <div className="space-y-2">
+                {lists.map(l => (
+                  <div key={l.id} className="flex justify-between items-center border-b border-stone-800 py-6 text-xs font-black uppercase tracking-widest hover:text-[#a9b897] cursor-pointer transition-colors group">
+                    {l.name} 
+                    <div className="h-2 w-2 rounded-full bg-stone-700 group-hover:bg-[#a9b897] transition-all" />
+                  </div>
+                ))}
               </div>
-            ))}
+             </div>
+             <Sparkles size={120} className="absolute -right-10 -bottom-10 text-stone-800/50" />
           </div>
         </aside>
       </div>
 
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 bg-stone-950/70 backdrop-blur-xl z-50 flex items-center justify-center p-6">
-            <div className="absolute inset-0" onClick={() => !loading && setShowModal(false)} />
-            
+          <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xl z-[100] flex items-center justify-center p-4 md:p-12">
             <motion.div 
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }} 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white w-full max-w-7xl h-[90vh] rounded-[4rem] shadow-2xl flex overflow-hidden border border-stone-200 relative z-10"
+              className="bg-white w-full max-w-[1500px] h-full rounded-[4rem] shadow-[0_40px_100px_rgba(0,0,0,0.2)] flex flex-col md:flex-row overflow-hidden border border-stone-200 relative"
             >
-              <button onClick={() => setShowModal(false)} className="absolute top-8 right-8 p-3 rounded-full hover:bg-stone-50 text-stone-400 z-20"><X size={24} /></button>
+              <button 
+                onClick={() => setShowModal(false)} 
+                className="absolute top-10 right-10 p-4 rounded-full hover:bg-stone-50 text-stone-400 z-[110] transition-colors"
+              >
+                <X size={28} />
+              </button>
 
-              <div className="w-80 bg-stone-50 border-r border-stone-100 flex flex-col p-10 overflow-y-auto shrink-0">
-                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-400 mb-8">Structure</p>
-                <div className="space-y-2 mb-10">
+              {/* SIDEBAR NAVIGATION */}
+              <div className="w-full md:w-96 bg-stone-50 border-r border-stone-100 flex flex-col p-12 overflow-y-auto shrink-0">
+                <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[#a9b897] mb-12">Transmission Structure</p>
+                <div className="space-y-3 mb-16">
                   {TEMPLATES.map(t => (
                     <button 
                       key={t.id} 
                       onClick={() => setForm({...form, template_id: t.id})}
-                      className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${form.template_id === t.id ? 'bg-white border-stone-200 shadow-sm opacity-100' : 'border-transparent opacity-40 hover:opacity-100'}`}
+                      className={`w-full flex items-center gap-5 p-5 rounded-3xl border-2 transition-all ${form.template_id === t.id ? 'bg-white border-stone-900 shadow-sm' : 'border-transparent opacity-40 hover:opacity-100 hover:bg-stone-100/50'}`}
                     >
                       <div className={form.template_id === t.id ? 'text-[#a9b897]' : 'text-stone-300'}>{t.icon}</div>
-                      <span className="text-[10px] font-black uppercase tracking-widest">{t.name}</span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t.name}</span>
                     </button>
                   ))}
                 </div>
 
-                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-400 mb-6">Settings</p>
-                <div className="space-y-6">
-                  <input placeholder="Campaign Title" className="w-full bg-transparent border-b border-stone-200 py-2 text-[10px] font-black uppercase outline-none focus:border-stone-900 transition-colors" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
-                  <select className="w-full bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer" value={form.list_id} onChange={e => setForm({...form, list_id: e.target.value})}>
-                    <option value="">Select Audience</option>
-                    {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                  </select>
+                <p className="text-[9px] font-black uppercase tracking-[0.5em] text-stone-400 mb-8">Metadata Settings</p>
+                <div className="space-y-8">
                   <div className="space-y-2">
-                    <label className="text-[8px] font-black uppercase text-stone-400">Launch Date</label>
-                    <input type="datetime-local" className="w-full bg-transparent text-[10px] font-black outline-none" value={form.scheduled_for} onChange={e => setForm({...form, scheduled_for: e.target.value})} />
+                    <label className="text-[8px] font-black uppercase text-stone-400 ml-4">Internal Title</label>
+                    <input placeholder="CAMPAIGN_REF_01" className="w-full bg-white border border-stone-100 rounded-2xl px-5 py-4 text-[10px] font-bold uppercase tracking-widest outline-none focus:ring-2 ring-[#a9b897]/20" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[8px] font-black uppercase text-stone-400 ml-4">Target Segment</label>
+                    <select className="w-full bg-white border border-stone-100 rounded-2xl px-5 py-4 text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer" value={form.list_id} onChange={e => setForm({...form, list_id: e.target.value})}>
+                      <option value="">Select Audience</option>
+                      {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[8px] font-black uppercase text-stone-400 ml-4">Launch Date</label>
+                    <input type="datetime-local" className="w-full bg-white border border-stone-100 rounded-2xl px-5 py-4 text-[10px] font-black uppercase outline-none" value={form.scheduled_for} onChange={e => setForm({...form, scheduled_for: e.target.value})} />
                   </div>
                 </div>
               </div>
 
-              <div className="flex-1 bg-[#fcfbf9] overflow-y-auto p-12 flex flex-col items-center">
-                <div className="w-full max-w-2xl flex justify-end mb-6">
+              {/* EDITOR AREA */}
+              <div className="flex-1 bg-[#fcfbf9] overflow-y-auto p-8 md:p-16 flex flex-col items-center">
+                <div className="w-full max-w-3xl flex justify-between items-center mb-10">
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-[#a9b897] animate-pulse" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">Live Preview Engine</span>
+                  </div>
                   <button 
                     onClick={applyClarity}
                     disabled={isEnhancing || !form.content}
-                    className={`flex items-center gap-3 px-6 py-3 rounded-full bg-white shadow-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:scale-105 active:scale-95 disabled:opacity-30 ${isEnhancing ? 'text-[#a9b897]' : 'text-stone-400'}`}
+                    className={`flex items-center gap-4 px-8 py-4 rounded-full bg-white shadow-xl text-[9px] font-black uppercase tracking-[0.3em] transition-all hover:scale-105 active:scale-95 disabled:opacity-30 border border-stone-100 ${isEnhancing ? 'text-[#a9b897]' : 'text-stone-900'}`}
                   >
-                    <Wand2 size={14} className={isEnhancing ? "animate-spin" : ""} />
-                    {isEnhancing ? "Refining Style..." : "Clarity Engine"}
+                    {isEnhancing ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
+                    {isEnhancing ? "Refining Clarity..." : "Clarity Engine"}
                   </button>
                 </div>
 
-                <div className={`bg-white w-full max-w-2xl min-h-[800px] shadow-2xl rounded-[3.5rem] p-16 flex flex-col border border-stone-100 relative ${form.template_id === 'letter' ? 'text-center' : ''}`}>
-                  <header className="mb-12 flex justify-center">
-                    <label className="h-14 w-14 bg-stone-50 rounded-full border-2 border-dashed border-stone-200 flex items-center justify-center cursor-pointer hover:bg-stone-100 overflow-hidden transition-all">
+                {/* EMAIL CANVAS */}
+                <div className={`bg-white w-full max-w-3xl min-h-[900px] shadow-[0_30px_80px_rgba(0,0,0,0.05)] rounded-[4rem] p-20 flex flex-col border border-stone-100 relative ${form.template_id === 'letter' ? 'text-center' : ''}`}>
+                  <header className="mb-16 flex justify-center">
+                    <label className="h-20 w-20 bg-stone-50 rounded-full border-2 border-dashed border-stone-200 flex items-center justify-center cursor-pointer hover:bg-stone-100 overflow-hidden transition-all group">
                       {branding.logo_url ? 
-                        <img src={branding.logo_url} className="h-full w-full object-cover grayscale" alt="Logo" /> : 
-                        <Upload size={16} className={`${isUploading ? 'animate-bounce' : ''} text-stone-300`} />
+                        <img src={branding.logo_url} className="h-full w-full object-cover" alt="Logo" /> : 
+                        <Upload size={20} className={`${isUploading ? 'animate-bounce' : ''} text-stone-300 group-hover:text-[#a9b897]`} />
                       }
                       <input type="file" className="hidden" onChange={handleLogoUpload} accept="image/*" />
                     </label>
                   </header>
 
-                  <div className="flex-1 space-y-8">
+                  <div className="flex-1 space-y-12">
                     <input 
-                      placeholder="Subject Line..."
-                      className="w-full text-4xl font-serif italic tracking-tighter outline-none bg-transparent placeholder:text-stone-100 text-stone-900 border-none focus:ring-0"
+                      placeholder="Transmission Subject..."
+                      className="w-full text-5xl font-serif italic tracking-tighter outline-none bg-transparent placeholder:text-stone-200 text-stone-800 border-none focus:ring-0"
                       value={form.subject}
                       onChange={e => setForm({...form, subject: e.target.value})}
                     />
 
-                    {form.template_id === 'visual' && <div className="w-full h-64 bg-stone-50 rounded-[2.5rem] border border-stone-100 flex items-center justify-center text-stone-200 font-serif italic">Image Placeholder</div>}
+                    {form.template_id === 'visual' && (
+                      <div className="w-full h-80 bg-stone-50 rounded-[3rem] border border-stone-100 flex flex-col items-center justify-center text-stone-300 group cursor-pointer hover:bg-stone-100 transition-colors">
+                        <ImageIcon size={40} className="mb-4 opacity-20" />
+                        <span className="font-serif italic text-lg opacity-40">Visual Asset Required</span>
+                      </div>
+                    )}
                     
                     <textarea 
-                      placeholder="Your story begins here..."
-                      className="w-full flex-1 text-lg font-serif leading-relaxed text-stone-600 outline-none bg-transparent resize-none placeholder:text-stone-100 italic min-h-[300px]"
+                      placeholder="Draft your correspondence here..."
+                      className="w-full flex-1 text-2xl font-serif leading-relaxed text-stone-600 outline-none bg-transparent resize-none placeholder:text-stone-200 italic min-h-[400px]"
                       value={form.content}
                       onChange={e => setForm({...form, content: e.target.value})}
                     />
                   </div>
 
-                  <footer className="mt-auto pt-10 border-t border-stone-50 space-y-4">
+                  <footer className="mt-20 pt-12 border-t border-stone-50 space-y-6">
                     <input 
-                      className="w-full text-center text-[10px] font-black uppercase tracking-[0.5em] outline-none bg-transparent text-stone-900"
+                      className="w-full text-center text-[11px] font-black uppercase tracking-[0.6em] outline-none bg-transparent text-stone-900 placeholder:text-stone-200"
                       value={branding.company_name}
                       onChange={e => setBranding({...branding, company_name: e.target.value})}
-                      placeholder="Company Name"
+                      placeholder="Company Identifier"
                     />
                     <textarea 
-                      className="w-full text-center text-[9px] text-stone-300 uppercase tracking-widest outline-none bg-transparent h-12 resize-none italic leading-relaxed"
+                      className="w-full text-center text-[10px] text-stone-400 uppercase tracking-[0.3em] outline-none bg-transparent h-16 resize-none italic leading-relaxed"
                       value={branding.contact_details}
                       onChange={e => setBranding({...branding, contact_details: e.target.value})}
-                      placeholder="Address / Contact"
+                      placeholder="Legal Footprint / Contact Details"
                     />
                   </footer>
                 </div>
 
-                <div className="mt-12 flex items-center gap-10">
-                   <button onClick={() => setShowModal(false)} className="text-[10px] font-black uppercase tracking-widest text-stone-300 hover:text-stone-900 transition-colors">Discard</button>
-                   <Button 
-                    disabled={loading || isEnhancing}
+                <div className="mt-16 flex items-center gap-12 pb-12">
+                   <button onClick={() => setShowModal(false)} className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300 hover:text-red-400 transition-colors">Abort Dispatch</button>
+                   <button 
+                    disabled={loading || isEnhancing || !form.subject || !form.list_id}
                     onClick={handleSchedule} 
-                    className="bg-stone-900 text-[#a9b897] px-20 py-6 rounded-3xl font-black text-xs uppercase tracking-[0.5em] shadow-2xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                    className="bg-stone-900 text-[#a9b897] px-24 py-7 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.5em] shadow-2xl hover:scale-105 active:scale-95 transition-all disabled:opacity-20"
                    >
-                     {loading ? "Processing..." : "Schedule Transmission"}
-                   </Button>
+                     {loading ? "Transmitting..." : "Schedule Dispatch"}
+                   </button>
                 </div>
               </div>
             </motion.div>

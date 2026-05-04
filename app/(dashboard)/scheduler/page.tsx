@@ -92,7 +92,7 @@ export default function Scheduler() {
 
   return (
     <Page title="">
-      {/* Light background (warm neutral) */}
+      {/* Light background matching system (warm neutral) and overriding any parent container styles */}
       <div className="min-h-screen bg-[#faf9f6] p-8 md:p-12 text-stone-900">
         <div className="max-w-6xl mx-auto space-y-10">
           

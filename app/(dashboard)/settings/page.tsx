@@ -41,7 +41,6 @@ export default function SettingsPage() {
   const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
   const [newPassword, setNewPassword] = useState("");
 
-  // NEW: Localization & Integrations
   const [timezone, setTimezone] = useState("UTC+0 (London)");
   const [currency, setCurrency] = useState("GBP (£)");
   const [webhookUrl, setWebhookUrl] = useState("");
@@ -220,10 +219,26 @@ export default function SettingsPage() {
               <textarea value={profile?.email_signature || ""} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Regards, Management" className="w-full h-32 p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-sm outline-none resize-none" />
             </section>
 
-            <section className="bg-stone-900 text-white p-10 rounded-[3.5rem] grid grid-cols-1 md:grid-cols-3 gap-6">
-                 <input placeholder="Bank Name" value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-xs" />
-                 <input placeholder="Account Number" value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-xs" />
-                 <input placeholder="Sort Code" value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-xs" />
+            {/* BANKING SECTION - FIXED LAYOUT */}
+            <section className="bg-stone-900 text-white p-10 rounded-[3.5rem] space-y-8">
+              <div className="flex items-center gap-3 opacity-40">
+                <Landmark size={20} />
+                <h2 className="text-[11px] font-black uppercase tracking-widest leading-none">Banking Distribution</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                   <label className="text-[8px] font-black uppercase opacity-40 tracking-widest">Bank Identifier</label>
+                   <input placeholder="Bank Name" value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:bg-white/10" />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-[8px] font-black uppercase opacity-40 tracking-widest">Account Node</label>
+                   <input placeholder="Account No" value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:bg-white/10" />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-[8px] font-black uppercase opacity-40 tracking-widest">Routing / Sort</label>
+                   <input placeholder="Sort Code" value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:bg-white/10" />
+                </div>
+              </div>
             </section>
 
             {/* DANGER ZONE */}

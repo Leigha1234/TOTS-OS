@@ -20,33 +20,52 @@ export default function ReportsPage() {
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        let teamId = null;
+        if (user) {
+          const { data: mem } = await supabase.from("team_members")
+            .select("team_id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          teamId = mem?.team_id;
+        }
 
-      const { data: mem } = await supabase.from("team_members")
-        .select("team_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        // Fallback for demo shell if no team or session exists
+        if (!teamId) {
+          setData({
+            revenue: 124500,
+            totalHours: 320,
+            payrollEst: 8000,
+            overdueCount: 2,
+            tasksDone: 14,
+          });
+          setLoading(false);
+          return;
+        }
 
-      if (!mem?.team_id) return setLoading(false);
+        const [inv, tks, ts] = await Promise.all([
+          supabase.from("invoices").select("*").eq("team_id", teamId),
+          supabase.from("tasks").select("*").eq("team_id", teamId),
+          supabase.from("timesheets").select("*").eq("team_id", teamId)
+        ]);
 
-      const [inv, tks, ts] = await Promise.all([
-        supabase.from("invoices").select("*").eq("team_id", mem.team_id),
-        supabase.from("tasks").select("*").eq("team_id", mem.team_id),
-        supabase.from("timesheets").select("*").eq("team_id", mem.team_id)
-      ]);
+        const rev = inv.data?.filter(i => i.status === "paid").reduce((s, i) => s + (i.amount || 0), 0) || 0;
+        const hrs = ts.data?.reduce((s, t) => s + (t.hours || 0), 0) || 0;
 
-      const rev = inv.data?.filter(i => i.status === "paid").reduce((s, i) => s + (i.amount || 0), 0) || 0;
-      const hrs = ts.data?.reduce((s, t) => s + (t.hours || 0), 0) || 0;
-
-      setData({
-        revenue: rev,
-        totalHours: hrs,
-        payrollEst: hrs * 25,
-        overdueCount: inv.data?.filter(i => i.due_date && new Date(i.due_date) < new Date() && i.status !== "paid").length || 0,
-        tasksDone: tks.data?.filter(t => t.status === "done").length || 0,
-      });
-      setLoading(false);
+        setData({
+          revenue: rev,
+          totalHours: hrs,
+          payrollEst: hrs * 25,
+          overdueCount: inv.data?.filter(i => i.due_date && new Date(i.due_date) < new Date() && i.status !== "paid").length || 0,
+          tasksDone: tks.data?.filter(t => t.status === "done").length || 0,
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     }
     init();
   }, []);

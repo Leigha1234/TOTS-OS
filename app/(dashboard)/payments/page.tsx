@@ -10,7 +10,35 @@ import {
 /* ======================================================
    CORE STATE ENGINE & DATABASE MOCK
 ====================================================== */
-const INITIAL_DATA = {
+interface Appraisal {
+  date: string;
+  score?: string;
+  notes: string;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  salary: number;
+  holidayLeft: number;
+  holidays: string[];
+  appraisals: Appraisal[];
+}
+
+interface Contact {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+}
+
+const INITIAL_DATA: {
+  employees: Employee[];
+  contacts: Contact[];
+  projects: string[];
+  bankDetails: { name: string; account: string; sort: string; bank: string };
+} = {
   employees: [
     { id: "e1", name: "Sarah Chen", role: "Lead Engineer", salary: 85000, holidayLeft: 12, holidays: ["2026-05-12"], appraisals: [] },
     { id: "e2", name: "Marcus Vane", role: "UX Designer", salary: 52000, holidayLeft: 18, holidays: [], appraisals: [{ date: "2026-03-01", score: "Exceeds", notes: "Excellent UI work." }] }
@@ -36,7 +64,7 @@ export default function ApexOS() {
   const [invoiceStatus, setInvoiceStatus] = useState("New");
 
   // HR State
-  const [employees, setEmployees] = useState(INITIAL_DATA.employees);
+  const [employees, setEmployees] = useState<Employee[]>(INITIAL_DATA.employees);
   const [selectedEmpId, setSelectedEmpId] = useState("e1");
   const [appraisalForm, setAppraisalForm] = useState({ q1: "", q2: "", q3: "" });
 
@@ -48,16 +76,20 @@ export default function ApexOS() {
       LOGIC HANDLERS
   -------------------------------------------------- */
   const handleAddHoliday = (date: string) => {
-    if(!date) return;
+    if (!date) return;
     setEmployees(prev => prev.map(emp => 
-      emp.id === selectedEmpId ? { ...emp, holidayLeft: emp.holidayLeft - 1, holidays: [...emp.holidays, date] } : emp
+      emp.id === selectedEmpId 
+        ? { ...emp, holidayLeft: emp.holidayLeft - 1, holidays: [...emp.holidays, date] } 
+        : emp
     ));
     setActiveModal(null);
   };
 
   const handleSubmitAppraisal = () => {
     setEmployees(prev => prev.map(emp => 
-      emp.id === selectedEmpId ? { ...emp, appraisals: [...emp.appraisals, { date: "2026-05-04", notes: appraisalForm.q1 }] } : emp
+      emp.id === selectedEmpId 
+        ? { ...emp, appraisals: [...emp.appraisals, { date: "2026-05-04", notes: appraisalForm.q1 }] } 
+        : emp
     ));
     setActiveModal(null);
     alert("Appraisal locked and saved to employee record.");
@@ -86,7 +118,11 @@ export default function ApexOS() {
               <button 
                 key={node.id}
                 onClick={() => setActiveNode(node.id)}
-                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeNode === node.id ? "bg-stone-900 text-[#a9b897] shadow-xl" : "text-stone-400 hover:text-stone-900"}`}
+                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                  activeNode === node.id 
+                    ? "bg-stone-900 text-[#a9b897] shadow-xl" 
+                    : "text-stone-400 hover:text-stone-900"
+                }`}
               >
                 {node.icon} {node.label}
               </button>
@@ -113,7 +149,15 @@ export default function ApexOS() {
               <div className="col-span-12 lg:col-span-8 space-y-8">
                 <div className="flex gap-4 bg-stone-100 p-2 rounded-3xl w-fit">
                   {["invoice", "quote", "expense"].map(t => (
-                    <button key={t} onClick={() => setDocType(t)} className={`px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${docType === t ? "bg-white shadow-sm" : "text-stone-400"}`}>{t}</button>
+                    <button 
+                      key={t} 
+                      onClick={() => setDocType(t)} 
+                      className={`px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                        docType === t ? "bg-white shadow-sm" : "text-stone-400"
+                      }`}
+                    >
+                      {t}
+                    </button>
                   ))}
                 </div>
 
@@ -144,15 +188,29 @@ export default function ApexOS() {
 
                   <div className="space-y-4 mb-12">
                     {items.map((item, idx) => (
-                      <div key={idx} className="flex gap-4 items-center group">
-                        <input className="flex-1 h-14 bg-stone-50 rounded-2xl px-6 font-serif italic text-sm outline-none focus:bg-stone-100 transition-colors" value={item.desc} placeholder="Item Description..." />
+                      <div key={item.id} className="flex gap-4 items-center group">
+                        <input 
+                          className="flex-1 h-14 bg-stone-50 rounded-2xl px-6 font-serif italic text-sm outline-none focus:bg-stone-100 transition-colors" 
+                          value={item.desc} 
+                          placeholder="Item Description..." 
+                          onChange={(e) => {
+                            const newItems = [...items];
+                            newItems[idx].desc = e.target.value;
+                            setItems(newItems);
+                          }}
+                        />
                         <div className="relative">
                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300 text-xs font-bold">£</span>
-                           <input className="w-32 h-14 bg-stone-50 rounded-2xl pl-10 pr-6 font-bold text-sm outline-none focus:bg-stone-100" value={item.rate} type="number" onChange={(e) => {
-                             const newItems = [...items];
-                             newItems[idx].rate = parseInt(e.target.value) || 0;
-                             setItems(newItems);
-                           }}/>
+                           <input 
+                             className="w-32 h-14 bg-stone-50 rounded-2xl pl-10 pr-6 font-bold text-sm outline-none focus:bg-stone-100" 
+                             value={item.rate} 
+                             type="number" 
+                             onChange={(e) => {
+                               const newItems = [...items];
+                               newItems[idx].rate = parseInt(e.target.value) || 0;
+                               setItems(newItems);
+                             }}
+                          />
                         </div>
                         <button onClick={() => setItems(items.filter(i => i.id !== item.id))} className="p-3 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18}/></button>
                       </div>

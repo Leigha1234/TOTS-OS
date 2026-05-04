@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
-  Zap, Plus, Landmark, X, Loader2
+  Plus, Landmark, X, Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -45,6 +45,12 @@ export default function CalendarPage() {
       setLoading(false);
     }
   }
+
+  // UPDATED: Click handler for days
+  const handleDayClick = (day: Date) => {
+    setSelectedDay(day);
+    setIsModalOpen(true);
+  };
 
   async function handleCreateEntry() {
     if (!newTitle) return;
@@ -87,7 +93,7 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-[#faf9f6] p-4 md:p-10 text-stone-900 overflow-x-hidden">
       
-      {/* MODAL: Fixed visibility and styling */}
+      {/* MODAL: Google Calendar Style Pop-up */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 flex items-center justify-center z-[100] p-4">
@@ -97,12 +103,12 @@ export default function CalendarPage() {
               className="absolute inset-0 bg-stone-900/20 backdrop-blur-md" 
             />
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="relative w-full max-w-md bg-white rounded-[3rem] p-10 shadow-2xl border border-stone-100"
             >
               <div className="flex justify-between items-start mb-8">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-1 text-left">New Entry</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-1 text-left">Create Event</p>
                   <h3 className="text-3xl font-serif italic text-stone-800">{format(selectedDay, "do MMMM")}</h3>
                 </div>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-stone-50 rounded-full transition-colors">
@@ -115,7 +121,8 @@ export default function CalendarPage() {
                   autoFocus
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Task description..."
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateEntry()}
+                  placeholder="What's happening?"
                   className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:outline-none focus:ring-2 ring-[#a9b897]/20 font-serif italic"
                 />
                 <button 
@@ -124,7 +131,7 @@ export default function CalendarPage() {
                   className="w-full bg-[#a9b897] text-white py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-3 shadow-lg shadow-[#a9b897]/20"
                 >
                   {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                  Commit Entry
+                  Save Event
                 </button>
               </div>
             </motion.div>
@@ -156,26 +163,31 @@ export default function CalendarPage() {
             {calendarDays.map((day) => {
               const dayTasks = getTasksForDay(day);
               const isCurrentMonth = isSameMonth(day, monthStart);
-              const isSelected = isSameDay(day, selectedDay);
+              const isToday = isSameDay(day, new Date());
               
               return (
                 <div 
                   key={day.toISOString()}
-                  onClick={() => setSelectedDay(day)}
+                  onClick={() => handleDayClick(day)} // Trigger Modal on Click
                   className={`min-h-[140px] p-4 border-r border-b border-stone-50 transition-all cursor-pointer relative
-                    ${!isCurrentMonth ? 'opacity-20' : 'bg-white hover:bg-stone-50/50'}
-                    ${isSelected ? 'bg-stone-50/80' : ''}
+                    ${!isCurrentMonth ? 'opacity-20' : 'bg-white hover:bg-[#a9b897]/5'}
+                    group
                   `}
                 >
-                  <span className={`text-xs font-bold ${isSameDay(day, new Date()) ? 'bg-stone-900 text-white px-2 py-1 rounded-lg' : 'text-stone-800'}`}>
+                  <span className={`text-xs font-bold transition-colors ${isToday ? 'bg-stone-900 text-white px-2 py-1 rounded-lg' : 'text-stone-800 group-hover:text-[#a9b897]'}`}>
                     {format(day, "d")}
                   </span>
+                  
+                  {/* Task Previews */}
                   <div className="mt-2 space-y-1">
-                    {dayTasks.slice(0, 2).map(t => (
-                      <div key={t.id} className="text-[8px] font-black uppercase truncate bg-stone-100 p-1 rounded tracking-tighter text-stone-500">
+                    {dayTasks.slice(0, 3).map(t => (
+                      <div key={t.id} className="text-[8px] font-black uppercase truncate bg-stone-50 border border-stone-100 p-1 rounded tracking-tighter text-stone-500">
                         {t.title}
                       </div>
                     ))}
+                    {dayTasks.length > 3 && (
+                      <p className="text-[7px] font-black text-stone-300 uppercase mt-1">+{dayTasks.length - 3} more</p>
+                    )}
                   </div>
                 </div>
               );
@@ -183,34 +195,34 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* SIDEBAR DETAIL: Fixed sizing and button contrast */}
+        {/* SIDEBAR DETAIL */}
         <aside className="lg:col-span-3 flex flex-col gap-6 h-full">
-          <div className="bg-white p-8 rounded-[3rem] border border-stone-100 shadow-sm flex flex-col min-h-[500px]">
+          <div className="bg-white p-8 rounded-[3rem] border border-stone-100 shadow-sm flex flex-col min-h-[400px]">
             <div className="text-center mb-8">
               <h2 className="text-4xl font-serif italic text-stone-800 leading-none mb-2">{format(selectedDay, "do")}</h2>
               <h3 className="text-2xl font-serif italic text-stone-400">{format(selectedDay, "MMMM")}</h3>
-              <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897] mt-4">Selected Node</p>
+              <div className="h-px bg-stone-100 w-12 mx-auto my-4" />
+              <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Agenda</p>
             </div>
 
-            <div className="flex-grow space-y-3 overflow-y-auto max-h-[250px] mb-6">
+            <div className="flex-grow space-y-3 overflow-y-auto max-h-[400px]">
               {selectedDayTasks.length === 0 ? (
-                <p className="text-center py-10 text-stone-400 font-serif italic text-sm">Quiet on the horizon.</p>
+                <div className="flex flex-col items-center justify-center py-12 opacity-30">
+                   <CalendarIcon size={32} className="mb-2" />
+                   <p className="text-stone-400 font-serif italic text-sm">No entries scheduled.</p>
+                </div>
               ) : (
                 selectedDayTasks.map(task => (
-                  <div key={task.id} className="p-4 bg-stone-50 rounded-2xl border border-stone-100">
-                    <p className="text-[10px] font-bold text-stone-700 leading-tight">{task.title}</p>
+                  <div key={task.id} className="p-4 bg-stone-50 rounded-2xl border border-stone-100 hover:border-[#a9b897]/30 transition-colors">
+                    <p className="text-[10px] font-bold text-stone-700 leading-tight uppercase tracking-tight">{task.title}</p>
                   </div>
                 ))
               )}
             </div>
-
-            {/* BUTTON: Changed text to white for visibility */}
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="w-full bg-[#a9b897] text-white py-6 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.4em] hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-3 mt-auto shadow-lg shadow-[#a9b897]/20"
-            >
-              <Plus size={16} /> Create Entry
-            </button>
+            
+            <p className="text-[7px] text-center uppercase tracking-widest text-stone-300 mt-6 font-bold">
+              Click any date to add entry
+            </p>
           </div>
 
           {/* FISCAL CARD */}

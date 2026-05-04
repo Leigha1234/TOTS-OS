@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { supabase } from "@/lib/supabase-client"; // Use sync client
-import Button from "@/app/components/Button";
-import Card from "@/app/components/Card";
+import { supabase } from "@/lib/supabase-client";
 import { 
   Zap, Clock, ChevronLeft, ChevronRight, 
   Save, Plus, Info, CheckCircle2, Loader2,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon, Globe, Sparkles, X, Activity, FolderPlus, ShieldCheck, Briefcase, ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -19,6 +17,10 @@ export default function WeeklyTimesheetPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  // Intelligence States
+  const [isScanActive, setIsScanActive] = useState(false);
+  const [insight, setInsight] = useState<string | null>(null);
+
   // Row Matrix State
   const [rows, setRows] = useState<any[]>([
     { project_id: "", days: { mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" }, description: "" }
@@ -28,7 +30,6 @@ export default function WeeklyTimesheetPage() {
   const weekDays = useMemo(() => {
     const start = new Date(currentDate);
     const day = start.getDay();
-    // Monday adjustment (handling Sunday as 0)
     const diff = start.getDate() - day + (day === 0 ? -6 : 1); 
     const monday = new Date(new Date(start).setDate(diff));
     
@@ -43,7 +44,17 @@ export default function WeeklyTimesheetPage() {
 
   async function init() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      // Set fallback state for visual rendering
+      setTeamId("team-123");
+      setUserId("user-123");
+      setProjects([
+        { id: "p1", name: "Project Zero", team_id: "team-123" }
+      ]);
+      setLoading(false);
+      return;
+    }
+    
     setUserId(user.id);
 
     const { data: mem } = await supabase.from("team_members")
@@ -85,6 +96,18 @@ export default function WeeklyTimesheetPage() {
     }, 0);
   }, [rows]);
 
+  const runClarityScan = () => {
+    setIsScanActive(true);
+    setTimeout(() => {
+      setInsight(
+        totalHours > 40 
+          ? `Load Analysis: High-velocity output detected (${totalHours} hours). Optimization recommended to maintain node stability.` 
+          : `Load Analysis: Efficiency stabilized. Current load aligns with project velocity at ${totalHours} units.`
+      );
+      setIsScanActive(false);
+    }, 2200);
+  };
+
   const saveWeeklyBatch = async () => {
     if (totalHours === 0 || !userId) return;
     setIsSaving(true);
@@ -116,161 +139,215 @@ export default function WeeklyTimesheetPage() {
     setIsSaving(false);
   };
 
+  if (loading) return (
+    <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
+      <Loader2 className="animate-spin text-stone-300" size={32} />
+      <p className="font-serif italic text-stone-400 text-lg animate-pulse">Initializing Chronos Engine...</p>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-6 md:p-12 lg:p-20 font-sans">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 lg:p-12 space-y-12 max-w-[1600px] mx-auto">
       
-      {/* HEADER: Editorial Layout */}
-      <header className="max-w-[1600px] mx-auto mb-16 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-12">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-             <div className="w-8 h-[1px] bg-[#a9b897]" />
-             <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897]">Chronos System v.3</p>
+      {/* HEADER: TITLE & INTELLIGENCE */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-12 gap-8">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-[#a9b897]">
+            <Globe size={14} className="animate-pulse" />
+            <p className="font-black uppercase text-[9px] tracking-[0.4em]">Chronos System v.3</p>
           </div>
-          <h1 className="text-7xl md:text-8xl font-serif italic tracking-tighter text-stone-800 leading-none">
-            Weekly Pulse
-          </h1>
-          
-          <div className="flex items-center gap-2 mt-6">
+          <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Weekly Pulse</h1>
+
+          {/* DATE SELECTOR */}
+          <div className="flex items-center gap-4 mt-6">
             <button 
               onClick={() => setCurrentDate(new Date(currentDate.setDate(currentDate.getDate() - 7)))}
-              className="p-3 hover:bg-stone-200/50 rounded-full transition-all"
+              className="p-3 hover:bg-stone-200/50 rounded-full transition-all text-stone-600"
             >
-              <ChevronLeft size={20}/>
+              <ChevronLeft size={18}/>
             </button>
             <div className="flex items-center gap-4 bg-white px-8 py-3 rounded-full border border-stone-200 shadow-sm">
               <CalendarIcon size={14} className="text-stone-400" />
-              <span className="text-[11px] font-black uppercase tracking-widest text-stone-600">
+              <span className="text-[10px] font-black uppercase tracking-widest text-stone-600">
                 {weekDays[0].toLocaleDateString(undefined, { month: 'long', day: 'numeric' })} — {weekDays[6].toLocaleDateString(undefined, { day: 'numeric' })}
               </span>
             </div>
             <button 
               onClick={() => setCurrentDate(new Date(currentDate.setDate(currentDate.getDate() + 7)))}
-              className="p-3 hover:bg-stone-200/50 rounded-full transition-all"
+              className="p-3 hover:bg-stone-200/50 rounded-full transition-all text-stone-600"
             >
-              <ChevronRight size={20}/>
+              <ChevronRight size={18}/>
             </button>
           </div>
         </div>
 
-        {/* INSIGHT BOX: Dark Glassmorphism */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[#141414] text-white p-10 rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] flex items-center gap-12 border border-stone-800 relative overflow-hidden group"
+        <motion.button 
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={runClarityScan}
+          disabled={isScanActive}
+          className="flex items-center gap-4 bg-white border border-stone-200 px-8 py-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all group overflow-hidden cursor-pointer"
         >
-          <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Clock size={120} />
-          </div>
-          <div className="space-y-3 relative z-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-500 flex items-center gap-2">
-              <Zap size={14} className={totalHours > 40 ? "text-orange-400" : "text-[#a9b897]"} /> 
-              Load Analysis
-            </p>
-            <p className="text-sm text-stone-400 italic leading-relaxed max-w-[240px]">
+          <AnimatePresence mode="wait">
+            {isScanActive ? (
+              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <Loader2 className="animate-spin text-[#a9b897]" size={20} />
+              </motion.div>
+            ) : (
+              <motion.div key="icon" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <Sparkles className="text-[#a9b897] group-hover:rotate-12 transition-transform" size={20} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-600">
+            {isScanActive ? "Running Analysis..." : "Load Analysis Scan"}
+          </span>
+        </motion.button>
+      </header>
+
+      {/* CLARITY INSIGHT PANEL */}
+      <AnimatePresence>
+        {insight && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="bg-[#1c1c1c] text-stone-100 p-10 rounded-[3rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 border border-[#a9b897]/30"
+          >
+            <div className="flex items-center gap-8">
+              <div className="w-16 h-16 bg-[#a9b897]/10 rounded-3xl flex items-center justify-center shrink-0 border border-[#a9b897]/20">
+                <Zap className="text-[#a9b897]" size={32} />
+              </div>
+              <div>
+                <p className="text-[#a9b897] font-black uppercase text-[9px] tracking-[0.3em] mb-2">Synthetic Insight</p>
+                <p className="font-serif italic text-2xl text-stone-200 leading-snug max-w-3xl">{insight}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setInsight(null)} 
+              className="p-3 hover:bg-stone-800 rounded-full text-stone-500 transition-colors cursor-pointer"
+            >
+              <X size={24}/>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MATRIX TABLE MODULE */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 pt-4">
+        <aside className="lg:col-span-3">
+          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm space-y-8 sticky top-32">
+            <div className="space-y-2">
+              <h3 className="text-2xl font-serif italic text-stone-800 tracking-tight">Time Unit Hub</h3>
+              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Total Output Units</p>
+            </div>
+
+            <div className="border-t border-stone-50 pt-6">
+              <p className={`text-6xl font-serif italic ${totalHours > 40 ? "text-orange-500" : "text-[#a9b897]"}`}>
+                {totalHours.toFixed(1)}
+              </p>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400 mt-2">Billable Time Units</p>
+            </div>
+            
+            <p className="text-[10px] text-stone-400 leading-relaxed italic border-t border-stone-50 pt-6">
               {totalHours > 40 
                 ? "Threshold alert: High-velocity output detected. Optimization recommended." 
                 : "Efficiency stabilized. Current load aligns with project velocity."}
             </p>
           </div>
-          <div className="text-right border-l border-stone-800 pl-12 relative z-10">
-            <p className={`text-6xl font-serif italic ${totalHours > 40 ? "text-orange-400" : "text-[#a9b897]"}`}>
-              {totalHours.toFixed(1)}
-            </p>
-            <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 mt-2">Billable Units</p>
-          </div>
-        </motion.div>
-      </header>
+        </aside>
 
-      {/* MATRIX TABLE */}
-      <main className="max-w-[1600px] mx-auto">
-        <Card className="rounded-[4rem] overflow-hidden border-stone-100 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.05)] bg-white">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-stone-50/50 border-b border-stone-100">
-                  <th className="p-10 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 w-80">Project Stream</th>
-                  {weekDays.map((date, i) => (
-                    <th key={i} className={`p-8 text-center border-l border-stone-100/50 ${i > 4 ? 'bg-stone-100/30' : ''}`}>
-                      <p className="text-[10px] font-black uppercase tracking-tighter text-stone-400">{date.toLocaleDateString(undefined, { weekday: 'short' })}</p>
-                      <p className="text-2xl font-serif italic text-stone-800 mt-1">{date.getDate()}</p>
-                    </th>
-                  ))}
-                  <th className="p-10 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">Context</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-50">
-                <AnimatePresence>
-                  {rows.map((row, index) => (
-                    <motion.tr 
-                      key={index}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="group hover:bg-stone-50/50 transition-colors"
-                    >
-                      <td className="p-8">
-                        <select 
-                          className="w-full bg-stone-100/50 border-none px-6 py-4 rounded-2xl text-[11px] font-bold uppercase tracking-widest outline-none focus:ring-2 ring-[#a9b897] appearance-none"
-                          value={row.project_id}
-                          onChange={(e) => updateRow(index, 'project_id', e.target.value)}
-                        >
-                          <option value="">Select Project</option>
-                          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
-                      </td>
-                      {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day, i) => (
-                        <td key={day} className={`p-4 border-l border-stone-50 ${i > 4 ? 'bg-stone-50/20' : ''}`}>
+        <main className="lg:col-span-9">
+          <div className="bg-white border border-stone-100 rounded-[4rem] overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-stone-50/50 border-b border-stone-100">
+                    <th className="p-10 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 w-80">Project Stream</th>
+                    {weekDays.map((date, i) => (
+                      <th key={i} className={`p-8 text-center border-l border-stone-100/50 ${i > 4 ? 'bg-stone-100/30' : ''}`}>
+                        <p className="text-[9px] font-black uppercase tracking-tighter text-stone-400">{date.toLocaleDateString(undefined, { weekday: 'short' })}</p>
+                        <p className="text-2xl font-serif italic text-stone-800 mt-1">{date.getDate()}</p>
+                      </th>
+                    ))}
+                    <th className="p-10 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">Context</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  <AnimatePresence>
+                    {rows.map((row, index) => (
+                      <motion.tr 
+                        key={index}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="group hover:bg-stone-50/50 transition-colors"
+                      >
+                        <td className="p-8">
+                          <select 
+                            className="w-full bg-stone-50 border border-stone-100 px-6 py-4 rounded-2xl text-[11px] font-bold uppercase tracking-widest outline-none focus:ring-4 ring-[#a9b897]/5 appearance-none cursor-pointer"
+                            value={row.project_id}
+                            onChange={(e) => updateRow(index, 'project_id', e.target.value)}
+                          >
+                            <option value="">Select Project</option>
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
+                        </td>
+                        {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day, i) => (
+                          <td key={day} className={`p-4 border-l border-stone-50 ${i > 4 ? 'bg-stone-50/20' : ''}`}>
+                            <input 
+                              type="number"
+                              placeholder="0"
+                              className="w-full bg-transparent text-center text-3xl font-serif italic outline-none placeholder:text-stone-300 focus:text-[#a9b897] transition-colors"
+                              value={row.days[day]}
+                              onChange={(e) => updateRow(index, `day-${day}`, e.target.value)}
+                            />
+                          </td>
+                        ))}
+                        <td className="p-8 border-l border-stone-50">
                           <input 
-                            type="number"
-                            placeholder="0"
-                            className="w-full bg-transparent text-center text-3xl font-serif italic outline-none placeholder:text-stone-100 focus:text-[#a9b897] transition-colors"
-                            value={row.days[day]}
-                            onChange={(e) => updateRow(index, `day-${day}`, e.target.value)}
+                            type="text"
+                            placeholder="Project notes..."
+                            className="w-full bg-transparent text-[10px] font-bold uppercase tracking-tight outline-none placeholder:text-stone-300 focus:text-stone-900"
+                            value={row.description}
+                            onChange={(e) => updateRow(index, 'description', e.target.value)}
                           />
                         </td>
-                      ))}
-                      <td className="p-8 border-l border-stone-50">
-                        <input 
-                          type="text"
-                          placeholder="Project notes..."
-                          className="w-full bg-transparent text-[11px] font-bold uppercase tracking-tight outline-none placeholder:text-stone-200 focus:placeholder:text-stone-400"
-                          value={row.description}
-                          onChange={(e) => updateRow(index, 'description', e.target.value)}
-                        />
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
-          </div>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
 
-          {/* TABLE ACTIONS */}
-          <div className="p-10 bg-stone-50/30 border-t border-stone-100 flex flex-col md:flex-row justify-between items-center gap-8">
-            <button 
-              onClick={addRow}
-              className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.2em] text-[#a9b897] hover:text-stone-900 transition-all group"
-            >
-              <Plus size={16} className="group-hover:rotate-90 transition-transform" /> 
-              Add New Stream
-            </button>
-            
-            <div className="flex flex-col md:flex-row items-center gap-10">
-               <div className="flex items-center gap-3 text-stone-400 italic text-[11px]">
-                 <Info size={16} className="text-[#a9b897]" />
-                 <span>Verified commits are finalized every Sunday at 23:59.</span>
-               </div>
-               <Button 
-                onClick={saveWeeklyBatch} 
-                disabled={isSaving || totalHours === 0}
-                className="bg-stone-950 text-white px-12 py-5 rounded-[2rem] flex items-center gap-4 shadow-2xl hover:scale-105 active:scale-95 transition-all disabled:opacity-20 disabled:hover:scale-100"
-               >
-                 {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18} />}
-                 <span className="text-[11px] font-black uppercase tracking-[0.3em]">Commit Sequence</span>
-               </Button>
+            {/* TABLE ACTIONS */}
+            <div className="p-10 bg-stone-50/30 border-t border-stone-100 flex flex-col md:flex-row justify-between items-center gap-8">
+              <button 
+                onClick={addRow}
+                className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-[#a9b897] hover:text-stone-900 transition-all group cursor-pointer"
+              >
+                <Plus size={16} className="group-hover:rotate-90 transition-transform" /> 
+                Add New Stream
+              </button>
+              
+              <div className="flex flex-col md:flex-row items-center gap-10">
+                <div className="flex items-center gap-3 text-stone-400 italic text-[10px]">
+                  <Info size={16} className="text-[#a9b897]" />
+                  <span>Verified commits are finalized every Sunday at 23:59.</span>
+                </div>
+                
+                <button 
+                  onClick={saveWeeklyBatch} 
+                  disabled={isSaving || totalHours === 0}
+                  className="bg-stone-900 text-white px-12 py-5 rounded-[2rem] flex items-center gap-4 shadow-2xl hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:hover:scale-100 cursor-pointer border-0"
+                >
+                  {isSaving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />}
+                  <span className="text-[9px] font-black tracking-[0.3em] uppercase">Commit Sequence</span>
+                </button>
+              </div>
             </div>
           </div>
-        </Card>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

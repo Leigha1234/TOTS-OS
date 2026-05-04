@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   Plus, 
   Send, 
@@ -16,27 +16,48 @@ import {
   BarChart3,
   Users,
   ShieldCheck,
-  FileSpreadsheet,
   ArrowUpRight,
   ArrowDownLeft,
   ShieldAlert,
   FileDigit,
-  UserPlus
+  UserPlus,
+  Clock,
+  Calendar,
+  X,
+  Award,
+  DollarSign
 } from "lucide-react";
 
-export default function ApexOS() {
+export default function FinancialsPage() {
   const [isMounted, setIsMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState("financials"); // 'financials', 'hr', 'timesheets', 'appraisals'
 
   // Financial Dashboard Metrics 
-  const [metrics, setMetrics] = useState({
+  const [metrics] = useState({
     revYtd: 142500,
     liabilities: 28500,
     vatPool: 4210,
     calculatedTaxDue: 21660,
-    activeRunRate: 154000,
-    activeBudget: 220000,
-    pendingInvoices: 5
   });
+
+  // Independent Documents
+  const [invoices, setInvoices] = useState<any[]>([
+    { id: "INV-101", client: "Aperture Labs", amount: 14200, status: "approved", date: "2026-05-01" }
+  ]);
+  const [quotes, setQuotes] = useState<any[]>([
+    { id: "QT-004", client: "Black Mesa Corp", amount: 4500, status: "pending", date: "2026-05-15" }
+  ]);
+  const [expenses, setExpenses] = useState<any[]>([
+    { id: "EXP-22", vendor: "Apex Facilities", amount: 2300, status: "pending", date: "2026-05-02" }
+  ]);
+
+  // Document Entry Fields
+  const [invoiceClient, setInvoiceClient] = useState("");
+  const [invoiceAmount, setInvoiceAmount] = useState("");
+  const [quoteClient, setQuoteClient] = useState("");
+  const [quoteAmount, setQuoteAmount] = useState("");
+  const [expenseVendor, setExpenseVendor] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
 
   // Ledger States
   const [items, setItems] = useState<any[]>([]);
@@ -44,60 +65,44 @@ export default function ApexOS() {
   const [newItemAmount, setNewItemAmount] = useState("");
   const [newItemQty, setNewItemQty] = useState("1");
   
-  // Quotes & Invoices state
-  const [quotes, setQuotes] = useState<any[]>([
-    { id: "1", client: "Aperture Labs", amount: 12000, status: "pending", date: "2026-05-12" },
-    { id: "2", client: "Black Mesa Corp", amount: 4500, status: "approved", date: "2026-05-15" }
-  ]);
-  const [quoteClient, setQuoteClient] = useState("");
-  const [quoteAmount, setQuoteAmount] = useState("");
-  
-  // Payroll / Ledger states
+  // Payroll / HR states
   const [payrollEntries, setPayrollEntries] = useState<any[]>([
-    { id: "1", employee: "Sarah Chen", role: "Developer", rate: 50, hours: 40, total: 2000 },
-    { id: "2", employee: "Marcus Brody", role: "Designer", rate: 45, hours: 38, total: 1710 }
+    { id: "1", employee: "Sarah Chen", role: "Developer", total: 2000, dateOfPay: "2026-05-28" }
   ]);
-  const [empNameInput, setEmpNameInput] = useState("");
-  const [empRoleInput, setEmpRoleInput] = useState("");
-  const [empHoursInput, setEmpHoursInput] = useState("");
-  const [empRateInput, setEmpRateInput] = useState("");
-
-  // Ledger calculation states
+  
+  // Advanced HR Form
+  const [empName, setEmpName] = useState("Jane Doe");
+  const [empNumber, setEmpNumber] = useState("EMP-0401");
+  const [empRole, setEmpRole] = useState("Marketing Executive");
+  const [contractType, setContractType] = useState("Full-Time");
+  const [workingHours, setWorkingHours] = useState("40");
+  const [holidayEntitlement, setHolidayEntitlement] = useState("28");
+  const [dateOfPayDue, setDateOfPayDue] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [sortCode, setSortCode] = useState("");
+  const [nextOfKinName, setNextOfKinName] = useState("");
+  const [nextOfKinNumber, setNextOfKinNumber] = useState("");
+  
+  // Appraisal and Time states
+  const [appraisalOpen, setAppraisalOpen] = useState(false);
+  const [timesheetList, setTimesheetList] = useState<any[]>([
+    { id: "1", task: "Client Review", duration: "2.5 hrs", date: "2026-05-04" }
+  ]);
+  const [taskName, setTaskName] = useState("");
+  const [taskDuration, setTaskDuration] = useState("");
+  
   const [vatRate, setVatRate] = useState("20"); 
   const [discountAmount, setDiscountAmount] = useState("");
-  const [liabilityLabel, setNewLiabilityLabel] = useState("");
-  const [liabilityAmount, setNewLiabilityAmount] = useState("");
   
-  // Onboarding states
-  const [empName, setEmpName] = useState("Jane Doe");
-  const [empRole, setEmpRole] = useState("Marketing Executive");
-  const [bankDetails, setBankDetails] = useState("");
-  const [nextOfKin, setNextOfKin] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [balanceSheet] = useState({ assets: 156000, liabilities: 28500, equity: 127500 });
+  const [cashFlow] = useState({ inflows: 35000, outflows: 18000, net: 17000 });
+  const [accountsReceivable] = useState([{ id: "AR-1", customer: "Cyberdyne Systems", balance: 5400 }]);
+  const [incomeStatement] = useState({ grossRevenue: 142500, cogs: 24000, netIncome: 73500 });
 
-  // Detailed Ledger Reports
-  const [balanceSheet, setBalanceSheet] = useState({
-    assets: 156000,
-    liabilities: 28500,
-    equity: 127500
-  });
-  const [cashFlow, setCashFlow] = useState({
-    inflows: 35000,
-    outflows: 18000,
-    net: 17000
-  });
-  const [accountsReceivable, setAccountsReceivable] = useState<any[]>([
-    { id: "AR-1", customer: "Cyberdyne Systems", balance: 5400, due: "2026-05-18" }
-  ]);
-  const [accountsPayable, setAccountsPayable] = useState<any[]>([
-    { id: "AP-1", vendor: "Apex Facilities", amount: 2300, due: "2026-05-22" }
-  ]);
-  const [incomeStatement, setIncomeStatement] = useState({
-    grossRevenue: 142500,
-    cogs: 24000,
-    operatingExpenses: 45000,
-    netIncome: 73500
+  const [appraisalAnswers, setAppraisalAnswers] = useState({
+    q1: "", q2: "", q3: "", q4: "", q5: "", q6: "", q7: "", q8: "", q9: "", 
+    q10: "", q11: "", q12: "", q13: "", q14: "", q15: ""
   });
 
   useEffect(() => {
@@ -106,20 +111,16 @@ export default function ApexOS() {
 
   const addItem = () => {
     if (!newItemName || !newItemAmount) return;
-    const amount = parseFloat(newItemAmount);
-    const qty = parseInt(newItemQty) || 1;
-
     setItems([
       ...items,
       {
         id: Date.now().toString(),
         name: newItemName,
-        amount: amount,
-        quantity: qty,
-        total: amount * qty,
+        amount: parseFloat(newItemAmount),
+        quantity: parseInt(newItemQty) || 1,
+        total: parseFloat(newItemAmount) * (parseInt(newItemQty) || 1),
       }
     ]);
-
     setNewItemName("");
     setNewItemAmount("");
     setNewItemQty("1");
@@ -129,82 +130,51 @@ export default function ApexOS() {
     setItems(items.filter(item => item.id !== id));
   };
 
+  const addInvoice = () => {
+    if (!invoiceClient || !invoiceAmount) return;
+    setInvoices([
+      ...invoices,
+      { id: `INV-${Math.floor(Math.random() * 900) + 100}`, client: invoiceClient, amount: parseFloat(invoiceAmount), status: "pending", date: new Date().toISOString().split('T')[0] }
+    ]);
+    setInvoiceClient("");
+    setInvoiceAmount("");
+  };
+
   const addQuote = () => {
     if (!quoteClient || !quoteAmount) return;
     setQuotes([
       ...quotes,
-      {
-        id: Date.now().toString(),
-        client: quoteClient,
-        amount: parseFloat(quoteAmount),
-        status: "pending",
-        date: new Date().toISOString().split('T')[0]
-      }
+      { id: `QT-${Math.floor(Math.random() * 900) + 100}`, client: quoteClient, amount: parseFloat(quoteAmount), status: "pending", date: new Date().toISOString().split('T')[0] }
     ]);
     setQuoteClient("");
     setQuoteAmount("");
   };
 
-  const addPayrollEntry = () => {
-    if (!empNameInput || !empRateInput || !empHoursInput) return;
-    const rate = parseFloat(empRateInput);
-    const hours = parseFloat(empHoursInput);
-
-    setPayrollEntries([
-      ...payrollEntries,
-      {
-        id: Date.now().toString(),
-        employee: empNameInput,
-        role: empRoleInput || "Staff",
-        rate,
-        hours,
-        total: rate * hours
-      }
+  const addExpense = () => {
+    if (!expenseVendor || !expenseAmount) return;
+    setExpenses([
+      ...expenses,
+      { id: `EXP-${Math.floor(Math.random() * 90) + 10}`, vendor: expenseVendor, amount: parseFloat(expenseAmount), status: "pending", date: new Date().toISOString().split('T')[0] }
     ]);
+    setExpenseVendor("");
+    setExpenseAmount("");
+  };
 
-    setEmpNameInput("");
-    setEmpRoleInput("");
-    setEmpHoursInput("");
-    setEmpRateInput("");
+  const addTimesheet = () => {
+    if (!taskName || !taskDuration) return;
+    setTimesheetList([
+      ...timesheetList,
+      { id: Date.now().toString(), task: taskName, duration: taskDuration, date: new Date().toISOString().split('T')[0] }
+    ]);
+    setTaskName("");
+    setTaskDuration("");
   };
 
   const subtotal = items.reduce((acc, item) => acc + item.total, 0);
-  const discount = parseFloat(discountAmount) || 0;
+  const discount = discountAmount === "" ? 0 : parseFloat(discountAmount) || 0;
   const taxableAmount = Math.max(0, subtotal - discount);
   const vat = taxableAmount * (parseFloat(vatRate) / 100);
   const total = taxableAmount + vat;
-
-  const handleDispatch = () => {
-    if (items.length === 0) {
-      alert("Ledger is empty. Add elements to this invoice before dispatching.");
-      return;
-    }
-    alert(`Invoice dispatched to workspace with a total of £${total.toFixed(2)}.`);
-  };
-
-  const handleSaveDraft = () => {
-    alert("Ledger entry saved to draft state.");
-  };
-
-  const handleApprove = () => {
-    alert("Invoice approved.");
-  };
-
-  const handleVoid = () => {
-    setItems([]);
-    setDiscountAmount("");
-    alert("Ledger entry cleared.");
-  };
-
-  const handleLiability = () => {
-    if (!liabilityLabel || !liabilityAmount) {
-      alert("Please fill both Liability Label and Amount.");
-      return;
-    }
-    alert(`Liability ${liabilityLabel} registered at £${liabilityAmount}.`);
-    setNewLiabilityLabel("");
-    setNewLiabilityAmount("");
-  };
 
   if (!isMounted) return null;
 
@@ -216,525 +186,530 @@ export default function ApexOS() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-[#a9b897]">
             <BarChart3 size={14} />
-            <p className="font-black uppercase text-[9px] tracking-[0.4em]">Integrated Intelligence and Finance Suite</p>
+            <p className="font-black uppercase text-[9px] tracking-[0.4em]">Financial & Employee Operations Center</p>
           </div>
-          <h1 className="text-6xl font-serif italic tracking-tighter">Performance, Ledger & Operations</h1>
+          <h1 className="text-5xl font-serif italic tracking-tighter">Financial Accounts & Records</h1>
         </div>
         
         <div className="flex items-center gap-4 bg-white border border-stone-200 px-6 py-4 rounded-2xl shadow-sm">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Live Secure Server Active</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Live Secure Connection</p>
         </div>
       </header>
 
-      {/* METRIC CARD SUITE */}
+      {/* METRIC CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-stone-900 text-stone-100 p-10 rounded-[2.5rem] shadow-2xl flex flex-col justify-between min-h-[220px] relative overflow-hidden group"
-        >
-          <div className="flex justify-between items-start z-10">
-            <div className="p-3 bg-stone-800 rounded-2xl text-[#a9b897]">
-              <TrendingUp size={24} />
-            </div>
+        <div className="bg-stone-900 text-stone-100 p-10 rounded-[2.5rem] shadow-2xl flex flex-col justify-between min-h-[220px]">
+          <div className="flex justify-between items-start">
+            <div className="p-3 bg-stone-800 rounded-2xl text-[#a9b897]"><TrendingUp size={24} /></div>
             <span className="text-[9px] font-black uppercase text-stone-500 tracking-[0.3em]">Capital Flow</span>
           </div>
-          <div className="z-10 mt-8">
+          <div>
             <p className="text-4xl font-mono tracking-tighter">£{metrics.revYtd.toLocaleString()}</p>
-            <p className="text-[10px] text-stone-500 uppercase font-black mt-2 tracking-widest">Aggregate Revenue</p>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[220px]"
-        >
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-red-50 text-red-500 rounded-2xl">
-              <ShieldAlert size={24} />
-            </div>
-            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Liabilities</span>
-          </div>
-          <div className="mt-8">
-            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.liabilities.toLocaleString()}</p>
-            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Active Liabilities</p>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[220px]"
-        >
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-green-50 text-green-600 rounded-2xl">
-              <ShieldCheck size={24} />
-            </div>
-            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">VAT Pool</span>
-          </div>
-          <div className="mt-8">
-            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.vatPool.toLocaleString()}</p>
-            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Calculated VAT Pool</p>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[220px]"
-        >
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-yellow-50 text-yellow-600 rounded-2xl">
-              <FileDigit size={24} />
-            </div>
-            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Tax Due</span>
-          </div>
-          <div className="mt-8">
-            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.calculatedTaxDue.toLocaleString()}</p>
-            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Calculated Tax Due</p>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* LOWER SECTION: WORKSPACES */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 pt-12 border-t border-stone-200">
-        
-        {/* COLUMN 1: SIDEBAR / LIABILITY AND INVOICE ENTRIES */}
-        <div className="lg:col-span-1 space-y-8 h-fit">
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm space-y-8">
-            <div className="space-y-2">
-              <h3 className="text-2xl font-serif italic text-stone-800 tracking-tight">New Ledger Entry</h3>
-              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Add an item to this invoice</p>
-            </div>
-
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Item Description</label>
-                <input
-                  placeholder="e.g. Node Maintenance"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none transition-all font-medium placeholder:text-stone-300 text-stone-800"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Price (£)</label>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={newItemAmount}
-                    onChange={(e) => setNewItemAmount(e.target.value)}
-                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none transition-all font-medium placeholder:text-stone-300 text-stone-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Quantity</label>
-                  <input
-                    type="number"
-                    value={newItemQty}
-                    onChange={(e) => setNewItemQty(e.target.value)}
-                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={addItem}
-                disabled={!newItemName || !newItemAmount}
-                className="w-full py-5 rounded-[2rem] flex justify-center items-center gap-4 bg-stone-900 text-white disabled:opacity-40 hover:bg-stone-800 transition-all cursor-pointer font-bold tracking-[0.2em] text-xs uppercase shadow-xl"
-              >
-                <Plus size={16} /> Add Item
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm space-y-6">
-            <h3 className="text-xl font-serif italic text-stone-800 tracking-tight">Add Liability</h3>
-            <div className="space-y-4">
-              <input
-                placeholder="Liability Label"
-                value={liabilityLabel}
-                onChange={(e) => setNewLiabilityLabel(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-10 px-4 text-xs font-bold outline-none text-stone-800"
-              />
-              <input
-                type="number"
-                placeholder="Amt (£)"
-                value={liabilityAmount}
-                onChange={(e) => setNewLiabilityAmount(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-10 px-4 text-xs font-bold outline-none text-stone-800"
-              />
-              <button
-                onClick={handleLiability}
-                className="w-full py-3 border border-stone-200 text-stone-700 rounded-2xl text-xs uppercase font-bold hover:bg-stone-50 cursor-pointer"
-              >
-                Add Liability
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
-            <div className="flex items-center gap-3">
-              <FileSpreadsheet size={18} className="text-[#a9b897]" />
-              <h3 className="text-xl font-serif italic text-stone-800 tracking-tight">Create Quote</h3>
-            </div>
-            <div className="space-y-4">
-              <input
-                placeholder="Client Name"
-                value={quoteClient}
-                onChange={(e) => setQuoteClient(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-10 px-4 text-xs font-bold outline-none text-stone-800"
-              />
-              <input
-                type="number"
-                placeholder="Amount (£)"
-                value={quoteAmount}
-                onChange={(e) => setQuoteAmount(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-10 px-4 text-xs font-bold outline-none text-stone-800"
-              />
-              <button
-                onClick={addQuote}
-                className="w-full py-3 border border-stone-200 text-stone-700 rounded-2xl text-xs uppercase font-bold hover:bg-stone-50 cursor-pointer"
-              >
-                Save Quote
-              </button>
-            </div>
+            <p className="text-[10px] text-stone-500 uppercase font-black mt-2 tracking-widest">Aggregate YTD Rev</p>
           </div>
         </div>
 
-        {/* COLUMN 2 AND 3: ALL MODULES, STATEMENTS, AND FORMS */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[220px]">
+          <div className="flex justify-between items-start">
+            <div className="p-3 bg-red-50 text-red-500 rounded-2xl"><ShieldAlert size={24} /></div>
+            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Liabilities</span>
+          </div>
+          <div>
+            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.liabilities.toLocaleString()}</p>
+            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Active Balance</p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[220px]">
+          <div className="flex justify-between items-start">
+            <div className="p-3 bg-green-50 text-green-600 rounded-2xl"><ShieldCheck size={24} /></div>
+            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">VAT Pool</span>
+          </div>
+          <div>
+            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.vatPool.toLocaleString()}</p>
+            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Accrued VAT</p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[220px]">
+          <div className="flex justify-between items-start">
+            <div className="p-3 bg-yellow-50 text-yellow-600 rounded-2xl"><FileDigit size={24} /></div>
+            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Tax Due</span>
+          </div>
+          <div>
+            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.calculatedTaxDue.toLocaleString()}</p>
+            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Calculated Balance</p>
+          </div>
+        </div>
+      </div>
+
+      {/* NAVIGATION TABS */}
+      <div className="flex flex-wrap gap-4 border-b border-stone-200 pb-4">
+        <button 
+          onClick={() => setActiveTab("financials")}
+          className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
+            activeTab === "financials" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
+          }`}
+        >
+          Financials
+        </button>
+        <button 
+          onClick={() => setActiveTab("hr")}
+          className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
+            activeTab === "hr" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
+          }`}
+        >
+          HR & Payroll
+        </button>
+        <button 
+          onClick={() => setActiveTab("timesheets")}
+          className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
+            activeTab === "timesheets" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
+          }`}
+        >
+          Timesheets
+        </button>
+        <button 
+          onClick={() => setActiveTab("appraisals")}
+          className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
+            activeTab === "appraisals" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
+          }`}
+        >
+          Appraisals
+        </button>
+      </div>
+
+      {/* TAB CONTENTS */}
+      
+      {/* 1. FINANCIALS TAB */}
+      {activeTab === "financials" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 pt-4">
           
-          {/* BALANCE SHEET & INCOME STATEMENT VIEW */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-              <h4 className="text-lg font-serif italic text-stone-800">Balance Sheet</h4>
-              <div className="space-y-3 pt-4 text-xs font-medium">
-                <div className="flex justify-between border-b border-stone-100 pb-2">
-                  <span className="text-stone-400">Total Assets</span>
-                  <span className="font-mono text-stone-800 font-bold">£{balanceSheet.assets.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between border-b border-stone-100 pb-2">
-                  <span className="text-stone-400">Total Liabilities</span>
-                  <span className="font-mono text-stone-800 font-bold">£{balanceSheet.liabilities.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between pt-2 text-sm">
-                  <span className="text-stone-800 font-bold">Equity</span>
-                  <span className="font-mono text-stone-900 font-bold">£{balanceSheet.equity.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-              <h4 className="text-lg font-serif italic text-stone-800">Cash Flow Statement</h4>
-              <div className="space-y-3 pt-4 text-xs font-medium">
-                <div className="flex justify-between border-b border-stone-100 pb-2 text-green-600">
-                  <span className="flex items-center gap-2"><ArrowUpRight size={14} /> Inflows</span>
-                  <span className="font-mono font-bold">£{cashFlow.inflows.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between border-b border-stone-100 pb-2 text-red-500">
-                  <span className="flex items-center gap-2"><ArrowDownLeft size={14} /> Outflows</span>
-                  <span className="font-mono font-bold">-£{cashFlow.outflows.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between pt-2 text-sm">
-                  <span className="text-stone-800 font-bold">Net Change</span>
-                  <span className="font-mono text-stone-900 font-bold">£{cashFlow.net.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-              <h4 className="text-lg font-serif italic text-stone-800">Accounts Receivable</h4>
-              <div className="space-y-2 pt-2">
-                {accountsReceivable.map((ar) => (
-                  <div key={ar.id} className="flex justify-between text-xs py-2 border-b border-stone-50">
-                    <span className="font-medium text-stone-800">{ar.customer}</span>
-                    <span className="font-mono font-bold">£{ar.balance}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-              <h4 className="text-lg font-serif italic text-stone-800">Income Statement</h4>
-              <div className="space-y-3 text-xs font-medium pt-2">
-                <div className="flex justify-between">
-                  <span className="text-stone-400">Gross Rev</span>
-                  <span className="font-mono">£{incomeStatement.grossRevenue.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-400">COGS</span>
-                  <span className="font-mono text-red-500">-£{incomeStatement.cogs.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between border-t border-stone-100 pt-2 font-bold">
-                  <span className="text-stone-800">Net Income</span>
-                  <span className="font-mono text-green-600">£{incomeStatement.netIncome.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* TEAM MATRIX ONBOARDING MODULE */}
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
-            <div className="flex items-center gap-3 text-stone-800">
-              <UserPlus size={18} className="text-[#a9b897]" />
-              <h4 className="text-xl font-serif italic tracking-tight">Onboard New Team Member</h4>
-            </div>
-            <p className="text-[10px] uppercase font-black tracking-widest text-stone-400">Team Matrix Database Update</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Name</label>
+          <div className="lg:col-span-1 space-y-8 h-fit">
+            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
+              <h3 className="text-xl font-serif italic text-stone-800">New Invoice</h3>
+              <div className="space-y-4">
                 <input
-                  value={empName}
-                  onChange={(e) => setEmpName(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Role/Title</label>
-                <input
-                  value={empRole}
-                  onChange={(e) => setEmpRole(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Bank Details</label>
-                <input
-                  placeholder="Bank name and account information"
-                  value={bankDetails}
-                  onChange={(e) => setBankDetails(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Next of Kin</label>
-                <input
-                  placeholder="Name and number"
-                  value={nextOfKin}
-                  onChange={(e) => setNextOfKin(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Start Date</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm text-stone-800 focus:ring-4 ring-[#a9b897]/5 outline-none font-medium"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">End Date</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm text-stone-800 focus:ring-4 ring-[#a9b897]/5 outline-none font-medium"
-                />
-              </div>
-            </div>
-
-            <button 
-              onClick={() => alert(`Team Member ${empName} submitted successfully.`)}
-              className="w-full py-4 bg-[#a9b897]/20 border border-[#a9b897]/30 text-stone-900 rounded-2xl text-xs uppercase font-bold hover:bg-[#a9b897]/30 cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Briefcase size={14} /> Submit to Team Matrix
-            </button>
-          </div>
-
-          {/* PAYROLL MODULE */}
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xl font-serif italic text-stone-800 tracking-tight">Active Payroll Log</h4>
-              <Users size={18} className="text-stone-400" />
-            </div>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <input
-                  placeholder="Name"
-                  value={empNameInput}
-                  onChange={(e) => setEmpNameInput(e.target.value)}
-                  className="h-10 bg-stone-50 border border-stone-100 rounded-xl px-4 text-xs font-semibold outline-none text-stone-800"
-                />
-                <input
-                  placeholder="Role"
-                  value={empRoleInput}
-                  onChange={(e) => setEmpRoleInput(e.target.value)}
-                  className="h-10 bg-stone-50 border border-stone-100 rounded-xl px-4 text-xs font-semibold outline-none text-stone-800"
+                  placeholder="Client Name"
+                  value={invoiceClient}
+                  onChange={(e) => setInvoiceClient(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
                 />
                 <input
                   type="number"
-                  placeholder="Rate (£/hr)"
-                  value={empRateInput}
-                  onChange={(e) => setEmpRateInput(e.target.value)}
-                  className="h-10 bg-stone-50 border border-stone-100 rounded-xl px-4 text-xs font-semibold outline-none text-stone-800"
+                  placeholder="Amount (£)"
+                  value={invoiceAmount}
+                  onChange={(e) => setInvoiceAmount(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
+                />
+                <button
+                  onClick={addInvoice}
+                  className="w-full py-3 bg-[#a9b897] text-stone-900 rounded-2xl text-xs uppercase font-black hover:bg-[#99a888]"
+                >
+                  Create Invoice
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
+              <h3 className="text-xl font-serif italic text-stone-800">Create Quote</h3>
+              <div className="space-y-4">
+                <input
+                  placeholder="Client Name"
+                  value={quoteClient}
+                  onChange={(e) => setQuoteClient(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
                 />
                 <input
                   type="number"
-                  placeholder="Hours"
-                  value={empHoursInput}
-                  onChange={(e) => setEmpHoursInput(e.target.value)}
-                  className="h-10 bg-stone-50 border border-stone-100 rounded-xl px-4 text-xs font-semibold outline-none text-stone-800"
+                  placeholder="Amount (£)"
+                  value={quoteAmount}
+                  onChange={(e) => setQuoteAmount(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
                 />
-              </div>
-              <button 
-                onClick={addPayrollEntry}
-                className="w-full py-3 bg-stone-900 text-white text-xs font-bold uppercase rounded-2xl hover:bg-stone-800"
-              >
-                Add Payroll Entry
-              </button>
-            </div>
-            
-            <div className="divide-y divide-stone-100 mt-4">
-              {payrollEntries.map((entry) => (
-                <div key={entry.id} className="flex justify-between items-center py-3 text-xs font-medium text-stone-800">
-                  <div>
-                    <span className="font-bold">{entry.employee}</span>
-                    <span className="text-stone-400 ml-2">({entry.role})</span>
-                  </div>
-                  <div>
-                    £{entry.total.toFixed(2)} <span className="text-stone-400 text-[10px] ml-2">({entry.hours} hrs @ £{entry.rate}/hr)</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ACCOUNTS PAYABLE MODULE */}
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
-            <h4 className="text-xl font-serif italic text-stone-800">Accounts Payable</h4>
-            <div className="divide-y divide-stone-100">
-              {accountsPayable.map((ap) => (
-                <div key={ap.id} className="flex justify-between items-center py-4 text-xs">
-                  <span className="font-bold text-stone-800">{ap.vendor}</span>
-                  <span className="font-mono font-bold text-stone-900">£{ap.amount.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* QUOTES MANIFEST MODULE */}
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
-            <h4 className="text-xl font-serif italic text-stone-800 tracking-tight">Quotes Manifest</h4>
-            <div className="divide-y divide-stone-100">
-              {quotes.map((q) => (
-                <div key={q.id} className="flex justify-between items-center py-4 text-xs">
-                  <div>
-                    <span className="font-bold text-stone-800">{q.client}</span>
-                    <p className="text-[9px] text-stone-400 tracking-wider uppercase mt-1">{q.date}</p>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <span className="font-mono font-bold text-stone-900">£{q.amount.toLocaleString()}</span>
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${
-                      q.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'
-                    }`}>
-                      {q.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* LEDGER AREA */}
-          {items.length > 0 && (
-            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
-              <h4 className="text-2xl font-serif italic text-stone-800 tracking-tight">Ledger Items</h4>
-              <div className="divide-y divide-stone-100">
-                {items.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center py-4">
-                    <div>
-                      <p className="font-semibold text-stone-800">{item.name}</p>
-                      <p className="text-xs text-stone-400">£{item.amount} × {item.quantity}</p>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <span className="font-mono text-stone-900 font-bold">£{item.total.toFixed(2)}</span>
-                      <button 
-                        onClick={() => removeItem(item.id)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors cursor-pointer"
-                      >
-                        <Minus size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                <button
+                  onClick={addQuote}
+                  className="w-full py-3 border border-stone-200 text-stone-700 rounded-2xl text-xs uppercase font-bold hover:bg-stone-50"
+                >
+                  Save Quote
+                </button>
               </div>
             </div>
-          )}
 
-          {/* TAX AND TOTAL CALCULATOR SECTION */}
-          <div className="bg-stone-900 text-white p-10 rounded-[3.5rem] shadow-2xl space-y-8">
+            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
+              <h3 className="text-xl font-serif italic text-stone-800">Log Expense Item</h3>
+              <div className="space-y-4">
+                <input
+                  placeholder="Vendor Name"
+                  value={expenseVendor}
+                  onChange={(e) => setExpenseVendor(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
+                />
+                <input
+                  type="number"
+                  placeholder="Amount (£)"
+                  value={expenseAmount}
+                  onChange={(e) => setExpenseAmount(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
+                />
+                <button
+                  onClick={addExpense}
+                  className="w-full py-3 bg-red-50 text-red-600 border border-red-200 rounded-2xl text-xs uppercase font-bold hover:bg-red-100/40"
+                >
+                  Log Expense
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-3">
-                <label className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">VAT Rate (%)</label>
-                <div className="relative">
+              <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+                <h4 className="text-lg font-serif italic text-stone-800">Balance Sheet</h4>
+                <div className="space-y-3 pt-4 text-xs font-medium">
+                  <div className="flex justify-between border-b border-stone-100 pb-2">
+                    <span className="text-stone-400">Total Assets</span>
+                    <span className="font-mono text-stone-800 font-bold">£{balanceSheet.assets.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-stone-100 pb-2">
+                    <span className="text-stone-400">Total Liabilities</span>
+                    <span className="font-mono text-stone-800 font-bold">£{balanceSheet.liabilities.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 text-sm">
+                    <span className="text-stone-800 font-bold">Equity</span>
+                    <span className="font-mono text-stone-900 font-bold">£{balanceSheet.equity.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+                <h4 className="text-lg font-serif italic text-stone-800">Cash Flow Statement</h4>
+                <div className="space-y-3 pt-4 text-xs font-medium">
+                  <div className="flex justify-between border-b border-stone-100 pb-2 text-green-600">
+                    <span className="flex items-center gap-2"><ArrowUpRight size={14} /> Inflows</span>
+                    <span className="font-mono font-bold">£{cashFlow.inflows.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-stone-100 pb-2 text-red-500">
+                    <span className="flex items-center gap-2"><ArrowDownLeft size={14} /> Outflows</span>
+                    <span className="font-mono font-bold">-£{cashFlow.outflows.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 text-sm">
+                    <span className="text-stone-800 font-bold">Net Change</span>
+                    <span className="font-mono text-stone-900 font-bold">£{cashFlow.net.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+                <h4 className="text-lg font-serif italic text-stone-800">Accounts Receivable</h4>
+                <div className="space-y-2 pt-2">
+                  {accountsReceivable.map((ar) => (
+                    <div key={ar.id} className="flex justify-between text-xs py-2 border-b border-stone-50">
+                      <span className="font-medium text-stone-800">{ar.customer}</span>
+                      <span className="font-mono font-bold">£{ar.balance}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+                <h4 className="text-lg font-serif italic text-stone-800">Income Statement</h4>
+                <div className="space-y-3 text-xs font-medium pt-2">
+                  <div className="flex justify-between">
+                    <span className="text-stone-400">Gross Rev</span>
+                    <span className="font-mono">£{incomeStatement.grossRevenue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-400">COGS</span>
+                    <span className="font-mono text-red-500">-£{incomeStatement.cogs.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-stone-100 pt-2 font-bold">
+                    <span className="text-stone-800">Net Income</span>
+                    <span className="font-mono text-green-600">£{incomeStatement.netIncome.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
+                <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Invoices</h5>
+                <div className="space-y-3">
+                  {invoices.map((inv) => (
+                    <div key={inv.id} className="flex justify-between text-xs">
+                      <span className="font-bold">{inv.client}</span>
+                      <span className="font-mono">£{inv.amount}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
+                <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Quotes</h5>
+                <div className="space-y-3">
+                  {quotes.map((q) => (
+                    <div key={q.id} className="flex justify-between text-xs">
+                      <span className="font-bold">{q.client}</span>
+                      <span className="font-mono">£{q.amount}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
+                <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Expenses</h5>
+                <div className="space-y-3">
+                  {expenses.map((e) => (
+                    <div key={e.id} className="flex justify-between text-xs">
+                      <span className="font-bold">{e.vendor}</span>
+                      <span className="font-mono">£{e.amount}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-stone-900 text-white p-10 rounded-[3.5rem] shadow-2xl space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">VAT Rate (%)</label>
                   <select
                     value={vatRate}
                     onChange={(e) => setVatRate(e.target.value)}
-                    className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-5 text-sm text-white focus:ring-4 ring-[#a9b897]/20 outline-none appearance-none transition-all cursor-pointer font-bold"
+                    className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-5 text-sm text-white focus:ring-4 ring-[#a9b897]/20 outline-none appearance-none cursor-pointer font-bold"
                   >
                     <option value="0">0% (Zero Rated)</option>
                     <option value="5">5% (Reduced Rate)</option>
                     <option value="20">20% (Standard Rate)</option>
                   </select>
-                  <Percent size={16} className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-stone-500" />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">Discount Amount (£)</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={discountAmount}
+                    onChange={(e) => setDiscountAmount(e.target.value)}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-5 text-sm text-white focus:ring-4 ring-[#a9b897]/20 outline-none placeholder:text-stone-700 font-bold"
+                  />
                 </div>
               </div>
-              <div className="space-y-3">
-                <label className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">Discount Amount (£)</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={discountAmount}
-                  onChange={(e) => setDiscountAmount(e.target.value)}
-                  className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-5 text-sm text-white focus:ring-4 ring-[#a9b897]/20 outline-none transition-all placeholder:text-stone-700 font-bold"
-                />
+
+              <div className="border-t border-stone-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="space-y-2 text-left">
+                  <p className="text-[10px] font-black tracking-widest text-stone-500 uppercase">Grand Total</p>
+                  <p className="text-5xl font-mono tracking-tighter">£{total.toFixed(2)}</p>
+                </div>
+                <button
+                  onClick={() => alert(`Invoice dispatched, total: ${total}`)}
+                  className="w-full md:w-auto px-10 py-5 rounded-[2rem] bg-[#a9b897] text-stone-900 font-bold tracking-[0.3em] uppercase text-xs flex justify-center items-center gap-4 hover:bg-[#99a888] transition-all"
+                >
+                  <Send size={16} /> Dispatch Ledger
+                </button>
               </div>
             </div>
-
-            <div className="border-t border-stone-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
-              <div className="space-y-2 text-left">
-                <p className="text-[10px] font-black tracking-widest text-stone-500 uppercase">Grand Total</p>
-                <p className="text-5xl font-mono tracking-tighter">£{total.toFixed(2)}</p>
-              </div>
-              <button
-                onClick={handleDispatch}
-                className="w-full md:w-auto px-10 py-5 rounded-[2rem] bg-[#a9b897] text-stone-900 font-bold tracking-[0.3em] uppercase text-xs flex justify-center items-center gap-4 hover:bg-[#99a888] transition-all"
-              >
-                <Send size={16} /> Dispatch Ledger
-              </button>
-            </div>
-          </div>
-
-          {/* GLOBAL ACTION BUTTONS */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button onClick={handleDispatch} className="py-4 bg-white border border-stone-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-stone-700 hover:border-stone-400 transition-all shadow-sm">
-              <Mail size={16} /><span className="text-[8px] font-black uppercase tracking-wider">Email Client</span>
-            </button>
-            <button onClick={() => alert("Exporting Invoice PDF Document.")} className="py-4 bg-white border border-stone-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-stone-700 hover:border-stone-400 transition-all shadow-sm">
-              <FileText size={16} /><span className="text-[8px] font-black uppercase tracking-wider">Export PDF</span>
-            </button>
-            <button onClick={handleSaveDraft} className="py-4 bg-white border border-stone-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-stone-700 hover:border-stone-400 transition-all shadow-sm">
-              <Save size={16} /><span className="text-[8px] font-black uppercase tracking-wider">Save Draft</span>
-            </button>
-            <button onClick={handleApprove} className="py-4 bg-green-50 border border-green-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-green-600 hover:bg-green-100/40 transition-all cursor-pointer">
-              <Check size={16} /><span className="text-[8px] font-black uppercase tracking-wider">Approve</span>
-            </button>
-          </div>
-
-          <div className="bg-red-50 border border-red-100 p-6 rounded-[2rem] flex justify-between items-center">
-            <div>
-              <p className="text-xs font-bold text-red-700">Clear Ledger Data</p>
-              <p className="text-[9px] text-red-400 tracking-wider uppercase font-black">Reset invoice values to zero</p>
-            </div>
-            <button onClick={handleVoid} className="px-6 py-3 bg-red-600 text-white rounded-xl text-[9px] uppercase font-black hover:bg-red-500 shadow-sm">Void</button>
           </div>
         </div>
+      )}
 
-      </div>
+      {/* 2. HR & PAYROLL TAB */}
+      {activeTab === "hr" && (
+        <div className="max-w-4xl mx-auto bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
+          <div className="flex items-center gap-3 text-stone-800">
+            <UserPlus size={18} className="text-[#a9b897]" />
+            <h4 className="text-xl font-serif italic">Onboard New Team Member</h4>
+          </div>
+          <p className="text-[10px] uppercase font-black tracking-widest text-stone-400">Payroll Data Interface</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+            <div>
+              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Name</label>
+              <input value={empName} onChange={(e) => setEmpName(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Employee Number</label>
+              <input value={empNumber} onChange={(e) => setEmpNumber(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Role/Title</label>
+              <input value={empRole} onChange={(e) => setEmpRole(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Contract Type</label>
+              <select value={contractType} onChange={(e) => setContractType(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800">
+                <option>Full-Time</option>
+                <option>Part-Time</option>
+                <option>Flexible</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Working Hours & Days</label>
+              <input placeholder="e.g. 40 hrs / Mon-Fri" value={workingHours} onChange={(e) => setWorkingHours(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Holiday Entitlement (Days)</label>
+              <input value={holidayEntitlement} onChange={(e) => setHolidayEntitlement(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
+            </div>
+            <div>
+              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Date of Pay Due</label>
+              <input type="date" value={dateOfPayDue} onChange={(e) => setDateOfPayDue(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
+            </div>
+          </div>
+
+          <div className="border-t border-stone-100 pt-6 space-y-6">
+            <h5 className="text-xs font-bold text-stone-700">Banking & Emergency Details</h5>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Bank Name</label>
+                <input value={bankName} onChange={(e) => setBankName(e.target.value)} className="w-full mt-2 bg-stone-50 border p-4 rounded-2xl text-xs font-semibold" />
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Account Number</label>
+                <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} className="w-full mt-2 bg-stone-50 border p-4 rounded-2xl text-xs font-semibold" />
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Sort Code</label>
+                <input value={sortCode} onChange={(e) => setSortCode(e.target.value)} className="w-full mt-2 bg-stone-50 border p-4 rounded-2xl text-xs font-semibold" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Next of Kin Name</label>
+                <input value={nextOfKinName} onChange={(e) => setNextOfKinName(e.target.value)} className="w-full mt-2 bg-stone-50 border p-4 rounded-2xl text-xs font-semibold" />
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Next of Kin Number</label>
+                <input value={nextOfKinNumber} onChange={(e) => setNextOfKinNumber(e.target.value)} className="w-full mt-2 bg-stone-50 border p-4 rounded-2xl text-xs font-semibold" />
+              </div>
+            </div>
+          </div>
+
+          <button 
+            onClick={() => alert(`Team Member ${empName} updated on payroll ledger`)}
+            className="w-full py-4 bg-[#a9b897]/20 border border-[#a9b897]/30 text-stone-900 rounded-2xl text-xs uppercase font-bold hover:bg-[#a9b897]/30 flex items-center justify-center gap-2"
+          >
+            <Briefcase size={14} /> Submit Employee Record
+          </button>
+        </div>
+      )}
+
+      {/* 3. TIMESHEETS TAB */}
+      {activeTab === "timesheets" && (
+        <div className="max-w-2xl mx-auto bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
+          <div className="flex items-center gap-3">
+            <Clock size={18} className="text-[#a9b897]" />
+            <h3 className="text-xl font-serif italic text-stone-800">Timesheets</h3>
+          </div>
+          <div className="space-y-4">
+            <input
+              placeholder="Task Name"
+              value={taskName}
+              onChange={(e) => setTaskName(e.target.value)}
+              className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-12 px-4 text-xs font-bold outline-none text-stone-800"
+            />
+            <input
+              placeholder="Duration (e.g. 3.5 hrs)"
+              value={taskDuration}
+              onChange={(e) => setTaskDuration(e.target.value)}
+              className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-12 px-4 text-xs font-bold outline-none text-stone-800"
+            />
+            <button
+              onClick={addTimesheet}
+              className="w-full py-3 bg-stone-900 text-white rounded-2xl text-xs uppercase font-bold hover:bg-stone-800"
+            >
+              Log Time Entry
+            </button>
+          </div>
+          <div className="divide-y divide-stone-100 mt-4 text-xs">
+            {timesheetList.map((t) => (
+              <div key={t.id} className="flex justify-between py-3">
+                <span className="font-semibold">{t.task}</span>
+                <span className="text-stone-400 font-mono">{t.duration}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. APPRAISALS TAB */}
+      {activeTab === "appraisals" && (
+        <div className="max-w-4xl mx-auto bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h4 className="text-xl font-serif font-bold text-stone-800">Employee Appraisal</h4>
+              <p className="text-[9px] text-stone-400 tracking-wider font-black uppercase mt-1">Submit appraisal logs for employees</p>
+            </div>
+            <button 
+              onClick={() => setAppraisalOpen(true)}
+              className="px-6 py-3 bg-stone-900 text-white text-[10px] uppercase font-bold rounded-2xl hover:bg-stone-800"
+            >
+              Open Form
+            </button>
+          </div>
+
+          {appraisalOpen && (
+            <div className="fixed inset-0 bg-stone-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-[3.5rem] p-12 overflow-y-auto shadow-2xl relative flex flex-col gap-8">
+                <button 
+                  onClick={() => setAppraisalOpen(false)}
+                  className="absolute right-10 top-10 p-3 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+                
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-serif italic tracking-tighter text-stone-900">Employee Appraisal Subsystem</h2>
+                  <p className="text-[10px] font-black text-stone-400 tracking-widest uppercase">Self-Reflection, Growth and Development Records</p>
+                </div>
+
+                <div className="space-y-6 text-xs text-stone-800">
+                  <h3 className="font-bold border-b border-stone-100 pb-2">1. Self-Reflection & Achievements</h3>
+                  <div>
+                    <label className="font-black text-stone-500">What accomplishment from this review period are you most proud of?</label>
+                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q1} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q1: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="font-black text-stone-500">Which of your strengths have you used most effectively in your role?</label>
+                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q2} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q2: e.target.value})} />
+                  </div>
+
+                  <h3 className="font-bold border-t border-stone-100 pt-6 pb-2">2. Challenges & Improvements</h3>
+                  <div>
+                    <label className="font-black text-stone-500">What has been your biggest challenge recently, and how did you address it?</label>
+                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q3} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q3: e.target.value})} />
+                  </div>
+
+                  <h3 className="font-bold border-t border-stone-100 pt-6 pb-2">3. Goals & Development</h3>
+                  <div>
+                    <label className="font-black text-stone-500">What professional skills would you like to develop in the next 6–12 months?</label>
+                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q4} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q4: e.target.value})} />
+                  </div>
+
+                  <h3 className="font-bold border-t border-stone-100 pt-6 pb-2">4. Teamwork & Collaboration</h3>
+                  <div>
+                    <label className="font-black text-stone-500">How do you feel about communication and collaboration within the team?</label>
+                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q5} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q5: e.target.value})} />
+                  </div>
+
+                  <h3 className="font-bold border-t border-stone-100 pt-6 pb-2">5. Future Outlook</h3>
+                  <div>
+                    <label className="font-black text-stone-500">Where do you see yourself in the company in the next 1–3 years?</label>
+                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q6} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q6: e.target.value})} />
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => { setAppraisalOpen(false); alert("Appraisal data successfully recorded in the main system."); }}
+                  className="w-full py-5 bg-stone-900 text-white font-bold tracking-widest text-xs uppercase rounded-2xl"
+                >
+                  Submit Appraisal Records
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }

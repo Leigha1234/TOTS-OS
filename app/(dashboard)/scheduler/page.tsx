@@ -235,7 +235,7 @@ export default function Scheduler() {
                           <div className="flex items-center gap-2">
                              <button 
                                onClick={(e) => {
-                                 e.stopPropagation(); // Don't trigger modal/flyout on delete
+                                 e.stopPropagation();
                                  deletePost(post.id);
                                }} 
                                className="p-3 bg-white text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer border border-white hover:border-red-100"

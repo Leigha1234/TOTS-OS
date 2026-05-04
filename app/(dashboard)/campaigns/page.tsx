@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   Plus, X, Clock, Type, Image as ImageIcon, 
-  Wand2, Loader2, User, Check, Sparkles, Calendar as CalendarIcon, Hash, Edit3, AlignLeft, Bold, Eye, Palette
+  Wand2, Loader2, Check, Sparkles, Calendar as CalendarIcon, 
+  AlignLeft, Bold, Eye, Palette
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -20,8 +21,6 @@ export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [lists, setLists] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false);
-  const [didEnhance, setDidEnhance] = useState(false);
   
   // States for sub-forms and date wizard
   const [step, setStep] = useState<'editor' | 'schedule'>('editor');
@@ -56,19 +55,27 @@ export default function CampaignsPage() {
     if (!clarityTopic) return;
     setIsGenerating(true);
     
-    // Simulate generation with the selected style type
+    // Simulate generation with the selected style type and banners
     setTimeout(() => {
       const selectedStyle = TEMPLATES.find(t => t.id === form.template_id)?.name || "Minimalist";
+      
+      let generatedBannerHtml = "";
+      
+      // Dynamic rendering of elements based on templates
+      if (form.template_id === 'colorful') {
+        generatedBannerHtml = `[ BANNER IMAGE: https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80 ]\n\n`;
+      } else if (form.template_id === 'bold') {
+        generatedBannerHtml = `========================================\n🌟 CAMPAIGN DISPATCH\n========================================\n\n`;
+      }
+
       setForm(prev => ({ 
         ...prev, 
         subject: `News: ${clarityTopic.split(' ').slice(0, 3).join(' ')}`,
-        content: `Dear Reader,\n\nHere is our summary covering the latest on ${clarityTopic} using the ${selectedStyle} style type. We have curated the key highlights, resources, and next steps for your operations.\n\nBest regards,\nLondon HQ`
+        content: `${generatedBannerHtml}Dear Reader,\n\nHere is our summary covering the latest on ${clarityTopic} using the ${selectedStyle} style type. We have curated the key highlights, resources, and next steps for your operations.\n\nBest regards,\nLondon HQ`
       }));
       setIsGenerating(false);
       setShowClarityPrompt(false);
       setClarityTopic("");
-      setDidEnhance(true);
-      setTimeout(() => setDidEnhance(false), 2000);
     }, 1500);
   };
 
@@ -79,7 +86,7 @@ export default function CampaignsPage() {
     }
 
     try {
-      // Payload compatible with both the app and the schema definitions
+      // Send data to campaigns table
       const { error } = await supabase.from("campaigns").insert([{
         title: form.title || form.subject || "New Campaign",
         subject: form.subject,
@@ -90,14 +97,14 @@ export default function CampaignsPage() {
 
       if (error) throw error;
 
-      // Update the tasks/calendar table
+      // Update the tasks table
       await supabase.from("tasks").insert([{
         title: form.title || form.subject || "Campaign Dispatch",
-        user_id: (await supabase.auth.getUser()).data.user?.id,
         created_at: form.scheduled_for,
         description: form.content || "",
         status: "todo",
         priority: 1,
+        color: "#a9b897",
         location: "Campaign Hub Dispatch"
       }]);
 
@@ -109,7 +116,6 @@ export default function CampaignsPage() {
     }
   };
 
-  // Helper function to return dynamic template styling in the editor
   const getTemplateStyleClasses = () => {
     switch (form.template_id) {
       case "creative":
@@ -135,8 +141,6 @@ export default function CampaignsPage() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] p-8 md:p-12 text-stone-900 font-sans">
-      
-      {/* HEADER */}
       <header className="max-w-7xl mx-auto flex justify-between items-end mb-16 border-b border-stone-200 pb-10">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897] mb-3">System Hub</p>
@@ -152,7 +156,6 @@ export default function CampaignsPage() {
         </button>
       </header>
 
-      {/* MAIN DASHBOARD */}
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12">
         <div className="lg:col-span-8 space-y-6">
           <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300 ml-4">Scheduled Transmission</p>
@@ -191,7 +194,6 @@ export default function CampaignsPage() {
         </aside>
       </div>
 
-      {/* MODAL */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 bg-stone-900/60 backdrop-blur-xl">
@@ -199,7 +201,6 @@ export default function CampaignsPage() {
               initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
               className="bg-[#faf9f6] w-full max-w-[1400px] h-[85vh] rounded-[4rem] shadow-2xl flex flex-col md:flex-row overflow-hidden relative border border-stone-200"
             >
-              {/* SIDEBAR */}
               <div className="w-80 bg-stone-50 border-r border-stone-200 p-12 flex flex-col shrink-0 justify-between">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mb-10">Structure</p>
@@ -214,7 +215,6 @@ export default function CampaignsPage() {
                       </button>
                     ))}
                     
-                    {/* Blank Template Option */}
                     <button 
                       onClick={() => setForm({...form, template_id: 'blank'})}
                       className={`w-full flex items-center gap-4 p-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${getTemplateButtonClasses('blank')}`}
@@ -234,9 +234,7 @@ export default function CampaignsPage() {
                 </div>
               </div>
 
-              {/* EDITOR OR SCHEDULE STEP */}
               <div className="flex-1 bg-stone-200/30 p-8 md:p-16 overflow-y-auto flex flex-col items-center">
-                
                 {step === 'editor' && (
                   <>
                     <div className="w-full max-w-3xl flex justify-between items-center mb-10">

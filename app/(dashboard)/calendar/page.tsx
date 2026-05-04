@@ -27,10 +27,7 @@ export default function CalendarPage() {
   const [selectedDateString, setSelectedDateString] = useState(format(new Date(), "yyyy-MM-dd"));
   const [eventTime, setEventTime] = useState("12:00");
   
-  const [eventLocation, setEventLocation] = useState("");
   const [eventColor, setEventColor] = useState("#a9b897");
-  const [vcLink, setVcLink] = useState("");
-  const [guests, setGuests] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,15 +43,17 @@ export default function CalendarPage() {
       
       const { data, error } = await supabase
         .from("tasks")
-        .select("*, customers(name)")
+        .select("*")
         .eq("user_id", user.id)
         .order("priority", { ascending: false });
 
-      if (!error) {
+      if (error) {
+        console.error("Error fetching tasks:", error.message);
+      } else {
         setTasks(data || []);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Fetch exception:", err);
     } finally {
       setLoading(false);
     }
@@ -79,16 +78,11 @@ export default function CalendarPage() {
       // Merge date and time string safely
       const combinedDate = new Date(`${selectedDateString}T${eventTime}:00`);
 
-      // Use only base parameters to avoid 400 errors from unmapped columns
       const payload = {
         title: newTitle,
         user_id: user.id,
         created_at: combinedDate.toISOString(),
         description: notes || "",
-        location: eventLocation || "",
-        color: eventColor || "#a9b897",
-        vc_link: vcLink || "",
-        guests: guests || "",
         status: "todo",
         priority: 1
       };
@@ -101,13 +95,10 @@ export default function CalendarPage() {
       } else {
         setNewTitle("");
         setEventTime("12:00");
-        setEventLocation("");
         setEventColor("#a9b897");
-        setVcLink("");
-        setGuests("");
         setNotes("");
         setIsModalOpen(false);
-        fetchEvents();
+        fetchEvents(); // Refresh items in calendar
       }
     } catch (err) {
       console.error("Submission Exception:", err);
@@ -127,7 +118,11 @@ export default function CalendarPage() {
     };
   }, [currentMonth]);
 
-  const getTasksForDay = (day: Date) => tasks.filter(t => isSameDay(new Date(t.created_at), day));
+  // Use a strict string comparison to prevent timezone errors from hiding tasks
+  const getTasksForDay = (day: Date) => {
+    return tasks.filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === format(day, "yyyy-MM-dd"));
+  };
+  
   const selectedDayTasks = useMemo(() => getTasksForDay(selectedDay), [selectedDay, tasks]);
 
   // Helper function to capitalize Month name
@@ -208,45 +203,6 @@ export default function CalendarPage() {
                     <option value="#3b82f6">Ocean Blue</option>
                     <option value="#ef4444">Alert Red</option>
                   </select>
-                </div>
-
-                <div>
-                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Location</label>
-                   <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3">
-                     <MapPin size={14} className="text-stone-400" />
-                     <input 
-                       value={eventLocation}
-                       onChange={(e) => setEventLocation(e.target.value)}
-                       placeholder="e.g. Boardroom or Remote"
-                       className="w-full bg-transparent text-xs focus:outline-none"
-                     />
-                   </div>
-                </div>
-
-                <div>
-                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Video Call Link</label>
-                   <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3">
-                     <LinkIcon size={14} className="text-stone-400" />
-                     <input 
-                       value={vcLink}
-                       onChange={(e) => setVcLink(e.target.value)}
-                       placeholder="https://..."
-                       className="w-full bg-transparent text-xs focus:outline-none"
-                     />
-                   </div>
-                </div>
-
-                <div>
-                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Guests & Emails</label>
-                   <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3">
-                     <Users size={14} className="text-stone-400" />
-                     <input 
-                       value={guests}
-                       onChange={(e) => setGuests(e.target.value)}
-                       placeholder="team@domain.com, ext@domain.com"
-                       className="w-full bg-transparent text-xs focus:outline-none"
-                     />
-                   </div>
                 </div>
 
                 <div>

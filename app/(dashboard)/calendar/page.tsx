@@ -23,7 +23,7 @@ export default function CalendarPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   
-  // Custom states for date and time drop-down selection
+  // States for date and time drop-down selection
   const [selectedDateString, setSelectedDateString] = useState(format(new Date(), "yyyy-MM-dd"));
   const [eventTime, setEventTime] = useState("12:00");
   
@@ -71,25 +71,33 @@ export default function CalendarPage() {
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("User not authenticated");
+        return;
+      }
       
-      // Combine day and time from dropdown selection
-      const eventDate = new Date(selectedDateString + "T" + eventTime + ":00");
+      // Merge date and time string safely
+      const combinedDate = new Date(`${selectedDateString}T${eventTime}:00`);
 
-      const { error } = await supabase.from("tasks").insert({
+      // Use only base parameters to avoid 400 errors from unmapped columns
+      const payload = {
         title: newTitle,
-        user_id: user?.id,
-        created_at: eventDate.toISOString(),
-        description: notes,
-        location: eventLocation,
-        color: eventColor,
-        vc_link: vcLink,
-        guests: guests,
+        user_id: user.id,
+        created_at: combinedDate.toISOString(),
+        description: notes || "",
+        location: eventLocation || "",
+        color: eventColor || "#a9b897",
+        vc_link: vcLink || "",
+        guests: guests || "",
         status: "todo",
         priority: 1
-      });
+      };
+
+      const { error } = await supabase.from("tasks").insert([payload]);
 
       if (error) {
-        console.error("Supabase Error:", error);
+        console.error("Supabase Error Details:", error.message, error.details);
+        alert(`Save Failed: ${error.message}`);
       } else {
         setNewTitle("");
         setEventTime("12:00");
@@ -102,7 +110,7 @@ export default function CalendarPage() {
         fetchEvents();
       }
     } catch (err) {
-      console.error("Submission Error:", err);
+      console.error("Submission Exception:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -122,7 +130,7 @@ export default function CalendarPage() {
   const getTasksForDay = (day: Date) => tasks.filter(t => isSameDay(new Date(t.created_at), day));
   const selectedDayTasks = useMemo(() => getTasksForDay(selectedDay), [selectedDay, tasks]);
 
-  // Helper function to get capitalized Month name 
+  // Helper function to capitalize Month name
   const getCapitalizedMonth = (date: Date) => {
     const regular = format(date, "MMMM");
     return regular.charAt(0).toUpperCase() + regular.slice(1);
@@ -304,7 +312,7 @@ export default function CalendarPage() {
                     {format(day, "d")}
                   </span>
                   
-                  {/* Task Previews with Selected Event Color Indicator */}
+                  {/* Task Previews */}
                   <div className="mt-2 space-y-1">
                     {dayTasks.slice(0, 3).map(t => (
                       <div 

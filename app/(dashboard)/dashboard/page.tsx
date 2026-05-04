@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase-client";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { 
   Sparkles, ArrowRight, Briefcase, Activity,
-  X, Loader2, Zap, FileText, Share2, Mail, Layers, User as UserIcon, Clock
+  X, Loader2, Zap, FileText, Share2, Mail, Layers, User as UserIcon, Clock, CheckSquare
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -26,6 +26,10 @@ export default function DashboardPage() {
 
   const [isScanActive, setIsScanActive] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
+  const [showScanModal, setShowScanModal] = useState(false);
+
+  // -- To-Do Checklist State --
+  const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean }[]>([]);
 
   // Update time every second
   useEffect(() => {
@@ -46,6 +50,28 @@ export default function DashboardPage() {
       if (profile?.user?.user_metadata?.full_name) {
         setUserName(profile.user.user_metadata.full_name);
       }
+
+      // Fetch To-Dos from user notes or fallback items
+      const { data: notesData } = await supabase
+        .from("notes")
+        .select("*")
+        .eq("team_id", team)
+        .limit(5);
+
+      if (notesData && notesData.length > 0) {
+        setTodos(notesData.map((n: any) => ({
+          id: n.id,
+          text: n.title || n.content?.substring(0, 40) || "Untitled Note",
+          completed: false
+        })));
+      } else {
+        // Fallback checklist
+        setTodos([
+          { id: "1", text: "Sync Ledger with Finance Team", completed: false },
+          { id: "2", text: "Optimize Campaign Webhook URLs", completed: false },
+          { id: "3", text: "Provision New Seat for CRM Access", completed: false }
+        ]);
+      }
     } catch (err) {
       console.error("Sync Error:", err);
     } finally {
@@ -64,10 +90,15 @@ export default function DashboardPage() {
 
   const runClarityScan = () => {
     setIsScanActive(true);
+    setShowScanModal(true);
     setTimeout(() => {
       setInsight(`Analysis Complete: ${userName}, your ecosystem is performing at 94% efficiency. Address the ${stats.invoicesDue} outstanding invoices to reach peak flow.`);
       setIsScanActive(false);
     }, 2000);
+  };
+
+  const toggleTodo = (id: string) => {
+    setTodos(todos.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
 
   if (loading) return (
@@ -80,7 +111,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 lg:p-12 space-y-12 max-w-[1600px] mx-auto">
       
-      {/* HEADER: NODE ACTIVE (USER, DATE, TIME) */}
+      {/* HEADER */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-12 gap-8">
         <div className="space-y-4">
           <div className="flex items-center gap-6 text-[#a9b897]">
@@ -110,11 +141,11 @@ export default function DashboardPage() {
         </motion.button>
       </header>
 
-      {/* CLICKABLE MODULES GRID */}
+      {/* MODULES GRID */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects" },
-          { label: "Invoices Due", value: stats.invoicesDue, icon: FileText, path: "/billing" },
+          { label: "Invoices Due", value: stats.invoicesDue, icon: FileText, path: "/payments" },
           { label: "Next Socials", value: stats.socialsPending, icon: Share2, path: "/scheduler" },
           { label: "Next Emails", value: stats.emailsScheduled, icon: Mail, path: "/campaigns" },
         ].map((item) => (
@@ -136,37 +167,67 @@ export default function DashboardPage() {
         ))}
       </section>
 
-      {/* INSIGHT PANEL */}
+      {/* INTELLIGENCE SCAN MODAL */}
       <AnimatePresence>
-        {insight && (
+        {showScanModal && (
           <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="bg-[#1c1c1c] text-stone-100 p-12 rounded-[3.5rem] flex items-center justify-between border border-[#a9b897]/20 shadow-2xl"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-stone-950/40 backdrop-blur-md"
           >
-            <div className="flex items-center gap-8">
-              <Zap className="text-[#a9b897]" size={32} />
-              <p className="font-serif italic text-3xl text-stone-200 leading-tight max-w-4xl">{insight}</p>
+            <div className="bg-[#1c1c1c] text-stone-100 p-12 rounded-[3.5rem] w-full max-w-4xl border border-[#a9b897]/20 shadow-2xl flex items-center justify-between">
+              <div className="flex items-center gap-8">
+                <Zap className="text-[#a9b897]" size={32} />
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-2">Scan Mode: Node Initiated</p>
+                  <p className="font-serif italic text-3xl text-stone-200 leading-tight">
+                    {insight || "Analyzing operational flow and calculating stats..."}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowScanModal(false)} 
+                className="p-4 text-stone-600 hover:text-white transition-colors border border-stone-800 rounded-2xl bg-stone-900/50"
+              >
+                <X size={24}/>
+              </button>
             </div>
-            <button onClick={() => setInsight(null)} className="p-4 text-stone-600 hover:text-white transition-colors">
-              <X size={24}/>
-            </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* SYSTEM STATUS OVERVIEW */}
-      <div className="bg-white border border-stone-200 rounded-[4rem] p-16 flex flex-col items-center justify-center text-center space-y-6">
-          <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center text-stone-200 relative">
-             <Layers size={40} />
-             <div className="absolute top-0 right-0 w-4 h-4 bg-green-500 rounded-full border-4 border-white animate-pulse" />
-          </div>
-          <div className="space-y-2">
-             <h3 className="text-4xl font-serif italic text-stone-800 tracking-tight">Ecosystem Stable</h3>
-             <p className="text-stone-400 max-w-md mx-auto font-medium">All sub-modules are responding. Current latency: 14ms. Ready for deployment.</p>
-          </div>
-      </div>
+      {/* TO-DO CHECKLIST SECTION */}
+      <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm max-w-2xl mx-auto md:mx-0">
+        <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+          <CheckSquare size={14} className="text-[#a9b897]" />
+          Synchronized Checklist
+        </h2>
+        <div className="space-y-4">
+          {todos.map((todo) => (
+            <div 
+              key={todo.id} 
+              onClick={() => toggleTodo(todo.id)}
+              className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer ${
+                todo.completed 
+                  ? "bg-stone-50 border-stone-200 opacity-60" 
+                  : "bg-[#faf9f6] border-stone-200 hover:border-stone-400"
+              }`}
+            >
+              <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
+                todo.completed 
+                  ? "bg-[#a9b897] border-[#a9b897] text-white" 
+                  : "border-stone-400 text-transparent"
+              }`}>
+                &#10003;
+              </div>
+              <span className={`text-xs font-bold uppercase tracking-wide ${todo.completed ? 'line-through text-stone-400' : 'text-stone-900'}`}>
+                {todo.text}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
 
     </div>
   );

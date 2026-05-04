@@ -119,6 +119,11 @@ export default function SettingsPage() {
     } catch (err: any) { alert("Sync Error: " + err.message); } finally { setSaving(false); }
   };
 
+  const handleTierSelection = (tierName: string) => {
+    setCurrentTier(tierName);
+    router.push("/billing");
+  };
+
   const handleInvite = async () => {
     if (!inviteEmail || !teamId) return;
     setSaving(true);
@@ -158,12 +163,12 @@ export default function SettingsPage() {
           
           {/* LEFT COLUMN */}
           <div className="lg:col-span-4 space-y-12">
-            {/* TIER SELECTION (Merged Logic) */}
+            {/* TIER SELECTION */}
             <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2"><ShieldCheck size={14}/> Subscription Tier</h2>
                <div className="grid grid-cols-1 gap-2">
                   {TIERS.map((t) => (
-                    <button key={t} onClick={() => setCurrentTier(t)} className={`p-4 rounded-2xl border text-[9px] font-black uppercase transition-all flex justify-between items-center ${currentTier === t ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-100 text-stone-400 hover:border-stone-200'}`}>
+                    <button key={t} onClick={() => handleTierSelection(t)} className={`p-4 rounded-2xl border text-[9px] font-black uppercase transition-all flex justify-between items-center ${currentTier === t ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-100 text-stone-400 hover:border-stone-200'}`}>
                       {t} {currentTier === t && <Check size={12} />}
                     </button>
                   ))}
@@ -233,7 +238,7 @@ export default function SettingsPage() {
               <textarea value={profile?.email_signature || ""} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Regards, Management" className="w-full h-32 p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-sm outline-none resize-none" />
             </section>
 
-            {/* BANKING SECTION - PRESERVED LAYOUT */}
+            {/* BANKING SECTION */}
             <section className="bg-stone-900 text-white p-12 rounded-[4rem] shadow-2xl">
               <div className="flex items-center gap-3 mb-8 opacity-50">
                 <Landmark size={18} />

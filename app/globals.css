@@ -69,10 +69,13 @@ body::before {
 /* 🔘 BUTTON */
 button {
   background: var(--accent);
+  color: var(--text);
   border-radius: 12px;
   padding: 9px 16px;
   font-weight: 500;
   transition: background 0.2s ease;
+  border: none;
+  cursor: pointer;
 }
 
 button:hover {

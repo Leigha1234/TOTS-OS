@@ -1,13 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link"; // Ensure this is here
-import { 
-  CheckCircle2, 
-  Plus, 
-  ArrowRight,
-  UserPlus
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase"; 
+import { CheckCircle2, ArrowRight, UserPlus } from "lucide-react";
 
 const TIERS = [
   {
@@ -17,156 +13,96 @@ const TIERS = [
     goal: "Get out of chaos + into structure",
     description: "For early-stage / simple businesses",
     stripeLink: "https://buy.stripe.com/test_standard_link",
-    features: [
-      "Core system (basic workspace)",
-      "Task / workflow management",
-      "Basic CRM (customers + notes)",
-      "Simple financial tracking",
-      "Limited automations",
-      "Single user / small team use",
-    ],
+    features: ["Core system", "Task management", "Basic CRM", "Financial tracking", "Limited automations", "Single user"],
   },
   {
     name: "Professional",
     price: "59",
     color: "#7e9cb9", 
     goal: "Run the business properly day-to-day",
-    description: "For growing businesses needing control",
+    description: "For growing businesses",
     stripeLink: "https://buy.stripe.com/test_pro_link", 
     featured: true,
-    features: [
-      "Everything in Standard +",
-      "Advanced CRM (pipelines, statuses)",
-      "Deeper workflow automation",
-      "Team collaboration features",
-      "Advanced integrations (email, etc.)",
-      "Enhanced financial visibility",
-      "Multi-user setup",
-    ],
+    features: ["Everything in Standard +", "Advanced CRM", "Deeper automation", "Team features", "Email integrations", "Multi-user setup"],
   },
   {
     name: "Elite",
     price: "149",
     color: "#b97e7e", 
-    goal: "Business runs as a system, not people-dependent",
+    goal: "Business runs as a system",
     description: "Full system + power users",
     stripeLink: "https://buy.stripe.com/test_elite_link",
-    features: [
-      "Everything in Professional +",
-      "Full business OS build",
-      "Advanced 'Hands-off' automations",
-      "Custom business workflows",
-      "Notifications + activity tracking",
-      "Client portal features",
-      "Priority system support",
-    ],
+    features: ["Everything in Professional +", "Full business OS build", "Hands-off automations", "Custom workflows", "Priority support"],
   },
 ];
 
 export default function BillingPage() {
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
 
-  const handleSubscription = (link: string, name: string) => {
-    setLoading(name);
-    window.location.href = link;
-  };
+  useEffect(() => {
+    const getUser = async () => {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserEmail(user.email ?? null);
+    };
+    getUser();
+  }, []);
 
   return (
-    <div key="billing-v1" className="min-h-screen bg-black text-white p-8 md:p-16">
-      <div className="max-w-7xl mx-auto space-y-16">
+    <div className="min-h-screen bg-[#f5f5f0] text-stone-900 p-8 md:p-16">
+      <div className="max-w-7xl mx-auto space-y-12">
         
-        {/* Header */}
-        <div className="border-b border-stone-900 pb-12">
-          <p className="text-[#a9b897] text-[10px] font-black uppercase tracking-[0.5em] mb-4">Financial Intelligence</p>
-          <h1 className="text-7xl font-serif italic tracking-tighter text-white">System Access</h1>
+        <div className="flex justify-between items-end border-b border-stone-200 pb-8">
+          <div>
+            <p className="text-[#a9b897] text-[10px] font-black uppercase tracking-[0.5em] mb-2">Financial Intelligence</p>
+            <h1 className="text-6xl font-serif italic tracking-tighter">System Access</h1>
+          </div>
+          {userEmail && <p className="text-stone-400 text-xs font-mono mb-2">{userEmail}</p>}
         </div>
 
-        {/* Pricing Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {TIERS.map((tier) => (
-            <div 
-              key={tier.name}
-              className={`relative flex flex-col p-8 rounded-[3rem] border transition-all duration-500 ${
-                tier.featured 
-                  ? "bg-stone-900/30 border-stone-700 shadow-[0_0_50px_rgba(169,184,151,0.1)]" 
-                  : "bg-black border-stone-900 hover:border-stone-800"
-              }`}
-            >
-              {tier.featured && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#a9b897] text-black text-[9px] font-black uppercase tracking-widest py-2 px-6 rounded-full whitespace-nowrap">
-                  Recommended Configuration
-                </div>
-              )}
-
-              <div className="mb-8">
-                <h3 className="text-3xl font-serif italic mb-1 text-white">{tier.name}</h3>
-                <p className="text-stone-500 text-[10px] uppercase font-black tracking-widest">{tier.description}</p>
-              </div>
-
+            <div key={tier.name} className={`p-10 rounded-[2.5rem] border bg-white transition-all ${tier.featured ? 'border-[#a9b897] shadow-xl' : 'border-stone-200'}`}>
+              <h3 className="text-2xl font-serif italic mb-1">{tier.name}</h3>
+              <p className="text-stone-400 text-[9px] uppercase font-bold tracking-widest mb-6">{tier.description}</p>
+              
               <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-5xl font-mono tracking-tighter text-white">£{tier.price}</span>
-                <span className="text-stone-600 text-xs uppercase font-bold">/ month</span>
+                <span className="text-5xl font-serif italic">£{tier.price}</span>
+                <span className="text-stone-400 text-[10px] uppercase font-bold">/mo</span>
               </div>
 
-              <div className="space-y-4 mb-10 flex-1">
-                {tier.features.map((feature, i) => (
-                  <div key={i} className="flex items-start gap-3 group">
-                    <CheckCircle2 size={14} className="mt-0.5" style={{ color: tier.color }} />
-                    <span className="text-xs text-stone-400 group-hover:text-stone-200 transition-colors leading-relaxed">
-                      {feature}
-                    </span>
+              <div className="space-y-4 mb-10">
+                {tier.features.map((f, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <CheckCircle2 size="{14}" style="{{" color: tier.color }}/>
+                    <span className="text-xs text-stone-600">{f}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="pt-8 border-t border-stone-900 mt-auto">
-                <div className="mb-6">
-                  <p className="text-[9px] uppercase font-black text-stone-600 tracking-widest mb-1">Operational Goal</p>
-                  <p className="text-xs font-serif italic text-stone-300">"{tier.goal}"</p>
-                </div>
-                
-                <button 
-                  onClick={() => handleSubscription(tier.stripeLink, tier.name)}
-                  className="w-full group flex items-center justify-between p-6 rounded-2xl border transition-all duration-300"
-                  style={{ 
-                    borderColor: tier.featured ? tier.color : '#292524',
-                    backgroundColor: loading === tier.name ? 'white' : 'transparent'
-                  }}
-                >
-                  <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${loading === tier.name ? 'text-black' : 'text-white'}`}>
-                    {loading === tier.name ? "Syncing..." : `Deploy ${tier.name}`}
-                  </span>
-                  <ArrowRight size={18} className={loading === tier.name ? 'text-black' : ''} style={{ color: loading === tier.name ? '' : tier.color }} />
-                </button>
-              </div>
+              <button 
+                onClick={() => { setLoading(tier.name); window.location.href = tier.stripeLink; }}
+                className="w-full flex items-center justify-between p-5 rounded-2xl border border-stone-200 hover:bg-stone-50 transition-all uppercase text-[10px] font-bold tracking-widest"
+              >
+                {loading === tier.name ? "Connecting..." : `Deploy ${tier.name}`}
+                <ArrowRight size="{16}"/>
+              </button>
             </div>
           ))}
         </div>
 
-        {/* Add-on Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center bg-stone-900/20 border border-stone-900 rounded-[3rem] p-12">
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <UserPlus className="text-[#a9b897]" size={24} />
-              <h2 className="text-3xl font-serif italic text-white">Expand Intelligence</h2>
+        <div className="bg-stone-100 rounded-[2.5rem] p-10 flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex items-center gap-4">
+            <UserPlus className="text-[#a9b897]"/>
+            <div>
+              <h4 className="text-xl font-serif italic">Add Operator</h4>
+              <p className="text-xs text-stone-500">Scalable node access for your team.</p>
             </div>
-            <p className="text-stone-500 text-sm max-w-md">
-              Need to integrate additional operators into your workspace? Scalable node access allows for unified team collaboration.
-            </p>
           </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-end gap-8">
-            <div className="text-right">
-              <p className="text-[10px] font-black uppercase tracking-widest text-stone-600 mb-1">Additional Node</p>
-              <p className="text-4xl font-mono text-white">£19.95<span className="text-sm text-stone-700">/mo</span></p>
-            </div>
-            
-            <Link 
-              href="https://buy.stripe.com/test_addon_link"
-              className="bg-white text-black px-10 py-5 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] hover:bg-[#a9b897] transition-all active:scale-95 text-center"
-            >
-              Add Operator
-            </Link>
+          <div className="flex items-center gap-6">
+            <p className="text-2xl font-serif italic">£19.95<span className="text-[10px] uppercase font-bold text-stone-400">/mo</span></p>
+            <Link href="https://buy.stripe.com/test_addon_link" className="bg-stone-900 text-white px-8 py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest">Add Node</Link>
           </div>
         </div>
 

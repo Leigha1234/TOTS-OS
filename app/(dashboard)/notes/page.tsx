@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   Trash2, Zap, Circle, BookOpen, X, ChevronLeft, ChevronRight, Target, Play, Search,
-  Mic, MicOff, Send, User, Calendar, Folder, ListTodo, FileText, Briefcase
+  Mic, MicOff, User, Folder
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -107,7 +107,6 @@ function NotesContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   
-  // Additional fields for enhancement
   const [selectedCategory, setSelectedCategory] = useState<"note" | "task" | "todo" | "event">("note");
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [assignedMember, setAssignedMember] = useState<string>("");
@@ -234,22 +233,21 @@ function NotesContent() {
       assigned_to: assignedMember || null,
     });
 
-    if (selectedCategory === "task" || intent === "task") {
-      await supabase.from("tasks").insert({ 
-        title: newNote, 
-        user_id: user.id, 
-        customer_id: selectedCustomer || null,
-        project_id: selectedProject || null,
-        assigned_to: assignedMember || null,
-        status: "todo",
-        priority: 2
-      });
-    }
+    // Add directly to action queue when "Add Note" is clicked
+    await supabase.from("tasks").insert({ 
+      title: newNote, 
+      user_id: user.id, 
+      customer_id: selectedCustomer || null,
+      project_id: selectedProject || null,
+      assigned_to: assignedMember || null,
+      status: "todo",
+      priority: 2
+    });
 
     if (selectedCategory === "event") {
       await supabase.from("events").insert({
         title: newNote,
-        description: "Added via Clarity Ledger",
+        description: "Added via Notes",
         user_id: user.id,
         date: new Date().toISOString().split("T")[0]
       });
@@ -270,7 +268,7 @@ function NotesContent() {
     setSelectedCustomer("");
     setSelectedProject("");
     setAssignedMember("");
-    toast.success("Intent Captured & Routed");
+    toast.success("Note added to Action Queue & Ledgers");
   }
 
   const deleteNote = async (id: string) => {
@@ -290,22 +288,34 @@ function NotesContent() {
       <SystemNavigator />
       <div className="max-w-[1400px] mx-auto grid lg:grid-cols-12 gap-12">
         <div className="lg:col-span-8 space-y-12">
-          <header className="space-y-2">
-            <h1 className="text-6xl font-serif italic text-stone-800 tracking-tighter">Clarity Ledger</h1>
-            <p className="text-stone-400 font-medium tracking-tight uppercase text-[10px] tracking-[0.2em]">Automated Intent Bridge</p>
+          <header className="space-y-6">
+            <div>
+              <h1 className="text-6xl font-serif italic text-stone-800 tracking-tighter">Notes</h1>
+            </div>
+
+            {/* Global Search at Top */}
+            <div className="relative group">
+              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-[#a9b897] transition-colors" size={20} />
+              <input 
+                type="text"
+                placeholder="Find a note..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-16 pr-8 py-5 bg-white border border-stone-100 rounded-[2rem] outline-none shadow-sm focus:ring-4 ring-[#a9b897]/5 transition-all font-serif italic text-lg"
+              />
+            </div>
           </header>
 
           <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-stone-100 space-y-6 focus-within:border-[#a9b897] transition-all">
             <textarea 
               className="w-full min-h-[140px] text-xl outline-none resize-none bg-transparent font-serif italic text-stone-700 placeholder:text-stone-200" 
-              placeholder="Record intent (e.g. Invoice Acme £400)..." 
+              placeholder="Type your note here..." 
               value={newNote} 
               onChange={(e) => setNewNote(e.target.value)} 
             />
             
             <div className="flex flex-wrap items-center gap-4 py-4 border-t border-stone-50 justify-between">
               <div className="flex flex-wrap gap-2 items-center">
-                
                 {/* Speech Recognition Toggle */}
                 <button 
                   onClick={toggleSpeechRecognition}
@@ -332,7 +342,7 @@ function NotesContent() {
                   <option value="event">Status: Calendar Event</option>
                 </select>
 
-                {/* Project Links (If Task) */}
+                {/* Project Links */}
                 <select 
                   className="bg-stone-50 text-[10px] font-black uppercase px-5 py-3 rounded-2xl outline-none border border-stone-200 transition-all text-stone-600" 
                   value={selectedProject} 
@@ -354,36 +364,12 @@ function NotesContent() {
               </div>
 
               <button onClick={addNote} className="bg-[#a9b897] text-white px-10 py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-xl hover:shadow-[#a9b897]/20 hover:-translate-y-1 transition-all">
-                Commit Entry
+                Add Note
               </button>
-            </div>
-            
-            {/* Global Context Selector */}
-            <div className="flex items-center gap-4 pt-4 border-t border-stone-50">
-               <span className="text-[9px] font-black uppercase text-stone-400">Context:</span>
-               <select 
-                className="bg-stone-50 text-[10px] font-black uppercase px-6 py-2 rounded-xl outline-none border border-stone-200 text-stone-600" 
-                value={selectedCustomer} 
-                onChange={(e) => setSelectedCustomer(e.target.value)}
-               >
-                <option value="">Global/Firm Account</option>
-                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-               </select>
             </div>
           </div>
 
           <div className="space-y-8">
-            <div className="relative group">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-[#a9b897] transition-colors" size={20} />
-                <input 
-                    type="text"
-                    placeholder="Filter ledger history..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-16 pr-8 py-5 bg-white border border-stone-100 rounded-[2rem] outline-none shadow-sm focus:ring-4 ring-[#a9b897]/5 transition-all font-serif italic text-lg"
-                />
-            </div>
-
             <div className="grid md:grid-cols-2 gap-8">
               <AnimatePresence mode="popLayout">
                 {filteredNotes.map((note) => (
@@ -399,7 +385,6 @@ function NotesContent() {
                     <div>
                       <p className="text-stone-800 leading-relaxed font-serif italic text-xl">{note.content}</p>
                       
-                      {/* Meta parameters linked to the specific record */}
                       <div className="flex flex-wrap gap-2 mt-4">
                         {note.category && (
                           <span className="text-[8px] font-black tracking-widest px-3 py-1 bg-white/60 border rounded-full uppercase">

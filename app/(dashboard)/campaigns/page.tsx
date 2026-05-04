@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   Plus, X, Clock, Type, Image as ImageIcon, 
-  Wand2, Loader2, User, Check, Sparkles, Calendar as CalendarIcon, Hash, Edit3, AlignLeft, Bold, Eye, Palette, Sparkle
+  Wand2, Loader2, User, Check, Sparkles, Calendar as CalendarIcon, Hash, Edit3, AlignLeft, Bold, Eye, Palette
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -90,7 +90,7 @@ export default function CampaignsPage() {
 
       if (error) throw error;
 
-      // Automatically update the calendar table for tracking
+      // Update the tasks/calendar table
       await supabase.from("tasks").insert([{
         title: form.title || form.subject || "Campaign Dispatch",
         user_id: (await supabase.auth.getUser()).data.user?.id,
@@ -98,7 +98,6 @@ export default function CampaignsPage() {
         description: form.content || "",
         status: "todo",
         priority: 1,
-        color: "#a9b897",
         location: "Campaign Hub Dispatch"
       }]);
 
@@ -108,6 +107,30 @@ export default function CampaignsPage() {
     } catch (err: any) {
       alert("Error scheduling campaign: " + err.message);
     }
+  };
+
+  // Helper function to return dynamic template styling in the editor
+  const getTemplateStyleClasses = () => {
+    switch (form.template_id) {
+      case "creative":
+        return "border-2 border-amber-300 shadow-amber-100/50 bg-amber-50/10";
+      case "bold":
+        return "border-2 border-stone-900 shadow-stone-900/10 bg-stone-900/5 text-stone-900";
+      case "colorful":
+        return "border-2 border-teal-500 shadow-teal-100/50 bg-teal-50/20";
+      case "elegant":
+        return "border border-stone-300 font-serif bg-stone-50/5";
+      case "blank":
+        return "border border-dashed border-stone-300 bg-white";
+      default:
+        return "border border-stone-200 bg-white";
+    }
+  };
+
+  const getTemplateButtonClasses = (id: string) => {
+    return form.template_id === id 
+      ? 'bg-[#a9b897] text-[#1c1917] shadow-sm' 
+      : 'bg-white text-stone-600 border border-stone-100 hover:bg-stone-100';
   };
 
   return (
@@ -185,24 +208,16 @@ export default function CampaignsPage() {
                       <button 
                         key={t.id} 
                         onClick={() => setForm({...form, template_id: t.id})}
-                        className={`w-full flex items-center gap-4 p-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                          form.template_id === t.id 
-                            ? 'bg-[#a9b897] shadow-md text-[#1c1917]' 
-                            : 'bg-white text-stone-400 border border-stone-100'
-                        }`}
+                        className={`w-full flex items-center gap-4 p-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${getTemplateButtonClasses(t.id)}`}
                       >
-                        {t.icon} <span className={form.template_id === t.id ? "text-[#1c1917]" : "text-stone-400"}>{t.name}</span>
+                        {t.icon} <span>{t.name}</span>
                       </button>
                     ))}
                     
                     {/* Blank Template Option */}
                     <button 
                       onClick={() => setForm({...form, template_id: 'blank'})}
-                      className={`w-full flex items-center gap-4 p-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                        form.template_id === 'blank' 
-                          ? 'bg-[#a9b897] shadow-md text-[#1c1917]' 
-                          : 'bg-white text-stone-400 border border-stone-100'
-                      }`}
+                      className={`w-full flex items-center gap-4 p-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${getTemplateButtonClasses('blank')}`}
                     >
                       <Eye size={14}/> <span>Blank / Own</span>
                     </button>
@@ -212,9 +227,9 @@ export default function CampaignsPage() {
                 <div className="mt-auto">
                   <button 
                     onClick={() => { setShowModal(false); setStep('editor'); }}
-                    className="w-full bg-[#cbd5c0] py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#b8c4aa] transition-all mb-4"
+                    className="w-full bg-[#cbd5c0] py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#b8c4aa] transition-all mb-4 text-[#1c1917]"
                   >
-                    <span className="text-[#1c1917]">Cancel</span>
+                    Cancel
                   </button>
                 </div>
               </div>
@@ -228,11 +243,9 @@ export default function CampaignsPage() {
                       <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Campaign Dispatch Draft</span>
                       <button 
                         onClick={applyClarity}
-                        className={`px-8 py-3 rounded-full shadow-md text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all bg-[#a9b897]`}
+                        className="px-8 py-3 rounded-full shadow-md text-[10px] font-black uppercase tracking-widest flex items-center gap-3 transition-all bg-[#a9b897] text-[#1c1917]"
                       >
-                        <span className="text-[#1c1917] flex items-center gap-2">
-                          <Wand2 size={14} /> Clarity Engine
-                        </span>
+                        <Wand2 size={14} /> Clarity Engine
                       </button>
                     </div>
 
@@ -263,7 +276,7 @@ export default function CampaignsPage() {
                       </div>
                     )}
                     
-                    <div className="bg-white w-full max-w-3xl min-h-[800px] rounded-[4rem] border border-stone-200 p-20 flex flex-col shadow-xl">
+                    <div className={`w-full max-w-3xl min-h-[800px] rounded-[4rem] p-20 flex flex-col shadow-xl transition-all ${getTemplateStyleClasses()}`}>
                       <input 
                         placeholder="Campaign Title / Name..." 
                         className="text-2xl font-bold text-stone-800 outline-none mb-8 bg-transparent border-b border-stone-50 pb-4 placeholder:text-stone-300"
@@ -278,7 +291,7 @@ export default function CampaignsPage() {
                       />
                       <textarea 
                         placeholder="Commence transmission..."
-                        className="flex-1 text-xl font-serif italic text-stone-600 leading-relaxed outline-none resize-none bg-transparent placeholder:text-stone-200"
+                        className="flex-1 text-xl font-serif italic text-stone-600 leading-relaxed outline-none resize-none bg-transparent placeholder:text-stone-300"
                         value={form.content}
                         onChange={e => setForm({...form, content: e.target.value})}
                       />

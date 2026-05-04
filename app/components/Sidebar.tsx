@@ -35,7 +35,6 @@ export default function Sidebar() {
 
   const allLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/profile", label: "Profile", icon: User },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/campaigns", label: "Campaigns", icon: Megaphone },
     { href: "/crm", label: "Contacts", icon: Users },

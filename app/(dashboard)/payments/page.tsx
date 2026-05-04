@@ -13,12 +13,12 @@ import {
   FileText,
   Save,
   Check,
-  X,
   UserPlus,
   Briefcase
 } from "lucide-react";
 
 export default function PaymentsPage() {
+  // Ledger States
   const [items, setItems] = useState<any[]>([]);
   const [newItemName, setNewItemName] = useState("");
   const [newItemAmount, setNewItemAmount] = useState("");
@@ -29,7 +29,7 @@ export default function PaymentsPage() {
   const [liabilityLabel, setNewLiabilityLabel] = useState("");
   const [liabilityAmount, setNewLiabilityAmount] = useState("");
   
-  // Appraisals/Team onboarding extended states
+  // Onboarding Panel States
   const [empName, setEmpName] = useState("Jane Doe");
   const [empRole, setEmpRole] = useState("Marketing Executive");
   const [bankDetails, setBankDetails] = useState("");
@@ -62,19 +62,20 @@ export default function PaymentsPage() {
     setItems(items.filter(item => item.id !== id));
   };
 
+  // Calculation logic
   const subtotal = items.reduce((acc, item) => acc + item.total, 0);
   const discount = parseFloat(discountAmount) || 0;
   const taxableAmount = Math.max(0, subtotal - discount);
   const vat = taxableAmount * (parseFloat(vatRate) / 100);
   const total = taxableAmount + vat;
 
-  // Action handlers
+  // Handlers for controls
   const handleDispatch = () => {
     if (items.length === 0) {
-      alert("Ledger is empty. Please add items before dispatching.");
+      alert("Ledger is empty. Add elements to this invoice before dispatching.");
       return;
     }
-    alert("Invoice dispatched to workspace and sent.");
+    alert(`Invoice dispatched to workspace with a total of £${total.toFixed(2)}.`);
   };
 
   const handleSaveDraft = () => {
@@ -114,8 +115,10 @@ export default function PaymentsPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        {/* SIDEBAR EDITORS AND FIELDS */}
+        {/* COLUMN 1: SIDEBAR INPUTS */}
         <div className="lg:col-span-1 space-y-8 h-fit">
+          
+          {/* LEDGER ENTRY */}
           <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm space-y-8">
             <div className="space-y-2">
               <h3 className="text-2xl font-serif italic text-stone-800 tracking-tight">New Ledger Entry</h3>
@@ -129,7 +132,7 @@ export default function PaymentsPage() {
                   placeholder="e.g. Node Maintenance"
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none transition-all font-medium placeholder:text-stone-300"
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none transition-all font-medium placeholder:text-stone-300 text-stone-800"
                 />
               </div>
 
@@ -141,7 +144,7 @@ export default function PaymentsPage() {
                     placeholder="0"
                     value={newItemAmount}
                     onChange={(e) => setNewItemAmount(e.target.value)}
-                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none transition-all font-medium placeholder:text-stone-300"
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none transition-all font-medium placeholder:text-stone-300 text-stone-800"
                   />
                 </div>
                 <div className="space-y-2">
@@ -150,7 +153,7 @@ export default function PaymentsPage() {
                     type="number"
                     value={newItemQty}
                     onChange={(e) => setNewItemQty(e.target.value)}
-                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none transition-all font-medium"
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
                   />
                 </div>
               </div>
@@ -165,7 +168,7 @@ export default function PaymentsPage() {
             </div>
           </div>
 
-          {/* LIABILITY PANEL */}
+          {/* LIABILITY MANAGEMENT */}
           <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm space-y-6">
             <h3 className="text-xl font-serif italic text-stone-800 tracking-tight">Add Liability</h3>
             <div className="space-y-4">
@@ -173,14 +176,14 @@ export default function PaymentsPage() {
                 placeholder="Liability Label"
                 value={liabilityLabel}
                 onChange={(e) => setNewLiabilityLabel(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-10 px-4 text-xs font-bold outline-none"
+                className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-10 px-4 text-xs font-bold outline-none text-stone-800"
               />
               <input
                 type="number"
                 placeholder="Amt (£)"
                 value={liabilityAmount}
                 onChange={(e) => setNewLiabilityAmount(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-10 px-4 text-xs font-bold outline-none"
+                className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-10 px-4 text-xs font-bold outline-none text-stone-800"
               />
               <button
                 onClick={handleLiability}
@@ -192,9 +195,10 @@ export default function PaymentsPage() {
           </div>
         </div>
 
-        {/* INVOICE BREAKDOWN AND ACTION PANELS */}
+        {/* COLUMN 2 AND 3: MAIN WORKSPACE */}
         <div className="lg:col-span-2 space-y-8">
-          {/* TEAM ONBOARDING PANEL (Restored, expanded & fixed layout) */}
+          
+          {/* ONBOARDING PANEL */}
           <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
             <div className="flex items-center gap-3 text-stone-800">
               <UserPlus size={18} className="text-[#a9b897]" />
@@ -264,15 +268,22 @@ export default function PaymentsPage() {
             </div>
 
             <button 
-              onClick={() => alert(`Team Member ${empName} successfully added to matrix.`)}
+              onClick={() => alert(`Team Member ${empName} submitted successfully.`)}
               className="w-full py-4 bg-[#a9b897]/20 border border-[#a9b897]/30 text-stone-900 rounded-2xl text-xs uppercase font-bold hover:bg-[#a9b897]/30 cursor-pointer flex items-center justify-center gap-2"
             >
               <Briefcase size={14} /> Submit to Team Matrix
             </button>
           </div>
 
-          {/* LEDGER ITEMS */}
-          {items.length > 0 && (
+          {/* LEDGER DATA OR EMPTY STATE */}
+          {items.length === 0 ? (
+            <div className="h-[350px] border-2 border-dashed border-stone-200 rounded-[3.5rem] flex flex-col items-center justify-center p-12 text-center space-y-6 bg-white">
+              <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center">
+                <Banknote size={24} className="text-stone-300" />
+              </div>
+              <p className="text-stone-400 font-serif italic text-xl">No items in the ledger.</p>
+            </div>
+          ) : (
             <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
               <h4 className="text-2xl font-serif italic text-stone-800 tracking-tight">Ledger Items</h4>
               <div className="divide-y divide-stone-100">
@@ -297,7 +308,7 @@ export default function PaymentsPage() {
             </div>
           )}
 
-          {/* ADJUSTMENT PANEL */}
+          {/* TOTALS AND VAT / DISCOUNT CALCULATIONS */}
           <div className="bg-stone-900 text-white p-10 rounded-[3.5rem] shadow-2xl space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-3">
@@ -354,7 +365,7 @@ export default function PaymentsPage() {
             </button>
             
             <button
-              onClick={() => alert("PDF Export feature is processing.")}
+              onClick={() => alert("PDF Export feature processing.")}
               className="py-4 bg-white border border-stone-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-stone-700 hover:border-stone-400 transition-all shadow-sm"
             >
               <FileText size={16} />
@@ -371,14 +382,14 @@ export default function PaymentsPage() {
 
             <button
               onClick={handleApprove}
-              className="py-4 bg-green-50 border border-green-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-green-600 hover:bg-green-100/40 transition-all"
+              className="py-4 bg-green-50 border border-green-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-green-600 hover:bg-green-100/40 transition-all cursor-pointer"
             >
               <Check size={16} />
               <span className="text-[8px] font-black uppercase tracking-wider">Approve</span>
             </button>
           </div>
 
-          {/* VOID PANEL */}
+          {/* VOID/RESET PANEL */}
           <div className="bg-red-50 border border-red-100 p-6 rounded-[2rem] flex justify-between items-center">
             <div>
               <p className="text-xs font-bold text-red-700">Clear Ledger Data</p>

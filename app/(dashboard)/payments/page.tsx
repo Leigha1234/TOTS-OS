@@ -3,17 +3,32 @@
 import React, { useState, useMemo } from "react";
 import { 
   Plus, Trash2, UserPlus, Receipt, Users, BarChart3, Download, Zap, X, Mail, 
-  Calendar, Eye, Printer, Send, Ban, CheckCircle2, TrendingUp, FileStack, 
-  ShieldCheck, HardDrive, Clock, ChevronRight, Briefcase, Landmark, PieChart
+  Calendar, Printer, Send, CheckCircle2, FileStack, 
+  Clock, Briefcase, Landmark, PieChart, Upload, DollarSign, Percent, FileText, Settings, ShieldAlert, BadgeCheck, Activity
 } from "lucide-react";
 
 /* ======================================================
    CORE STATE ENGINE & DATABASE MOCK
 ====================================================== */
+interface AppraisalQuestion {
+  id: string;
+  question: string;
+  response: string;
+}
+
 interface Appraisal {
   date: string;
   score?: string;
   notes: string;
+  questions: AppraisalQuestion[];
+}
+
+interface Payslip {
+  id: string;
+  month: string;
+  amount: number;
+  taxPaid: number;
+  fileUrl?: string;
 }
 
 interface Employee {
@@ -24,6 +39,13 @@ interface Employee {
   holidayLeft: number;
   holidays: string[];
   appraisals: Appraisal[];
+  payslips: Payslip[];
+  email: string;
+  phone: string;
+  bankDetails: string;
+  nextOfKin: string;
+  daysWorked: string[];
+  hoursPerDay: number;
 }
 
 interface Contact {
@@ -31,6 +53,16 @@ interface Contact {
   name: string;
   company: string;
   email: string;
+  phone?: string;
+  bankDetails?: string;
+}
+
+interface InvoiceItem {
+  id: number;
+  desc: string;
+  qty: number;
+  rate: number;
+  taxRate: number; // Stored as a percentage value (e.g., 20)
 }
 
 const INITIAL_DATA: {
@@ -38,17 +70,63 @@ const INITIAL_DATA: {
   contacts: Contact[];
   projects: string[];
   bankDetails: { name: string; account: string; sort: string; bank: string };
+  reports: { name: string; date: string; amount: number; type: string }[];
 } = {
   employees: [
-    { id: "e1", name: "Sarah Chen", role: "Lead Engineer", salary: 85000, holidayLeft: 12, holidays: ["2026-05-12"], appraisals: [] },
-    { id: "e2", name: "Marcus Vane", role: "UX Designer", salary: 52000, holidayLeft: 18, holidays: [], appraisals: [{ date: "2026-03-01", score: "Exceeds", notes: "Excellent UI work." }] }
+    { 
+      id: "e1", 
+      name: "Sarah Chen", 
+      role: "Lead Engineer", 
+      salary: 85000, 
+      holidayLeft: 12, 
+      holidays: ["2026-05-12"], 
+      appraisals: [],
+      payslips: [
+        { id: "p1", month: "April 2026", amount: 7083, taxPaid: 1400 }
+      ],
+      email: "sarah.chen@apex.com",
+      phone: "+44 7700 900077",
+      bankDetails: "Starling Bank ***-***-88224411",
+      nextOfKin: "David Chen (Brother) - +44 7700 900088",
+      daysWorked: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      hoursPerDay: 8
+    },
+    { 
+      id: "e2", 
+      name: "Marcus Vane", 
+      role: "UX Designer", 
+      salary: 52000, 
+      holidayLeft: 18, 
+      holidays: [], 
+      appraisals: [{ 
+        date: "2026-03-01", 
+        score: "Exceeds", 
+        notes: "Excellent UI work.",
+        questions: [
+          { id: "q1", question: "How would you rate your team collaboration?", response: "Very well integrated." }
+        ]
+      }],
+      payslips: [
+        { id: "p2", month: "April 2026", amount: 4333, taxPaid: 800 }
+      ],
+      email: "marcus.vane@apex.com",
+      phone: "+44 7700 900099",
+      bankDetails: "Monzo ***-***-11223344",
+      nextOfKin: "Clara Vane (Wife) - +44 7700 900010",
+      daysWorked: ["Tuesday", "Wednesday", "Thursday"],
+      hoursPerDay: 7
+    }
   ],
   contacts: [
-    { id: "c1", name: "Sarah Jenkins", company: "Anthropic", email: "s.jenkins@anthropic.com" },
-    { id: "c2", name: "Marcus Vane", company: "Design Systems", email: "m.vane@ds.io" }
+    { id: "c1", name: "Sarah Jenkins", company: "Anthropic", email: "s.jenkins@anthropic.com", phone: "+44 7700 123456", bankDetails: "Barclays 20-00-00 12345678" },
+    { id: "c2", name: "Marcus Vane", company: "Design Systems", email: "m.vane@ds.io", phone: "+44 7700 654321", bankDetails: "HSBC 40-01-01 87654321" }
   ],
   projects: ["Q2 Brand Audit", "Next.js Migration", "Internal Architecture"],
-  bankDetails: { name: "APEX STRATEGY LTD", account: "88224411", sort: "00-11-22", bank: "Mercury Digital" }
+  bankDetails: { name: "APEX STRATEGY LTD", account: "88224411", sort: "00-11-22", bank: "Mercury Digital" },
+  reports: [
+    { name: "Q1 End of Year P&L", date: "April 2026", amount: 142500, type: "Profit & Loss" },
+    { name: "Balance Sheet 2025", date: "April 2026", amount: 204100, type: "Balance Sheet" }
+  ]
 };
 
 export default function ApexOS() {
@@ -58,18 +136,39 @@ export default function ApexOS() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Finance State
-  const [items, setItems] = useState([{ id: 1, desc: "Technical Architecture Review", qty: 1, rate: 2500 }]);
+  const [items, setItems] = useState<InvoiceItem[]>([{ id: 1, desc: "Technical Architecture Review", qty: 1, rate: 2500, taxRate: 20 }]);
   const [assignedContact, setAssignedContact] = useState("");
   const [assignedProject, setAssignedProject] = useState("");
+  const [assignedTeamMember, setAssignedTeamMember] = useState("");
   const [invoiceStatus, setInvoiceStatus] = useState("New");
+  const [frequency, setFrequency] = useState("one-off");
+  const [discount, setDiscount] = useState(0); // in percent
+  const [termsAndConditions, setTermsAndConditions] = useState("Net 30. Late payments accrue interest at 1.5% monthly.");
 
   // HR State
   const [employees, setEmployees] = useState<Employee[]>(INITIAL_DATA.employees);
   const [selectedEmpId, setSelectedEmpId] = useState("e1");
   const [appraisalForm, setAppraisalForm] = useState({ q1: "", q2: "", q3: "" });
+  
+  // New Employee Form States
+  const [newName, setNewName] = useState("");
+  const [newRole, setNewRole] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newSalary, setNewSalary] = useState(30000);
+  const [newBank, setNewBank] = useState("");
+  const [newKin, setNewKin] = useState("");
+
+  // Self Assessment
+  const [saSubmitted, setSaSubmitted] = useState(false);
+  const [saData, setSaData] = useState({ gross: "0", expenses: "0", taxDue: "0" });
 
   // Computed Values
-  const totalAmount = useMemo(() => items.reduce((a, b) => a + (b.qty * b.rate), 0), [items]);
+  const subTotalAmount = useMemo(() => items.reduce((a, b) => a + (b.qty * b.rate), 0), [items]);
+  const taxAmount = useMemo(() => items.reduce((a, b) => a + (b.qty * b.rate * (b.taxRate / 100)), 0), [items]);
+  const grossAmount = useMemo(() => subTotalAmount + taxAmount, [subTotalAmount, taxAmount]);
+  const totalAmount = useMemo(() => grossAmount - (grossAmount * (discount / 100)), [grossAmount, discount]);
+  
   const activeEmployee = useMemo(() => employees.find(e => e.id === selectedEmpId), [employees, selectedEmpId]);
 
   /* --------------------------------------------------
@@ -88,11 +187,64 @@ export default function ApexOS() {
   const handleSubmitAppraisal = () => {
     setEmployees(prev => prev.map(emp => 
       emp.id === selectedEmpId 
-        ? { ...emp, appraisals: [...emp.appraisals, { date: "2026-05-04", notes: appraisalForm.q1 }] } 
+        ? { 
+            ...emp, 
+            appraisals: [
+              ...emp.appraisals, 
+              { 
+                date: new Date().toLocaleDateString("en-GB"), 
+                notes: "General Appraisal Note",
+                questions: [
+                   { id: "q1", question: "Performance Rating", response: appraisalForm.q1 },
+                   { id: "q2", question: "Areas for Growth", response: appraisalForm.q2 }
+                ]
+              }
+            ] 
+          } 
         : emp
     ));
     setActiveModal(null);
     alert("Appraisal locked and saved to employee record.");
+  };
+
+  const handleOnboardEmployee = () => {
+    if (!newName || !newRole || !newEmail) {
+      alert("Please fill out at least the Name, Role, and Email fields.");
+      return;
+    }
+    const newEmp: Employee = {
+      id: "e" + (employees.length + 1),
+      name: newName,
+      role: newRole,
+      salary: newSalary,
+      holidayLeft: 20,
+      holidays: [],
+      appraisals: [],
+      payslips: [],
+      email: newEmail,
+      phone: newPhone || "Not Provided",
+      bankDetails: newBank || "Not Provided",
+      nextOfKin: newKin || "Not Provided",
+      daysWorked: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      hoursPerDay: 8
+    };
+    setEmployees([...employees, newEmp]);
+    setNewName("");
+    setNewRole("");
+    setNewEmail("");
+    setNewPhone("");
+    setNewSalary(30000);
+    setNewBank("");
+    setNewKin("");
+    setActiveModal(null);
+    alert("Employee onboarded successfully.");
+  };
+
+  const handleUpload = (e: any, type: string) => {
+    const file = e.target.files[0];
+    if (file) {
+      alert(`${type} file "${file.name}" uploaded successfully to secure store.`);
+    }
   };
 
   return (
@@ -162,7 +314,7 @@ export default function ApexOS() {
                      <div className="px-6 py-2 bg-stone-100 rounded-full text-[9px] font-black uppercase tracking-widest text-stone-400">Status: {invoiceStatus}</div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-8 mb-16">
+                  <div className="grid grid-cols-2 gap-8 mb-12">
                     <div className="space-y-3">
                       <label className="text-[9px] font-black uppercase tracking-widest text-stone-300">Client Link</label>
                       <select className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none border-none text-xs font-bold appearance-none cursor-pointer" onChange={(e) => setAssignedContact(e.target.value)}>
@@ -173,12 +325,32 @@ export default function ApexOS() {
                     <div className="space-y-3">
                       <label className="text-[9px] font-black uppercase tracking-widest text-stone-300">Project Workspace</label>
                       <select className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none border-none text-xs font-bold appearance-none cursor-pointer" onChange={(e) => setAssignedProject(e.target.value)}>
+                        <option>Select Project...</option>
                         {INITIAL_DATA.projects.map(p => <option key={p}>{p}</option>)}
                       </select>
                     </div>
                   </div>
 
-                  <div className="space-y-4 mb-12">
+                  <div className="grid grid-cols-2 gap-8 mb-12">
+                    <div className="space-y-3">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-stone-300">Team Assignment</label>
+                      <select className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none border-none text-xs font-bold appearance-none cursor-pointer" onChange={(e) => setAssignedTeamMember(e.target.value)}>
+                        <option value="">Select Member...</option>
+                        {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-stone-300">Frequency</label>
+                      <select className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none border-none text-xs font-bold appearance-none cursor-pointer" value={frequency} onChange={(e) => setFrequency(e.target.value)}>
+                        <option value="one-off">One-off / As needed</option>
+                        <option value="weekly">Weekly Recurring</option>
+                        <option value="monthly">Monthly Recurring</option>
+                        <option value="annually">Annual Recurring</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 mb-12 border-t border-stone-50 pt-12">
                     {items.map((item, idx) => (
                       <div key={item.id} className="flex gap-4 items-center group">
                         <input 
@@ -192,9 +364,9 @@ export default function ApexOS() {
                           }}
                         />
                         <div className="relative">
-                           <span className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300 text-xs font-bold">£</span>
+                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300 text-xs font-bold">£</span>
                            <input 
-                             className="w-32 h-14 bg-stone-50 rounded-2xl pl-10 pr-6 font-bold text-sm outline-none focus:bg-stone-100" 
+                             className="w-28 h-14 bg-stone-50 rounded-2xl pl-8 pr-2 font-bold text-sm outline-none focus:bg-stone-100" 
                              value={item.rate} 
                              type="number" 
                              onChange={(e) => {
@@ -204,10 +376,45 @@ export default function ApexOS() {
                              }}
                           />
                         </div>
+                        <div className="relative">
+                           <input 
+                             className="w-24 h-14 bg-stone-50 rounded-2xl px-4 font-bold text-sm outline-none focus:bg-stone-100" 
+                             value={item.taxRate} 
+                             type="number" 
+                             onChange={(e) => {
+                               const newItems = [...items];
+                               newItems[idx].taxRate = parseInt(e.target.value) || 0;
+                               setItems(newItems);
+                             }}
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-300 text-xs font-bold">% Tax</span>
+                        </div>
                         <button onClick={() => setItems(items.filter(i => i.id !== item.id))} className="p-3 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18}/></button>
                       </div>
                     ))}
-                    <button onClick={() => setItems([...items, {id: Date.now(), desc: "", qty: 1, rate: 0}])} className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] mt-4 flex items-center gap-2 hover:translate-x-1 transition-transform"><Plus size={14}/> Add Ledger Entry</button>
+                    <button onClick={() => setItems([...items, {id: Date.now(), desc: "", qty: 1, rate: 0, taxRate: 20}])} className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] mt-4 flex items-center gap-2 hover:translate-x-1 transition-transform"><Plus size={14}/> Add Ledger Entry</button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-8 mb-12 bg-stone-50 p-8 rounded-[2rem]">
+                    <div className="space-y-3">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-stone-300">Discount (%)</label>
+                      <input 
+                        type="number" 
+                        value={discount}
+                        onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                        className="w-full h-14 bg-white rounded-2xl px-6 outline-none text-xs font-bold border border-stone-100"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-stone-300">Terms & Conditions</label>
+                      <input 
+                        type="text" 
+                        value={termsAndConditions}
+                        onChange={(e) => setTermsAndConditions(e.target.value)}
+                        className="w-full h-14 bg-white rounded-2xl px-6 outline-none text-xs font-bold border border-stone-100"
+                      />
+                    </div>
                   </div>
 
                   <div className="p-10 bg-stone-900 rounded-[2.5rem] text-white flex flex-col md:flex-row justify-between items-center md:items-end gap-8">
@@ -227,6 +434,18 @@ export default function ApexOS() {
               <div className="col-span-12 lg:col-span-4 space-y-6 lg:sticky lg:top-0">
                 <div className="bg-white border border-stone-100 rounded-[3rem] p-8 shadow-sm space-y-4">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-300 mb-4 text-center">Global Actions</h3>
+                  
+                  {docType === 'quote' && (
+                     <button onClick={() => { setDocType("invoice"); setInvoiceStatus("New"); }} className="w-full h-16 bg-stone-800 text-[#a9b897] rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
+                        Convert to Invoice
+                     </button>
+                  )}
+
+                  <label className="w-full h-16 bg-stone-50 border border-stone-100 text-stone-500 rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest hover:bg-stone-100 transition-all cursor-pointer">
+                     <Upload size={16}/> Upload Attachment
+                     <input type="file" className="hidden" onChange={(e) => handleUpload(e, "finance")} />
+                  </label>
+
                   <button onClick={() => setActiveModal("preview")} className="w-full h-16 bg-[#a9b897] text-white rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"><Mail size={16}/> Email to Client</button>
                   <button onClick={() => alert("PDF Export Initiated...")} className="w-full h-16 bg-stone-100 text-stone-500 rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest hover:bg-stone-200 transition-all"><Download size={16}/> Export PDF</button>
                   <button onClick={() => setInvoiceStatus("Draft")} className="w-full h-16 border-2 border-stone-100 text-stone-400 rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest hover:border-stone-200 transition-all">Save as Draft</button>
@@ -293,7 +512,13 @@ export default function ApexOS() {
                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-300">{emp.role}</p>
                           </div>
                         </div>
-                        <div className="flex gap-4">
+                        <div className="flex flex-wrap gap-4 items-center">
+                          <button 
+                            onClick={() => { setSelectedEmpId(emp.id); setActiveModal("employeeDetails"); }} 
+                            className="px-6 py-3 border border-stone-100 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-50 transition-all flex items-center gap-2"
+                          >
+                            <Activity size={12} /> Contact & Details
+                          </button>
                           <button onClick={() => {setSelectedEmpId(emp.id); setActiveModal("payslips")}} className="px-6 py-3 border border-stone-100 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-50 transition-all flex items-center gap-2"><Clock size={12}/> View Payslips</button>
                           <button onClick={() => {setSelectedEmpId(emp.id); setActiveModal("holiday")}} className="px-6 py-3 bg-[#a9b897] text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2"><Calendar size={12}/> Holiday</button>
                         </div>
@@ -327,7 +552,44 @@ export default function ApexOS() {
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897] mb-12">Tax Readiness Node</p>
                     <div className="flex-1">
                       <p className="text-[10px] font-black uppercase text-white/20 mb-2">Self Assessment 2026</p>
-                      <h2 className="text-7xl md:text-8xl font-serif italic mb-20 group-hover:tracking-wider transition-all duration-700">Pending Submission</h2>
+                      {saSubmitted ? (
+                        <div className="space-y-6">
+                           <p className="text-xl font-serif italic text-[#a9b897]">Submission Successful (HMRC Approved)</p>
+                           <div className="grid grid-cols-3 gap-6 max-w-2xl bg-white/5 rounded-2xl p-6">
+                             <div>
+                                <p className="text-[8px] uppercase text-white/30">Gross Income</p>
+                                <p className="text-lg font-bold">£{saData.gross}</p>
+                             </div>
+                             <div>
+                                <p className="text-[8px] uppercase text-white/30">Expenses</p>
+                                <p className="text-lg font-bold">£{saData.expenses}</p>
+                             </div>
+                             <div>
+                                <p className="text-[8px] uppercase text-white/30">Tax Due</p>
+                                <p className="text-lg font-bold text-[#a9b897]">£{saData.taxDue}</p>
+                             </div>
+                           </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-6 max-w-lg">
+                           <h2 className="text-4xl font-serif italic mb-6">Pending Submission</h2>
+                           <div className="space-y-4">
+                              <div>
+                                <label className="text-[8px] uppercase text-white/50 block mb-1">Gross Turnover (£)</label>
+                                <input type="number" className="w-full h-12 bg-white/10 rounded-xl px-4 text-white outline-none" value={saData.gross} onChange={e => setSaData({...saData, gross: e.target.value})} />
+                              </div>
+                              <div>
+                                <label className="text-[8px] uppercase text-white/50 block mb-1">Allowable Expenses (£)</label>
+                                <input type="number" className="w-full h-12 bg-white/10 rounded-xl px-4 text-white outline-none" value={saData.expenses} onChange={e => setSaData({...saData, expenses: e.target.value})} />
+                              </div>
+                              <div>
+                                <label className="text-[8px] uppercase text-white/50 block mb-1">Calculated Tax Liability (£)</label>
+                                <input type="number" className="w-full h-12 bg-white/10 rounded-xl px-4 text-white outline-none" value={saData.taxDue} onChange={e => setSaData({...saData, taxDue: e.target.value})} />
+                              </div>
+                           </div>
+                           <button onClick={() => setSaSubmitted(true)} className="px-6 py-3 bg-[#a9b897] text-stone-900 rounded-xl text-[9px] font-black uppercase tracking-widest mt-4">Submit to HMRC</button>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 pt-16 border-t border-white/10 shrink-0">
@@ -350,12 +612,12 @@ export default function ApexOS() {
                  <div className="col-span-12 lg:col-span-4 bg-white rounded-[3.5rem] p-10 border border-stone-100 flex flex-col shadow-sm">
                    <h3 className="text-[10px] font-black uppercase text-stone-300 tracking-[0.4em] mb-12">Institutional Reports</h3>
                    <div className="space-y-4 flex-1">
-                      {["P&L Statement", "Balance Sheet", "Payroll History", "Expense Audit"].map((report, i) => (
+                      {INITIAL_DATA.reports.map((report, i) => (
                         <div key={i} className="flex items-center gap-5 p-4 rounded-2xl hover:bg-stone-50 transition-all cursor-pointer group">
                            <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 group-hover:bg-[#a9b897] group-hover:text-white shadow-sm transition-all"><FileStack size={18}/></div>
                            <div className="flex-1">
-                              <p className="text-[10px] font-black uppercase tracking-wider text-stone-500 group-hover:text-stone-900">{report}</p>
-                              <p className="text-[8px] font-bold text-stone-300">April 2026</p>
+                              <p className="text-[10px] font-black uppercase tracking-wider text-stone-500 group-hover:text-stone-900">{report.name}</p>
+                              <p className="text-[8px] font-bold text-stone-300">Amount: £{report.amount} • {report.date}</p>
                            </div>
                            <Download size={14} className="text-stone-200 group-hover:text-[#a9b897]" />
                         </div>
@@ -363,6 +625,25 @@ export default function ApexOS() {
                    </div>
                    <button className="w-full mt-10 py-5 bg-stone-900 text-[#a9b897] rounded-3xl text-[9px] font-black uppercase tracking-widest shadow-xl">Request Full Audit</button>
                  </div>
+               </div>
+               
+               {/* Analytics Graphic Reports Panel */}
+               <div className="bg-white rounded-[3rem] p-16 shadow-xl border border-stone-50">
+                  <h3 className="text-3xl font-serif italic mb-12">Intelligence Reports & Graphic Charts</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                     <div className="bg-stone-50 p-12 rounded-[2.5rem] flex flex-col items-center justify-center text-center">
+                        <PieChart size={64} className="text-[#a9b897] mb-6 animate-pulse" />
+                        <h4 className="font-serif text-xl mb-3">Revenue Projection</h4>
+                        <p className="text-xs text-stone-400 max-w-md">Data modeling based on recurring invoicing schedules. Strong forward projection for Q2 and Q3.</p>
+                     </div>
+                     <div className="bg-stone-50 p-12 rounded-[2.5rem] flex flex-col items-center justify-center text-center">
+                        <div className="flex items-center justify-center w-16 h-16 bg-[#a9b897]/10 text-[#a9b897] rounded-2xl mb-6">
+                           <Briefcase size={28} />
+                        </div>
+                        <h4 className="font-serif text-xl mb-3">Utilization & Efficiency</h4>
+                        <p className="text-xs text-stone-400 max-w-md">Reports show a high level of operational efficiency across currently linked projects.</p>
+                     </div>
+                  </div>
                </div>
             </div>
           )}
@@ -384,8 +665,12 @@ export default function ApexOS() {
             </div>
             <div className="space-y-8">
               <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-300 italic">Primary Achievements Q2</label>
-                <textarea className="w-full h-32 bg-stone-50 rounded-3xl p-6 outline-none font-serif italic text-sm focus:bg-white border-2 border-transparent focus:border-stone-100 transition-all" onChange={e => setAppraisalForm({...appraisalForm, q1: e.target.value})} placeholder="Detailed performance summary..." />
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-300 italic">1. Primary Achievements</label>
+                <textarea className="w-full h-20 bg-stone-50 rounded-3xl p-6 outline-none font-serif italic text-sm focus:bg-white border-2 border-transparent focus:border-stone-100 transition-all" onChange={e => setAppraisalForm({...appraisalForm, q1: e.target.value})} placeholder="Detailed performance summary..." />
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-300 italic">2. Areas for Growth</label>
+                <textarea className="w-full h-20 bg-stone-50 rounded-3xl p-6 outline-none font-serif italic text-sm focus:bg-white border-2 border-transparent focus:border-stone-100 transition-all" onChange={e => setAppraisalForm({...appraisalForm, q2: e.target.value})} placeholder="Growth plan..." />
               </div>
               <button onClick={handleSubmitAppraisal} className="w-full py-6 bg-stone-900 text-[#a9b897] rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] transition-all">Lock & Finalize Appraisal</button>
             </div>
@@ -415,6 +700,129 @@ export default function ApexOS() {
         </div>
       )}
 
+      {/* Onboard Employee Modal */}
+      {activeModal === "newEmployee" && (
+        <div className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6">
+          <div className="bg-white rounded-[3.5rem] w-full max-w-2xl p-12 animate-in zoom-in-95 shadow-2xl overflow-y-auto max-h-[85vh] relative">
+             <button onClick={() => setActiveModal(null)} className="absolute top-10 right-10 p-3 bg-stone-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-all"><X size={20}/></button>
+             <div className="mb-10">
+               <h3 className="text-4xl font-serif italic text-stone-900">Onboard New Team Member</h3>
+               <p className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] mt-2">Team Matrix Database Update</p>
+             </div>
+             
+             <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                   <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 mb-2 block">Name</label>
+                      <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 text-sm outline-none font-bold" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Jane Doe" />
+                   </div>
+                   <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 mb-2 block">Role/Title</label>
+                      <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 text-sm outline-none font-bold" value={newRole} onChange={e => setNewRole(e.target.value)} placeholder="Marketing Executive" />
+                   </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-6">
+                   <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 mb-2 block">Email</label>
+                      <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 text-sm outline-none font-bold" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="jane@apex.com" />
+                   </div>
+                   <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 mb-2 block">Phone</label>
+                      <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 text-sm outline-none font-bold" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="+44..." />
+                   </div>
+                </div>
+
+                <div>
+                   <label className="text-[9px] font-black uppercase text-stone-400 mb-2 block">Salary (GBP)</label>
+                   <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 text-sm outline-none font-bold" type="number" value={newSalary} onChange={e => setNewSalary(parseInt(e.target.value) || 0)} />
+                </div>
+
+                <div>
+                   <label className="text-[9px] font-black uppercase text-stone-400 mb-2 block">Bank Details</label>
+                   <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 text-sm outline-none font-bold" value={newBank} onChange={e => setNewBank(e.target.value)} placeholder="Bank name and account information" />
+                </div>
+                
+                <div>
+                   <label className="text-[9px] font-black uppercase text-stone-400 mb-2 block">Next of Kin</label>
+                   <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 text-sm outline-none font-bold" value={newKin} onChange={e => setNewKin(e.target.value)} placeholder="Name and number" />
+                </div>
+
+                <div>
+                   <label className="text-[9px] font-black uppercase text-stone-400 mb-3 block">Upload Contact / Identification Document</label>
+                   <input type="file" onChange={(e) => handleUpload(e, "HR")} />
+                </div>
+
+                <button onClick={handleOnboardEmployee} className="w-full py-6 bg-stone-900 text-[#a9b897] rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-xl mt-8">Save Record to Database</button>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Employee Details Modal */}
+      {activeModal === "employeeDetails" && activeEmployee && (
+        <div className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6">
+          <div className="bg-white rounded-[3.5rem] w-full max-w-2xl p-12 animate-in zoom-in-95 shadow-2xl overflow-y-auto max-h-[85vh] relative">
+            <button onClick={() => setActiveModal(null)} className="absolute top-10 right-10 p-3 bg-stone-100 rounded-full hover:bg-stone-200 transition-all"><X size={20}/></button>
+            <div className="mb-10">
+               <h3 className="text-4xl font-serif italic text-stone-900">{activeEmployee.name}</h3>
+               <p className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] mt-2">{activeEmployee.role} • Profile Details</p>
+            </div>
+            <div className="space-y-6">
+               <div className="bg-stone-50 p-6 rounded-2xl space-y-4">
+                  <h4 className="font-bold text-xs">Contact Details</h4>
+                  <p className="text-xs text-stone-500">Email: {activeEmployee.email}</p>
+                  <p className="text-xs text-stone-500">Phone: {activeEmployee.phone}</p>
+               </div>
+               <div className="bg-stone-50 p-6 rounded-2xl space-y-4">
+                  <h4 className="font-bold text-xs">Bank Details</h4>
+                  <p className="text-xs text-stone-500">{activeEmployee.bankDetails}</p>
+               </div>
+               <div className="bg-stone-50 p-6 rounded-2xl space-y-4">
+                  <h4 className="font-bold text-xs">Next of Kin</h4>
+                  <p className="text-xs text-stone-500">{activeEmployee.nextOfKin}</p>
+               </div>
+               <div className="bg-stone-50 p-6 rounded-2xl space-y-4">
+                  <h4 className="font-bold text-xs">Working Pattern</h4>
+                  <p className="text-xs text-stone-500">
+                     Days Selected: {activeEmployee.daysWorked.join(", ")} <br />
+                     Hours Per Day: {activeEmployee.hoursPerDay}
+                  </p>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payslips Modal */}
+      {activeModal === "payslips" && activeEmployee && (
+        <div className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6">
+          <div className="bg-white rounded-[3.5rem] w-full max-w-2xl p-12 animate-in zoom-in-95 shadow-2xl relative">
+             <button onClick={() => setActiveModal(null)} className="absolute top-10 right-10 p-3 bg-stone-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-all"><X size={20}/></button>
+             <div className="mb-10">
+               <h3 className="text-4xl font-serif italic text-stone-900">Payslip Archive</h3>
+               <p className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] mt-2">Employee: {activeEmployee.name}</p>
+             </div>
+             <div className="space-y-4 max-h-[45vh] overflow-y-auto">
+               {activeEmployee.payslips.length > 0 ? activeEmployee.payslips.map(slip => (
+                 <div key={slip.id} className="flex justify-between items-center bg-stone-50 p-6 rounded-2xl border border-stone-100">
+                    <div>
+                       <span className="block font-serif text-lg text-stone-800">{slip.month}</span>
+                       <span className="text-[8px] font-bold tracking-wider text-stone-400 block mt-1 uppercase">Tax Paid: £{slip.taxPaid}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                       <p className="text-xl font-bold">£{slip.amount}</p>
+                       <button onClick={() => alert(`Payslip sent to employee email (${activeEmployee.email})`)} className="p-3 bg-white border border-stone-200 rounded-xl hover:bg-[#a9b897]/10 transition-colors">
+                          <Mail size={16} />
+                       </button>
+                    </div>
+                 </div>
+               )) : <p className="text-center text-stone-400 py-8">No payslips on file.</p>}
+             </div>
+          </div>
+        </div>
+      )}
+
       {/* Dispatch Preview Modal */}
       {activeModal === "preview" && (
         <div className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6">
@@ -435,7 +843,6 @@ export default function ApexOS() {
            </div>
         </div>
       )}
-
     </div>
   );
 }

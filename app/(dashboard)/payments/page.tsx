@@ -25,12 +25,17 @@ import {
   Calendar,
   X,
   Award,
-  DollarSign
+  DollarSign,
+  Upload,
+  Eye,
+  FileCheck,
+  Ban,
+  Link2
 } from "lucide-react";
 
 export default function FinancialsPage() {
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState("financials"); // 'financials', 'hr', 'timesheets', 'appraisals'
+  const [activeTab, setActiveTab] = useState("financials"); // 'financials', 'hr', 'timesheets'
 
   // Modal Visibility States
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
@@ -45,7 +50,7 @@ export default function FinancialsPage() {
     calculatedTaxDue: 21660,
   });
 
-  // Independent Documents
+  // Document Lists
   const [invoices, setInvoices] = useState<any[]>([
     { id: "INV-101", client: "Aperture Labs", amount: 14200, status: "approved", date: "2026-05-01" }
   ]);
@@ -56,13 +61,27 @@ export default function FinancialsPage() {
     { id: "EXP-22", vendor: "Apex Facilities", amount: 2300, status: "pending", date: "2026-05-02" }
   ]);
 
-  // Document Entry Fields
+  // Invoice Fields
   const [invoiceClient, setInvoiceClient] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState("");
+  const [invoiceVat, setInvoiceVat] = useState("0");
+  const [invoiceDiscount, setInvoiceDiscount] = useState("");
+  const [invoiceFrequency, setInvoiceFrequency] = useState("one-off");
+  const [invoiceProject, setInvoiceProject] = useState("");
+  const [invoiceTerms, setInvoiceTerms] = useState("");
+
+  // Quote Fields
   const [quoteClient, setQuoteClient] = useState("");
   const [quoteAmount, setQuoteAmount] = useState("");
+  const [quoteVat, setQuoteVat] = useState("0");
+  const [quoteDiscount, setQuoteDiscount] = useState("");
+  const [quoteProject, setQuoteProject] = useState("");
+  const [quoteTerms, setQuoteTerms] = useState("");
+
+  // Expense Fields
   const [expenseVendor, setExpenseVendor] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseProject, setExpenseProject] = useState("");
 
   // Ledger States
   const [items, setItems] = useState<any[]>([]);
@@ -90,7 +109,6 @@ export default function FinancialsPage() {
   const [nextOfKinNumber, setNextOfKinNumber] = useState("");
   
   // Appraisal and Time states
-  const [appraisalOpen, setAppraisalOpen] = useState(false);
   const [timesheetList, setTimesheetList] = useState<any[]>([
     { id: "1", task: "Client Review", duration: "2.5 hrs", date: "2026-05-04" }
   ]);
@@ -104,11 +122,6 @@ export default function FinancialsPage() {
   const [cashFlow] = useState({ inflows: 35000, outflows: 18000, net: 17000 });
   const [accountsReceivable] = useState([{ id: "AR-1", customer: "Cyberdyne Systems", balance: 5400 }]);
   const [incomeStatement] = useState({ grossRevenue: 142500, cogs: 24000, netIncome: 73500 });
-
-  const [appraisalAnswers, setAppraisalAnswers] = useState({
-    q1: "", q2: "", q3: "", q4: "", q5: "", q6: "", q7: "", q8: "", q9: "", 
-    q10: "", q11: "", q12: "", q13: "", q14: "", q15: ""
-  });
 
   useEffect(() => {
     setIsMounted(true);
@@ -139,7 +152,13 @@ export default function FinancialsPage() {
     if (!invoiceClient || !invoiceAmount) return;
     setInvoices([
       ...invoices,
-      { id: `INV-${Math.floor(Math.random() * 900) + 100}`, client: invoiceClient, amount: parseFloat(invoiceAmount), status: "pending", date: new Date().toISOString().split('T')[0] }
+      { 
+        id: `INV-${Math.floor(Math.random() * 900) + 100}`, 
+        client: invoiceClient, 
+        amount: parseFloat(invoiceAmount), 
+        status: "pending", 
+        date: new Date().toISOString().split('T')[0] 
+      }
     ]);
     setInvoiceClient("");
     setInvoiceAmount("");
@@ -150,7 +169,13 @@ export default function FinancialsPage() {
     if (!quoteClient || !quoteAmount) return;
     setQuotes([
       ...quotes,
-      { id: `QT-${Math.floor(Math.random() * 900) + 100}`, client: quoteClient, amount: parseFloat(quoteAmount), status: "pending", date: new Date().toISOString().split('T')[0] }
+      { 
+        id: `QT-${Math.floor(Math.random() * 900) + 100}`, 
+        client: quoteClient, 
+        amount: parseFloat(quoteAmount), 
+        status: "pending", 
+        date: new Date().toISOString().split('T')[0] 
+      }
     ]);
     setQuoteClient("");
     setQuoteAmount("");
@@ -161,7 +186,13 @@ export default function FinancialsPage() {
     if (!expenseVendor || !expenseAmount) return;
     setExpenses([
       ...expenses,
-      { id: `EXP-${Math.floor(Math.random() * 90) + 10}`, vendor: expenseVendor, amount: parseFloat(expenseAmount), status: "pending", date: new Date().toISOString().split('T')[0] }
+      { 
+        id: `EXP-${Math.floor(Math.random() * 90) + 10}`, 
+        vendor: expenseVendor, 
+        amount: parseFloat(expenseAmount), 
+        status: "pending", 
+        date: new Date().toISOString().split('T')[0] 
+      }
     ]);
     setExpenseVendor("");
     setExpenseAmount("");
@@ -278,14 +309,6 @@ export default function FinancialsPage() {
         >
           Timesheets
         </button>
-        <button 
-          onClick={() => setActiveTab("appraisals")}
-          className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
-            activeTab === "appraisals" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
-          }`}
-        >
-          Appraisals
-        </button>
       </div>
 
       {/* TAB CONTENTS */}
@@ -314,6 +337,327 @@ export default function FinancialsPage() {
               <ShieldAlert size={16} className="text-red-500" /> Log Expense
             </button>
           </div>
+
+          {/* Invoice Modal Slide */}
+          <AnimatePresence>
+            {isInvoiceOpen && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center p-6"
+              >
+                <div className="bg-white border border-stone-100 w-full max-w-4xl max-h-[90vh] rounded-[3.5rem] overflow-y-auto p-12 shadow-2xl flex flex-col gap-8">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-2xl font-serif italic text-stone-800">Generate Invoice</h3>
+                    <button onClick={() => setIsInvoiceOpen(false)} className="p-3 rounded-full hover:bg-stone-100 transition-colors cursor-pointer"><X size={18}/></button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Select Client</label>
+                      <input 
+                        placeholder="Client Name or Reference" 
+                        value={invoiceClient} 
+                        onChange={(e) => setInvoiceClient(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Amount (£)</label>
+                      <input 
+                        type="number" 
+                        placeholder="0.00" 
+                        value={invoiceAmount} 
+                        onChange={(e) => setInvoiceAmount(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">VAT Rate (%)</label>
+                      <select 
+                        value={invoiceVat} 
+                        onChange={(e) => setInvoiceVat(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      >
+                        <option value="0">0% (Optional)</option>
+                        <option value="5">5% (Reduced Rate)</option>
+                        <option value="20">20% (Standard Rate)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Discount Amount (£)</label>
+                      <input 
+                        type="number" 
+                        placeholder="0.00" 
+                        value={invoiceDiscount} 
+                        onChange={(e) => setInvoiceDiscount(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Billing Frequency</label>
+                      <select 
+                        value={invoiceFrequency} 
+                        onChange={(e) => setInvoiceFrequency(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      >
+                        <option value="one-off">One-Off</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="annually">Annually</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Project Link</label>
+                      <input 
+                        placeholder="Project Name or Reference" 
+                        value={invoiceProject} 
+                        onChange={(e) => setInvoiceProject(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Terms & Conditions</label>
+                    <textarea 
+                      placeholder="Payment terms, special instructions, or notes"
+                      value={invoiceTerms} 
+                      onChange={(e) => setInvoiceTerms(e.target.value)}
+                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none h-28"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 border-t border-stone-50 pt-6">
+                    <button 
+                      onClick={() => alert("Invoice previewing...")}
+                      className="px-6 py-3 bg-stone-50 border border-stone-200 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center gap-2 hover:bg-stone-100 cursor-pointer"
+                    >
+                      <Eye size={14} /> Preview Invoice
+                    </button>
+                    <button 
+                      onClick={() => alert("Invoice emailed...")}
+                      className="px-6 py-3 bg-stone-50 border border-stone-200 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center gap-2 hover:bg-stone-100 cursor-pointer"
+                    >
+                      <Mail size={14} /> Email Invoice
+                    </button>
+                    <button 
+                      onClick={() => alert("Invoice approved...")}
+                      className="px-6 py-3 bg-stone-50 border border-stone-200 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center gap-2 hover:bg-stone-100 cursor-pointer"
+                    >
+                      <FileCheck size={14} /> Approve
+                    </button>
+                    <button 
+                      onClick={() => alert("Invoice voided...")}
+                      className="px-6 py-3 bg-stone-50 border border-stone-200 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center gap-2 hover:bg-stone-100 cursor-pointer"
+                    >
+                      <Ban size={14} /> Void
+                    </button>
+                  </div>
+
+                  <div className="flex justify-end gap-6 border-t border-stone-50 pt-6">
+                    <button onClick={() => setIsInvoiceOpen(false)} className="px-6 py-4 text-xs font-bold text-stone-400 hover:text-stone-900 cursor-pointer">Cancel</button>
+                    <button 
+                      onClick={addInvoice} 
+                      className="px-8 py-4 bg-stone-900 text-white rounded-2xl text-xs font-bold hover:bg-stone-800 transition-all cursor-pointer"
+                    >
+                      Save as Draft
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Quote Modal Slide */}
+          <AnimatePresence>
+            {isQuoteOpen && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center p-6"
+              >
+                <div className="bg-white border border-stone-100 w-full max-w-4xl max-h-[90vh] rounded-[3.5rem] overflow-y-auto p-12 shadow-2xl flex flex-col gap-8">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-2xl font-serif italic text-stone-800">Generate Quote</h3>
+                    <button onClick={() => setIsQuoteOpen(false)} className="p-3 rounded-full hover:bg-stone-100 transition-colors cursor-pointer"><X size={18}/></button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Select Client</label>
+                      <input 
+                        placeholder="Client Name or Reference" 
+                        value={quoteClient} 
+                        onChange={(e) => setQuoteClient(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Amount (£)</label>
+                      <input 
+                        type="number" 
+                        placeholder="0.00" 
+                        value={quoteAmount} 
+                        onChange={(e) => setQuoteAmount(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">VAT Rate (%)</label>
+                      <select 
+                        value={quoteVat} 
+                        onChange={(e) => setQuoteVat(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      >
+                        <option value="0">0% (Optional)</option>
+                        <option value="5">5% (Reduced Rate)</option>
+                        <option value="20">20% (Standard Rate)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Discount Amount (£)</label>
+                      <input 
+                        type="number" 
+                        placeholder="0.00" 
+                        value={quoteDiscount} 
+                        onChange={(e) => setQuoteDiscount(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Project Link</label>
+                      <input 
+                        placeholder="Project Name or Reference" 
+                        value={quoteProject} 
+                        onChange={(e) => setQuoteProject(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Terms & Conditions</label>
+                    <textarea 
+                      placeholder="Quote notes, validity period, or specific scopes"
+                      value={quoteTerms} 
+                      onChange={(e) => setQuoteTerms(e.target.value)}
+                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none h-28"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 border-t border-stone-50 pt-6">
+                    <button 
+                      onClick={() => alert("Quote previewing...")}
+                      className="px-6 py-3 bg-stone-50 border border-stone-200 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center gap-2 hover:bg-stone-100 cursor-pointer"
+                    >
+                      <Eye size={14} /> Preview Quote
+                    </button>
+                    <button 
+                      onClick={() => alert("Quote emailed...")}
+                      className="px-6 py-3 bg-stone-50 border border-stone-200 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center gap-2 hover:bg-stone-100 cursor-pointer"
+                    >
+                      <Mail size={14} /> Email Quote
+                    </button>
+                    <button 
+                      onClick={() => alert("Quote converted...")}
+                      className="px-6 py-3 bg-stone-50 border border-stone-200 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center gap-2 hover:bg-stone-100 cursor-pointer"
+                    >
+                      <FileText size={14} /> Convert into Invoice
+                    </button>
+                    <button 
+                      onClick={() => alert("Quote voided...")}
+                      className="px-6 py-3 bg-stone-50 border border-stone-200 rounded-xl text-[10px] font-black tracking-widest uppercase flex items-center gap-2 hover:bg-stone-100 cursor-pointer"
+                    >
+                      <Ban size={14} /> Void
+                    </button>
+                  </div>
+
+                  <div className="flex justify-end gap-6 border-t border-stone-50 pt-6">
+                    <button onClick={() => setIsQuoteOpen(false)} className="px-6 py-4 text-xs font-bold text-stone-400 hover:text-stone-900 cursor-pointer">Cancel</button>
+                    <button 
+                      onClick={addQuote} 
+                      className="px-8 py-4 bg-stone-900 text-white rounded-2xl text-xs font-bold hover:bg-stone-800 transition-all cursor-pointer"
+                    >
+                      Save as Draft
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Expense Modal Slide */}
+          <AnimatePresence>
+            {isExpenseOpen && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center p-6"
+              >
+                <div className="bg-white border border-stone-100 w-full max-w-2xl rounded-[3.5rem] p-12 shadow-2xl flex flex-col gap-8">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-2xl font-serif italic text-stone-800">Log Expense</h3>
+                    <button onClick={() => setIsExpenseOpen(false)} className="p-3 rounded-full hover:bg-stone-100 transition-colors cursor-pointer"><X size={18}/></button>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Vendor Name</label>
+                      <input 
+                        placeholder="Company or Vendor Name" 
+                        value={expenseVendor} 
+                        onChange={(e) => setExpenseVendor(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Amount (£)</label>
+                      <input 
+                        type="number" 
+                        placeholder="0.00" 
+                        value={expenseAmount} 
+                        onChange={(e) => setExpenseAmount(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Add to Project (Optional)</label>
+                      <input 
+                        placeholder="Link Project" 
+                        value={expenseProject} 
+                        onChange={(e) => setExpenseProject(e.target.value)}
+                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Upload Receipt</label>
+                      <button 
+                        onClick={() => alert("Receipt uploaded.")}
+                        className="w-full mt-3 border-2 border-dashed border-stone-200 hover:border-stone-400 rounded-2xl p-8 flex flex-col items-center gap-3 text-stone-400 hover:text-stone-800 transition-all cursor-pointer"
+                      >
+                        <Upload size={24} />
+                        <span className="text-[10px] font-black tracking-widest uppercase">Click to browse Receipt</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-6 border-t border-stone-50 pt-6">
+                    <button onClick={() => setIsExpenseOpen(false)} className="px-6 py-4 text-xs font-bold text-stone-400 hover:text-stone-900 cursor-pointer">Cancel</button>
+                    <button 
+                      onClick={addExpense} 
+                      className="px-8 py-4 bg-stone-900 text-white rounded-2xl text-xs font-bold hover:bg-stone-800 transition-all cursor-pointer"
+                    >
+                      Save Expense
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 pt-4">
             <div className="lg:col-span-1 space-y-8 h-fit bg-white p-10 border border-stone-100 rounded-[3.5rem]">
@@ -483,7 +827,7 @@ export default function FinancialsPage() {
                   </div>
                   <button
                     onClick={() => alert(`Invoice dispatched, total: ${total}`)}
-                    className="w-full md:w-auto px-10 py-5 rounded-[2rem] bg-[#a9b897] text-stone-900 font-bold tracking-[0.3em] uppercase text-xs flex justify-center items-center gap-4 hover:bg-[#99a888] transition-all"
+                    className="w-full md:w-auto px-10 py-5 rounded-[2rem] bg-[#a9b897] text-stone-900 font-bold tracking-[0.3em] uppercase text-xs flex justify-center items-center gap-4 hover:bg-[#99a888] transition-all cursor-pointer border-0"
                   >
                     <Send size={16} /> Dispatch Ledger
                   </button>
@@ -569,7 +913,7 @@ export default function FinancialsPage() {
 
           <button 
             onClick={() => alert(`Team Member ${empName} updated on payroll ledger`)}
-            className="w-full py-4 bg-[#a9b897]/20 border border-[#a9b897]/30 text-stone-900 rounded-2xl text-xs uppercase font-bold hover:bg-[#a9b897]/30 flex items-center justify-center gap-2"
+            className="w-full py-4 bg-[#a9b897]/20 border border-[#a9b897]/30 text-stone-900 rounded-2xl text-xs uppercase font-bold hover:bg-[#a9b897]/30 flex items-center justify-center gap-2 cursor-pointer border-0"
           >
             <Briefcase size={14} /> Submit Employee Record
           </button>
@@ -598,297 +942,22 @@ export default function FinancialsPage() {
             />
             <button
               onClick={addTimesheet}
-              className="w-full py-3 bg-stone-900 text-white rounded-2xl text-xs uppercase font-bold hover:bg-stone-800"
+              className="w-full bg-[#a9b897] text-stone-900 h-12 rounded-2xl text-xs font-black tracking-widest uppercase hover:bg-[#99a888] cursor-pointer"
             >
-              Log Time Entry
+              Add Entry
             </button>
           </div>
-          <div className="divide-y divide-stone-100 mt-4 text-xs">
-            {timesheetList.map((t) => (
-              <div key={t.id} className="flex justify-between py-3">
-                <span className="font-semibold">{t.task}</span>
-                <span className="text-stone-400 font-mono">{t.duration}</span>
+          
+          <div className="border-t border-stone-100 pt-6 space-y-4">
+            {timesheetList.map(t => (
+              <div key={t.id} className="flex justify-between items-center p-4 bg-stone-50 rounded-2xl border">
+                <span className="text-xs font-semibold">{t.task}</span>
+                <span className="text-xs text-[#a9b897] font-bold font-mono">{t.duration}</span>
               </div>
             ))}
           </div>
         </div>
       )}
-
-      {/* 4. APPRAISALS TAB */}
-      {activeTab === "appraisals" && (
-        <div className="max-w-4xl mx-auto bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h4 className="text-xl font-serif font-bold text-stone-800">Employee Appraisal</h4>
-              <p className="text-[9px] text-stone-400 tracking-wider font-black uppercase mt-1">Submit appraisal logs for employees</p>
-            </div>
-            <button 
-              onClick={() => setAppraisalOpen(true)}
-              className="px-6 py-3 bg-stone-900 text-white text-[10px] uppercase font-bold rounded-2xl hover:bg-stone-800"
-            >
-              Open Form
-            </button>
-          </div>
-
-          {appraisalOpen && (
-            <div className="fixed inset-0 bg-stone-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-[3.5rem] p-12 overflow-y-auto shadow-2xl relative flex flex-col gap-8">
-                <button 
-                  onClick={() => setAppraisalOpen(false)}
-                  className="absolute right-10 top-10 p-3 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors"
-                >
-                  <X size={16} />
-                </button>
-                
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-serif italic tracking-tighter text-stone-900">Employee Appraisal Subsystem</h2>
-                  <p className="text-[10px] font-black text-stone-400 tracking-widest uppercase">Self-Reflection, Growth and Development Records</p>
-                </div>
-
-                <div className="space-y-6 text-xs text-stone-800">
-                  <h3 className="font-bold border-b border-stone-100 pb-2">1. Self-Reflection & Achievements</h3>
-                  <div>
-                    <label className="font-black text-stone-500">What accomplishment from this review period are you most proud of?</label>
-                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q1} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q1: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="font-black text-stone-500">Which of your strengths have you used most effectively in your role?</label>
-                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q2} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q2: e.target.value})} />
-                  </div>
-
-                  <h3 className="font-bold border-t border-stone-100 pt-6 pb-2">2. Challenges & Improvements</h3>
-                  <div>
-                    <label className="font-black text-stone-500">What has been your biggest challenge recently, and how did you address it?</label>
-                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q3} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q3: e.target.value})} />
-                  </div>
-
-                  <h3 className="font-bold border-t border-stone-100 pt-6 pb-2">3. Goals & Development</h3>
-                  <div>
-                    <label className="font-black text-stone-500">What professional skills would you like to develop in the next 6–12 months?</label>
-                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q4} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q4: e.target.value})} />
-                  </div>
-
-                  <h3 className="font-bold border-t border-stone-100 pt-6 pb-2">4. Teamwork & Collaboration</h3>
-                  <div>
-                    <label className="font-black text-stone-500">How do you feel about communication and collaboration within the team?</label>
-                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q5} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q5: e.target.value})} />
-                  </div>
-
-                  <h3 className="font-bold border-t border-stone-100 pt-6 pb-2">5. Future Outlook</h3>
-                  <div>
-                    <label className="font-black text-stone-500">Where do you see yourself in the company in the next 1–3 years?</label>
-                    <textarea className="w-full mt-2 bg-stone-50 border rounded-2xl p-4" rows={2} value={appraisalAnswers.q6} onChange={(e) => setAppraisalAnswers({...appraisalAnswers, q6: e.target.value})} />
-                  </div>
-                </div>
-
-                <button 
-                  onClick={() => { setAppraisalOpen(false); alert("Appraisal data successfully recorded in the main system."); }}
-                  className="w-full py-5 bg-stone-900 text-white font-bold tracking-widest text-xs uppercase rounded-2xl"
-                >
-                  Submit Appraisal Records
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modals */}
-      <AnimatePresence>
-        {/* Invoice Modal */}
-        {isInvoiceOpen && (
-          <div className="fixed inset-0 bg-stone-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[3.5rem] p-12 overflow-y-auto shadow-2xl relative">
-              <button 
-                onClick={() => setIsInvoiceOpen(false)}
-                className="absolute right-10 top-10 p-3 bg-stone-50 hover:bg-stone-100 rounded-full transition-colors"
-              >
-                <X size={18} />
-              </button>
-
-              <h2 className="text-3xl font-serif italic text-stone-800 tracking-tight mb-8">Generate Invoice</h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Client Name</label>
-                  <input
-                    value={invoiceClient}
-                    onChange={(e) => setInvoiceClient(e.target.value)}
-                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
-                    placeholder="e.g. Aperture Labs"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Quick Flat Amount (£)</label>
-                  <input
-                    type="number"
-                    value={invoiceAmount}
-                    onChange={(e) => setInvoiceAmount(e.target.value)}
-                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
-                    placeholder="e.g. 5000"
-                  />
-                </div>
-              </div>
-
-              {/* Itemized Ledger */}
-              <div className="border-t border-stone-100 pt-8 mt-4 space-y-6">
-                <h4 className="text-xs font-bold text-stone-700 tracking-wider uppercase">Itemized Line Items</h4>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="md:col-span-2">
-                    <input
-                      placeholder="Item Name"
-                      value={newItemName}
-                      onChange={(e) => setNewItemName(e.target.value)}
-                      className="w-full bg-stone-50 border p-3 rounded-2xl text-xs font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      placeholder="Amount (£)"
-                      value={newItemAmount}
-                      onChange={(e) => setNewItemAmount(e.target.value)}
-                      className="w-full bg-stone-50 border p-3 rounded-2xl text-xs font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      placeholder="Qty"
-                      value={newItemQty}
-                      onChange={(e) => setNewItemQty(e.target.value)}
-                      className="w-full bg-stone-50 border p-3 rounded-2xl text-xs font-semibold"
-                    />
-                  </div>
-                </div>
-                
-                <button
-                  onClick={addItem}
-                  className="px-4 py-2 bg-stone-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-stone-800"
-                >
-                  <Plus size={14} /> Add Line Item
-                </button>
-              </div>
-
-              {items.length > 0 && (
-                <div className="mt-8 border rounded-2xl p-6 bg-stone-50/50 space-y-4">
-                  <h5 className="text-[9px] font-bold uppercase tracking-wider text-stone-400">Current Items</h5>
-                  <div className="divide-y divide-stone-200 text-xs">
-                    {items.map((item) => (
-                      <div key={item.id} className="flex justify-between items-center py-2">
-                        <span>{item.name} <span className="text-stone-400 text-[10px]">({item.quantity} × £{item.amount})</span></span>
-                        <div className="flex items-center gap-4">
-                          <span className="font-mono font-bold">£{item.total}</span>
-                          <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700"><Minus size={14}/></button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="border-t border-stone-100 pt-8 mt-8 flex justify-end">
-                <button
-                  onClick={addInvoice}
-                  className="w-full md:w-auto px-8 py-5 rounded-2xl bg-[#a9b897] text-stone-900 text-xs font-black tracking-widest uppercase hover:bg-[#99a888]"
-                >
-                  Commit Invoice
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Quote Modal */}
-        {isQuoteOpen && (
-          <div className="fixed inset-0 bg-stone-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-[3.5rem] p-12 shadow-2xl relative">
-              <button 
-                onClick={() => setIsQuoteOpen(false)}
-                className="absolute right-10 top-10 p-3 bg-stone-50 hover:bg-stone-100 rounded-full transition-colors"
-              >
-                <X size={18} />
-              </button>
-
-              <h2 className="text-3xl font-serif italic text-stone-800 tracking-tight mb-8">Generate Quote</h2>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Client Name</label>
-                  <input
-                    value={quoteClient}
-                    onChange={(e) => setQuoteClient(e.target.value)}
-                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
-                    placeholder="e.g. Black Mesa Corp"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Amount (£)</label>
-                  <input
-                    type="number"
-                    value={quoteAmount}
-                    onChange={(e) => setQuoteAmount(e.target.value)}
-                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
-                    placeholder="e.g. 2000"
-                  />
-                </div>
-                
-                <button
-                  onClick={addQuote}
-                  className="w-full py-5 rounded-2xl bg-[#a9b897] text-stone-900 text-xs font-black tracking-widest uppercase hover:bg-[#99a888] mt-4"
-                >
-                  Save Quote
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Expense Modal */}
-        {isExpenseOpen && (
-          <div className="fixed inset-0 bg-stone-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-[3.5rem] p-12 shadow-2xl relative">
-              <button 
-                onClick={() => setIsExpenseOpen(false)}
-                className="absolute right-10 top-10 p-3 bg-stone-50 hover:bg-stone-100 rounded-full transition-colors"
-              >
-                <X size={18} />
-              </button>
-
-              <h2 className="text-3xl font-serif italic text-stone-800 tracking-tight mb-8">Log New Expense</h2>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Vendor Name</label>
-                  <input
-                    value={expenseVendor}
-                    onChange={(e) => setExpenseVendor(e.target.value)}
-                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
-                    placeholder="e.g. Apex Facilities"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Amount (£)</label>
-                  <input
-                    type="number"
-                    value={expenseAmount}
-                    onChange={(e) => setExpenseAmount(e.target.value)}
-                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
-                    placeholder="e.g. 150"
-                  />
-                </div>
-
-                <button
-                  onClick={addExpense}
-                  className="w-full py-5 rounded-2xl bg-red-50 text-red-600 border border-red-200 text-xs font-black tracking-widest uppercase hover:bg-red-100/40 mt-4"
-                >
-                  Log Expense
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </AnimatePresence>
 
     </div>
   );

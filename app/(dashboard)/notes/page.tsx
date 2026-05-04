@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
-import { supabase } from "@/lib/supabase-client"; // Import sync client
+import { supabase } from "@/lib/supabase-client"; 
 import { 
-  Trash2, Zap, Circle, BookOpen, X, ChevronLeft, ChevronRight, Target, Play, Search 
+  Trash2, Zap, Circle, BookOpen, X, ChevronLeft, ChevronRight, Target, Play, Search,
+  Mic, MicOff, Send, User, Calendar, Folder, ListTodo, FileText, Briefcase
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 const COLORS = ["#fef3c7", "#e0f2fe", "#ecfccb", "#fce7f3", "#ede9fe"];
 
-// --- TOUR COMPONENT ---
 function SystemNavigator() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -94,29 +94,45 @@ function SystemNavigator() {
   );
 }
 
-// --- MAIN PAGE CONTENT ---
 function NotesContent() {
   const [user, setUser] = useState<any>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+
   const [newNote, setNewNote] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
+  
+  // Additional fields for enhancement
+  const [selectedCategory, setSelectedCategory] = useState<"note" | "task" | "todo" | "event">("note");
+  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [assignedMember, setAssignedMember] = useState<string>("");
+
+  // Speech-to-text states
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
   const channelRef = useRef<any>(null);
 
   const fetchPulse = useCallback(async (userId: string) => {
-    const [{ data: cust }, { data: nts }, { data: tsk }, { data: mem }] = await Promise.all([
+    const [{ data: cust }, { data: nts }, { data: tsk }, { data: mem }, { data: proj }, { data: teamMembers }] = await Promise.all([
       supabase.from("customers").select("*").eq("user_id", userId),
       supabase.from("notes").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
       supabase.from("tasks").select("*, customers(name)").eq("user_id", userId).eq("status", "todo").order("priority", { ascending: false }),
-      supabase.from("team_members").select("team_id").eq("user_id", userId).maybeSingle()
+      supabase.from("team_members").select("team_id").eq("user_id", userId).maybeSingle(),
+      supabase.from("projects").select("*").eq("user_id", userId),
+      supabase.from("team_members").select("*")
     ]);
     if (mem?.team_id) setTeamId(mem.team_id);
     setCustomers(cust || []);
     setNotes(nts || []);
     setTasks(tsk || []);
+    setProjects(proj || []);
+    setMembers(teamMembers || []);
   }, []);
 
   useEffect(() => {
@@ -137,8 +153,61 @@ function NotesContent() {
     };
 
     init();
-    return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
+    
+    // Initialize Speech Recognition
+    if ('webkitSpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+        
+        if (finalTranscript) {
+          setNewNote(prev => prev + " " + finalTranscript);
+        }
+      };
+      
+      recognitionRef.current.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsListening(false);
+      };
+      
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+
+    return () => { 
+      if (channelRef.current) supabase.removeChannel(channelRef.current); 
+    };
   }, [fetchPulse]);
+
+  const toggleSpeechRecognition = () => {
+    if (!recognitionRef.current) {
+      alert("Speech recognition is not supported by your current browser environment.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
 
   const detectIntent = (text: string) => {
     const t = text.toLowerCase();
@@ -150,6 +219,7 @@ function NotesContent() {
 
   async function addNote() {
     if (!newNote.trim() || !user || !teamId) return;
+    
     const intent = detectIntent(newNote);
     const amountMatch = newNote.match(/£?(\d+(\.\d{2})?)/);
     const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
@@ -159,11 +229,33 @@ function NotesContent() {
       user_id: user.id, 
       customer_id: selectedCustomer || null,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      category: selectedCategory,
+      project_id: selectedProject || null,
+      assigned_to: assignedMember || null,
     });
 
-    if (intent === "task") {
-      await supabase.from("tasks").insert({ title: newNote, user_id: user.id, customer_id: selectedCustomer || null });
-    } else if (intent === "invoice" || intent === "expense") {
+    if (selectedCategory === "task" || intent === "task") {
+      await supabase.from("tasks").insert({ 
+        title: newNote, 
+        user_id: user.id, 
+        customer_id: selectedCustomer || null,
+        project_id: selectedProject || null,
+        assigned_to: assignedMember || null,
+        status: "todo",
+        priority: 2
+      });
+    }
+
+    if (selectedCategory === "event") {
+      await supabase.from("events").insert({
+        title: newNote,
+        description: "Added via Clarity Ledger",
+        user_id: user.id,
+        date: new Date().toISOString().split("T")[0]
+      });
+    }
+
+    if (intent === "invoice" || intent === "expense") {
       const table = intent === "invoice" ? "invoices" : "expenses";
       await supabase.from(table).insert({
         team_id: teamId, 
@@ -176,6 +268,8 @@ function NotesContent() {
 
     setNewNote("");
     setSelectedCustomer("");
+    setSelectedProject("");
+    setAssignedMember("");
     toast.success("Intent Captured & Routed");
   }
 
@@ -208,18 +302,73 @@ function NotesContent() {
               value={newNote} 
               onChange={(e) => setNewNote(e.target.value)} 
             />
-            <div className="flex justify-between items-center pt-6 border-t border-stone-50">
-              <select 
-                className="bg-stone-50 text-[10px] font-black uppercase px-6 py-3 rounded-2xl outline-none border border-transparent focus:border-stone-200 transition-all" 
-                value={selectedCustomer} 
-                onChange={(e) => setSelectedCustomer(e.target.value)}
-              >
-                <option value="">Global Context</option>
-                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+            
+            <div className="flex flex-wrap items-center gap-4 py-4 border-t border-stone-50 justify-between">
+              <div className="flex flex-wrap gap-2 items-center">
+                
+                {/* Speech Recognition Toggle */}
+                <button 
+                  onClick={toggleSpeechRecognition}
+                  type="button"
+                  className={`px-5 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
+                    isListening 
+                    ? 'bg-red-500/10 text-red-500 border border-red-500/20' 
+                    : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  {isListening ? <MicOff size={14} className="animate-pulse" /> : <Mic size={14} />}
+                  <span>{isListening ? "Listening..." : "Speak Note"}</span>
+                </button>
+
+                {/* Categories */}
+                <select 
+                  className="bg-stone-50 text-[10px] font-black uppercase px-5 py-3 rounded-2xl outline-none border border-stone-200 transition-all text-stone-600" 
+                  value={selectedCategory} 
+                  onChange={(e: any) => setSelectedCategory(e.target.value)}
+                >
+                  <option value="note">Status: Note</option>
+                  <option value="task">Status: Task</option>
+                  <option value="todo">Status: To Do</option>
+                  <option value="event">Status: Calendar Event</option>
+                </select>
+
+                {/* Project Links (If Task) */}
+                <select 
+                  className="bg-stone-50 text-[10px] font-black uppercase px-5 py-3 rounded-2xl outline-none border border-stone-200 transition-all text-stone-600" 
+                  value={selectedProject} 
+                  onChange={(e) => setSelectedProject(e.target.value)}
+                >
+                  <option value="">Link Project (Optional)</option>
+                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name || p.title}</option>)}
+                </select>
+
+                {/* Team Assignment */}
+                <select 
+                  className="bg-stone-50 text-[10px] font-black uppercase px-5 py-3 rounded-2xl outline-none border border-stone-200 transition-all text-stone-600" 
+                  value={assignedMember} 
+                  onChange={(e) => setAssignedMember(e.target.value)}
+                >
+                  <option value="">Assign Member (Optional)</option>
+                  {members.map((m) => <option key={m.id} value={m.id}>{m.name || m.email || "Team Member"}</option>)}
+                </select>
+              </div>
+
               <button onClick={addNote} className="bg-[#a9b897] text-white px-10 py-4 rounded-full font-black uppercase text-[10px] tracking-widest shadow-xl hover:shadow-[#a9b897]/20 hover:-translate-y-1 transition-all">
                 Commit Entry
               </button>
+            </div>
+            
+            {/* Global Context Selector */}
+            <div className="flex items-center gap-4 pt-4 border-t border-stone-50">
+               <span className="text-[9px] font-black uppercase text-stone-400">Context:</span>
+               <select 
+                className="bg-stone-50 text-[10px] font-black uppercase px-6 py-2 rounded-xl outline-none border border-stone-200 text-stone-600" 
+                value={selectedCustomer} 
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+               >
+                <option value="">Global/Firm Account</option>
+                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+               </select>
             </div>
           </div>
 
@@ -247,19 +396,41 @@ function NotesContent() {
                     className="p-10 rounded-[3rem] border border-stone-100 flex flex-col justify-between min-h-[260px] relative shadow-sm hover:shadow-md transition-shadow" 
                     style={{ background: note.color }}
                   >
+                    <div>
                       <p className="text-stone-800 leading-relaxed font-serif italic text-xl">{note.content}</p>
-                      <div className="flex justify-between items-end">
-                        <div className="flex items-center gap-3 bg-white/40 px-4 py-2 rounded-full border border-black/5">
-                          <Zap size={12} className="text-stone-600" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">{detectIntent(note.content)}</span>
-                        </div>
-                        <button 
-                          onClick={() => deleteNote(note.id)} 
-                          className="p-3 text-stone-400 hover:text-red-500 hover:bg-white/50 rounded-2xl transition-all"
-                        >
-                          <Trash2 size={18}/>
-                        </button>
+                      
+                      {/* Meta parameters linked to the specific record */}
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        {note.category && (
+                          <span className="text-[8px] font-black tracking-widest px-3 py-1 bg-white/60 border rounded-full uppercase">
+                            Status: {note.category}
+                          </span>
+                        )}
+                        {note.project_id && (
+                          <span className="text-[8px] font-black tracking-widest px-3 py-1 bg-[#a9b897]/10 text-[#a9b897] border border-[#a9b897]/20 rounded-full uppercase flex items-center gap-1">
+                            <Folder size={10} /> Linked Project
+                          </span>
+                        )}
+                        {note.assigned_to && (
+                          <span className="text-[8px] font-black tracking-widest px-3 py-1 bg-stone-900 text-[#a9b897] border border-stone-800 rounded-full uppercase flex items-center gap-1">
+                            <User size={10} /> Assigned
+                          </span>
+                        )}
                       </div>
+                    </div>
+
+                    <div className="flex justify-between items-end mt-6">
+                      <div className="flex items-center gap-3 bg-white/40 px-4 py-2 rounded-full border border-black/5">
+                        <Zap size={12} className="text-stone-600" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">{detectIntent(note.content)}</span>
+                      </div>
+                      <button 
+                        onClick={() => deleteNote(note.id)} 
+                        className="p-3 text-stone-400 hover:text-red-500 hover:bg-white/50 rounded-2xl transition-all"
+                      >
+                        <Trash2 size={18}/>
+                      </button>
+                    </div>
                   </motion.div>
                 ))}
               </AnimatePresence>

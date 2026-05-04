@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase"; 
 import { 
-  LayoutDashboard, Users, CheckSquare, Briefcase, Settings, Menu, User,
+  LayoutDashboard, Users, CheckSquare, Briefcase, Settings, Menu,
   Calendar, Megaphone, StickyNote, DollarSign, BarChart3, Share2, Globe, Clock, Lock
 } from "lucide-react";
 

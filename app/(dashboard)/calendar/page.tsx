@@ -27,7 +27,9 @@ export default function CalendarPage() {
   const [selectedDateString, setSelectedDateString] = useState(format(new Date(), "yyyy-MM-dd"));
   const [eventTime, setEventTime] = useState("12:00");
   
+  const [eventLocation, setEventLocation] = useState("");
   const [eventColor, setEventColor] = useState("#a9b897");
+  const [vcLink, setVcLink] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -44,8 +46,7 @@ export default function CalendarPage() {
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
-        .eq("user_id", user.id)
-        .order("priority", { ascending: false });
+        .eq("user_id", user.id);
 
       if (error) {
         console.error("Error fetching tasks:", error.message);
@@ -84,7 +85,10 @@ export default function CalendarPage() {
         created_at: combinedDate.toISOString(),
         description: notes || "",
         status: "todo",
-        priority: 1
+        priority: 1,
+        color: eventColor || "#a9b897",
+        location: eventLocation || "",
+        vc_link: vcLink || ""
       };
 
       const { error } = await supabase.from("tasks").insert([payload]);
@@ -95,7 +99,9 @@ export default function CalendarPage() {
       } else {
         setNewTitle("");
         setEventTime("12:00");
+        setEventLocation("");
         setEventColor("#a9b897");
+        setVcLink("");
         setNotes("");
         setIsModalOpen(false);
         fetchEvents(); // Refresh items in calendar
@@ -203,6 +209,32 @@ export default function CalendarPage() {
                     <option value="#3b82f6">Ocean Blue</option>
                     <option value="#ef4444">Alert Red</option>
                   </select>
+                </div>
+
+                <div>
+                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Location</label>
+                   <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3">
+                     <MapPin size={14} className="text-stone-400" />
+                     <input 
+                       value={eventLocation}
+                       onChange={(e) => setEventLocation(e.target.value)}
+                       placeholder="e.g. Boardroom or Remote"
+                       className="w-full bg-transparent text-xs focus:outline-none"
+                     />
+                   </div>
+                </div>
+
+                <div>
+                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Video Call Link</label>
+                   <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3">
+                     <LinkIcon size={14} className="text-stone-400" />
+                     <input 
+                       value={vcLink}
+                       onChange={(e) => setVcLink(e.target.value)}
+                       placeholder="https://..."
+                       className="w-full bg-transparent text-xs focus:outline-none"
+                     />
+                   </div>
                 </div>
 
                 <div>

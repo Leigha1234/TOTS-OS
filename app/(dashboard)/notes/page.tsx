@@ -22,8 +22,8 @@ function SystemNavigator() {
       icon: <Zap className="text-yellow-400" />,
     },
     {
-      title: "The Clarity Ledger",
-      description: "Type naturally. If you type 'Invoice Acme £500', the system detects the intent automatically.",
+      title: "The Notes Ledger",
+      description: "Type naturally. Add notes instantly to the Action Queue.",
       icon: <BookOpen className="text-blue-400" />,
     },
     {
@@ -97,7 +97,6 @@ function SystemNavigator() {
 function NotesContent() {
   const [user, setUser] = useState<any>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
-  const [customers, setCustomers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
@@ -105,7 +104,6 @@ function NotesContent() {
 
   const [newNote, setNewNote] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   
   const [selectedCategory, setSelectedCategory] = useState<"note" | "task" | "todo" | "event">("note");
   const [selectedProject, setSelectedProject] = useState<string>("");
@@ -114,12 +112,10 @@ function NotesContent() {
   // Speech-to-text states
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
-
   const channelRef = useRef<any>(null);
 
   const fetchPulse = useCallback(async (userId: string) => {
-    const [{ data: cust }, { data: nts }, { data: tsk }, { data: mem }, { data: proj }, { data: teamMembers }] = await Promise.all([
-      supabase.from("customers").select("*").eq("user_id", userId),
+    const [{ data: nts }, { data: tsk }, { data: mem }, { data: proj }, { data: teamMembers }] = await Promise.all([
       supabase.from("notes").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
       supabase.from("tasks").select("*, customers(name)").eq("user_id", userId).eq("status", "todo").order("priority", { ascending: false }),
       supabase.from("team_members").select("team_id").eq("user_id", userId).maybeSingle(),
@@ -127,7 +123,6 @@ function NotesContent() {
       supabase.from("team_members").select("*")
     ]);
     if (mem?.team_id) setTeamId(mem.team_id);
-    setCustomers(cust || []);
     setNotes(nts || []);
     setTasks(tsk || []);
     setProjects(proj || []);
@@ -143,7 +138,7 @@ function NotesContent() {
 
       if (channelRef.current) supabase.removeChannel(channelRef.current);
 
-      const channel = supabase.channel("ledger-channel")
+      const channel = supabase.channel("notes-channel")
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(authUser.id))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${authUser.id}` }, () => fetchPulse(authUser.id))
         .subscribe();
@@ -217,27 +212,25 @@ function NotesContent() {
   };
 
   async function addNote() {
-    if (!newNote.trim() || !user || !teamId) return;
+    if (!newNote.trim() || !user) return;
     
-    const intent = detectIntent(newNote);
-    const amountMatch = newNote.match(/£?(\d+(\.\d{2})?)/);
-    const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
-
-    await supabase.from("notes").insert({
+    // Insert into notes
+    const notePayload: any = {
       content: newNote, 
       user_id: user.id, 
-      customer_id: selectedCustomer || null,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
       category: selectedCategory,
-      project_id: selectedProject || null,
-      assigned_to: assignedMember || null,
-    });
+    };
+    
+    if (selectedProject) notePayload.project_id = selectedProject;
+    if (assignedMember) notePayload.assigned_to = assignedMember;
+    
+    await supabase.from("notes").insert(notePayload);
 
-    // Add directly to action queue when "Add Note" is clicked
+    // Add to action queue (tasks)
     await supabase.from("tasks").insert({ 
       title: newNote, 
-      user_id: user.id, 
-      customer_id: selectedCustomer || null,
+      user_id: user.id,
       project_id: selectedProject || null,
       assigned_to: assignedMember || null,
       status: "todo",
@@ -253,22 +246,11 @@ function NotesContent() {
       });
     }
 
-    if (intent === "invoice" || intent === "expense") {
-      const table = intent === "invoice" ? "invoices" : "expenses";
-      await supabase.from(table).insert({
-        team_id: teamId, 
-        amount: amount, 
-        entity_name: selectedCustomer ? customers.find(c => c.id === selectedCustomer)?.name : "Clarity Capture",
-        date: new Date().toISOString().split("T")[0], 
-        status: "committed"
-      });
-    }
-
     setNewNote("");
-    setSelectedCustomer("");
     setSelectedProject("");
     setAssignedMember("");
     toast.success("Note added to Action Queue & Ledgers");
+    await fetchPulse(user.id);
   }
 
   const deleteNote = async (id: string) => {

@@ -89,12 +89,12 @@ export default function ReportsPage() {
   }, []);
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
+    <div className="min-h-screen flex items-center justify-center bg-stone-50">
       <div className="text-center space-y-6">
         <div className="flex justify-center"><Globe className="text-[#a9b897] animate-spin" size={32} /></div>
         <div className="space-y-2">
           <p className="text-[#a9b897] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">Syncing Global Nodes</p>
-          <p className="text-stone-600 font-serif italic text-sm">Establishing secure data link...</p>
+          <p className="text-stone-500 font-serif italic text-sm">Establishing secure data link...</p>
         </div>
       </div>
     </div>
@@ -134,14 +134,14 @@ export default function ReportsPage() {
           { label: "Labor Allocation", val: `${data.totalHours}h`, trend: "Optimal", color: "text-purple-600" },
           { label: "Risk Exposure", val: data.overdueCount, trend: "Overdue", color: "text-red-500" }
         ].map((stat, i) => (
-          <div key={i} className="bg-stone-950 p-10 rounded-[2.5rem] border border-stone-800 shadow-2xl group hover:border-[#a9b897]/30 transition-colors">
+          <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-stone-200/60 shadow-sm group hover:border-[#a9b897]/30 transition-colors">
             <div className="flex justify-between items-start mb-10">
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-500">{stat.label}</span>
-              <ArrowUpRight size={14} className="text-stone-700 group-hover:text-white transition-colors" />
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">{stat.label}</span>
+              <ArrowUpRight size={14} className="text-stone-300 group-hover:text-[#a9b897] transition-colors" />
             </div>
-            <p className="text-4xl font-serif italic text-white tracking-tight">{stat.val}</p>
+            <p className="text-4xl font-serif italic text-stone-900 tracking-tight">{stat.val}</p>
             <div className="mt-4 flex items-center gap-2">
-              <span className={`text-[8px] font-mono uppercase px-2 py-0.5 rounded border border-stone-800 ${stat.color}`}>{stat.trend}</span>
+              <span className={`text-[8px] font-mono uppercase px-2 py-0.5 rounded border border-stone-100 bg-stone-50 ${stat.color}`}>{stat.trend}</span>
             </div>
           </div>
         ))}
@@ -150,10 +150,10 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* EMAIL INTELLIGENCE */}
-        <div className="lg:col-span-2 bg-stone-950 border border-stone-800 p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden">
+        <div className="lg:col-span-2 bg-white border border-stone-200/60 p-12 rounded-[3.5rem] shadow-sm relative overflow-hidden">
           <div className="relative z-10 space-y-16">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-stone-900 rounded-2xl text-[#a9b897]"><Mail size={20} /></div>
+              <div className="p-3 bg-stone-50 border border-stone-100 rounded-2xl text-[#a9b897]"><Mail size={20} /></div>
               <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400">Communication Reach</h2>
             </div>
             
@@ -165,20 +165,20 @@ export default function ReportsPage() {
                 { l: "Total Sent", v: data.email.sent.toLocaleString(), sub: "Outbound" }
               ].map((m, i) => (
                 <div key={i} className="space-y-4">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-stone-600">{m.l}</p>
-                  <p className={`text-5xl font-serif italic ${m.c || 'text-white'}`}>{m.v}</p>
-                  <p className="text-[10px] font-mono text-stone-700">{m.sub}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-stone-400">{m.l}</p>
+                  <p className={`text-5xl font-serif italic text-stone-900 ${m.c || ''}`}>{m.v}</p>
+                  <p className="text-[10px] font-mono text-stone-400">{m.sub}</p>
                 </div>
               ))}
             </div>
           </div>
-          <div className="absolute right-0 top-0 p-12 opacity-10"><BarChart3 size={200} className="text-stone-500" /></div>
+          <div className="absolute right-0 top-0 p-12 opacity-5"><BarChart3 size={200} className="text-stone-900" /></div>
         </div>
 
         {/* SOCIAL INDEX */}
-        <div className="bg-stone-950 border border-stone-800 p-12 rounded-[3.5rem] shadow-2xl space-y-12">
+        <div className="bg-white border border-stone-200/60 p-12 rounded-[3.5rem] shadow-sm space-y-12">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-stone-900 rounded-2xl text-[#a9b897]"><Share2 size={20} /></div>
+            <div className="p-3 bg-stone-50 border border-stone-100 rounded-2xl text-[#a9b897]"><Share2 size={20} /></div>
             <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400">Platform Power</h2>
           </div>
           
@@ -192,15 +192,15 @@ export default function ReportsPage() {
               return (
                 <div key={platform} className="group">
                   <div className="flex justify-between items-end mb-4">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-white group-hover:text-[#a9b897] transition-colors">{platform}</span>
-                    <span className="text-[10px] font-mono text-stone-600">{score.toLocaleString()} PTS</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-stone-800 group-hover:text-[#a9b897] transition-colors">{platform}</span>
+                    <span className="text-[10px] font-mono text-stone-400">{score.toLocaleString()} PTS</span>
                   </div>
-                  <div className="h-1.5 w-full bg-stone-900 rounded-full overflow-hidden">
+                  <div className="h-1.5 w-full bg-stone-100 rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${percentage}%` }}
                       transition={{ duration: 1.5, ease: "circOut" }}
-                      className="h-full bg-gradient-to-r from-stone-700 to-[#a9b897]" 
+                      className="h-full bg-gradient-to-r from-stone-400 to-[#a9b897]" 
                     />
                   </div>
                 </div>

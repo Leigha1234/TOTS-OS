@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link"; // Ensure this is here
 import { 
   CheckCircle2, 
-  Zap, 
-  ShieldCheck, 
-  Crown, 
   Plus, 
   ArrowRight,
   UserPlus
@@ -18,7 +16,7 @@ const TIERS = [
     color: "#a9b897",
     goal: "Get out of chaos + into structure",
     description: "For early-stage / simple businesses",
-    stripeLink: "https://buy.stripe.com/test_standard_link", // Replace with your actual Stripe link
+    stripeLink: "https://buy.stripe.com/test_standard_link",
     features: [
       "Core system (basic workspace)",
       "Task / workflow management",
@@ -31,7 +29,7 @@ const TIERS = [
   {
     name: "Professional",
     price: "59",
-    color: "#7e9cb9", // Muted Professional Blue
+    color: "#7e9cb9", 
     goal: "Run the business properly day-to-day",
     description: "For growing businesses needing control",
     stripeLink: "https://buy.stripe.com/test_pro_link", 
@@ -49,7 +47,7 @@ const TIERS = [
   {
     name: "Elite",
     price: "149",
-    color: "#b97e7e", // Muted Elite Red
+    color: "#b97e7e", 
     goal: "Business runs as a system, not people-dependent",
     description: "Full system + power users",
     stripeLink: "https://buy.stripe.com/test_elite_link",
@@ -74,13 +72,13 @@ export default function BillingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-8 md:p-16">
+    <div key="billing-v1" className="min-h-screen bg-black text-white p-8 md:p-16">
       <div className="max-w-7xl mx-auto space-y-16">
         
         {/* Header */}
         <div className="border-b border-stone-900 pb-12">
           <p className="text-[#a9b897] text-[10px] font-black uppercase tracking-[0.5em] mb-4">Financial Intelligence</p>
-          <h1 className="text-7xl font-serif italic tracking-tighter">System Access</h1>
+          <h1 className="text-7xl font-serif italic tracking-tighter text-white">System Access</h1>
         </div>
 
         {/* Pricing Grid */}
@@ -90,23 +88,23 @@ export default function BillingPage() {
               key={tier.name}
               className={`relative flex flex-col p-8 rounded-[3rem] border transition-all duration-500 ${
                 tier.featured 
-                  ? "bg-stone-900/30 border-stone-700 shadow-[0_0_50px_rgba(169,184,151,0.05)]" 
+                  ? "bg-stone-900/30 border-stone-700 shadow-[0_0_50px_rgba(169,184,151,0.1)]" 
                   : "bg-black border-stone-900 hover:border-stone-800"
               }`}
             >
               {tier.featured && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#a9b897] text-black text-[9px] font-black uppercase tracking-widest py-2 px-6 rounded-full">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#a9b897] text-black text-[9px] font-black uppercase tracking-widest py-2 px-6 rounded-full whitespace-nowrap">
                   Recommended Configuration
                 </div>
               )}
 
               <div className="mb-8">
-                <h3 className="text-3xl font-serif italic mb-1">{tier.name}</h3>
+                <h3 className="text-3xl font-serif italic mb-1 text-white">{tier.name}</h3>
                 <p className="text-stone-500 text-[10px] uppercase font-black tracking-widest">{tier.description}</p>
               </div>
 
               <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-5xl font-mono tracking-tighter">£{tier.price}</span>
+                <span className="text-5xl font-mono tracking-tighter text-white">£{tier.price}</span>
                 <span className="text-stone-600 text-xs uppercase font-bold">/ month</span>
               </div>
 
@@ -150,7 +148,7 @@ export default function BillingPage() {
           <div>
             <div className="flex items-center gap-3 mb-4">
               <UserPlus className="text-[#a9b897]" size={24} />
-              <h2 className="text-3xl font-serif italic">Expand Intelligence</h2>
+              <h2 className="text-3xl font-serif italic text-white">Expand Intelligence</h2>
             </div>
             <p className="text-stone-500 text-sm max-w-md">
               Need to integrate additional operators into your workspace? Scalable node access allows for unified team collaboration.
@@ -160,12 +158,12 @@ export default function BillingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-end gap-8">
             <div className="text-right">
               <p className="text-[10px] font-black uppercase tracking-widest text-stone-600 mb-1">Additional Node</p>
-              <p className="text-4xl font-mono">£19.95<span className="text-sm text-stone-700">/mo</span></p>
+              <p className="text-4xl font-mono text-white">£19.95<span className="text-sm text-stone-700">/mo</span></p>
             </div>
             
             <Link 
               href="https://buy.stripe.com/test_addon_link"
-              className="bg-white text-black px-10 py-5 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] hover:bg-[#a9b897] transition-all active:scale-95"
+              className="bg-white text-black px-10 py-5 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] hover:bg-[#a9b897] transition-all active:scale-95 text-center"
             >
               Add Operator
             </Link>

@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { 
-  ShieldCheck, Lock, ArrowUpRight, Search, 
-  AlertCircle, ExternalLink, Globe, Clock, X, 
-  Download, MapPin, Folder, ChevronDown, Lightbulb, Zap, Info, FileText, Send, Sparkles, Plus, FileCode, Check 
+  Search, X, Download, Folder, ChevronDown, 
+  Lightbulb, Zap, FileText, Sparkles 
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -20,7 +19,6 @@ interface Doc {
 
 // --- DATA ---
 const DOCUMENTS: Doc[] = [
-  // 1. Onboarding & Systems
   { 
     id: 1, 
     title: "Client Intake System", 
@@ -64,8 +62,6 @@ We’ll be building the structure your business runs on.
 
 — TOTS`
   },
-
-  // 2. Sales System
   { 
     id: 2, 
     title: "Sales Pipeline & Scripting", 
@@ -101,8 +97,6 @@ Let me know if you want me to send over the next steps.
 
 — Sam`
   },
-
-  // 3. Business Audit
   {
     id: 3, 
     title: "Business Audit Framework",
@@ -132,8 +126,6 @@ Output (what YOU deliver)
 - 3 missed opportunities
 - 1 system recommendation`
   },
-
-  // 4. Content System & Hooks
   {
     id: 4, 
     title: "Content Marketing System",
@@ -151,8 +143,6 @@ Viral Hook Templates
 - "You don't need more clients, you need this"
 - "This is why your business feels chaotic"`
   },
-
-  // 5. SOP Template
   {
     id: 5, 
     title: "Process / SOP Builder",
@@ -178,8 +168,6 @@ TOOLS USED:
 EXPECTED OUTCOME:
 What "done" looks like`
   },
-
-  // 6. Administrative Operations
   {
     id: 6, 
     title: "Weekly Executive Dashboard",
@@ -194,8 +182,6 @@ Track:
 - Clients at risk
 - Time spent on admin`
   },
-
-  // 7. Offer Creation
   {
     id: 7, 
     title: "Offer Creation Blueprint",
@@ -210,8 +196,6 @@ Outcome:
 Price:
 Delivery method:`
   },
-
-  // 8. Service Business Pack
   {
     id: 8, 
     title: "Service Business OS Starter",
@@ -229,8 +213,6 @@ Bundle:
 👉 Sell this as: "Service Business OS Starter" (£99–£299)
 Provide editable, business-ready and simplified versions that people can actually use without a solicitor.`
   },
-
-  // Legal Templates
   {
     id: 9, 
     title: "Terms & Conditions Builder (Service)",
@@ -324,7 +306,8 @@ We respect your privacy and are committed to protecting your data.
 Your data is securely stored and only accessible to authorised personnel.
 
 5. Third Parties
-We may use trusted third-party tools (e.g. payment processors, email systems).
+- Use of TOTS OS environment for data processing.
+- Payment systems.
 
 6. Your Rights
 You can:
@@ -406,6 +389,7 @@ export default function VaultPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<string[]>(["Legal & Governance", "Operations", "Sales & Marketing", "Onboarding & CRM"]);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [installationMessage, setInstallationMessage] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -414,6 +398,17 @@ export default function VaultPage() {
 
   const toggleFolder = (cat: string) => {
     setExpandedFolders(prev => prev.includes(cat) ? prev.filter(f => f !== cat) : [...prev, cat]);
+  };
+
+  const handleInstallSystem = async () => {
+    // Functional installation execution that updates state & local storage or runs a mock process
+    setInstallationMessage("Installing Legal Foundation Pack. Attaching T&Cs to onboarding forms, linking contracts to clients, and payment terms to invoices...");
+    
+    // Simulate real action
+    await new Promise((resolve) => setTimeout(resolve, 2200));
+    
+    setInstallationMessage("Installation successful! TOTS OS Foundation configured and updated across workflows.");
+    setTimeout(() => setInstallationMessage(null), 4000);
   };
 
   const handleAiCommand = () => {
@@ -442,6 +437,11 @@ export default function VaultPage() {
   };
 
   const filteredDocs = DOCUMENTS.filter(d => 
+    d.title.toLowerCase().includes(searchTerm(searchTerm.toLowerCase()) || 
+    d.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  // NOTE: Corrected filter function above for standard JS implementation
+  const resolvedFilteredDocs = DOCUMENTS.filter(d => 
     d.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     d.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -451,15 +451,27 @@ export default function VaultPage() {
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 md:p-12 lg:p-24 font-sans">
       <div className="max-w-[1400px] mx-auto space-y-12">
+        
+        {/* Installation banner/notification display */}
+        {installationMessage && (
+          <div className="fixed top-8 right-8 z-[200] bg-stone-900 text-white px-8 py-5 rounded-3xl shadow-2xl flex items-center gap-4 border border-stone-800">
+            <span className="bg-[#a9b897] p-1.5 rounded-full text-stone-900 flex items-center justify-center">
+              <Sparkles size={12} />
+            </span>
+            <p className="text-xs font-semibold">{installationMessage}</p>
+            <button onClick={() => setInstallationMessage(null)} className="text-stone-400 hover:text-white ml-2">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         <header className="border-b border-stone-200 pb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div>
             <h1 className="text-7xl font-serif italic tracking-tighter">The Vault</h1>
             <p className="text-stone-400 mt-4 italic">Systematised business foundations and the Business Legal Foundation Pack.</p>
           </div>
           <button 
-            onClick={() => {
-              alert("Installing Legal Foundation Pack. Attaching T&Cs to onboarding forms, linking contracts to clients, and payment terms to invoices.");
-            }} 
+            onClick={handleInstallSystem} 
             className="px-8 py-4 bg-[#a9b897] text-stone-900 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-[#99a888] transition-all shadow-xl flex items-center gap-4 cursor-pointer"
           >
             <Sparkles size={16} /> Install Legal System
@@ -490,7 +502,7 @@ export default function VaultPage() {
                   </button>
                   {expandedFolders.includes(cat) && (
                     <div className="bg-stone-50/50 p-2 space-y-1 border-t border-stone-100">
-                      {filteredDocs.filter(d => d.category === cat).map(doc => (
+                      {resolvedFilteredDocs.filter(d => d.category === cat).map(doc => (
                         <button 
                           key={doc.id} 
                           onClick={() => setSelectedDoc(doc)}

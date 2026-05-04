@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
-  Plus, Landmark, X, Loader2, MapPin, Clock, Users, Link as LinkIcon, Edit, UserPlus
+  Plus, Landmark, X, Loader2, MapPin, Clock, Users, Link as LinkIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -22,7 +22,11 @@ export default function CalendarPage() {
   // Extended Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  
+  // Custom states for date and time drop-down selection
+  const [selectedDateString, setSelectedDateString] = useState(format(new Date(), "yyyy-MM-dd"));
   const [eventTime, setEventTime] = useState("12:00");
+  
   const [eventLocation, setEventLocation] = useState("");
   const [eventColor, setEventColor] = useState("#a9b897");
   const [vcLink, setVcLink] = useState("");
@@ -39,12 +43,16 @@ export default function CalendarPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      
       const { data, error } = await supabase
         .from("tasks")
         .select("*, customers(name)")
         .eq("user_id", user.id)
         .order("priority", { ascending: false });
-      if (!error) setTasks(data || []);
+
+      if (!error) {
+        setTasks(data || []);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -54,6 +62,7 @@ export default function CalendarPage() {
 
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
+    setSelectedDateString(format(day, "yyyy-MM-dd"));
     setIsModalOpen(true);
   };
 
@@ -63,10 +72,8 @@ export default function CalendarPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Combine day and time
-      const eventDate = new Date(selectedDay);
-      const [hours, minutes] = eventTime.split(":");
-      eventDate.setHours(Number(hours), Number(minutes), 0, 0);
+      // Combine day and time from dropdown selection
+      const eventDate = new Date(selectedDateString + "T" + eventTime + ":00");
 
       const { error } = await supabase.from("tasks").insert({
         title: newTitle,
@@ -81,7 +88,9 @@ export default function CalendarPage() {
         priority: 1
       });
 
-      if (!error) {
+      if (error) {
+        console.error("Supabase Error:", error);
+      } else {
         setNewTitle("");
         setEventTime("12:00");
         setEventLocation("");
@@ -93,7 +102,7 @@ export default function CalendarPage() {
         fetchEvents();
       }
     } catch (err) {
-      console.error(err);
+      console.error("Submission Error:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -112,6 +121,12 @@ export default function CalendarPage() {
 
   const getTasksForDay = (day: Date) => tasks.filter(t => isSameDay(new Date(t.created_at), day));
   const selectedDayTasks = useMemo(() => getTasksForDay(selectedDay), [selectedDay, tasks]);
+
+  // Helper function to get capitalized Month name 
+  const getCapitalizedMonth = (date: Date) => {
+    const regular = format(date, "MMMM");
+    return regular.charAt(0).toUpperCase() + regular.slice(1);
+  };
 
   return (
     <div className="min-h-screen bg-[#faf9f6] p-4 md:p-10 text-stone-900 overflow-x-hidden">
@@ -153,28 +168,38 @@ export default function CalendarPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Date</label>
+                    <input 
+                      type="date"
+                      value={selectedDateString}
+                      onChange={(e) => setSelectedDateString(e.target.value)}
+                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 text-stone-600 font-medium"
+                    />
+                  </div>
+                  <div>
                      <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Time</label>
                      <input 
                        type="time"
                        value={eventTime}
                        onChange={(e) => setEventTime(e.target.value)}
-                       className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 text-stone-600"
+                       className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 text-stone-600 font-medium"
                      />
                   </div>
-                  <div>
-                    <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Category/Color</label>
-                    <select 
-                      value={eventColor}
-                      onChange={(e) => setEventColor(e.target.value)}
-                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 text-stone-600"
-                    >
-                      <option value="#a9b897">Soft Sage</option>
-                      <option value="#8fa07d">Sage Strong</option>
-                      <option value="#eab308">Yellow Sun</option>
-                      <option value="#3b82f6">Ocean Blue</option>
-                      <option value="#ef4444">Alert Red</option>
-                    </select>
-                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Category/Color</label>
+                  <select 
+                    value={eventColor}
+                    onChange={(e) => setEventColor(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 text-stone-600 font-medium"
+                  >
+                    <option value="#a9b897">Soft Sage</option>
+                    <option value="#8fa07d">Sage Strong</option>
+                    <option value="#eab308">Yellow Sun</option>
+                    <option value="#3b82f6">Ocean Blue</option>
+                    <option value="#ef4444">Alert Red</option>
+                  </select>
                 </div>
 
                 <div>
@@ -246,7 +271,7 @@ export default function CalendarPage() {
         <div className="lg:col-span-9 bg-white rounded-[3.5rem] border border-stone-100 shadow-sm overflow-hidden">
           <div className="p-8 flex justify-between items-center border-b border-stone-50">
              <h1 className="text-5xl font-serif italic text-stone-800 tracking-tighter leading-none lowercase capitalize">
-               {format(currentMonth, "MMMM")}
+               {getCapitalizedMonth(currentMonth)}
              </h1>
              <div className="flex gap-2">
                 <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-3 bg-stone-50 rounded-full text-stone-400 hover:text-stone-800 transition-colors"><ChevronLeft size={18}/></button>
@@ -279,10 +304,18 @@ export default function CalendarPage() {
                     {format(day, "d")}
                   </span>
                   
-                  {/* Task Previews */}
+                  {/* Task Previews with Selected Event Color Indicator */}
                   <div className="mt-2 space-y-1">
                     {dayTasks.slice(0, 3).map(t => (
-                      <div key={t.id} className="text-[8px] font-black uppercase truncate bg-stone-50 border border-stone-100 p-1 rounded tracking-tighter text-stone-500">
+                      <div 
+                        key={t.id} 
+                        className="text-[8px] font-black uppercase truncate border p-1 rounded tracking-tighter"
+                        style={{
+                          backgroundColor: `${t.color || '#a9b897'}20`, 
+                          borderColor: t.color || '#a9b897',
+                          color: '#444'
+                        }}
+                      >
                         {t.title}
                       </div>
                     ))}
@@ -301,7 +334,7 @@ export default function CalendarPage() {
           <div className="bg-white p-8 rounded-[3rem] border border-stone-100 shadow-sm flex flex-col min-h-[400px]">
             <div className="text-center mb-8">
               <h2 className="text-4xl font-serif italic text-stone-800 leading-none mb-2">{format(selectedDay, "do")}</h2>
-              <h3 className="text-2xl font-serif italic text-stone-400">{format(selectedDay, "MMMM")}</h3>
+              <h3 className="text-2xl font-serif italic text-stone-400">{getCapitalizedMonth(selectedDay)}</h3>
               <div className="h-px bg-stone-100 w-12 mx-auto my-4" />
               <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Agenda</p>
             </div>
@@ -314,10 +347,17 @@ export default function CalendarPage() {
                 </div>
               ) : (
                 selectedDayTasks.map(task => (
-                  <div key={task.id} className="p-4 bg-stone-50 rounded-2xl border border-stone-100 hover:border-[#a9b897]/30 transition-colors space-y-1">
-                    <p className="text-[10px] font-bold text-stone-700 leading-tight uppercase tracking-tight">{task.title}</p>
-                    {task.location && <p className="text-[8px] text-stone-400 flex items-center gap-1"><MapPin size={10}/> {task.location}</p>}
-                    <p className="text-[8px] text-stone-400 flex items-center gap-1"><Clock size={10}/> {format(new Date(task.created_at), "HH:mm")}</p>
+                  <div 
+                    key={task.id} 
+                    className="p-4 rounded-2xl border transition-colors space-y-1"
+                    style={{
+                      backgroundColor: `${task.color || '#a9b897'}10`,
+                      borderColor: task.color || '#a9b897'
+                    }}
+                  >
+                    <p className="text-[10px] font-bold leading-tight uppercase tracking-tight text-stone-800">{task.title}</p>
+                    {task.location && <p className="text-[8px] text-stone-500 flex items-center gap-1"><MapPin size={10}/> {task.location}</p>}
+                    <p className="text-[8px] text-stone-500 flex items-center gap-1"><Clock size={10}/> {format(new Date(task.created_at), "HH:mm")}</p>
                   </div>
                 ))
               )}

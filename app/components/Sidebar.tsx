@@ -11,9 +11,9 @@ import {
 
 // 1. Define tier-based module visibility (Ensure "Profile" is NOT here)
 const MODULE_PERMISSIONS: Record<string, string[]> = {
-  STANDARD: ["Dashboard", "Contacts", "Tasks", "Notes", "Calendar"],
-  PREMIUM: ["Dashboard", "Contacts", "Tasks", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets"],
-  ELITE: ["Dashboard", "Contacts", "Tasks", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets", "Reports", "Social Scheduler", "Social", "Vault", "Settings"],
+  STANDARD: ["Dashboard", "Contacts", "Notes", "Calendar"],
+  PREMIUM: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets"],
+  ELITE: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets", "Reports", "Social Scheduler", "Social", "Vault", "Settings"],
 };
 
 export default function Sidebar() {
@@ -44,7 +44,6 @@ export default function Sidebar() {
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/scheduler", label: "Social Scheduler", icon: Share2 },
     { href: "/social", label: "Social", icon: Globe },
-    { href: "/tasks", label: "Tasks", icon: CheckSquare },
     { href: "/timesheets", label: "Timesheets", icon: Clock },
     { href: "/vault", label: "Vault", icon: Lock },
     { href: "/settings", label: "Settings", icon: Settings },

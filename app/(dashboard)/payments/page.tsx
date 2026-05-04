@@ -118,7 +118,7 @@ export default function ApexOS() {
   const [assignedProject, setAssignedProject] = useState("");
   const [invoiceStatus, setInvoiceStatus] = useState("New");
 
-  // Balance Sheet State (Fully Functional)
+  // Balance Sheet State
   const [balanceSheet, setBalanceSheet] = useState({
     assets: 150000,
     cashAtBank: 85000,
@@ -142,6 +142,10 @@ export default function ApexOS() {
     payDueDate: "28th Monthly", bankName: "", accountNumber: "", sortCode: "", nextOfKinName: "", nextOfKinNumber: "", employeeNumber: ""
   });
 
+  // Holiday
+  const [holidayStartDate, setHolidayStartDate] = useState("");
+  const [holidayEndDate, setHolidayEndDate] = useState("");
+
   // Intel / HMRC state
   const [hmrcSubmitted, setHmrcSubmitted] = useState(false);
   const [hmrcGross, setHmrcGross] = useState(142500);
@@ -151,20 +155,30 @@ export default function ApexOS() {
   const totalAmount = useMemo(() => items.reduce((a, b) => a + (b.qty * b.rate), 0), [items]);
   const activeEmployee = useMemo(() => employees.find(e => e.id === selectedEmpId), [employees, selectedEmpId]);
   
-  const calculatedTaxDue = useMemo(() => {
-    const profit = hmrcGross - hmrcExpenses;
-    return profit * 0.19; // 19% Corporation tax
+  const calculatedTaxDueCalculated: number = useMemo(() => {
+    return (hmrcGross - hmrcExpenses) * 0.19;
   }, [hmrcGross, hmrcExpenses]);
 
-  const handleAddHoliday = (date: string) => {
-    if (!date) return;
+  const handleAddHoliday = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!holidayStartDate || !holidayEndDate) {
+      toast.error("Both start and end dates are required.");
+      return;
+    }
+
     setEmployees(prev => prev.map(emp => 
       emp.id === selectedEmpId 
-        ? { ...emp, holidayLeft: emp.holidayLeft - 1, holidays: [...emp.holidays, date] } 
+        ? { 
+            ...emp, 
+            holidayLeft: emp.holidayLeft - 1, 
+            holidays: [...emp.holidays, `${holidayStartDate} to ${holidayEndDate}`] 
+          } 
         : emp
     ));
+    setHolidayStartDate("");
+    setHolidayEndDate("");
     setActiveModal(null);
-    toast.success("Attendance ledger synchronized successfully.");
+    toast.success("Attendance ledger synchronized with an end date successfully.");
   };
 
   const handleAppraisalQuestionChange = (qId: string, value: string) => {
@@ -224,7 +238,6 @@ export default function ApexOS() {
     setEmployees(prev => [...prev, newEmp]);
     toast.success(`Employee ${onboardForm.name} onboarded to the system.`);
     
-    // Reset Form
     setOnboardForm({
       name: "", role: "", email: "", phone: "", salary: "", holidayEntitlement: "25",
       contractType: "Full-Time", workingHoursDays: "Mon-Fri / 9-5", payDueDate: "28th Monthly",
@@ -238,7 +251,7 @@ export default function ApexOS() {
     setBalanceSheet(prev => ({
       ...prev,
       assets: prev.assets + amount,
-      equity: prev.equity + amount // Balanced transaction (assets = liabilities + equity)
+      equity: prev.equity + amount
     }));
     setNewAssetLabel("");
     setNewAssetAmount("");
@@ -250,7 +263,7 @@ export default function ApexOS() {
     setBalanceSheet(prev => ({
       ...prev,
       liabilities: prev.liabilities + amount,
-      equity: prev.equity - amount // Balanced transaction
+      equity: prev.equity - amount
     }));
     setNewLiabilityLabel("");
     setNewLiabilityAmount("");
@@ -301,7 +314,10 @@ export default function ApexOS() {
                   {["invoice", "quote", "expense"].map(t => (
                     <button 
                       key={t} 
-                      onClick={() => setDocType(t)} 
+                      onClick={() => {
+                        setDocType(t);
+                        setInvoiceStatus("New");
+                      }} 
                       className={`px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
                         docType === t ? "bg-white shadow-sm" : "text-stone-400"
                       }`}
@@ -385,16 +401,33 @@ export default function ApexOS() {
               <div className="col-span-12 lg:col-span-4 space-y-6 lg:sticky lg:top-0">
                 <div className="bg-white border border-stone-100 rounded-[3rem] p-8 shadow-sm space-y-4">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-300 mb-4 text-center">Global Actions</h3>
+                  
                   {docType === 'expense' ? (
                      <p className="text-center text-[10px] text-stone-400 font-serif italic pb-4">Internal expense record. Dispatch not applicable.</p>
                   ) : (
-                    <button onClick={() => toast.success("PDF Generation & Email Dispatch initiated via Secure Gateway.")} className="w-full h-16 bg-[#a9b897] text-white rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"><Mail size={16}/> Email to Client</button>
+                    <button 
+                      onClick={() => toast.success("PDF Generation & Email Dispatch initiated via Secure Gateway.")} 
+                      className="w-full h-16 bg-[#a9b897] text-white rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+                    >
+                      <Mail size={16}/> Email to Client
+                    </button>
                   )}
+                  
                   <button onClick={() => toast.info("PDF Generation initiated.")} className="w-full h-16 bg-stone-100 text-stone-500 rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest hover:bg-stone-200 transition-all"><Download size={16}/> Export PDF</button>
                   <button onClick={() => setInvoiceStatus("Draft")} className="w-full h-16 border-2 border-stone-100 text-stone-400 rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest hover:border-stone-200 transition-all">Save as Draft</button>
                   <div className="grid grid-cols-2 gap-3 pt-4 border-t border-stone-50">
-                    <button onClick={() => { setInvoiceStatus("Approved"); toast.success("Document approved & posted.") }} className="h-14 border border-green-100 text-green-500 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-green-50 transition-all">Approve</button>
-                    <button onClick={() => { setInvoiceStatus("Void"); toast.error("Document voided & removed from ledger.")}} className="h-14 border border-red-100 text-red-400 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-red-50 transition-all">Void</button>
+                    <button 
+                      onClick={() => { setInvoiceStatus("Approved"); toast.success("Document approved & posted."); }} 
+                      className="h-14 border border-green-100 text-green-500 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-green-50 transition-all"
+                    >
+                      Approve
+                    </button>
+                    <button 
+                      onClick={() => { setInvoiceStatus("Void"); toast.error("Document voided & removed from ledger."); }}
+                      className="h-14 border border-red-100 text-red-400 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-red-50 transition-all"
+                    >
+                      Void
+                    </button>
                   </div>
                 </div>
               </div>
@@ -436,6 +469,127 @@ export default function ApexOS() {
                  </div>
                </div>
 
+               {/* Modals and Forms */}
+               {activeModal === "holiday" && (
+                 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
+                   <div className="bg-white w-full max-w-lg p-10 rounded-[2.5rem] shadow-2xl relative animate-in zoom-in-95 duration-200">
+                     <button onClick={() => setActiveModal(null)} className="absolute top-8 right-8 text-stone-300 hover:text-stone-900"><X size={20}/></button>
+                     <h3 className="text-2xl font-serif italic mb-6">Book Employee Holiday</h3>
+                     <form onSubmit={handleAddHoliday} className="space-y-6">
+                       <div>
+                         <label className="block text-[8px] font-black uppercase tracking-widest text-stone-300 mb-2">Select Employee</label>
+                         <select value={selectedEmpId} onChange={(e) => setSelectedEmpId(e.target.value)} className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none text-xs font-bold border-0">
+                           {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+                         </select>
+                       </div>
+                       <div>
+                         <label className="block text-[8px] font-black uppercase tracking-widest text-stone-300 mb-2">Start Date</label>
+                         <input type="date" value={holidayStartDate} onChange={(e) => setHolidayStartDate(e.target.value)} className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none text-xs font-bold border-0" />
+                       </div>
+                       <div>
+                         <label className="block text-[8px] font-black uppercase tracking-widest text-stone-300 mb-2">End Date</label>
+                         <input type="date" value={holidayEndDate} onChange={(e) => setHolidayEndDate(e.target.value)} className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none text-xs font-bold border-0" />
+                       </div>
+                       <button type="submit" className="w-full py-4 bg-stone-900 text-[#a9b897] rounded-xl text-[9px] font-black uppercase tracking-widest">Post to Ledger</button>
+                     </form>
+                   </div>
+                 </div>
+               )}
+
+               {activeModal === "appraisal" && activeEmployee && (
+                 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
+                   <div className="bg-white w-full max-w-4xl max-h-[85vh] overflow-y-auto p-12 rounded-[3.5rem] shadow-2xl relative animate-in zoom-in-95 duration-200">
+                     <button onClick={() => setActiveModal(null)} className="absolute top-10 right-10 text-stone-300 hover:text-stone-900"><X size={24}/></button>
+                     <h2 className="text-4xl font-serif italic mb-2">Appraisal: {activeEmployee.name}</h2>
+                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-300 mb-10">{activeEmployee.role} &middot; {activeEmployee.employeeNumber}</p>
+
+                     <div className="space-y-8">
+                       {APPRAISAL_QUESTIONS_STRUCTURE.map(q => (
+                         <div key={q.id} className="p-8 bg-stone-50 rounded-2xl space-y-4">
+                           <span className="text-[8px] font-black uppercase tracking-widest text-[#a9b897] leading-tight block mb-1">Audit Questionnaire</span>
+                           <p className="text-sm font-bold text-stone-900 leading-tight mb-4">{q.question}</p>
+                           <textarea 
+                             className="w-full h-24 p-6 bg-white border border-stone-100 rounded-xl text-xs outline-none focus:border-stone-300"
+                             placeholder="Type response..."
+                             value={appraisalForm[q.id] || ""}
+                             onChange={(e) => handleAppraisalQuestionChange(q.id, e.target.value)}
+                           />
+                         </div>
+                       ))}
+                     </div>
+
+                     <button onClick={handleSubmitAppraisal} className="w-full py-5 mt-12 bg-stone-900 text-[#a9b897] rounded-3xl text-[9px] font-black uppercase tracking-widest shadow-2xl">Finalise Submission</button>
+                   </div>
+                 </div>
+               )}
+
+               {activeModal === "appraisalList" && activeEmployee && (
+                 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
+                   <div className="bg-white w-full max-w-2xl p-10 rounded-[3rem] shadow-2xl relative max-h-[80vh] overflow-y-auto">
+                     <button onClick={() => setActiveModal(null)} className="absolute top-8 right-8 text-stone-300 hover:text-stone-900"><X size={20}/></button>
+                     <h3 className="text-2xl font-serif italic mb-2">Performance Logs</h3>
+                     <p className="text-[9px] font-black uppercase tracking-widest text-stone-300 mb-8">{activeEmployee.name}</p>
+                     
+                     <div className="space-y-4">
+                       {activeEmployee.appraisals.length === 0 ? (
+                         <p className="text-xs text-stone-400 font-serif italic">No appraisals found in the system for this employee.</p>
+                       ) : (
+                         activeEmployee.appraisals.map((appr, idx) => (
+                           <div key={idx} className="p-6 bg-stone-50 rounded-2xl flex justify-between items-center">
+                             <div>
+                               <p className="font-bold text-sm">{appr.date}</p>
+                               <p className="text-xs text-stone-400 font-serif italic mt-1">{appr.notes}</p>
+                             </div>
+                             <span className="text-[8px] font-bold px-3 py-1 bg-stone-100 rounded-full">{appr.score}</span>
+                           </div>
+                         ))
+                       )}
+                     </div>
+                   </div>
+                 </div>
+               )}
+
+               {activeModal === "payslips" && activeEmployee && (
+                 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100] flex items-center justify-center p-8">
+                   <div className="bg-white w-full max-w-2xl p-10 rounded-[3rem] shadow-2xl relative">
+                     <button onClick={() => setActiveModal(null)} className="absolute top-8 right-8 text-stone-300 hover:text-stone-900"><X size={20}/></button>
+                     <h3 className="text-2xl font-serif italic mb-2">Vault & Banking</h3>
+                     <p className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] mb-8">{activeEmployee.name}</p>
+                     <div className="space-y-4 text-xs">
+                       <div className="flex justify-between border-b border-stone-50 pb-4">
+                         <span className="font-bold text-stone-300">Bank Details</span>
+                         <span>{activeEmployee.bankDetails}</span>
+                       </div>
+                       <div className="flex justify-between border-b border-stone-50 pb-4">
+                         <span className="font-bold text-stone-300">Next of Kin</span>
+                         <span>{activeEmployee.nextOfKin}</span>
+                       </div>
+                       <div className="flex justify-between pb-4">
+                         <span className="font-bold text-stone-300">Salary Base</span>
+                         <span>£{activeEmployee.salary.toLocaleString()} / year</span>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+               )}
+
+               {activeModal === "newEmployee" && (
+                 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100] flex items-center justify-center p-8 overflow-y-auto">
+                   <div className="bg-white w-full max-w-3xl p-12 rounded-[3.5rem] shadow-2xl relative my-8 animate-in zoom-in-95 duration-200">
+                     <button onClick={() => setActiveModal(null)} className="absolute top-8 right-8 text-stone-300"><X size={20}/></button>
+                     <h3 className="text-3xl font-serif italic mb-10">Onboard Employee</h3>
+                     <form onSubmit={handleOnboardSubmit} className="grid grid-cols-2 gap-6 text-xs">
+                       <div className="col-span-2"><input className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none border-none font-bold text-xs" placeholder="Full Name" value={onboardForm.name} onChange={(e) => setOnboardForm({...onboardForm, name: e.target.value})} /></div>
+                       <div><input className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none border-none font-bold" placeholder="Role/Title" value={onboardForm.role} onChange={(e) => setOnboardForm({...onboardForm, role: e.target.value})} /></div>
+                       <div><input className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none border-none font-bold" placeholder="Email" type="email" value={onboardForm.email} onChange={(e) => setOnboardForm({...onboardForm, email: e.target.value})} /></div>
+                       <div><input className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none border-none font-bold" placeholder="Phone" value={onboardForm.phone} onChange={(e) => setOnboardForm({...onboardForm, phone: e.target.value})} /></div>
+                       <div><input className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none border-none font-bold" placeholder="Salary (Annual)" type="number" value={onboardForm.salary} onChange={(e) => setOnboardForm({...onboardForm, salary: e.target.value})} /></div>
+                       <button type="submit" className="col-span-2 mt-6 h-14 bg-stone-900 text-[#a9b897] rounded-xl font-black text-[10px] tracking-widest uppercase">Post Employee to Directory</button>
+                     </form>
+                   </div>
+                 </div>
+               )}
+
                {/* Team Directory */}
                <div className="bg-white rounded-[3rem] p-12 shadow-2xl border border-stone-50 relative z-[10]">
                  <div className="flex flex-col sm:flex-row justify-between items-center gap-6 mb-16">
@@ -473,7 +627,7 @@ export default function ApexOS() {
                    { label: "Rev YTD", val: `£${hmrcGross.toLocaleString()}`, color: "#a9b897" },
                    { label: "Liabilities", val: `£${hmrcExpenses.toLocaleString()}`, color: "#d6d3d1" },
                    { label: "VAT Pool", val: "£4,210", color: "#d6d3d1" },
-                   { label: "Calculated Tax Due", val: `£${calculatedTaxDue.toLocaleString()}`, color: "#a9b897" }
+                   { label: "Calculated Tax Due", val: `£${(Math.round((hmrcGross - hmrcExpenses) * 0.19)).toLocaleString()}`, color: "#a9b897" }
                  ].map((stat, i) => (
                    <div key={i} className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-50">
                      <p className="text-[8px] font-black uppercase tracking-widest text-stone-300 mb-6">{stat.label}</p>
@@ -518,7 +672,7 @@ export default function ApexOS() {
                             </div>
                             <div className="text-[#a9b897]">
                                <p className="text-[8px] uppercase text-white/30">Tax Liability</p>
-                               <p className="text-lg font-bold">£{calculatedTaxDue.toLocaleString()}</p>
+                               <p className="text-lg font-bold">£{(Math.round((hmrcGross - hmrcExpenses) * 0.19)).toLocaleString()}</p>
                             </div>
                          </div>
                          <button onClick={() => setHmrcSubmitted(true)} className="mt-8 px-6 py-3 bg-[#a9b897] text-stone-900 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl">Submit to HMRC</button>
@@ -535,67 +689,66 @@ export default function ApexOS() {
                  </div>
 
                  {/* Balance Sheet Panel */}
-                 <div className="col-span-12 lg:col-span-4 bg-white rounded-[3.5rem] p-10 border border-stone-100 flex flex-col shadow-sm">
-                   <h3 className="text-[10px] font-black uppercase text-stone-300 tracking-[0.4em] mb-8">Balance Sheet</h3>
-                   <div className="space-y-6 flex-1 text-xs">
-                      <div className="flex justify-between border-b pb-2">
-                        <span className="font-bold">Total Assets</span>
-                        <span>£{balanceSheet.assets.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-2">
-                        <span className="font-bold">Cash at Bank</span>
-                        <span>£{balanceSheet.cashAtBank.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-2">
-                        <span className="font-bold">Total Liabilities</span>
-                        <span>£{balanceSheet.liabilities.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-2 text-[#a9b897] font-extrabold">
-                        <span>Net Equity</span>
-                        <span>£{balanceSheet.equity.toLocaleString()}</span>
-                      </div>
+                 <div className="col-span-12 lg:col-span-4 bg-white rounded-[3.5rem] p-10 border border-stone-100 flex flex-col shadow-sm justify-between">
+                   <div>
+                     <h3 className="text-[10px] font-black uppercase text-stone-300 tracking-[0.4em] mb-8">Balance Sheet</h3>
+                     <div className="space-y-6 text-xs">
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="font-bold">Total Assets</span>
+                          <span>£{balanceSheet.assets.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="font-bold">Cash at Bank</span>
+                          <span>£{balanceSheet.cashAtBank.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between border-b pb-2">
+                          <span className="font-bold">Total Liabilities</span>
+                          <span>£{balanceSheet.liabilities.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between border-b pb-2 text-[#a9b897] font-extrabold">
+                          <span>Net Equity</span>
+                          <span>£{balanceSheet.equity.toLocaleString()}</span>
+                        </div>
+                     </div>
                    </div>
 
                    <div className="mt-8 border-t border-stone-100 pt-6 space-y-4">
-                     <p className="text-[8px] uppercase tracking-[0.2em] font-black text-stone-400">Add Asset</p>
-                     <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          placeholder="Label" 
-                          value={newAssetLabel} 
-                          onChange={(e) => setNewAssetLabel(e.target.value)} 
-                          className="w-1/2 p-3 bg-stone-50 rounded-xl text-[10px] outline-none" 
-                        />
-                        <input 
-                          type="number" 
-                          placeholder="£ Amount" 
-                          value={newAssetAmount} 
-                          onChange={(e) => setNewAssetAmount(e.target.value)} 
-                          className="w-1/2 p-3 bg-stone-50 rounded-xl text-[10px] outline-none" 
-                        />
+                     <p className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-2">Add Ledger Component</p>
+                     <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input 
+                            placeholder="Asset Label" 
+                            value={newAssetLabel} 
+                            onChange={(e) => setNewAssetLabel(e.target.value)}
+                            className="h-10 bg-stone-50 rounded-xl px-4 text-xs font-bold outline-none" 
+                          />
+                          <input 
+                            type="number" 
+                            placeholder="Amt (£)" 
+                            value={newAssetAmount} 
+                            onChange={(e) => setNewAssetAmount(e.target.value)}
+                            className="h-10 bg-stone-50 rounded-xl px-4 text-xs font-bold outline-none" 
+                          />
+                        </div>
+                        <button onClick={handleAddAsset} className="w-full py-3 bg-stone-900 text-white rounded-xl text-[8px] font-black uppercase tracking-widest">Post Asset Pool</button>
+
+                        <div className="grid grid-cols-2 gap-2 pt-4 border-t border-stone-50">
+                          <input 
+                            placeholder="Liability Label" 
+                            value={newLiabilityLabel} 
+                            onChange={(e) => setNewLiabilityLabel(e.target.value)}
+                            className="h-10 bg-stone-50 rounded-xl px-4 text-xs font-bold outline-none" 
+                          />
+                          <input 
+                            type="number" 
+                            placeholder="Amt (£)" 
+                            value={newLiabilityAmount} 
+                            onChange={(e) => setNewLiabilityAmount(e.target.value)}
+                            className="h-10 bg-stone-50 rounded-xl px-4 text-xs font-bold outline-none" 
+                          />
+                        </div>
+                        <button onClick={handleAddLiability} className="w-full py-3 border border-stone-100 text-stone-500 rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-stone-50 transition-all">Adjust Liabilities</button>
                      </div>
-                     <button onClick={handleAddAsset} className="w-full text-center text-[9px] font-black uppercase bg-stone-100 p-3 rounded-xl hover:bg-stone-200">Add Asset</button>
-                   </div>
-                   
-                   <div className="mt-6 pt-6 border-t border-stone-100 space-y-4">
-                     <p className="text-[8px] uppercase tracking-[0.2em] font-black text-stone-400">Add Liability</p>
-                     <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          placeholder="Label" 
-                          value={newLiabilityLabel} 
-                          onChange={(e) => setNewLiabilityLabel(e.target.value)} 
-                          className="w-1/2 p-3 bg-stone-50 rounded-xl text-[10px] outline-none" 
-                        />
-                        <input 
-                          type="number" 
-                          placeholder="£ Amount" 
-                          value={newLiabilityAmount} 
-                          onChange={(e) => setNewLiabilityAmount(e.target.value)} 
-                          className="w-1/2 p-3 bg-stone-50 rounded-xl text-[10px] outline-none" 
-                        />
-                     </div>
-                     <button onClick={handleAddLiability} className="w-full text-center text-[9px] font-black uppercase bg-stone-100 p-3 rounded-xl hover:bg-stone-200">Add Liability</button>
                    </div>
                  </div>
                </div>
@@ -603,218 +756,6 @@ export default function ApexOS() {
           )}
         </div>
       </main>
-
-      {/* ================= MODALS ================= */}
-      {activeModal === "appraisalList" && (
-         <div className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6 relative">
-          <div className="bg-white rounded-[3.5rem] w-full max-w-2xl p-12 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-y-auto max-h-[80vh]">
-            <button onClick={() => setActiveModal(null)} className="absolute top-10 right-10 p-3 bg-stone-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-all"><X size={20}/></button>
-            <div className="mb-12">
-              <h3 className="text-4xl font-serif italic text-stone-900">Appraisal Matrix</h3>
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-300 mt-2">Matrix Audit trail.</p>
-            </div>
-            <div className="space-y-6">
-               {employees.filter(e => e.appraisals.length > 0).map(emp => emp.appraisals.map((apr, idx) => (
-                  <div key={`${emp.id}-${idx}`} className="p-8 bg-stone-50 rounded-3xl border border-stone-100 flex justify-between gap-6">
-                     <div>
-                        <p className="font-serif italic text-lg">{emp.name}</p>
-                        <p className="text-[9px] font-black text-stone-400 mt-1 uppercase tracking-widest">{apr.date} • {apr.notes}</p>
-                     </div>
-                     <span className="text-[9px] font-black uppercase tracking-widest px-4 py-1.5 h-fit bg-white rounded-full text-[#a9b897] border border-[#a9b897]/20">{apr.score}</span>
-                  </div>
-               )))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeModal === "appraisal" && (
-        <div className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6 relative">
-          <div className="bg-white rounded-[3.5rem] w-full max-w-4xl p-12 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-y-auto max-h-[90vh]">
-            <button onClick={() => setActiveModal(null)} className="absolute top-10 right-10 p-3 bg-stone-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-all"><X size={20}/></button>
-            <div className="mb-12">
-              <h3 className="text-4xl font-serif italic text-stone-900">Employee Appraisal Matrix</h3>
-              <p className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] mt-2">Employee Audit Node: {activeEmployee?.name}</p>
-            </div>
-            <div className="space-y-8">
-               {APPRAISAL_QUESTIONS_STRUCTURE.map((q, idx) => (
-                  <div key={q.id} className="space-y-3">
-                     <label className="text-[11px] font-serif italic text-stone-600 block mb-3 border-b border-stone-100 pb-3">{idx + 1}. {q.question}</label>
-                     <textarea 
-                        className="w-full h-24 bg-stone-50 rounded-2xl p-6 outline-none font-serif italic text-sm focus:bg-white border-2 border-transparent focus:border-stone-100 transition-all resize-none" 
-                        onChange={e => handleAppraisalQuestionChange(q.id, e.target.value)}
-                        placeholder="Matrix response log..." 
-                     />
-                  </div>
-               ))}
-              <button onClick={handleSubmitAppraisal} className="w-full py-6 bg-stone-900 text-[#a9b897] rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] transition-all">Lock & Finalize Appraisal Node</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeModal === "holiday" && (
-        <div className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6 relative">
-          <div className="bg-white rounded-[3.5rem] w-full max-w-lg p-12 shadow-2xl animate-in fade-in slide-in-from-bottom-10">
-              <h3 className="text-4xl font-serif italic mb-10 text-center text-stone-900">Book Leave</h3>
-              <div className="space-y-6">
-                 <div className="space-y-2 text-center">
-                   <label className="text-[9px] font-black uppercase text-stone-300">Select Date</label>
-                   <input type="date" className="w-full h-16 bg-stone-50 rounded-3xl px-8 font-bold outline-none border-none text-center shadow-inner" id="holiday_date" />
-                 </div>
-                 <button 
-                   onClick={() => handleAddHoliday((document.getElementById('holiday_date') as HTMLInputElement).value)}
-                   className="w-full py-6 bg-[#a9b897] text-white rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-xl"
-                 >
-                   Sync Attendance Ledger
-                 </button>
-                 <button onClick={() => setActiveModal(null)} className="w-full text-[9px] font-black uppercase text-stone-300 hover:text-stone-900">Discard Request</button>
-              </div>
-          </div>
-        </div>
-      )}
-
-      {activeModal === "payslips" && (
-        <div className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6 relative">
-          <div className="bg-white rounded-[4rem] w-full max-w-5xl p-12 flex flex-col md:flex-row gap-12 animate-in zoom-in-95 shadow-2xl overflow-hidden relative">
-            <button onClick={() => setActiveModal(null)} className="absolute top-10 right-10 p-3 bg-stone-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-all z-[10]"><X size={20}/></button>
-            <div className="flex-1 bg-stone-50 rounded-[3rem] border border-stone-100 p-12 relative z-[10]">
-                 <div className="w-20 h-20 bg-white rounded-3xl shadow-sm flex items-center justify-center mb-10 border border-stone-100"><Landmark size={32} className="text-[#a9b897]"/></div>
-                 <p className="text-[10px] font-black uppercase text-stone-300 tracking-widest mb-2">Matrix Audit Hub</p>
-                 <h2 className="text-5xl font-serif italic text-stone-900 uppercase tracking-widest mb-8">SECURE VAULT</h2>
-                 <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-stone-100">
-                        <span className="text-[9px] uppercase font-black tracking-widest text-stone-400">Payroll Vault</span>
-                        <button onClick={() => toast.success("Payslip generated & dispatched.")} className="px-4 py-1.5 bg-[#a9b897] text-white rounded-full text-[8px] uppercase font-bold tracking-widest">Generate April Slip</button>
-                    </div>
-                    <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-stone-100">
-                        <span className="text-[9px] uppercase font-black tracking-widest text-stone-400">Tax Vault</span>
-                        <button onClick={() => toast.success("P60 Archive downloaded.")} className="px-4 py-1.5 border border-stone-100 text-stone-500 rounded-full text-[8px] uppercase font-bold tracking-widest">Download P60 (2025)</button>
-                    </div>
-                 </div>
-              </div>
-              <div className="w-full md:w-96 flex flex-col justify-between py-10 relative z-[10]">
-                 <div>
-                    <h2 className="text-5xl font-serif italic text-stone-900 mb-6">Banking & Contact Node</h2>
-                    <p className="text-sm text-stone-400 font-serif italic mb-12">Encrypted profile access for {activeEmployee?.name}. Ensure banking audit trail is locked before viewing full details.</p>
-                 </div>
-                 <div className="space-y-4 pt-10 border-t border-stone-100">
-                    <div className="group">
-                        <label className="text-[8px] uppercase text-stone-300 block mb-1">Secure Email</label>
-                        <p className="text-xs font-bold">{activeEmployee?.email}</p>
-                    </div>
-                    <div className="group">
-                        <label className="text-[8px] uppercase text-stone-300 block mb-1">Direct Line</label>
-                        <p className="text-xs font-bold">{activeEmployee?.phone}</p>
-                    </div>
-                    <div className="group">
-                        <label className="text-[8px] uppercase text-stone-300 block mb-1">BACS Destination ACC</label>
-                        <p className="text-xs font-bold truncate">{activeEmployee?.bankDetails}</p>
-                    </div>
-                    <div className="group">
-                        <label className="text-[8px] uppercase text-stone-300 block mb-1">Next of Kin Secure Contact</label>
-                        <p className="text-xs font-bold">{activeEmployee?.nextOfKin}</p>
-                    </div>
-                 </div>
-              </div>
-              <Zap size={400} className="absolute -bottom-40 -right-40 text-stone-100/10 rotate-12 pointer-events-none" />
-           </div>
-        </div>
-      )}
-
-      {activeModal === "newEmployee" && (
-        <div className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6 relative">
-          <div className="bg-white rounded-[3.5rem] w-full max-w-4xl p-12 animate-in zoom-in-95 duration-300 shadow-2xl relative overflow-y-auto max-h-[90vh]">
-            <button onClick={() => setActiveModal(null)} className="absolute top-10 right-10 p-3 bg-stone-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-all"><X size={20}/></button>
-            <div className="mb-10">
-              <h3 className="text-4xl font-serif italic text-stone-900">Onboard New Team Member</h3>
-              <p className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] mt-2">Matrix Database Update</p>
-            </div>
-            <form onSubmit={handleOnboardSubmit} className="space-y-8">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Full Name</label>
-                     <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none font-bold placeholder:text-stone-300 text-sm" value={onboardForm.name} onChange={e => setOnboardForm({...onboardForm, name: e.target.value})} placeholder="Jane Doe" required/>
-                  </div>
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Matrix Role / Title</label>
-                     <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none font-bold placeholder:text-stone-300 text-sm" value={onboardForm.role} onChange={e => setOnboardForm({...onboardForm, role: e.target.value})} placeholder="Product Architect" required/>
-                  </div>
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-stone-100">
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Fiscal Salary Pool (GBP)</label>
-                     <div className="relative">
-                        <span className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300 text-xs font-bold">£</span>
-                        <input className="w-full h-14 bg-stone-50 rounded-2xl pl-10 pr-6 outline-none font-bold text-sm" value={onboardForm.salary} onChange={e => setOnboardForm({...onboardForm, salary: e.target.value})} type="number" required placeholder="30000"/>
-                     </div>
-                  </div>
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Holiday Entitlement (days)</label>
-                     <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none font-bold text-sm" value={onboardForm.holidayEntitlement} onChange={e => setOnboardForm({...onboardForm, holidayEntitlement: e.target.value})} type="number" required placeholder="25"/>
-                  </div>
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Working Hours & Days</label>
-                     <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none font-bold text-sm" value={onboardForm.workingHoursDays} onChange={e => setOnboardForm({...onboardForm, workingHoursDays: e.target.value})} required placeholder="Mon-Fri / 9-5"/>
-                  </div>
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Contract Node Type</label>
-                      <select className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none text-xs font-bold appearance-none cursor-pointer" value={onboardForm.contractType} onChange={e => setOnboardForm({...onboardForm, contractType: e.target.value})} required>
-                        <option>Full-Time</option>
-                        <option>Part-Time</option>
-                        <option>Flexible</option>
-                      </select>
-                  </div>
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-stone-100">
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Vault Email</label>
-                     <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none font-bold placeholder:text-stone-300 text-sm" type="email" value={onboardForm.email} onChange={e => setOnboardForm({...onboardForm, email: e.target.value})} required placeholder="email@apex.com"/>
-                  </div>
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Date of Pay Due</label>
-                     <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none font-bold text-sm" value={onboardForm.payDueDate} onChange={e => setOnboardForm({...onboardForm, payDueDate: e.target.value})} required placeholder="28th Monthly"/>
-                  </div>
-               </div>
-
-               {/* Bank Details Inputs */}
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-stone-100">
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Bank Name</label>
-                     <input className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none font-bold text-xs" value={onboardForm.bankName} onChange={e => setOnboardForm({...onboardForm, bankName: e.target.value})} required placeholder="Mercury Digital" />
-                  </div>
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Account Number</label>
-                     <input className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none font-bold text-xs" value={onboardForm.accountNumber} onChange={e => setOnboardForm({...onboardForm, accountNumber: e.target.value})} required placeholder="88224411" />
-                  </div>
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Sort Code</label>
-                     <input className="w-full h-12 bg-stone-50 rounded-xl px-4 outline-none font-bold text-xs" value={onboardForm.sortCode} onChange={e => setOnboardForm({...onboardForm, sortCode: e.target.value})} required placeholder="00-11-22" />
-                  </div>
-               </div>
-
-               {/* Next of Kin Inputs */}
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-stone-100">
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Next of Kin Name</label>
-                     <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none font-bold text-sm" value={onboardForm.nextOfKinName} onChange={e => setOnboardForm({...onboardForm, nextOfKinName: e.target.value})} required placeholder="Jane Kin"/>
-                  </div>
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase text-stone-300 ml-2 tracking-[0.2em]">Next of Kin Number</label>
-                     <input className="w-full h-14 bg-stone-50 rounded-2xl px-6 outline-none font-bold text-sm" value={onboardForm.nextOfKinNumber} onChange={e => setOnboardForm({...onboardForm, nextOfKinNumber: e.target.value})} required placeholder="+44 70000000"/>
-                  </div>
-               </div>
-
-               <button type="submit" className="w-full py-6 bg-stone-900 text-[#a9b897] rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] transition-all">Generate secure vault record.</button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

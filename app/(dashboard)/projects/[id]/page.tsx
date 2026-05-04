@@ -16,7 +16,8 @@ const COLUMNS = [
 ];
 
 export default function ProjectPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params?.id;
   const router = useRouter();
 
   const [tasks, setTasks] = useState<any[]>([]);
@@ -24,12 +25,13 @@ export default function ProjectPage() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [plan, setPlan] = useState("free");
   const [role, setRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true); // Added loading state
+  const [loading, setLoading] = useState(true); 
 
   const [newTask, setNewTask] = useState("");
   const [dragged, setDragged] = useState<any>(null);
 
   const loadTasks = useCallback(async (team: string) => {
+    if (!id) return;
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
@@ -42,6 +44,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     async function init() {
+      if (!id) return;
       setLoading(true);
       const [team, p, r] = await Promise.all([
         getUserTeam(),
@@ -65,7 +68,7 @@ export default function ProjectPage() {
 
       setUsers(profiles || []);
       await loadTasks(team);
-      setLoading(false); // Data loaded
+      setLoading(false);
 
       const channel = supabase
         .channel(`project-${id}`)
@@ -75,14 +78,13 @@ export default function ProjectPage() {
 
       return () => { supabase.removeChannel(channel); };
     }
-    if (id) init();
+    init();
   }, [id, loadTasks]);
 
-  // ... (addTask, updateTask, priorityMeta functions remain the same)
   async function addTask() {
     if (plan === "free") return router.push("/billing");
     if (!canCreate(role)) return alert("Access Denied: Insufficient Permissions");
-    if (!newTask || !teamId) return;
+    if (!newTask || !teamId || !id) return;
 
     await supabase.from("tasks").insert({
       title: newTask,
@@ -114,7 +116,6 @@ export default function ProjectPage() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] p-8 md:p-12 space-y-12">
-      {/* Rest of your JSX remains unchanged */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-200 pb-10">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-[#a9b897]">
@@ -130,7 +131,6 @@ export default function ProjectPage() {
         )}
       </header>
       
-      {/* ... (rest of your existing board grid) */}
       <div className="max-w-2xl relative group">
         <input
           placeholder={plan === "free" ? "Tasks locked on Free Plan..." : "Enter new objective..."}

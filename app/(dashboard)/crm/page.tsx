@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
-import { Plus, Search, User, X } from "lucide-react";
+import { Plus, Search, User, X, Check } from "lucide-react";
+import Link from "next/link";
+
+// Pre-defined available mailing lists from your segments system
+const MAILING_LIST_OPTIONS = [
+  "General Newsletter",
+  "Product Updates",
+  "Enterprise Announcements",
+  "Weekly Digest"
+];
 
 export default function CRMDirectory() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -10,6 +19,10 @@ export default function CRMDirectory() {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // New states for multi-select mailing lists
+  const [addToMailingList, setAddToMailingList] = useState(false);
+  const [selectedLists, setSelectedLists] = useState<string[]>([]);
 
   const [form, setForm] = useState({
     name: "",
@@ -42,8 +55,8 @@ export default function CRMDirectory() {
 
     const payload = {
       ...form,
-      on_mailing_list: true,
-      mailing_list_category: "General"
+      on_mailing_list: addToMailingList,
+      mailing_list_category: addToMailingList && selectedLists.length > 0 ? selectedLists.join(", ") : "General"
     };
 
     const { data, error } = await supabase
@@ -67,10 +80,20 @@ export default function CRMDirectory() {
       phone: "",
       address: ""
     });
+    setAddToMailingList(false);
+    setSelectedLists([]);
 
     setShowModal(false);
     setSaving(false);
   }
+
+  const toggleListSelection = (listName: string) => {
+    if (selectedLists.includes(listName)) {
+      setSelectedLists(selectedLists.filter(l => l !== listName));
+    } else {
+      setSelectedLists([...selectedLists, listName]);
+    }
+  };
 
   const filtered = customers.filter(
     (c) =>
@@ -120,9 +143,10 @@ export default function CRMDirectory() {
 
           {!loading &&
             filtered.map((customer) => (
-              <div
+              <Link 
+                href={`/crm/${customer.id}`} 
                 key={customer.id}
-                className="bg-white border rounded-2xl p-6 flex items-center gap-4"
+                className="bg-white border rounded-2xl p-6 flex items-center gap-4 hover:shadow-sm transition-shadow block"
               >
                 <div className="w-14 h-14 rounded-xl bg-stone-900 text-white flex items-center justify-center">
                   <User size={20} />
@@ -133,7 +157,7 @@ export default function CRMDirectory() {
                   <p className="text-sm text-stone-500">{customer.company}</p>
                   <p className="text-xs text-stone-400">{customer.email}</p>
                 </div>
-              </div>
+              </Link>
             ))}
         </div>
       </div>
@@ -146,7 +170,7 @@ export default function CRMDirectory() {
             onClick={() => setShowModal(false)}
           />
 
-          <div className="relative z-10 bg-white rounded-3xl p-8 w-full max-w-xl shadow-2xl">
+          <div className="relative z-10 bg-white rounded-3xl p-8 w-full max-w-xl shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-3xl font-serif italic">Add New Client</h2>
 
@@ -202,10 +226,49 @@ export default function CRMDirectory() {
                 className="w-full border rounded-xl p-4 h-24"
               />
 
+              {/* MAILING LIST TOGGLE */}
+              <div className="border-t border-stone-100 pt-4 mt-6">
+                <label className="flex items-center justify-between cursor-pointer py-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-stone-600">
+                    Add to mailing list
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={addToMailingList}
+                    onChange={() => setAddToMailingList(!addToMailingList)}
+                    className="h-5 w-5 rounded border-stone-300 text-[#a9b897] focus:ring-[#a9b897]"
+                  />
+                </label>
+              </div>
+
+              {/* MULTI-SELECT CATEGORIES */}
+              {addToMailingList && (
+                <div className="bg-stone-50 p-5 rounded-2xl border border-stone-100 space-y-3 mt-2 animate-fadeIn">
+                  <p className="text-[10px] uppercase tracking-widest text-stone-400 font-black mb-3">Select Audience Lists</p>
+                  {MAILING_LIST_OPTIONS.map((listName) => {
+                    const isChecked = selectedLists.includes(listName);
+                    return (
+                      <div 
+                        key={listName}
+                        onClick={() => toggleListSelection(listName)}
+                        className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer select-none transition-all ${
+                          isChecked 
+                            ? 'bg-[#a9b897]/10 border-[#a9b897] text-[#1c1917]' 
+                            : 'bg-white border-stone-200 text-stone-600'
+                        }`}
+                      >
+                        <span className="text-xs font-medium">{listName}</span>
+                        {isChecked && <Check size={14} className="text-[#a9b897]" />}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-[#a9b897] py-4 rounded-xl font-bold"
+                className="w-full bg-[#a9b897] py-4 rounded-xl font-bold mt-6"
               >
                 {saving ? "Saving..." : "Add Client"}
               </button>

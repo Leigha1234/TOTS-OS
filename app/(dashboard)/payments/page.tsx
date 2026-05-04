@@ -32,6 +32,11 @@ export default function FinancialsPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [activeTab, setActiveTab] = useState("financials"); // 'financials', 'hr', 'timesheets', 'appraisals'
 
+  // Modal Visibility States
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [isQuoteOpen, setIsQuoteOpen] = useState(false);
+  const [isExpenseOpen, setIsExpenseOpen] = useState(false);
+
   // Financial Dashboard Metrics 
   const [metrics] = useState({
     revYtd: 142500,
@@ -138,6 +143,7 @@ export default function FinancialsPage() {
     ]);
     setInvoiceClient("");
     setInvoiceAmount("");
+    setIsInvoiceOpen(false);
   };
 
   const addQuote = () => {
@@ -148,6 +154,7 @@ export default function FinancialsPage() {
     ]);
     setQuoteClient("");
     setQuoteAmount("");
+    setIsQuoteOpen(false);
   };
 
   const addExpense = () => {
@@ -158,6 +165,7 @@ export default function FinancialsPage() {
     ]);
     setExpenseVendor("");
     setExpenseAmount("");
+    setIsExpenseOpen(false);
   };
 
   const addTimesheet = () => {
@@ -284,227 +292,202 @@ export default function FinancialsPage() {
       
       {/* 1. FINANCIALS TAB */}
       {activeTab === "financials" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 pt-4">
-          
-          <div className="lg:col-span-1 space-y-8 h-fit">
-            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
-              <h3 className="text-xl font-serif italic text-stone-800">New Invoice</h3>
-              <div className="space-y-4">
-                <input
-                  placeholder="Client Name"
-                  value={invoiceClient}
-                  onChange={(e) => setInvoiceClient(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
-                />
-                <input
-                  type="number"
-                  placeholder="Amount (£)"
-                  value={invoiceAmount}
-                  onChange={(e) => setInvoiceAmount(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
-                />
-                <button
-                  onClick={addInvoice}
-                  className="w-full py-3 bg-[#a9b897] text-stone-900 rounded-2xl text-xs uppercase font-black hover:bg-[#99a888]"
-                >
-                  Create Invoice
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
-              <h3 className="text-xl font-serif italic text-stone-800">Create Quote</h3>
-              <div className="space-y-4">
-                <input
-                  placeholder="Client Name"
-                  value={quoteClient}
-                  onChange={(e) => setQuoteClient(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
-                />
-                <input
-                  type="number"
-                  placeholder="Amount (£)"
-                  value={quoteAmount}
-                  onChange={(e) => setQuoteAmount(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
-                />
-                <button
-                  onClick={addQuote}
-                  className="w-full py-3 border border-stone-200 text-stone-700 rounded-2xl text-xs uppercase font-bold hover:bg-stone-50"
-                >
-                  Save Quote
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
-              <h3 className="text-xl font-serif italic text-stone-800">Log Expense Item</h3>
-              <div className="space-y-4">
-                <input
-                  placeholder="Vendor Name"
-                  value={expenseVendor}
-                  onChange={(e) => setExpenseVendor(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
-                />
-                <input
-                  type="number"
-                  placeholder="Amount (£)"
-                  value={expenseAmount}
-                  onChange={(e) => setExpenseAmount(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-11 px-4 text-xs font-bold outline-none text-stone-800"
-                />
-                <button
-                  onClick={addExpense}
-                  className="w-full py-3 bg-red-50 text-red-600 border border-red-200 rounded-2xl text-xs uppercase font-bold hover:bg-red-100/40"
-                >
-                  Log Expense
-                </button>
-              </div>
-            </div>
+        <div className="space-y-12">
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-6 pt-4">
+            <button
+              onClick={() => setIsInvoiceOpen(true)}
+              className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+            >
+              <FileText size={16} className="text-[#a9b897]" /> Create Invoice
+            </button>
+            <button
+              onClick={() => setIsQuoteOpen(true)}
+              className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+            >
+              <FileDigit size={16} className="text-[#a9b897]" /> Create Quote
+            </button>
+            <button
+              onClick={() => setIsExpenseOpen(true)}
+              className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+            >
+              <ShieldAlert size={16} className="text-red-500" /> Log Expense
+            </button>
           </div>
 
-          <div className="lg:col-span-2 space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-                <h4 className="text-lg font-serif italic text-stone-800">Balance Sheet</h4>
-                <div className="space-y-3 pt-4 text-xs font-medium">
-                  <div className="flex justify-between border-b border-stone-100 pb-2">
-                    <span className="text-stone-400">Total Assets</span>
-                    <span className="font-mono text-stone-800 font-bold">£{balanceSheet.assets.toLocaleString()}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 pt-4">
+            <div className="lg:col-span-1 space-y-8 h-fit bg-white p-10 border border-stone-100 rounded-[3.5rem]">
+              <h3 className="text-xl font-serif italic text-stone-800">Ledger Activity Summary</h3>
+              <p className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Recent Documents Created</p>
+              
+              <div className="space-y-4 pt-4">
+                <div className="flex justify-between items-center text-xs p-4 bg-stone-50/50 rounded-2xl border">
+                  <div>
+                    <span className="block font-bold">INV-101</span>
+                    <span className="block text-[10px] text-stone-400">Aperture Labs</span>
                   </div>
-                  <div className="flex justify-between border-b border-stone-100 pb-2">
-                    <span className="text-stone-400">Total Liabilities</span>
-                    <span className="font-mono text-stone-800 font-bold">£{balanceSheet.liabilities.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between pt-2 text-sm">
-                    <span className="text-stone-800 font-bold">Equity</span>
-                    <span className="font-mono text-stone-900 font-bold">£{balanceSheet.equity.toLocaleString()}</span>
-                  </div>
+                  <span className="font-mono font-bold">£14,200</span>
                 </div>
-              </div>
-
-              <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-                <h4 className="text-lg font-serif italic text-stone-800">Cash Flow Statement</h4>
-                <div className="space-y-3 pt-4 text-xs font-medium">
-                  <div className="flex justify-between border-b border-stone-100 pb-2 text-green-600">
-                    <span className="flex items-center gap-2"><ArrowUpRight size={14} /> Inflows</span>
-                    <span className="font-mono font-bold">£{cashFlow.inflows.toLocaleString()}</span>
+                <div className="flex justify-between items-center text-xs p-4 bg-stone-50/50 rounded-2xl border">
+                  <div>
+                    <span className="block font-bold">QT-004</span>
+                    <span className="block text-[10px] text-stone-400">Black Mesa Corp</span>
                   </div>
-                  <div className="flex justify-between border-b border-stone-100 pb-2 text-red-500">
-                    <span className="flex items-center gap-2"><ArrowDownLeft size={14} /> Outflows</span>
-                    <span className="font-mono font-bold">-£{cashFlow.outflows.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between pt-2 text-sm">
-                    <span className="text-stone-800 font-bold">Net Change</span>
-                    <span className="font-mono text-stone-900 font-bold">£{cashFlow.net.toLocaleString()}</span>
-                  </div>
+                  <span className="font-mono font-bold">£4,500</span>
                 </div>
-              </div>
-
-              <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-                <h4 className="text-lg font-serif italic text-stone-800">Accounts Receivable</h4>
-                <div className="space-y-2 pt-2">
-                  {accountsReceivable.map((ar) => (
-                    <div key={ar.id} className="flex justify-between text-xs py-2 border-b border-stone-50">
-                      <span className="font-medium text-stone-800">{ar.customer}</span>
-                      <span className="font-mono font-bold">£{ar.balance}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-                <h4 className="text-lg font-serif italic text-stone-800">Income Statement</h4>
-                <div className="space-y-3 text-xs font-medium pt-2">
-                  <div className="flex justify-between">
-                    <span className="text-stone-400">Gross Rev</span>
-                    <span className="font-mono">£{incomeStatement.grossRevenue.toLocaleString()}</span>
+                <div className="flex justify-between items-center text-xs p-4 bg-stone-50/50 rounded-2xl border">
+                  <div>
+                    <span className="block font-bold">EXP-22</span>
+                    <span className="block text-[10px] text-stone-400">Apex Facilities</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-400">COGS</span>
-                    <span className="font-mono text-red-500">-£{incomeStatement.cogs.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-stone-100 pt-2 font-bold">
-                    <span className="text-stone-800">Net Income</span>
-                    <span className="font-mono text-green-600">£{incomeStatement.netIncome.toLocaleString()}</span>
-                  </div>
+                  <span className="font-mono font-bold">£2,300</span>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
-                <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Invoices</h5>
-                <div className="space-y-3">
-                  {invoices.map((inv) => (
-                    <div key={inv.id} className="flex justify-between text-xs">
-                      <span className="font-bold">{inv.client}</span>
-                      <span className="font-mono">£{inv.amount}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
-                <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Quotes</h5>
-                <div className="space-y-3">
-                  {quotes.map((q) => (
-                    <div key={q.id} className="flex justify-between text-xs">
-                      <span className="font-bold">{q.client}</span>
-                      <span className="font-mono">£{q.amount}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
-                <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Expenses</h5>
-                <div className="space-y-3">
-                  {expenses.map((e) => (
-                    <div key={e.id} className="flex justify-between text-xs">
-                      <span className="font-bold">{e.vendor}</span>
-                      <span className="font-mono">£{e.amount}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-stone-900 text-white p-10 rounded-[3.5rem] shadow-2xl space-y-8">
+            <div className="lg:col-span-2 space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <label className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">VAT Rate (%)</label>
-                  <select
-                    value={vatRate}
-                    onChange={(e) => setVatRate(e.target.value)}
-                    className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-5 text-sm text-white focus:ring-4 ring-[#a9b897]/20 outline-none appearance-none cursor-pointer font-bold"
-                  >
-                    <option value="0">0% (Zero Rated)</option>
-                    <option value="5">5% (Reduced Rate)</option>
-                    <option value="20">20% (Standard Rate)</option>
-                  </select>
+                <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+                  <h4 className="text-lg font-serif italic text-stone-800">Balance Sheet</h4>
+                  <div className="space-y-3 pt-4 text-xs font-medium">
+                    <div className="flex justify-between border-b border-stone-100 pb-2">
+                      <span className="text-stone-400">Total Assets</span>
+                      <span className="font-mono text-stone-800 font-bold">£{balanceSheet.assets.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-stone-100 pb-2">
+                      <span className="text-stone-400">Total Liabilities</span>
+                      <span className="font-mono text-stone-800 font-bold">£{balanceSheet.liabilities.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 text-sm">
+                      <span className="text-stone-800 font-bold">Equity</span>
+                      <span className="font-mono text-stone-900 font-bold">£{balanceSheet.equity.toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-3">
-                  <label className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">Discount Amount (£)</label>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={discountAmount}
-                    onChange={(e) => setDiscountAmount(e.target.value)}
-                    className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-5 text-sm text-white focus:ring-4 ring-[#a9b897]/20 outline-none placeholder:text-stone-700 font-bold"
-                  />
+
+                <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+                  <h4 className="text-lg font-serif italic text-stone-800">Cash Flow Statement</h4>
+                  <div className="space-y-3 pt-4 text-xs font-medium">
+                    <div className="flex justify-between border-b border-stone-100 pb-2 text-green-600">
+                      <span className="flex items-center gap-2"><ArrowUpRight size={14} /> Inflows</span>
+                      <span className="font-mono font-bold">£{cashFlow.inflows.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-stone-100 pb-2 text-red-500">
+                      <span className="flex items-center gap-2"><ArrowDownLeft size={14} /> Outflows</span>
+                      <span className="font-mono font-bold">-£{cashFlow.outflows.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 text-sm">
+                      <span className="text-stone-800 font-bold">Net Change</span>
+                      <span className="font-mono text-stone-900 font-bold">£{cashFlow.net.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+                  <h4 className="text-lg font-serif italic text-stone-800">Accounts Receivable</h4>
+                  <div className="space-y-2 pt-2">
+                    {accountsReceivable.map((ar) => (
+                      <div key={ar.id} className="flex justify-between text-xs py-2 border-b border-stone-50">
+                        <span className="font-medium text-stone-800">{ar.customer}</span>
+                        <span className="font-mono font-bold">£{ar.balance}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+                  <h4 className="text-lg font-serif italic text-stone-800">Income Statement</h4>
+                  <div className="space-y-3 text-xs font-medium pt-2">
+                    <div className="flex justify-between">
+                      <span className="text-stone-400">Gross Rev</span>
+                      <span className="font-mono">£{incomeStatement.grossRevenue.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-stone-400">COGS</span>
+                      <span className="font-mono text-red-500">-£{incomeStatement.cogs.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-stone-100 pt-2 font-bold">
+                      <span className="text-stone-800">Net Income</span>
+                      <span className="font-mono text-green-600">£{incomeStatement.netIncome.toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="border-t border-stone-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
-                <div className="space-y-2 text-left">
-                  <p className="text-[10px] font-black tracking-widest text-stone-500 uppercase">Grand Total</p>
-                  <p className="text-5xl font-mono tracking-tighter">£{total.toFixed(2)}</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
+                  <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Invoices</h5>
+                  <div className="space-y-3">
+                    {invoices.map((inv) => (
+                      <div key={inv.id} className="flex justify-between text-xs">
+                        <span className="font-bold">{inv.client}</span>
+                        <span className="font-mono">£{inv.amount}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <button
-                  onClick={() => alert(`Invoice dispatched, total: ${total}`)}
-                  className="w-full md:w-auto px-10 py-5 rounded-[2rem] bg-[#a9b897] text-stone-900 font-bold tracking-[0.3em] uppercase text-xs flex justify-center items-center gap-4 hover:bg-[#99a888] transition-all"
-                >
-                  <Send size={16} /> Dispatch Ledger
-                </button>
+                <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
+                  <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Quotes</h5>
+                  <div className="space-y-3">
+                    {quotes.map((q) => (
+                      <div key={q.id} className="flex justify-between text-xs">
+                        <span className="font-bold">{q.client}</span>
+                        <span className="font-mono">£{q.amount}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
+                  <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Expenses</h5>
+                  <div className="space-y-3">
+                    {expenses.map((e) => (
+                      <div key={e.id} className="flex justify-between text-xs">
+                        <span className="font-bold">{e.vendor}</span>
+                        <span className="font-mono">£{e.amount}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-stone-900 text-white p-10 rounded-[3.5rem] shadow-2xl space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                    <label className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">VAT Rate (%)</label>
+                    <select
+                      value={vatRate}
+                      onChange={(e) => setVatRate(e.target.value)}
+                      className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-5 text-sm text-white focus:ring-4 ring-[#a9b897]/20 outline-none appearance-none cursor-pointer font-bold"
+                    >
+                      <option value="0">0% (Zero Rated)</option>
+                      <option value="5">5% (Reduced Rate)</option>
+                      <option value="20">20% (Standard Rate)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">Discount Amount (£)</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={discountAmount}
+                      onChange={(e) => setDiscountAmount(e.target.value)}
+                      className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-5 text-sm text-white focus:ring-4 ring-[#a9b897]/20 outline-none placeholder:text-stone-700 font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-stone-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                  <div className="space-y-2 text-left">
+                    <p className="text-[10px] font-black tracking-widest text-stone-500 uppercase">Grand Total</p>
+                    <p className="text-5xl font-mono tracking-tighter">£{total.toFixed(2)}</p>
+                  </div>
+                  <button
+                    onClick={() => alert(`Invoice dispatched, total: ${total}`)}
+                    className="w-full md:w-auto px-10 py-5 rounded-[2rem] bg-[#a9b897] text-stone-900 font-bold tracking-[0.3em] uppercase text-xs flex justify-center items-center gap-4 hover:bg-[#99a888] transition-all"
+                  >
+                    <Send size={16} /> Dispatch Ledger
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -709,6 +692,203 @@ export default function FinancialsPage() {
           )}
         </div>
       )}
+
+      {/* Modals */}
+      <AnimatePresence>
+        {/* Invoice Modal */}
+        {isInvoiceOpen && (
+          <div className="fixed inset-0 bg-stone-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[3.5rem] p-12 overflow-y-auto shadow-2xl relative">
+              <button 
+                onClick={() => setIsInvoiceOpen(false)}
+                className="absolute right-10 top-10 p-3 bg-stone-50 hover:bg-stone-100 rounded-full transition-colors"
+              >
+                <X size={18} />
+              </button>
+
+              <h2 className="text-3xl font-serif italic text-stone-800 tracking-tight mb-8">Generate Invoice</h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Client Name</label>
+                  <input
+                    value={invoiceClient}
+                    onChange={(e) => setInvoiceClient(e.target.value)}
+                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
+                    placeholder="e.g. Aperture Labs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Quick Flat Amount (£)</label>
+                  <input
+                    type="number"
+                    value={invoiceAmount}
+                    onChange={(e) => setInvoiceAmount(e.target.value)}
+                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
+                    placeholder="e.g. 5000"
+                  />
+                </div>
+              </div>
+
+              {/* Itemized Ledger */}
+              <div className="border-t border-stone-100 pt-8 mt-4 space-y-6">
+                <h4 className="text-xs font-bold text-stone-700 tracking-wider uppercase">Itemized Line Items</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="md:col-span-2">
+                    <input
+                      placeholder="Item Name"
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      className="w-full bg-stone-50 border p-3 rounded-2xl text-xs font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="Amount (£)"
+                      value={newItemAmount}
+                      onChange={(e) => setNewItemAmount(e.target.value)}
+                      className="w-full bg-stone-50 border p-3 rounded-2xl text-xs font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="Qty"
+                      value={newItemQty}
+                      onChange={(e) => setNewItemQty(e.target.value)}
+                      className="w-full bg-stone-50 border p-3 rounded-2xl text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+                
+                <button
+                  onClick={addItem}
+                  className="px-4 py-2 bg-stone-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-stone-800"
+                >
+                  <Plus size={14} /> Add Line Item
+                </button>
+              </div>
+
+              {items.length > 0 && (
+                <div className="mt-8 border rounded-2xl p-6 bg-stone-50/50 space-y-4">
+                  <h5 className="text-[9px] font-bold uppercase tracking-wider text-stone-400">Current Items</h5>
+                  <div className="divide-y divide-stone-200 text-xs">
+                    {items.map((item) => (
+                      <div key={item.id} className="flex justify-between items-center py-2">
+                        <span>{item.name} <span className="text-stone-400 text-[10px]">({item.quantity} × £{item.amount})</span></span>
+                        <div className="flex items-center gap-4">
+                          <span className="font-mono font-bold">£{item.total}</span>
+                          <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700"><Minus size={14}/></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t border-stone-100 pt-8 mt-8 flex justify-end">
+                <button
+                  onClick={addInvoice}
+                  className="w-full md:w-auto px-8 py-5 rounded-2xl bg-[#a9b897] text-stone-900 text-xs font-black tracking-widest uppercase hover:bg-[#99a888]"
+                >
+                  Commit Invoice
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quote Modal */}
+        {isQuoteOpen && (
+          <div className="fixed inset-0 bg-stone-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-[3.5rem] p-12 shadow-2xl relative">
+              <button 
+                onClick={() => setIsQuoteOpen(false)}
+                className="absolute right-10 top-10 p-3 bg-stone-50 hover:bg-stone-100 rounded-full transition-colors"
+              >
+                <X size={18} />
+              </button>
+
+              <h2 className="text-3xl font-serif italic text-stone-800 tracking-tight mb-8">Generate Quote</h2>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Client Name</label>
+                  <input
+                    value={quoteClient}
+                    onChange={(e) => setQuoteClient(e.target.value)}
+                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
+                    placeholder="e.g. Black Mesa Corp"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Amount (£)</label>
+                  <input
+                    type="number"
+                    value={quoteAmount}
+                    onChange={(e) => setQuoteAmount(e.target.value)}
+                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
+                    placeholder="e.g. 2000"
+                  />
+                </div>
+                
+                <button
+                  onClick={addQuote}
+                  className="w-full py-5 rounded-2xl bg-[#a9b897] text-stone-900 text-xs font-black tracking-widest uppercase hover:bg-[#99a888] mt-4"
+                >
+                  Save Quote
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Expense Modal */}
+        {isExpenseOpen && (
+          <div className="fixed inset-0 bg-stone-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-[3.5rem] p-12 shadow-2xl relative">
+              <button 
+                onClick={() => setIsExpenseOpen(false)}
+                className="absolute right-10 top-10 p-3 bg-stone-50 hover:bg-stone-100 rounded-full transition-colors"
+              >
+                <X size={18} />
+              </button>
+
+              <h2 className="text-3xl font-serif italic text-stone-800 tracking-tight mb-8">Log New Expense</h2>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Vendor Name</label>
+                  <input
+                    value={expenseVendor}
+                    onChange={(e) => setExpenseVendor(e.target.value)}
+                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
+                    placeholder="e.g. Apex Facilities"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-2">Amount (£)</label>
+                  <input
+                    type="number"
+                    value={expenseAmount}
+                    onChange={(e) => setExpenseAmount(e.target.value)}
+                    className="w-full mt-2 bg-stone-50 border rounded-2xl p-4 text-xs font-bold outline-none text-stone-800"
+                    placeholder="e.g. 150"
+                  />
+                </div>
+
+                <button
+                  onClick={addExpense}
+                  className="w-full py-5 rounded-2xl bg-red-50 text-red-600 border border-red-200 text-xs font-black tracking-widest uppercase hover:bg-red-100/40 mt-4"
+                >
+                  Log Expense
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

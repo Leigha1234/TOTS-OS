@@ -63,24 +63,29 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-4 mb-6">
-        {visibleLinks.map((item) => (
-          <Link 
-            key={item.href} 
-            href={item.href}
-            className={`flex items-center gap-4 p-2.5 rounded-lg transition-colors ${
-              pathname === item.href 
-                ? "bg-stone-200 text-stone-900" 
-                : "text-stone-600 hover:bg-stone-100"
-            }`}
-          >
-            <item.icon size={16} />
-            {!collapsed && (
-              <span className="font-bold uppercase text-[9px] tracking-wider">
-                {item.label}
-              </span>
-            )}
-          </Link>
-        ))}
+        {visibleLinks.map((item) => {
+          // FINAL SAFETY CHECK: If for any reason "Profile" exists, skip it.
+          if (item.label.toLowerCase() === "profile") return null;
+
+          return (
+            <Link 
+              key={item.href} 
+              href={item.href}
+              className={`flex items-center gap-4 p-2.5 rounded-lg transition-colors ${
+                pathname === item.href 
+                  ? "bg-stone-200 text-stone-900" 
+                  : "text-stone-600 hover:bg-stone-100"
+              }`}
+            >
+              <item.icon size={16} />
+              {!collapsed && (
+                <span className="font-bold uppercase text-[9px] tracking-wider">
+                  {item.label}
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="p-4 border-t border-stone-200">

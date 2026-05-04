@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   Plus, FileText, X, Landmark, ShieldAlert, ChevronRight, 
   Search, Mail, Calendar, Receipt, Calculator, Globe, 
-  Upload, UserPlus, Clock, Download, FileSpreadsheet
+  Upload, UserPlus, Clock, Download, FileSpreadsheet, Trash2
 } from "lucide-react";
 import Page from "@/app/components/Page"; 
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,38 +28,31 @@ export default function FinancePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [uploading, setUploading] = useState(false);
 
-  // Expanded Form State
+  // Unified Form State
   const [form, setForm] = useState({ 
-    // Common
     contact_id: "",
     entity_name: "",
     date: new Date().toISOString().split("T")[0],
     currency: "GBP",
     lines: [{ description: "", amount: "" }],
-    
-    // Invoice/Quote Specific
     invoice_number: `REF-${Math.floor(1000 + Math.random() * 9000)}`,
     include_vat: false,
     vat_rate: 20,
     recurring: "none",
     bank_details: "",
     thank_you_message: "Thank you for your business!",
-    
-    // Expense Specific
     receipt_url: "",
-    project_id: "",
-    
-    // Payroll Specific
-    employee: {
-      full_name: "",
-      tax_code: "1257L",
-      rate_type: "annual", // hourly or annual
-      rate_value: 0,
-      hours_worked: 0,
-      holiday_entitlement: 28,
-      pension_opt_in: true,
-      student_loan: false,
-      contract_url: ""
+    // Payroll Specifics (P45/P60 style)
+    payroll: {
+      fullName: "",
+      taxCode: "1257L",
+      rateType: "annual", 
+      rateValue: "",
+      hours: "",
+      holiday: "28",
+      pension: true,
+      studentLoan: false,
+      contractUrl: ""
     }
   });
 
@@ -67,7 +60,6 @@ export default function FinancePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: mem } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).maybeSingle();
-    
     if (mem?.team_id) {
       setTeamId(mem.team_id);
       loadDocs(mem.team_id);
@@ -89,21 +81,16 @@ export default function FinancePage() {
 
   useEffect(() => { init(); }, [init]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, folder: string) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'receipt' | 'contract') => {
     const file = e.target.files?.[0];
     if (!file || !teamId) return;
-
     setUploading(true);
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${teamId}/${folder}/${fileName}`;
-
-    const { error } = await supabase.storage.from('finance_assets').upload(filePath, file);
-    
+    const path = `${teamId}/${field}s/${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage.from('finance').upload(path, file);
     if (!error) {
-      const { data: { publicUrl } } = supabase.storage.from('finance_assets').getPublicUrl(filePath);
-      if (folder === 'receipts') setForm({...form, receipt_url: publicUrl});
-      if (folder === 'contracts') setForm({...form, employee: {...form.employee, contract_url: publicUrl}});
+      const { data } = supabase.storage.from('finance').getPublicUrl(path);
+      if (field === 'receipt') setForm(f => ({ ...f, receipt_url: data.publicUrl }));
+      else setForm(f => ({ ...f, payroll: { ...f.payroll, contractUrl: data.publicUrl }}));
     }
     setUploading(false);
   };
@@ -111,177 +98,191 @@ export default function FinancePage() {
   const netTotal = form.lines.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
   const grossTotal = form.include_vat ? netTotal * (1 + (form.vat_rate / 100)) : netTotal;
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     if (!teamId) return;
-    
-    // Auto-calculating fields for Self Assessment/End of Year
-    const payload = {
+    const { error } = await supabase.from(type).insert([{
       ...form,
       team_id: teamId,
-      amount: grossTotal,
-      status: type === 'quotes' ? 'draft' : 'committed',
-      tax_year: "2025/26", // Mocking current tax year
-    };
-
-    const { error } = await supabase.from(type).insert([payload]);
-    if (!error) {
-        setShowModal(false);
-        loadDocs(teamId);
-    }
+      amount: type === 'payroll' ? form.payroll.rateValue : grossTotal,
+      metadata: { ...form }
+    }]);
+    if (!error) { setShowModal(false); loadDocs(teamId); }
   };
 
   return (
     <Page title="Treasury">
       <div className="min-h-screen bg-[#ecebe6] p-6 md:p-16">
-        
-        {/* Header and Search remain consistent with your premium design */}
-        <div className="max-w-[1400px] mx-auto flex justify-between items-start mb-16">
-          <h1 className="text-8xl font-serif italic text-stone-900 tracking-tighter leading-[0.85]">Capital <br /> Ledger</h1>
-          <button onClick={() => setShowModal(true)} className="bg-stone-900 text-white px-10 py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-3">
-            <Plus size={16} /> New {type.replace('_', ' ')}
-          </button>
+        {/* Header Section */}
+        <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row justify-between items-start gap-12 mb-16">
+          <div className="space-y-6">
+            <p className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400 flex items-center gap-3">
+              <Landmark size={14} strokeWidth={3} /> Institutional Treasury
+            </p>
+            <h1 className="text-8xl font-serif italic text-stone-900 tracking-tighter leading-[0.85]">
+              Capital <br /> Ledger
+            </h1>
+            <button onClick={() => setShowModal(true)} className="bg-stone-900 text-white px-10 py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-[#a9b897] transition-all flex items-center gap-3">
+              <Plus size={16} /> New {type.replace('_', ' ')}
+            </button>
+          </div>
         </div>
 
-        <div className="max-w-[1400px] mx-auto mb-10">
-          <div className="flex gap-3 overflow-x-auto no-scrollbar mb-8">
+        {/* Navigation Tabs */}
+        <div className="max-w-[1400px] mx-auto mb-10 space-y-6">
+          <div className="flex gap-3 overflow-x-auto no-scrollbar">
             {["invoices", "quotes", "expenses", "payroll", "self_assessment", "end_of_year"].map((t) => (
-              <button key={t} onClick={() => setType(t as DocType)} className={`px-8 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${type === t ? 'bg-stone-900 text-white' : 'bg-white text-stone-400'}`}>
+              <button key={t} onClick={() => setType(t as DocType)} className={`px-8 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 ${type === t ? 'bg-stone-900 text-white' : 'bg-white text-stone-400 hover:text-stone-900'}`}>
                 {t.replace('_', ' ')}
               </button>
             ))}
           </div>
         </div>
 
-        {/* MODAL SYSTEM */}
+        {/* Modal Logic */}
         <AnimatePresence>
           {showModal && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-50 flex justify-center items-center p-4">
-              <motion.div initial={{ y: 50 }} animate={{ y: 0 }} className="bg-[#fcfbf8] w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[4rem] p-12 relative shadow-2xl">
-                <button onClick={() => setShowModal(false)} className="absolute top-10 right-10 text-stone-400 hover:text-black"><X size={32}/></button>
+              <motion.div initial={{ y: 50 }} animate={{ y: 0 }} className="bg-[#fcfbf8] w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[3rem] p-10 shadow-2xl relative">
+                <button onClick={() => setShowModal(false)} className="absolute top-8 right-8 text-stone-400"><X size={28}/></button>
                 
-                <h2 className="text-6xl font-serif italic uppercase mb-12">New {type.replace('_', ' ')}</h2>
+                <h2 className="text-5xl font-serif italic mb-10">New {type.replace('_', ' ')}</h2>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                  <div className="lg:col-span-2 space-y-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                  <div className="lg:col-span-2 space-y-6">
                     
-                    {/* TYPE: QUOTES & INVOICES */}
-                    {(type === "quotes" || type === "invoices") && (
+                    {/* INVOICES & QUOTES */}
+                    {(type === "invoices" || type === "quotes") && (
                       <div className="space-y-6">
-                        <select className="w-full bg-white p-5 rounded-3xl border border-stone-200" value={form.contact_id} onChange={e => setForm({...form, contact_id: e.target.value})}>
-                          <option value="">Link to Contact</option>
-                          {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                        <div className="grid grid-cols-2 gap-4">
+                          <select className="w-full bg-white p-4 rounded-2xl border border-stone-200" value={form.contact_id} onChange={e => setForm({...form, contact_id: e.target.value})}>
+                            <option value="">Select Contact</option>
+                            {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                          <input className="w-full bg-white p-4 rounded-2xl border border-stone-200" placeholder="Reference Number" value={form.invoice_number} onChange={e => setForm({...form, invoice_number: e.target.value})} />
+                        </div>
                         
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           {form.lines.map((line, idx) => (
-                            <div key={idx} className="flex gap-4">
-                              <input className="flex-1 bg-white p-5 rounded-3xl border border-stone-200" placeholder="Item description" value={line.description} onChange={e => {
+                            <div key={idx} className="flex gap-3">
+                              <input className="flex-1 bg-white p-4 rounded-2xl border border-stone-200" placeholder="Description" value={line.description} onChange={e => {
                                 const l = [...form.lines]; l[idx].description = e.target.value; setForm({...form, lines: l});
                               }} />
-                              <input className="w-32 bg-white p-5 rounded-3xl border border-stone-200" placeholder="0.00" value={line.amount} onChange={e => {
+                              <input className="w-32 bg-white p-4 rounded-2xl border border-stone-200" placeholder="0.00" value={line.amount} onChange={e => {
                                 const l = [...form.lines]; l[idx].amount = e.target.value; setForm({...form, lines: l});
                               }} />
+                              <button onClick={() => setForm({...form, lines: [...form.lines, {description: "", amount: ""}]})} className="p-4 bg-stone-100 rounded-2xl"><Plus size={16}/></button>
                             </div>
                           ))}
                         </div>
+
+                        {type === "invoices" && (
+                          <div className="space-y-4">
+                            <textarea className="w-full bg-white p-4 rounded-2xl border border-stone-200 text-sm" placeholder="Bank Details" value={form.bank_details} onChange={e => setForm({...form, bank_details: e.target.value})} />
+                            <input className="w-full bg-white p-4 rounded-2xl border border-stone-200 text-sm" placeholder="Thank You Message" value={form.thank_you_message} onChange={e => setForm({...form, thank_you_message: e.target.value})} />
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {/* TYPE: EXPENSES */}
+                    {/* EXPENSES */}
                     {type === "expenses" && (
                       <div className="space-y-6">
-                        <div className="bg-stone-100 border-2 border-dashed border-stone-300 rounded-[2rem] p-12 text-center relative">
-                          <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileUpload(e, 'receipts')} accept=".jpg,.png,.pdf,.xlsx" />
-                          <Upload className="mx-auto text-stone-400 mb-4" size={48} />
-                          <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">
-                            {uploading ? "Uploading..." : form.receipt_url ? "Receipt Uploaded ✓" : "Upload Receipt (Image, PDF, Excel)"}
-                          </p>
+                        <div className="border-2 border-dashed border-stone-200 rounded-3xl p-10 text-center relative hover:border-stone-400 transition-all">
+                          <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileUpload(e, 'receipt')} />
+                          <Upload className="mx-auto text-stone-300 mb-2" size={40} />
+                          <p className="text-[10px] font-black uppercase text-stone-400">{form.receipt_url ? "Receipt Loaded" : "Upload Receipt / Excel / PDF"}</p>
                         </div>
-                        <input className="w-full bg-white p-5 rounded-3xl border border-stone-200" placeholder="Expense Category (e.g. Travel, Subsistence)" />
-                        <select className="w-full bg-white p-5 rounded-3xl border border-stone-200">
-                           <option value="">Assign to Project (Optional)</option>
+                        <input className="w-full bg-white p-4 rounded-2xl border border-stone-200" placeholder="Expense Name/Description" />
+                        <select className="w-full bg-white p-4 rounded-2xl border border-stone-200">
+                          <option>Internal Use</option>
+                          {contacts.map(c => <option key={c.id}>{c.name}</option>)}
                         </select>
                       </div>
                     )}
 
-                    {/* TYPE: PAYROLL */}
+                    {/* PAYROLL */}
                     {type === "payroll" && (
-                      <div className="space-y-6">
+                      <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
-                          <input className="w-full bg-white p-5 rounded-3xl border border-stone-200" placeholder="Employee Full Name" />
-                          <input className="w-full bg-white p-5 rounded-3xl border border-stone-200" placeholder="Tax Code (e.g. 1257L)" />
+                          <input className="bg-white p-4 rounded-2xl border border-stone-200" placeholder="Employee Name" onChange={e => setForm({...form, payroll: {...form.payroll, fullName: e.target.value}})} />
+                          <input className="bg-white p-4 rounded-2xl border border-stone-200" placeholder="Tax Code" value={form.payroll.taxCode} />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <select className="bg-white p-5 rounded-3xl border border-stone-200">
-                            <option>Annual Salary</option>
-                            <option>Hourly Rate</option>
-                          </select>
-                          <input className="w-full bg-white p-5 rounded-3xl border border-stone-200" placeholder="Rate (£)" />
+                        <div className="grid grid-cols-3 gap-4">
+                          <input className="bg-white p-4 rounded-2xl border border-stone-200" placeholder="Hourly/Annual Rate" />
+                          <input className="bg-white p-4 rounded-2xl border border-stone-200" placeholder="Hours Worked" />
+                          <input className="bg-white p-4 rounded-2xl border border-stone-200" placeholder="Holiday (Days)" value={form.payroll.holiday} />
                         </div>
-                        <div className="flex items-center gap-8 p-6 bg-stone-100 rounded-3xl">
-                           <label className="text-[9px] font-black uppercase flex items-center gap-2"><Clock size={12}/> Student Loan</label>
-                           <input type="checkbox" className="accent-stone-900" />
-                           <label className="text-[9px] font-black uppercase flex items-center gap-2">Pension Auto-enroll</label>
-                           <input type="checkbox" defaultChecked className="accent-stone-900" />
+                        <div className="flex gap-6 p-4 bg-stone-50 rounded-2xl border border-stone-100">
+                          <label className="text-[10px] font-black uppercase flex items-center gap-2"><input type="checkbox" defaultChecked /> Pension</label>
+                          <label className="text-[10px] font-black uppercase flex items-center gap-2"><input type="checkbox" /> Student Loan</label>
                         </div>
-                        <button className="w-full bg-stone-200 text-stone-600 p-5 rounded-3xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest">
-                          <UserPlus size={16}/> Upload Employment Contract
-                        </button>
+                        <div className="border border-stone-200 p-4 rounded-2xl flex justify-between items-center">
+                           <span className="text-[10px] font-black uppercase">Employment Contract</span>
+                           <input type="file" className="text-xs" onChange={(e) => handleFileUpload(e, 'contract')} />
+                        </div>
                       </div>
                     )}
 
-                    {/* TYPE: SELF ASSESSMENT & END OF YEAR (Real-time Dash) */}
+                    {/* SELF ASSESSMENT (Based on image_9c6af6.jpg) */}
                     {(type === "self_assessment" || type === "end_of_year") && (
-                      <div className="space-y-8">
-                        <div className="bg-stone-900 text-white p-10 rounded-[3rem]">
-                           <p className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">Estimated Tax Liability</p>
-                           <h3 className="text-6xl font-serif">£14,230.40</h3>
+                      <div className="space-y-6">
+                        <div className="bg-stone-900 text-white p-8 rounded-[2rem] flex justify-between items-end">
+                          <div>
+                            <p className="text-[10px] font-black uppercase opacity-50 mb-1">Real-time Tax Estimate</p>
+                            <h3 className="text-5xl font-serif">£4,231.00</h3>
+                          </div>
+                          <div className="flex gap-2">
+                             <button className="p-3 bg-white/10 rounded-full hover:bg-white/20"><Download size={18}/></button>
+                             <button className="p-3 bg-white/10 rounded-full hover:bg-white/20"><FileSpreadsheet size={18}/></button>
+                          </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                           <div className="p-8 bg-white border border-stone-200 rounded-[2rem]">
-                              <p className="text-[10px] font-black uppercase text-stone-400">Total Turnover</p>
-                              <p className="text-2xl font-serif">£84,000.00</p>
+                           <div className="p-6 bg-white border border-stone-200 rounded-2xl">
+                              <p className="text-[10px] font-black uppercase text-stone-400">Total Turnover (Box 15)</p>
+                              <p className="text-2xl font-serif">£62,000.00</p>
                            </div>
-                           <div className="p-8 bg-white border border-stone-200 rounded-[2rem]">
+                           <div className="p-6 bg-white border border-stone-200 rounded-2xl">
                               <p className="text-[10px] font-black uppercase text-stone-400">Allowable Expenses</p>
-                              <p className="text-2xl font-serif text-red-500">£12,400.00</p>
+                              <p className="text-2xl font-serif text-red-500">£8,400.00</p>
                            </div>
                         </div>
-                        <div className="flex gap-4">
-                           <button className="flex-1 bg-stone-200 p-5 rounded-3xl flex items-center justify-center gap-3 text-[10px] font-black uppercase"><Download size={16}/> PDF Export</button>
-                           <button className="flex-1 bg-stone-200 p-5 rounded-3xl flex items-center justify-center gap-3 text-[10px] font-black uppercase"><FileSpreadsheet size={16}/> Excel Export</button>
-                        </div>
+                        <p className="text-[10px] text-stone-400 italic">Self-employment (full) logic synced with HMRC SA103F 2023 forms.</p>
                       </div>
                     )}
-
                   </div>
 
-                  {/* SIDEBAR: Totals & Summary */}
-                  <div className="bg-stone-100 p-10 rounded-[3rem] space-y-8 h-fit">
-                    {type === "invoices" && (
-                      <div className="space-y-4 pb-8 border-b border-stone-200">
-                        <div className="flex justify-between items-center text-[9px] font-black uppercase text-stone-500">
-                          <span>Recurring</span>
-                          <select className="bg-transparent border-none text-right outline-none cursor-pointer">
-                            <option>None</option>
-                            <option>Monthly</option>
-                            <option>Weekly</option>
-                          </select>
-                        </div>
-                        <div className="flex justify-between items-center text-[9px] font-black uppercase text-stone-500">
-                          <span>Auto-Reminders</span>
-                          <input type="checkbox" className="accent-stone-900" />
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-stone-400 mb-2">Grand Total</p>
-                      <p className="text-5xl font-serif italic text-stone-900">£{grossTotal.toLocaleString()}</p>
+                  {/* Sidebar / Totals */}
+                  <div className="bg-stone-100 p-8 rounded-[2.5rem] space-y-8 h-fit">
+                    <div className="space-y-4">
+                      {type === "invoices" && (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase text-stone-400">Repeat</span>
+                            <select className="text-xs bg-transparent font-bold" value={form.recurring} onChange={e => setForm({...form, recurring: e.target.value})}>
+                              <option value="none">One-off</option>
+                              <option value="weekly">Weekly</option>
+                              <option value="monthly">Monthly</option>
+                            </select>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase text-stone-400">Reminders</span>
+                            <input type="checkbox" className="accent-stone-900" defaultChecked />
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase text-stone-400">VAT (20%)</span>
+                            <input type="checkbox" checked={form.include_vat} onChange={e => setForm({...form, include_vat: e.target.checked})} className="accent-stone-900" />
+                          </div>
+                        </>
+                      )}
                     </div>
 
-                    <button onClick={handleCreate} className="w-full bg-stone-900 text-white py-6 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-[#a9b897] transition-all shadow-xl">
-                      Authorize Entry
+                    <div className="pt-6 border-t border-stone-200">
+                      <p className="text-[10px] font-black uppercase text-stone-400">Grand Total</p>
+                      <h4 className="text-4xl font-serif italic">£{grossTotal.toLocaleString()}</h4>
+                    </div>
+
+                    <button onClick={handleSave} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg">
+                      Confirm Allocation
                     </button>
                   </div>
                 </div>

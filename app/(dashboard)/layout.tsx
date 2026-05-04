@@ -9,7 +9,7 @@ export default function DashboardLayout({
   return (
     // 'fixed inset-0' ensures the layout fills the browser viewport exactly
     // 'flex' establishes the horizontal alignment for the sidebar + main
-    <div className="fixed inset-0 flex w-full h-full overflow-hidden bg-stone-50">
+    <div className="fixed inset-0 flex w-full h-full overflow-hidden bg-[#faf9f6]">
       
       {/* Sidebar container 
          'flex-shrink-0' keeps it from squishing.
@@ -22,8 +22,9 @@ export default function DashboardLayout({
       {/* Main content area 
          'flex-1' takes up the remaining horizontal space.
          'overflow-y-auto' allows the dashboard content to scroll independently.
+         'bg-[#faf9f6]' maintains a seamless aesthetic with the scheduler page.
       */}
-      <main className="flex-1 h-full overflow-y-auto bg-white">
+      <main className="flex-1 h-full overflow-y-auto bg-[#faf9f6]">
         <div className="p-8">
           {children}
         </div>

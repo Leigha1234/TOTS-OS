@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase-client"; // Import sync client
+import { supabase } from "@/lib/supabase-client";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Calendar as CalendarIcon, 
@@ -31,7 +31,6 @@ export default function Scheduler() {
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // -- Clarity Intelligence States --
   const [isAuditing, setIsAuditing] = useState(false);
   const [strategicInsight, setStrategicInsight] = useState<string | null>(null);
 
@@ -41,7 +40,6 @@ export default function Scheduler() {
 
   const fetchScheduledPosts = async () => {
     setLoading(true);
-    // Standard Supabase client fetch (no service role needed)
     const { data, error } = await supabase
       .from("social_posts")
       .select("*")
@@ -50,14 +48,13 @@ export default function Scheduler() {
     if (!error && data) {
       setPosts(data);
     } else if (error) {
-       console.error("Fetch Error:", error);
+      console.error("Fetch Error:", error);
     }
     setLoading(false);
   };
 
   const runStrategicAudit = () => {
     setIsAuditing(true);
-    // Clarity logic: Simulates analyzing post density and platform variety
     setTimeout(() => {
       const platformCounts = posts.reduce((acc: any, post) => {
         acc[post.platform] = (acc[post.platform] || 0) + 1;
@@ -92,8 +89,7 @@ export default function Scheduler() {
 
   return (
     <Page title="">
-      {/* Light background matching system (warm neutral) and overriding any parent container styles */}
-      <div className="min-h-screen bg-[#faf9f6] p-8 md:p-12 text-stone-900">
+      <div className="min-h-screen p-4 md:p-8 text-stone-900">
         <div className="max-w-6xl mx-auto space-y-10">
           
           {/* HEADER SECTION */}
@@ -130,7 +126,7 @@ export default function Scheduler() {
             </div>
           </header>
 
-          {/* CLARITY INSIGHT PANEL (Light Theme) */}
+          {/* CLARITY INSIGHT PANEL */}
           <AnimatePresence>
             {strategicInsight && (
               <motion.div 
@@ -146,7 +142,7 @@ export default function Scheduler() {
                     </button>
                   </div>
                   <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
-                    <div className="h-16 w-16 bg-[#faf9f6] rounded-2xl flex items-center justify-center shrink-0 border border-stone-100">
+                    <div className="h-16 w-16 bg-stone-50 rounded-2xl flex items-center justify-center shrink-0 border border-stone-100">
                       <BarChart3 className="text-[#a9b897]" size={32} />
                     </div>
                     <div className="space-y-1">
@@ -196,7 +192,7 @@ export default function Scheduler() {
                     >
                       {/* DATE ARCHITECTURE */}
                       <div className="flex md:flex-col items-center justify-center min-w-[100px] border-b md:border-b-0 md:border-r border-stone-100 pb-4 md:pb-0 md:pr-10 gap-3 md:gap-1">
-                        <span className="text-[10px] font-black uppercase text-stone-300 tracking-widest">{date.day}</span>
+                        <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest">{date.day}</span>
                         <span className="text-4xl font-serif italic text-stone-900 leading-none">{date.num}</span>
                         <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest">{date.month}</span>
                       </div>
@@ -210,9 +206,9 @@ export default function Scheduler() {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
                           />
                         ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-stone-200 gap-2 italic bg-[#faf9f6]">
+                          <div className="w-full h-full flex flex-col items-center justify-center text-stone-300 gap-2 italic bg-stone-50">
                             <ImageIcon size={24} strokeWidth={1} />
-                            <span className="text-[8px] font-black uppercase tracking-tighter text-stone-300">No Visual</span>
+                            <span className="text-[8px] font-black uppercase tracking-tighter text-stone-400">No Visual</span>
                           </div>
                         )}
                         <div className="absolute top-2 right-2 bg-white/80 backdrop-blur shadow-sm p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
@@ -253,7 +249,7 @@ export default function Scheduler() {
 
                       {/* ENTER ACTION */}
                       <div className="hidden lg:block shrink-0">
-                        <button className="h-14 w-14 rounded-full border border-stone-100 bg-[#faf9f6] flex items-center justify-center text-stone-300 group-hover:bg-stone-900 group-hover:text-[#a9b897] group-hover:border-stone-900 scale-100 hover:scale-110 transition-all duration-300 shadow-sm cursor-pointer">
+                        <button className="h-14 w-14 rounded-full border border-stone-100 bg-stone-50 flex items-center justify-center text-stone-300 group-hover:bg-stone-900 group-hover:text-[#a9b897] group-hover:border-stone-900 scale-100 hover:scale-110 transition-all duration-300 shadow-sm cursor-pointer">
                           <ChevronRight size={20} />
                         </button>
                       </div>

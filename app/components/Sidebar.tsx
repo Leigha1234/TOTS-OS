@@ -11,9 +11,9 @@ import {
 
 // 1. Define tier-based module visibility
 const MODULE_PERMISSIONS: Record<string, string[]> = {
-  STANDARD: ["Dashboard", "Profile", "Contacts", "Tasks", "Notes", "Calendar"],
-  PREMIUM: ["Dashboard", "Profile", "Contacts", "Tasks", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets"],
-  ELITE: ["Dashboard", "Profile", "Contacts", "Tasks", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets", "Reports", "Social Scheduler", "Social", "Vault", "Settings"],
+  STANDARD: ["Dashboard", "Contacts", "Tasks", "Notes", "Calendar"],
+  PREMIUM: ["Dashboard", "Contacts", "Tasks", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets"],
+  ELITE: ["Dashboard", "Contacts", "Tasks", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets", "Reports", "Social Scheduler", "Social", "Vault", "Settings"],
 };
 
 export default function Sidebar() {

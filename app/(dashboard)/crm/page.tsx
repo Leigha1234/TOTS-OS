@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase-client";
 import { 
   User, Plus, Building2, ArrowRight, Search, Mail, Phone, 
   MapPin, FileText, Briefcase, MessageSquare, MailWarning,
-  CheckCircle2, X
+  CheckCircle2, X, ListFilter
 } from "lucide-react";
 import Link from "next/link";
 
@@ -24,12 +24,14 @@ export default function CRMDirectory() {
     phone: "",
     address: "",
     on_mailing_list: true,
-    mailing_list_category: "General"
+    mailing_list_category: "General",
+    project_count: 0,
+    invoice_count: 0,
+    message_count: 0
   });
 
   useEffect(() => {
     fetchDirectory();
-
     const channel = supabase
       .channel('schema-db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => fetchDirectory())
@@ -39,11 +41,12 @@ export default function CRMDirectory() {
   }, []);
 
   async function fetchDirectory() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("customers")
       .select("*")
       .order('created_at', { ascending: false });
 
+    if (error) console.error("Fetch error:", error);
     if (data) setCustomers(data);
     setLoading(false);
   }
@@ -52,45 +55,53 @@ export default function CRMDirectory() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const { error } = await supabase
+    // Attempt to insert into Supabase
+    const { data, error } = await supabase
       .from("customers")
-      .insert([formData]);
+      .insert([formData])
+      .select();
 
     if (error) {
-      console.error("Error adding contact:", error.message);
-      alert("Error initializing node. Check RLS policies.");
+      console.error("Critical Error:", error);
+      alert(`System Error: ${error.message}\n\nCheck if your 'customers' table has columns for: address, phone, on_mailing_list, and mailing_list_category.`);
     } else {
+      console.log("Node Initialized:", data);
       setIsModalOpen(false);
+      // Reset form
       setFormData({
         name: "", company: "", email: "", phone: "", 
-        address: "", on_mailing_list: true, mailing_list_category: "General"
+        address: "", on_mailing_list: true, mailing_list_category: "General",
+        project_count: 0, invoice_count: 0, message_count: 0
       });
+      fetchDirectory(); // Refresh manually just in case real-time lags
     }
     setIsSubmitting(false);
   }
 
   const filtered = customers.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    (c.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) || 
+    (c.company?.toLowerCase() || "").includes(searchTerm.toLowerCase())
   );
 
   if (loading) return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
       <div className="w-12 h-12 border-4 border-[#a9b897] border-t-transparent rounded-full animate-spin"></div>
-      <p className="font-serif italic text-stone-500">Scanning Directory...</p>
+      <p className="font-serif italic text-stone-500 text-sm tracking-widest uppercase">Syncing Registry...</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-black text-white p-8 md:p-16">
-      <div className="max-w-6xl mx-auto space-y-12">
+    <div className="min-h-screen bg-black text-white p-8 md:p-16 selection:bg-[#a9b897] selection:text-black">
+      <div className="max-w-7xl mx-auto space-y-12">
         
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-stone-900 pb-8">
-          <div className="space-y-2">
-            <p className="text-[#a9b897] text-[10px] font-black uppercase tracking-[0.4em]">Central Intelligence</p>
-            <h1 className="text-6xl font-serif italic tracking-tighter">CRM Directory</h1>
+        {/* Navigation / Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-stone-900 pb-12">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-[1px] bg-[#a9b897]"></span>
+              <p className="text-[#a9b897] text-[10px] font-black uppercase tracking-[0.5em]">Central Intelligence</p>
+            </div>
+            <h1 className="text-7xl font-serif italic tracking-tighter">Directory</h1>
           </div>
           
           <div className="flex items-center gap-4">
@@ -98,108 +109,94 @@ export default function CRMDirectory() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-600 group-focus-within:text-[#a9b897] transition-colors" size={16} />
               <input 
                 type="text"
-                placeholder="Search Nodes..."
+                placeholder="Search Database..."
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-stone-900/50 border border-stone-800 rounded-2xl py-4 pl-12 pr-6 text-xs font-mono focus:outline-none focus:border-[#a9b897]/50 w-64 transition-all"
+                className="bg-stone-900/40 border border-stone-800 rounded-2xl py-4 pl-12 pr-6 text-xs font-mono focus:outline-none focus:border-[#a9b897]/50 w-72 transition-all backdrop-blur-sm"
               />
             </div>
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="bg-[#a9b897] text-black p-5 rounded-3xl hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(169,184,151,0.2)]"
+              className="bg-[#a9b897] text-black p-5 rounded-[1.5rem] hover:rotate-90 hover:bg-white transition-all duration-500 shadow-xl"
             >
               <Plus size={24} />
             </button>
           </div>
         </div>
 
-        {/* Directory Grid */}
-        <div className="grid gap-6">
+        {/* List View */}
+        <div className="grid gap-4">
           {filtered.length === 0 ? (
-            <div className="border border-dashed border-stone-800 rounded-[3rem] p-24 text-center">
-              <p className="font-serif italic text-stone-500 text-xl">No active nodes detected.</p>
+            <div className="border border-stone-900 rounded-[3rem] py-32 text-center bg-stone-900/10">
+              <p className="font-serif italic text-stone-600 text-2xl">Zero nodes match your query.</p>
             </div>
           ) : (
             filtered.map((customer) => (
               <Link 
                 href={`/crm/${customer.id}`} 
                 key={customer.id}
-                className="group p-8 rounded-[2.5rem] bg-stone-900/20 border border-stone-800/50 hover:border-[#a9b897]/50 hover:bg-stone-900/40 transition-all block"
+                className="group relative p-1 rounded-[2.5rem] overflow-hidden transition-all active:scale-[0.99]"
               >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+                <div className="absolute inset-0 bg-gradient-to-r from-stone-800/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative p-8 rounded-[2.4rem] bg-stone-950 border border-stone-900 group-hover:border-stone-700 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                   
-                  {/* Left: Identity */}
-                  <div className="flex items-start gap-6">
-                    <div className="p-5 bg-stone-900 rounded-3xl text-stone-600 group-hover:text-[#a9b897] group-hover:bg-stone-800 transition-all">
-                      <User size={32} />
+                  {/* Identity Section */}
+                  <div className="flex items-center gap-8">
+                    <div className="relative">
+                      <div className="p-6 bg-stone-900 rounded-[2rem] text-stone-500 group-hover:text-[#a9b897] transition-all duration-500 group-hover:bg-black border border-transparent group-hover:border-stone-800">
+                        <User size={32} />
+                      </div>
+                      {customer.on_mailing_list && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#a9b897] rounded-full border-4 border-black" />
+                      )}
                     </div>
                     <div>
-                      <h3 className="text-3xl font-serif italic tracking-tight mb-1">{customer.name}</h3>
-                      <div className="flex items-center gap-2 text-stone-500 text-[10px] uppercase font-black tracking-widest">
-                        <Building2 size={12} className="text-[#a9b897]" />
-                        {customer.company || "Independent Record"}
-                      </div>
-                      
-                      <div className="mt-4 flex items-center gap-3">
-                        {customer.on_mailing_list ? (
-                          <div className="flex items-center gap-1.5 px-3 py-1 bg-[#a9b897]/10 border border-[#a9b897]/20 rounded-full text-[#a9b897] text-[8px] font-black uppercase tracking-tighter">
-                            <CheckCircle2 size={10} /> Subscribed: {customer.mailing_list_category}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full text-red-500 text-[8px] font-black uppercase tracking-tighter">
-                            <MailWarning size={10} /> Unsubscribed
+                      <h3 className="text-4xl font-serif italic tracking-tight leading-none mb-3 group-hover:text-[#a9b897] transition-colors">{customer.name}</h3>
+                      <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2 text-stone-500 text-[10px] uppercase font-black tracking-widest bg-stone-900/50 px-3 py-1 rounded-full border border-stone-800">
+                          <Building2 size={12} className="text-[#a9b897]" />
+                          {customer.company || "Independent"}
+                        </div>
+                        {customer.mailing_list_category && (
+                          <div className="flex items-center gap-2 text-[#a9b897] text-[10px] uppercase font-black tracking-widest border border-[#a9b897]/20 px-3 py-1 rounded-full">
+                            <ListFilter size={10} /> {customer.mailing_list_category}
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Center: Contact Metadata */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-3 px-4 py-6 border-y lg:border-y-0 lg:border-x border-stone-800/50">
-                    <div className="flex items-center gap-3 text-stone-400">
-                      <Mail size={14} className="text-stone-600" />
-                      <span className="text-xs font-mono">{customer.email || "no-email@entry.io"}</span>
+                  {/* Metadata Section */}
+                  <div className="flex flex-col gap-2 py-6 lg:py-0 px-8 border-l border-stone-900">
+                    <div className="flex items-center gap-3 text-stone-500 group-hover:text-stone-300 transition-colors">
+                      <Mail size={14} />
+                      <span className="text-xs font-mono lowercase tracking-tighter">{customer.email || "---"}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-stone-400">
-                      <Phone size={14} className="text-stone-600" />
-                      <span className="text-xs font-mono">{customer.phone || "--"}</span>
+                    <div className="flex items-center gap-3 text-stone-500 group-hover:text-stone-300 transition-colors">
+                      <Phone size={14} />
+                      <span className="text-xs font-mono uppercase tracking-widest">{customer.phone || "---"}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-stone-400 sm:col-span-2">
-                      <MapPin size={14} className="text-stone-600" />
-                      <span className="text-xs font-serif italic">{customer.address || "No physical address logged"}</span>
-                    </div>
-                  </div>
-
-                  {/* Right: Activity Summary */}
-                  <div className="flex items-center justify-between lg:justify-end gap-8">
-                    <div className="flex gap-6">
-                      <div className="text-center group-hover:scale-110 transition-transform">
-                        <p className="text-[8px] font-black text-stone-600 uppercase mb-1">Projects</p>
-                        <div className="flex items-center gap-1 text-[#a9b897]">
-                          <Briefcase size={12} />
-                          <span className="text-sm font-bold tracking-tighter">{customer.project_count || 0}</span>
-                        </div>
-                      </div>
-                      <div className="text-center group-hover:scale-110 transition-transform delay-75">
-                        <p className="text-[8px] font-black text-stone-600 uppercase mb-1">Docs</p>
-                        <div className="flex items-center gap-1 text-white">
-                          <FileText size={12} />
-                          <span className="text-sm font-bold tracking-tighter">{customer.invoice_count || 0}</span>
-                        </div>
-                      </div>
-                      <div className="text-center group-hover:scale-110 transition-transform delay-150">
-                        <p className="text-[8px] font-black text-stone-600 uppercase mb-1">Intel</p>
-                        <div className="flex items-center gap-1 text-stone-400">
-                          <MessageSquare size={12} />
-                          <span className="text-sm font-bold tracking-tighter">{customer.message_count || 0}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="w-12 h-12 rounded-full border border-stone-800 flex items-center justify-center group-hover:border-[#a9b897] transition-all group-hover:translate-x-2">
-                      <ArrowRight size={20} className="text-stone-600 group-hover:text-[#a9b897]" />
+                    <div className="flex items-center gap-3 text-stone-600">
+                      <MapPin size={14} />
+                      <span className="text-[10px] font-serif italic truncate max-w-[200px]">{customer.address || "No Address Found"}</span>
                     </div>
                   </div>
 
+                  {/* Status Section */}
+                  <div className="flex items-center gap-12">
+                    <div className="hidden xl:flex items-center gap-8">
+                      <div className="text-center">
+                        <p className="text-[8px] font-black text-stone-700 uppercase tracking-widest mb-1">Projects</p>
+                        <span className="text-xl font-mono text-stone-300">{customer.project_count || 0}</span>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[8px] font-black text-stone-700 uppercase tracking-widest mb-1">Invoices</p>
+                        <span className="text-xl font-mono text-stone-300">{customer.invoice_count || 0}</span>
+                      </div>
+                    </div>
+                    <div className="w-16 h-16 rounded-full border border-stone-900 flex items-center justify-center group-hover:bg-[#a9b897] transition-all group-hover:border-transparent group-hover:translate-x-2">
+                      <ArrowRight size={24} className="text-stone-700 group-hover:text-black" />
+                    </div>
+                  </div>
                 </div>
               </Link>
             ))
@@ -207,100 +204,109 @@ export default function CRMDirectory() {
         </div>
       </div>
 
-      {/* ADD CONTACT MODAL */}
+      {/* CREATE NODE MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 w-full max-w-2xl rounded-[3rem] p-10 relative shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-6 overflow-y-auto">
+          <div className="bg-stone-950 border border-stone-800 w-full max-w-2xl rounded-[3rem] p-12 relative shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-500">
             <button 
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-8 right-8 text-stone-500 hover:text-white transition-colors"
+              className="absolute top-10 right-10 text-stone-500 hover:text-white transition-colors"
             >
-              <X size={24} />
+              <X size={32} />
             </button>
 
-            <div className="mb-8">
-              <p className="text-[#a9b897] text-[10px] font-black uppercase tracking-[0.4em] mb-2">System Entry</p>
-              <h2 className="text-4xl font-serif italic">Initialize Contact Node</h2>
+            <div className="mb-12">
+              <p className="text-[#a9b897] text-[10px] font-black uppercase tracking-[0.6em] mb-4">Initialize New Node</p>
+              <h2 className="text-5xl font-serif italic tracking-tighter">Contact Parameters</h2>
             </div>
 
-            <form onSubmit={handleAddContact} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[9px] uppercase font-black tracking-widest text-stone-500 ml-2">Full Identity</label>
+            <form onSubmit={handleAddContact} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-stone-500 ml-1">Identity</label>
                   <input 
                     required
-                    placeholder="Name"
-                    className="w-full bg-black border border-stone-800 rounded-2xl p-4 text-xs font-mono outline-none focus:border-[#a9b897]/50"
+                    placeholder="Full Name"
+                    className="w-full bg-stone-900/50 border border-stone-800 rounded-2xl p-5 text-sm font-mono outline-none focus:border-[#a9b897] transition-all"
+                    value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] uppercase font-black tracking-widest text-stone-500 ml-2">Organization</label>
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-stone-500 ml-1">Company</label>
                   <input 
-                    placeholder="Company Name"
-                    className="w-full bg-black border border-stone-800 rounded-2xl p-4 text-xs font-mono outline-none focus:border-[#a9b897]/50"
+                    placeholder="Organization Name"
+                    className="w-full bg-stone-900/50 border border-stone-800 rounded-2xl p-5 text-sm font-mono outline-none focus:border-[#a9b897] transition-all"
+                    value={formData.company}
                     onChange={(e) => setFormData({...formData, company: e.target.value})}
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] uppercase font-black tracking-widest text-stone-500 ml-2">Direct Mail</label>
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-stone-500 ml-1">Signal (Email)</label>
                   <input 
                     type="email"
-                    placeholder="email@address.com"
-                    className="w-full bg-black border border-stone-800 rounded-2xl p-4 text-xs font-mono outline-none focus:border-[#a9b897]/50"
+                    placeholder="name@domain.com"
+                    className="w-full bg-stone-900/50 border border-stone-800 rounded-2xl p-5 text-sm font-mono outline-none focus:border-[#a9b897] transition-all"
+                    value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] uppercase font-black tracking-widest text-stone-500 ml-2">Signal Line</label>
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-stone-500 ml-1">Signal (Phone)</label>
                   <input 
-                    placeholder="+1 (000) 000-0000"
-                    className="w-full bg-black border border-stone-800 rounded-2xl p-4 text-xs font-mono outline-none focus:border-[#a9b897]/50"
+                    placeholder="+1 000 000 0000"
+                    className="w-full bg-stone-900/50 border border-stone-800 rounded-2xl p-5 text-sm font-mono outline-none focus:border-[#a9b897] transition-all"
+                    value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
                   />
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-[9px] uppercase font-black tracking-widest text-stone-500 ml-2">Physical Location</label>
+                <div className="space-y-3 md:col-span-2">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-stone-500 ml-1">Physical Location</label>
                   <input 
-                    placeholder="Full Business Address"
-                    className="w-full bg-black border border-stone-800 rounded-2xl p-4 text-xs font-mono outline-none focus:border-[#a9b897]/50"
+                    placeholder="Street, City, Country"
+                    className="w-full bg-stone-900/50 border border-stone-800 rounded-2xl p-5 text-sm font-serif italic outline-none focus:border-[#a9b897] transition-all"
+                    value={formData.address}
                     onChange={(e) => setFormData({...formData, address: e.target.value})}
                   />
                 </div>
               </div>
 
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-black rounded-3xl border border-stone-800 gap-4">
-                <div className="flex items-center gap-4">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.on_mailing_list}
-                    onChange={(e) => setFormData({...formData, on_mailing_list: e.target.checked})}
-                    className="w-5 h-5 accent-[#a9b897] bg-stone-900 border-stone-800 rounded"
-                  />
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-8 bg-stone-900/30 rounded-[2rem] border border-stone-800/50 gap-6">
+                <div className="flex items-center gap-6">
+                  <button 
+                    type="button"
+                    onClick={() => setFormData({...formData, on_mailing_list: !formData.on_mailing_list})}
+                    className={`w-14 h-8 rounded-full transition-all relative ${formData.on_mailing_list ? 'bg-[#a9b897]' : 'bg-stone-800'}`}
+                  >
+                    <div className={`absolute top-1 w-6 h-6 rounded-full bg-black transition-all ${formData.on_mailing_list ? 'left-7' : 'left-1'}`} />
+                  </button>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest">Global Broadcast</p>
-                    <p className="text-[10px] text-stone-500 italic font-serif">Include in automated mailing lists</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Mailing List</p>
+                    <p className="text-[10px] text-stone-500 italic font-serif">Global broadcast enabled</p>
                   </div>
                 </div>
                 
-                <select 
-                  className="bg-stone-900 border border-stone-800 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none text-[#a9b897]"
-                  value={formData.mailing_list_category}
-                  onChange={(e) => setFormData({...formData, mailing_list_category: e.target.value})}
-                >
-                  <option value="General">General List</option>
-                  <option value="VIP">VIP / Priority</option>
-                  <option value="Lead">Lead / Prospect</option>
-                  <option value="Internal">Internal Team</option>
-                </select>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[8px] uppercase font-black text-stone-600 tracking-widest">Select Category</label>
+                  <select 
+                    className="bg-black border border-stone-800 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none text-[#a9b897] appearance-none cursor-pointer"
+                    value={formData.mailing_list_category}
+                    onChange={(e) => setFormData({...formData, mailing_list_category: e.target.value})}
+                  >
+                    <option value="General">General</option>
+                    <option value="VIP">VIP / Priority</option>
+                    <option value="Lead">Lead</option>
+                    <option value="Client">Active Client</option>
+                  </select>
+                </div>
               </div>
 
               <button 
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-[#a9b897] text-black py-6 rounded-3xl font-black uppercase text-xs tracking-[0.3em] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                className="w-full bg-[#a9b897] text-black py-8 rounded-3xl font-black uppercase text-sm tracking-[0.5em] hover:bg-white hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_30px_rgba(169,184,151,0.1)]"
               >
-                {isSubmitting ? "Syncing Logic..." : "Deploy Node to Registry"}
+                {isSubmitting ? "Encrypting Node..." : "Initialize Profile"}
               </button>
             </form>
           </div>

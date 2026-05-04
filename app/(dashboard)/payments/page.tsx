@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
-  Banknote, 
   Plus, 
-  Calculator, 
   Send, 
   Percent,
   Minus,
@@ -13,31 +11,23 @@ import {
   FileText,
   Save,
   Check,
-  UserPlus,
   Briefcase,
   TrendingUp,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  Activity,
   BarChart3,
-  Search,
-  DollarSign,
   Users,
   ShieldCheck,
   FileSpreadsheet,
-  FolderLock,
   ArrowUpRight,
   ArrowDownLeft,
   ShieldAlert,
   FileDigit,
-  ReceiptText
+  UserPlus
 } from "lucide-react";
 
-export default function FinancePage() {
+export default function ApexOS() {
   const [isMounted, setIsMounted] = useState(false);
 
-  // Financial Dashboard Metrics
+  // Financial Dashboard Metrics 
   const [metrics, setMetrics] = useState({
     revYtd: 142500,
     liabilities: 28500,
@@ -48,24 +38,21 @@ export default function FinancePage() {
     pendingInvoices: 5
   });
 
-  // Common Ledger Data
+  // Ledger States
   const [items, setItems] = useState<any[]>([]);
   const [newItemName, setNewItemName] = useState("");
   const [newItemAmount, setNewItemAmount] = useState("");
   const [newItemQty, setNewItemQty] = useState("1");
-  const [vatRate, setVatRate] = useState("20"); 
-  const [discountAmount, setDiscountAmount] = useState("");
-  const [liabilityLabel, setNewLiabilityLabel] = useState("");
-  const [liabilityAmount, setNewLiabilityAmount] = useState("");
-
-  // Subledger Records (Quotes & Payroll)
+  
+  // Quotes & Invoices state
   const [quotes, setQuotes] = useState<any[]>([
     { id: "1", client: "Aperture Labs", amount: 12000, status: "pending", date: "2026-05-12" },
     { id: "2", client: "Black Mesa Corp", amount: 4500, status: "approved", date: "2026-05-15" }
   ]);
   const [quoteClient, setQuoteClient] = useState("");
   const [quoteAmount, setQuoteAmount] = useState("");
-
+  
+  // Payroll / Ledger states
   const [payrollEntries, setPayrollEntries] = useState<any[]>([
     { id: "1", employee: "Sarah Chen", role: "Developer", rate: 50, hours: 40, total: 2000 },
     { id: "2", employee: "Marcus Brody", role: "Designer", rate: 45, hours: 38, total: 1710 }
@@ -75,7 +62,13 @@ export default function FinancePage() {
   const [empHoursInput, setEmpHoursInput] = useState("");
   const [empRateInput, setEmpRateInput] = useState("");
 
-  // HR Onboarding States
+  // Ledger calculation states
+  const [vatRate, setVatRate] = useState("20"); 
+  const [discountAmount, setDiscountAmount] = useState("");
+  const [liabilityLabel, setNewLiabilityLabel] = useState("");
+  const [liabilityAmount, setNewLiabilityAmount] = useState("");
+  
+  // Onboarding states
   const [empName, setEmpName] = useState("Jane Doe");
   const [empRole, setEmpRole] = useState("Marketing Executive");
   const [bankDetails, setBankDetails] = useState("");
@@ -126,6 +119,7 @@ export default function FinancePage() {
         total: amount * qty,
       }
     ]);
+
     setNewItemName("");
     setNewItemAmount("");
     setNewItemQty("1");
@@ -144,7 +138,7 @@ export default function FinancePage() {
         client: quoteClient,
         amount: parseFloat(quoteAmount),
         status: "pending",
-        date: new Date().toISOString().split("T")[0]
+        date: new Date().toISOString().split('T')[0]
       }
     ]);
     setQuoteClient("");
@@ -167,6 +161,7 @@ export default function FinancePage() {
         total: rate * hours
       }
     ]);
+
     setEmpNameInput("");
     setEmpRoleInput("");
     setEmpHoursInput("");
@@ -234,7 +229,6 @@ export default function FinancePage() {
 
       {/* METRIC CARD SUITE */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        
         <motion.div 
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="bg-stone-900 text-stone-100 p-10 rounded-[2.5rem] shadow-2xl flex flex-col justify-between min-h-[220px] relative overflow-hidden group"
@@ -295,7 +289,7 @@ export default function FinancePage() {
           </div>
           <div className="mt-8">
             <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.calculatedTaxDue.toLocaleString()}</p>
-            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Estimated Liability</p>
+            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Calculated Tax Due</p>
           </div>
         </motion.div>
       </div>
@@ -408,7 +402,7 @@ export default function FinancePage() {
           </div>
         </div>
 
-        {/* COLUMN 2 AND 3: ALL MODULES, INCLUDING STATEMENTS AND FORMS */}
+        {/* COLUMN 2 AND 3: ALL MODULES, STATEMENTS, AND FORMS */}
         <div className="lg:col-span-2 space-y-8">
           
           {/* BALANCE SHEET & INCOME STATEMENT VIEW */}
@@ -479,8 +473,79 @@ export default function FinancePage() {
               </div>
             </div>
           </div>
-          
-          {/* PAYROLL AND TEAM MODULE */}
+
+          {/* TEAM MATRIX ONBOARDING MODULE */}
+          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
+            <div className="flex items-center gap-3 text-stone-800">
+              <UserPlus size={18} className="text-[#a9b897]" />
+              <h4 className="text-xl font-serif italic tracking-tight">Onboard New Team Member</h4>
+            </div>
+            <p className="text-[10px] uppercase font-black tracking-widest text-stone-400">Team Matrix Database Update</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Name</label>
+                <input
+                  value={empName}
+                  onChange={(e) => setEmpName(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Role/Title</label>
+                <input
+                  value={empRole}
+                  onChange={(e) => setEmpRole(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Bank Details</label>
+                <input
+                  placeholder="Bank name and account information"
+                  value={bankDetails}
+                  onChange={(e) => setBankDetails(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Next of Kin</label>
+                <input
+                  placeholder="Name and number"
+                  value={nextOfKin}
+                  onChange={(e) => setNextOfKin(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm text-stone-800 focus:ring-4 ring-[#a9b897]/5 outline-none font-medium"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm text-stone-800 focus:ring-4 ring-[#a9b897]/5 outline-none font-medium"
+                />
+              </div>
+            </div>
+
+            <button 
+              onClick={() => alert(`Team Member ${empName} submitted successfully.`)}
+              className="w-full py-4 bg-[#a9b897]/20 border border-[#a9b897]/30 text-stone-900 rounded-2xl text-xs uppercase font-bold hover:bg-[#a9b897]/30 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Briefcase size={14} /> Submit to Team Matrix
+            </button>
+          </div>
+
+          {/* PAYROLL MODULE */}
           <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
             <div className="flex items-center justify-between">
               <h4 className="text-xl font-serif italic text-stone-800 tracking-tight">Active Payroll Log</h4>
@@ -550,7 +615,7 @@ export default function FinancePage() {
               ))}
             </div>
           </div>
-          
+
           {/* QUOTES MANIFEST MODULE */}
           <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
             <h4 className="text-xl font-serif italic text-stone-800 tracking-tight">Quotes Manifest</h4>
@@ -644,11 +709,12 @@ export default function FinancePage() {
             </div>
           </div>
 
+          {/* GLOBAL ACTION BUTTONS */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <button onClick={handleDispatch} className="py-4 bg-white border border-stone-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-stone-700 hover:border-stone-400 transition-all shadow-sm">
               <Mail size={16} /><span className="text-[8px] font-black uppercase tracking-wider">Email Client</span>
             </button>
-            <button onClick={() => alert("PDF Export feature processing.")} className="py-4 bg-white border border-stone-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-stone-700 hover:border-stone-400 transition-all shadow-sm">
+            <button onClick={() => alert("Exporting Invoice PDF Document.")} className="py-4 bg-white border border-stone-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-stone-700 hover:border-stone-400 transition-all shadow-sm">
               <FileText size={16} /><span className="text-[8px] font-black uppercase tracking-wider">Export PDF</span>
             </button>
             <button onClick={handleSaveDraft} className="py-4 bg-white border border-stone-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-stone-700 hover:border-stone-400 transition-all shadow-sm">

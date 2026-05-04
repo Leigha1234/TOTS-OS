@@ -9,6 +9,7 @@ import {
   Calendar, Megaphone, StickyNote, DollarSign, BarChart3, Share2, Globe, Clock, Lock
 } from "lucide-react";
 
+// 1. Define tier-based module visibility (Ensure "Profile" is NOT here)
 const MODULE_PERMISSIONS: Record<string, string[]> = {
   STANDARD: ["Dashboard", "Contacts", "Tasks", "Notes", "Calendar"],
   PREMIUM: ["Dashboard", "Contacts", "Tasks", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets"],
@@ -49,6 +50,7 @@ export default function Sidebar() {
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
+  // 2. Filter links based on current user tier
   const visibleLinks = allLinks.filter(link => 
     MODULE_PERMISSIONS[userTier]?.includes(link.label)
   );
@@ -63,9 +65,12 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-4 mb-6">
+        {/* Looping through visibleLinks. 
+            NOTE: I've added a hard check inside the map to skip "Profile" 
+            if it somehow exists in the source.
+        */}
         {visibleLinks.map((item) => {
-          // FINAL SAFETY CHECK: If for any reason "Profile" exists, skip it.
-          if (item.label.toLowerCase() === "profile") return null;
+          if (item.label === "Profile") return null;
 
           return (
             <Link 

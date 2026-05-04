@@ -100,7 +100,7 @@ export default function SettingsPage() {
         setNewPassword("");
       }
 
-      alert("Node Synchronized: Changes Committed.");
+      alert("Node Synchronized.");
     } catch (err) { alert("Sync Error."); } finally { setSaving(false); }
   };
 
@@ -134,14 +134,13 @@ export default function SettingsPage() {
                {isDarkMode ? <Sun size={20} className="text-black"/> : <Moon size={20} />}
             </button>
             <button onClick={handleGlobalSave} disabled={saving} className="flex items-center gap-4 bg-stone-900 text-[#a9b897] px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl">
-              {saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />} Commit All Changes
+              {saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />} Commit All
             </button>
           </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           
-          {/* LEFT: IDENTITY & LOCALIZATION */}
           <div className="lg:col-span-4 space-y-12">
             <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-8">
               <div className="flex flex-col items-center gap-6">
@@ -171,7 +170,6 @@ export default function SettingsPage() {
             </section>
           </div>
 
-          {/* RIGHT: TEAM, SIGNATURE, BANKING */}
           <div className="lg:col-span-8 space-y-12">
             <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm">
               <div className="flex justify-between items-center mb-10">
@@ -181,7 +179,7 @@ export default function SettingsPage() {
               <div className="space-y-8">
                 <input placeholder="Invite email..." value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="w-full p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-base outline-none" />
                 {inviteEmail.length > 0 && (
-                  <div className="space-y-6 pt-6 border-t border-stone-50 animate-in fade-in zoom-in-95">
+                  <div className="space-y-6 pt-6 border-t border-stone-50">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {APP_PAGES.map((page) => (
                         <button key={page.id} onClick={() => setSelectedPermissions(prev => prev.includes(page.id) ? prev.filter(p => p !== page.id) : [...prev, page.id])} className={`p-4 rounded-2xl border text-[9px] font-black uppercase transition-all ${selectedPermissions.includes(page.id) ? 'border-[#a9b897] bg-[#a9b897]/5 text-stone-900' : 'border-stone-100 text-stone-300'}`}>{page.label}</button>
@@ -204,13 +202,11 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-4">
                 <h2 className="text-[10px] font-black uppercase tracking-widest opacity-40 flex items-center gap-2"><Zap size={14}/> Integrations</h2>
-                <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="Outgoing Webhook URL" className="w-full p-4 bg-stone-50 rounded-2xl text-[10px] font-mono outline-none border border-stone-100" />
+                <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="Webhook URL" className="w-full p-4 bg-stone-50 rounded-2xl text-[10px] font-mono outline-none border border-stone-100" />
               </section>
               <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-4">
                 <h2 className="text-[10px] font-black uppercase tracking-widest opacity-40 flex items-center gap-2"><History size={14}/> Audit Log</h2>
-                <div className="text-[9px] font-bold opacity-30 space-y-2">
-                  <p>• Today: Profile Updated</p><p>• Yesterday: New Seat Added</p>
-                </div>
+                <div className="text-[9px] font-bold opacity-30 space-y-2"><p>• Profile Synchronized</p><p>• Security Key Updated</p></div>
               </section>
             </div>
 
@@ -219,41 +215,52 @@ export default function SettingsPage() {
               <textarea value={profile?.email_signature || ""} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Regards, Management" className="w-full h-32 p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-sm outline-none resize-none" />
             </section>
 
-            {/* BANKING SECTION - FIXED LAYOUT */}
-            <section className="bg-stone-900 text-white p-10 rounded-[3.5rem] space-y-8">
-              <div className="flex items-center gap-3 opacity-40">
-                <Landmark size={20} />
-                <h2 className="text-[11px] font-black uppercase tracking-widest leading-none">Banking Distribution</h2>
+            {/* RE-BUILT BANKING SECTION - PREVENTS SQUASHING IN IMAGE_666D1E.PNG */}
+            <section className="bg-stone-900 text-white p-12 rounded-[4rem] shadow-2xl">
+              <div className="flex items-center gap-3 mb-8 opacity-50">
+                <Landmark size={18} />
+                <h2 className="text-[10px] font-black uppercase tracking-[0.3em]">Banking Distribution</h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                   <label className="text-[8px] font-black uppercase opacity-40 tracking-widest">Bank Identifier</label>
-                   <input placeholder="Bank Name" value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:bg-white/10" />
+              
+              <div className="flex flex-wrap gap-6">
+                <div className="flex-1 min-w-[240px] space-y-3">
+                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Bank Entity</label>
+                  <input 
+                    value={bankInfo.name} 
+                    onChange={e => setBankInfo({...bankInfo, name: e.target.value})}
+                    placeholder="e.g. Barclays" 
+                    className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" 
+                  />
                 </div>
-                <div className="space-y-2">
-                   <label className="text-[8px] font-black uppercase opacity-40 tracking-widest">Account Node</label>
-                   <input placeholder="Account No" value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:bg-white/10" />
+                <div className="flex-1 min-w-[240px] space-y-3">
+                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Account Reference</label>
+                  <input 
+                    value={bankInfo.acc} 
+                    onChange={e => setBankInfo({...bankInfo, acc: e.target.value})}
+                    placeholder="00000000" 
+                    className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" 
+                  />
                 </div>
-                <div className="space-y-2">
-                   <label className="text-[8px] font-black uppercase opacity-40 tracking-widest">Routing / Sort</label>
-                   <input placeholder="Sort Code" value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:bg-white/10" />
+                <div className="flex-1 min-w-[240px] space-y-3">
+                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Sort / Routing</label>
+                  <input 
+                    value={bankInfo.sort} 
+                    onChange={e => setBankInfo({...bankInfo, sort: e.target.value})}
+                    placeholder="00-00-00" 
+                    className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" 
+                  />
                 </div>
               </div>
             </section>
 
-            {/* DANGER ZONE */}
             <section className="bg-red-50/50 border border-red-100 p-10 rounded-[3.5rem] space-y-6">
               <div className="flex items-center gap-3 text-red-600">
                 <AlertTriangle size={20} />
                 <h2 className="text-[11px] font-black uppercase tracking-widest">Danger Zone</h2>
               </div>
               <div className="flex flex-col md:flex-row gap-4">
-                <button className="flex-1 py-4 bg-white border border-red-200 text-red-600 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2">
-                  <Download size={14}/> Export GDPR Data
-                </button>
-                <button className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest hover:brightness-110 transition-all">
-                  Terminate Node & Data
-                </button>
+                <button className="flex-1 py-4 bg-white border border-red-200 text-red-600 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"><Download size={14}/> Export Node Data</button>
+                <button className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest hover:brightness-110 transition-all">Terminate Account</button>
               </div>
             </section>
           </div>

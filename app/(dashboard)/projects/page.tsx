@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase-client";
+import { supabase } from "@/lib/supabase-client"; // Import sync client
 import { getUserTeam } from "@/lib/getUserTeam";
 import { getUserRole, canCreate } from "@/lib/permissions";
 import Button from "@/app/components/Button";
 import { 
   Sparkles, FolderPlus, ArrowRight, 
   Briefcase, ShieldCheck, Activity,
-  Plus, X, Loader2, Zap, Globe, CheckCircle2, Circle, Eye
+  Plus, X, Loader2, Zap, Globe
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -23,57 +23,39 @@ export default function ProjectsPage() {
   const [isScanActive, setIsScanActive] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
 
-  // -- Asana-style Views --
-  const [activeTab, setActiveTab] = useState("board"); // "board" or "list"
-  
   const [form, setForm] = useState({
     name: "",
     customer_id: "",
-    status: "To Do", // Added Asana-style workflow state
   });
 
-  const loadData = useCallback(async (teamIdString: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*, customers(name)")
-        .eq("team_id", teamIdString)
-        .order("created_at", { ascending: false });
+  const loadData = useCallback(async (team: string) => {
+    const { data } = await supabase
+      .from("projects")
+      .select("*, customers(name)")
+      .eq("team_id", team)
+      .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setProjects(data || []);
-    } catch (err: any) {
-      console.error("Failed to load projects:", err.message);
-    } finally {
-      setLoading(false);
-    }
+    setProjects(data || []);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     async function init() {
-      try {
-        const team = await getUserTeam();
-        const r = await getUserRole();
+      const team = await getUserTeam();
+      const r = await getUserRole();
 
-        if (!team) {
-          setLoading(false);
-          return;
-        }
+      if (!team) return;
 
-        setTeamId(team);
-        setRole(r);
+      setTeamId(team);
+      setRole(r);
 
-        const { data: c } = await supabase
-          .from("customers")
-          .select("*")
-          .eq("team_id", team);
+      const { data: c } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("team_id", team);
 
-        setCustomers(c || []);
-        await loadData(team);
-      } catch (err) {
-        console.error("Initialization error", err);
-        setLoading(false);
-      }
+      setCustomers(c || []);
+      loadData(team);
     }
     init();
   }, [loadData]);
@@ -95,9 +77,7 @@ export default function ProjectsPage() {
     if (!form.name || !form.customer_id || !teamId) return;
 
     const { error } = await supabase.from("projects").insert({
-      name: form.name,
-      customer_id: form.customer_id,
-      status: form.status,
+      ...form,
       team_id: teamId,
     });
 
@@ -109,25 +89,14 @@ export default function ProjectsPage() {
       entity: "project",
     });
 
-    setForm({ name: "", customer_id: "", status: "To Do" });
+    setForm({ name: "", customer_id: "" });
     loadData(teamId);
-  }
-
-  // Update a project's Asana-like state
-  async function updateProjectStatus(projectId: string, newStatus: string) {
-    const { error } = await supabase
-      .from("projects")
-      .update({ status: newStatus })
-      .eq("id", projectId);
-
-    if (error) return alert(error.message);
-    if (teamId) loadData(teamId);
-  }
+  };
 
   if (loading) return (
     <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
       <Loader2 className="animate-spin text-stone-300" size={32} />
-      <p className="font-serif italic text-stone-400 text-lg animate-pulse">Initializing Architecture ecosystem...</p>
+      <p className="font-serif italic text-stone-400 text-lg animate-pulse">Initializing Architecture...</p>
     </div>
   );
 
@@ -182,7 +151,7 @@ export default function ProjectsPage() {
                 <Zap className="text-[#a9b897]" size={32} />
               </div>
               <div>
-                <p className="text-[#a9b897] font-black uppercase text-[9px] tracking-[0.3em]] mb-2">Synthetic Insight</p>
+                <p className="text-[#a9b897] font-black uppercase text-[9px] tracking-[0.3em] mb-2">Synthetic Insight</p>
                 <p className="font-serif italic text-2xl text-stone-200 leading-snug max-w-3xl">{insight}</p>
               </div>
             </div>
@@ -234,19 +203,6 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Initial Status</label>
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-6 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none appearance-none transition-all cursor-pointer font-medium"
-                >
-                  <option value="To Do">To Do</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Done">Done</option>
-                </select>
-              </div>
-
               <Button
                 onClick={createProject}
                 disabled={!canCreate(role) || !form.name || !form.customer_id}
@@ -268,28 +224,8 @@ export default function ProjectsPage() {
           </div>
         </aside>
 
-        {/* ASANA-STYLE WORKSPACE */}
-        <main className="lg:col-span-8 space-y-8">
-          {/* VIEW SWITCHER */}
-          <div className="flex gap-2 bg-stone-100 p-1.5 rounded-2xl w-fit">
-            <button 
-              onClick={() => setActiveTab("board")} 
-              className={`px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                activeTab === "board" ? "bg-white text-stone-900 shadow-xl" : "text-stone-400 hover:text-stone-900 bg-transparent"
-              }`}
-            >
-              Kanban View
-            </button>
-            <button 
-              onClick={() => setActiveTab("list")} 
-              className={`px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                activeTab === "list" ? "bg-white text-stone-900 shadow-xl" : "text-stone-400 hover:text-stone-900 bg-transparent"
-              }`}
-            >
-              List View
-            </button>
-          </div>
-
+        {/* PROJECT GRID */}
+        <main className="lg:col-span-8">
           {projects.length === 0 ? (
             <div className="h-[600px] border-2 border-dashed border-stone-200 rounded-[4rem] flex flex-col items-center justify-center p-20 text-center space-y-6">
               <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center">
@@ -297,88 +233,43 @@ export default function ProjectsPage() {
               </div>
               <p className="text-stone-400 font-serif italic text-2xl">No architecture nodes detected in current ecosystem.</p>
             </div>
-          ) : activeTab === "board" ? (
-            /* KANBAN BOARD VIEW */
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
-              {["To Do", "In Progress", "Done"].map(statusGroup => (
-                <div key={statusGroup} className="bg-stone-50/50 border border-stone-100 p-6 rounded-[2.5rem] min-h-[600px] flex flex-col">
-                  <div className="flex items-center justify-between mb-8">
-                     <h4 className="text-[10px] font-black tracking-[0.2em] uppercase text-stone-400">{statusGroup}</h4>
-                     <span className="px-3 py-1 bg-white border rounded-full text-[9px] font-bold text-stone-500">
-                       {projects.filter(p => p.status === statusGroup).length}
-                     </span>
-                  </div>
-                  
-                  <div className="space-y-4 flex-1 flex flex-col">
-                    {projects.filter(p => p.status === statusGroup).map(p => (
-                      <div 
-                        key={p.id} 
-                        className="bg-white p-8 rounded-3xl border border-stone-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col justify-between h-[200px]"
-                      >
-                         <div>
-                           <span className="text-[8px] tracking-[0.2em] uppercase font-black text-[#a9b897] mb-2 block">
-                             {p.customers?.name || "Independent Node"}
-                           </span>
-                           <h5 className="font-serif italic text-xl text-stone-800 leading-tight">{p.name}</h5>
-                         </div>
-
-                         <div className="flex items-center justify-between pt-6 border-t border-stone-50">
-                            <select 
-                              value={p.status} 
-                              onChange={(e) => updateProjectStatus(p.id, e.target.value)}
-                              className="text-[9px] font-black uppercase tracking-widest text-stone-400 bg-stone-50 border p-1 rounded cursor-pointer outline-none"
-                            >
-                              <option value="To Do">To Do</option>
-                              <option value="In Progress">In Progress</option>
-                              <option value="Done">Done</option>
-                            </select>
-                            
-                            <a 
-                              href={`/projects/${p.id}`} 
-                              className="text-[9px] font-black uppercase tracking-widest text-stone-300 hover:text-stone-900 flex items-center gap-2"
-                            >
-                               <Eye size={14}/> Open
-                            </a>
-                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
           ) : (
-            /* LIST VIEW */
-            <div className="bg-white border border-stone-100 rounded-[3rem] p-6 shadow-sm divide-y divide-stone-100">
-               {projects.map(p => (
-                 <div key={p.id} className="py-8 flex justify-between items-center group gap-8">
-                   <div className="flex gap-6 items-center">
-                      <div className="w-14 h-14 bg-stone-50 rounded-2xl flex items-center justify-center text-stone-300 group-hover:text-[#a9b897] group-hover:bg-[#a9b897]/5 transition-all">
-                        <Activity size={24} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              {projects.map((p) => (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  whileHover={{ y: -10 }}
+                  key={p.id} 
+                  className="bg-white border border-stone-100 p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl hover:border-[#a9b897]/20 transition-all group flex flex-col justify-between h-[360px]"
+                >
+                  <div>
+                    <div className="flex justify-between items-start mb-10">
+                      <div className="bg-[#faf9f6] p-5 rounded-[1.5rem] text-stone-300 group-hover:text-[#a9b897] group-hover:bg-[#a9b897]/5 transition-all">
+                        <Activity size={28} />
                       </div>
-                      <div>
-                        <p className="text-2xl font-serif italic text-stone-900">{p.name}</p>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-300">{p.customers?.name || "Independent Node"}</p>
+                      <div className="flex items-center gap-2 px-4 py-1.5 bg-stone-50 rounded-full border border-stone-100">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">Operational</span>
                       </div>
-                   </div>
+                    </div>
+                    <h3 className="text-4xl font-serif italic text-stone-800 leading-tight group-hover:text-black transition-colors">{p.name}</h3>
+                    <p className="text-[11px] text-[#a9b897] uppercase font-black mt-4 tracking-[0.3em]">
+                      {p.customers?.name || "Independent Node"}
+                    </p>
+                  </div>
 
-                   <div className="flex items-center gap-6">
-                     <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] ${
-                       p.status === 'Done' ? 'bg-green-50 text-green-600 border border-green-100' :
-                       p.status === 'In Progress' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                       'bg-stone-50 text-stone-600 border border-stone-100'
-                     }`}>
-                       {p.status}
-                     </span>
-                     
-                     <a 
-                       href={`/projects/${p.id}`} 
-                       className="px-6 py-3 border border-stone-100 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-50 transition-all flex items-center gap-2"
-                     >
-                       Connect <ArrowRight size={12}/>
-                     </a>
-                   </div>
-                 </div>
-               ))}
+                  <div className="flex justify-end pt-10 border-t border-stone-50">
+                    <a 
+                      href={`/projects/${p.id}`} 
+                      className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 group-hover:text-stone-900 transition-all"
+                    >
+                      Connect to Node <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                    </a>
+                  </div>
+                </motion.div>
+              ))}
             </div>
           )}
         </main>

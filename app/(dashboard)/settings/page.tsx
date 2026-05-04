@@ -1,21 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase-client"; // Use sync client
+import { useEffect, useState, useRef } from "react";
+import { supabase } from "@/lib/supabase-client"; 
 import { 
   Settings, Sparkles, Globe, ShieldCheck, 
   Save, Moon, Sun, Fingerprint, Activity,
-  Lock, ArrowRight, Loader2
+  Lock, ArrowRight, Loader2, Landmark, ImageIcon, Receipt
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface SocialHandles {
-  instagram: string;
-  linkedin: string;
-  twitter: string;
-  tiktok: string;
-  facebook: string;
-  youtube: string;
+  instagram: string; linkedin: string; twitter: string; 
+  tiktok: string; facebook: string; youtube: string;
   [key: string]: string;
 }
 
@@ -29,27 +25,43 @@ export default function SettingsPage() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
-  const [toneOfVoice, setToneOfVoice] = useState("Professional, yet empathetic.");
+  // -- CONTENT STATES --
+  const [toneOfVoice, setToneOfVoice] = useState("");
   const [handles, setHandles] = useState<SocialHandles>({
     instagram: "", linkedin: "", twitter: "", tiktok: "", facebook: "", youtube: ""
   });
   const [website, setWebsite] = useState("");
+
+  // -- NEW FINANCE STATES (The "Rollback" components) --
+  const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
+  const [vatRate, setVatRate] = useState(20);
+  const [defaultLogo, setDefaultLogo] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { init(); }, []);
 
   async function init() {
     try {
       const { data: authData } = await supabase.auth.getUser();
-      if (!authData?.user) return;
+      if (!authData?.user) {
+         setLoading(false);
+         return;
+      }
       setUser(authData.user);
 
+      // Fetch Profile
       let { data: p } = await supabase.from("profiles").select("*").eq("id", authData.user.id).maybeSingle();
+      
+      // Auto-create profile if missing (helps fix Access Denied for new users)
       if (!p) {
-        const { data: newProfile } = await supabase.from("profiles").insert({ id: authData.user.id, role: "owner" }).select().single();
+        const { data: newProfile } = await supabase.from("profiles")
+          .insert({ id: authData.user.id, role: "owner" })
+          .select().single();
         p = newProfile;
       }
       setProfile(p);
 
+      // Fetch Team & Settings
       const { data: membership } = await supabase.from("team_members").select("team_id").eq("user_id", authData.user.id).maybeSingle();
       if (membership?.team_id) {
         setTeamId(membership.team_id);
@@ -58,6 +70,10 @@ export default function SettingsPage() {
           setHandles(settings.handles || handles);
           setToneOfVoice(settings.tone_of_voice || "");
           setWebsite(settings.website || "");
+          // Finance mapping
+          setBankInfo(settings.bank_info || { name: "", acc: "", sort: "" });
+          setVatRate(settings.vat_rate || 20);
+          setDefaultLogo(settings.default_logo || null);
         }
       }
     } catch (err) {
@@ -68,18 +84,27 @@ export default function SettingsPage() {
   }
 
   const saveSettings = async () => {
+    if (!teamId) return alert("No Team ID found. Check database permissions.");
     setSaving(true);
     const { error } = await supabase.from("settings").upsert({
       team_id: teamId,
       handles, 
       tone_of_voice: toneOfVoice, 
       website,
+      bank_info: bankInfo,
+      vat_rate: vatRate,
+      default_logo: defaultLogo,
       updated_at: new Date().toISOString()
     });
     setSaving(false);
     if (error) alert(error.message);
     else alert("System Synced Successfully");
   };
+
+  // Improved Authorization Check
+  const isAuthorized = loading || 
+    user?.email === "hill.samantha@hotmail.co.uk" || 
+    (profile && AUTHORIZED_ROLES.includes(profile.role));
 
   if (loading) return (
     <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-4">
@@ -88,8 +113,6 @@ export default function SettingsPage() {
     </div>
   );
 
-  const isAuthorized = user?.email === "hill.samantha@hotmail.co.uk" || (profile && AUTHORIZED_ROLES.includes(profile.role));
-
   if (!isAuthorized) return (
     <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center p-12 text-center">
       <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mb-8 border border-red-500/20">
@@ -97,7 +120,7 @@ export default function SettingsPage() {
       </div>
       <h2 className="text-4xl font-serif italic text-stone-200">Access Level Denied</h2>
       <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-500 mt-4 max-w-xs leading-relaxed">
-        Insufficient clearance for Global System Settings. ContactSam or a System Administrator.
+        Insufficient clearance for Global System Settings. Contact Sam or a System Administrator.
       </p>
     </div>
   );
@@ -106,51 +129,61 @@ export default function SettingsPage() {
     <div className={`min-h-screen transition-all duration-700 ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-800'}`}>
       <div className="max-w-7xl mx-auto p-8 md:p-16 space-y-12 pb-40">
         
-        {/* TOP BAR / NAVIGATION STYLE */}
-        <motion.header 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`flex flex-col md:flex-row justify-between items-center p-12 rounded-[3.5rem] border shadow-2xl gap-8 relative overflow-hidden transition-colors ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}
-        >
+        {/* HEADER BAR */}
+        <header className={`flex flex-col md:flex-row justify-between items-center p-12 rounded-[3.5rem] border shadow-2xl gap-8 relative overflow-hidden transition-colors ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
           <div className="relative z-10 text-center md:text-left">
-            <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
-              <Activity size={14} className="text-[#a9b897]" />
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">Operational Status: Active</span>
-            </div>
-            <h1 className="text-6xl font-serif italic tracking-tighter">Global Settings</h1>
+            <h1 className="text-6xl font-serif italic tracking-tighter">System Defaults</h1>
             <p className="text-[9px] font-black uppercase tracking-[0.3em] mt-3 inline-block px-3 py-1 bg-[#a9b897]/10 text-[#a9b897] rounded-full border border-[#a9b897]/20">
-              Identity Node: {profile?.role}
+              Role: {profile?.role}
             </p>
           </div>
 
           <div className="flex gap-4 relative z-10">
-            <button 
-              onClick={() => setIsDarkMode(!isDarkMode)} 
-              className={`p-5 rounded-2xl transition-all border ${isDarkMode ? 'bg-stone-800 border-stone-700 hover:bg-stone-700' : 'bg-stone-50 border-stone-200 hover:bg-stone-100'}`}
-            >
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-stone-800 border-stone-700' : 'bg-stone-50 border-stone-200'}`}>
               {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <button 
-              onClick={saveSettings} 
-              disabled={saving}
-              className="flex items-center gap-4 bg-[#1c1c1c] text-[#a9b897] px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-            >
-              {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-              Commit Sync
+            <button onClick={saveSettings} disabled={saving} className="flex items-center gap-4 bg-[#1c1c1c] text-[#a9b897] px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-all">
+              {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} Commit Sync
             </button>
           </div>
-        </motion.header>
+        </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* MAIN CONFIGURATION */}
           <div className="lg:col-span-8 space-y-12">
             
-            <motion.section 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className={`p-12 rounded-[3.5rem] border transition-colors ${isDarkMode ? 'bg-stone-900 border-stone-800 shadow-none' : 'bg-white border-stone-100 shadow-sm'}`}
-            >
+            {/* 1. FINANCE DEFAULTS (THE ROLLBACK) */}
+            <section className={`p-12 rounded-[3.5rem] border ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-sm'}`}>
+              <div className="flex items-center gap-3 mb-8">
+                <Receipt size={18} className="text-[#a9b897]" />
+                <h2 className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40">Finance Blueprint</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Logo Default */}
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase text-stone-400">Default Brand Logo</p>
+                  <div onClick={() => logoInputRef.current?.click()} className="w-full h-40 border-2 border-dashed border-stone-100 rounded-[2rem] flex flex-col items-center justify-center cursor-pointer hover:bg-stone-50 transition-all overflow-hidden bg-stone-50/50">
+                    {defaultLogo ? <img src={defaultLogo} className="h-full w-full object-contain" /> : <ImageIcon className="text-stone-300" />}
+                    <input type="file" ref={logoInputRef} hidden onChange={(e) => {
+                      if(e.target.files?.[0]) setDefaultLogo(URL.createObjectURL(e.target.files[0]))
+                    }} />
+                  </div>
+                </div>
+
+                {/* Bank Details */}
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase text-stone-400 flex items-center gap-2"><Landmark size={14}/> Default Settlement</p>
+                  <div className="space-y-3">
+                    <input placeholder="Bank Name" className="w-full p-4 rounded-xl border text-sm" value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} />
+                    <input placeholder="Account Number" className="w-full p-4 rounded-xl border text-sm" value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} />
+                    <input placeholder="Sort Code" className="w-full p-4 rounded-xl border text-sm" value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 2. TONE OF VOICE */}
+            <section className={`p-12 rounded-[3.5rem] border ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
               <div className="flex items-center gap-3 mb-8">
                 <Sparkles size={18} className="text-[#a9b897]" />
                 <h2 className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40">Clarity AI: Vocal DNA</h2>
@@ -158,82 +191,31 @@ export default function SettingsPage() {
               <textarea 
                 value={toneOfVoice}
                 onChange={(e) => setToneOfVoice(e.target.value)}
-                className={`w-full h-48 p-8 rounded-[2rem] text-xl font-serif italic outline-none transition-all resize-none border ${isDarkMode ? 'bg-stone-800 border-stone-700 focus:border-[#a9b897]' : 'bg-stone-50 border-stone-100 focus:border-[#a9b897]'}`}
-                placeholder="Describe the soul of your communication..."
+                className="w-full h-32 p-6 rounded-[2rem] text-lg font-serif italic outline-none border bg-stone-50/30"
+                placeholder="Describe your brand soul..."
               />
-            </motion.section>
-
-            <motion.section 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className={`p-12 rounded-[3.5rem] border transition-colors ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-sm'}`}
-            >
-              <div className="flex items-center gap-3 mb-10">
-                <Globe size={18} className="text-[#a9b897]" />
-                <h2 className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40">Social Architecture</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {Object.keys(handles).map((key, i) => (
-                  <div key={key} className={`group p-6 rounded-3xl border transition-all ${isDarkMode ? 'bg-stone-800/50 border-stone-700 focus-within:border-[#a9b897]' : 'bg-stone-50 border-stone-100 focus-within:border-[#a9b897]'}`}>
-                    <label className="text-[8px] font-black uppercase tracking-widest opacity-40 group-focus-within:opacity-100 transition-opacity mb-2 block">{key}</label>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[#a9b897] text-xs opacity-50 font-mono">@</span>
-                      <input 
-                        value={handles[key]} 
-                        onChange={(e) => setHandles({...handles, [key]: e.target.value})}
-                        className="bg-transparent w-full text-sm font-bold outline-none placeholder:opacity-20"
-                        placeholder="..."
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.section>
+            </section>
           </div>
 
-          {/* SIDEBAR / NODE INFO */}
-          <motion.aside 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="lg:col-span-4"
-          >
-            <div className={`p-10 rounded-[3rem] border sticky top-12 transition-colors ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-xl shadow-stone-200/50'}`}>
+          {/* SIDEBAR NODE INFO */}
+          <aside className="lg:col-span-4 space-y-6">
+            <div className={`p-10 rounded-[3rem] border sticky top-12 ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-xl'}`}>
               <div className="flex items-center gap-4 mb-8">
-                <div className="w-12 h-12 rounded-2xl bg-[#a9b897]/10 flex items-center justify-center">
-                  <Fingerprint className="text-[#a9b897]" size={24} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-serif italic leading-none">Node Profile</h3>
-                  <p className="text-[8px] font-black uppercase tracking-widest opacity-40 mt-1">System Auth Verified</p>
-                </div>
+                <Fingerprint className="text-[#a9b897]" size={24} />
+                <h3 className="text-xl font-serif italic">Node Profile</h3>
               </div>
-
-              <div className="space-y-4">
-                <div className={`p-6 rounded-2xl border ${isDarkMode ? 'bg-stone-800/30 border-stone-700' : 'bg-stone-50/50 border-stone-100'}`}>
-                  <p className="text-[8px] font-black uppercase opacity-40 mb-2">Auth Point</p>
-                  <p className="text-xs font-mono truncate">{user?.email}</p>
+              <div className="space-y-4 text-xs">
+                <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100">
+                  <p className="opacity-40 uppercase font-black text-[8px] mb-1">Auth Email</p>
+                  <p className="font-mono truncate">{user?.email}</p>
                 </div>
-
-                <div className={`p-6 rounded-2xl border ${isDarkMode ? 'bg-stone-800/30 border-stone-700' : 'bg-stone-50/50 border-stone-100'}`}>
-                  <p className="text-[8px] font-black uppercase opacity-40 mb-2">Clearance Level</p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-black text-[#a9b897] uppercase tracking-tighter italic">Alpha Node</p>
-                    <ShieldCheck size={14} className="text-[#a9b897]" />
-                  </div>
-                </div>
-
-                <div className={`p-8 rounded-2xl bg-[#1c1c1c] text-stone-400 mt-8`}>
-                   <p className="text-[9px] font-serif italic leading-relaxed">
-                     Changes made to the Tone of Voice will immediately recalibrate the 
-                     <span className="text-[#a9b897] mx-1">Clarity Engine</span> 
-                     outputs for all users in this team node.
-                   </p>
+                <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100">
+                  <p className="opacity-40 uppercase font-black text-[8px] mb-1">Clearance</p>
+                  <p className="text-[#a9b897] font-black italic">Level: {profile?.role}</p>
                 </div>
               </div>
             </div>
-          </motion.aside>
+          </aside>
         </div>
       </div>
     </div>

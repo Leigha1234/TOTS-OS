@@ -1,62 +1,60 @@
 "use client";
 
-import React, { useReducer, useState, useRef, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { 
-  Plus, Trash2, Landmark, ImageIcon, FileText, UserPlus, 
+  Plus, Trash2, Landmark, FileText, UserPlus, 
   Percent, Receipt, Users, Calculator, BarChart3, 
   Upload, X, Check, Save, Download, Search, Camera, Zap,
-  ChevronRight, ArrowUpRight, ShieldCheck, Globe
+  ChevronRight, ArrowUpRight, ShieldCheck, Globe, Mail, 
+  Calendar, Briefcase, TrendingUp, PiggyBank, FileStack
 } from "lucide-react";
-import { supabase } from "@/lib/supabase-client"; 
 
 /* ======================================================
-   1. CORE ENGINE & STATE TYPES
+   1. TYPES & MOCK DATA ENGINE
 ====================================================== */
 
-const initialState = {
-  contacts: [
+const INITIAL_DATA = {
+  clients: [
     { id: "c1", name: "Anthropic Research", email: "billing@anthropic.com" },
     { id: "c2", name: "Design Systems Ltd", email: "finance@ds.io" }
   ],
-  projects: [
-    { id: "p1", name: "AI Integration Phase 1", clientId: "c1" },
-    { id: "p2", name: "Brand Guidelines", clientId: "c2" },
-    { id: "p3", name: "Claude API Deployment", clientId: "c1" }
+  employees: [
+    { id: "e1", name: "Sarah Chen", role: "Lead Engineer", salary: 85000, holidayLeft: 12, lastAppraisal: "2025-11-10" },
+    { id: "e2", name: "Marcus Vane", role: "UX Designer", salary: 52000, holidayLeft: 18, lastAppraisal: "2026-01-15" }
+  ],
+  expenses: [
+    { id: 1, category: "Software", amount: 120, date: "2026-04-12", status: "Reconciled" },
+    { id: 2, category: "Hardware", amount: 1500, date: "2026-04-15", status: "Pending" }
   ]
 };
 
 /* ======================================================
-   2. MAIN APPLICATION COMPONENT
+   2. MAIN APPLICATION (THE COMMAND CENTER)
 ====================================================== */
 
-export default function ApexFinancePro() {
-  const [activeTab, setActiveTab] = useState("invoices");
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-  }, []);
+export default function ApexOS() {
+  const [activeTab, setActiveTab] = useState("finance");
+  const [docType, setDocType] = useState("invoice"); // invoice | quote | expense
 
   return (
     <div className="flex min-h-screen bg-[#fcfaf7] text-stone-900 font-sans selection:bg-[#a9b897]/30">
       
-      {/* SIDE NAVIGATION */}
+      {/* GLOBAL SIDEBAR */}
       <aside className="w-72 bg-white border-r border-stone-200 flex flex-col sticky top-0 h-screen">
         <div className="p-10">
           <div className="flex items-center gap-4 mb-14">
             <div className="w-12 h-12 bg-stone-900 rounded-2xl flex items-center justify-center text-[#a9b897] font-serif italic text-2xl shadow-xl">A</div>
             <div className="flex flex-col leading-none">
                 <span className="font-serif italic text-xl tracking-tighter">Apex OS</span>
-                <span className="text-[8px] font-black uppercase tracking-[0.3em] opacity-40">Financial Node</span>
+                <span className="text-[8px] font-black uppercase tracking-[0.3em] opacity-40">Command Center</span>
             </div>
           </div>
           
           <nav className="space-y-2">
             {[
-              { id: "dashboard", icon: <BarChart3 size={18}/>, label: "Intelligence" },
-              { id: "invoices", icon: <Receipt size={18}/>, label: "Invoice Manager" },
-              { id: "payroll", icon: <Users size={18}/>, label: "Human Resources" },
-              { id: "reports", icon: <Calculator size={18}/>, label: "Tax Ledger" },
+              { id: "finance", icon: <Receipt size={18}/>, label: "Finance & Sales" },
+              { id: "hr", icon: <Users size={18}/>, label: "Human Resources" },
+              { id: "intelligence", icon: <BarChart3 size={18}/>, label: "Intelligence" },
             ].map((item) => (
               <button
                 key={item.id}
@@ -73,41 +71,40 @@ export default function ApexFinancePro() {
           </nav>
         </div>
         
-        <div className="mt-auto p-10 border-t border-stone-100">
+        <div className="mt-auto p-10 border-t border-stone-100 bg-stone-50/50">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center font-serif italic">JD</div>
+            <div className="w-10 h-10 rounded-full bg-stone-900 text-[#a9b897] flex items-center justify-center font-serif italic text-xs">JD</div>
             <div className="text-[10px]">
-              <p className="font-black uppercase tracking-wider">{user?.email?.split('@')[0] || 'Admin'}</p>
-              <p className="text-[#a9b897] font-bold">ELITE ACCESS</p>
+              <p className="font-black uppercase tracking-wider text-stone-900">John Doe</p>
+              <p className="text-[#a9b897] font-bold uppercase tracking-tighter">System Admin</p>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 overflow-y-auto pb-24">
-        <header className="h-24 bg-white/80 backdrop-blur-md border-b border-stone-100 flex items-center justify-between px-12 sticky top-0 z-20">
+      {/* MAIN VIEWPORT */}
+      <main className="flex-1 overflow-y-auto">
+        <header className="h-24 bg-white/80 backdrop-blur-md border-b border-stone-100 flex items-center justify-between px-12 sticky top-0 z-50">
           <div className="flex items-center gap-4 text-stone-300">
              <h1 className="text-3xl font-serif italic tracking-tight text-stone-900 capitalize">{activeTab}</h1>
              <ChevronRight size={16} />
-             <span className="text-[10px] font-black uppercase tracking-widest">Active Session</span>
+             <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Node Sync Active</span>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
-              <input placeholder="Search Ledger..." className="pl-12 pr-6 py-3 bg-stone-50 border border-stone-100 rounded-2xl text-xs w-72 focus:outline-none focus:ring-4 focus:ring-[#a9b897]/10 transition-all" />
-            </div>
+          <div className="flex items-center gap-3">
+             <div className="h-2 w-2 rounded-full bg-[#a9b897] animate-pulse" />
+             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">Live Server</span>
           </div>
         </header>
 
-        <div className="p-12 max-w-7xl mx-auto">
-          {activeTab === "invoices" ? (
-            <InvoiceCanvas dataEngine={initialState} />
-          ) : (
-            <div className="h-[60vh] border-2 border-dashed border-stone-200 rounded-[3rem] flex flex-col items-center justify-center text-stone-300 gap-4">
-              <Zap size={48} strokeWidth={1} className="opacity-20 animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-[0.4em]">Node Under Maintenance</span>
-            </div>
+        <div className="p-12 max-w-7xl mx-auto space-y-12">
+          {activeTab === "finance" && (
+            <FinanceNode docType={docType} setDocType={setDocType} />
+          )}
+          {activeTab === "hr" && (
+            <HRNode />
+          )}
+          {activeTab === "intelligence" && (
+            <IntelligenceNode />
           )}
         </div>
       </main>
@@ -116,275 +113,304 @@ export default function ApexFinancePro() {
 }
 
 /* ======================================================
-   3. THE INVOICE CANVAS COMPONENT
+   3. THE FINANCE NODE (INVOICES, QUOTES, EXPENSES)
 ====================================================== */
 
-function InvoiceCanvas({ dataEngine }: { dataEngine: any }) {
-  const [saving, setSaving] = useState(false);
-  const [invData, setInvData] = useState({
-    number: `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-    logo: null as string | null,
-    selectedClientId: "",
-    selectedProjectId: "",
-    vatEnabled: true,
-    discount: 0,
-    bank: { name: "", account: "", sort: "" },
-    attachments: [] as File[],
-    lineItems: [{ id: 1, desc: "Technical Strategy Consulting", qty: 1, rate: 2500 }]
-  });
+function FinanceNode({ docType, setDocType }: any) {
+  const [items, setItems] = useState([{ id: 1, desc: "Professional Services", qty: 1, rate: 1200 }]);
+  const [discount, setDiscount] = useState(0);
 
-  const logoInput = useRef<HTMLInputElement>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  // REACTIVE CALCULATION ENGINE
   const totals = useMemo(() => {
-    const subtotal = invData.lineItems.reduce((acc, item) => acc + (item.qty * item.rate), 0);
-    const discVal = subtotal * (invData.discount / 100);
-    const net = subtotal - discVal;
-    const vat = invData.vatEnabled ? net * 0.20 : 0;
-    return { subtotal, discVal, net, vat, total: net + vat };
-  }, [invData]);
-
-  const handlePostToLedger = async () => {
-    setSaving(true);
-    // Logic for Supabase post would go here
-    setTimeout(() => {
-      setSaving(false);
-      alert("Ledger Entry Synchronized Successfully.");
-    }, 1500);
-  };
-
-  const updateLine = (id: number, key: string, val: any) => {
-    setInvData({
-      ...invData,
-      lineItems: invData.lineItems.map(item => item.id === id ? { ...item, [key]: val } : item)
-    });
-  };
+    const sub = items.reduce((acc, i) => acc + (i.qty * i.rate), 0);
+    const tax = sub * 0.20;
+    return { sub, tax, total: sub + tax - (sub * (discount/100)) };
+  }, [items, discount]);
 
   return (
-    <div className="grid grid-cols-12 gap-12 items-start animate-in fade-in slide-in-from-bottom-8 duration-1000">
-      
-      {/* PRIMARY WORKSPACE */}
-      <div className="col-span-12 xl:col-span-8 space-y-8">
-        <div className="bg-white border border-stone-100 rounded-[4rem] shadow-2xl shadow-stone-200/40 p-16 relative">
-          
-          {/* HEADER / IDENTITY */}
-          <div className="flex flex-col md:flex-row justify-between items-start gap-12 mb-20">
-            <div 
-              onClick={() => logoInput.current?.click()}
-              className="group relative w-44 h-44 bg-stone-50 border-2 border-dashed border-stone-200 rounded-[3rem] flex flex-col items-center justify-center cursor-pointer hover:border-[#a9b897] transition-all overflow-hidden"
-            >
-              {invData.logo ? (
-                <img src={invData.logo} className="w-full h-full object-contain" alt="Identity" />
-              ) : (
-                <>
-                  <Camera size={32} className="text-stone-300 group-hover:text-[#a9b897] transition-colors" />
-                  <span className="text-[9px] font-black text-stone-300 mt-4 tracking-widest uppercase">Brand Identity</span>
-                </>
-              )}
-              <input type="file" ref={logoInput} hidden accept="image/*" onChange={(e) => {
-                if (e.target.files?.[0]) setInvData({...invData, logo: URL.createObjectURL(e.target.files[0])})
-              }}/>
-            </div>
-
-            <div className="text-right flex flex-col items-end">
-              <p className="text-[10px] font-black text-stone-300 uppercase tracking-[0.4em] mb-4">Document Hash</p>
-              <input 
-                className="text-5xl font-serif italic text-right bg-transparent focus:outline-none border-b border-stone-50 focus:border-stone-200 transition-all w-72"
-                value={invData.number}
-                onChange={(e) => setInvData({...invData, number: e.target.value})}
-              />
-            </div>
-          </div>
-
-          {/* CRM DATA BRIDGE */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
-            <div className="space-y-4">
-              <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-4">Client Entity</label>
-              <div className="flex gap-3">
-                <select 
-                  className="flex-1 h-16 bg-stone-50 border border-stone-100 rounded-3xl px-6 text-xs font-bold focus:bg-white transition-all appearance-none outline-none"
-                  value={invData.selectedClientId}
-                  onChange={(e) => setInvData({...invData, selectedClientId: e.target.value, selectedProjectId: ""})}
-                >
-                  <option value="">Select Client...</option>
-                  {dataEngine.contacts.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <button className="w-16 h-16 bg-white border border-stone-100 rounded-3xl flex items-center justify-center text-stone-400 hover:text-[#a9b897] shadow-sm"><UserPlus size={20}/></button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest ml-4">Linked Project Workspace</label>
-              <select 
-                className="w-full h-16 bg-stone-50 border border-stone-100 rounded-3xl px-6 text-xs font-bold disabled:opacity-20 appearance-none outline-none"
-                value={invData.selectedProjectId}
-                disabled={!invData.selectedClientId}
-                onChange={(e) => setInvData({...invData, selectedProjectId: e.target.value})}
-              >
-                <option value="">Filter Projects...</option>
-                {dataEngine.projects
-                  .filter((p: any) => p.clientId === invData.selectedClientId)
-                  .map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* LEDGER ENTRIES */}
-          <div className="space-y-6 mb-16">
-            <div className="grid grid-cols-12 px-8 text-[9px] font-black text-stone-300 uppercase tracking-[0.3em]">
-              <div className="col-span-6">Scope of Services</div>
-              <div className="col-span-2 text-center">Qty</div>
-              <div className="col-span-3 text-right">Rate (£)</div>
-              <div className="col-span-1"></div>
-            </div>
-            
-            <div className="space-y-3">
-              {invData.lineItems.map((item) => (
-                <div key={item.id} className="grid grid-cols-12 gap-4 items-center group">
-                  <input 
-                    placeholder="E.g. Technical Architecture Review" 
-                    className="col-span-6 h-16 bg-stone-50 border border-stone-100 rounded-[1.5rem] px-6 text-sm font-serif italic focus:bg-white focus:ring-4 focus:ring-[#a9b897]/10 transition-all outline-none"
-                    value={item.desc}
-                    onChange={(e) => updateLine(item.id, "desc", e.target.value)}
-                  />
-                  <input 
-                    type="number" 
-                    className="col-span-2 h-16 bg-stone-50 border border-stone-100 rounded-[1.5rem] px-4 text-xs font-bold text-center outline-none"
-                    value={item.qty}
-                    onChange={(e) => updateLine(item.id, "qty", parseInt(e.target.value))}
-                  />
-                  <input 
-                    type="number" 
-                    className="col-span-3 h-16 bg-stone-50 border border-stone-100 rounded-[1.5rem] px-6 text-xs font-bold text-right outline-none"
-                    value={item.rate}
-                    onChange={(e) => updateLine(item.id, "rate", parseFloat(e.target.value))}
-                  />
-                  <button onClick={() => setInvData({...invData, lineItems: invData.lineItems.filter(l => l.id !== item.id)})} className="col-span-1 flex justify-center text-stone-200 hover:text-red-400 transition-colors">
-                    <Trash2 size={18}/>
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <button onClick={() => setInvData({...invData, lineItems: [...invData.lineItems, { id: Date.now(), desc: "", qty: 1, rate: 0 }]})} className="group flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-[#a9b897] px-8 py-4 hover:bg-stone-50 rounded-2xl transition-all">
-              <Plus size={16}/> Append Service Row
-            </button>
-          </div>
-
-          {/* BANKING FOOTER */}
-          <div className="bg-stone-900 text-white p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden">
-             <Globe className="absolute -right-10 -bottom-10 opacity-5 text-white" size={240} />
-             <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897] flex items-center gap-3 mb-8">
-                <Landmark size={16}/> Banking Infrastructure
-             </h3>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
-                {['name', 'account', 'sort'].map((field) => (
-                  <div key={field} className="space-y-3">
-                    <p className="text-[8px] font-black uppercase opacity-40 tracking-widest ml-1">{field}</p>
-                    <input 
-                      className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-5 text-xs focus:bg-white/10 outline-none transition-all" 
-                      placeholder={`Entity ${field}`}
-                      value={(invData.bank as any)[field]}
-                      onChange={(e) => setInvData({...invData, bank: {...invData.bank, [field]: e.target.value}})}
-                    />
-                  </div>
-                ))}
-             </div>
-          </div>
-        </div>
+    <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
+      {/* Switcher Bar */}
+      <div className="flex gap-4 mb-12 bg-stone-100 p-2 rounded-[2rem] w-fit">
+        {["invoice", "quote", "expense"].map((t) => (
+          <button 
+            key={t}
+            onClick={() => setDocType(t)}
+            className={`px-8 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
+              docType === t ? "bg-white shadow-sm text-stone-900" : "text-stone-400"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
       </div>
 
-      {/* CONTROL TOWER */}
-      <div className="col-span-12 xl:col-span-4 space-y-8 sticky top-32">
-        
-        <div className="bg-white border border-stone-100 rounded-[3rem] p-10 shadow-xl space-y-10">
-          <div className="flex justify-between items-center">
-            <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-stone-400">Financial Terminal</h4>
-            <ShieldCheck size={18} className="text-[#a9b897]" />
-          </div>
-          
-          <div className="space-y-6">
-            <div className="flex justify-between items-center bg-stone-50 p-6 rounded-[2rem]">
-              <div className="flex flex-col gap-1">
-                <span className="text-[9px] font-black uppercase tracking-wider text-stone-400">Adjustment (%)</span>
-              </div>
-              <input 
-                type="number" 
-                className="w-16 bg-transparent border-none text-right font-bold text-base outline-none"
-                value={invData.discount}
-                onChange={(e) => setInvData({...invData, discount: parseFloat(e.target.value) || 0})}
-              />
+      <div className="grid grid-cols-12 gap-10">
+        {/* Document Canvas */}
+        <div className="col-span-12 xl:col-span-8 bg-white border border-stone-100 rounded-[4rem] p-16 shadow-2xl">
+          <div className="flex justify-between mb-20">
+            <div className="w-32 h-32 bg-stone-50 rounded-[2.5rem] border-2 border-dashed border-stone-200 flex items-center justify-center text-stone-300">
+              <Camera size={24}/>
             </div>
-
-            <div className="flex justify-between items-center bg-stone-50 p-6 rounded-[2rem]">
-              <span className="text-[9px] font-black uppercase tracking-wider text-stone-400">VAT Provision (20%)</span>
-              <button 
-                onClick={() => setInvData({...invData, vatEnabled: !invData.vatEnabled})}
-                className={`w-14 h-8 rounded-full relative transition-all duration-500 ${invData.vatEnabled ? "bg-stone-900" : "bg-stone-200"}`}
-              >
-                <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-[#a9b897] shadow-lg transition-all duration-500 ${invData.vatEnabled ? "right-1.5" : "left-1.5"}`} />
-              </button>
-            </div>
-
-            <div className="pt-10 border-t border-stone-50 space-y-4">
-              <div className="flex justify-between text-xs font-bold text-stone-300 uppercase tracking-widest">
-                <span>Gross Subtotal</span>
-                <span>£{totals.subtotal.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-xs font-bold text-stone-300 uppercase tracking-widest">
-                <span>Tax Allocation</span>
-                <span>£{totals.vat.toLocaleString()}</span>
-              </div>
-              <div className="flex flex-col items-end pt-8 gap-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Final Settlement</span>
-                <span className="text-6xl font-serif italic text-stone-900 tracking-tighter">£{totals.total.toLocaleString()}</span>
-              </div>
+            <div className="text-right">
+              <h2 className="text-5xl font-serif italic mb-2 capitalize">{docType}</h2>
+              <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest">#{docType.slice(0,1).toUpperCase()}-2026-0041</p>
             </div>
           </div>
 
-          <button 
-            disabled={saving}
-            onClick={handlePostToLedger}
-            className="w-full py-7 bg-stone-900 text-[#a9b897] rounded-[2.5rem] font-black text-[12px] uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-2xl flex items-center justify-center gap-4"
-          >
-            {saving ? <Zap className="animate-spin" size={20}/> : <Save size={20}/>} Commit To Ledger
-          </button>
-        </div>
-
-        {/* UTILITIES */}
-        <div className="bg-white border border-stone-100 rounded-[3rem] p-10 space-y-8">
-          <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-300">File Infrastructure</h4>
-          <div className="space-y-4">
-            {invData.attachments.map((file, idx) => (
-              <div key={idx} className="flex justify-between items-center p-5 bg-stone-50 rounded-2xl text-[10px] font-bold border border-stone-100">
-                <div className="flex items-center gap-3">
-                  <FileText size={16} className="text-[#a9b897]"/>
-                  <span className="truncate w-32">{file.name}</span>
-                </div>
-                <button onClick={() => setInvData({...invData, attachments: invData.attachments.filter((_, i) => i !== idx)})}><X size={16} className="text-red-400"/></button>
+          <div className="space-y-4 mb-12">
+            {items.map((item, idx) => (
+              <div key={idx} className="grid grid-cols-12 gap-4 items-center">
+                <input 
+                  className="col-span-7 h-14 bg-stone-50 rounded-2xl px-6 text-sm italic font-serif outline-none border border-transparent focus:border-[#a9b897]/30" 
+                  value={item.desc}
+                  onChange={(e) => {
+                    const newItems = [...items];
+                    newItems[idx].desc = e.target.value;
+                    setItems(newItems);
+                  }}
+                />
+                <input 
+                  type="number" 
+                  className="col-span-2 h-14 bg-stone-50 rounded-2xl text-center text-xs font-bold outline-none" 
+                  value={item.qty}
+                  onChange={(e) => {
+                    const newItems = [...items];
+                    newItems[idx].qty = parseInt(e.target.value);
+                    setItems(newItems);
+                  }}
+                />
+                <input 
+                  type="number" 
+                  className="col-span-3 h-14 bg-stone-50 rounded-2xl text-right px-6 text-xs font-bold outline-none" 
+                  value={item.rate}
+                  onChange={(e) => {
+                    const newItems = [...items];
+                    newItems[idx].rate = parseFloat(e.target.value);
+                    setItems(newItems);
+                  }}
+                />
               </div>
             ))}
             <button 
-              onClick={() => fileInput.current?.click()}
-              className="w-full h-16 border-2 border-dashed border-stone-100 rounded-3xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-stone-300 hover:border-[#a9b897] transition-all"
+              onClick={() => setItems([...items, { id: Date.now(), desc: "", qty: 1, rate: 0 }])}
+              className="flex items-center gap-2 text-[9px] font-black uppercase text-[#a9b897] tracking-widest pt-4"
             >
-              <Upload size={18}/> Push Document
+              <Plus size={14}/> Add Line Item
             </button>
-            <input type="file" multiple ref={fileInput} hidden onChange={(e) => {
-              if (e.target.files) setInvData({...invData, attachments: [...invData.attachments, ...Array.from(e.target.files)]})
-            }}/>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <button className="flex flex-col items-center justify-center gap-3 py-6 bg-stone-50 rounded-[2rem] text-[9px] font-black uppercase tracking-widest text-stone-400 hover:bg-stone-900 hover:text-[#a9b897] transition-all border border-stone-100">
-              <Download size={20}/> Generate PDF
-            </button>
-            <button className="flex flex-col items-center justify-center gap-3 py-6 bg-stone-50 rounded-[2rem] text-[9px] font-black uppercase tracking-widest text-stone-400 hover:bg-stone-900 hover:text-[#a9b897] transition-all border border-stone-100">
-              <ArrowUpRight size={20}/> Secure Share
-            </button>
+
+          <div className="bg-stone-900 rounded-[3rem] p-10 text-white flex justify-between items-center">
+            <div className="space-y-1">
+              <p className="text-[9px] font-black uppercase tracking-widest opacity-40">Payment Terms</p>
+              <p className="text-xs font-serif italic text-[#a9b897]">Net 30 Days - Bank Transfer Only</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[9px] font-black uppercase tracking-widest opacity-40">Total Settlement</p>
+              <p className="text-4xl font-serif italic text-white">£{totals.total.toLocaleString()}</p>
+            </div>
           </div>
         </div>
 
+        {/* Sidebar Controls */}
+        <div className="col-span-12 xl:col-span-4 space-y-6">
+          <div className="bg-white border border-stone-100 rounded-[3rem] p-8 space-y-6 shadow-xl">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-400">Global Actions</h4>
+            <div className="space-y-3">
+              <button className="w-full h-16 bg-stone-900 text-[#a9b897] rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all">
+                <Mail size={16}/> Email to Client
+              </button>
+              <button className="w-full h-16 bg-stone-50 text-stone-500 rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest hover:bg-stone-100 transition-all">
+                <Download size={16}/> Export PDF
+              </button>
+              <button className="w-full h-16 bg-stone-50 text-stone-500 rounded-3xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest hover:bg-stone-100 transition-all">
+                <Save size={16}/> Save as Draft
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#a9b897] rounded-[3rem] p-8 text-stone-900">
+             <div className="flex items-center gap-3 mb-4">
+                <Zap size={20} fill="currentColor"/>
+                <span className="text-[10px] font-black uppercase tracking-widest">Automation</span>
+             </div>
+             <p className="text-sm font-serif italic leading-tight">This {docType} will be automatically reconciled against your tax year once posted.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   4. THE HR NODE (PAYROLL, EMPLOYEES, HOLIDAYS)
+===================================================== */
+
+function HRNode() {
+  const [employees] = useState(INITIAL_DATA.employees);
+
+  return (
+    <div className="space-y-12 animate-in fade-in duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Payroll Card */}
+        <div className="bg-white border border-stone-100 rounded-[3.5rem] p-10 shadow-sm relative overflow-hidden">
+          <Briefcase className="absolute -right-6 -bottom-6 text-stone-50" size={120} />
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+            <PiggyBank size={14}/> Monthly Payroll
+          </h3>
+          <p className="text-4xl font-serif italic mb-2">£14,250</p>
+          <p className="text-[9px] font-black uppercase text-[#a9b897] tracking-widest mb-10">Next Run: May 28, 2026</p>
+          <button className="w-full py-4 bg-stone-900 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest">Execute Payroll Run</button>
+        </div>
+
+        {/* Holiday Card */}
+        <div className="bg-white border border-stone-100 rounded-[3.5rem] p-10 shadow-sm">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+            <Calendar size={14}/> Attendance Node
+          </h3>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-serif italic">Sarah Chen</span>
+              <span className="text-[10px] font-bold bg-stone-50 px-3 py-1 rounded-full text-stone-400">12 Days Left</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-serif italic">Marcus Vane</span>
+              <span className="text-[10px] font-bold bg-stone-50 px-3 py-1 rounded-full text-[#a9b897]">18 Days Left</span>
+            </div>
+          </div>
+          <button className="w-full mt-10 py-4 border border-stone-100 rounded-2xl text-[9px] font-black uppercase tracking-widest text-stone-400 hover:bg-stone-50 transition-all">Book Holiday</button>
+        </div>
+
+        {/* Appraisal Card */}
+        <div className="bg-white border border-stone-100 rounded-[3.5rem] p-10 shadow-sm">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+            <TrendingUp size={14}/> Performance
+          </h3>
+          <div className="p-5 bg-[#fcfaf7] rounded-[2rem] border border-stone-100 mb-6">
+            <p className="text-[9px] font-black uppercase text-stone-300 mb-2">Next Appraisal</p>
+            <p className="text-sm font-serif italic">Marcus Vane — Jun 12</p>
+          </div>
+          <button className="w-full py-4 bg-stone-50 rounded-2xl text-[9px] font-black uppercase tracking-widest text-stone-600">Open Appraisals</button>
+        </div>
+      </div>
+
+      {/* Employee Ledger */}
+      <div className="bg-white border border-stone-100 rounded-[4rem] p-16 shadow-2xl">
+        <div className="flex justify-between items-center mb-12">
+          <h2 className="text-4xl font-serif italic">Employee Ledger</h2>
+          <button className="flex items-center gap-2 px-8 py-4 bg-stone-900 text-[#a9b897] rounded-full text-[10px] font-black uppercase tracking-widest">
+            <UserPlus size={16}/> New Employee
+          </button>
+        </div>
+        <table className="w-full">
+          <thead>
+            <tr className="text-left text-[9px] font-black uppercase text-stone-300 tracking-[0.3em]">
+              <th className="pb-8">Identity</th>
+              <th className="pb-8">Role</th>
+              <th className="pb-8">Annual Salary</th>
+              <th className="pb-8">Status</th>
+              <th className="pb-8 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-50">
+            {employees.map((emp) => (
+              <tr key={emp.id} className="group">
+                <td className="py-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-stone-50 rounded-full flex items-center justify-center font-serif italic text-xs border border-stone-100">{emp.name[0]}</div>
+                    <span className="text-sm font-serif italic">{emp.name}</span>
+                  </div>
+                </td>
+                <td className="py-8 text-xs font-bold text-stone-400 uppercase tracking-tighter">{emp.role}</td>
+                <td className="py-8 text-xs font-bold">£{emp.salary.toLocaleString()}</td>
+                <td className="py-8">
+                   <span className="px-3 py-1 bg-[#a9b897]/10 text-[#a9b897] text-[8px] font-black uppercase rounded-full">Active</span>
+                </td>
+                <td className="py-8 text-right">
+                  <button className="text-stone-300 hover:text-stone-900 transition-colors">View Payslips</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================
+   5. THE INTELLIGENCE NODE (REPORTS & TAX)
+===================================================== */
+
+function IntelligenceNode() {
+  return (
+    <div className="space-y-12 animate-in fade-in duration-700">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { label: "Annual Revenue", val: "£142,500", trend: "+12%" },
+          { label: "Tax Liability", val: "£28,500", trend: "Estimated" },
+          { label: "Expenses YTD", val: "£4,210", trend: "-5%" },
+          { label: "Net Profit", val: "£109,790", trend: "Optimal" },
+        ].map((stat, i) => (
+          <div key={i} className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm">
+            <p className="text-[9px] font-black uppercase text-stone-300 tracking-widest mb-4">{stat.label}</p>
+            <p className="text-3xl font-serif italic text-stone-900 mb-2">{stat.val}</p>
+            <p className="text-[8px] font-black uppercase text-[#a9b897] tracking-widest">{stat.trend}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <div className="lg:col-span-8 bg-stone-900 rounded-[4rem] p-16 text-white shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-10 opacity-10">
+            <Calculator size={120} />
+          </div>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897] mb-12">Tax Readiness Node</h3>
+          <div className="space-y-12 relative z-10">
+            <div className="flex justify-between items-end border-b border-white/10 pb-8">
+              <div>
+                <p className="text-[9px] font-black uppercase text-white/40 tracking-widest mb-2">Self Assessment 2026</p>
+                <p className="text-5xl font-serif italic">Pending Submission</p>
+              </div>
+              <button className="px-10 py-5 bg-[#a9b897] text-stone-900 rounded-[2rem] font-black text-[10px] uppercase tracking-widest">Generate Tax Pack</button>
+            </div>
+            <div className="grid grid-cols-3 gap-10">
+              <div>
+                <p className="text-[8px] font-black uppercase text-white/40 mb-2 tracking-widest">Dividend Pool</p>
+                <p className="text-xl font-serif italic text-[#a9b897]">£42,000</p>
+              </div>
+              <div>
+                <p className="text-[8px] font-black uppercase text-white/40 mb-2 tracking-widest">Corp Tax (Est)</p>
+                <p className="text-xl font-serif italic text-[#a9b897]">£12,400</p>
+              </div>
+              <div>
+                <p className="text-[8px] font-black uppercase text-white/40 mb-2 tracking-widest">VAT Returns</p>
+                <p className="text-xl font-serif italic text-[#a9b897]">Quarterly Clean</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 bg-white border border-stone-100 rounded-[4rem] p-12 shadow-xl">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-300 mb-8">System Reports</h3>
+          <div className="space-y-4">
+            {[
+              { label: "P&L Statement", date: "Apr 2026", icon: <FileStack size={16}/> },
+              { label: "Balance Sheet", date: "Mar 2026", icon: <Receipt size={16}/> },
+              { label: "Payroll History", date: "Q1 2026", icon: <Users size={16}/> },
+              { label: "Expense Audit", date: "Full Year", icon: <ShieldCheck size={16}/> },
+            ].map((rep, i) => (
+              <button key={i} className="w-full flex items-center justify-between p-6 bg-stone-50 rounded-[2rem] hover:bg-stone-900 hover:text-[#a9b897] transition-all group">
+                <div className="flex items-center gap-4">
+                  <div className="text-stone-300 group-hover:text-[#a9b897]">{rep.icon}</div>
+                  <div className="text-left">
+                    <p className="text-[10px] font-black uppercase tracking-wider">{rep.label}</p>
+                    <p className="text-[8px] font-bold text-stone-400">{rep.date}</p>
+                  </div>
+                </div>
+                <Download size={14} className="opacity-0 group-hover:opacity-100 transition-all" />
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

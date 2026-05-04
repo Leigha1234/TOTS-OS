@@ -8,7 +8,7 @@ import {
   Users, Trash2, Check, Download,
   Eye, EyeOff, UserPlus, AlertTriangle,
   Camera, Mail, Phone, HeartPulse, Palette,
-  UserCircle, Fingerprint, Globe, History, Zap
+  UserCircle, Fingerprint, Globe, History, Zap, ShieldCheck
 } from "lucide-react";
 
 const APP_PAGES = [
@@ -20,6 +20,8 @@ const APP_PAGES = [
   { id: "settings", label: "System Settings" },
 ];
 
+const TIERS = ["STANDARD", "PREMIUM", "ELITE"];
+
 export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -28,19 +30,22 @@ export default function SettingsPage() {
   
   const [user, setUser] = useState<any>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
+  const [currentTier, setCurrentTier] = useState("STANDARD");
   const [profile, setProfile] = useState<any>({
     full_name: "", phone: "", avatar_url: "", next_of_kin: "", email_signature: ""
   });
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   
+  // Auth Updates
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
   const [inviteEmail, setInviteEmail] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["dashboard"]);
 
   const [brandColor, setBrandColor] = useState("#a9b897");
   const [selectedFont, setSelectedFont] = useState("Inter");
   const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
-  const [newPassword, setNewPassword] = useState("");
-
   const [timezone, setTimezone] = useState("UTC+0 (London)");
   const [currency, setCurrency] = useState("GBP (£)");
   const [webhookUrl, setWebhookUrl] = useState("");
@@ -52,9 +57,13 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return router.push("/login");
       setUser(user);
+      setEmail(user.email || "");
 
       const { data: p } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-      if (p) setProfile((prev: any) => ({ ...prev, ...p }));
+      if (p) {
+        setProfile((prev: any) => ({ ...prev, ...p }));
+        if (p.tier) setCurrentTier(p.tier.toUpperCase());
+      }
 
       const { data: membership } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).maybeSingle();
       if (membership?.team_id) {
@@ -77,14 +86,25 @@ export default function SettingsPage() {
   const handleGlobalSave = async () => {
     setSaving(true);
     try {
+      // Update Profile Table
       await supabase.from("profiles").update({
         full_name: profile?.full_name || "",
         phone: profile?.phone || "",
         next_of_kin: profile?.next_of_kin || "",
         email_signature: profile?.email_signature || "",
-        avatar_url: profile?.avatar_url || ""
+        avatar_url: profile?.avatar_url || "",
+        tier: currentTier
       }).eq("id", user?.id);
       
+      // Update Auth Credentials if changed
+      if (email !== user.email || password) {
+        const updateData: any = { email };
+        if (password) updateData.password = password;
+        const { error } = await supabase.auth.updateUser(updateData);
+        if (error) throw error;
+        setPassword("");
+      }
+
       if (teamId) {
         await supabase.from("settings").upsert({
           team_id: teamId,
@@ -95,13 +115,8 @@ export default function SettingsPage() {
         });
       }
 
-      if (newPassword) {
-        await supabase.auth.updateUser({ password: newPassword });
-        setNewPassword("");
-      }
-
       alert("Node Synchronized.");
-    } catch (err) { alert("Sync Error."); } finally { setSaving(false); }
+    } catch (err: any) { alert("Sync Error: " + err.message); } finally { setSaving(false); }
   };
 
   const handleInvite = async () => {
@@ -134,14 +149,27 @@ export default function SettingsPage() {
                {isDarkMode ? <Sun size={20} className="text-black"/> : <Moon size={20} />}
             </button>
             <button onClick={handleGlobalSave} disabled={saving} className="flex items-center gap-4 bg-stone-900 text-[#a9b897] px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl">
-              {saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />} Commit All
+              {saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />} Commit All Changes
             </button>
           </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           
+          {/* LEFT COLUMN */}
           <div className="lg:col-span-4 space-y-12">
+            {/* TIER SELECTION */}
+            <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
+               <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2"><ShieldCheck size={14}/> Subscription Tier</h2>
+               <div className="grid grid-cols-1 gap-2">
+                  {TIERS.map((t) => (
+                    <button key={t} onClick={() => setCurrentTier(t)} className={`p-4 rounded-2xl border text-[9px] font-black uppercase transition-all flex justify-between items-center ${currentTier === t ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-100 text-stone-400 hover:border-stone-200'}`}>
+                      {t} {currentTier === t && <Check size={12} />}
+                    </button>
+                  ))}
+               </div>
+            </section>
+
             <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-8">
               <div className="flex flex-col items-center gap-6">
                 <div className="relative group w-32 h-32 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden">
@@ -151,25 +179,15 @@ export default function SettingsPage() {
                 <input value={profile?.full_name || ""} onChange={e => setProfile({...profile, full_name: e.target.value})} placeholder="Full Name" className="text-center font-serif italic text-2xl w-full bg-transparent outline-none" />
               </div>
               <div className="space-y-4">
+                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Mail size={18} className="text-stone-400" /><input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
+                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Fingerprint size={18} className="text-stone-400" /><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="New Password" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Phone size={18} className="text-[#a9b897]" /><input value={profile?.phone || ""} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="Phone" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><HeartPulse size={18} className="text-red-400" /><input value={profile?.next_of_kin || ""} onChange={e => setProfile({...profile, next_of_kin: e.target.value})} placeholder="Next of Kin" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
-                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Fingerprint size={18} className="text-stone-400" /><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Password" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
-              </div>
-            </section>
-
-            <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2"><Globe size={14}/> Localization</h2>
-              <div className="space-y-4">
-                <select value={timezone} onChange={e => setTimezone(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-[10px] font-black uppercase outline-none">
-                  <option>UTC+0 (London)</option><option>EST (New York)</option><option>CET (Paris)</option>
-                </select>
-                <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-[10px] font-black uppercase outline-none">
-                  <option>GBP (£)</option><option>USD ($)</option><option>EUR (€)</option>
-                </select>
               </div>
             </section>
           </div>
 
+          {/* RIGHT COLUMN */}
           <div className="lg:col-span-8 space-y-12">
             <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm">
               <div className="flex justify-between items-center mb-10">
@@ -215,40 +233,24 @@ export default function SettingsPage() {
               <textarea value={profile?.email_signature || ""} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Regards, Management" className="w-full h-32 p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-sm outline-none resize-none" />
             </section>
 
-            {/* RE-BUILT BANKING SECTION - PREVENTS SQUASHING IN IMAGE_666D1E.PNG */}
+            {/* BANKING SECTION - PROTECTED LAYOUT FOR IMAGE_666D1E.PNG */}
             <section className="bg-stone-900 text-white p-12 rounded-[4rem] shadow-2xl">
               <div className="flex items-center gap-3 mb-8 opacity-50">
                 <Landmark size={18} />
                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em]">Banking Distribution</h2>
               </div>
-              
               <div className="flex flex-wrap gap-6">
                 <div className="flex-1 min-w-[240px] space-y-3">
                   <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Bank Entity</label>
-                  <input 
-                    value={bankInfo.name} 
-                    onChange={e => setBankInfo({...bankInfo, name: e.target.value})}
-                    placeholder="e.g. Barclays" 
-                    className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" 
-                  />
+                  <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} placeholder="e.g. Barclays" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
                 </div>
                 <div className="flex-1 min-w-[240px] space-y-3">
                   <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Account Reference</label>
-                  <input 
-                    value={bankInfo.acc} 
-                    onChange={e => setBankInfo({...bankInfo, acc: e.target.value})}
-                    placeholder="00000000" 
-                    className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" 
-                  />
+                  <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} placeholder="00000000" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
                 </div>
                 <div className="flex-1 min-w-[240px] space-y-3">
                   <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Sort / Routing</label>
-                  <input 
-                    value={bankInfo.sort} 
-                    onChange={e => setBankInfo({...bankInfo, sort: e.target.value})}
-                    placeholder="00-00-00" 
-                    className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" 
-                  />
+                  <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} placeholder="00-00-00" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
                 </div>
               </div>
             </section>

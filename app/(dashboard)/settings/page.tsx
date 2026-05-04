@@ -36,7 +36,7 @@ export default function SettingsPage() {
   });
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   
-  // Auth Updates
+  // Auth Updates (Merged from Profile Page)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -86,7 +86,7 @@ export default function SettingsPage() {
   const handleGlobalSave = async () => {
     setSaving(true);
     try {
-      // Update Profile Table
+      // Update Profile Table & Tier
       await supabase.from("profiles").update({
         full_name: profile?.full_name || "",
         phone: profile?.phone || "",
@@ -96,7 +96,7 @@ export default function SettingsPage() {
         tier: currentTier
       }).eq("id", user?.id);
       
-      // Update Auth Credentials if changed
+      // Update Auth Credentials if changed (Logic from Profile Page)
       if (email !== user.email || password) {
         const updateData: any = { email };
         if (password) updateData.password = password;
@@ -158,7 +158,7 @@ export default function SettingsPage() {
           
           {/* LEFT COLUMN */}
           <div className="lg:col-span-4 space-y-12">
-            {/* TIER SELECTION */}
+            {/* TIER SELECTION (Merged Logic) */}
             <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2"><ShieldCheck size={14}/> Subscription Tier</h2>
                <div className="grid grid-cols-1 gap-2">
@@ -233,7 +233,7 @@ export default function SettingsPage() {
               <textarea value={profile?.email_signature || ""} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Regards, Management" className="w-full h-32 p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-sm outline-none resize-none" />
             </section>
 
-            {/* BANKING SECTION - PROTECTED LAYOUT FOR IMAGE_666D1E.PNG */}
+            {/* BANKING SECTION - PRESERVED LAYOUT */}
             <section className="bg-stone-900 text-white p-12 rounded-[4rem] shadow-2xl">
               <div className="flex items-center gap-3 mb-8 opacity-50">
                 <Landmark size={18} />

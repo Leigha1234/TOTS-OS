@@ -96,48 +96,40 @@ export default function ApexOS() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#fcfaf7] text-stone-900 font-sans">
-      
-      {/* SIDEBAR */}
-      <aside className="w-72 bg-white border-r border-stone-200 flex flex-col h-full shrink-0">
-        <div className="p-10 flex-1 overflow-y-auto">
-          <div className="flex items-center gap-4 mb-14">
-            <div className="w-12 h-12 bg-stone-900 rounded-2xl flex items-center justify-center text-[#a9b897] font-serif italic text-2xl shadow-xl">A</div>
-            <div className="flex flex-col leading-none">
-              <span className="font-serif italic text-xl tracking-tighter">Apex OS</span>
-              <span className="text-[8px] font-black uppercase tracking-[0.3em] opacity-40">Command Center</span>
-            </div>
-          </div>
-          
-          <nav className="space-y-4">
-            {[
-              { id: "finance", icon: <Receipt size={18}/>, label: "Finance & Sales" },
-              { id: "hr", icon: <Users size={18}/>, label: "Human Resources" },
-              { id: "intel", icon: <BarChart3 size={18}/>, label: "Intelligence" },
-            ].map(node => (
-              <button 
-                key={node.id}
-                onClick={() => setActiveNode(node.id)}
-                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                  activeNode === node.id 
-                    ? "bg-stone-900 text-[#a9b897] shadow-xl" 
-                    : "text-stone-400 hover:text-stone-900"
-                }`}
-              >
-                {node.icon} {node.label}
-              </button>
-            ))}
-          </nav>
-        </div>
-      </aside>
+    <div className="flex h-screen overflow-hidden bg-[#fcfaf7] text-stone-900 font-sans w-full">
 
       {/* MAIN VIEWPORT */}
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        
+        {/* TOP NAV BAR - PAGE LEVEL */}
         <header className="h-24 bg-white/80 backdrop-blur-md border-b border-stone-100 flex items-center justify-between px-12 shrink-0">
+          <div className="flex items-center gap-6">
+            <div className="w-10 h-10 bg-stone-900 rounded-2xl flex items-center justify-center text-[#a9b897] font-serif italic text-xl shadow-xl">A</div>
+            <span className="font-serif italic text-lg tracking-tighter mr-6">Apex OS</span>
+            
+            <div className="flex gap-2 bg-stone-100 p-1.5 rounded-2xl">
+              {[
+                { id: "finance", icon: <Receipt size={14}/>, label: "Finance & Sales" },
+                { id: "hr", icon: <Users size={14}/>, label: "Human Resources" },
+                { id: "intel", icon: <BarChart3 size={14}/>, label: "Intelligence" },
+              ].map(node => (
+                <button 
+                  key={node.id}
+                  onClick={() => setActiveNode(node.id)}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                    activeNode === node.id 
+                      ? "bg-stone-900 text-[#a9b897] shadow-xl" 
+                      : "text-stone-400 hover:text-stone-900 bg-transparent"
+                  }`}
+                >
+                  {node.icon} {node.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-serif italic capitalize">{activeNode}</h1>
             <div className="h-1.5 w-1.5 rounded-full bg-[#a9b897] animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">Live Server Active</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-300">Live Server Active</span>
           </div>
         </header>
 

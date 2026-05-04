@@ -236,88 +236,166 @@ Provide editable, business-ready and simplified versions that people can actuall
     title: "Terms & Conditions Builder (Service)",
     category: "Legal & Governance",
     clarity: "T&Cs Builder System",
-    content: `TERMS & CONDITIONS BUILDER
+    content: `BUSINESS LEGAL FOUNDATIONS - T&Cs (SERVICE-BASED)
 
-[INSERT BUSINESS NAME]
+⚠️ MASTER DISCLAIMER
+These templates are provided as general business frameworks and do not constitute legal advice. We recommend reviewing with a qualified legal professional to ensure suitability for your specific business.
 
-1. 🧩 Scope of Work
-The Provider agrees to provide [INSERT SERVICE TYPE] as specified in the service agreement.
+1. Introduction
+This agreement is between:
+[Your Business Name] ("the Company")
+and
+[Client Name] ("the Client").
 
-2. 🧩 Payment Terms
-Payment shall be made as follows: [INSERT PAYMENT TERMS]. A late fee of 5% is added after 7 days.
+By engaging services, the Client agrees to the terms outlined below.
 
-3. Cancellation Policy
-Either party may terminate this agreement with 14 days written notice.
+2. Scope of Work
+The Company agrees to deliver:
+[Insert description of services]
 
-4. Liability Limits
-The Provider's liability is limited to the total amount paid by the Client.
+Any additional work outside this scope may incur additional charges.
 
----
-Guidance Note: If you take deposits, include "A non-refundable 50% deposit is required before work commences."
+3. Payment Terms
+Total fee: £[amount]
+Payment structure: [e.g. upfront / instalments / monthly]
+Payment due within: [X] days
 
-⚠️ Disclaimer: This template is a general framework and should be reviewed by a professional for your specific business requirements.`
+Late payments may result in:
+- Work being paused
+- Late fees of [X% or £X]
+
+4. Cancellations & Refunds
+- Deposits are non-refundable.
+- Ongoing services require [X days] notice.
+- No refunds for work already completed.
+
+5. Client Responsibilities
+The Client agrees to:
+- Provide required information on time.
+- Communicate clearly.
+- Approve deliverables within a reasonable timeframe.
+(Delays from the Client may affect timelines).
+
+6. Liability
+The Company is not liable for:
+- Loss of revenue
+- Indirect or consequential damages
+(Total liability is limited to the amount paid for services).
+
+7. Intellectual Property
+- Work remains property of the Company until paid in full.
+- Upon full payment, ownership transfers to the Client unless agreed otherwise.
+
+8. Confidentiality
+Both parties agree not to share confidential information.
+
+9. Termination
+Either party may terminate with written notice. Outstanding payments remain due.
+
+10. Governing Law
+This agreement is governed by the laws of [Country].`
   },
   {
     id: 10, 
     title: "GDPR-Friendly Privacy Policy",
     category: "Legal & Governance",
     clarity: "Data compliance builder",
-    content: `PRIVACY POLICY (GDPR-FRIENDLY)
+    content: `BUSINESS LEGAL FOUNDATIONS - PRIVACY POLICY
 
-1. Data Collection
-We collect Name, Business Name, Email Address, and Project Details.
+⚠️ MASTER DISCLAIMER
+These templates are provided as general business frameworks and do not constitute legal advice. We recommend reviewing with a qualified legal professional to ensure suitability for your specific business.
 
-2. Storage and Security
-Data is stored securely inside the TOTS OS platform and protected infrastructure.
+1. Overview
+We respect your privacy and are committed to protecting your data.
 
-3. Usage
-Data is used to provide service deliverables and system automation updates.
+2. Data We Collect
+- Name
+- Email
+- Business details
+- Payment information
 
-4. Cookies and Web Data
-Minimal cookies are used for authorization. 
+3. How We Use Data
+- Deliver services
+- Process payments
+- Improve systems
+- Communicate updates
 
-5. Third-Party Tools
-- TOTS OS (Cloud environment)
-- Communication channels (Email/Slack)
+4. Data Storage
+Your data is securely stored and only accessible to authorised personnel.
 
-👉 Bonus Checkbox Text:
-"I consent to having my personal details stored and used in accordance with the Privacy Policy for onboarding and processing purposes."
+5. Third Parties
+We may use trusted third-party tools (e.g. payment processors, email systems).
 
-⚠️ Disclaimer: This template is a general framework and should be reviewed by a professional for your specific business requirements.`
+6. Your Rights
+You can:
+- Request access to your data
+- Request deletion
+- Withdraw consent
+Contact: [Your Email]
+
+7. Cookies
+Our website may use cookies for analytics and performance.`
   },
   {
     id: 11, 
-    title: "Service Agreement Contract",
+    title: "Client Contract & Retainer Agreement",
     category: "Legal & Governance",
     clarity: "Legal and project contract",
-    content: `CLIENT CONTRACT & AGREEMENT
+    content: `BUSINESS LEGAL FOUNDATIONS - CLIENT AGREEMENT
 
-[INSERT BUSINESS NAME]
+⚠️ MASTER DISCLAIMER
+These templates are provided as general business frameworks and do not constitute legal advice. We recommend reviewing with a qualified legal professional to ensure suitability for your specific business.
 
-1. Deliverables
-2. Timelines & Milestones
-3. Revision Thresholds
-4. Payment Schedule
-5. Ownership and IP
+Project Details
+Service: [Insert]
+Start Date: [Insert]
+Duration: [Insert]
 
-Version Option: 
-- One-Off Project: Fully paid upon completion of deliverable.
-- Monthly Retainer: Billed on the 1st of every month.
+Deliverables
+1. [Deliverable 1]
+2. [Deliverable 2]
 
-⚠️ Disclaimer: This template is a general framework and should be reviewed by a professional for your specific business requirements.`
+Revisions
+Includes: [X] revisions. Additional revisions may be charged.
+
+Communication
+Primary contact: [email / platform]
+
+Payment
+As per agreed terms.
+
+Termination
+Either party may terminate with notice. Work completed must be paid for.`
   },
   {
     id: 12, 
-    title: "Data Consent Templates",
+    title: "Payment & Disclaimer Module",
     category: "Legal & Governance",
-    clarity: "Opt-in documentation",
-    content: `DATA CONSENT & OPT-IN TEMPLATE
+    clarity: "Policy and disclaimer modules",
+    content: `BUSINESS LEGAL FOUNDATIONS - POLICIES & DISCLAIMERS
 
-1. Email Marketing Consent
-2. GDPR Form Checkboxes
-3. Data Protection / Retention text
+⚠️ MASTER DISCLAIMER
+These templates are provided as general business frameworks and do not constitute legal advice. We recommend reviewing with a qualified legal professional to ensure suitability for your specific business.
 
-⚠️ Disclaimer: This template is a general framework and should be reviewed by a professional for your specific business requirements.`
+Part 1: Payment Terms Policy
+- Invoices must be paid within [X] days.
+- Late payments incur [fee].
+- Work may pause if unpaid.
+- No delivery of final work until paid in full.
+
+Part 2: Disclaimer Template
+The Company provides business and operational guidance.
+We do not guarantee:
+- Specific financial results
+- Business outcomes
+All decisions made by the Client are their responsibility.
+
+Part 3: Data Consent / Opt-In
+Checkbox Wording:
+"I agree to have my data stored and used in accordance with the Privacy Policy."
+
+Email Consent:
+"I agree to receive communications, updates, and relevant offers."`
   }
 ];
 
@@ -376,16 +454,15 @@ export default function VaultPage() {
         <header className="border-b border-stone-200 pb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div>
             <h1 className="text-7xl font-serif italic tracking-tighter">The Vault</h1>
-            <p className="text-stone-400 mt-4 italic">Systematised business foundations and the Legal OS framework.</p>
+            <p className="text-stone-400 mt-4 italic">Systematised business foundations and the Business Legal Foundation Pack.</p>
           </div>
           <button 
             onClick={() => {
-              // Command for installing legal foundation set
-              alert("Installing Legal Foundation modules, connecting CRM workflow hooks, and embedding documents...");
+              alert("Installing Legal Foundation Pack. Attaching T&Cs to onboarding forms, linking contracts to clients, and payment terms to invoices.");
             }} 
             className="px-8 py-4 bg-[#a9b897] text-stone-900 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-[#99a888] transition-all shadow-xl flex items-center gap-4 cursor-pointer"
           >
-            <Sparkles size={16} /> Install Legal Foundation
+            <Sparkles size={16} /> Install Legal System
           </button>
         </header>
 
@@ -436,13 +513,27 @@ export default function VaultPage() {
           </div>
 
           {/* MAIN PREVIEW AREA */}
-          <div className="col-span-12 lg:col-span-8 flex items-center justify-center border-2 border-dashed border-stone-200 rounded-[3rem] p-20 bg-white text-stone-400 min-h-[400px]">
-            <div className="text-center space-y-4 max-w-md">
-              <Folder size={48} className="mx-auto opacity-20 text-[#a9b897]" />
-              <p className="font-serif italic text-lg text-stone-700 font-medium">Select a module from the archive to modify, build, or deploy.</p>
-              <p className="text-xs text-stone-400 leading-relaxed">
-                All templates include built-in editable clauses, guidance notes, and TOTS-style workflows.
-              </p>
+          <div className="col-span-12 lg:col-span-8 flex flex-col items-center justify-center border-2 border-dashed border-stone-200 rounded-[3rem] p-12 bg-white text-stone-600 min-h-[400px] text-center">
+            <Lightbulb className="text-[#a9b897] mb-6" size={42} />
+            <h3 className="font-serif text-2xl mb-2">Welcome to your operational core</h3>
+            <p className="text-sm text-stone-400 max-w-lg mb-8 leading-relaxed">
+              Use your archive to generate, modify, or download essential business frameworks. 
+              Click any sidebar component to view its contents and edit it with your business parameters.
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl w-full text-left mt-4 border-t border-stone-100 pt-8">
+              <div className="p-6 bg-stone-50 rounded-2xl border border-stone-200">
+                <span className="text-[10px] uppercase tracking-widest font-black text-[#a9b897] block mb-2">1. Select</span>
+                <span className="text-xs text-stone-800">Browse categories to locate your needed documents and templates.</span>
+              </div>
+              <div className="p-6 bg-stone-50 rounded-2xl border border-stone-200">
+                <span className="text-[10px] uppercase tracking-widest font-black text-[#a9b897] block mb-2">2. Modify</span>
+                <span className="text-xs text-stone-800">Use the text interface or AI to fill in custom business logic.</span>
+              </div>
+              <div className="p-6 bg-stone-50 rounded-2xl border border-stone-200">
+                <span className="text-[10px] uppercase tracking-widest font-black text-[#a9b897] block mb-2">3. Deploy</span>
+                <span className="text-xs text-stone-800">Download directly or install to your current active systems.</span>
+              </div>
             </div>
           </div>
         </div>

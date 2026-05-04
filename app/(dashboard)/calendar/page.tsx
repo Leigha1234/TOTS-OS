@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
-  Plus, Landmark, X, Loader2
+  Plus, Landmark, X, Loader2, MapPin, Clock, Users, Link as LinkIcon, Edit, UserPlus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -19,9 +19,15 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(new Date());
   
-  // Modal State
+  // Extended Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [eventTime, setEventTime] = useState("12:00");
+  const [eventLocation, setEventLocation] = useState("");
+  const [eventColor, setEventColor] = useState("#a9b897");
+  const [vcLink, setVcLink] = useState("");
+  const [guests, setGuests] = useState("");
+  const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -46,7 +52,6 @@ export default function CalendarPage() {
     }
   }
 
-  // UPDATED: Click handler for days
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
     setIsModalOpen(true);
@@ -57,15 +62,33 @@ export default function CalendarPage() {
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // Combine day and time
+      const eventDate = new Date(selectedDay);
+      const [hours, minutes] = eventTime.split(":");
+      eventDate.setHours(Number(hours), Number(minutes), 0, 0);
+
       const { error } = await supabase.from("tasks").insert({
         title: newTitle,
         user_id: user?.id,
-        created_at: selectedDay.toISOString(),
+        created_at: eventDate.toISOString(),
+        description: notes,
+        location: eventLocation,
+        color: eventColor,
+        vc_link: vcLink,
+        guests: guests,
         status: "todo",
         priority: 1
       });
+
       if (!error) {
         setNewTitle("");
+        setEventTime("12:00");
+        setEventLocation("");
+        setEventColor("#a9b897");
+        setVcLink("");
+        setGuests("");
+        setNotes("");
         setIsModalOpen(false);
         fetchEvents();
       }
@@ -93,7 +116,7 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-[#faf9f6] p-4 md:p-10 text-stone-900 overflow-x-hidden">
       
-      {/* MODAL: Google Calendar Style Pop-up */}
+      {/* MODAL */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 flex items-center justify-center z-[100] p-4">
@@ -104,7 +127,7 @@ export default function CalendarPage() {
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-[3rem] p-10 shadow-2xl border border-stone-100"
+              className="relative w-full max-w-lg bg-white rounded-[3rem] p-10 shadow-2xl border border-stone-100 max-h-[85vh] overflow-y-auto"
             >
               <div className="flex justify-between items-start mb-8">
                 <div>
@@ -116,15 +139,93 @@ export default function CalendarPage() {
                 </button>
               </div>
 
-              <div className="space-y-6">
-                <input 
-                  autoFocus
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreateEntry()}
-                  placeholder="What's happening?"
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:outline-none focus:ring-2 ring-[#a9b897]/20 font-serif italic"
-                />
+              <div className="space-y-5">
+                <div>
+                  <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Title</label>
+                  <input 
+                    autoFocus
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="What's happening?"
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 font-serif italic"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                     <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Time</label>
+                     <input 
+                       type="time"
+                       value={eventTime}
+                       onChange={(e) => setEventTime(e.target.value)}
+                       className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 text-stone-600"
+                     />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Category/Color</label>
+                    <select 
+                      value={eventColor}
+                      onChange={(e) => setEventColor(e.target.value)}
+                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 text-stone-600"
+                    >
+                      <option value="#a9b897">Soft Sage</option>
+                      <option value="#8fa07d">Sage Strong</option>
+                      <option value="#eab308">Yellow Sun</option>
+                      <option value="#3b82f6">Ocean Blue</option>
+                      <option value="#ef4444">Alert Red</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Location</label>
+                   <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3">
+                     <MapPin size={14} className="text-stone-400" />
+                     <input 
+                       value={eventLocation}
+                       onChange={(e) => setEventLocation(e.target.value)}
+                       placeholder="e.g. Boardroom or Remote"
+                       className="w-full bg-transparent text-xs focus:outline-none"
+                     />
+                   </div>
+                </div>
+
+                <div>
+                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Video Call Link</label>
+                   <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3">
+                     <LinkIcon size={14} className="text-stone-400" />
+                     <input 
+                       value={vcLink}
+                       onChange={(e) => setVcLink(e.target.value)}
+                       placeholder="https://..."
+                       className="w-full bg-transparent text-xs focus:outline-none"
+                     />
+                   </div>
+                </div>
+
+                <div>
+                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Guests & Emails</label>
+                   <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3">
+                     <Users size={14} className="text-stone-400" />
+                     <input 
+                       value={guests}
+                       onChange={(e) => setGuests(e.target.value)}
+                       placeholder="team@domain.com, ext@domain.com"
+                       className="w-full bg-transparent text-xs focus:outline-none"
+                     />
+                   </div>
+                </div>
+
+                <div>
+                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Internal & External Notes</label>
+                   <textarea 
+                     value={notes}
+                     onChange={(e) => setNotes(e.target.value)}
+                     placeholder="Meeting brief or checklist items..."
+                     className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none h-20 resize-none font-serif italic"
+                   />
+                </div>
+
                 <button 
                   onClick={handleCreateEntry}
                   disabled={isSubmitting || !newTitle}
@@ -144,7 +245,7 @@ export default function CalendarPage() {
         {/* MAIN CALENDAR GRID */}
         <div className="lg:col-span-9 bg-white rounded-[3.5rem] border border-stone-100 shadow-sm overflow-hidden">
           <div className="p-8 flex justify-between items-center border-b border-stone-50">
-             <h1 className="text-5xl font-serif italic text-stone-800 tracking-tighter leading-none lowercase">
+             <h1 className="text-5xl font-serif italic text-stone-800 tracking-tighter leading-none lowercase capitalize">
                {format(currentMonth, "MMMM")}
              </h1>
              <div className="flex gap-2">
@@ -168,7 +269,7 @@ export default function CalendarPage() {
               return (
                 <div 
                   key={day.toISOString()}
-                  onClick={() => handleDayClick(day)} // Trigger Modal on Click
+                  onClick={() => handleDayClick(day)}
                   className={`min-h-[140px] p-4 border-r border-b border-stone-50 transition-all cursor-pointer relative
                     ${!isCurrentMonth ? 'opacity-20' : 'bg-white hover:bg-[#a9b897]/5'}
                     group
@@ -213,8 +314,10 @@ export default function CalendarPage() {
                 </div>
               ) : (
                 selectedDayTasks.map(task => (
-                  <div key={task.id} className="p-4 bg-stone-50 rounded-2xl border border-stone-100 hover:border-[#a9b897]/30 transition-colors">
+                  <div key={task.id} className="p-4 bg-stone-50 rounded-2xl border border-stone-100 hover:border-[#a9b897]/30 transition-colors space-y-1">
                     <p className="text-[10px] font-bold text-stone-700 leading-tight uppercase tracking-tight">{task.title}</p>
+                    {task.location && <p className="text-[8px] text-stone-400 flex items-center gap-1"><MapPin size={10}/> {task.location}</p>}
+                    <p className="text-[8px] text-stone-400 flex items-center gap-1"><Clock size={10}/> {format(new Date(task.created_at), "HH:mm")}</p>
                   </div>
                 ))
               )}
@@ -236,7 +339,6 @@ export default function CalendarPage() {
             <CalendarIcon size={120} className="absolute -right-6 -bottom-6 opacity-10" />
           </div>
         </aside>
-
       </div>
     </div>
   );

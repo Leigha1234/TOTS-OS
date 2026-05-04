@@ -24,59 +24,58 @@ import {
   Search,
   DollarSign,
   Users,
-  ShieldAlert,
   ShieldCheck,
   FileSpreadsheet,
-  RefreshCw,
-  FolderLock
+  FolderLock,
+  ArrowUpRight,
+  ArrowDownLeft,
+  ShieldAlert,
+  FileDigit,
+  ReceiptText
 } from "lucide-react";
 
 export default function FinancePage() {
   const [isMounted, setIsMounted] = useState(false);
-  
-  // Dashboard Metrics 
+
+  // Financial Dashboard Metrics
   const [metrics, setMetrics] = useState({
-    revenue: 124500,
-    totalHours: 320,
-    payrollEst: 8000,
-    overdueCount: 2,
-    tasksDone: 14,
+    revYtd: 142500,
+    liabilities: 28500,
+    vatPool: 4210,
+    calculatedTaxDue: 21660,
     activeRunRate: 154000,
     activeBudget: 220000,
     pendingInvoices: 5
   });
 
-  // Ledger States
+  // Common Ledger Data
   const [items, setItems] = useState<any[]>([]);
   const [newItemName, setNewItemName] = useState("");
   const [newItemAmount, setNewItemAmount] = useState("");
   const [newItemQty, setNewItemQty] = useState("1");
-  
-  // Quotes & Invoices state
+  const [vatRate, setVatRate] = useState("20"); 
+  const [discountAmount, setDiscountAmount] = useState("");
+  const [liabilityLabel, setNewLiabilityLabel] = useState("");
+  const [liabilityAmount, setNewLiabilityAmount] = useState("");
+
+  // Subledger Records (Quotes & Payroll)
   const [quotes, setQuotes] = useState<any[]>([
     { id: "1", client: "Aperture Labs", amount: 12000, status: "pending", date: "2026-05-12" },
     { id: "2", client: "Black Mesa Corp", amount: 4500, status: "approved", date: "2026-05-15" }
   ]);
   const [quoteClient, setQuoteClient] = useState("");
   const [quoteAmount, setQuoteAmount] = useState("");
-  
-  // Payroll / Ledger states
+
   const [payrollEntries, setPayrollEntries] = useState<any[]>([
-    { id: "1", employee: "John Doe", role: "Developer", rate: 50, hours: 40, total: 2000 },
-    { id: "2", employee: "Sarah Lee", role: "Designer", rate: 45, hours: 38, total: 1710 }
+    { id: "1", employee: "Sarah Chen", role: "Developer", rate: 50, hours: 40, total: 2000 },
+    { id: "2", employee: "Marcus Brody", role: "Designer", rate: 45, hours: 38, total: 1710 }
   ]);
   const [empNameInput, setEmpNameInput] = useState("");
   const [empRoleInput, setEmpRoleInput] = useState("");
   const [empHoursInput, setEmpHoursInput] = useState("");
   const [empRateInput, setEmpRateInput] = useState("");
 
-  // Common ledger control states
-  const [vatRate, setVatRate] = useState("20"); 
-  const [discountAmount, setDiscountAmount] = useState("");
-  const [liabilityLabel, setNewLiabilityLabel] = useState("");
-  const [liabilityAmount, setNewLiabilityAmount] = useState("");
-  
-  // Onboarding states
+  // HR Onboarding States
   const [empName, setEmpName] = useState("Jane Doe");
   const [empRole, setEmpRole] = useState("Marketing Executive");
   const [bankDetails, setBankDetails] = useState("");
@@ -84,11 +83,34 @@ export default function FinancePage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Detailed Ledger Reports
+  const [balanceSheet, setBalanceSheet] = useState({
+    assets: 156000,
+    liabilities: 28500,
+    equity: 127500
+  });
+  const [cashFlow, setCashFlow] = useState({
+    inflows: 35000,
+    outflows: 18000,
+    net: 17000
+  });
+  const [accountsReceivable, setAccountsReceivable] = useState<any[]>([
+    { id: "AR-1", customer: "Cyberdyne Systems", balance: 5400, due: "2026-05-18" }
+  ]);
+  const [accountsPayable, setAccountsPayable] = useState<any[]>([
+    { id: "AP-1", vendor: "Apex Facilities", amount: 2300, due: "2026-05-22" }
+  ]);
+  const [incomeStatement, setIncomeStatement] = useState({
+    grossRevenue: 142500,
+    cogs: 24000,
+    operatingExpenses: 45000,
+    netIncome: 73500
+  });
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Ledger item handlers
   const addItem = () => {
     if (!newItemName || !newItemAmount) return;
     const amount = parseFloat(newItemAmount);
@@ -104,7 +126,6 @@ export default function FinancePage() {
         total: amount * qty,
       }
     ]);
-
     setNewItemName("");
     setNewItemAmount("");
     setNewItemQty("1");
@@ -114,7 +135,6 @@ export default function FinancePage() {
     setItems(items.filter(item => item.id !== id));
   };
 
-  // Quotes handlers
   const addQuote = () => {
     if (!quoteClient || !quoteAmount) return;
     setQuotes([
@@ -124,14 +144,13 @@ export default function FinancePage() {
         client: quoteClient,
         amount: parseFloat(quoteAmount),
         status: "pending",
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split("T")[0]
       }
     ]);
     setQuoteClient("");
     setQuoteAmount("");
   };
 
-  // Payroll handlers
   const addPayrollEntry = () => {
     if (!empNameInput || !empRateInput || !empHoursInput) return;
     const rate = parseFloat(empRateInput);
@@ -148,21 +167,18 @@ export default function FinancePage() {
         total: rate * hours
       }
     ]);
-
     setEmpNameInput("");
     setEmpRoleInput("");
     setEmpHoursInput("");
     setEmpRateInput("");
   };
 
-  // Invoice calculations
   const subtotal = items.reduce((acc, item) => acc + item.total, 0);
   const discount = parseFloat(discountAmount) || 0;
   const taxableAmount = Math.max(0, subtotal - discount);
   const vat = taxableAmount * (parseFloat(vatRate) / 100);
   const total = taxableAmount + vat;
 
-  // Global functions
   const handleDispatch = () => {
     if (items.length === 0) {
       alert("Ledger is empty. Add elements to this invoice before dispatching.");
@@ -212,7 +228,7 @@ export default function FinancePage() {
         
         <div className="flex items-center gap-4 bg-white border border-stone-200 px-6 py-4 rounded-2xl shadow-sm">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Live Telemetry Active</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Live Secure Server Active</p>
         </div>
       </header>
 
@@ -230,11 +246,8 @@ export default function FinancePage() {
             <span className="text-[9px] font-black uppercase text-stone-500 tracking-[0.3em]">Capital Flow</span>
           </div>
           <div className="z-10 mt-8">
-            <p className="text-4xl font-mono tracking-tighter">£{metrics.revenue.toLocaleString()}</p>
+            <p className="text-4xl font-mono tracking-tighter">£{metrics.revYtd.toLocaleString()}</p>
             <p className="text-[10px] text-stone-500 uppercase font-black mt-2 tracking-widest">Aggregate Revenue</p>
-          </div>
-          <div className="absolute right-[-10%] bottom-[-10%] opacity-5 group-hover:opacity-10 transition-opacity">
-            <Banknote size={160} />
           </div>
         </motion.div>
 
@@ -243,14 +256,14 @@ export default function FinancePage() {
           className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[220px]"
         >
           <div className="flex justify-between items-start">
-            <div className="p-3 bg-blue-50 text-blue-500 rounded-2xl">
-              <CheckCircle2 size={24} />
+            <div className="p-3 bg-red-50 text-red-500 rounded-2xl">
+              <ShieldAlert size={24} />
             </div>
-            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Execution</span>
+            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Liabilities</span>
           </div>
           <div className="mt-8">
-            <p className="text-4xl font-mono tracking-tighter text-stone-800">{metrics.tasksDone}</p>
-            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Completed Nodes</p>
+            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.liabilities.toLocaleString()}</p>
+            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Active Liabilities</p>
           </div>
         </motion.div>
 
@@ -259,72 +272,30 @@ export default function FinancePage() {
           className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[220px]"
         >
           <div className="flex justify-between items-start">
-            <div className="p-3 bg-purple-50 text-purple-500 rounded-2xl">
-              <Clock size={24} />
+            <div className="p-3 bg-green-50 text-green-600 rounded-2xl">
+              <ShieldCheck size={24} />
             </div>
-            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Efficiency</span>
+            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">VAT Pool</span>
           </div>
           <div className="mt-8">
-            <p className="text-4xl font-mono tracking-tighter text-stone-800">{metrics.totalHours}<span className="text-xl ml-1 text-stone-400 font-serif italic">hrs</span></p>
-            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Labor Deployment</p>
+            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.vatPool.toLocaleString()}</p>
+            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Calculated VAT Pool</p>
           </div>
         </motion.div>
 
         <motion.div 
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="bg-[#fff1f1] border border-red-100 p-10 rounded-[2.5rem] flex flex-col justify-between min-h-[220px]"
-        >
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-red-500 text-white rounded-2xl shadow-lg shadow-red-200">
-              <AlertCircle size={24} />
-            </div>
-            <span className="text-[9px] font-black uppercase text-red-400 tracking-[0.3em]">Risk Assessment</span>
-          </div>
-          <div className="mt-8">
-            <p className="text-4xl font-mono tracking-tighter text-red-600">{metrics.overdueCount}</p>
-            <p className="text-[10px] text-red-400 uppercase font-black mt-2 tracking-widest italic">Overdue Invoices</p>
-          </div>
-        </motion.div>
-        
-        {/* WIDGET TWO: RUN-RATE AND BUDGETARY SUITE */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
           className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[220px]"
         >
           <div className="flex justify-between items-start">
-            <div className="p-3 bg-green-50 text-green-600 rounded-2xl">
-              <Activity size={24} />
+            <div className="p-3 bg-yellow-50 text-yellow-600 rounded-2xl">
+              <FileDigit size={24} />
             </div>
-            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Run-Rate</span>
+            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Tax Due</span>
           </div>
           <div className="mt-8">
-            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.activeRunRate || "154k"}</p>
-            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Annual Run-Rate</p>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-          className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[220px] md:col-span-3"
-        >
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-stone-100 text-stone-800 rounded-2xl">
-              <FolderLock size={24} />
-            </div>
-            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Liability / Budget Metrics</span>
-          </div>
-          <div className="flex flex-col md:flex-row justify-between items-end gap-8 mt-8">
-            <div>
-              <p className="text-5xl font-mono tracking-tighter text-stone-900">£{metrics.activeBudget.toLocaleString()}</p>
-              <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Total Capital Liability</p>
-            </div>
-            <div className="bg-stone-50 border border-stone-100 px-6 py-4 rounded-2xl flex items-center gap-4">
-              <DollarSign size={20} className="text-[#a9b897]" />
-              <div>
-                <p className="text-xs font-bold text-stone-800">£{metrics.payrollEst.toLocaleString()} Monthly Payroll</p>
-                <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest mt-0.5">Calculated Run Rate Costs</p>
-              </div>
-            </div>
+            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.calculatedTaxDue.toLocaleString()}</p>
+            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Estimated Liability</p>
           </div>
         </motion.div>
       </div>
@@ -407,8 +378,7 @@ export default function FinancePage() {
               </button>
             </div>
           </div>
-          
-          {/* QUOTE CREATION SUITE */}
+
           <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
             <div className="flex items-center gap-3">
               <FileSpreadsheet size={18} className="text-[#a9b897]" />
@@ -438,81 +408,79 @@ export default function FinancePage() {
           </div>
         </div>
 
-        {/* COLUMN 2 AND 3: PAYROLL, TEAM MATRIX, INVOICE AND QUOTES WORKSPACES */}
+        {/* COLUMN 2 AND 3: ALL MODULES, INCLUDING STATEMENTS AND FORMS */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* TEAM MATRIX ONBOARDING MODULE */}
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
-            <div className="flex items-center gap-3 text-stone-800">
-              <UserPlus size={18} className="text-[#a9b897]" />
-              <h4 className="text-xl font-serif italic tracking-tight">Onboard New Team Member</h4>
+          {/* BALANCE SHEET & INCOME STATEMENT VIEW */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+              <h4 className="text-lg font-serif italic text-stone-800">Balance Sheet</h4>
+              <div className="space-y-3 pt-4 text-xs font-medium">
+                <div className="flex justify-between border-b border-stone-100 pb-2">
+                  <span className="text-stone-400">Total Assets</span>
+                  <span className="font-mono text-stone-800 font-bold">£{balanceSheet.assets.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between border-b border-stone-100 pb-2">
+                  <span className="text-stone-400">Total Liabilities</span>
+                  <span className="font-mono text-stone-800 font-bold">£{balanceSheet.liabilities.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between pt-2 text-sm">
+                  <span className="text-stone-800 font-bold">Equity</span>
+                  <span className="font-mono text-stone-900 font-bold">£{balanceSheet.equity.toLocaleString()}</span>
+                </div>
+              </div>
             </div>
-            <p className="text-[10px] uppercase font-black tracking-widest text-stone-400">Team Matrix Database Update</p>
+
+            <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+              <h4 className="text-lg font-serif italic text-stone-800">Cash Flow Statement</h4>
+              <div className="space-y-3 pt-4 text-xs font-medium">
+                <div className="flex justify-between border-b border-stone-100 pb-2 text-green-600">
+                  <span className="flex items-center gap-2"><ArrowUpRight size={14} /> Inflows</span>
+                  <span className="font-mono font-bold">£{cashFlow.inflows.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between border-b border-stone-100 pb-2 text-red-500">
+                  <span className="flex items-center gap-2"><ArrowDownLeft size={14} /> Outflows</span>
+                  <span className="font-mono font-bold">-£{cashFlow.outflows.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between pt-2 text-sm">
+                  <span className="text-stone-800 font-bold">Net Change</span>
+                  <span className="font-mono text-stone-900 font-bold">£{cashFlow.net.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Name</label>
-                <input
-                  value={empName}
-                  onChange={(e) => setEmpName(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Role/Title</label>
-                <input
-                  value={empRole}
-                  onChange={(e) => setEmpRole(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Bank Details</label>
-                <input
-                  placeholder="Bank name and account information"
-                  value={bankDetails}
-                  onChange={(e) => setBankDetails(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Next of Kin</label>
-                <input
-                  placeholder="Name and number"
-                  value={nextOfKin}
-                  onChange={(e) => setNextOfKin(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Start Date</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm text-stone-800 focus:ring-4 ring-[#a9b897]/5 outline-none font-medium"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">End Date</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm text-stone-800 focus:ring-4 ring-[#a9b897]/5 outline-none font-medium"
-                />
+            <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+              <h4 className="text-lg font-serif italic text-stone-800">Accounts Receivable</h4>
+              <div className="space-y-2 pt-2">
+                {accountsReceivable.map((ar) => (
+                  <div key={ar.id} className="flex justify-between text-xs py-2 border-b border-stone-50">
+                    <span className="font-medium text-stone-800">{ar.customer}</span>
+                    <span className="font-mono font-bold">£{ar.balance}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <button 
-              onClick={() => alert(`Team Member ${empName} submitted successfully.`)}
-              className="w-full py-4 bg-[#a9b897]/20 border border-[#a9b897]/30 text-stone-900 rounded-2xl text-xs uppercase font-bold hover:bg-[#a9b897]/30 cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Briefcase size={14} /> Submit to Team Matrix
-            </button>
+            <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
+              <h4 className="text-lg font-serif italic text-stone-800">Income Statement</h4>
+              <div className="space-y-3 text-xs font-medium pt-2">
+                <div className="flex justify-between">
+                  <span className="text-stone-400">Gross Rev</span>
+                  <span className="font-mono">£{incomeStatement.grossRevenue.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-400">COGS</span>
+                  <span className="font-mono text-red-500">-£{incomeStatement.cogs.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between border-t border-stone-100 pt-2 font-bold">
+                  <span className="text-stone-800">Net Income</span>
+                  <span className="font-mono text-green-600">£{incomeStatement.netIncome.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
           </div>
-
-          {/* PAYROLL LEDGER MODULE */}
+          
+          {/* PAYROLL AND TEAM MODULE */}
           <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
             <div className="flex items-center justify-between">
               <h4 className="text-xl font-serif italic text-stone-800 tracking-tight">Active Payroll Log</h4>
@@ -569,8 +537,21 @@ export default function FinancePage() {
               ))}
             </div>
           </div>
+
+          {/* ACCOUNTS PAYABLE MODULE */}
+          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
+            <h4 className="text-xl font-serif italic text-stone-800">Accounts Payable</h4>
+            <div className="divide-y divide-stone-100">
+              {accountsPayable.map((ap) => (
+                <div key={ap.id} className="flex justify-between items-center py-4 text-xs">
+                  <span className="font-bold text-stone-800">{ap.vendor}</span>
+                  <span className="font-mono font-bold text-stone-900">£{ap.amount.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
           
-          {/* QUOTE MANIFEST MODULE */}
+          {/* QUOTES MANIFEST MODULE */}
           <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
             <h4 className="text-xl font-serif italic text-stone-800 tracking-tight">Quotes Manifest</h4>
             <div className="divide-y divide-stone-100">
@@ -593,7 +574,7 @@ export default function FinancePage() {
             </div>
           </div>
 
-          {/* LEDGER ITEMS AREA */}
+          {/* LEDGER AREA */}
           {items.length > 0 && (
             <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
               <h4 className="text-2xl font-serif italic text-stone-800 tracking-tight">Ledger Items</h4>

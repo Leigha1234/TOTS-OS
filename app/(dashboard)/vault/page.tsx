@@ -210,7 +210,7 @@ Bundle:
 - Dashboard
 - Finance tracker
 
-👉 Sell this as: "Service Business OS Starter" (£99–£299)
+👉 Sell this as: "Service Business OS Starter" (£99–#{99}299)
 Provide editable, business-ready and simplified versions that people can actually use without a solicitor.`
   },
   {
@@ -401,12 +401,8 @@ export default function VaultPage() {
   };
 
   const handleInstallSystem = async () => {
-    // Functional installation execution that updates state & local storage or runs a mock process
     setInstallationMessage("Installing Legal Foundation Pack. Attaching T&Cs to onboarding forms, linking contracts to clients, and payment terms to invoices...");
-    
-    // Simulate real action
     await new Promise((resolve) => setTimeout(resolve, 2200));
-    
     setInstallationMessage("Installation successful! TOTS OS Foundation configured and updated across workflows.");
     setTimeout(() => setInstallationMessage(null), 4000);
   };
@@ -436,11 +432,7 @@ export default function VaultPage() {
     }
   };
 
-  const filteredDocs = DOCUMENTS.filter(d => 
-    d.title.toLowerCase().includes(searchTerm(searchTerm.toLowerCase()) || 
-    d.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  // NOTE: Corrected filter function above for standard JS implementation
+  // Fixed filter condition
   const resolvedFilteredDocs = DOCUMENTS.filter(d => 
     d.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     d.category.toLowerCase().includes(searchTerm.toLowerCase())

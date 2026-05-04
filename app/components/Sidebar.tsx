@@ -9,7 +9,6 @@ import {
   Calendar, Megaphone, StickyNote, DollarSign, BarChart3, Share2, Globe, Clock, Lock
 } from "lucide-react";
 
-// 1. Define tier-based module visibility
 const MODULE_PERMISSIONS: Record<string, string[]> = {
   STANDARD: ["Dashboard", "Contacts", "Tasks", "Notes", "Calendar"],
   PREMIUM: ["Dashboard", "Contacts", "Tasks", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Timesheets"],
@@ -50,7 +49,6 @@ export default function Sidebar() {
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
-  // 2. Filter links based on current user tier
   const visibleLinks = allLinks.filter(link => 
     MODULE_PERMISSIONS[userTier]?.includes(link.label)
   );

@@ -29,8 +29,8 @@ interface Task {
 
 export default function ProjectsPage() {
   const [isMounted, setIsMounted] = useState(false);
-  const [activeMode, setActiveMode] = useState("work"); // 'work', 'strategy', 'workflows', 'company'
-  const [activeTab, setActiveTab] = useState("list"); // 'list', 'board', 'timeline', 'workload', 'okrs'
+  const [activeMode, setActiveMode] = useState("work"); 
+  const [activeTab, setActiveTab] = useState("list"); 
 
   // Application States
   const [projects, setProjects] = useState<any[]>([]);
@@ -40,11 +40,14 @@ export default function ProjectsPage() {
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Asana-style Views
+  // Asana-style Flyout States
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [newComment, setNewComment] = useState("");
   const [newSubtask, setNewSubtask] = useState("");
+
+  // Asana-style inline task state
+  const [newTaskName, setNewTaskName] = useState<{ [key: string]: string }>({});
 
   // Form States
   const [form, setForm] = useState({
@@ -156,6 +159,35 @@ export default function ProjectsPage() {
     }
   }
 
+  // Asana-style inline task generator
+  const handleAddTask = (projectId: string) => {
+    const taskName = newTaskName[projectId]?.trim();
+    if (!taskName) return;
+
+    const newTask: Task = {
+      id: Math.random().toString(36).substr(2, 9),
+      project_id: projectId,
+      name: taskName,
+      status: "Backlog",
+      priority: "Medium",
+      dueDate: new Date().toISOString().split("T")[0],
+      assignee: "Unassigned",
+      subtasks: [],
+      comments: []
+    };
+
+    setTasks([...tasks, newTask]);
+    setNewTaskName({ ...newTaskName, [projectId]: "" });
+  };
+
+  const handleUpdateTaskStatus = (taskId: string, newStatus: Task["status"]) => {
+    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+  };
+
+  const handleUpdateTaskPriority = (taskId: string, newPriority: Task["priority"]) => {
+    setTasks(tasks.map(t => t.id === taskId ? { ...t, priority: newPriority } : t));
+  };
+
   const handleAddComment = () => {
     if (!selectedTask || !newComment.trim()) return;
     const updatedTasks = tasks.map(t => {
@@ -215,7 +247,7 @@ export default function ProjectsPage() {
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 lg:p-12 max-w-[1700px] mx-auto">
       
-      {/* 1. TOP NAVIGATION & WORKSPACE HEADER */}
+      {/* 1. TOP WORKSPACE HEADER */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-stone-200 pb-8 gap-8 mb-12">
         <div className="space-y-2">
           <div className="flex items-center gap-3 mb-2">
@@ -269,6 +301,7 @@ export default function ProjectsPage() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-12">
+        
         {/* 3. SIDE PANE: PROJECTS LIST */}
         <aside className="w-full lg:w-72 border-r border-stone-200 pr-8 flex flex-col justify-between">
           <div>
@@ -370,7 +403,7 @@ export default function ProjectsPage() {
 
           {/* LIST VIEW */}
           {activeTab === "list" && (
-            <div ref={printRef} className="pt-4 space-y-6">
+            <div ref={printRef} className="pt-4 space-y-8">
               {projects.map((p) => (
                 <div key={p.id} className="bg-white border border-stone-200 p-8 rounded-3xl shadow-sm">
                   <div className="flex justify-between items-center mb-6">
@@ -386,14 +419,14 @@ export default function ProjectsPage() {
                     </button>
                   </div>
                   
+                  {/* Task List Container */}
                   <div className="divide-y divide-stone-100 border-t border-stone-100">
                     {tasks.filter(t => t.project_id === p.id).map(t => (
                       <div 
                         key={t.id} 
-                        onClick={() => setSelectedTask(t)}
-                        className="flex justify-between items-center py-5 hover:bg-stone-50/50 px-4 rounded-2xl transition-all cursor-pointer"
+                        className="flex justify-between items-center py-5 px-4 hover:bg-stone-50/50 rounded-2xl transition-all"
                       >
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={() => setSelectedTask(t)}>
                           <span className="w-5 h-5 rounded-md border-2 border-stone-300 flex items-center justify-center text-transparent hover:text-[#a9b897] hover:border-[#a9b897] transition-all">
                             <Check size={12} />
                           </span>
@@ -402,16 +435,51 @@ export default function ProjectsPage() {
                             <span className="text-[10px] text-stone-400">Assignee: {t.assignee || "Unassigned"}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-8">
-                          <span className="text-[9px] font-bold uppercase px-3 py-1 bg-stone-50 border border-stone-200/30 rounded-full text-stone-500 tracking-wider">
-                            {t.status}
-                          </span>
-                          <span className="text-[9px] font-black uppercase tracking-wider text-[#a9b897]">
-                            {t.priority}
-                          </span>
+
+                        <div className="flex items-center gap-6">
+                          {/* Asana-Style Priority Selector */}
+                          <select
+                            value={t.priority}
+                            onChange={(e) => handleUpdateTaskPriority(t.id, e.target.value as any)}
+                            className="text-[9px] font-black uppercase tracking-wider text-[#a9b897] border border-stone-200/40 rounded-xl p-2 bg-stone-50 cursor-pointer"
+                          >
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                          </select>
+
+                          {/* Asana-Style Status Selector */}
+                          <select
+                            value={t.status}
+                            onChange={(e) => handleUpdateTaskStatus(t.id, e.target.value as any)}
+                            className="text-[9px] font-bold uppercase tracking-wider text-stone-500 border border-stone-200/40 rounded-xl p-2 bg-stone-50 cursor-pointer"
+                          >
+                            <option value="Backlog">Backlog</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Completed">Completed</option>
+                          </select>
                         </div>
                       </div>
                     ))}
+
+                    {/* Quick Task Adding Input */}
+                    <div className="flex items-center gap-4 pt-6 mt-2 border-t border-stone-50">
+                      <Plus size={14} className="text-stone-400" />
+                      <input
+                        type="text"
+                        placeholder="Add a new task in this list..."
+                        value={newTaskName[p.id] || ""}
+                        onChange={(e) => setNewTaskName({ ...newTaskName, [p.id]: e.target.value })}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddTask(p.id)}
+                        className="flex-1 p-3 text-xs bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:ring-4 ring-[#a9b897]/5 font-medium placeholder:text-stone-300"
+                      />
+                      <button 
+                        onClick={() => handleAddTask(p.id)}
+                        className="px-4 py-3 bg-stone-900 text-white text-[9px] font-black tracking-widest rounded-xl uppercase hover:bg-stone-700 transition-all cursor-pointer"
+                      >
+                        Add
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

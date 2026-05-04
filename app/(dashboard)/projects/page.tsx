@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { getUserRole, canCreate } from "@/lib/permissions";
@@ -8,9 +8,11 @@ import {
   Sparkles, FolderPlus, ArrowRight, 
   Briefcase, ShieldCheck, Activity,
   Plus, X, Loader2, Zap, Globe,
-  Calendar as CalendarIcon, Clock, CheckSquare, Layers, Users, BarChart3, MessageSquare, Info, Save
+  Calendar as CalendarIcon, Clock, CheckSquare, Layers, Users, BarChart3, MessageSquare, Info, Save, ChevronDown, MoreHorizontal, Search, Eye, FileText, Check, AlertCircle, Sparkle, Tag, Folder, PanelLeftClose, PanelLeft
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 export default function ProjectsPage() {
   const [isMounted, setIsMounted] = useState(false);
@@ -23,6 +25,10 @@ export default function ProjectsPage() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<any>(null);
+
+  // Expanded Sections state
+  const [collapsed, setCollapsed] = useState(false);
 
   // Form States
   const [form, setForm] = useState({
@@ -33,6 +39,7 @@ export default function ProjectsPage() {
   // Intelligence States
   const [isScanActive, setIsScanActive] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   // OKRs and Goals Data
   const [goals] = useState([
@@ -77,7 +84,9 @@ export default function ProjectsPage() {
           { id: "p1", name: "Project Zero", team_id: mockTeam, customers: { name: "Apex Solutions" } }
         ]);
         setTasks([
-          { id: "t1", project_id: "p1", name: "Configure Node Network", status: "In Progress", priority: "High" }
+          { id: "t1", project_id: "p1", name: "Configure Node Network", status: "In Progress", priority: "High" },
+          { id: "t2", project_id: "p1", name: "Run diagnostic baseline", status: "Backlog", priority: "Medium" },
+          { id: "t3", project_id: "p1", name: "Update pipeline parameters", status: "Completed", priority: "Low" }
         ]);
         setLoading(false);
         return;
@@ -130,6 +139,21 @@ export default function ProjectsPage() {
       loadData(teamId);
     }
   }
+
+  const downloadPDF = async () => {
+    if (!printRef.current) return;
+    try {
+      const canvas = await html2canvas(printRef.current, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`TOTS_Projects_Overview.pdf`);
+    } catch (err) {
+      console.error("PDF Export failed", err);
+    }
+  };
 
   if (!isMounted) return null;
 
@@ -206,22 +230,33 @@ export default function ProjectsPage() {
       </AnimatePresence>
 
       {/* NAVIGATION TABS */}
-      <div className="flex flex-wrap gap-3 border-b border-stone-200 pb-4">
-        {["list", "board", "timeline", "workload", "okrs"].map((tab) => (
-          <button 
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
-              activeTab === tab ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
-            }`}
+      <div className="flex flex-wrap gap-3 border-b border-stone-200 pb-4 justify-between items-center">
+        <div className="flex flex-wrap gap-3">
+          {["list", "board", "timeline", "workload", "okrs"].map((tab) => (
+            <button 
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
+                activeTab === tab ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
+              }`}
+            >
+              {tab === "list" && "List View"}
+              {tab === "board" && "Kanban Board"}
+              {tab === "timeline" && "Timeline & Gantt"}
+              {tab === "workload" && "Resource Workload"}
+              {tab === "okrs" && "Objectives & OKRs"}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "list" && (
+          <button
+            onClick={downloadPDF}
+            className="px-6 py-3 bg-white border border-stone-200 rounded-2xl text-[10px] font-black tracking-widest uppercase text-stone-500 hover:bg-stone-50 flex items-center gap-2 cursor-pointer"
           >
-            {tab === "list" && "List View"}
-            {tab === "board" && "Kanban Board"}
-            {tab === "timeline" && "Timeline & Gantt"}
-            {tab === "workload" && "Resource Workload"}
-            {tab === "okrs" && "Objectives & OKRs"}
+            <Folder size={14} /> Export All
           </button>
-        ))}
+        )}
       </div>
 
       {/* PAGE MODULES */}
@@ -229,7 +264,7 @@ export default function ProjectsPage() {
       {/* 1. LIST VIEW */}
       {activeTab === "list" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 pt-4">
-          <aside className="lg:col-span-4">
+          <aside className={`lg:col-span-4 transition-all duration-300 ${collapsed ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm space-y-10 sticky top-32">
               <div className="space-y-2">
                 <h3 className="text-2xl font-serif italic text-stone-800 tracking-tight">Deployment Hub</h3>
@@ -285,48 +320,66 @@ export default function ProjectsPage() {
             </div>
           </aside>
 
-          <main className="lg:col-span-8">
+          <main className="lg:col-span-8 space-y-6">
+            <div className="flex items-center justify-between bg-white border border-stone-100 p-6 rounded-3xl shadow-sm">
+              <div className="relative flex-1 max-w-lg">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input 
+                  type="text" 
+                  placeholder="Search and filter workspaces..." 
+                  className="w-full pl-12 pr-6 py-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none focus:ring-4 ring-[#a9b897]/5"
+                />
+              </div>
+
+              <button 
+                onClick={() => setCollapsed(!collapsed)}
+                className="p-4 bg-stone-50 rounded-2xl border border-stone-100 hover:bg-stone-100 transition-all flex items-center gap-2 text-xs font-semibold uppercase text-stone-500"
+              >
+                {collapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
+                {collapsed ? "Expand" : "Collapse"}
+              </button>
+            </div>
+
             {projects.length === 0 ? (
-              <div className="h-[600px] border-2 border-dashed border-stone-200 rounded-[4rem] flex flex-col items-center justify-center p-20 text-center space-y-6">
+              <div className="h-[500px] border-2 border-dashed border-stone-200 rounded-[4rem] flex flex-col items-center justify-center p-20 text-center space-y-6">
                 <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center">
                   <Briefcase size={32} className="text-stone-300" />
                 </div>
                 <p className="text-stone-400 font-serif italic text-2xl">No architecture nodes detected in current ecosystem.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div ref={printRef} className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
                 {projects.map((p) => (
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    whileHover={{ y: -10 }}
+                    whileHover={{ y: -5 }}
                     key={p.id} 
-                    className="bg-white border border-stone-100 p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl hover:border-[#a9b897]/20 transition-all group flex flex-col justify-between h-[360px]"
+                    onClick={() => setSelectedProject(p)}
+                    className="bg-white border border-stone-100 p-10 rounded-[3.2rem] shadow-sm hover:shadow-xl hover:border-[#a9b897]/20 transition-all cursor-pointer flex flex-col justify-between h-[340px]"
                   >
                     <div>
-                      <div className="flex justify-between items-start mb-10">
-                        <div className="bg-[#faf9f9f6] p-5 rounded-[1.5rem] text-stone-300 group-hover:text-[#a9b897] group-hover:bg-[#a9b897]/5 transition-all">
-                          <Activity size={28} />
+                      <div className="flex justify-between items-start mb-8">
+                        <div className="bg-[#faf9f6] p-5 rounded-[1.5rem] text-stone-400 group-hover:text-[#a9b897] transition-all">
+                          <Activity size={24} />
                         </div>
-                        <div className="flex items-center gap-2 px-4 py-1.5 bg-stone-50 rounded-full border border-stone-100">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-stone-50 rounded-full border border-stone-100">
                           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                          <span className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">Operational</span>
+                          <span className="text-[8px] font-black uppercase text-stone-500 tracking-[0.1em]">Operational</span>
                         </div>
                       </div>
-                      <h3 className="text-4xl font-serif italic text-stone-800 leading-tight group-hover:text-black transition-colors">{p.name}</h3>
-                      <p className="text-[11px] text-[#a9b897] uppercase font-black mt-4 tracking-[0.3em]">
+                      <h3 className="text-3xl font-serif italic text-stone-800 leading-tight">{p.name}</h3>
+                      <p className="text-[10px] text-[#a9b897] uppercase font-black mt-3 tracking-[0.2em]">
                         {p.customers?.name || "Independent Node"}
                       </p>
                     </div>
 
-                    <div className="flex justify-end pt-10 border-t border-stone-50">
-                      <a 
-                        href={`/projects/${p.id}`} 
-                        className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 group-hover:text-stone-900 transition-all no-underline"
-                      >
-                        Connect to Node <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                      </a>
+                    <div className="flex justify-between items-center pt-8 border-t border-stone-50">
+                      <span className="text-[9px] tracking-widest text-stone-400 uppercase font-bold">2 / 4 Steps Done</span>
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-stone-500 group">
+                        Inspect <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
                     </div>
                   </motion.div>
                 ))}
@@ -468,7 +521,75 @@ export default function ProjectsPage() {
           ))}
         </div>
       )}
-      
+
+      {/* SELECTED PROJECT FLYOUT / MODAL */}
+      {selectedProject && (
+        <div className="fixed inset-0 z-[120] bg-stone-950/40 backdrop-blur-sm p-8 md:p-12 overflow-y-auto flex items-center justify-center">
+          <div className="bg-white w-full max-w-5xl rounded-[3.5rem] p-16 shadow-2xl relative border border-stone-100 min-h-[550px] flex flex-col justify-between">
+            <button 
+              onClick={() => setSelectedProject(null)}
+              className="absolute top-12 right-12 p-4 bg-stone-50 rounded-full hover:bg-stone-100 transition-colors cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-2 block">
+                {selectedProject.customers?.name || "Operational Node"}
+              </span>
+              <h2 className="text-5xl font-serif text-stone-800 tracking-tighter mb-4">
+                {selectedProject.name}
+              </h2>
+
+              <div className="flex flex-wrap gap-4 mt-8 pt-8 border-t border-stone-100">
+                <div className="p-6 bg-stone-50/50 rounded-2xl border border-stone-100 w-72">
+                  <span className="text-[9px] font-black tracking-widest text-stone-400 uppercase block mb-1">Ecosystem Status</span>
+                  <p className="text-xs font-bold text-stone-800">Active and Synchronized</p>
+                </div>
+                <div className="p-6 bg-stone-50/50 rounded-2xl border border-stone-100 w-72">
+                  <span className="text-[9px] font-black tracking-widest text-stone-400 uppercase block mb-1">Active Tasks</span>
+                  <p className="text-xs font-bold text-stone-800">{tasks.length} items to complete</p>
+                </div>
+              </div>
+
+              <div className="mt-10 space-y-4">
+                <span className="text-[9px] font-black tracking-widest text-stone-400 uppercase block mb-2">Task Breakdown</span>
+                {tasks.map((task, idx) => (
+                  <div key={task.id} className="flex justify-between items-center p-6 bg-stone-50 rounded-2xl border border-stone-100">
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs font-mono text-stone-400">0{idx + 1}</span>
+                      <p className="text-xs font-bold text-stone-800">{task.name}</p>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-white border border-stone-200/60 text-[#a9b897]">
+                      {task.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center mt-12 pt-8 border-t border-stone-100">
+              <span className="text-[9px] text-stone-400 font-bold uppercase tracking-widest">
+                Identifier: {selectedProject.id}
+              </span>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setSelectedProject(null)}
+                  className="px-8 py-4 bg-stone-100 text-stone-600 rounded-2xl text-[10px] font-black tracking-widest uppercase hover:bg-stone-200 transition-all cursor-pointer"
+                >
+                  Close Panel
+                </button>
+                <a 
+                  href={`/projects/${selectedProject.id}`}
+                  className="no-underline px-8 py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-black tracking-widest uppercase hover:bg-stone-700 transition-all cursor-pointer flex items-center gap-2"
+                >
+                  Launch Stream <ArrowRight size={14} />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

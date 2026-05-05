@@ -13,7 +13,7 @@ import {
 const MODULE_PERMISSIONS: Record<string, string[]> = {
   STANDARD: ["Dashboard", "Contacts", "Notes", "Calendar"],
   PREMIUM: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns"],
-  ELITE: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Reports", "Social Scheduler", "Social", "Vault", "Settings"],
+  ELITE: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Reports", "Social", "Vault", "Settings"],
 };
 
 export default function Sidebar() {
@@ -42,7 +42,6 @@ export default function Sidebar() {
     { href: "/payments", label: "Finance", icon: DollarSign },
     { href: "/projects", label: "Projects", icon: Briefcase },
     { href: "/reports", label: "Reports", icon: BarChart3 },
-    { href: "/scheduler", label: "Social Scheduler", icon: Share2 },
     { href: "/social", label: "Social", icon: Globe },
     { href: "/vault", label: "Vault", icon: Lock },
     { href: "/settings", label: "Settings", icon: Settings },

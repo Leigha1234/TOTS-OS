@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-client"; // Use sync client
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -92,7 +92,6 @@ export default function SocialLab() {
         .order("scheduled_for", { ascending: true });
         
       if (!error && data) {
-        // Corrected mapping: satisfying all required fields in the ContentDraft interface
         const mapped: ContentDraft[] = data.map((item: any) => ({
           id: item.id,
           type: "image",
@@ -176,6 +175,10 @@ export default function SocialLab() {
     >
       {label}
     </button>
+  );
+
+  const SubTabActiveCheck = (tab: string) => (
+    tab === 'horizon' ? 'hidden lg:block' : ''
   );
 
   if (!isMounted) return null;
@@ -424,7 +427,7 @@ export default function SocialLab() {
           </AnimatePresence>
         </div>
 
-        <aside className={`lg:col-span-4 ${activeSubTabActiveCheck(activeSubTab)}`}>
+        <aside className={`lg:col-span-4 ${SubTabActiveCheck(activeSubTab)}`}>
           <div className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm space-y-10 sticky top-12">
             <div className="space-y-1">
               <h2 className="text-3xl font-serif italic text-stone-900 tracking-tighter">Resonance Engine</h2>
@@ -464,12 +467,4 @@ export default function SocialLab() {
       </div>
     </div>
   );
-}
-
-function SubTabCheck(activeSubTab: any) {
-    return activeSubTab === 'horizon' ? 'hidden lg:block' : '';
-}
-
-function SubTabActiveCheck(activeSubTab: any) {
-    return SubTabCheck(activeSubTab);
 }

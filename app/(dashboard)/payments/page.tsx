@@ -30,7 +30,8 @@ import {
   Eye,
   FileCheck,
   Ban,
-  Link2
+  Link2,
+  Trash2
 } from "lucide-react";
 
 export default function FinancialsPage() {
@@ -108,12 +109,22 @@ export default function FinancialsPage() {
   const [nextOfKinName, setNextOfKinName] = useState("");
   const [nextOfKinNumber, setNextOfKinNumber] = useState("");
   
-  // Appraisal and Time states
+  // Timesheets Data & State
+  const [selectedWeek, setSelectedWeek] = useState("2026-W18");
   const [timesheetList, setTimesheetList] = useState<any[]>([
-    { id: "1", task: "Client Review", duration: "2.5 hrs", date: "2026-05-04" }
+    { id: "1", client: "Cyberdyne Systems", task: "Platform Integration", mon: 4, tue: 8, wed: 6, thu: 8, fri: 4, sat: 0, sun: 0 },
+    { id: "2", client: "Aperture Labs", task: "Bug Fixing", mon: 2, tue: 2, wed: 4, thu: 2, fri: 2, sat: 0, sun: 0 }
   ]);
-  const [taskName, setTaskName] = useState("");
-  const [taskDuration, setTaskDuration] = useState("");
+  
+  const [timesheetClient, setTimesheetClient] = useState("");
+  const [timesheetTask, setTimesheetTask] = useState("");
+  const [timesheetMon, setTimesheetMon] = useState("0");
+  const [timesheetTue, setTimesheetTue] = useState("0");
+  const [timesheetWed, setTimesheetWed] = useState("0");
+  const [timesheetThu, setTimesheetThu] = useState("0");
+  const [timesheetFri, setTimesheetFri] = useState("0");
+  const [timesheetSat, setTimesheetSat] = useState("0");
+  const [timesheetSun, setTimesheetSun] = useState("0");
   
   const [vatRate, setVatRate] = useState("20"); 
   const [discountAmount, setDiscountAmount] = useState("");
@@ -199,14 +210,43 @@ export default function FinancialsPage() {
     setIsExpenseOpen(false);
   };
 
-  const addTimesheet = () => {
-    if (!taskName || !taskDuration) return;
+  const addTimesheetEntry = () => {
+    if (!timesheetClient || !timesheetTask) return;
     setTimesheetList([
       ...timesheetList,
-      { id: Date.now().toString(), task: taskName, duration: taskDuration, date: new Date().toISOString().split('T')[0] }
+      {
+        id: Date.now().toString(),
+        client: timesheetClient,
+        task: timesheetTask,
+        mon: parseFloat(timesheetMon) || 0,
+        tue: parseFloat(timesheetTue) || 0,
+        wed: parseFloat(timesheetWed) || 0,
+        thu: parseFloat(timesheetThu) || 0,
+        fri: parseFloat(timesheetFri) || 0,
+        sat: parseFloat(timesheetSat) || 0,
+        sun: parseFloat(timesheetSun) || 0,
+      }
     ]);
-    setTaskName("");
-    setTaskDuration("");
+    setTimesheetClient("");
+    setTimesheetTask("");
+    setTimesheetMon("0");
+    setTimesheetTue("0");
+    setTimesheetWed("0");
+    setTimesheetThu("0");
+    setTimesheetFri("0");
+    setTimesheetSat("0");
+    setTimesheetSun("0");
+  };
+
+  const deleteTimesheetEntry = (id: string) => {
+    setTimesheetList(timesheetList.filter((item) => item.id !== id));
+  };
+
+  const calculateTotalWeeklyHours = () => {
+    return timesheetList.reduce(
+      (acc, curr) => acc + curr.mon + curr.tue + curr.wed + curr.thu + curr.fri + curr.sat + curr.sun,
+      0
+    );
   };
 
   const subtotal = items.reduce((acc, item) => acc + item.total, 0);
@@ -635,13 +675,11 @@ export default function FinancialsPage() {
                     </div>
                     <div>
                       <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Upload Receipt</label>
-                      <button 
-                        onClick={() => alert("Receipt uploaded.")}
-                        className="w-full mt-3 border-2 border-dashed border-stone-200 hover:border-stone-400 rounded-2xl p-8 flex flex-col items-center gap-3 text-stone-400 hover:text-stone-800 transition-all cursor-pointer"
-                      >
-                        <Upload size={24} />
-                        <span className="text-[10px] font-black tracking-widest uppercase">Click to browse Receipt</span>
-                      </button>
+                      <div className="mt-3 border-2 border-dashed border-stone-200 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 bg-stone-50 cursor-pointer hover:border-stone-400 transition-all">
+                        <Upload size={24} className="text-[#a9b897]" />
+                        <span className="text-xs font-bold text-stone-600">Click to upload receipt or drag and drop</span>
+                        <span className="text-[10px] text-stone-400">PDF, PNG or JPG (Max 10MB)</span>
+                      </div>
                     </div>
                   </div>
 
@@ -659,179 +697,45 @@ export default function FinancialsPage() {
             )}
           </AnimatePresence>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 pt-4">
-            <div className="lg:col-span-1 space-y-8 h-fit bg-white p-10 border border-stone-100 rounded-[3.5rem]">
-              <h3 className="text-xl font-serif italic text-stone-800">Ledger Activity Summary</h3>
-              <p className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Recent Documents Created</p>
-              
-              <div className="space-y-4 pt-4">
-                <div className="flex justify-between items-center text-xs p-4 bg-stone-50/50 rounded-2xl border">
-                  <div>
-                    <span className="block font-bold">INV-101</span>
-                    <span className="block text-[10px] text-stone-400">Aperture Labs</span>
+          {/* Financial Records Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div>
+              <h2 className="text-2xl font-serif italic mb-6">Recent Invoices</h2>
+              <div className="bg-white border border-stone-200 rounded-[2.5rem] p-8 divide-y divide-stone-100 shadow-sm">
+                {invoices.map((inv) => (
+                  <div key={inv.id} className="flex justify-between items-center py-6 first:pt-0 last:pb-0">
+                    <div>
+                      <p className="text-xs font-black text-stone-800">{inv.client}</p>
+                      <p className="text-[10px] text-stone-400 mt-1 uppercase font-mono">{inv.id} &bull; {inv.date}</p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <p className="font-mono text-stone-800 text-sm">£{inv.amount.toLocaleString()}</p>
+                      <span className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-[9px] font-black uppercase tracking-wider">
+                        {inv.status}
+                      </span>
+                    </div>
                   </div>
-                  <span className="font-mono font-bold">£14,200</span>
-                </div>
-                <div className="flex justify-between items-center text-xs p-4 bg-stone-50/50 rounded-2xl border">
-                  <div>
-                    <span className="block font-bold">QT-004</span>
-                    <span className="block text-[10px] text-stone-400">Black Mesa Corp</span>
-                  </div>
-                  <span className="font-mono font-bold">£4,500</span>
-                </div>
-                <div className="flex justify-between items-center text-xs p-4 bg-stone-50/50 rounded-2xl border">
-                  <div>
-                    <span className="block font-bold">EXP-22</span>
-                    <span className="block text-[10px] text-stone-400">Apex Facilities</span>
-                  </div>
-                  <span className="font-mono font-bold">£2,300</span>
-                </div>
+                ))}
               </div>
             </div>
 
-            <div className="lg:col-span-2 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-                  <h4 className="text-lg font-serif italic text-stone-800">Balance Sheet</h4>
-                  <div className="space-y-3 pt-4 text-xs font-medium">
-                    <div className="flex justify-between border-b border-stone-100 pb-2">
-                      <span className="text-stone-400">Total Assets</span>
-                      <span className="font-mono text-stone-800 font-bold">£{balanceSheet.assets.toLocaleString()}</span>
+            <div>
+              <h2 className="text-2xl font-serif italic mb-6">Recent Quotes</h2>
+              <div className="bg-white border border-stone-200 rounded-[2.5rem] p-8 divide-y divide-stone-100 shadow-sm">
+                {quotes.map((q) => (
+                  <div key={q.id} className="flex justify-between items-center py-6 first:pt-0 last:pb-0">
+                    <div>
+                      <p className="text-xs font-black text-stone-800">{q.client}</p>
+                      <p className="text-[10px] text-stone-400 mt-1 uppercase font-mono">{q.id} &bull; {q.date}</p>
                     </div>
-                    <div className="flex justify-between border-b border-stone-100 pb-2">
-                      <span className="text-stone-400">Total Liabilities</span>
-                      <span className="font-mono text-stone-800 font-bold">£{balanceSheet.liabilities.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 text-sm">
-                      <span className="text-stone-800 font-bold">Equity</span>
-                      <span className="font-mono text-stone-900 font-bold">£{balanceSheet.equity.toLocaleString()}</span>
+                    <div className="flex items-center gap-6">
+                      <p className="font-mono text-stone-800 text-sm">£{q.amount.toLocaleString()}</p>
+                      <span className="px-3 py-1 bg-yellow-50 text-yellow-600 rounded-full text-[9px] font-black uppercase tracking-wider">
+                        {q.status}
+                      </span>
                     </div>
                   </div>
-                </div>
-
-                <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-                  <h4 className="text-lg font-serif italic text-stone-800">Cash Flow Statement</h4>
-                  <div className="space-y-3 pt-4 text-xs font-medium">
-                    <div className="flex justify-between border-b border-stone-100 pb-2 text-green-600">
-                      <span className="flex items-center gap-2"><ArrowUpRight size={14} /> Inflows</span>
-                      <span className="font-mono font-bold">£{cashFlow.inflows.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-stone-100 pb-2 text-red-500">
-                      <span className="flex items-center gap-2"><ArrowDownLeft size={14} /> Outflows</span>
-                      <span className="font-mono font-bold">-£{cashFlow.outflows.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 text-sm">
-                      <span className="text-stone-800 font-bold">Net Change</span>
-                      <span className="font-mono text-stone-900 font-bold">£{cashFlow.net.toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-                  <h4 className="text-lg font-serif italic text-stone-800">Accounts Receivable</h4>
-                  <div className="space-y-2 pt-2">
-                    {accountsReceivable.map((ar) => (
-                      <div key={ar.id} className="flex justify-between text-xs py-2 border-b border-stone-50">
-                        <span className="font-medium text-stone-800">{ar.customer}</span>
-                        <span className="font-mono font-bold">£{ar.balance}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] space-y-4">
-                  <h4 className="text-lg font-serif italic text-stone-800">Income Statement</h4>
-                  <div className="space-y-3 text-xs font-medium pt-2">
-                    <div className="flex justify-between">
-                      <span className="text-stone-400">Gross Rev</span>
-                      <span className="font-mono">£{incomeStatement.grossRevenue.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-stone-400">COGS</span>
-                      <span className="font-mono text-red-500">-£{incomeStatement.cogs.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-t border-stone-100 pt-2 font-bold">
-                      <span className="text-stone-800">Net Income</span>
-                      <span className="font-mono text-green-600">£{incomeStatement.netIncome.toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
-                  <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Invoices</h5>
-                  <div className="space-y-3">
-                    {invoices.map((inv) => (
-                      <div key={inv.id} className="flex justify-between text-xs">
-                        <span className="font-bold">{inv.client}</span>
-                        <span className="font-mono">£{inv.amount}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
-                  <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Quotes</h5>
-                  <div className="space-y-3">
-                    {quotes.map((q) => (
-                      <div key={q.id} className="flex justify-between text-xs">
-                        <span className="font-bold">{q.client}</span>
-                        <span className="font-mono">£{q.amount}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-white border border-stone-200 p-6 rounded-[2rem]">
-                  <h5 className="text-[10px] font-black uppercase text-stone-400 mb-4 tracking-widest">Expenses</h5>
-                  <div className="space-y-3">
-                    {expenses.map((e) => (
-                      <div key={e.id} className="flex justify-between text-xs">
-                        <span className="font-bold">{e.vendor}</span>
-                        <span className="font-mono">£{e.amount}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-stone-900 text-white p-10 rounded-[3.5rem] shadow-2xl space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-3">
-                    <label className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">VAT Rate (%)</label>
-                    <select
-                      value={vatRate}
-                      onChange={(e) => setVatRate(e.target.value)}
-                      className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-5 text-sm text-white focus:ring-4 ring-[#a9b897]/20 outline-none appearance-none cursor-pointer font-bold"
-                    >
-                      <option value="0">0% (Zero Rated)</option>
-                      <option value="5">5% (Reduced Rate)</option>
-                      <option value="20">20% (Standard Rate)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-3">
-                    <label className="text-[9px] font-black uppercase text-stone-500 tracking-[0.2em]">Discount Amount (£)</label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={discountAmount}
-                      onChange={(e) => setDiscountAmount(e.target.value)}
-                      className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-5 text-sm text-white focus:ring-4 ring-[#a9b897]/20 outline-none placeholder:text-stone-700 font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t border-stone-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
-                  <div className="space-y-2 text-left">
-                    <p className="text-[10px] font-black tracking-widest text-stone-500 uppercase">Grand Total</p>
-                    <p className="text-5xl font-mono tracking-tighter">£{total.toFixed(2)}</p>
-                  </div>
-                  <button
-                    onClick={() => alert(`Invoice dispatched, total: ${total}`)}
-                    className="w-full md:w-auto px-10 py-5 rounded-[2rem] bg-[#a9b897] text-stone-900 font-bold tracking-[0.3em] uppercase text-xs flex justify-center items-center gap-4 hover:bg-[#99a888] transition-all cursor-pointer border-0"
-                  >
-                    <Send size={16} /> Dispatch Ledger
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
           </div>
@@ -840,125 +744,284 @@ export default function FinancialsPage() {
 
       {/* 2. HR & PAYROLL TAB */}
       {activeTab === "hr" && (
-        <div className="max-w-4xl mx-auto bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
-          <div className="flex items-center gap-3 text-stone-800">
-            <UserPlus size={18} className="text-[#a9b897]" />
-            <h4 className="text-xl font-serif italic">Onboard New Team Member</h4>
-          </div>
-          <p className="text-[10px] uppercase font-black tracking-widest text-stone-400">Payroll Data Interface</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-            <div>
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Name</label>
-              <input value={empName} onChange={(e) => setEmpName(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
+        <div className="space-y-12">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">
+            <div className="xl:col-span-2 bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm">
+              <h3 className="text-2xl font-serif italic mb-8">Add New Employee Profile</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Employee Name</label>
+                  <input 
+                    value={empName} 
+                    onChange={(e) => setEmpName(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Employee Number</label>
+                  <input 
+                    value={empNumber} 
+                    onChange={(e) => setEmpNumber(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Role Title</label>
+                  <input 
+                    value={empRole} 
+                    onChange={(e) => setEmpRole(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Contract Type</label>
+                  <select 
+                    value={contractType} 
+                    onChange={(e) => setContractType(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  >
+                    <option>Full-Time</option>
+                    <option>Part-Time</option>
+                    <option>Contractor</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Working Hours (Weekly)</label>
+                  <input 
+                    value={workingHours} 
+                    onChange={(e) => setWorkingHours(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Holiday Entitlement</label>
+                  <input 
+                    value={holidayEntitlement} 
+                    onChange={(e) => setHolidayEntitlement(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Bank Name</label>
+                  <input 
+                    placeholder="Barclays / NatWest"
+                    value={bankName} 
+                    onChange={(e) => setBankName(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Account Number</label>
+                  <input 
+                    value={accountNumber} 
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Sort Code</label>
+                  <input 
+                    value={sortCode} 
+                    onChange={(e) => setSortCode(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Next of Kin Name</label>
+                  <input 
+                    value={nextOfKinName} 
+                    onChange={(e) => setNextOfKinName(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-6 mt-8 border-t border-stone-100 pt-6">
+                <button 
+                  onClick={() => {
+                    setEmpName(""); setEmpNumber(""); setEmpRole("");
+                  }} 
+                  className="px-6 py-4 text-xs font-bold text-stone-400 hover:text-stone-900 cursor-pointer"
+                >
+                  Clear Form
+                </button>
+                <button 
+                  onClick={() => alert("Employee profile saved to HR database!")} 
+                  className="px-8 py-4 bg-stone-900 text-white rounded-2xl text-xs font-bold hover:bg-stone-800 transition-all cursor-pointer"
+                >
+                  Save Profile
+                </button>
+              </div>
             </div>
-            <div>
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Employee Number</label>
-              <input value={empNumber} onChange={(e) => setEmpNumber(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
-            </div>
-            <div>
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Role/Title</label>
-              <input value={empRole} onChange={(e) => setEmpRole(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
-            </div>
-            <div>
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Contract Type</label>
-              <select value={contractType} onChange={(e) => setContractType(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800">
-                <option>Full-Time</option>
-                <option>Part-Time</option>
-                <option>Flexible</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Working Hours & Days</label>
-              <input placeholder="e.g. 40 hrs / Mon-Fri" value={workingHours} onChange={(e) => setWorkingHours(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
-            </div>
-            <div>
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Holiday Entitlement (Days)</label>
-              <input value={holidayEntitlement} onChange={(e) => setHolidayEntitlement(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
-            </div>
-            <div>
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Date of Pay Due</label>
-              <input type="date" value={dateOfPayDue} onChange={(e) => setDateOfPayDue(e.target.value)} className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold text-stone-800" />
-            </div>
-          </div>
 
-          <div className="border-t border-stone-100 pt-6 space-y-6">
-            <h5 className="text-xs font-bold text-stone-700">Banking & Emergency Details</h5>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Payroll History Panel */}
+            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm flex flex-col gap-8 justify-between">
               <div>
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Bank Name</label>
-                <input value={bankName} onChange={(e) => setBankName(e.target.value)} className="w-full mt-2 bg-stone-50 border p-4 rounded-2xl text-xs font-semibold" />
+                <h3 className="text-2xl font-serif italic mb-6">Payroll Ledger</h3>
+                <div className="space-y-4 divide-y divide-stone-50">
+                  {payrollEntries.map((p) => (
+                    <div key={p.id} className="pt-4 first:pt-0 flex justify-between items-center">
+                      <div>
+                        <p className="text-xs font-black text-stone-800">{p.employee}</p>
+                        <p className="text-[9px] uppercase tracking-wider text-stone-400 mt-1">{p.role}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-mono text-stone-800">£{p.total.toLocaleString()}</p>
+                        <p className="text-[9px] uppercase tracking-wider text-green-600 mt-1">Paid: {p.dateOfPay}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div>
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Account Number</label>
-                <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} className="w-full mt-2 bg-stone-50 border p-4 rounded-2xl text-xs font-semibold" />
-              </div>
-              <div>
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Sort Code</label>
-                <input value={sortCode} onChange={(e) => setSortCode(e.target.value)} className="w-full mt-2 bg-stone-50 border p-4 rounded-2xl text-xs font-semibold" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Next of Kin Name</label>
-                <input value={nextOfKinName} onChange={(e) => setNextOfKinName(e.target.value)} className="w-full mt-2 bg-stone-50 border p-4 rounded-2xl text-xs font-semibold" />
-              </div>
-              <div>
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Next of Kin Number</label>
-                <input value={nextOfKinNumber} onChange={(e) => setNextOfKinNumber(e.target.value)} className="w-full mt-2 bg-stone-50 border p-4 rounded-2xl text-xs font-semibold" />
-              </div>
+              
+              <button 
+                onClick={() => alert("Executing standard monthly payroll...")}
+                className="w-full mt-6 py-5 bg-[#a9b897]/10 text-[#a9b897] rounded-[2rem] text-xs font-black tracking-widest uppercase hover:bg-[#a9b897]/20 transition-all"
+              >
+                Run Monthly Payroll
+              </button>
             </div>
           </div>
-
-          <button 
-            onClick={() => alert(`Team Member ${empName} updated on payroll ledger`)}
-            className="w-full py-4 bg-[#a9b897]/20 border border-[#a9b897]/30 text-stone-900 rounded-2xl text-xs uppercase font-bold hover:bg-[#a9b897]/30 flex items-center justify-center gap-2 cursor-pointer border-0"
-          >
-            <Briefcase size={14} /> Submit Employee Record
-          </button>
         </div>
       )}
 
       {/* 3. TIMESHEETS TAB */}
       {activeTab === "timesheets" && (
-        <div className="max-w-2xl mx-auto bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6">
-          <div className="flex items-center gap-3">
-            <Clock size={18} className="text-[#a9b897]" />
-            <h3 className="text-xl font-serif italic text-stone-800">Timesheets</h3>
+        <div className="space-y-12">
+          {/* Timesheet Summary/Controls */}
+          <div className="flex flex-col md:flex-row justify-between items-center bg-white border border-stone-200 p-8 rounded-[2.5rem] shadow-sm gap-6">
+            <div>
+              <h2 className="text-2xl font-serif italic mb-2">Weekly Timesheets</h2>
+              <p className="text-xs text-stone-400 tracking-wide">
+                Aggregate Weekly Hours Logged: <span className="font-mono font-bold text-stone-800">{calculateTotalWeeklyHours()} hrs</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <input 
+                type="week" 
+                value={selectedWeek} 
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+              />
+            </div>
           </div>
-          <div className="space-y-4">
-            <input
-              placeholder="Task Name"
-              value={taskName}
-              onChange={(e) => setTaskName(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-12 px-4 text-xs font-bold outline-none text-stone-800"
-            />
-            <input
-              placeholder="Duration (e.g. 3.5 hrs)"
-              value={taskDuration}
-              onChange={(e) => setTaskDuration(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-100 rounded-2xl h-12 px-4 text-xs font-bold outline-none text-stone-800"
-            />
-            <button
-              onClick={addTimesheet}
-              className="w-full bg-[#a9b897] text-stone-900 h-12 rounded-2xl text-xs font-black tracking-widest uppercase hover:bg-[#99a888] cursor-pointer"
-            >
-              Add Entry
-            </button>
-          </div>
-          
-          <div className="border-t border-stone-100 pt-6 space-y-4">
-            {timesheetList.map(t => (
-              <div key={t.id} className="flex justify-between items-center p-4 bg-stone-50 rounded-2xl border">
-                <span className="text-xs font-semibold">{t.task}</span>
-                <span className="text-xs text-[#a9b897] font-bold font-mono">{t.duration}</span>
+
+          {/* Timesheet Data Entry Form */}
+          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm">
+            <h3 className="text-xl font-serif italic mb-8">Add New Timesheet Entry</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div>
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Client Name</label>
+                <input 
+                  placeholder="e.g. Aperture Labs" 
+                  value={timesheetClient} 
+                  onChange={(e) => setTimesheetClient(e.target.value)}
+                  className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                />
               </div>
-            ))}
+              <div>
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Task / Description</label>
+                <input 
+                  placeholder="e.g. Platform Integration" 
+                  value={timesheetTask} 
+                  onChange={(e) => setTimesheetTask(e.target.value)}
+                  className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                />
+              </div>
+              <div className="md:col-span-2 grid grid-cols-7 gap-3">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, idx) => {
+                  const dayStateMap = [
+                    timesheetMon, timesheetTue, timesheetWed, 
+                    timesheetThu, timesheetFri, timesheetSat, 
+                    timesheetSun
+                  ];
+                  const setDayStateMap = [
+                    setTimesheetMon, setTimesheetTue, setTimesheetWed, 
+                    setTimesheetThu, setTimesheetFri, setTimesheetSat, 
+                    setTimesheetSun
+                  ];
+
+                  return (
+                    <div key={day} className="flex flex-col items-center">
+                      <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-1">{day}</label>
+                      <input 
+                        type="number" 
+                        min="0" 
+                        step="0.5" 
+                        value={dayStateMap[idx]} 
+                        onChange={(e) => setDayStateMap[idx](e.target.value)}
+                        className="w-full bg-stone-50 border border-stone-100 rounded-xl p-2 text-center text-xs font-bold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-6 mt-8 border-t border-stone-100 pt-6">
+              <button 
+                onClick={addTimesheetEntry} 
+                className="px-8 py-4 bg-stone-900 text-white rounded-2xl text-xs font-bold hover:bg-stone-800 transition-all cursor-pointer flex items-center gap-3"
+              >
+                <Plus size={16} /> Add Timesheet Entry
+              </button>
+            </div>
+          </div>
+
+          {/* Timesheet List Table */}
+          <div className="bg-white border border-stone-200 rounded-[2.5rem] shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[800px]">
+                <thead>
+                  <tr className="bg-stone-50 border-b border-stone-200 text-stone-400 text-[9px] font-black tracking-widest uppercase">
+                    <th className="py-6 px-8">Client</th>
+                    <th className="py-6 px-8">Task</th>
+                    <th className="py-6 px-8 text-center">Mon</th>
+                    <th className="py-6 px-8 text-center">Tue</th>
+                    <th className="py-6 px-8 text-center">Wed</th>
+                    <th className="py-6 px-8 text-center">Thu</th>
+                    <th className="py-6 px-8 text-center">Fri</th>
+                    <th className="py-6 px-8 text-center">Sat</th>
+                    <th className="py-6 px-8 text-center">Sun</th>
+                    <th className="py-6 px-8 text-right">Total</th>
+                    <th className="py-6 px-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 text-xs font-semibold text-stone-800">
+                  {timesheetList.map((entry) => {
+                    const rowTotal = entry.mon + entry.tue + entry.wed + entry.thu + entry.fri + entry.sat + entry.sun;
+                    return (
+                      <tr key={entry.id} className="hover:bg-stone-50/50 transition-colors">
+                        <td className="py-6 px-8">{entry.client}</td>
+                        <td className="py-6 px-8 text-stone-400 text-[11px]">{entry.task}</td>
+                        <td className="py-6 px-8 text-center font-mono">{entry.mon}</td>
+                        <td className="py-6 px-8 text-center font-mono">{entry.tue}</td>
+                        <td className="py-6 px-8 text-center font-mono">{entry.wed}</td>
+                        <td className="py-6 px-8 text-center font-mono">{entry.thu}</td>
+                        <td className="py-6 px-8 text-center font-mono">{entry.fri}</td>
+                        <td className="py-6 px-8 text-center font-mono">{entry.sat}</td>
+                        <td className="py-6 px-8 text-center font-mono">{entry.sun}</td>
+                        <td className="py-6 px-8 text-right font-mono text-stone-900 font-bold">{rowTotal} hrs</td>
+                        <td className="py-6 px-8 text-right">
+                          <button 
+                            onClick={() => deleteTimesheetEntry(entry.id)} 
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {timesheetList.length === 0 && (
+              <div className="py-16 text-center text-stone-400 text-xs">No entries for this time period.</div>
+            )}
           </div>
         </div>
       )}
-
+      
     </div>
   );
 }

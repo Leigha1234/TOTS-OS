@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase-client"; // Use sync client
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -20,7 +20,6 @@ import {
   Edit2
 } from "lucide-react";
 
-// Types matching the provided codebases
 interface ContentDraft {
   id?: string;
   type: "image" | "video" | "blog" | "carousel";
@@ -42,7 +41,7 @@ export default function SocialLab() {
   const [activeSubTab, setActiveSubTab] = useState<"synthesizer" | "horizon">("synthesizer");
   const [prompt, setPrompt] = useState("");
   const [contentType, setContentType] = useState<ContentDraft["type"]>("image");
-  const [selectedPlatform, setSelectedPlatform] = useState("instagram");
+  const [selectedPlatform, setSelectedPlatform] = useState("Instagram");
   const [isGenerating, setIsGenerating] = useState(false);
   const [drafts, setDrafts] = useState<ContentDraft[]>([]);
   const [weeklyCount, setWeeklyCount] = useState(0);
@@ -51,6 +50,7 @@ export default function SocialLab() {
   const [horizonPosts, setHorizonPosts] = useState<ContentDraft[]>([]);
   const [viewMode, setViewMode] = useState<'stream' | 'calendar'>('stream');
   const [selectedScheduleDate, setSelectedScheduleDate] = useState<string>('');
+  const [isMounted, setIsMounted] = useState(false);
 
   const contentTypes = [
     { id: "image", label: "Image", icon: ImageIcon, code: "IMG" },
@@ -62,7 +62,7 @@ export default function SocialLab() {
   const platforms = ["Instagram", "LinkedIn", "Twitter", "Global Pool"];
 
   useEffect(() => {
-    // Standard Supabase authentication setup would apply here
+    setIsMounted(true);
     fetchWeeklyCount();
     if (activeSubTab === 'horizon') {
       fetchScheduledPosts();
@@ -92,16 +92,19 @@ export default function SocialLab() {
         .order("scheduled_for", { ascending: true });
         
       if (!error && data) {
-        // Map DB types to component interface
+        // Corrected mapping: satisfying all required fields in the ContentDraft interface
         const mapped: ContentDraft[] = data.map((item: any) => ({
           id: item.id,
-          type: "image", // Default mapping for simulation
+          type: "image",
           caption: item.caption,
+          hashtags: [],
+          mentions: [],
+          location: "",
           platform: item.platform,
           scheduled_for: item.scheduled_for,
           status: "scheduled",
           media_url: item.media_url,
-          excellence_score: 92 // Demo value
+          excellence_score: 92
         }));
         setHorizonPosts(mapped);
       }
@@ -114,7 +117,6 @@ export default function SocialLab() {
     if (!prompt) return;
     setIsGenerating(true);
 
-    // Simulated AI Synthesis
     setTimeout(() => {
       const randomId = Math.floor(Math.random() * 1000);
       const score = Math.floor(Math.random() * (98 - 85) + 85);
@@ -157,13 +159,12 @@ export default function SocialLab() {
       setDrafts(newDrafts);
       fetchWeeklyCount();
       alert("Post synchronized with the horizon.");
-      setSelectedScheduleDate(''); // Reset
+      setSelectedScheduleDate('');
     } else {
-        alert(`Synchronization failure: ${error.message}`);
+      alert(`Synchronization failure: ${error.message}`);
     }
   };
 
-  // UI Helper
   const TabButton = ({ id, label, current }: { id: any, label: string, current: any }) => (
     <button 
       onClick={() => setActiveSubTab(id)}
@@ -181,8 +182,6 @@ export default function SocialLab() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-6 md:p-12 max-w-[1700px] mx-auto space-y-16">
-      
-      {/* HEADER */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-200 pb-12">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-purple-600">
@@ -193,16 +192,13 @@ export default function SocialLab() {
           <p className="text-stone-400 italic font-serif text-lg">Distribution engine online. Synthesizing excellence.</p>
         </div>
 
-        {/* INTEGRATED TAB ENGINE */}
         <div className="flex flex-wrap gap-4 pt-4 border-t border-stone-100 md:border-none">
           <TabButton id="synthesizer" label="Synthesizer & Drafts" current={activeSubTab} />
           <TabButton id="horizon" label="Strategic Horizon" current={activeSubTab} />
         </div>
       </header>
 
-      {/* GAUGE & AUDIT ROW */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-12 bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm">
-        {/* CAPACITY GAUGE */}
         <div className="w-full md:w-80 space-y-3">
           <div className="flex justify-between items-end">
             <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Weekly Output Capacity</p>
@@ -216,21 +212,16 @@ export default function SocialLab() {
             />
           </div>
         </div>
-
         <button className="text-[10px] font-black bg-stone-900 text-white px-8 py-5 rounded-2xl uppercase tracking-widest flex items-center gap-3 shadow-xl hover:bg-stone-700 transition-all cursor-pointer">
           <BarChart3 size={16} /> Platform Audit Intelligence
         </button>
       </div>
 
       <div className="grid grid-cols-12 gap-16">
-        {/* MAIN COLUMN */}
         <div className={`${activeSubTab === 'synthesizer' ? 'lg:col-span-8' : 'col-span-12'} space-y-12`}>
-          
           <AnimatePresence mode="wait">
             {activeSubTab === "synthesizer" ? (
               <motion.div key="syn" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="space-y-12">
-                
-                {/* GENERATOR */}
                 <section className="bg-white rounded-[3.5rem] p-12 shadow-sm border border-stone-100 space-y-12">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="flex flex-col gap-6">
@@ -297,7 +288,6 @@ export default function SocialLab() {
                   </div>
                 </section>
 
-                {/* DRAFTS FEED */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <AnimatePresence>
                     {drafts.map((post, idx) => (
@@ -354,7 +344,6 @@ export default function SocialLab() {
                 </div>
               </motion.div>
             ) : (
-              /* HORIZON VIEW */
               <motion.div key="hor" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="space-y-12">
                 <div className="flex flex-col md:flex-row md:justify-between md:items-center bg-white border border-stone-200 p-8 rounded-[2.5rem] gap-6 shadow-sm">
                   <div className="space-y-1">
@@ -381,7 +370,6 @@ export default function SocialLab() {
                       const schedDate = new Date(post.scheduled_for);
                       return (
                         <div key={post.id} className="bg-white border border-stone-200 rounded-[2.5rem] p-10 flex flex-col md:flex-row items-start md:items-center gap-10 shadow-sm group">
-                          {/* DATE WRAPPER */}
                           <div className="flex md:flex-col items-center justify-center min-w-[90px] border-b md:border-b-0 md:border-r border-stone-100 pb-4 md:pb-0 md:pr-10 gap-2 md:gap-1">
                             <span className="text-[10px] font-black uppercase text-stone-300 tracking-widest">{schedDate.toLocaleDateString("en-US", { weekday: 'short' })}</span>
                             <span className="text-4xl font-serif italic text-stone-800 leading-none">{schedDate.getDate()}</span>
@@ -436,8 +424,7 @@ export default function SocialLab() {
           </AnimatePresence>
         </div>
 
-        {/* SIDEBAR - Updated to neutral palette */}
-        <aside className={`lg:col-span-4 ${activeSubTab === 'horizon' ? 'hidden lg:block' : ''}`}>
+        <aside className={`lg:col-span-4 ${activeSubTabActiveCheck(activeSubTab)}`}>
           <div className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm space-y-10 sticky top-12">
             <div className="space-y-1">
               <h2 className="text-3xl font-serif italic text-stone-900 tracking-tighter">Resonance Engine</h2>
@@ -464,8 +451,8 @@ export default function SocialLab() {
 
             <div className="p-8 rounded-3xl bg-stone-50 border border-stone-100 space-y-4">
               <div className="flex items-center gap-3">
-                  <Sparkles size={16} className="text-purple-600"/>
-                  <p className="text-[10px] font-bold uppercase text-stone-900 tracking-wider">Insight Node</p>
+                <Sparkles size={16} className="text-purple-600"/>
+                <p className="text-[10px] font-bold uppercase text-stone-900 tracking-wider">Insight Node</p>
               </div>
               <p className="text-sm font-serif italic text-stone-700 leading-relaxed">
                 "Video content synthesized between 12:00 and 14:00 today shows a 12% higher resonance probability based on recent node activity."
@@ -477,4 +464,12 @@ export default function SocialLab() {
       </div>
     </div>
   );
+}
+
+function SubTabCheck(activeSubTab: any) {
+    return activeSubTab === 'horizon' ? 'hidden lg:block' : '';
+}
+
+function SubTabActiveCheck(activeSubTab: any) {
+    return SubTabCheck(activeSubTab);
 }

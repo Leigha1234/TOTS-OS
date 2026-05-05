@@ -10,12 +10,16 @@ import {
   ArrowUpRight, 
   Mail, 
   BarChart3, 
-  Share2 
+  Share2,
+  Download
 } from "lucide-react";
 
 export default function ReportsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Raw finance datasets held for downloading
+  const [invoiceData, setInvoiceData] = useState<any[]>([]);
 
   useEffect(() => {
     async function init() {
@@ -48,6 +52,8 @@ export default function ReportsPage() {
 
         const rev = inv.data?.filter(i => i.status === "paid").reduce((s, i) => s + (i.amount || 0), 0) || 0;
         const hrs = ts.data?.reduce((s, t) => s + (t.hours || 0), 0) || 0;
+
+        setInvoiceData(inv.data || []);
 
         const socialStats = posts.data?.reduce((acc, post) => ({
           likes: acc.likes + (post.likes || 0),
@@ -88,6 +94,34 @@ export default function ReportsPage() {
     init();
   }, []);
 
+  const downloadFinanceReport = () => {
+    if (!invoiceData.length) {
+      alert("No financial data available to download.");
+      return;
+    }
+    
+    // Format headers and rows
+    const headers = ["Invoice ID", "Amount", "Currency", "Status", "Due Date"];
+    const rows = invoiceData.map(inv => [
+      inv.id,
+      inv.amount,
+      inv.currency || "GBP",
+      inv.status,
+      inv.due_date || "N/A"
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "finance_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-stone-50">
       <div className="text-center space-y-6">
@@ -117,11 +151,22 @@ export default function ReportsPage() {
           </div>
           <h1 className="text-7xl font-serif italic tracking-tighter text-stone-900">Intelligence</h1>
         </div>
-        <div className="bg-white border border-stone-200 px-6 py-4 rounded-2xl flex items-center gap-4 shadow-sm">
-          <ShieldCheck className="text-green-600" size={18} />
-          <div className="space-y-0.5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-stone-800">System Status</p>
-            <p className="text-[9px] font-mono text-stone-400 uppercase">Link: [STABLE]</p>
+        
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={downloadFinanceReport}
+            className="bg-stone-900 text-white hover:bg-stone-700 transition-all px-6 py-4 rounded-2xl flex items-center gap-3 shadow-sm cursor-pointer"
+          >
+            <Download size={16} />
+            <span className="text-[10px] font-black uppercase tracking-wider">Download Finance Report</span>
+          </button>
+
+          <div className="bg-white border border-stone-200 px-6 py-4 rounded-2xl flex items-center gap-4 shadow-sm">
+            <ShieldCheck className="text-green-600" size={18} />
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black uppercase tracking-widest text-stone-800">System Status</p>
+              <p className="text-[9px] font-mono text-stone-400 uppercase">Link: [STABLE]</p>
+            </div>
           </div>
         </div>
       </div>

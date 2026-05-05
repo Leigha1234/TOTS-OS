@@ -86,8 +86,11 @@ export default function CampaignsPage() {
     }
 
     try {
-      // Send data to campaigns table
-      const { error } = await supabase.from("campaigns").insert([{
+      // 1. Fetch authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // 2. Send data to campaigns table
+      const { error: campaignError } = await supabase.from("campaigns").insert([{
         title: form.title || form.subject || "New Campaign",
         subject: form.subject,
         status: "scheduled",
@@ -95,18 +98,21 @@ export default function CampaignsPage() {
         scheduled_for: form.scheduled_for,
       }]);
 
-      if (error) throw error;
+      if (campaignError) throw campaignError;
 
-      // Update the tasks table
-      await supabase.from("tasks").insert([{
-        title: form.title || form.subject || "Campaign Dispatch",
+      // 3. Insert into the tasks table for the calendar display
+      const { error: taskError } = await supabase.from("tasks").insert([{
+        title: `Campaign Dispatch: ${form.title || form.subject || "New Campaign"}`,
+        user_id: user?.id,
         created_at: form.scheduled_for,
         description: form.content || "",
         status: "todo",
         priority: 1,
-        color: "#a9b897",
+        color: "#8b5cf6", // Matching the Campaigns/Email colour assigned in CalendarPage
         location: "Campaign Hub Dispatch"
       }]);
+
+      if (taskError) throw taskError;
 
       alert("Campaign scheduled successfully and added to the calendar!");
       setShowModal(false);

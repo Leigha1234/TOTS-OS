@@ -317,7 +317,7 @@ export default function FinancialsPage() {
             <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Tax Due</span>
           </div>
           <div>
-            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.calculatedTaxDue.toLocaleString()}</p>
+            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.calculatedTaxDue || metrics.calculatedTaxDue.toLocaleString()}</p>
             <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Calculated Balance</p>
           </div>
         </div>
@@ -334,14 +334,6 @@ export default function FinancialsPage() {
           Financials
         </button>
         <button 
-          onClick={() => setActiveTab("hr")}
-          className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
-            activeTab === "hr" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
-          }`}
-        >
-          HR & Payroll
-        </button>
-        <button 
           onClick={() => setActiveTab("timesheets")}
           className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
             activeTab === "timesheets" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
@@ -352,8 +344,6 @@ export default function FinancialsPage() {
       </div>
 
       {/* TAB CONTENTS */}
-      
-      {/* 1. FINANCIALS TAB */}
       {activeTab === "financials" && (
         <div className="space-y-12">
           {/* Action Buttons */}
@@ -629,399 +619,121 @@ export default function FinancialsPage() {
             )}
           </AnimatePresence>
 
-          {/* Expense Modal Slide */}
-          <AnimatePresence>
-            {isExpenseOpen && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center p-6"
-              >
-                <div className="bg-white border border-stone-100 w-full max-w-2xl rounded-[3.5rem] p-12 shadow-2xl flex flex-col gap-8">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-2xl font-serif italic text-stone-800">Log Expense</h3>
-                    <button onClick={() => setIsExpenseOpen(false)} className="p-3 rounded-full hover:bg-stone-100 transition-colors cursor-pointer"><X size={18}/></button>
-                  </div>
-                  
-                  <div className="space-y-6">
-                    <div>
-                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Vendor Name</label>
-                      <input 
-                        placeholder="Company or Vendor Name" 
-                        value={expenseVendor} 
-                        onChange={(e) => setExpenseVendor(e.target.value)}
-                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Amount (£)</label>
-                      <input 
-                        type="number" 
-                        placeholder="0.00" 
-                        value={expenseAmount} 
-                        onChange={(e) => setExpenseAmount(e.target.value)}
-                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Add to Project (Optional)</label>
-                      <input 
-                        placeholder="Link Project" 
-                        value={expenseProject} 
-                        onChange={(e) => setExpenseProject(e.target.value)}
-                        className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Upload Receipt</label>
-                      <div className="mt-3 border-2 border-dashed border-stone-200 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 bg-stone-50 cursor-pointer hover:border-stone-400 transition-all">
-                        <Upload size={24} className="text-[#a9b897]" />
-                        <span className="text-xs font-bold text-stone-600">Click to upload receipt or drag and drop</span>
-                        <span className="text-[10px] text-stone-400">PDF, PNG or JPG (Max 10MB)</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-6 border-t border-stone-50 pt-6">
-                    <button onClick={() => setIsExpenseOpen(false)} className="px-6 py-4 text-xs font-bold text-stone-400 hover:text-stone-900 cursor-pointer">Cancel</button>
-                    <button 
-                      onClick={addExpense} 
-                      className="px-8 py-4 bg-stone-900 text-white rounded-2xl text-xs font-bold hover:bg-stone-800 transition-all cursor-pointer"
-                    >
-                      Save Expense
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Financial Records Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            <div>
-              <h2 className="text-2xl font-serif italic mb-6">Recent Invoices</h2>
-              <div className="bg-white border border-stone-200 rounded-[2.5rem] p-8 divide-y divide-stone-100 shadow-sm">
-                {invoices.map((inv) => (
-                  <div key={inv.id} className="flex justify-between items-center py-6 first:pt-0 last:pb-0">
-                    <div>
-                      <p className="text-xs font-black text-stone-800">{inv.client}</p>
-                      <p className="text-[10px] text-stone-400 mt-1 uppercase font-mono">{inv.id} &bull; {inv.date}</p>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <p className="font-mono text-stone-800 text-sm">£{inv.amount.toLocaleString()}</p>
-                      <span className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-[9px] font-black uppercase tracking-wider">
-                        {inv.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+          {/* Timesheets Section */}
+          <div className="bg-white border border-stone-200/60 p-10 rounded-[3rem] shadow-sm space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-stone-100 pb-6">
+              <div className="flex items-center gap-4">
+                <Clock size={20} className="text-[#a9b897]" />
+                <h3 className="text-2xl font-serif italic text-stone-800">Operational Timesheets</h3>
               </div>
-            </div>
-
-            <div>
-              <h2 className="text-2xl font-serif italic mb-6">Recent Quotes</h2>
-              <div className="bg-white border border-stone-200 rounded-[2.5rem] p-8 divide-y divide-stone-100 shadow-sm">
-                {quotes.map((q) => (
-                  <div key={q.id} className="flex justify-between items-center py-6 first:pt-0 last:pb-0">
-                    <div>
-                      <p className="text-xs font-black text-stone-800">{q.client}</p>
-                      <p className="text-[10px] text-stone-400 mt-1 uppercase font-mono">{q.id} &bull; {q.date}</p>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <p className="font-mono text-stone-800 text-sm">£{q.amount.toLocaleString()}</p>
-                      <span className="px-3 py-1 bg-yellow-50 text-yellow-600 rounded-full text-[9px] font-black uppercase tracking-wider">
-                        {q.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. HR & PAYROLL TAB */}
-      {activeTab === "hr" && (
-        <div className="space-y-12">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">
-            <div className="xl:col-span-2 bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm">
-              <h3 className="text-2xl font-serif italic mb-8">Add New Employee Profile</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Employee Name</label>
-                  <input 
-                    value={empName} 
-                    onChange={(e) => setEmpName(e.target.value)}
-                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Employee Number</label>
-                  <input 
-                    value={empNumber} 
-                    onChange={(e) => setEmpNumber(e.target.value)}
-                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Role Title</label>
-                  <input 
-                    value={empRole} 
-                    onChange={(e) => setEmpRole(e.target.value)}
-                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Contract Type</label>
-                  <select 
-                    value={contractType} 
-                    onChange={(e) => setContractType(e.target.value)}
-                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                  >
-                    <option>Full-Time</option>
-                    <option>Part-Time</option>
-                    <option>Contractor</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Working Hours (Weekly)</label>
-                  <input 
-                    value={workingHours} 
-                    onChange={(e) => setWorkingHours(e.target.value)}
-                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Holiday Entitlement</label>
-                  <input 
-                    value={holidayEntitlement} 
-                    onChange={(e) => setHolidayEntitlement(e.target.value)}
-                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Bank Name</label>
-                  <input 
-                    placeholder="Barclays / NatWest"
-                    value={bankName} 
-                    onChange={(e) => setBankName(e.target.value)}
-                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Account Number</label>
-                  <input 
-                    value={accountNumber} 
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Sort Code</label>
-                  <input 
-                    value={sortCode} 
-                    onChange={(e) => setSortCode(e.target.value)}
-                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Next of Kin Name</label>
-                  <input 
-                    value={nextOfKinName} 
-                    onChange={(e) => setNextOfKinName(e.target.value)}
-                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-6 mt-8 border-t border-stone-100 pt-6">
-                <button 
-                  onClick={() => {
-                    setEmpName(""); setEmpNumber(""); setEmpRole("");
-                  }} 
-                  className="px-6 py-4 text-xs font-bold text-stone-400 hover:text-stone-900 cursor-pointer"
-                >
-                  Clear Form
-                </button>
-                <button 
-                  onClick={() => alert("Employee profile saved to HR database!")} 
-                  className="px-8 py-4 bg-stone-900 text-white rounded-2xl text-xs font-bold hover:bg-stone-800 transition-all cursor-pointer"
-                >
-                  Save Profile
-                </button>
-              </div>
-            </div>
-
-            {/* Payroll History Panel */}
-            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm flex flex-col gap-8 justify-between">
-              <div>
-                <h3 className="text-2xl font-serif italic mb-6">Payroll Ledger</h3>
-                <div className="space-y-4 divide-y divide-stone-50">
-                  {payrollEntries.map((p) => (
-                    <div key={p.id} className="pt-4 first:pt-0 flex justify-between items-center">
-                      <div>
-                        <p className="text-xs font-black text-stone-800">{p.employee}</p>
-                        <p className="text-[9px] uppercase tracking-wider text-stone-400 mt-1">{p.role}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-mono text-stone-800">£{p.total.toLocaleString()}</p>
-                        <p className="text-[9px] uppercase tracking-wider text-green-600 mt-1">Paid: {p.dateOfPay}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <button 
-                onClick={() => alert("Executing standard monthly payroll...")}
-                className="w-full mt-6 py-5 bg-[#a9b897]/10 text-[#a9b897] rounded-[2rem] text-xs font-black tracking-widest uppercase hover:bg-[#a9b897]/20 transition-all"
-              >
-                Run Monthly Payroll
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3. TIMESHEETS TAB */}
-      {activeTab === "timesheets" && (
-        <div className="space-y-12">
-          {/* Timesheet Summary/Controls */}
-          <div className="flex flex-col md:flex-row justify-between items-center bg-white border border-stone-200 p-8 rounded-[2.5rem] shadow-sm gap-6">
-            <div>
-              <h2 className="text-2xl font-serif italic mb-2">Weekly Timesheets</h2>
-              <p className="text-xs text-stone-400 tracking-wide">
-                Aggregate Weekly Hours Logged: <span className="font-mono font-bold text-stone-800">{calculateTotalWeeklyHours()} hrs</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
               <input 
                 type="week" 
-                value={selectedWeek} 
+                value={selectedWeek}
                 onChange={(e) => setSelectedWeek(e.target.value)}
-                className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                className="bg-stone-50 border border-stone-200 text-xs font-bold px-4 py-3 rounded-2xl outline-none"
               />
             </div>
-          </div>
 
-          {/* Timesheet Data Entry Form */}
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm">
-            <h3 className="text-xl font-serif italic mb-8">Add New Timesheet Entry</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Client Name</label>
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Client</label>
                 <input 
-                  placeholder="e.g. Aperture Labs" 
+                  placeholder="Client" 
                   value={timesheetClient} 
                   onChange={(e) => setTimesheetClient(e.target.value)}
                   className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
                 />
               </div>
               <div>
-                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Task / Description</label>
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Task Description</label>
                 <input 
-                  placeholder="e.g. Platform Integration" 
+                  placeholder="Task Name" 
                   value={timesheetTask} 
                   onChange={(e) => setTimesheetTask(e.target.value)}
                   className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
                 />
               </div>
-              <div className="md:col-span-2 grid grid-cols-7 gap-3">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, idx) => {
-                  const dayStateMap = [
-                    timesheetMon, timesheetTue, timesheetWed, 
-                    timesheetThu, timesheetFri, timesheetSat, 
-                    timesheetSun
-                  ];
-                  const setDayStateMap = [
-                    setTimesheetMon, setTimesheetTue, setTimesheetWed, 
-                    setTimesheetThu, setTimesheetFri, setTimesheetSat, 
-                    setTimesheetSun
-                  ];
-
-                  return (
-                    <div key={day} className="flex flex-col items-center">
-                      <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-1">{day}</label>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        step="0.5" 
-                        value={dayStateMap[idx]} 
-                        onChange={(e) => setDayStateMap[idx](e.target.value)}
-                        className="w-full bg-stone-50 border border-stone-100 rounded-xl p-2 text-center text-xs font-bold focus:ring-4 ring-[#a9b897]/5 outline-none"
-                      />
-                    </div>
-                  );
-                })}
+              <div className="col-span-2 grid grid-cols-7 gap-2">
+                {["M", "T", "W", "T", "F", "S", "S"].map((day, idx) => (
+                  <div key={idx} className="text-center">
+                    <span className="text-[9px] font-bold text-stone-400">{day}</span>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max="24"
+                      value={[timesheetMon, timesheetTue, timesheetWed, timesheetThu, timesheetFri, timesheetSat, timesheetSun][idx]}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const setters = [setTimesheetMon, setTimesheetTue, setTimesheetWed, setTimesheetThu, setTimesheetFri, setTimesheetSat, setTimesheetSun];
+                        setters[idx](val);
+                      }}
+                      className="w-full mt-2 bg-stone-50 border border-stone-100 text-center text-xs p-2 rounded-xl outline-none"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
-            
-            <div className="flex justify-end gap-6 mt-8 border-t border-stone-100 pt-6">
+
+            <div className="flex justify-end pt-4">
               <button 
-                onClick={addTimesheetEntry} 
-                className="px-8 py-4 bg-stone-900 text-white rounded-2xl text-xs font-bold hover:bg-stone-800 transition-all cursor-pointer flex items-center gap-3"
+                onClick={addTimesheetEntry}
+                className="bg-stone-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black tracking-widest hover:bg-stone-800 transition-all cursor-pointer shadow-xl flex items-center gap-3"
               >
-                <Plus size={16} /> Add Timesheet Entry
+                <Plus size={14} /> Submit Timesheet Row
               </button>
             </div>
-          </div>
 
-          {/* Timesheet List Table */}
-          <div className="bg-white border border-stone-200 rounded-[2.5rem] shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead>
-                  <tr className="bg-stone-50 border-b border-stone-200 text-stone-400 text-[9px] font-black tracking-widest uppercase">
-                    <th className="py-6 px-8">Client</th>
-                    <th className="py-6 px-8">Task</th>
-                    <th className="py-6 px-8 text-center">Mon</th>
-                    <th className="py-6 px-8 text-center">Tue</th>
-                    <th className="py-6 px-8 text-center">Wed</th>
-                    <th className="py-6 px-8 text-center">Thu</th>
-                    <th className="py-6 px-8 text-center">Fri</th>
-                    <th className="py-6 px-8 text-center">Sat</th>
-                    <th className="py-6 px-8 text-center">Sun</th>
-                    <th className="py-6 px-8 text-right">Total</th>
-                    <th className="py-6 px-8"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100 text-xs font-semibold text-stone-800">
-                  {timesheetList.map((entry) => {
-                    const rowTotal = entry.mon + entry.tue + entry.wed + entry.thu + entry.fri + entry.sat + entry.sun;
-                    return (
-                      <tr key={entry.id} className="hover:bg-stone-50/50 transition-colors">
-                        <td className="py-6 px-8">{entry.client}</td>
-                        <td className="py-6 px-8 text-stone-400 text-[11px]">{entry.task}</td>
-                        <td className="py-6 px-8 text-center font-mono">{entry.mon}</td>
-                        <td className="py-6 px-8 text-center font-mono">{entry.tue}</td>
-                        <td className="py-6 px-8 text-center font-mono">{entry.wed}</td>
-                        <td className="py-6 px-8 text-center font-mono">{entry.thu}</td>
-                        <td className="py-6 px-8 text-center font-mono">{entry.fri}</td>
-                        <td className="py-6 px-8 text-center font-mono">{entry.sat}</td>
-                        <td className="py-6 px-8 text-center font-mono">{entry.sun}</td>
-                        <td className="py-6 px-8 text-right font-mono text-stone-900 font-bold">{rowTotal} hrs</td>
-                        <td className="py-6 px-8 text-right">
-                          <button 
-                            onClick={() => deleteTimesheetEntry(entry.id)} 
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            {/* Render Timesheet list */}
+            <div className="space-y-4 pt-6 border-t border-stone-50">
+              {timesheetList.map((entry) => (
+                <div key={entry.id} className="flex justify-between items-center p-6 bg-stone-50 rounded-2xl border border-stone-100/40">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-stone-800">{entry.client}</p>
+                    <p className="text-[10px] text-stone-400 uppercase tracking-widest font-semibold">{entry.task}</p>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <p className="text-xs font-mono font-bold text-stone-800">
+                      Total: {entry.mon + entry.tue + entry.wed + entry.thu + entry.fri + entry.sat + entry.sun} hrs
+                    </p>
+                    <button 
+                      onClick={() => deleteTimesheetEntry(entry.id)}
+                      className="p-3 bg-white border border-stone-200 text-stone-400 hover:text-red-500 rounded-2xl transition-all cursor-pointer"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            {timesheetList.length === 0 && (
-              <div className="py-16 text-center text-stone-400 text-xs">No entries for this time period.</div>
-            )}
           </div>
         </div>
       )}
-      
+
+      {/* Timesheets Only Tab View */}
+      {activeTab === "timesheets" && (
+        <div className="bg-white border border-stone-200/60 p-10 rounded-[3rem] shadow-sm space-y-8">
+          <div className="flex justify-between items-center border-b border-stone-100 pb-6">
+            <h3 className="text-3xl font-serif italic text-stone-800">Weekly Timesheets</h3>
+            <span className="text-xs font-mono font-bold text-[#a9b897]">
+              Total Hours Logged: {calculateTotalWeeklyHours()} hrs
+            </span>
+          </div>
+          
+          <div className="space-y-4">
+             {timesheetList.map((entry) => (
+                <div key={entry.id} className="flex justify-between items-center p-6 bg-stone-50 rounded-2xl border border-stone-100/40">
+                  <div>
+                    <p className="text-sm font-bold text-stone-800">{entry.client}</p>
+                    <p className="text-[10px] text-stone-400 uppercase tracking-widest font-semibold">{entry.task}</p>
+                  </div>
+                  <div className="text-xs font-bold font-mono">
+                    {entry.mon + entry.tue + entry.wed + entry.thu + entry.fri + entry.sat + entry.sun} hrs
+                  </div>
+                </div>
+             ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

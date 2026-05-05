@@ -17,7 +17,9 @@ import {
   Clock3,
   CheckCircle,
   MoreVertical,
-  Edit2
+  Edit2,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface ContentDraft {
@@ -51,6 +53,9 @@ export default function SocialLab() {
   const [viewMode, setViewMode] = useState<'stream' | 'calendar'>('stream');
   const [selectedScheduleDate, setSelectedScheduleDate] = useState<string>('');
   const [isMounted, setIsMounted] = useState(false);
+
+  // Calendar Engine States
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const contentTypes = [
     { id: "image", label: "Image", icon: ImageIcon, code: "IMG" },
@@ -162,6 +167,23 @@ export default function SocialLab() {
     } else {
       alert(`Synchronization failure: ${error.message}`);
     }
+  };
+
+  // Calendar Engine Helpers
+  const getDaysInMonth = (year: number, month: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (year: number, month: number) => {
+    return new Date(year, month, 1).getDay();
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   };
 
   const TabButton = ({ id, label, current }: { id: any, label: string, current: any }) => (
@@ -418,8 +440,68 @@ export default function SocialLab() {
                     )}
                   </div>
                 ) : (
-                  <div className="bg-white border border-stone-200 rounded-[2.5rem] p-12 text-center text-stone-400 text-xs shadow-sm">
-                    Calendar View Integration Node: Displaying {horizonPosts.length} Items. Interactive Calendar Component Loading...
+                  // Fully Realized Interactive Calendar Interface
+                  <div className="bg-white border border-stone-200 p-12 rounded-[2.5rem] shadow-sm space-y-8">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="text-2xl font-serif italic text-stone-800 tracking-tighter">
+                          {currentMonth.toLocaleString('default', { month: 'long' })} {currentMonth.getFullYear()}
+                        </h3>
+                      </div>
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={handlePrevMonth}
+                          className="h-12 w-12 rounded-2xl border border-stone-200 flex items-center justify-center hover:bg-stone-50 hover:text-stone-900 cursor-pointer text-stone-400 transition-all"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <button 
+                          onClick={handleNextMonth}
+                          className="h-12 w-12 rounded-2xl border border-stone-200 flex items-center justify-center hover:bg-stone-50 hover:text-stone-900 cursor-pointer text-stone-400 transition-all"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-4 text-center">
+                      {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                        <div key={day} className="text-[9px] font-black tracking-[0.2em] text-stone-400 uppercase py-3 border-b border-stone-100">
+                          {day}
+                        </div>
+                      ))}
+
+                      {Array.from({ length: getFirstDayOfMonth(currentMonth.getFullYear(), currentMonth.getMonth()) }).map((_, idx) => (
+                        <div key={`empty-${idx}`} className="h-20" />
+                      ))}
+
+                      {Array.from({ length: getDaysInMonth(currentMonth.getFullYear(), currentMonth.getMonth()) }).map((_, day) => {
+                        const dayNumber = day + 1;
+                        const dateString = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
+                        const postExists = horizonPosts.some(p => p.scheduled_for.startsWith(dateString));
+
+                        return (
+                          <div 
+                            key={dayNumber} 
+                            onClick={() => setSelectedScheduleDate(dateString)}
+                            className={`h-20 rounded-2xl border p-3 flex flex-col justify-between transition-all cursor-pointer select-none ${
+                              selectedScheduleDate === dateString 
+                              ? 'border-purple-400 bg-purple-50/40 ring-2 ring-purple-100'
+                              : 'border-stone-100 hover:border-stone-300 bg-stone-50/40'
+                            }`}
+                          >
+                            <span className={`text-xs font-bold ${postExists ? 'text-purple-600 font-black' : 'text-stone-700'}`}>
+                              {dayNumber}
+                            </span>
+                            {postExists && (
+                              <div className="flex justify-center items-center">
+                                <span className="h-2 w-2 bg-purple-500 rounded-full animate-pulse" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </motion.div>

@@ -437,7 +437,7 @@ export default function ProjectsPage() {
                         </div>
 
                         <div className="flex items-center gap-6">
-                          {/* Asana-Style Priority Selector */}
+                          {/* Priority Selector */}
                           <select
                             value={t.priority}
                             onChange={(e) => handleUpdateTaskPriority(t.id, e.target.value as any)}
@@ -448,7 +448,7 @@ export default function ProjectsPage() {
                             <option value="High">High</option>
                           </select>
 
-                          {/* Asana-Style Status Selector */}
+                          {/* Status Selector */}
                           <select
                             value={t.status}
                             onChange={(e) => handleUpdateTaskStatus(t.id, e.target.value as any)}
@@ -653,20 +653,25 @@ export default function ProjectsPage() {
                       value={newSubtask} 
                       onChange={(e) => setNewSubtask(e.target.value)} 
                       placeholder="Add subtask..."
-                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-4 ring-[#a9b897]/5" 
+                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-200/40 rounded-xl outline-none focus:ring-4 ring-[#a9b897]/5 font-medium placeholder:text-stone-300"
                     />
-                    <button onClick={handleAddSubtask} className="px-4 py-2 bg-stone-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider cursor-pointer">Add</button>
+                    <button 
+                      onClick={handleAddSubtask}
+                      className="px-4 py-2 bg-stone-900 text-white text-[9px] font-black tracking-widest rounded-xl uppercase hover:bg-stone-700 transition-all cursor-pointer"
+                    >
+                      Add
+                    </button>
                   </div>
                 </div>
 
-                {/* Communication Module */}
+                {/* Comments Module */}
                 <div className="pt-6 border-t border-stone-50">
-                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-4">Comments / Discussion</span>
+                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-4">Discussion Thread</span>
                   <div className="space-y-3">
-                    {selectedTask.comments?.map((com, idx) => (
-                      <div key={idx} className="p-4 bg-stone-50/70 border border-stone-100 rounded-2xl text-xs text-stone-800">
-                        <span className="font-black text-[#a9b897] text-[8px] tracking-wider uppercase block mb-1">Collaborator</span>
-                        {com}
+                    {selectedTask.comments?.map((comment, idx) => (
+                      <div key={idx} className="p-4 bg-[#faf9f6] border border-stone-200/30 rounded-2xl text-xs text-stone-700 flex items-start gap-4">
+                        <MessageSquare size={14} className="text-[#a9b897] mt-0.5" />
+                        <p>{comment}</p>
                       </div>
                     ))}
                   </div>
@@ -674,90 +679,26 @@ export default function ProjectsPage() {
                     <input 
                       value={newComment} 
                       onChange={(e) => setNewComment(e.target.value)} 
-                      placeholder="Write a message or add comment..." 
-                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-4 ring-[#a9b897]/5" 
+                      placeholder="Write a comment..."
+                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-200/40 rounded-xl outline-none focus:ring-4 ring-[#a9b897]/5 font-medium placeholder:text-stone-300"
                     />
-                    <button onClick={handleAddComment} className="px-4 py-2 bg-stone-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider cursor-pointer">Send</button>
+                    <button 
+                      onClick={handleAddComment}
+                      className="px-4 py-2 bg-[#a9b897] text-white text-[9px] font-black tracking-widest rounded-xl uppercase hover:bg-[#8f9c7f] transition-all cursor-pointer"
+                    >
+                      Post
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
-
+            
             <button 
               onClick={() => setSelectedTask(null)}
-              className="w-full mt-10 py-4 bg-stone-100 text-stone-600 rounded-2xl text-[10px] font-bold tracking-widest uppercase hover:bg-stone-200 transition-all cursor-pointer text-center no-underline"
+              className="w-full py-4 bg-stone-100 border border-stone-200 text-stone-600 hover:bg-stone-200 rounded-2xl text-xs font-black tracking-widest uppercase transition-all cursor-pointer mt-12"
             >
-              Done
+              Close Window
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Selected Project Flyout */}
-      {selectedProject && (
-        <div className="fixed inset-0 z-[120] bg-stone-950/40 backdrop-blur-sm p-8 md:p-12 overflow-y-auto flex items-center justify-center">
-          <div className="bg-white w-full max-w-5xl rounded-[3.5rem] p-16 shadow-2xl relative border border-stone-100 min-h-[550px] flex flex-col justify-between">
-            <button 
-              onClick={() => setSelectedProject(null)}
-              className="absolute top-12 right-12 p-4 bg-stone-50 rounded-full hover:bg-stone-100 transition-colors cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-
-            <div>
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-2 block">
-                {selectedProject.customers?.name || "Operational Node"}
-              </span>
-              <h2 className="text-5xl font-serif text-stone-800 tracking-tighter mb-4">
-                {selectedProject.name}
-              </h2>
-
-              <div className="flex flex-wrap gap-4 mt-8 pt-8 border-t border-stone-100">
-                <div className="p-6 bg-stone-50/50 rounded-2xl border border-stone-100 w-72">
-                  <span className="text-[9px] font-black tracking-widest text-stone-400 uppercase block mb-1">Ecosystem Status</span>
-                  <p className="text-xs font-bold text-stone-800">Active and Synchronized</p>
-                </div>
-                <div className="p-6 bg-stone-50/50 rounded-2xl border border-stone-100 w-72">
-                  <span className="text-[9px] font-black tracking-widest text-stone-400 uppercase block mb-1">Active Tasks</span>
-                  <p className="text-xs font-bold text-stone-800">{tasks.length} items to complete</p>
-                </div>
-              </div>
-
-              <div className="mt-10 space-y-4">
-                <span className="text-[9px] font-black tracking-widest text-stone-400 uppercase block mb-2">Task Breakdown</span>
-                {tasks.map((task, idx) => (
-                  <div key={task.id} className="flex justify-between items-center p-6 bg-stone-50 rounded-2xl border border-stone-100">
-                    <div className="flex items-center gap-4">
-                      <span className="text-xs font-mono text-stone-400">0{idx + 1}</span>
-                      <p className="text-xs font-bold text-stone-800">{task.name}</p>
-                    </div>
-                    <span className="text-[9px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-white border border-stone-200/60 text-[#a9b897]">
-                      {task.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center mt-12 pt-8 border-t border-stone-100">
-              <span className="text-[9px] text-stone-400 font-bold uppercase tracking-widest">
-                Identifier: {selectedProject.id}
-              </span>
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => setSelectedProject(null)}
-                  className="px-8 py-4 bg-stone-100 text-stone-600 rounded-2xl text-[10px] font-black tracking-widest uppercase hover:bg-stone-200 transition-all cursor-pointer"
-                >
-                  Close Panel
-                </button>
-                <a 
-                  href={`/projects/${selectedProject.id}`}
-                  className="no-underline px-8 py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-black tracking-widest uppercase hover:bg-stone-700 transition-all cursor-pointer flex items-center gap-2"
-                >
-                  Launch Stream <ArrowRight size={14} />
-                </a>
-              </div>
-            </div>
           </div>
         </div>
       )}

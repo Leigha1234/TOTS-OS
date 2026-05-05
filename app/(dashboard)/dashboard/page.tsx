@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase-client";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { 
   Sparkles, ArrowRight, Briefcase, Activity,
-  X, Loader2, Zap, FileText, Share2, Mail, Layers, User as UserIcon, Clock, CheckSquare
+  X, Loader2, Zap, FileText, Share2, Mail, Layers, User as UserIcon, Clock, CheckSquare, DollarSign, Users, ShieldCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -21,9 +21,15 @@ export default function DashboardPage() {
     activeProjects: 0,
     invoicesDue: 2, 
     socialsPending: 5, 
-    emailsScheduled: 3 
+    emailsScheduled: 3,
+    currentProfit: 18450.00, // Added default profit metrics
   });
 
+  // Additional New State Modules
+  const [teamMembers, setTeamMembers] = useState<string[]>([
+    "Sarah Jenkins (Creative)", 
+    "David Miller (Strategy)"
+  ]);
   const [isScanActive, setIsScanActive] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
   const [showScanModal, setShowScanModal] = useState(false);
@@ -132,7 +138,7 @@ export default function DashboardPage() {
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
-          className="flex items-center gap-4 bg-white border border-stone-200 px-8 py-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all"
+          className="flex items-center gap-4 bg-white border border-stone-200 px-8 py-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer"
         >
           {isScanActive ? <Loader2 className="animate-spin text-[#a9b897]" size={20} /> : <Sparkles className="text-[#a9b897]" size={20} />}
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-600">
@@ -142,30 +148,98 @@ export default function DashboardPage() {
       </header>
 
       {/* MODULES GRID */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {[
           { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects" },
           { label: "Invoices Due", value: stats.invoicesDue, icon: FileText, path: "/payments" },
-          { label: "Next Socials", value: stats.socialsPending, icon: Share2, path: "/scheduler" },
+          { label: "Next Socials", value: stats.socialsPending, icon: Share2, path: "/social" },
           { label: "Next Emails", value: stats.emailsScheduled, icon: Mail, path: "/campaigns" },
+          { 
+            label: "Current Profit", 
+            value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stats.currentProfit), 
+            icon: DollarSign, 
+            path: "/finances" 
+          },
         ].map((item) => (
           <motion.div
             key={item.label}
             whileHover={{ y: -8 }}
             onClick={() => router.push(item.path)}
-            className="group bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm hover:shadow-2xl hover:border-[#a9b897]/30 transition-all cursor-pointer relative"
+            className="group bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm hover:shadow-2xl hover:border-[#a9b897]/30 transition-all cursor-pointer relative flex flex-col justify-between h-[280px]"
           >
-            <div className="p-4 bg-stone-50 rounded-2xl text-stone-300 group-hover:text-[#a9b897] group-hover:bg-[#a9b897]/5 transition-all w-fit mb-8">
-              <item.icon size={28} />
+            <div>
+              <div className="p-4 bg-stone-50 rounded-2xl text-stone-300 group-hover:text-[#a9b897] group-hover:bg-[#a9b897]/5 transition-all w-fit mb-8">
+                <item.icon size={28} />
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-2">{item.label}</p>
+              <p className="text-4xl font-serif italic text-stone-900 leading-none truncate">{item.value}</p>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-2">{item.label}</p>
-            <p className="text-6xl font-serif italic text-stone-900 leading-none">{item.value}</p>
-            <div className="mt-8 flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors">
+            
+            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors">
               Access Module <ArrowRight size={12} />
             </div>
           </motion.div>
         ))}
       </section>
+
+      {/* SIDE SECTIONS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
+        {/* TO-DO CHECKLIST SECTION */}
+        <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm lg:col-span-2 h-full">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+            <CheckSquare size={14} className="text-[#a9b897]" />
+            Synchronized Checklist
+          </h2>
+          <div className="space-y-4">
+            {todos.map((todo) => (
+              <div 
+                key={todo.id} 
+                onClick={() => toggleTodo(todo.id)}
+                className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer ${
+                  todo.completed 
+                    ? "bg-stone-50 border-stone-200 opacity-60" 
+                    : "bg-[#faf9f6] border-stone-200 hover:border-stone-400"
+                }`}
+              >
+                <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
+                  todo.completed 
+                    ? "bg-[#a9b897] border-[#a9b897] text-white" 
+                    : "border-stone-400 text-transparent"
+                }`}>
+                  &#10003;
+                </div>
+                <span className={`text-xs font-bold uppercase tracking-wide ${todo.completed ? 'line-through text-stone-400' : 'text-stone-900'}`}>
+                  {todo.text}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* TEAM ON SHIFT SECTION */}
+        <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm h-full flex flex-col justify-between">
+          <div>
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+              <Users size={14} className="text-[#a9b897]" />
+              Staffed Node Roster
+            </h2>
+            <div className="space-y-4">
+              {teamMembers.map((member, index) => (
+                <div key={index} className="flex items-center gap-4 bg-stone-50/75 p-5 rounded-2xl border border-stone-200/40">
+                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-wide text-stone-900">{member}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-12 p-6 rounded-[2rem] bg-stone-50 border border-stone-100/50 flex items-center gap-4">
+            <ShieldCheck size={20} className="text-[#a9b897] shrink-0" />
+            <p className="text-[10px] tracking-wider uppercase font-semibold text-stone-500 leading-relaxed">
+              All listed staff are provisioned with data access.
+            </p>
+          </div>
+        </section>
+      </div>
 
       {/* INTELLIGENCE SCAN MODAL */}
       <AnimatePresence>
@@ -188,7 +262,7 @@ export default function DashboardPage() {
               </div>
               <button 
                 onClick={() => setShowScanModal(false)} 
-                className="p-4 text-stone-600 hover:text-white transition-colors border border-stone-800 rounded-2xl bg-stone-900/50"
+                className="p-4 text-stone-600 hover:text-white transition-colors border border-stone-800 rounded-2xl bg-stone-900/50 cursor-pointer"
               >
                 <X size={24}/>
               </button>
@@ -196,38 +270,6 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* TO-DO CHECKLIST SECTION */}
-      <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm max-w-2xl mx-auto md:mx-0">
-        <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-          <CheckSquare size={14} className="text-[#a9b897]" />
-          Synchronized Checklist
-        </h2>
-        <div className="space-y-4">
-          {todos.map((todo) => (
-            <div 
-              key={todo.id} 
-              onClick={() => toggleTodo(todo.id)}
-              className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer ${
-                todo.completed 
-                  ? "bg-stone-50 border-stone-200 opacity-60" 
-                  : "bg-[#faf9f6] border-stone-200 hover:border-stone-400"
-              }`}
-            >
-              <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
-                todo.completed 
-                  ? "bg-[#a9b897] border-[#a9b897] text-white" 
-                  : "border-stone-400 text-transparent"
-              }`}>
-                &#10003;
-              </div>
-              <span className={`text-xs font-bold uppercase tracking-wide ${todo.completed ? 'line-through text-stone-400' : 'text-stone-900'}`}>
-                {todo.text}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
 
     </div>
   );

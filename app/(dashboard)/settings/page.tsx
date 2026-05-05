@@ -8,7 +8,8 @@ import {
   Users, Trash2, Check, Download,
   Eye, EyeOff, UserPlus, AlertTriangle,
   Camera, Mail, Phone, HeartPulse, Palette,
-  UserCircle, Fingerprint, Globe, History, Zap, ShieldCheck
+  UserCircle, Fingerprint, Globe, History, Zap, ShieldCheck,
+  Upload, Link2, FolderGit, Type
 } from "lucide-react";
 
 const APP_PAGES = [
@@ -36,7 +37,7 @@ export default function SettingsPage() {
   });
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   
-  // Auth Updates (Merged from Profile Page)
+  // Auth Updates
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -50,6 +51,14 @@ export default function SettingsPage() {
   const [currency, setCurrency] = useState("GBP (£)");
   const [webhookUrl, setWebhookUrl] = useState("");
 
+  // Extension Features States
+  const [companyDetails, setCompanyDetails] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [socialLinks, setSocialLinks] = useState({ website: "", instagram: "", linkedin: "", twitter: "" });
+  const [campaignList, setCampaignList] = useState<string[]>([]);
+  const [newCampaign, setNewCampaign] = useState("");
+  const [nextOfKin, setNextOfKin] = useState("");
+
   useEffect(() => { init(); }, []);
 
   async function init() {
@@ -62,6 +71,7 @@ export default function SettingsPage() {
       const { data: p } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
       if (p) {
         setProfile((prev: any) => ({ ...prev, ...p }));
+        setNextOfKin(p.next_of_kin || "");
         if (p.tier) setCurrentTier(p.tier.toUpperCase());
       }
 
@@ -78,6 +88,10 @@ export default function SettingsPage() {
           setSelectedFont(settingsRes.data.font_family || "Inter");
           setBankInfo(settingsRes.data.bank_info || { name: "", acc: "", sort: "" });
           setWebhookUrl(settingsRes.data.webhook_url || "");
+          setCompanyDetails(settingsRes.data.company_details || "");
+          setLogoUrl(settingsRes.data.logo_url || "");
+          setSocialLinks(settingsRes.data.social_links || { website: "", instagram: "", linkedin: "", twitter: "" });
+          setCampaignList(settingsRes.data.campaigns || []);
         }
       }
     } catch (err) { console.error("Init Error:", err); } finally { setLoading(false); }
@@ -90,13 +104,13 @@ export default function SettingsPage() {
       await supabase.from("profiles").update({
         full_name: profile?.full_name || "",
         phone: profile?.phone || "",
-        next_of_kin: profile?.next_of_kin || "",
+        next_of_kin: nextOfKin,
         email_signature: profile?.email_signature || "",
         avatar_url: profile?.avatar_url || "",
         tier: currentTier
       }).eq("id", user?.id);
       
-      // Update Auth Credentials if changed (Logic from Profile Page)
+      // Update Auth Credentials if changed
       if (email !== user.email || password) {
         const updateData: any = { email };
         if (password) updateData.password = password;
@@ -111,12 +125,27 @@ export default function SettingsPage() {
           brand_color: brandColor,
           font_family: selectedFont,
           bank_info: bankInfo,
-          webhook_url: webhookUrl
+          webhook_url: webhookUrl,
+          company_details: companyDetails,
+          logo_url: logoUrl,
+          social_links: socialLinks,
+          campaigns: campaignList
         });
       }
 
       alert("Node Synchronized.");
     } catch (err: any) { alert("Sync Error: " + err.message); } finally { setSaving(false); }
+  };
+
+  const addCampaign = () => {
+    if (newCampaign && !campaignList.includes(newCampaign)) {
+      setCampaignList([...campaignList, newCampaign]);
+      setNewCampaign("");
+    }
+  };
+
+  const removeCampaign = (index: number) => {
+    setCampaignList(campaignList.filter((_, i) => i !== index));
   };
 
   const handleTierSelection = (tierName: string) => {
@@ -163,6 +192,62 @@ export default function SettingsPage() {
           
           {/* LEFT COLUMN */}
           <div className="lg:col-span-4 space-y-12">
+            
+            {/* BRAND ARCHITECTURE */}
+            <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2">
+                <Palette size={14} className="text-[#a9b897]" /> Brand & Assets
+              </h2>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black uppercase text-stone-400">Accent Architecture Color</label>
+                  <div className="flex items-center gap-4">
+                    <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer" />
+                    <span className="font-mono text-[10px] uppercase text-stone-400">{brandColor}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 pt-4 border-t border-stone-50">
+                  <label className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-2">
+                    <Type size={12} /> Typography Preset
+                  </label>
+                  <select 
+                    value={selectedFont} 
+                    onChange={e => setSelectedFont(e.target.value)}
+                    className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none"
+                  >
+                    <option value="Inter">Inter (Sans-Serif)</option>
+                    <option value="Merriweather">Merriweather (Serif)</option>
+                    <option value="Geist">Geist (Modern Mono)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2 pt-4 border-t border-stone-50">
+                  <label className="text-[9px] font-black uppercase text-stone-400">Company Logo Upload</label>
+                  <div className="flex items-center gap-4">
+                    <input 
+                      type="text" 
+                      value={logoUrl} 
+                      onChange={e => setLogoUrl(e.target.value)}
+                      placeholder="Insert URL for logo file..." 
+                      className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none" 
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-4 border-t border-stone-50">
+                  <label className="text-[9px] font-black uppercase text-stone-400">Company Details / Footer Info</label>
+                  <textarea 
+                    rows={2}
+                    value={companyDetails} 
+                    onChange={e => setCompanyDetails(e.target.value)}
+                    placeholder="Enter company address, reg. numbers, or corporate statements..." 
+                    className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none resize-none" 
+                  />
+                </div>
+              </div>
+            </section>
+
             {/* TIER SELECTION */}
             <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2"><ShieldCheck size={14}/> Subscription Tier</h2>
@@ -187,13 +272,49 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Mail size={18} className="text-stone-400" /><input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Fingerprint size={18} className="text-stone-400" /><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="New Password" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Phone size={18} className="text-[#a9b897]" /><input value={profile?.phone || ""} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="Phone" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
-                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><HeartPulse size={18} className="text-red-400" /><input value={profile?.next_of_kin || ""} onChange={e => setProfile({...profile, next_of_kin: e.target.value})} placeholder="Next of Kin" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
+                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><HeartPulse size={18} className="text-red-400" /><input value={nextOfKin} onChange={e => setNextOfKin(e.target.value)} placeholder="Next of Kin Phone Number" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
               </div>
             </section>
           </div>
 
           {/* RIGHT COLUMN */}
           <div className="lg:col-span-8 space-y-12">
+            
+            {/* EXTERNAL LINKS SECTION */}
+            <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-6">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2">
+                <Link2 size={14} className="text-[#a9b897]" /> Platforms & Campaigns
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest">Web / Social Media Links</label>
+                  <input value={socialLinks.website} onChange={e => setSocialLinks({...socialLinks, website: e.target.value})} placeholder="Website URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.instagram} onChange={e => setSocialLinks({...socialLinks, instagram: e.target.value})} placeholder="Instagram Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.linkedin} onChange={e => setSocialLinks({...socialLinks, linkedin: e.target.value})} placeholder="LinkedIn Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.twitter} onChange={e => setSocialLinks({...socialLinks, twitter: e.target.value})} placeholder="X (Twitter) Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                </div>
+                
+                <div className="space-y-4">
+                  <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                    <FolderGit size={14} /> Campaign List Management
+                  </label>
+                  <div className="flex gap-2">
+                    <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="Enter Campaign Name" className="flex-1 p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                    <button onClick={addCampaign} className="px-5 bg-stone-900 text-white rounded-2xl text-[10px] uppercase font-bold">Add</button>
+                  </div>
+                  <div className="h-44 overflow-y-auto space-y-2 border border-stone-100 rounded-3xl p-6 bg-stone-50/20">
+                    {campaignList.map((campaign, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-white p-3 border border-stone-100 rounded-xl">
+                        <span className="text-xs font-serif italic">{campaign}</span>
+                        <button onClick={() => removeCampaign(idx)} className="text-stone-300 hover:text-red-500"><Trash2 size={14}/></button>
+                      </div>
+                    ))}
+                    {campaignList.length === 0 && <span className="text-[10px] text-stone-300 italic">No campaigns listed.</span>}
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm">
               <div className="flex justify-between items-center mb-10">
                 <h2 className="text-[12px] font-black uppercase tracking-[0.5em] opacity-40">The Hive</h2>

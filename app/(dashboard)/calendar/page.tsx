@@ -19,6 +19,15 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(new Date());
   
+  // States for data modules
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [quotes, setQuotes] = useState<any[]>([]);
+  const [projectDeadlines, setProjectDeadlines] = useState<any[]>([]);
+  const [socials, setSocials] = useState<any[]>([]);
+  const [emails, setEmails] = useState<any[]>([]);
+  const [payroll, setPayroll] = useState<any[]>([]);
+  const [holidays, setHolidays] = useState<any[]>([]);
+
   // Extended Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -35,6 +44,7 @@ export default function CalendarPage() {
 
   useEffect(() => {
     fetchEvents();
+    fetchSystemData();
   }, [currentMonth]);
 
   async function fetchEvents() {
@@ -60,6 +70,41 @@ export default function CalendarPage() {
     }
   }
 
+  // Fetch contextual data for invoices, quotes, deadlines, social, emails, payroll and holidays.
+  async function fetchSystemData() {
+    try {
+      // 1. Invoices
+      const { data: invData } = await supabase.from("invoices").select("*");
+      setInvoices(invData || []);
+
+      // 2. Quotes
+      const { data: quoteData } = await supabase.from("quotes").select("*");
+      setQuotes(quoteData || []);
+
+      // 3. Project Deadlines
+      const { data: projData } = await supabase.from("projects").select("*");
+      setProjectDeadlines(projData || []);
+
+      // 4. Social Posts
+      const { data: socData } = await supabase.from("social_posts").select("*");
+      setSocials(socData || []);
+
+      // 5. Campaigns / Emails
+      const { data: emailData } = await supabase.from("campaigns").select("*");
+      setEmails(emailData || []);
+
+      // 6. Payroll
+      const { data: payData } = await supabase.from("payroll").select("*");
+      setPayroll(payData || []);
+
+      // 7. Holidays
+      const { data: holData } = await supabase.from("holidays").select("*");
+      setHolidays(holData || []);
+    } catch (e) {
+      console.error("Failed to load business node contextual data", e);
+    }
+  }
+
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
     setSelectedDateString(format(day, "yyyy-MM-dd"));
@@ -76,7 +121,6 @@ export default function CalendarPage() {
         return;
       }
       
-      // Merge date and time string safely
       const combinedDate = new Date(`${selectedDateString}T${eventTime}:00`);
 
       const payload = {
@@ -124,12 +168,55 @@ export default function CalendarPage() {
     };
   }, [currentMonth]);
 
-  // Use a strict string comparison to prevent timezone errors from hiding tasks
-  const getTasksForDay = (day: Date) => {
-    return tasks.filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === format(day, "yyyy-MM-dd"));
+  // Aggregate all events for a specific day
+  const getCombinedEventsForDay = (day: Date) => {
+    const dayStr = format(day, "yyyy-MM-dd");
+    
+    const taskEvents = tasks
+      .filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === dayStr)
+      .map(t => ({ id: t.id, title: t.title, type: "Task", color: t.color || "#a9b897", time: format(new Date(t.created_at), "HH:mm") }));
+      
+    const invoiceEvents = invoices
+      .filter(i => i.due_date && format(new Date(i.due_date), "yyyy-MM-dd") === dayStr)
+      .map(i => ({ id: `inv-${i.id}`, title: `Invoice Due: ${i.title || i.amount || ''}`, type: "Invoice", color: "#eab308", time: "" }));
+      
+    const quoteEvents = quotes
+      .filter(q => q.due_date && format(new Date(q.due_date), "yyyy-MM-dd") === dayStr)
+      .map(q => ({ id: `q-${q.id}`, title: `Quote Due: ${q.title || ''}`, type: "Quote", color: "#f97316", time: "" }));
+      
+    const deadlineEvents = projectDeadlines
+      .filter(p => p.deadline && format(new Date(p.deadline), "yyyy-MM-dd") === dayStr)
+      .map(p => ({ id: `proj-${p.id}`, title: `Deadline: ${p.name || ''}`, type: "Project", color: "#3b82f6", time: "" }));
+      
+    const socialEvents = socials
+      .filter(s => s.scheduled_for && format(new Date(s.scheduled_for), "yyyy-MM-dd") === dayStr)
+      .map(s => ({ id: `soc-${s.id}`, title: `Social Post: ${s.platform || ''}`, type: "Social", color: "#ec4899", time: format(new Date(s.scheduled_for), "HH:mm") }));
+      
+    const emailEvents = emails
+      .filter(e => e.scheduled_for && format(new Date(e.scheduled_for), "yyyy-MM-dd") === dayStr)
+      .map(e => ({ id: `email-${e.id}`, title: `Email Campaign: ${e.subject || ''}`, type: "Email", color: "#8b5cf6", time: format(new Date(e.scheduled_for), "HH:mm") }));
+
+    const payEvents = payroll
+      .filter(pay => pay.payment_date && format(new Date(pay.payment_date), "yyyy-MM-dd") === dayStr)
+      .map(pay => ({ id: `pay-${pay.id}`, title: `Payroll Run: ${pay.description || ''}`, type: "Payroll", color: "#14b8a6", time: "" }));
+      
+    const holEvents = holidays
+      .filter(h => h.date && format(new Date(h.date), "yyyy-MM-dd") === dayStr)
+      .map(h => ({ id: `hol-${h.id}`, title: `Holiday: ${h.name || ''}`, type: "Holiday", color: "#10b981", time: "" }));
+
+    return [
+      ...taskEvents,
+      ...invoiceEvents,
+      ...quoteEvents,
+      ...deadlineEvents,
+      ...socialEvents,
+      ...emailEvents,
+      ...payEvents,
+      ...holEvents
+    ];
   };
   
-  const selectedDayTasks = useMemo(() => getTasksForDay(selectedDay), [selectedDay, tasks]);
+  const selectedDayEvents = useMemo(() => getCombinedEventsForDay(selectedDay), [selectedDay, tasks, invoices, quotes, projectDeadlines, socials, emails, payroll, holidays]);
 
   // Helper function to capitalize Month name
   const getCapitalizedMonth = (date: Date) => {
@@ -283,7 +370,7 @@ export default function CalendarPage() {
 
           <div className="grid grid-cols-7">
             {calendarDays.map((day) => {
-              const dayTasks = getTasksForDay(day);
+              const dayEvents = getCombinedEventsForDay(day);
               const isCurrentMonth = isSameMonth(day, monthStart);
               const isToday = isSameDay(day, new Date());
               
@@ -300,23 +387,23 @@ export default function CalendarPage() {
                     {format(day, "d")}
                   </span>
                   
-                  {/* Task Previews */}
+                  {/* Event Previews */}
                   <div className="mt-2 space-y-1">
-                    {dayTasks.slice(0, 3).map(t => (
+                    {dayEvents.slice(0, 3).map(e => (
                       <div 
-                        key={t.id} 
+                        key={e.id} 
                         className="text-[8px] font-black uppercase truncate border p-1 rounded tracking-tighter"
                         style={{
-                          backgroundColor: `${t.color || '#a9b897'}20`, 
-                          borderColor: t.color || '#a9b897',
+                          backgroundColor: `${e.color || '#a9b897'}20`, 
+                          borderColor: e.color || '#a9b897',
                           color: '#444'
                         }}
                       >
-                        {t.title}
+                        {e.title}
                       </div>
                     ))}
-                    {dayTasks.length > 3 && (
-                      <p className="text-[7px] font-black text-stone-300 uppercase mt-1">+{dayTasks.length - 3} more</p>
+                    {dayEvents.length > 3 && (
+                      <p className="text-[7px] font-black text-stone-300 uppercase mt-1">+{dayEvents.length - 3} more</p>
                     )}
                   </div>
                 </div>
@@ -336,24 +423,24 @@ export default function CalendarPage() {
             </div>
 
             <div className="flex-grow space-y-3 overflow-y-auto max-h-[400px]">
-              {selectedDayTasks.length === 0 ? (
+              {selectedDayEvents.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 opacity-30">
                    <CalendarIcon size={32} className="mb-2" />
                    <p className="text-stone-400 font-serif italic text-sm">No entries scheduled.</p>
                 </div>
               ) : (
-                selectedDayTasks.map(task => (
+                selectedDayEvents.map(e => (
                   <div 
-                    key={task.id} 
+                    key={e.id} 
                     className="p-4 rounded-2xl border transition-colors space-y-1"
                     style={{
-                      backgroundColor: `${task.color || '#a9b897'}10`,
-                      borderColor: task.color || '#a9b897'
+                      backgroundColor: `${e.color || '#a9b897'}10`,
+                      borderColor: e.color || '#a9b897'
                     }}
                   >
-                    <p className="text-[10px] font-bold leading-tight uppercase tracking-tight text-stone-800">{task.title}</p>
-                    {task.location && <p className="text-[8px] text-stone-500 flex items-center gap-1"><MapPin size={10}/> {task.location}</p>}
-                    <p className="text-[8px] text-stone-500 flex items-center gap-1"><Clock size={10}/> {format(new Date(task.created_at), "HH:mm")}</p>
+                    <p className="text-[10px] font-bold leading-tight uppercase tracking-tight text-stone-800">{e.title}</p>
+                    <span className="text-[8px] font-mono bg-white/70 px-1.5 py-0.5 rounded border border-black/5 uppercase text-stone-500 tracking-wider mb-1 inline-block">{e.type}</span>
+                    {e.time && <p className="text-[8px] text-stone-500 flex items-center gap-1"><Clock size={10}/> {e.time}</p>}
                   </div>
                 ))
               )}
@@ -368,7 +455,7 @@ export default function CalendarPage() {
           <div className="bg-[#a9b897] p-8 rounded-[3rem] text-white relative overflow-hidden flex-shrink-0">
             <div className="relative z-10">
               <Landmark size={24} className="mb-4 opacity-50" />
-              <p className="text-[8px] font-black uppercase tracking-widest mb-1 opacity-80 uppercase">Fiscal Deadline</p>
+              <p className="text-[8px] font-black uppercase tracking-widest mb-1 opacity-80">Fiscal Deadline</p>
               <p className="text-3xl font-serif italic leading-none mb-4">May 31st</p>
               <p className="text-[10px] opacity-90 leading-relaxed font-medium">VAT Quarter Return sequence required in 52 days.</p>
             </div>

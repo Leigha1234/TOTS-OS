@@ -214,7 +214,7 @@ function NotesContent() {
   async function addNote() {
     if (!newNote.trim() || !user) return;
     
-    // Insert into notes
+    // Create the note payload 
     const notePayload: any = {
       content: newNote, 
       user_id: user.id, 
@@ -225,9 +225,10 @@ function NotesContent() {
     if (selectedProject) notePayload.project_id = selectedProject;
     if (assignedMember) notePayload.assigned_to = assignedMember;
     
+    // Save to the DB
     await supabase.from("notes").insert(notePayload);
 
-    // Add to action queue (tasks)
+    // Also add to the action queue
     await supabase.from("tasks").insert({ 
       title: newNote, 
       user_id: user.id,
@@ -255,10 +256,12 @@ function NotesContent() {
 
   const deleteNote = async (id: string) => {
     await supabase.from("notes").delete().eq("id", id);
+    if (user) await fetchPulse(user.id);
   }
 
   const completeTask = async (id: string) => {
     await supabase.from("tasks").update({ status: 'done' }).eq("id", id);
+    if (user) await fetchPulse(user.id);
   }
 
   const filteredNotes = notes.filter((note) =>
@@ -362,7 +365,7 @@ function NotesContent() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     key={note.id} 
                     className="p-10 rounded-[3rem] border border-stone-100 flex flex-col justify-between min-h-[260px] relative shadow-sm hover:shadow-md transition-shadow" 
-                    style={{ background: note.color }}
+                    style={{ background: note.color || "#ffffff" }}
                   >
                     <div>
                       <p className="text-stone-800 leading-relaxed font-serif italic text-xl">{note.content}</p>

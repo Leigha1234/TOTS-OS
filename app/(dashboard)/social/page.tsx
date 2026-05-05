@@ -14,12 +14,15 @@ import {
   BarChart3, 
   Sparkles,
   Plus,
-  Clock,
+  Clock3,
   CheckCircle,
-  Clock3
+  MoreVertical,
+  Edit2
 } from "lucide-react";
 
-interface ContentPost {
+// Types matching the provided codebases
+interface ContentDraft {
+  id?: string;
   type: "image" | "video" | "blog" | "carousel";
   caption: string;
   hashtags: string[];
@@ -36,17 +39,19 @@ interface ContentPost {
 const WEEKLY_LIMIT = 15;
 
 export default function SocialLab() {
+  const [activeSubTab, setActiveSubTab] = useState<"synthesizer" | "horizon">("synthesizer");
   const [prompt, setPrompt] = useState("");
-  const [contentType, setContentType] = useState<ContentPost["type"]>("image");
-  const [selectedPlatform] = useState("instagram");
+  const [contentType, setContentType] = useState<ContentDraft["type"]>("image");
+  const [selectedPlatform, setSelectedPlatform] = useState("instagram");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [drafts, setDrafts] = useState<ContentPost[]>([]);
+  const [drafts, setDrafts] = useState<ContentDraft[]>([]);
   const [weeklyCount, setWeeklyCount] = useState(0);
 
-  // Social Scheduler States (Integrated Tab Engine)
-  const [activeSubTab, setActiveSubTab] = useState<"synthesizer" | "scheduled">("synthesizer");
-  const [scheduledPosts, setScheduledPosts] = useState<ContentPost[]>([]);
-  
+  // Horizon Scheduler States
+  const [horizonPosts, setHorizonPosts] = useState<ContentDraft[]>([]);
+  const [viewMode, setViewMode] = useState<'stream' | 'calendar'>('stream');
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState<string>('');
+
   const contentTypes = [
     { id: "image", label: "Image", icon: ImageIcon, code: "IMG" },
     { id: "carousel", label: "Carousel", icon: Layers, code: "CRSL" },
@@ -54,10 +59,15 @@ export default function SocialLab() {
     { id: "blog", label: "Blog", icon: FileText, code: "TXT" },
   ] as const;
 
+  const platforms = ["Instagram", "LinkedIn", "Twitter", "Global Pool"];
+
   useEffect(() => {
+    // Standard Supabase authentication setup would apply here
     fetchWeeklyCount();
-    fetchScheduledPosts();
-  }, []);
+    if (activeSubTab === 'horizon') {
+      fetchScheduledPosts();
+    }
+  }, [activeSubTab]);
 
   const fetchWeeklyCount = async () => {
     try {
@@ -82,20 +92,18 @@ export default function SocialLab() {
         .order("scheduled_for", { ascending: true });
         
       if (!error && data) {
-        // Map data to the interface requirements
-        const mapped: ContentPost[] = data.map((item: any) => ({
-          type: "image",
+        // Map DB types to component interface
+        const mapped: ContentDraft[] = data.map((item: any) => ({
+          id: item.id,
+          type: "image", // Default mapping for simulation
           caption: item.caption,
-          hashtags: [],
-          mentions: [],
-          location: "",
           platform: item.platform,
           scheduled_for: item.scheduled_for,
           status: "scheduled",
           media_url: item.media_url,
-          excellence_score: 92
+          excellence_score: 92 // Demo value
         }));
-        setScheduledPosts(mapped);
+        setHorizonPosts(mapped);
       }
     } catch (e) {
       console.error("Failed to load scheduled items", e);
@@ -111,9 +119,10 @@ export default function SocialLab() {
       const randomId = Math.floor(Math.random() * 1000);
       const score = Math.floor(Math.random() * (98 - 85) + 85);
       
-      const aiResponse: ContentPost = {
+      const aiResponse: ContentDraft = {
+        id: `draft-${Date.now()}`,
         type: contentType,
-        platform: selectedPlatform,
+        platform: selectedPlatform.toLowerCase(),
         caption: `Clarity isn't about doing more; it's about being more intentional.\n\n${prompt} — We're implementing this shift at The Organised Types.\n\nHow does this change your workflow? 👇`,
         hashtags: ["#theorganisedtypes", "#clarityOS"],
         mentions: ["@TheOrganisedTypes"],
@@ -133,12 +142,12 @@ export default function SocialLab() {
 
   const schedulePost = async (index: number) => {
     const post = drafts[index];
-    if (!post.scheduled_for) return alert("Please select a date.");
+    if (!selectedScheduleDate) return alert("Please select a date on the draft card.");
 
     const { error } = await supabase.from("social_posts").insert([{
       caption: post.caption,
       platform: post.platform,
-      scheduled_for: post.scheduled_for,
+      scheduled_for: selectedScheduleDate,
       status: "scheduled",
       media_url: post.media_url
     }]);
@@ -147,263 +156,324 @@ export default function SocialLab() {
       const newDrafts = drafts.filter((_, i) => i !== index);
       setDrafts(newDrafts);
       fetchWeeklyCount();
-      fetchScheduledPosts();
-      setActiveSubTab("scheduled");
+      alert("Post synchronized with the horizon.");
+      setSelectedScheduleDate(''); // Reset
+    } else {
+        alert(`Synchronization failure: ${error.message}`);
     }
   };
 
+  // UI Helper
+  const TabButton = ({ id, label, current }: { id: any, label: string, current: any }) => (
+    <button 
+      onClick={() => setActiveSubTab(id)}
+      className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all flex items-center gap-2 cursor-pointer ${
+        current === id 
+          ? "bg-stone-900 text-white shadow-xl" 
+          : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  if (!isMounted) return null;
+
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-6 md:p-12 font-sans">
-      <div className="max-w-7xl mx-auto space-y-16">
-        
-        {/* HEADER */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-200 pb-12">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-purple-600">
-              <Zap size={14} fill="currentColor" />
-              <p className="text-[10px] font-black uppercase tracking-[0.4em]">Elite Tier Access</p>
-            </div>
-            <h1 className="text-7xl font-serif italic tracking-tighter">Social Lab</h1>
-            <p className="text-stone-400 italic font-serif text-lg">Distribution engine online. Synthesizing excellence.</p>
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-6 md:p-12 max-w-[1700px] mx-auto space-y-16">
+      
+      {/* HEADER */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-200 pb-12">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-purple-600">
+            <Zap size={14} fill="currentColor" />
+            <p className="text-[10px] font-black uppercase tracking-[0.4em]">Elite Tier Access</p>
           </div>
-
-          {/* CAPACITY GAUGE */}
-          <div className="w-full md:w-72 space-y-3">
-            <div className="flex justify-between items-end">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Weekly Output</p>
-              <p className="text-sm font-serif italic">{weeklyCount} / {WEEKLY_LIMIT}</p>
-            </div>
-            <div className="h-1 w-full bg-stone-200 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${(weeklyCount / WEEKLY_LIMIT) * 100}%` }}
-                className="h-full bg-purple-500"
-              />
-            </div>
-          </div>
-        </header>
-
-        {/* SUB-TABS TO MERGE PLATFORMS */}
-        <div className="flex gap-4 border-b border-stone-200 pb-4">
-          <button 
-            onClick={() => setActiveSubTab("synthesizer")}
-            className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
-              activeSubTab === "synthesizer" 
-                ? "bg-stone-900 text-white shadow-xl" 
-                : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
-            }`}
-          >
-            Synthesizer & Drafts
-          </button>
-          <button 
-            onClick={() => setActiveSubTab("scheduled")}
-            className={`px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase transition-all ${
-              activeSubTab === "scheduled" 
-                ? "bg-stone-900 text-white shadow-xl" 
-                : "bg-white border border-stone-200 text-stone-500 hover:bg-stone-50"
-            }`}
-          >
-            Scheduled Calendar
-          </button>
+          <h1 className="text-7xl font-serif italic tracking-tighter">Social Lab</h1>
+          <p className="text-stone-400 italic font-serif text-lg">Distribution engine online. Synthesizing excellence.</p>
         </div>
 
-        {/* TAB CONTENTS */}
-        {activeSubTab === "synthesizer" ? (
-          <div className="grid lg:grid-cols-12 gap-16">
-            {/* GENERATOR COLUMN */}
-            <div className="lg:col-span-8 space-y-12">
-              
-              <section className="bg-white rounded-[3rem] p-10 shadow-sm border border-stone-100 space-y-10">
-                <div className="flex flex-col gap-6">
-                  <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Content Architecture</h2>
-                  <div className="flex flex-wrap gap-3">
-                    {contentTypes.map((t) => (
-                      <button 
-                        key={t.id} 
-                        onClick={() => setContentType(t.id)} 
-                        className={`flex items-center gap-3 px-6 py-3 rounded-2xl border text-[10px] font-bold uppercase transition-all ${contentType === t.id ? 'bg-stone-900 text-white border-stone-900 shadow-xl' : 'bg-transparent border-stone-100 text-stone-400 hover:border-stone-200'}`}
+        {/* INTEGRATED TAB ENGINE */}
+        <div className="flex flex-wrap gap-4 pt-4 border-t border-stone-100 md:border-none">
+          <TabButton id="synthesizer" label="Synthesizer & Drafts" current={activeSubTab} />
+          <TabButton id="horizon" label="Strategic Horizon" current={activeSubTab} />
+        </div>
+      </header>
+
+      {/* GAUGE & AUDIT ROW */}
+      <div className="flex flex-col md:flex-row justify-between items-start gap-12 bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm">
+        {/* CAPACITY GAUGE */}
+        <div className="w-full md:w-80 space-y-3">
+          <div className="flex justify-between items-end">
+            <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Weekly Output Capacity</p>
+            <p className="text-sm font-serif italic">{weeklyCount} / {WEEKLY_LIMIT}</p>
+          </div>
+          <div className="h-1.5 w-full bg-stone-100 rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${(weeklyCount / WEEKLY_LIMIT) * 100}%` }}
+              className="h-full bg-purple-500"
+            />
+          </div>
+        </div>
+
+        <button className="text-[10px] font-black bg-stone-900 text-white px-8 py-5 rounded-2xl uppercase tracking-widest flex items-center gap-3 shadow-xl hover:bg-stone-700 transition-all cursor-pointer">
+          <BarChart3 size={16} /> Platform Audit Intelligence
+        </button>
+      </div>
+
+      <div className="grid grid-cols-12 gap-16">
+        {/* MAIN COLUMN */}
+        <div className={`${activeSubTab === 'synthesizer' ? 'lg:col-span-8' : 'col-span-12'} space-y-12`}>
+          
+          <AnimatePresence mode="wait">
+            {activeSubTab === "synthesizer" ? (
+              <motion.div key="syn" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="space-y-12">
+                
+                {/* GENERATOR */}
+                <section className="bg-white rounded-[3.5rem] p-12 shadow-sm border border-stone-100 space-y-12">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="flex flex-col gap-6">
+                      <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Content Architecture</h2>
+                      <div className="grid grid-cols-2 gap-4">
+                        {contentTypes.map((t) => (
+                          <button 
+                            key={t.id} 
+                            onClick={() => setContentType(t.id)} 
+                            className={`flex items-center gap-3 p-5 rounded-2xl border text-[10px] font-bold uppercase transition-all cursor-pointer ${contentType === t.id ? 'bg-stone-900 text-white border-stone-900 shadow-xl' : 'bg-transparent border-stone-100 text-stone-400 hover:border-stone-200 hover:text-stone-700'}`}
+                          >
+                            <t.icon size={14} strokeWidth={contentType === t.id ? 3 : 2} />
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-6">
+                      <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Target Hub</h2>
+                      <div className="grid grid-cols-2 gap-4">
+                        {platforms.map((p) => (
+                          <button 
+                            key={p} 
+                            onClick={() => setSelectedPlatform(p)} 
+                            className={`flex items-center gap-3 p-5 rounded-2xl border text-[10px] font-bold uppercase transition-all cursor-pointer ${selectedPlatform === p ? 'bg-stone-100 text-stone-900 border-stone-200' : 'bg-transparent border-stone-100 text-stone-400 hover:border-stone-200 hover:text-stone-700'}`}
+                          >
+                            <Sparkles size={14} className={selectedPlatform === p ? 'text-purple-600' : ''}/>
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative group">
+                    <textarea
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      placeholder="Input post intent or core message..."
+                      className="w-full h-56 bg-stone-50 rounded-[2.5rem] p-10 text-2xl font-serif outline-none italic text-stone-800 placeholder-stone-200 resize-none transition-all focus:bg-white focus:shadow-inner border border-transparent focus:border-stone-100"
+                    />
+                    <div className="absolute top-8 right-10 flex items-center gap-2 opacity-20 group-focus-within:opacity-100 transition-opacity">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      <span className="font-mono text-[9px] tracking-widest uppercase text-stone-400">Buffer Ready</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-4">
+                    <button className="text-[10px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-3 hover:text-stone-900 transition-colors cursor-pointer">
+                      <Plus size={14} /> Attach Reference
+                    </button>
+                    <button
+                      onClick={buildContent}
+                      disabled={isGenerating || !prompt}
+                      className="bg-purple-600 text-white px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-purple-200 hover:bg-purple-700 disabled:opacity-20 transition-all flex items-center gap-3 cursor-pointer"
+                    >
+                      {isGenerating ? (
+                        <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Synthesizing</>
+                      ) : (
+                        <><Sparkles size={14} /> Generate Excellence</>
+                      )}
+                    </button>
+                  </div>
+                </section>
+
+                {/* DRAFTS FEED */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  <AnimatePresence>
+                    {drafts.map((post, idx) => (
+                      <motion.div 
+                        key={post.id} 
+                        initial={{ opacity: 0, scale: 0.9 }} 
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="bg-[#fffde7] p-10 rounded-[3rem] shadow-xl flex flex-col gap-6 relative group"
                       >
-                        <t.icon size={14} strokeWidth={contentType === t.id ? 3 : 2} />
-                        {t.label}
+                        <button 
+                          onClick={() => setDrafts(drafts.filter((_, i) => i !== idx))}
+                          className="absolute -top-3 -right-3 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+
+                        <div className="relative aspect-square rounded-2xl overflow-hidden bg-white shadow-inner">
+                          <img src={post.media_url} className="w-full h-full object-cover grayscale mix-blend-multiply opacity-70" alt="Generated Content Preview" />
+                          <div className="absolute top-4 left-4 bg-white/90 px-3 py-1 rounded-full text-[9px] font-black flex items-center gap-2">
+                             <BarChart3 size={10} /> RESONANCE: {post.excellence_score}%
+                          </div>
+                        </div>
+
+                        <div className="space-y-3 flex-1">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                            {post.platform} // {post.type}
+                          </p>
+                          <p className="text-stone-900 font-serif text-lg leading-relaxed italic line-clamp-4">
+                            "{post.caption}"
+                          </p>
+                        </div>
+
+                        <div className="pt-6 border-t border-black/5 space-y-4">
+                          <div className="flex items-center gap-3 bg-white/50 p-3 rounded-xl border border-black/5 cursor-pointer">
+                            <Calendar size={14} className="text-stone-400" />
+                            <input 
+                              type="datetime-local" 
+                              className="bg-transparent text-[10px] font-bold uppercase outline-none w-full cursor-pointer" 
+                              value={selectedScheduleDate}
+                              onChange={(e) => setSelectedScheduleDate(e.target.value)}
+                            />
+                          </div>
+                          <button 
+                            onClick={() => schedulePost(idx)}
+                            className="w-full bg-stone-900 text-white py-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] shadow-lg hover:shadow-2xl transition-all cursor-pointer"
+                          >
+                            Synchronize with Horizon
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            ) : (
+              /* HORIZON VIEW */
+              <motion.div key="hor" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="space-y-12">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-center bg-white border border-stone-200 p-8 rounded-[2.5rem] gap-6 shadow-sm">
+                  <div className="space-y-1">
+                    <h2 className="text-3xl font-serif italic text-stone-800 tracking-tighter">Strategic Horizon Schedule</h2>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Chronological Distribution Feed</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 border border-stone-100 rounded-xl p-1 bg-stone-50">
+                    {['stream', 'calendar'].map(mode => (
+                      <button 
+                        key={mode}
+                        onClick={() => setViewMode(mode as any)}
+                        className={`px-5 py-2.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === mode ? 'bg-white text-stone-900 shadow-md' : 'text-stone-400 hover:text-stone-700'}`}
+                      >
+                        {mode}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="relative group">
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Input post intent or core message..."
-                    className="w-full h-56 bg-stone-50 rounded-[2.5rem] p-10 text-2xl font-serif outline-none italic text-stone-800 placeholder-stone-200 resize-none transition-all focus:bg-white focus:shadow-inner border border-transparent focus:border-stone-100"
-                  />
-                  <div className="absolute top-8 right-10 flex items-center gap-2 opacity-20 group-focus-within:opacity-100 transition-opacity">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                    <span className="font-mono text-[9px] tracking-widest uppercase">Buffer Ready</span>
-                  </div>
-                </div>
+                {viewMode === 'stream' ? (
+                  <div className="space-y-8">
+                    {horizonPosts.map((post) => {
+                      const schedDate = new Date(post.scheduled_for);
+                      return (
+                        <div key={post.id} className="bg-white border border-stone-200 rounded-[2.5rem] p-10 flex flex-col md:flex-row items-start md:items-center gap-10 shadow-sm group">
+                          {/* DATE WRAPPER */}
+                          <div className="flex md:flex-col items-center justify-center min-w-[90px] border-b md:border-b-0 md:border-r border-stone-100 pb-4 md:pb-0 md:pr-10 gap-2 md:gap-1">
+                            <span className="text-[10px] font-black uppercase text-stone-300 tracking-widest">{schedDate.toLocaleDateString("en-US", { weekday: 'short' })}</span>
+                            <span className="text-4xl font-serif italic text-stone-800 leading-none">{schedDate.getDate()}</span>
+                            <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest">{schedDate.toLocaleDateString("en-US", { month: 'short' })}</span>
+                          </div>
 
-                <div className="flex justify-between items-center pt-4">
-                  <button className="text-[10px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-3 hover:text-stone-900 transition-colors">
-                    <Plus size={14} /> Attach Reference
-                  </button>
-                  <button
-                    onClick={buildContent}
-                    disabled={isGenerating || !prompt}
-                    className="bg-purple-600 text-white px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-purple-200 hover:bg-purple-700 disabled:opacity-20 transition-all flex items-center gap-3 cursor-pointer"
-                  >
-                    {isGenerating ? (
-                      <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Synthesizing</>
-                    ) : (
-                      <><Sparkles size={14} /> Generate Excellence</>
+                          <div className="aspect-square w-24 rounded-xl overflow-hidden bg-stone-50 shadow-inner">
+                            <img src={post.media_url} className="w-full h-full object-cover" alt="Scheduled Media" />
+                          </div>
+
+                          <div className="flex-1 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-purple-600 text-[10px] font-black uppercase tracking-widest">
+                                {post.platform}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-stone-400 text-[9px] font-bold uppercase p-1.5 px-3 bg-stone-50 border border-stone-100 rounded-full">{post.type}</span>
+                                <MoreVertical size={16} className="text-stone-300" />
+                              </div>
+                            </div>
+                            <p className="text-stone-900 font-serif italic text-lg leading-snug line-clamp-2 group-hover:line-clamp-none transition-all duration-300">
+                              "{post.caption}"
+                            </p>
+                          </div>
+
+                          <div className="shrink-0 flex items-center gap-3">
+                            <button className="h-14 w-14 rounded-full border border-stone-100 flex items-center justify-center text-stone-300 hover:bg-stone-50 hover:text-stone-900 transition-colors cursor-pointer">
+                              <Edit2 size={18}/>
+                            </button>
+                            <div className="h-14 w-14 rounded-full bg-green-50 text-green-600 flex items-center justify-center border border-green-100">
+                              <CheckCircle size={18}/>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    
+                    {horizonPosts.length === 0 && (
+                      <div className="col-span-3 text-center py-24 bg-stone-50 border-2 border-dashed border-stone-200 rounded-[2.5rem]">
+                        <p className="text-xs text-stone-400 tracking-widest uppercase font-black">No scheduled posts on the horizon</p>
+                        <p className="text-stone-500 italic mt-2 text-sm font-serif">Synthesize drafts from the Synthesizer tab to fill the calendar.</p>
+                      </div>
                     )}
-                  </button>
-                </div>
-              </section>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-stone-200 rounded-[2.5rem] p-12 text-center text-stone-400 text-xs shadow-sm">
+                    Calendar View Integration Node: Displaying {horizonPosts.length} Items. Interactive Calendar Component Loading...
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
-              {/* DRAFTS FEED */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <AnimatePresence>
-                  {drafts.map((post, idx) => (
-                    <motion.div 
-                      key={idx} 
-                      initial={{ opacity: 0, scale: 0.9 }} 
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="bg-[#fffde7] p-8 rounded-lg shadow-xl flex flex-col gap-6 relative group"
-                    >
-                      <button 
-                        onClick={() => setDrafts(drafts.filter((_, i) => i !== idx))}
-                        className="absolute -top-3 -right-3 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-
-                      <div className="relative aspect-square rounded-sm overflow-hidden bg-white shadow-inner">
-                        <img src={post.media_url} className="w-full h-full object-cover grayscale mix-blend-multiply opacity-70" alt="Generated Draft Thumbnail" />
-                        <div className="absolute top-4 left-4 bg-white/90 px-3 py-1 rounded-full text-[9px] font-black flex items-center gap-2">
-                           <BarChart3 size={10} /> SCORE: {post.excellence_score}%
-                        </div>
-                      </div>
-
-                      <div className="space-y-3 flex-1">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                          {post.platform} // {post.type}
-                        </p>
-                        <p className="text-stone-900 font-serif text-lg leading-relaxed italic">
-                          "{post.caption}"
-                        </p>
-                      </div>
-
-                      <div className="pt-6 border-t border-black/5 space-y-4">
-                        <div className="flex items-center gap-3 bg-white/50 p-3 rounded-xl border border-black/5">
-                          <Calendar size={14} className="text-stone-400" />
-                          <input 
-                            type="datetime-local" 
-                            className="bg-transparent text-[10px] font-bold uppercase outline-none w-full" 
-                            onChange={(e) => {
-                              const updated = [...drafts];
-                              updated[idx].scheduled_for = e.target.value;
-                              setDrafts(updated);
-                            }}
-                          />
-                        </div>
-                        <button 
-                          onClick={() => schedulePost(idx)}
-                          className="w-full bg-stone-900 text-white py-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] shadow-lg hover:shadow-2xl transition-all cursor-pointer"
-                        >
-                          Pin to Horizon
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
+        {/* SIDEBAR - Updated to neutral palette */}
+        <aside className={`lg:col-span-4 ${activeSubTab === 'horizon' ? 'hidden lg:block' : ''}`}>
+          <div className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm space-y-10 sticky top-12">
+            <div className="space-y-1">
+              <h2 className="text-3xl font-serif italic text-stone-900 tracking-tighter">Resonance Engine</h2>
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">Real-time Predictive Data</p>
             </div>
 
-            {/* SIDEBAR ANALYTICS */}
-            <aside className="lg:col-span-4">
-              <div className="bg-stone-900 text-white p-12 rounded-[3.5rem] shadow-2xl space-y-10 sticky top-12 border border-stone-800">
-                <div className="space-y-1">
-                  <h2 className="text-3xl font-serif italic text-purple-300">Resonance Engine</h2>
-                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-500">Real-time Predictive Data</p>
-                </div>
-
-                <div className="space-y-8">
-                  {[
-                    { label: "Est. Engagement", val: "+24.8%", trend: "OPTIMAL" },
-                    { label: "Global Reach", val: "Elite", trend: "MAX" },
-                    { label: "Peak Window", val: "18:45", trend: "LOCKED" },
-                  ].map((m, i) => (
-                    <div key={i} className="flex justify-between items-end border-b border-stone-800 pb-6 group">
-                      <div>
-                        <p className="text-[9px] font-black uppercase tracking-widest text-stone-600 group-hover:text-purple-400 transition-colors">{m.label}</p>
-                        <p className="text-4xl font-serif italic mt-1">{m.val}</p>
-                      </div>
-                      <span className="text-purple-400 text-[8px] font-mono mb-2 border border-purple-400/30 px-2 py-0.5 rounded uppercase">
-                        {m.trend}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="p-8 rounded-3xl bg-white/5 border border-white/10 space-y-4">
-                  <p className="text-[10px] font-bold uppercase text-stone-500">Insight Node</p>
-                  <p className="text-sm font-serif italic text-stone-300 leading-relaxed">
-                    "Video content synthesized between 12:00 and 14:00 today shows a 12% higher resonance probability based on recent node activity."
-                  </p>
-                </div>
-              </div>
-            </aside>
-          </div>
-        ) : (
-          /* SCHEDULED TAB */
-          <div className="space-y-8">
-            <h3 className="text-3xl font-serif italic tracking-tighter">Your Scheduled Feed</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {scheduledPosts.map((post, index) => (
-                <div key={index} className="bg-white p-8 border border-stone-200 rounded-[2.5rem] shadow-sm flex flex-col justify-between">
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest">
-                        {post.platform}
-                      </span>
-                      <span className="flex items-center gap-2 text-[10px] text-stone-400 font-mono">
-                        <Clock3 size={12} />
-                        {new Date(post.scheduled_for).toLocaleDateString()}
-                      </span>
-                    </div>
-                    
-                    {post.media_url && (
-                      <div className="aspect-video w-full rounded-2xl overflow-hidden bg-stone-50">
-                        <img src={post.media_url} className="w-full h-full object-cover" alt="Post preview" />
-                      </div>
-                    )}
-                    
-                    <p className="text-stone-800 font-serif italic text-lg line-clamp-3">
-                      "{post.caption}"
-                    </p>
+            <div className="space-y-8">
+              {[
+                { label: "Predictive Engagement", val: "+24.8%", trend: "OPTIMAL", trendColor: "text-green-600", bg: "bg-green-50", border: "border-green-100" },
+                { label: "Global Reach Index", val: "Elite", trend: "MAX", trendColor: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
+                { label: "Peak Window", val: "18:45", trend: "LOCKED", trendColor: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
+              ].map((m, i) => (
+                <div key={i} className="flex justify-between items-end border-b border-stone-100 pb-6 group cursor-pointer hover:border-purple-100 transition-colors">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-stone-500 group-hover:text-purple-600 transition-colors">{m.label}</p>
+                    <p className="text-4xl font-serif italic mt-1 text-stone-950">{m.val}</p>
                   </div>
-                  
-                  <div className="flex items-center gap-3 mt-6 pt-6 border-t border-stone-100">
-                    <CheckCircle size={14} className="text-green-500" />
-                    <span className="text-[10px] font-black text-stone-700 uppercase tracking-wider">
-                      Status: Scheduled
-                    </span>
-                  </div>
+                  <span className={`text-[8px] font-mono px-2 py-0.5 rounded uppercase border ${m.trendColor} ${m.bg} ${m.border}`}>
+                    {m.trend}
+                  </span>
                 </div>
               ))}
-              
-              {scheduledPosts.length === 0 && (
-                <div className="col-span-3 text-center py-24 bg-stone-50 border-2 border-dashed border-stone-200 rounded-[2.5rem]">
-                  <p className="text-xs text-stone-400 tracking-widest uppercase font-black">No scheduled posts yet</p>
-                  <p className="text-stone-500 italic mt-2 text-sm font-serif">Synthesize drafts from the Synthesizer tab to fill the calendar.</p>
-                </div>
-              )}
+            </div>
+
+            <div className="p-8 rounded-3xl bg-stone-50 border border-stone-100 space-y-4">
+              <div className="flex items-center gap-3">
+                  <Sparkles size={16} className="text-purple-600"/>
+                  <p className="text-[10px] font-bold uppercase text-stone-900 tracking-wider">Insight Node</p>
+              </div>
+              <p className="text-sm font-serif italic text-stone-700 leading-relaxed">
+                "Video content synthesized between 12:00 and 14:00 today shows a 12% higher resonance probability based on recent node activity."
+              </p>
+              <button className="text-[9px] font-black uppercase tracking-widest text-purple-600 hover:text-purple-800 transition-colors pt-2 cursor-pointer">View Node Data →</button>
             </div>
           </div>
-        )}
+        </aside>
       </div>
     </div>
   );

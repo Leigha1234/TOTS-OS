@@ -204,13 +204,13 @@ export default function FinancialsPage() {
           Financials
         </button>
         <button 
-          onClick={() => router.push("/(dashboard)/timesheets")}
+          onClick={() => router.push("/timesheets")}
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
         >
           Timesheets
         </button>
         <button 
-          onClick={() => router.push("/(dashboard)/hr")}
+          onClick={() => router.push("/hr")}
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
         >
           HR & Payroll

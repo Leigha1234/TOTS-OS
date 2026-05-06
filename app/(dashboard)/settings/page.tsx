@@ -45,7 +45,7 @@ export default function SettingsPage() {
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["dashboard"]);
 
   const [brandColor, setBrandColor] = useState("#a9b897");
-  const [secondaryColor, setSecondaryColor] = useState("#e5e7eb"); // New Field
+  const [secondaryColor, setSecondaryColor] = useState("#e5e7eb");
   const [selectedFont, setSelectedFont] = useState("Inter");
   const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
   const [timezone, setTimezone] = useState("UTC+0 (London)");
@@ -59,9 +59,18 @@ export default function SettingsPage() {
   const [campaignList, setCampaignList] = useState<string[]>([]);
   const [newCampaign, setNewCampaign] = useState("");
   const [nextOfKin, setNextOfKin] = useState("");
-  const [nextOfKinPhone, setNextOfKinPhone] = useState(""); // New Field
+  const [nextOfKinPhone, setNextOfKinPhone] = useState("");
 
-  useEffect(() => { init(); }, []);
+  // Expanded fields
+  const [emailCampaigns, setEmailCampaigns] = useState("");
+  const [auditLogs, setAuditLogs] = useState<string[]>([
+    "• Node initialized successfully.",
+    "• System Architecture linked to dynamic state."
+  ]);
+
+  useEffect(() => { 
+    init(); 
+  }, []);
 
   async function init() {
     try {
@@ -87,7 +96,7 @@ export default function SettingsPage() {
         if (membersRes.data) setTeamMembers(membersRes.data);
         if (settingsRes.data) {
           setBrandColor(settingsRes.data.brand_color || "#a9b897");
-          setSecondaryColor(settingsRes.data.secondary_color || "#e5e7eb"); // Load
+          setSecondaryColor(settingsRes.data.secondary_color || "#e5e7eb");
           setSelectedFont(settingsRes.data.font_family || "Inter");
           setBankInfo(settingsRes.data.bank_info || { name: "", acc: "", sort: "" });
           setWebhookUrl(settingsRes.data.webhook_url || "");
@@ -95,7 +104,8 @@ export default function SettingsPage() {
           setLogoUrl(settingsRes.data.logo_url || "");
           setSocialLinks(settingsRes.data.social_links || { website: "", instagram: "", linkedin: "", twitter: "" });
           setCampaignList(settingsRes.data.campaigns || []);
-          setNextOfKinPhone(settingsRes.data.next_of_kin_phone || ""); // Load
+          setNextOfKinPhone(settingsRes.data.next_of_kin_phone || "");
+          if (settingsRes.data.email_campaigns) setEmailCampaigns(settingsRes.data.email_campaigns);
         }
       }
     } catch (err) { console.error("Init Error:", err); } finally { setLoading(false); }
@@ -104,7 +114,6 @@ export default function SettingsPage() {
   const handleGlobalSave = async () => {
     setSaving(true);
     try {
-      // Update Profile Table & Tier
       await supabase.from("profiles").update({
         full_name: profile?.full_name || "",
         phone: profile?.phone || "",
@@ -114,7 +123,6 @@ export default function SettingsPage() {
         tier: currentTier
       }).eq("id", user?.id);
       
-      // Update Auth Credentials if changed
       if (email !== user.email || password) {
         const updateData: any = { email };
         if (password) updateData.password = password;
@@ -127,7 +135,7 @@ export default function SettingsPage() {
         await supabase.from("settings").upsert({
           team_id: teamId,
           brand_color: brandColor,
-          secondary_color: secondaryColor, // Save
+          secondary_color: secondaryColor,
           font_family: selectedFont,
           bank_info: bankInfo,
           webhook_url: webhookUrl,
@@ -135,11 +143,13 @@ export default function SettingsPage() {
           logo_url: logoUrl,
           social_links: socialLinks,
           campaigns: campaignList,
-          next_of_kin_phone: nextOfKinPhone // Save
+          next_of_kin_phone: nextOfKinPhone,
+          email_campaigns: emailCampaigns
         });
       }
 
-      alert("Node Synchronized.");
+      setAuditLogs(prev => [`• Settings updated at ${new Date().toLocaleTimeString()}`, ...prev]);
+      alert("Settings synchronized globally.");
     } catch (err: any) { alert("Sync Error: " + err.message); } finally { setSaving(false); }
   };
 
@@ -168,27 +178,50 @@ export default function SettingsPage() {
       role: "member",
       permissions: selectedPermissions 
     });
-    if (!error) { setInviteEmail(""); init(); }
+    if (!error) { 
+      setInviteEmail(""); 
+      init(); 
+      setAuditLogs(prev => [`• Provisioned new seat for ${inviteEmail}`, ...prev]);
+    }
     setSaving(false);
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#fcfaf7]"><Loader2 className="animate-spin text-[#a9b897]" size={40} /></div>;
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`} style={{ fontFamily: selectedFont }}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
+      
+      {/* Dynamic CSS Custom Overrides */}
+      <style jsx global>{`
+        body {
+          font-family: '${selectedFont}', sans-serif;
+        }
+        .custom-brand-text {
+          color: ${brandColor};
+        }
+        .custom-brand-bg {
+          background-color: ${brandColor};
+        }
+      `}</style>
+
       <div className="max-w-7xl mx-auto p-6 lg:p-16 space-y-12 pb-40">
         
         {/* HEADER */}
         <header className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-stone-200 pb-12">
           <div className="space-y-2">
-            <h1 className="text-7xl font-serif italic tracking-tighter leading-none">Command Center</h1>
+            <h1 className="text-7xl font-serif italic tracking-tighter leading-none custom-brand-text" style={{ color: brandColor }}>Command Center</h1>
             <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Node: {user?.email}</p>
           </div>
           <div className="flex gap-4">
             <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-4 rounded-2xl border border-stone-200 bg-white">
                {isDarkMode ? <Sun size={20} className="text-black"/> : <Moon size={20} />}
             </button>
-            <button onClick={handleGlobalSave} disabled={saving} className="flex items-center gap-4 bg-stone-900 text-[#a9b897] px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl">
+            <button 
+              onClick={handleGlobalSave} 
+              disabled={saving} 
+              className="flex items-center gap-4 px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl text-white"
+              style={{ backgroundColor: brandColor }}
+            >
               {saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />} Commit All Changes
             </button>
           </div>
@@ -213,7 +246,6 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* New Secondary Color Control */}
                 <div className="space-y-2 pt-4 border-t border-stone-50">
                   <label className="text-[9px] font-black uppercase text-stone-400">Secondary Accent Color</label>
                   <div className="flex items-center gap-4">
@@ -239,21 +271,19 @@ export default function SettingsPage() {
 
                 <div className="space-y-2 pt-4 border-t border-stone-50">
                   <label className="text-[9px] font-black uppercase text-stone-400">Company Logo Upload</label>
-                  <div className="flex items-center gap-4">
-                    <input 
-                      type="text" 
-                      value={logoUrl} 
-                      onChange={e => setLogoUrl(e.target.value)}
-                      placeholder="Insert URL for logo file..." 
-                      className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none" 
-                    />
-                  </div>
+                  <input 
+                    type="text" 
+                    value={logoUrl} 
+                    onChange={e => setLogoUrl(e.target.value)}
+                    placeholder="Insert URL for logo file..." 
+                    className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none" 
+                  />
                 </div>
 
                 <div className="space-y-2 pt-4 border-t border-stone-50">
                   <label className="text-[9px] font-black uppercase text-stone-400">Company Details / Footer Info</label>
                   <textarea 
-                    rows={2}
+                    rows={6}
                     value={companyDetails} 
                     onChange={e => setCompanyDetails(e.target.value)}
                     placeholder="Enter company address, reg. numbers, or corporate statements..." 
@@ -268,7 +298,16 @@ export default function SettingsPage() {
                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2"><ShieldCheck size={14}/> Subscription Tier</h2>
                <div className="grid grid-cols-1 gap-2">
                   {TIERS.map((t) => (
-                    <button key={t} onClick={() => handleTierSelection(t)} className={`p-4 rounded-2xl border text-[9px] font-black uppercase transition-all flex justify-between items-center ${currentTier === t ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-100 text-stone-400 hover:border-stone-200'}`}>
+                    <button 
+                      key={t} 
+                      onClick={() => handleTierSelection(t)} 
+                      className="p-4 rounded-2xl border text-[9px] font-black uppercase transition-all flex justify-between items-center"
+                      style={{
+                        borderColor: currentTier === t ? brandColor : "#f0f0f0",
+                        backgroundColor: currentTier === t ? brandColor : "transparent",
+                        color: currentTier === t ? "#ffffff" : "#a3a3a3"
+                      }}
+                    >
                       {t} {currentTier === t && <Check size={12} />}
                     </button>
                   ))}
@@ -338,6 +377,8 @@ export default function SettingsPage() {
                         <ListChecks size={14} className="text-[#a9b897]" /> Email Campaigns List
                      </label>
                      <textarea 
+                        value={emailCampaigns}
+                        onChange={(e) => setEmailCampaigns(e.target.value)}
                         className="w-full p-4 bg-stone-50/50 rounded-2xl text-xs leading-relaxed outline-none h-36 resize-none border border-stone-100 focus:border-[#a9b897]/50 transition-colors text-stone-600"
                         placeholder="E.g., Summer Promotion, Winter Newsletter, VIP Launch"
                      />
@@ -372,10 +413,26 @@ export default function SettingsPage() {
                   <div className="space-y-6 pt-6 border-t border-stone-50">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {APP_PAGES.map((page) => (
-                        <button key={page.id} onClick={() => setSelectedPermissions(prev => prev.includes(page.id) ? prev.filter(p => p !== page.id) : [...prev, page.id])} className={`p-4 rounded-2xl border text-[9px] font-black uppercase transition-all ${selectedPermissions.includes(page.id) ? 'border-[#a9b897] bg-[#a9b897]/5 text-stone-900' : 'border-stone-100 text-stone-300'}`}>{page.label}</button>
+                        <button 
+                          key={page.id} 
+                          onClick={() => setSelectedPermissions(prev => prev.includes(page.id) ? prev.filter(p => p !== page.id) : [...prev, page.id])} 
+                          className="p-4 rounded-2xl border text-[9px] font-black uppercase transition-all"
+                          style={{
+                            borderColor: selectedPermissions.includes(page.id) ? brandColor : "#f0f0f0",
+                            backgroundColor: selectedPermissions.includes(page.id) ? `${brandColor}10` : "transparent",
+                          }}
+                        >
+                          {page.label}
+                        </button>
                       ))}
                     </div>
-                    <button onClick={handleInvite} className="w-full py-6 bg-stone-900 text-[#a9b897] rounded-[2rem] font-black text-[10px] uppercase tracking-widest">Provision Seat</button>
+                    <button 
+                      onClick={handleInvite} 
+                      className="w-full py-6 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest"
+                      style={{ backgroundColor: brandColor }}
+                    >
+                      Provision Seat
+                    </button>
                   </div>
                 )}
               </div>
@@ -396,7 +453,11 @@ export default function SettingsPage() {
               </section>
               <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-4">
                 <h2 className="text-[10px] font-black uppercase tracking-widest opacity-40 flex items-center gap-2"><History size={14}/> Audit Log</h2>
-                <div className="text-[9px] font-bold opacity-30 space-y-2"><p>• Profile Synchronized</p><p>• Security Key Updated</p></div>
+                <div className="text-[9px] font-bold opacity-50 space-y-2 h-16 overflow-y-auto">
+                  {auditLogs.map((log, index) => (
+                    <p key={index}>{log}</p>
+                  ))}
+                </div>
               </section>
             </div>
 
@@ -406,7 +467,7 @@ export default function SettingsPage() {
             </section>
 
             {/* BANKING SECTION */}
-            <section className="bg-stone-900 text-white p-12 rounded-[4rem] shadow-2xl">
+            <section className="text-white p-12 rounded-[4rem] shadow-2xl custom-secondary-bg" style={{ backgroundColor: secondaryColor }}>
               <div className="flex items-center gap-3 mb-8 opacity-50">
                 <Landmark size={18} />
                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em]">Banking Distribution</h2>

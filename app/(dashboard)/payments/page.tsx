@@ -2,27 +2,40 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { 
   FileText,
+  Save,
   ShieldAlert,
   FileDigit,
-  X,
+  Award,
+  Upload,
+  Eye,
+  FileCheck,
+  Ban,
+  Trash2,
   TrendingUp,
   BarChart3,
-  ShieldCheck
+  ShieldCheck,
+  X,
+  Clock,
+  Users,
+  Plus
 } from "lucide-react";
 
-export default function FinancialsPage({ 
-  onNavigate 
-}: { 
-  onNavigate?: (tab: string) => void; 
-}) {
+export default function FinancialsPage() {
   const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
 
   // Modal Visibility States
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
   const [isExpenseOpen, setIsExpenseOpen] = useState(false);
+  const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
+  const [isClientDirectoryOpen, setIsClientDirectoryOpen] = useState(false);
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isTaxCalcOpen, setIsTaxCalcOpen] = useState(false);
 
   // Financial Dashboard Metrics 
   const [metrics] = useState({
@@ -30,18 +43,38 @@ export default function FinancialsPage({
     liabilities: 28500,
     vatPool: 4210,
     calculatedTaxDue: 21660,
+    grossMargin: 68,
+    operatingCosts: 32400,
+    projectedTax: 25000,
+    annualForecast: 320000
   });
 
-  // Document Lists
+  // Detailed Document Lists
   const [invoices, setInvoices] = useState<any[]>([
-    { id: "INV-101", client: "Aperture Labs", amount: 14200, status: "approved", date: "2026-05-01" }
+    { id: "INV-101", client: "Aperture Labs", amount: 14200, status: "approved", date: "2026-05-01", type: "Retainer", dueDate: "2026-05-31" },
+    { id: "INV-102", client: "Cyberdyne Systems", amount: 8900, status: "pending", date: "2026-04-20", type: "Project", dueDate: "2026-05-20" },
+    { id: "INV-103", client: "Umbrella Corp", amount: 18500, status: "paid", date: "2026-04-15", type: "Hourly", dueDate: "2026-05-15" }
   ]);
+
   const [quotes, setQuotes] = useState<any[]>([
-    { id: "QT-004", client: "Black Mesa Corp", amount: 4500, status: "pending", date: "2026-05-15" }
+    { id: "QT-004", client: "Black Mesa Corp", amount: 4500, status: "pending", date: "2026-05-15", expiry: "2026-06-15" },
+    { id: "QT-005", client: "Tyrell Corp", amount: 12800, status: "approved", date: "2026-04-28", expiry: "2026-05-28" }
   ]);
+
   const [expenses, setExpenses] = useState<any[]>([
-    { id: "EXP-22", vendor: "Apex Facilities", amount: 2300, status: "pending", date: "2026-05-02" }
+    { id: "EXP-22", vendor: "Apex Facilities", amount: 2300, status: "pending", date: "2026-05-02", category: "Utilities" },
+    { id: "EXP-23", vendor: "ServerSpace Inc.", amount: 850, status: "paid", date: "2026-04-28", category: "Infrastructure" }
   ]);
+
+  // Clients Directory
+  const [clients, setClients] = useState<any[]>([
+    { id: 1, name: "Aperture Labs", contact: "GlaDOS", email: "glados@aperture.org", totalSpent: 28400, status: "Active" },
+    { id: 2, name: "Black Mesa Corp", contact: "Dr. Breen", email: "breen@blackmesa.com", totalSpent: 19500, status: "Active" }
+  ]);
+
+  // Tax Calculator States
+  const [taxIncome, setTaxIncome] = useState("100000");
+  const [taxDeductions, setTaxDeductions] = useState("15000");
 
   // Invoice Fields
   const [invoiceClient, setInvoiceClient] = useState("");
@@ -59,6 +92,11 @@ export default function FinancialsPage({
   // Expense Fields
   const [expenseVendor, setExpenseVendor] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseCategory, setExpenseCategory] = useState("Office Supplies");
+
+  // Client Fields
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
 
   useEffect(() => {
     setIsMounted(true);
@@ -73,7 +111,9 @@ export default function FinancialsPage({
         client: invoiceClient, 
         amount: parseFloat(invoiceAmount), 
         status: "pending", 
-        date: new Date().toISOString().split('T')[0] 
+        date: new Date().toISOString().split('T')[0],
+        type: "Project",
+        dueDate: new Date().toISOString().split('T')[0]
       }
     ]);
     setInvoiceClient("");
@@ -90,7 +130,8 @@ export default function FinancialsPage({
         client: quoteClient, 
         amount: parseFloat(quoteAmount), 
         status: "pending", 
-        date: new Date().toISOString().split('T')[0] 
+        date: new Date().toISOString().split('T')[0],
+        expiry: new Date().toISOString().split('T')[0]
       }
     ]);
     setQuoteClient("");
@@ -107,12 +148,31 @@ export default function FinancialsPage({
         vendor: expenseVendor, 
         amount: parseFloat(expenseAmount), 
         status: "pending", 
-        date: new Date().toISOString().split('T')[0] 
+        date: new Date().toISOString().split('T')[0],
+        category: expenseCategory
       }
     ]);
     setExpenseVendor("");
     setExpenseAmount("");
     setIsExpenseOpen(false);
+  };
+
+  const addClient = () => {
+    if (!newClientName || !newClientEmail) return;
+    setClients([
+      ...clients,
+      {
+        id: Date.now(),
+        name: newClientName,
+        contact: "Accounts Desk",
+        email: newClientEmail,
+        totalSpent: 0,
+        status: "Active"
+      }
+    ]);
+    setNewClientName("");
+    setNewClientEmail("");
+    setIsClientDirectoryOpen(false);
   };
 
   if (!isMounted) return null;
@@ -139,20 +199,19 @@ export default function FinancialsPage({
       {/* Navigation Controls */}
       <div className="flex flex-wrap gap-4 border-b border-stone-200 pb-4">
         <button 
-          onClick={() => onNavigate && onNavigate("financials")}
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-stone-900 text-white shadow-xl cursor-pointer"
         >
           Financials
         </button>
         <button 
-          onClick={() => onNavigate && onNavigate("timesheets")}
-          className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer"
+          onClick={() => router.push("/dashboard/timesheets")}
+          className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
         >
           Timesheets
         </button>
         <button 
-          onClick={() => onNavigate && onNavigate("hr")}
-          className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer"
+          onClick={() => router.push("/dashboard/hr")}
+          className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
         >
           HR & Payroll
         </button>
@@ -205,6 +264,60 @@ export default function FinancialsPage({
         </div>
       </div>
 
+      {/* Grid Layout for Document Lists and Sub Features */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-12">
+        {/* Invoices List */}
+        <div className="bg-white border border-stone-200/60 p-8 rounded-[2.5rem] shadow-sm">
+          <h4 className="text-lg font-serif italic mb-6">Recent Invoices</h4>
+          <div className="space-y-4">
+            {invoices.map((item) => (
+              <div key={item.id} className="flex justify-between items-center p-4 bg-stone-50 border border-stone-100 rounded-2xl">
+                <div>
+                  <p className="text-xs font-black uppercase">{item.id}</p>
+                  <span className="text-[10px] text-stone-400">{item.client}</span>
+                </div>
+                <p className="text-xs font-mono font-bold">£{item.amount.toLocaleString()}</p>
+              </div>
+            ))}
+            {invoices.length === 0 && <p className="text-center text-[10px] text-stone-400 py-6">No invoices created yet.</p>}
+          </div>
+        </div>
+
+        {/* Quotes List */}
+        <div className="bg-white border border-stone-200/60 p-8 rounded-[2.5rem] shadow-sm">
+          <h4 className="text-lg font-serif italic mb-6">Active Quotes</h4>
+          <div className="space-y-4">
+            {quotes.map((item) => (
+              <div key={item.id} className="flex justify-between items-center p-4 bg-stone-50 border border-stone-100 rounded-2xl">
+                <div>
+                  <p className="text-xs font-black uppercase">{item.id}</p>
+                  <span className="text-[10px] text-stone-400">{item.client}</span>
+                </div>
+                <p className="text-xs font-mono font-bold">£{item.amount.toLocaleString()}</p>
+              </div>
+            ))}
+            {quotes.length === 0 && <p className="text-center text-[10px] text-stone-400 py-6">No quotes created yet.</p>}
+          </div>
+        </div>
+
+        {/* Expenses List */}
+        <div className="bg-white border border-stone-200/60 p-8 rounded-[2.5rem] shadow-sm">
+          <h4 className="text-lg font-serif italic mb-6">Recent Expenses</h4>
+          <div className="space-y-4">
+            {expenses.map((item) => (
+              <div key={item.id} className="flex justify-between items-center p-4 bg-stone-50 border border-stone-100 rounded-2xl">
+                <div>
+                  <p className="text-xs font-black uppercase">{item.id}</p>
+                  <span className="text-[10px] text-stone-400">{item.vendor}</span>
+                </div>
+                <p className="text-xs font-mono font-bold">£{item.amount.toLocaleString()}</p>
+              </div>
+            ))}
+            {expenses.length === 0 && <p className="text-center text-[10px] text-stone-400 py-6">No expenses logged yet.</p>}
+          </div>
+        </div>
+      </div>
+
       {/* Financial Operations Forms */}
       <div className="flex flex-wrap gap-6 pt-4 border-t border-stone-200/60 pt-12">
         <button
@@ -224,6 +337,36 @@ export default function FinancialsPage({
           className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
         >
           <ShieldAlert size={16} className="text-red-500" /> Log Expense
+        </button>
+        <button
+          onClick={() => setIsViewDetailsOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <Eye size={16} className="text-stone-500" /> View Accounts
+        </button>
+        <button
+          onClick={() => setIsClientDirectoryOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <Users size={16} className="text-stone-500" /> Client Directory
+        </button>
+        <button
+          onClick={() => setIsAnalyticsOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <Award size={16} className="text-[#a9b897]" /> Insights
+        </button>
+        <button
+          onClick={() => setIsUploadModalOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <Upload size={16} className="text-blue-500" /> Upload Receipts
+        </button>
+        <button
+          onClick={() => setIsTaxCalcOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <ShieldCheck size={16} className="text-yellow-600" /> Tax Calculator
         </button>
       </div>
 
@@ -416,6 +559,19 @@ export default function FinancialsPage({
                     className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
                   />
                 </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Category</label>
+                  <select 
+                    value={expenseCategory} 
+                    onChange={(e) => setExpenseCategory(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  >
+                    <option value="Office Supplies">Office Supplies</option>
+                    <option value="Utilities">Utilities</option>
+                    <option value="Infrastructure">Infrastructure</option>
+                    <option value="Travel">Travel</option>
+                  </select>
+                </div>
               </div>
               <div className="flex justify-end gap-6 border-t border-stone-50 pt-6">
                 <button onClick={() => setIsExpenseOpen(false)} className="px-6 py-4 text-xs font-bold text-stone-400 hover:text-stone-900 cursor-pointer">Cancel</button>
@@ -430,6 +586,203 @@ export default function FinancialsPage({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* View Details Modal */}
+      <AnimatePresence>
+        {isViewDetailsOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center p-6"
+          >
+            <div className="bg-white w-full max-w-4xl max-h-[80vh] rounded-[3.5rem] p-12 shadow-2xl flex flex-col gap-8 overflow-y-auto">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-serif italic text-stone-800">Accounts Summary</h3>
+                <button onClick={() => setIsViewDetailsOpen(false)} className="p-3 rounded-full hover:bg-stone-100 cursor-pointer"><X size={18}/></button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="p-8 bg-stone-50 rounded-3xl border border-stone-100">
+                  <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.2em] mb-4">Gross Margin</p>
+                  <p className="text-4xl font-mono tracking-tight">{metrics.grossMargin}%</p>
+                </div>
+                <div className="p-8 bg-stone-50 rounded-3xl border border-stone-100">
+                  <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.2em] mb-4">Operating Costs</p>
+                  <p className="text-4xl font-mono tracking-tight">£{metrics.operatingCosts.toLocaleString()}</p>
+                </div>
+                <div className="p-8 bg-stone-50 rounded-3xl border border-stone-100">
+                  <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.2em] mb-4">Projected Tax</p>
+                  <p className="text-4xl font-mono tracking-tight">£{metrics.projectedTax.toLocaleString()}</p>
+                </div>
+                <div className="p-8 bg-stone-50 rounded-3xl border border-stone-100">
+                  <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.2em] mb-4">Annual Run Rate</p>
+                  <p className="text-4xl font-mono tracking-tight">£{metrics.annualForecast.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Client Directory Modal */}
+      <AnimatePresence>
+        {isClientDirectoryOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center p-6"
+          >
+            <div className="bg-white w-full max-w-5xl max-h-[80vh] rounded-[3.5rem] p-12 shadow-2xl flex flex-col gap-8 overflow-y-auto">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-serif italic text-stone-800">Client Directory</h3>
+                <button onClick={() => setIsClientDirectoryOpen(false)} className="p-3 rounded-full hover:bg-stone-100 cursor-pointer"><X size={18}/></button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {clients.map((c) => (
+                  <div key={c.id} className="p-6 bg-stone-50 border border-stone-100 rounded-3xl flex justify-between items-center">
+                    <div>
+                      <p className="text-xs font-black tracking-wide">{c.name}</p>
+                      <p className="text-[10px] text-stone-400 mt-1">{c.email}</p>
+                    </div>
+                    <p className="text-xs font-mono font-bold">Spent: £{c.totalSpent.toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t pt-6 space-y-6">
+                <h4 className="text-sm font-serif italic">Add New Client</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <input 
+                    placeholder="Name" 
+                    value={newClientName} 
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold outline-none focus:ring-4 ring-[#a9b897]/5"
+                  />
+                  <input 
+                    placeholder="Email Address" 
+                    value={newClientEmail} 
+                    onChange={(e) => setNewClientEmail(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold outline-none focus:ring-4 ring-[#a9b897]/5"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button onClick={addClient} className="px-6 py-3 bg-stone-900 text-white text-xs font-bold rounded-2xl hover:bg-stone-800 cursor-pointer">Save Client</button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Analytics Modal */}
+      <AnimatePresence>
+        {isAnalyticsOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center p-6"
+          >
+            <div className="bg-white w-full max-w-4xl max-h-[80vh] rounded-[3.5rem] p-12 shadow-2xl flex flex-col gap-8 overflow-y-auto">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-serif italic text-stone-800">Analytics & Insights</h3>
+                <button onClick={() => setIsAnalyticsOpen(false)} className="p-3 rounded-full hover:bg-stone-100 cursor-pointer"><X size={18}/></button>
+              </div>
+              <div className="space-y-6">
+                <p className="text-xs font-medium text-stone-500 leading-relaxed">
+                  Year-to-date performance remains steady. Based on the trailing twelve months (TTM), 
+                  the consulting and retainer-based revenue has grown by 18%. Operating costs are maintained within the projected 35% margin.
+                </p>
+                <div className="h-4 bg-stone-100 rounded-full overflow-hidden">
+                  <div className="w-[68%] bg-[#a9b897] h-full" />
+                </div>
+                <div className="flex justify-between text-[10px] font-bold text-stone-400 uppercase">
+                  <span>Gross Margin Capacity</span>
+                  <span>Target: 75%</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Upload Receipts Modal */}
+      <AnimatePresence>
+        {isUploadModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center p-6"
+          >
+            <div className="bg-white w-full max-w-xl rounded-[3.5rem] p-12 shadow-2xl flex flex-col gap-8">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-serif italic text-stone-800">Upload Receipts</h3>
+                <button onClick={() => setIsUploadModalOpen(false)} className="p-3 rounded-full hover:bg-stone-100 cursor-pointer"><X size={18}/></button>
+              </div>
+              <div className="border-4 border-dashed border-stone-200 rounded-3xl p-16 flex flex-col items-center gap-6 text-center">
+                <Upload size={32} className="text-[#a9b897]" />
+                <span className="text-xs font-bold text-stone-400 uppercase tracking-wider">Drag and drop receipts here</span>
+              </div>
+              <div className="flex justify-end">
+                <button onClick={() => setIsUploadModalOpen(false)} className="px-6 py-3 bg-stone-900 text-white text-xs font-bold rounded-2xl cursor-pointer">Done</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tax Calculator Modal */}
+      <AnimatePresence>
+        {isTaxCalcOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-center items-center p-6"
+          >
+            <div className="bg-white w-full max-w-xl rounded-[3.5rem] p-12 shadow-2xl flex flex-col gap-8">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-serif italic text-stone-800">Tax Estimation</h3>
+                <button onClick={() => setIsTaxCalcOpen(false)} className="p-3 rounded-full hover:bg-stone-100 cursor-pointer"><X size={18}/></button>
+              </div>
+              <div className="space-y-6">
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Gross Income (£)</label>
+                  <input 
+                    type="number" 
+                    value={taxIncome} 
+                    onChange={(e) => setTaxIncome(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Deductible Expenses (£)</label>
+                  <input 
+                    type="number" 
+                    value={taxDeductions} 
+                    onChange={(e) => setTaxDeductions(e.target.value)}
+                    className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  />
+                </div>
+                <div className="p-6 bg-stone-50 rounded-2xl border border-stone-100">
+                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em]">Estimated Liability</span>
+                  <p className="text-2xl font-mono mt-2 font-bold">
+                    £{Math.max(0, (parseFloat(taxIncome) - parseFloat(taxDeductions)) * 0.19).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button onClick={() => setIsTaxCalcOpen(false)} className="px-6 py-3 bg-stone-900 text-white text-xs font-bold rounded-2xl cursor-pointer">Calculate</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

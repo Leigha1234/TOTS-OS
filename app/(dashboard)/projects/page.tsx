@@ -653,38 +653,35 @@ export default function ProjectsPage() {
                       value={newSubtask} 
                       onChange={(e) => setNewSubtask(e.target.value)} 
                       placeholder="Add subtask..."
-                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-200/40 rounded-xl outline-none focus:ring-4 ring-[#a9b897]/5 font-medium placeholder:text-stone-300"
+                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:ring-4 ring-[#a9b897]/5 font-medium placeholder:text-stone-300"
                     />
-                    <button 
-                      onClick={handleAddSubtask}
-                      className="px-4 py-2 bg-stone-900 text-white text-[9px] font-black tracking-widest rounded-xl uppercase hover:bg-stone-700 transition-all cursor-pointer"
-                    >
+                    <button onClick={handleAddSubtask} className="bg-[#a9b897] text-white px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase hover:opacity-90">
                       Add
                     </button>
                   </div>
                 </div>
 
-                {/* Comments Module */}
+                {/* Discussion Comments Module */}
                 <div className="pt-6 border-t border-stone-50">
-                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-4">Discussion Thread</span>
-                  <div className="space-y-3">
-                    {selectedTask.comments?.map((comment, idx) => (
-                      <div key={idx} className="p-4 bg-[#faf9f6] border border-stone-200/30 rounded-2xl text-xs text-stone-700 flex items-start gap-4">
-                        <MessageSquare size={14} className="text-[#a9b897] mt-0.5" />
-                        <p>{comment}</p>
+                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-4">Discussion Board</span>
+                  <div className="space-y-4 mb-4">
+                    {selectedTask.comments?.map((c, i) => (
+                      <div key={i} className="p-4 bg-stone-50 border border-stone-200/20 rounded-2xl text-xs text-stone-600">
+                        {c}
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-3 mt-4">
+                  <div className="flex gap-4 items-center">
                     <input 
+                      type="text" 
+                      placeholder="Write comment..." 
                       value={newComment} 
                       onChange={(e) => setNewComment(e.target.value)} 
-                      placeholder="Write a comment..."
-                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-200/40 rounded-xl outline-none focus:ring-4 ring-[#a9b897]/5 font-medium placeholder:text-stone-300"
+                      className="flex-1 p-4 text-xs bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:ring-4 ring-[#a9b897]/5 font-medium placeholder:text-stone-300"
                     />
                     <button 
-                      onClick={handleAddComment}
-                      className="px-4 py-2 bg-[#a9b897] text-white text-[9px] font-black tracking-widest rounded-xl uppercase hover:bg-[#8f9c7f] transition-all cursor-pointer"
+                      onClick={handleAddComment} 
+                      className="bg-stone-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black tracking-widest uppercase hover:bg-stone-700 transition-all"
                     >
                       Post
                     </button>
@@ -694,14 +691,15 @@ export default function ProjectsPage() {
             </div>
             
             <button 
-              onClick={() => setSelectedTask(null)}
-              className="w-full py-4 bg-stone-100 border border-stone-200 text-stone-600 hover:bg-stone-200 rounded-2xl text-xs font-black tracking-widest uppercase transition-all cursor-pointer mt-12"
+              onClick={() => setSelectedTask(null)} 
+              className="w-full bg-stone-100 border border-stone-200/60 mt-8 py-4 rounded-2xl text-[10px] font-bold tracking-widest uppercase text-stone-500 hover:bg-stone-200 transition-all"
             >
-              Close Window
+              Close Drawer
             </button>
           </div>
         </div>
       )}
+
     </div>
   );
 }

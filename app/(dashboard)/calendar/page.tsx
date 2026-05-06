@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
-  Plus, Landmark, X, Loader2, MapPin, Clock, Users, Link as LinkIcon
+  Plus, Landmark, X, Loader2, MapPin, Clock, Users, Link as LinkIcon, Navigation
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -353,9 +353,18 @@ export default function CalendarPage() {
         {/* MAIN CALENDAR GRID */}
         <div className="lg:col-span-9 bg-white rounded-[3.5rem] border border-stone-100 shadow-sm overflow-hidden">
           <div className="p-8 flex justify-between items-center border-b border-stone-50">
-             <h1 className="text-5xl font-serif italic text-stone-800 tracking-tighter leading-none lowercase capitalize">
-               {getCapitalizedMonth(currentMonth)}
-             </h1>
+             <div className="flex items-center gap-6">
+               <h1 className="text-5xl font-serif italic text-stone-800 tracking-tighter leading-none lowercase capitalize">
+                 {getCapitalizedMonth(currentMonth)}
+               </h1>
+               <button 
+                 onClick={() => setCurrentMonth(new Date())}
+                 className="text-[9px] font-black tracking-widest uppercase bg-stone-50 border border-stone-200 px-3 py-2 rounded-xl text-stone-500 hover:bg-stone-100 transition"
+               >
+                 Jump To Today
+               </button>
+             </div>
+             
              <div className="flex gap-2">
                 <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-3 bg-stone-50 rounded-full text-stone-400 hover:text-stone-800 transition-colors"><ChevronLeft size={18}/></button>
                 <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-3 bg-stone-50 rounded-full text-stone-400 hover:text-stone-800 transition-colors"><ChevronRight size={18}/></button>

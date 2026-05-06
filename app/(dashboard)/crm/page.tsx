@@ -124,13 +124,13 @@ export default function CRMDirectory() {
                 placeholder="Search clients..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-3 rounded-xl border bg-white"
+                className="pl-10 pr-4 py-3 rounded-xl border bg-white outline-none focus:ring-1 focus:ring-[#a9b897]"
               />
             </div>
 
             <button
               onClick={() => setShowModal(true)}
-              className="bg-[#a9b897] hover:opacity-90 p-4 rounded-xl"
+              className="bg-[#a9b897] hover:opacity-90 p-4 rounded-xl text-white transition-all flex items-center justify-center"
             >
               <Plus size={20} />
             </button>
@@ -139,26 +139,37 @@ export default function CRMDirectory() {
 
         {/* CUSTOMER LIST */}
         <div className="space-y-4">
-          {loading && <p>Loading...</p>}
+          {loading && (
+            <div className="text-center p-12 bg-white border border-stone-200 rounded-2xl text-xs text-stone-400">
+              Loading Directory Data...
+            </div>
+          )}
 
-          {!loading &&
+          {!loading && filtered.length > 0 &&
             filtered.map((customer) => (
               <Link 
                 href={`/crm/${customer.id}`} 
                 key={customer.id}
-                className="bg-white border rounded-2xl p-6 flex items-center gap-4 hover:shadow-sm transition-shadow block"
+                className="bg-white border border-stone-200/60 rounded-2xl p-6 flex items-center gap-4 hover:shadow-sm transition-all block hover:border-stone-300"
               >
                 <div className="w-14 h-14 rounded-xl bg-stone-900 text-white flex items-center justify-center">
                   <User size={20} />
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-semibold">{customer.name}</h3>
-                  <p className="text-sm text-stone-500">{customer.company}</p>
-                  <p className="text-xs text-stone-400">{customer.email}</p>
+                  <h3 className="text-xl font-semibold text-stone-800">{customer.name}</h3>
+                  <p className="text-sm text-stone-500">{customer.company || "Independent Record"}</p>
+                  <p className="text-xs text-stone-400 tracking-wide mt-0.5">{customer.email}</p>
                 </div>
               </Link>
             ))}
+
+          {!loading && filtered.length === 0 && (
+            <div className="text-center p-16 bg-white border border-dashed border-stone-300 rounded-3xl">
+              <p className="text-stone-400 text-xs tracking-widest uppercase">No Clients Found</p>
+              <p className="text-stone-500 text-sm mt-1 italic font-serif">Try adjusting the search parameter or create a new client node.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -166,15 +177,15 @@ export default function CRMDirectory() {
       {showModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center">
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setShowModal(false)}
           />
 
-          <div className="relative z-10 bg-white rounded-3xl p-8 w-full max-w-xl shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div className="relative z-10 bg-white rounded-3xl p-8 w-full max-w-xl shadow-2xl max-h-[85vh] overflow-y-auto border border-stone-100">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-3xl font-serif italic">Add New Client</h2>
 
-              <button onClick={() => setShowModal(false)}>
+              <button onClick={() => setShowModal(false)} className="text-stone-400 hover:text-stone-900 transition-colors">
                 <X size={22} />
               </button>
             </div>
@@ -187,7 +198,7 @@ export default function CRMDirectory() {
                 onChange={(e) =>
                   setForm({ ...form, name: e.target.value })
                 }
-                className="w-full border rounded-xl p-4"
+                className="w-full border border-stone-200 rounded-xl p-4 text-xs font-sans focus:ring-1 focus:ring-[#a9b897] outline-none"
               />
 
               <input
@@ -196,7 +207,7 @@ export default function CRMDirectory() {
                 onChange={(e) =>
                   setForm({ ...form, company: e.target.value })
                 }
-                className="w-full border rounded-xl p-4"
+                className="w-full border border-stone-200 rounded-xl p-4 text-xs font-sans focus:ring-1 focus:ring-[#a9b897] outline-none"
               />
 
               <input
@@ -205,7 +216,7 @@ export default function CRMDirectory() {
                 onChange={(e) =>
                   setForm({ ...form, email: e.target.value })
                 }
-                className="w-full border rounded-xl p-4"
+                className="w-full border border-stone-200 rounded-xl p-4 text-xs font-sans focus:ring-1 focus:ring-[#a9b897] outline-none"
               />
 
               <input
@@ -214,7 +225,7 @@ export default function CRMDirectory() {
                 onChange={(e) =>
                   setForm({ ...form, phone: e.target.value })
                 }
-                className="w-full border rounded-xl p-4"
+                className="w-full border border-stone-200 rounded-xl p-4 text-xs font-sans focus:ring-1 focus:ring-[#a9b897] outline-none"
               />
 
               <textarea
@@ -223,7 +234,7 @@ export default function CRMDirectory() {
                 onChange={(e) =>
                   setForm({ ...form, address: e.target.value })
                 }
-                className="w-full border rounded-xl p-4 h-24"
+                className="w-full border border-stone-200 rounded-xl p-4 text-xs font-sans focus:ring-1 focus:ring-[#a9b897] outline-none h-24 resize-none"
               />
 
               {/* MAILING LIST TOGGLE */}
@@ -243,7 +254,7 @@ export default function CRMDirectory() {
 
               {/* MULTI-SELECT CATEGORIES */}
               {addToMailingList && (
-                <div className="bg-stone-50 p-5 rounded-2xl border border-stone-100 space-y-3 mt-2 animate-fadeIn">
+                <div className="bg-stone-50 p-5 rounded-2xl border border-stone-200/60 space-y-3 mt-2 animate-fadeIn">
                   <p className="text-[10px] uppercase tracking-widest text-stone-400 font-black mb-3">Select Audience Lists</p>
                   {MAILING_LIST_OPTIONS.map((listName) => {
                     const isChecked = selectedLists.includes(listName);
@@ -254,7 +265,7 @@ export default function CRMDirectory() {
                         className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer select-none transition-all ${
                           isChecked 
                             ? 'bg-[#a9b897]/10 border-[#a9b897] text-[#1c1917]' 
-                            : 'bg-white border-stone-200 text-stone-600'
+                            : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300'
                         }`}
                       >
                         <span className="text-xs font-medium">{listName}</span>
@@ -268,7 +279,7 @@ export default function CRMDirectory() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-[#a9b897] py-4 rounded-xl font-bold mt-6"
+                className="w-full bg-[#a9b897] text-white py-4 rounded-xl font-bold mt-6 text-xs tracking-[0.3em] uppercase hover:opacity-90 disabled:opacity-40 transition-all shadow-sm"
               >
                 {saving ? "Saving..." : "Add Client"}
               </button>

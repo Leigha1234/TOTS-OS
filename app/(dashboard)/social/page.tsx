@@ -19,7 +19,11 @@ import {
   MoreVertical,
   Edit2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Rss,
+  Mail,
+  DollarSign,
+  Users
 } from "lucide-react";
 
 interface ContentDraft {
@@ -222,6 +226,38 @@ export default function SocialLab() {
           <TabButton id="horizon" label="Strategic Horizon" current={activeSubTab} />
         </div>
       </header>
+
+      {/* Dashboard Stats Panel added per requirements */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Social Stats</span>
+            <span className="text-3xl font-serif italic">1,248 <span className="text-xs text-green-600 not-italic font-sans font-bold">+12%</span></span>
+          </div>
+          <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl"><Rss size={20} /></div>
+        </div>
+        <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Email Stats</span>
+            <span className="text-3xl font-serif italic">4,521 <span className="text-xs text-green-600 not-italic font-sans font-bold">+18%</span></span>
+          </div>
+          <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl"><Mail size={20} /></div>
+        </div>
+        <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Current Profit</span>
+            <span className="text-3xl font-serif italic">£8,490</span>
+          </div>
+          <div className="p-4 bg-green-50 text-green-600 rounded-2xl"><DollarSign size={20} /></div>
+        </div>
+        <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Team Working Today</span>
+            <span className="text-lg font-serif italic">Jane & David</span>
+          </div>
+          <div className="p-4 bg-stone-50 text-stone-600 rounded-2xl"><Users size={20} /></div>
+        </div>
+      </section>
 
       <div className="flex flex-col md:flex-row justify-between items-start gap-12 bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm">
         <div className="w-full md:w-80 space-y-3">
@@ -445,7 +481,7 @@ export default function SocialLab() {
                     <div className="flex justify-between items-center">
                       <div>
                         <h3 className="text-2xl font-serif italic text-stone-800 tracking-tighter">
-                          {currentMonth.toLocaleString('default', { month: 'long' })} {currentMonth.getFullYear()}
+                          {currentMonth.toLocaleString('default', { month: 'long' }).toUpperCase()} {currentMonth.getFullYear()}
                         </h3>
                       </div>
                       <div className="flex gap-3">

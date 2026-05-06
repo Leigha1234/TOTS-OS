@@ -57,7 +57,7 @@ function SystemNavigator() {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-stone-900/40 backdrop-blur-sm">
-      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white w-full max-w-lg rounded-[3rem] shadow-3xl overflow-hidden border border-stone-100">
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden border border-stone-100">
         <div className="h-1.5 w-full bg-stone-50 flex">
           {STEPS.map((_, i) => (
             <div key={i} className={`h-full transition-all duration-500 ${i <= currentStep ? 'bg-[#a9b897]' : 'bg-transparent'}`} style={{ width: `${100 / STEPS.length}%` }} />
@@ -293,7 +293,7 @@ function NotesContent() {
 
           <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-stone-100 space-y-6 focus-within:border-[#a9b897] transition-all">
             <textarea 
-              className="w-full min-h-[140px] text-xl outline-none resize-none bg-transparent font-serif italic text-stone-700 placeholder:text-stone-200" 
+              className="w-full min-h-[140px] text-xl outline-none resize-none bg-transparent font-serif italic text-stone-700 placeholder:text-stone-300" 
               placeholder="Type your note here..." 
               value={newNote} 
               onChange={(e) => setNewNote(e.target.value)} 
@@ -355,56 +355,62 @@ function NotesContent() {
           </div>
 
           <div className="space-y-8">
-            <div className="grid md:grid-cols-2 gap-8">
-              <AnimatePresence mode="popLayout">
-                {filteredNotes.map((note) => (
-                  <motion.div 
-                    layout 
-                    initial={{ opacity: 0, scale: 0.95 }} 
-                    animate={{ opacity: 1, scale: 1 }} 
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    key={note.id} 
-                    className="p-10 rounded-[3rem] border border-stone-100 flex flex-col justify-between min-h-[260px] relative shadow-sm hover:shadow-md transition-shadow" 
-                    style={{ background: note.color || "#ffffff" }}
-                  >
-                    <div>
-                      <p className="text-stone-800 leading-relaxed font-serif italic text-xl">{note.content}</p>
-                      
-                      <div className="flex flex-wrap gap-2 mt-4">
-                        {note.category && (
-                          <span className="text-[8px] font-black tracking-widest px-3 py-1 bg-white/60 border rounded-full uppercase">
-                            Status: {note.category}
-                          </span>
-                        )}
-                        {note.project_id && (
-                          <span className="text-[8px] font-black tracking-widest px-3 py-1 bg-[#a9b897]/10 text-[#a9b897] border border-[#a9b897]/20 rounded-full uppercase flex items-center gap-1">
-                            <Folder size={10} /> Linked Project
-                          </span>
-                        )}
-                        {note.assigned_to && (
-                          <span className="text-[8px] font-black tracking-widest px-3 py-1 bg-stone-900 text-[#a9b897] border border-stone-800 rounded-full uppercase flex items-center gap-1">
-                            <User size={10} /> Assigned
-                          </span>
-                        )}
+            {filteredNotes.length > 0 ? (
+              <div className="grid md:grid-cols-2 gap-8">
+                <AnimatePresence mode="popLayout">
+                  {filteredNotes.map((note) => (
+                    <motion.div 
+                      layout 
+                      initial={{ opacity: 0, scale: 0.95 }} 
+                      animate={{ opacity: 1, scale: 1 }} 
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      key={note.id} 
+                      className="p-10 rounded-[3rem] border border-stone-100 flex flex-col justify-between min-h-[260px] relative shadow-sm hover:shadow-md transition-shadow" 
+                      style={{ background: note.color || "#ffffff" }}
+                    >
+                      <div>
+                        <p className="text-stone-800 leading-relaxed font-serif italic text-xl">{note.content}</p>
+                        
+                        <div className="flex flex-wrap gap-2 mt-4">
+                          {note.category && (
+                            <span className="text-[8px] font-black tracking-widest px-3 py-1 bg-white/60 border rounded-full uppercase">
+                              Status: {note.category}
+                            </span>
+                          )}
+                          {note.project_id && (
+                            <span className="text-[8px] font-black tracking-widest px-3 py-1 bg-[#a9b897]/10 text-[#a9b897] border border-[#a9b897]/20 rounded-full uppercase flex items-center gap-1">
+                              <Folder size={10} /> Linked Project
+                            </span>
+                          )}
+                          {note.assigned_to && (
+                            <span className="text-[8px] font-black tracking-widest px-3 py-1 bg-stone-900 text-[#a9b897] border border-stone-800 rounded-full uppercase flex items-center gap-1">
+                              <User size={10} /> Assigned
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex justify-between items-end mt-6">
-                      <div className="flex items-center gap-3 bg-white/40 px-4 py-2 rounded-full border border-black/5">
-                        <Zap size={12} className="text-stone-600" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">{detectIntent(note.content)}</span>
+                      <div className="flex justify-between items-end mt-6">
+                        <div className="flex items-center gap-3 bg-white/40 px-4 py-2 rounded-full border border-black/5">
+                          <Zap size={12} className="text-stone-600" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">{detectIntent(note.content)}</span>
+                        </div>
+                        <button 
+                          onClick={() => deleteNote(note.id)} 
+                          className="p-3 text-stone-400 hover:text-red-500 hover:bg-white/50 rounded-2xl transition-all"
+                        >
+                          <Trash2 size={18}/>
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => deleteNote(note.id)} 
-                        className="p-3 text-stone-400 hover:text-red-500 hover:bg-white/50 rounded-2xl transition-all"
-                      >
-                        <Trash2 size={18}/>
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <div className="bg-white rounded-3xl p-16 text-center border border-stone-100">
+                <p className="font-serif text-stone-400 italic">No notes found matching this term.</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -424,7 +430,7 @@ function NotesContent() {
               >
                 <button 
                   onClick={() => completeTask(task.id)} 
-                  className="mt-1 text-stone-100 hover:text-[#a9b897] transition-all"
+                  className="mt-1 text-stone-300 hover:text-[#a9b897] transition-all"
                 >
                   <Circle size={28} strokeWidth={1.5} />
                 </button>

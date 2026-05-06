@@ -145,26 +145,58 @@ export default function ProjectPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {COLUMNS.map((col) => (
-          <div key={col.id} onDragOver={(e) => e.preventDefault()} onDrop={() => dragged && updateTask(dragged.id, { status: col.id })} className="space-y-6">
+          <div 
+            key={col.id} 
+            onDragOver={(e) => e.preventDefault()} 
+            onDrop={() => dragged && updateTask(dragged.id, { status: col.id })} 
+            className="space-y-6"
+          >
             <div className="flex items-center justify-between px-2">
               <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">{col.label}</h2>
-              <span className="text-[9px] font-mono text-stone-300 bg-stone-100 px-2 py-0.5 rounded italic">{tasks.filter(t => t.status === col.id).length}</span>
+              <span className="text-[9px] font-mono text-stone-300 bg-stone-100 px-2 py-0.5 rounded italic">
+                {tasks.filter(t => t.status === col.id).length}
+              </span>
             </div>
+
             <div className="space-y-4 min-h-[500px] pb-20">
               <AnimatePresence mode="popLayout">
                 {tasks.filter((t) => t.status === col.id).map((t) => (
-                  <motion.div layout key={t.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} draggable onDragStart={() => setDragged(t)} className="group bg-white border border-stone-200 rounded-[2rem] p-6 shadow-sm hover:shadow-xl hover:border-[#a9b897] transition-all cursor-grab active:cursor-grabbing">
+                  <motion.div 
+                    layout 
+                    key={t.id} 
+                    initial={{ opacity: 0, y: 10 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    exit={{ opacity: 0, scale: 0.95 }} 
+                    draggable 
+                    onDragStart={() => setDragged(t)} 
+                    className="group bg-white border border-stone-200 rounded-[2rem] p-6 shadow-sm hover:shadow-xl hover:border-[#a9b897] transition-all cursor-grab active:cursor-grabbing"
+                  >
                     <div className="flex gap-4">
                       <GripVertical className="text-stone-200 group-hover:text-stone-400 transition-colors shrink-0 mt-1" size={18} />
                       <div className="flex-1 space-y-4">
-                        <input value={t.title} onChange={(e) => updateTask(t.id, { title: e.target.value })} className="bg-transparent w-full outline-none font-serif italic text-stone-900 text-lg leading-tight" />
+                        <input 
+                          value={t.title} 
+                          onChange={(e) => updateTask(t.id, { title: e.target.value })} 
+                          className="bg-transparent w-full outline-none font-serif italic text-stone-900 text-lg leading-tight" 
+                        />
                         <div className="flex flex-wrap items-center gap-3">
-                          <select value={t.priority || "medium"} onChange={(e) => updateTask(t.id, { priority: e.target.value })} className={`text-[9px] font-black uppercase tracking-widest p-1 px-2 rounded-lg border-none outline-none ${priorityMeta(t.priority).bg} ${priorityMeta(t.priority).color}`}>
-                            <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                          <select 
+                            value={t.priority || "medium"} 
+                            onChange={(e) => updateTask(t.id, { priority: e.target.value })} 
+                            className={`text-[9px] font-black uppercase tracking-widest p-1 px-2 rounded-lg border-none outline-none ${priorityMeta(t.priority).bg} ${priorityMeta(t.priority).color}`}
+                          >
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
                           </select>
                           <div className="relative flex items-center text-stone-400">
                             <Calendar size={12} className="absolute left-2 pointer-events-none" />
-                            <input type="date" value={t.due_date || ""} onChange={(e) => updateTask(t.id, { due_date: e.target.value })} className="bg-stone-50 text-[9px] font-black uppercase tracking-widest pl-7 pr-2 py-1.5 rounded-lg outline-none" />
+                            <input 
+                              type="date" 
+                              value={t.due_date || ""} 
+                              onChange={(e) => updateTask(t.id, { due_date: e.target.value })} 
+                              className="bg-stone-50 text-[9px] font-black uppercase tracking-widest pl-7 pr-2 py-1.5 rounded-lg outline-none" 
+                            />
                           </div>
                         </div>
                       </div>
@@ -172,6 +204,12 @@ export default function ProjectPage() {
                   </motion.div>
                 ))}
               </AnimatePresence>
+
+              {tasks.filter((t) => t.status === col.id).length === 0 && (
+                <div className="h-48 border border-dashed border-stone-200 rounded-[2rem] flex items-center justify-center text-[10px] tracking-widest uppercase text-stone-300">
+                  Empty Stage
+                </div>
+              )}
             </div>
           </div>
         ))}

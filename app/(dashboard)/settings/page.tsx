@@ -9,7 +9,7 @@ import {
   Eye, EyeOff, UserPlus, AlertTriangle,
   Camera, Mail, Phone, HeartPulse, Palette,
   UserCircle, Fingerprint, Globe, History, Zap, ShieldCheck,
-  Upload, Link2, FolderGit, Type
+  Upload, Link2, FolderGit, Type, HeartHandshake, ListChecks
 } from "lucide-react";
 
 const APP_PAGES = [
@@ -45,6 +45,7 @@ export default function SettingsPage() {
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["dashboard"]);
 
   const [brandColor, setBrandColor] = useState("#a9b897");
+  const [secondaryColor, setSecondaryColor] = useState("#e5e7eb"); // New Field
   const [selectedFont, setSelectedFont] = useState("Inter");
   const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
   const [timezone, setTimezone] = useState("UTC+0 (London)");
@@ -58,6 +59,7 @@ export default function SettingsPage() {
   const [campaignList, setCampaignList] = useState<string[]>([]);
   const [newCampaign, setNewCampaign] = useState("");
   const [nextOfKin, setNextOfKin] = useState("");
+  const [nextOfKinPhone, setNextOfKinPhone] = useState(""); // New Field
 
   useEffect(() => { init(); }, []);
 
@@ -85,6 +87,7 @@ export default function SettingsPage() {
         if (membersRes.data) setTeamMembers(membersRes.data);
         if (settingsRes.data) {
           setBrandColor(settingsRes.data.brand_color || "#a9b897");
+          setSecondaryColor(settingsRes.data.secondary_color || "#e5e7eb"); // Load
           setSelectedFont(settingsRes.data.font_family || "Inter");
           setBankInfo(settingsRes.data.bank_info || { name: "", acc: "", sort: "" });
           setWebhookUrl(settingsRes.data.webhook_url || "");
@@ -92,6 +95,7 @@ export default function SettingsPage() {
           setLogoUrl(settingsRes.data.logo_url || "");
           setSocialLinks(settingsRes.data.social_links || { website: "", instagram: "", linkedin: "", twitter: "" });
           setCampaignList(settingsRes.data.campaigns || []);
+          setNextOfKinPhone(settingsRes.data.next_of_kin_phone || ""); // Load
         }
       }
     } catch (err) { console.error("Init Error:", err); } finally { setLoading(false); }
@@ -123,13 +127,15 @@ export default function SettingsPage() {
         await supabase.from("settings").upsert({
           team_id: teamId,
           brand_color: brandColor,
+          secondary_color: secondaryColor, // Save
           font_family: selectedFont,
           bank_info: bankInfo,
           webhook_url: webhookUrl,
           company_details: companyDetails,
           logo_url: logoUrl,
           social_links: socialLinks,
-          campaigns: campaignList
+          campaigns: campaignList,
+          next_of_kin_phone: nextOfKinPhone // Save
         });
       }
 
@@ -204,6 +210,15 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-4">
                     <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer" />
                     <span className="font-mono text-[10px] uppercase text-stone-400">{brandColor}</span>
+                  </div>
+                </div>
+
+                {/* New Secondary Color Control */}
+                <div className="space-y-2 pt-4 border-t border-stone-50">
+                  <label className="text-[9px] font-black uppercase text-stone-400">Secondary Accent Color</label>
+                  <div className="flex items-center gap-4">
+                    <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer" />
+                    <span className="font-mono text-[10px] uppercase text-stone-400">{secondaryColor}</span>
                   </div>
                 </div>
                 
@@ -313,6 +328,37 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+            </section>
+
+            {/* ADDITIONAL CAMPAIGNS AND NOK FIELDS */}
+            <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                     <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
+                        <ListChecks size={14} className="text-[#a9b897]" /> Email Campaigns List
+                     </label>
+                     <textarea 
+                        className="w-full p-4 bg-stone-50/50 rounded-2xl text-xs leading-relaxed outline-none h-36 resize-none border border-stone-100 focus:border-[#a9b897]/50 transition-colors text-stone-600"
+                        placeholder="E.g., Summer Promotion, Winter Newsletter, VIP Launch"
+                     />
+                  </div>
+
+                  <div className="space-y-3">
+                     <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
+                        <HeartHandshake size={14} className="text-[#a9b897]" /> Emergency Contacts
+                     </label>
+                     <div className="p-4 bg-stone-50/50 rounded-2xl flex items-center gap-4 border border-stone-100 focus-within:border-stone-200 transition-all">
+                        <Phone size={16} className="text-[#a9b897]" />
+                        <input 
+                           placeholder="Next of Kin Phone Number" 
+                           value={nextOfKinPhone} 
+                           onChange={(e) => setNextOfKinPhone(e.target.value)} 
+                           className="bg-transparent text-xs font-bold outline-none w-full" 
+                        />
+                     </div>
+                     <p className="text-[9px] text-stone-400 italic">This number will be stored in your encrypted employee records.</p>
+                  </div>
+               </div>
             </section>
 
             <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm">

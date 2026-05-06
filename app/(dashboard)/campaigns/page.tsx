@@ -84,6 +84,10 @@ export default function CampaignsPage() {
       alert("Please select a valid date/time before scheduling.");
       return;
     }
+    if (!form.list_id) {
+      alert("Please select an active list segment for the transmission.");
+      return;
+    }
 
     try {
       // 1. Fetch authenticated user
@@ -93,6 +97,7 @@ export default function CampaignsPage() {
       const { error: campaignError } = await supabase.from("campaigns").insert([{
         title: form.title || form.subject || "New Campaign",
         subject: form.subject,
+        list_id: form.list_id,
         status: "scheduled",
         created_at: new Date().toISOString(),
         scheduled_for: form.scheduled_for,
@@ -176,7 +181,7 @@ export default function CampaignsPage() {
                   <div className="p-5 bg-stone-50 rounded-2xl text-[#a9b897]"><Clock size={24} /></div>
                   <div>
                     <h3 className="font-bold text-xl text-stone-800">{c.title}</h3>
-                    <p className="text-[10px] text-stone-400 uppercase tracking-widest mt-1">{c.subscriber_lists?.name}</p>
+                    <p className="text-[10px] text-stone-400 uppercase tracking-widest mt-1">{c.subscriber_lists?.name || 'All Segments'}</p>
                   </div>
                 </div>
                 <div className="text-[10px] font-black uppercase tracking-widest px-6 py-2 bg-stone-50 rounded-full text-stone-400 border border-stone-100">Scheduled</div>
@@ -321,10 +326,24 @@ export default function CampaignsPage() {
                   <div className="w-full max-w-2xl bg-white p-16 rounded-[3.5rem] border border-stone-200 shadow-xl mt-16 text-center">
                      <h2 className="text-4xl font-serif italic text-stone-800 mb-6">Schedule Campaign Dispatch</h2>
                      <p className="text-xs uppercase tracking-widest text-stone-400 max-w-md mx-auto mb-10 leading-relaxed">
-                       Choose a date and time for when your transmission should go live. It will populate in your calendar.
+                       Choose a date, time, and list segment for when your transmission should go live. It will populate in your calendar.
                      </p>
 
                      <div className="flex flex-col gap-6 max-w-md mx-auto mb-12">
+                       <div>
+                         <label className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400 block mb-2 text-left">Segment List</label>
+                         <select
+                           value={form.list_id}
+                           onChange={e => setForm({...form, list_id: e.target.value})}
+                           className="w-full p-5 bg-stone-50 border border-stone-200 rounded-2xl text-xs text-stone-600 focus:outline-none focus:ring-2 ring-[#a9b897]/30"
+                         >
+                           <option value="">Select a mailing list</option>
+                           {lists.map(l => (
+                             <option key={l.id} value={l.id}>{l.name}</option>
+                           ))}
+                         </select>
+                       </div>
+
                        <div>
                          <label className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400 block mb-2 text-left">Transmission Date</label>
                          <input 

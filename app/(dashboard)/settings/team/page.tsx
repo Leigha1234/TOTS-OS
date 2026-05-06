@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client"; // Import sync client
 import { 
   Globe, Mail, Upload, Phone, Share2, 
-  Check, Loader2
+  Check, Loader2, Type, Palette, ListChecks, HeartHandshake
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -30,6 +30,12 @@ export default function SettingsPage() {
     twitter: "",
     linkedin: ""
   });
+  
+  // NEW FIELDS REQUESTED
+  const [fontFamily, setFontFamily] = useState("Inter");
+  const [secondaryColor, setSecondaryColor] = useState("#e5e7eb");
+  const [emailCampaignNames, setEmailCampaignNames] = useState("");
+  const [nextOfKinPhone, setNextOfKinPhone] = useState("");
 
   useEffect(() => { init(); }, []);
 
@@ -62,6 +68,12 @@ export default function SettingsPage() {
         setPrimaryColor(s.primary_color || "#a9b897");
         setHandles(s.handles || { instagram: "", twitter: "", linkedin: "" });
         setToneOfVoice(s.tone_of_voice || "Professional, yet empathetic.");
+        
+        // Load newly added fields
+        setFontFamily(s.font_family || "Inter");
+        setSecondaryColor(s.secondary_color || "#e5e7eb");
+        setEmailCampaignNames(s.email_campaign_names || "");
+        setNextOfKinPhone(s.next_of_kin_phone || "");
       }
     }
     setLoading(false);
@@ -79,7 +91,11 @@ export default function SettingsPage() {
       contact_email: contactEmail, 
       primary_color: primaryColor,
       handles, 
-      tone_of_voice: toneOfVoice
+      tone_of_voice: toneOfVoice,
+      font_family: fontFamily,
+      secondary_color: secondaryColor,
+      email_campaign_names: emailCampaignNames,
+      next_of_kin_phone: nextOfKinPhone
     });
 
     setSaving(false);
@@ -197,6 +213,37 @@ export default function SettingsPage() {
                 ))}
               </div>
             </div>
+
+            {/* ADDITIONAL CAMPAIGNS AND NOK FIELDS */}
+            <div className="pt-8 border-t border-stone-100 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
+                  <ListChecks size={14} className="text-[#a9b897]" /> Email Campaigns List
+                </label>
+                <textarea 
+                  value={emailCampaignNames}
+                  onChange={(e) => setEmailCampaignNames(e.target.value)}
+                  className="w-full p-4 bg-stone-50 rounded-2xl text-xs leading-relaxed outline-none h-28 resize-none border border-transparent focus:border-stone-200 transition-all italic text-stone-600"
+                  placeholder="E.g., Summer Promotion, Winter Newsletter, VIP Launch"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
+                  <HeartHandshake size={14} className="text-[#a9b897]" /> Emergency Contacts
+                </label>
+                <div className="p-4 bg-stone-50 rounded-2xl flex items-center gap-4 border border-transparent focus-within:border-stone-200">
+                   <Phone size={16} className="text-[#a9b897]" />
+                   <input 
+                     placeholder="Next of Kin Phone Number" 
+                     value={nextOfKinPhone} 
+                     onChange={(e) => setNextOfKinPhone(e.target.value)} 
+                     className="bg-transparent text-xs font-bold outline-none w-full" 
+                   />
+                </div>
+                <p className="text-[9px] text-stone-400 italic">This number will be stored in your encrypted employee records.</p>
+              </div>
+            </div>
           </section>
 
           {/* SIDEBAR DNA */}
@@ -221,17 +268,53 @@ export default function SettingsPage() {
                     <p className="text-[8px] uppercase font-black text-stone-500 tracking-tighter">System Accent</p>
                  </div>
                </div>
+               
+               {/* NEW SECONDARY COLOR CONTROL */}
+               <label className="text-[10px] font-black uppercase text-stone-500 block mt-6 mb-4 tracking-widest">Secondary Accent Color</label>
+               <div className="flex items-center gap-6 relative z-10">
+                 <div className="relative">
+                    <input 
+                      type="color" 
+                      value={secondaryColor} 
+                      onChange={(e) => setSecondaryColor(e.target.value)} 
+                      className="w-16 h-16 rounded-full overflow-hidden border-4 border-stone-800 cursor-pointer" 
+                    />
+                 </div>
+                 <div>
+                    <p className="font-mono text-sm text-[#a9b897]">{secondaryColor.toUpperCase()}</p>
+                    <p className="text-[8px] uppercase font-black text-stone-500 tracking-tighter">Secondary Accent</p>
+                 </div>
+               </div>
             </div>
             
-            <div className="bg-white p-10 rounded-[3rem] border border-stone-200 shadow-sm">
-               <h3 className="text-xl font-serif italic mb-6 text-stone-800">Copy Tone</h3>
-               <label className="text-[10px] font-black uppercase text-stone-400 block mb-2 tracking-widest">Intelligence Voice</label>
-               <textarea 
-                 value={toneOfVoice} 
-                 onChange={(e) => setToneOfVoice(e.target.value)}
-                 className="w-full p-6 bg-stone-50 rounded-2xl text-xs leading-relaxed outline-none min-h-[160px] resize-none border border-transparent focus:border-stone-200 transition-all italic text-stone-600"
-                 placeholder="Describe how the AI should represent you..."
-               />
+            {/* TYPOGRAPHY SETTINGS */}
+            <div className="bg-white p-10 rounded-[3rem] border border-stone-200 shadow-sm space-y-6">
+               <h3 className="text-xl font-serif italic text-stone-800">Typography</h3>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black uppercase text-stone-400 block tracking-widest flex items-center gap-2">
+                   <Type size={14} className="text-[#a9b897]" /> Base Font Engine
+                 </label>
+                 <select
+                   value={fontFamily}
+                   onChange={(e) => setFontFamily(e.target.value)}
+                   className="w-full p-4 bg-stone-50 rounded-2xl text-xs outline-none border border-transparent focus:border-stone-200 transition-all font-bold text-stone-600"
+                 >
+                   <option value="Inter">Inter (Sans-Serif)</option>
+                   <option value="Merriweather">Merriweather (Serif)</option>
+                   <option value="Courier Prime">Courier Prime (Monospace)</option>
+                   <option value="Playfair Display">Playfair Display (Decorative)</option>
+                 </select>
+               </div>
+               
+               <div>
+                 <label className="text-[10px] font-black uppercase text-stone-400 block mb-2 tracking-widest">Intelligence Voice</label>
+                 <textarea 
+                   value={toneOfVoice} 
+                   onChange={(e) => setToneOfVoice(e.target.value)}
+                   className="w-full p-6 bg-stone-50 rounded-2xl text-xs leading-relaxed outline-none min-h-[120px] resize-none border border-transparent focus:border-stone-200 transition-all italic text-stone-600"
+                   placeholder="Describe how the AI should represent you..."
+                 />
+               </div>
             </div>
           </section>
         </div>

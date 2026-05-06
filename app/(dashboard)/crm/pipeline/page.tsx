@@ -48,20 +48,20 @@ export default function PipelinePage() {
               key={stage}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => dragged && move(dragged.id, stage)}
-              className="flex flex-col gap-4 min-h-[500px] p-2 rounded-[2rem] bg-white/[0.02] border border-white/5 transition-colors hover:bg-white/[0.04]"
+              className="flex flex-col gap-4 min-h-[500px] p-4 rounded-[2rem] bg-stone-50 border border-stone-200 transition-colors hover:bg-stone-100/50"
             >
               {/* Column Header */}
-              <header className="px-4 py-2 flex items-center justify-between">
+              <header className="py-2 flex items-center justify-between border-b border-stone-200/50">
                 <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">
                   {stage}
                 </h2>
-                <span className="text-[10px] font-mono text-stone-500">
+                <span className="text-[10px] font-mono text-stone-400">
                   {customers.filter((c) => c.stage === stage).length}
                 </span>
               </header>
 
               {/* Customer Cards */}
-              <div className="space-y-3">
+              <div className="space-y-3 flex-1">
                 <AnimatePresence mode="popLayout">
                   {customers
                     .filter((c) => c.stage === stage)
@@ -79,12 +79,12 @@ export default function PipelinePage() {
                           dragged?.id === c.id ? "opacity-30" : "opacity-100"
                         }`}
                       >
-                        <Card className="hover:border-[#a9b897]/30 transition-all">
+                        <Card className="hover:border-[#a9b897]/30 transition-all bg-white border-stone-200 shadow-sm">
                           <div className="flex flex-col gap-1">
-                            <span className="text-sm font-bold text-white uppercase tracking-wider">
+                            <span className="text-sm font-bold text-stone-800 uppercase tracking-wider">
                               {c.name}
                             </span>
-                            <span className="text-[10px] text-stone-500 font-mono">
+                            <span className="text-[10px] text-stone-400 font-mono">
                               ID: {c.id.slice(0, 8)}
                             </span>
                           </div>
@@ -92,6 +92,12 @@ export default function PipelinePage() {
                       </motion.div>
                     ))}
                 </AnimatePresence>
+                
+                {customers.filter((c) => c.stage === stage).length === 0 && (
+                  <div className="h-48 border border-dashed border-stone-200 rounded-2xl flex items-center justify-center text-[9px] uppercase tracking-widest text-stone-300">
+                    Empty Stage
+                  </div>
+                )}
               </div>
             </div>
           ))}

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { 
   Search, X, Download, Folder, ChevronDown, 
-  Lightbulb, Zap, FileText, Sparkles 
+  Lightbulb, Zap, FileText, Sparkles, Rss, Mail, DollarSign, Users 
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -98,7 +98,7 @@ Let me know if you want me to send over the next steps.
 — Sam`
   },
   {
-    id: 3, 
+    id: 3,
     title: "Business Audit Framework",
     category: "Operations",
     clarity: "Diagnostic Blueprint",
@@ -127,7 +127,7 @@ Output (what YOU deliver)
 - 1 system recommendation`
   },
   {
-    id: 4, 
+    id: 4,
     title: "Content Marketing System",
     category: "Sales & Marketing",
     clarity: "Systemised Content Planning",
@@ -144,7 +144,7 @@ Viral Hook Templates
 - "This is why your business feels chaotic"`
   },
   {
-    id: 5, 
+    id: 5,
     title: "Process / SOP Builder",
     category: "Operations",
     clarity: "Standardisation template",
@@ -169,7 +169,7 @@ EXPECTED OUTCOME:
 What "done" looks like`
   },
   {
-    id: 6, 
+    id: 6,
     title: "Weekly Executive Dashboard",
     category: "Operations",
     clarity: "Administrative tracker",
@@ -183,7 +183,7 @@ Track:
 - Time spent on admin`
   },
   {
-    id: 7, 
+    id: 7,
     title: "Offer Creation Blueprint",
     category: "Sales & Marketing",
     clarity: "Value-focused positioning",
@@ -197,7 +197,7 @@ Price:
 Delivery method:`
   },
   {
-    id: 8, 
+    id: 8,
     title: "Service Business OS Starter",
     category: "Products & Packs",
     clarity: "High Value Product Suite",
@@ -210,11 +210,11 @@ Bundle:
 - Dashboard
 - Finance tracker
 
-👉 Sell this as: "Service Business OS Starter" (£99–#{99}299)
+👉 Sell this as: "Service Business OS Starter" (£99–£299)
 Provide editable, business-ready and simplified versions that people can actually use without a solicitor.`
   },
   {
-    id: 9, 
+    id: 9,
     title: "Terms & Conditions Builder (Service)",
     category: "Legal & Governance",
     clarity: "T&Cs Builder System",
@@ -278,7 +278,7 @@ Either party may terminate with written notice. Outstanding payments remain due.
 This agreement is governed by the laws of [Country].`
   },
   {
-    id: 10, 
+    id: 10,
     title: "GDPR-Friendly Privacy Policy",
     category: "Legal & Governance",
     clarity: "Data compliance builder",
@@ -320,7 +320,7 @@ Contact: [Your Email]
 Our website may use cookies for analytics and performance.`
   },
   {
-    id: 11, 
+    id: 11,
     title: "Client Contract & Retainer Agreement",
     category: "Legal & Governance",
     clarity: "Legal and project contract",
@@ -351,7 +351,7 @@ Termination
 Either party may terminate with notice. Work completed must be paid for.`
   },
   {
-    id: 12, 
+    id: 12,
     title: "Payment & Disclaimer Module",
     category: "Legal & Governance",
     clarity: "Policy and disclaimer modules",
@@ -401,7 +401,7 @@ export default function VaultPage() {
   };
 
   const handleInstallSystem = async () => {
-    setInstallationMessage("Installing Legal Foundation Pack. Attaching T&Cs to onboarding forms, linking contracts to clients, and payment terms to invoices...");
+    setInstallationMessage("Installing Legal Foundation Pack. Attaching T&Cs to onboarding forms, linking contracts, and payment terms to invoices...");
     await new Promise((resolve) => setTimeout(resolve, 2200));
     setInstallationMessage("Installation successful! TOTS OS Foundation configured and updated across workflows.");
     setTimeout(() => setInstallationMessage(null), 4000);
@@ -432,7 +432,6 @@ export default function VaultPage() {
     }
   };
 
-  // Fixed filter condition
   const resolvedFilteredDocs = DOCUMENTS.filter(d => 
     d.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     d.category.toLowerCase().includes(searchTerm.toLowerCase())
@@ -469,6 +468,38 @@ export default function VaultPage() {
             <Sparkles size={16} /> Install Legal System
           </button>
         </header>
+
+        {/* Dashboard Stats Banner */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Social Stats</span>
+              <span className="text-3xl font-serif italic">1,248 <span className="text-xs text-green-600 not-italic font-sans font-bold">+12%</span></span>
+            </div>
+            <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl"><Rss size={20} /></div>
+          </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Email Stats</span>
+              <span className="text-3xl font-serif italic">4,521 <span className="text-xs text-green-600 not-italic font-sans font-bold">+18%</span></span>
+            </div>
+            <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl"><Mail size={20} /></div>
+          </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Current Profit</span>
+              <span className="text-3xl font-serif italic">£8,490</span>
+            </div>
+            <div className="p-4 bg-green-50 text-green-600 rounded-2xl"><DollarSign size={20} /></div>
+          </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Team Working Today</span>
+              <span className="text-lg font-serif italic">Jane & David</span>
+            </div>
+            <div className="p-4 bg-stone-50 text-stone-600 rounded-2xl"><Users size={20} /></div>
+          </div>
+        </section>
 
         <div className="grid grid-cols-12 gap-16">
           {/* SIDEBAR NAVIGATION */}

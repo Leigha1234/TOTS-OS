@@ -6,7 +6,7 @@ import {
   User, Building2, Mail, ArrowLeft, ShieldCheck, 
   AlertCircle, Edit3, Trash2, X, Check, Folder, 
   FileText, DollarSign, ListTodo, Clipboard, Receipt, 
-  Plus, Send, Inbox, Upload, Bookmark 
+  Plus, Send, Inbox, Upload, Bookmark, Loader2 
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -79,17 +79,23 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   }
 
   async function fetchAllSubcollections() {
-    // In real deployment, you would filter by customer_id or customer id relations
-    // e.g. .eq("customer_id", resolvedParams.id)
-    const { data: invData } = await supabase.from("invoices").select("*").limit(5);
-    const { data: taskData } = await supabase.from("tasks").select("*").limit(5);
-    const { data: noteData } = await supabase.from("notes").select("*").limit(5);
-    const { data: expData } = await supabase.from("expenses").select("*").limit(5);
+    try {
+      const { data: invData } = await supabase.from("invoices").select("*").limit(5);
+      const { data: quoteData } = await supabase.from("quotes").select("*").limit(5);
+      const { data: taskData } = await supabase.from("tasks").select("*").limit(5);
+      const { data: noteData } = await supabase.from("notes").select("*").limit(5);
+      const { data: expData } = await supabase.from("expenses").select("*").limit(5);
+      const { data: projData } = await supabase.from("projects").select("*").limit(5);
 
-    setInvoices(invData || []);
-    setTasks(taskData || []);
-    setNotes(noteData || []);
-    setExpenses(expData || []);
+      setInvoices(invData || []);
+      setQuotes(quoteData || []);
+      setTasks(taskData || []);
+      setNotes(noteData || []);
+      setExpenses(expData || []);
+      setProjects(projData || []);
+    } catch (err) {
+      console.error("Error loading sub-collections", err);
+    }
   }
 
   const handleUpdate = async () => {
@@ -617,8 +623,4 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
       </div>
     </div>
   );
-}
-
-function Loader2({ className, size }: { className?: string, size?: number }) {
-  return <div className={`border-2 border-stone-900 border-t-transparent rounded-full animate-spin ${className}`} style={{ width: size, height: size }} />
 }

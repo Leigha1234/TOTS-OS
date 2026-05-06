@@ -22,7 +22,7 @@ export default function DashboardPage() {
     invoicesDue: 2, 
     socialsPending: 5, 
     emailsScheduled: 3,
-    currentProfit: 18450.00, // Added default profit metrics
+    currentProfit: 18450.00,
   });
 
   // Additional New State Modules
@@ -152,13 +152,13 @@ export default function DashboardPage() {
         {[
           { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects" },
           { label: "Invoices Due", value: stats.invoicesDue, icon: FileText, path: "/payments" },
-          { label: "Next Socials", value: stats.socialsPending, icon: Share2, path: "/social" },
-          { label: "Next Emails", value: stats.emailsScheduled, icon: Mail, path: "/campaigns" },
+          { label: "Social Stats (Pending)", value: stats.socialsPending, icon: Share2, path: "/social" },
+          { label: "Email Stats (Scheduled)", value: stats.emailsScheduled, icon: Mail, path: "/campaigns" },
           { 
             label: "Current Profit", 
             value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stats.currentProfit), 
             icon: DollarSign, 
-            path: "/finances" 
+            path: "/finance" 
           },
         ].map((item) => (
           <motion.div

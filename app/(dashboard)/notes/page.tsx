@@ -225,26 +225,34 @@ function NotesContent() {
     if (selectedProject) notePayload.project_id = selectedProject;
     if (assignedMember) notePayload.assigned_to = assignedMember;
     
-    // Save to the DB
-    await supabase.from("notes").insert(notePayload);
+    // Save to the Notes table
+    const { error: noteError } = await supabase.from("notes").insert([notePayload]);
 
-    // Also add to the action queue
-    await supabase.from("tasks").insert({ 
+    if (noteError) {
+      console.error("Error creating note:", noteError);
+      return;
+    }
+
+    // Save to the Action Queue / tasks table
+    const taskPayload: any = { 
       title: newNote, 
       user_id: user.id,
-      project_id: selectedProject || null,
-      assigned_to: assignedMember || null,
       status: "todo",
       priority: 2
-    });
+    };
+
+    if (selectedProject) taskPayload.project_id = selectedProject;
+    if (assignedMember) taskPayload.assigned_to = assignedMember;
+
+    await supabase.from("tasks").insert([taskPayload]);
 
     if (selectedCategory === "event") {
-      await supabase.from("events").insert({
+      await supabase.from("events").insert([{
         title: newNote,
         description: "Added via Notes",
         user_id: user.id,
         date: new Date().toISOString().split("T")[0]
-      });
+      }]);
     }
 
     setNewNote("");

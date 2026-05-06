@@ -9,7 +9,8 @@ import {
   Eye, EyeOff, UserPlus, AlertTriangle,
   Camera, Mail, Phone, HeartPulse, Palette,
   UserCircle, Fingerprint, Globe, History, Zap, ShieldCheck,
-  Upload, Link2, FolderGit, Type, HeartHandshake, ListChecks
+  Upload, Link2, FolderGit, Type, HeartHandshake, ListChecks,
+  Database, User
 } from "lucide-react";
 
 const APP_PAGES = [
@@ -47,6 +48,7 @@ export default function SettingsPage() {
   const [brandColor, setBrandColor] = useState("#a9b897");
   const [secondaryColor, setSecondaryColor] = useState("#e5e7eb");
   const [selectedFont, setSelectedFont] = useState("Inter");
+  const [customFont, setCustomFont] = useState("");
   const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
   const [timezone, setTimezone] = useState("UTC+0 (London)");
   const [currency, setCurrency] = useState("GBP (£)");
@@ -58,6 +60,8 @@ export default function SettingsPage() {
   const [socialLinks, setSocialLinks] = useState({ website: "", instagram: "", linkedin: "", twitter: "" });
   const [campaignList, setCampaignList] = useState<string[]>([]);
   const [newCampaign, setNewCampaign] = useState("");
+  
+  // Next of Kin states
   const [nextOfKin, setNextOfKin] = useState("");
   const [nextOfKinPhone, setNextOfKinPhone] = useState("");
 
@@ -136,7 +140,7 @@ export default function SettingsPage() {
           team_id: teamId,
           brand_color: brandColor,
           secondary_color: secondaryColor,
-          font_family: selectedFont,
+          font_family: customFont || selectedFont,
           bank_info: bankInfo,
           webhook_url: webhookUrl,
           company_details: companyDetails,
@@ -194,7 +198,7 @@ export default function SettingsPage() {
       {/* Dynamic CSS Custom Overrides */}
       <style jsx global>{`
         body {
-          font-family: '${selectedFont}', sans-serif;
+          font-family: '${customFont || selectedFont}', sans-serif;
         }
         .custom-brand-text {
           color: ${brandColor};
@@ -212,7 +216,14 @@ export default function SettingsPage() {
             <h1 className="text-7xl font-serif italic tracking-tighter leading-none custom-brand-text" style={{ color: brandColor }}>Command Center</h1>
             <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Node: {user?.email}</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
+            <button 
+              onClick={() => router.push("/import")} 
+              className="flex items-center gap-3 px-8 py-5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 font-black text-[10px] uppercase tracking-widest text-stone-700 transition-all shadow-sm"
+            >
+              <Database size={14} style={{ color: brandColor }} /> Import Data
+            </button>
+
             <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-4 rounded-2xl border border-stone-200 bg-white">
                {isDarkMode ? <Sun size={20} className="text-black"/> : <Moon size={20} />}
             </button>
@@ -260,13 +271,32 @@ export default function SettingsPage() {
                   </label>
                   <select 
                     value={selectedFont} 
-                    onChange={e => setSelectedFont(e.target.value)}
+                    onChange={e => {
+                      setSelectedFont(e.target.value);
+                      setCustomFont(""); 
+                    }}
                     className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none"
                   >
                     <option value="Inter">Inter (Sans-Serif)</option>
                     <option value="Merriweather">Merriweather (Serif)</option>
                     <option value="Geist">Geist (Modern Mono)</option>
+                    <option value="Playfair Display">Playfair Display (Elegant Serif)</option>
+                    <option value="Roboto Mono">Roboto Mono (Developer)</option>
+                    <option value="Orbitron">Orbitron (Futuristic Display)</option>
                   </select>
+                </div>
+
+                <div className="space-y-2 pt-4 border-t border-stone-50">
+                  <label className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-2">
+                    <Upload size={12} /> Import Custom Font (Name)
+                  </label>
+                  <input 
+                    type="text" 
+                    value={customFont} 
+                    onChange={e => setCustomFont(e.target.value)}
+                    placeholder="e.g. 'Courier New', or enter font-family name..." 
+                    className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none" 
+                  />
                 </div>
 
                 <div className="space-y-2 pt-4 border-t border-stone-50">
@@ -326,7 +356,32 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Mail size={18} className="text-stone-400" /><input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Fingerprint size={18} className="text-stone-400" /><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="New Password" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Phone size={18} className="text-[#a9b897]" /><input value={profile?.phone || ""} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="Phone" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
-                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><HeartPulse size={18} className="text-red-400" /><input value={nextOfKin} onChange={e => setNextOfKin(e.target.value)} placeholder="Next of Kin Phone Number" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
+                
+                {/* Emergency Contacts placed inside the profile card */}
+                <div className="space-y-3 p-5 bg-stone-50 rounded-2xl">
+                  <label className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-2">
+                    <HeartPulse size={14} className="text-red-400" /> Emergency Contacts
+                  </label>
+                  <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-stone-100">
+                    <User size={16} className="text-stone-400" />
+                    <input 
+                      value={nextOfKin} 
+                      onChange={e => setNextOfKin(e.target.value)} 
+                      placeholder="Next of Kin Name" 
+                      className="bg-transparent text-xs font-bold outline-none w-full" 
+                    />
+                  </div>
+                  <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-stone-100">
+                    <Phone size={16} className="text-stone-400" />
+                    <input 
+                      placeholder="Next of Kin Phone Number" 
+                      value={nextOfKinPhone} 
+                      onChange={(e) => setNextOfKinPhone(e.target.value)} 
+                      className="bg-transparent text-xs font-bold outline-none w-full" 
+                    />
+                  </div>
+                </div>
+
               </div>
             </section>
           </div>
@@ -369,7 +424,7 @@ export default function SettingsPage() {
               </div>
             </section>
 
-            {/* ADDITIONAL CAMPAIGNS AND NOK FIELDS */}
+            {/* EMAIL CAMPAIGNS SECTION */}
             <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-6">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
@@ -383,21 +438,8 @@ export default function SettingsPage() {
                         placeholder="E.g., Summer Promotion, Winter Newsletter, VIP Launch"
                      />
                   </div>
-
-                  <div className="space-y-3">
-                     <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
-                        <HeartHandshake size={14} className="text-[#a9b897]" /> Emergency Contacts
-                     </label>
-                     <div className="p-4 bg-stone-50/50 rounded-2xl flex items-center gap-4 border border-stone-100 focus-within:border-stone-200 transition-all">
-                        <Phone size={16} className="text-[#a9b897]" />
-                        <input 
-                           placeholder="Next of Kin Phone Number" 
-                           value={nextOfKinPhone} 
-                           onChange={(e) => setNextOfKinPhone(e.target.value)} 
-                           className="bg-transparent text-xs font-bold outline-none w-full" 
-                        />
-                     </div>
-                     <p className="text-[9px] text-stone-400 italic">This number will be stored in your encrypted employee records.</p>
+                  <div className="flex flex-col justify-center">
+                    <p className="text-[9px] text-stone-400 italic">Manage and assign email marketing campaigns or lists for your records.</p>
                   </div>
                </div>
             </section>

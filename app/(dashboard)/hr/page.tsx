@@ -9,7 +9,8 @@ import {
   Calendar,
   Award,
   Trash2,
-  UserPlus
+  UserPlus,
+  X
 } from "lucide-react";
 
 export default function HRPage() {
@@ -50,6 +51,18 @@ export default function HRPage() {
   const [newEmployeeName, setNewEmployeeName] = useState("");
   const [newEmployeeRole, setNewEmployeeRole] = useState("");
   const [newEmployeePay, setNewEmployeePay] = useState("");
+
+  // Popup Modal state and handlers
+  const [selectedAppraisal, setSelectedAppraisal] = useState<any | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [appraisalAnswers, setAppraisalAnswers] = useState<Record<string, string>>({});
+
+  // Appraisal questions
+  const appraisalQuestions = [
+    "How would you rate your communication and teamwork over the past quarter?",
+    "What were your main successes and achievements in this cycle?",
+    "What areas would you like to develop or improve in the next review cycle?"
+  ];
 
   useEffect(() => {
     setIsMounted(true);
@@ -115,6 +128,16 @@ export default function HRPage() {
     setNewSickDays("");
     setNewSickReason("");
   }
+
+  const openAppraisalModal = (appraisal: any) => {
+    setSelectedAppraisal(appraisal);
+    setIsModalOpen(true);
+  };
+
+  const saveAppraisalResponses = () => {
+    setIsModalOpen(false);
+    alert("Appraisal form completed and saved successfully!");
+  };
 
   if (!isMounted) return null;
 
@@ -427,7 +450,11 @@ export default function HRPage() {
             <h4 className="text-lg font-serif italic mb-4">Appraisals</h4>
             <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
               {appraisals.map(a => (
-                <div key={a.id} className="p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs">
+                <div 
+                  key={a.id} 
+                  onClick={() => openAppraisalModal(a)} 
+                  className="p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs cursor-pointer hover:bg-stone-100/80 transition-colors"
+                >
                   <p className="font-bold">{a.employee}</p>
                   <p className="text-[9px] text-[#a9b897] font-semibold mt-0.5">{a.score}</p>
                   <span className="text-[8px] text-stone-400">{a.date}</span>
@@ -488,9 +515,64 @@ export default function HRPage() {
             <button onClick={addSickPay} className="w-full py-2 bg-stone-900 text-white rounded-lg text-[10px] font-bold cursor-pointer">Add Sick Record</button>
           </div>
         </div>
-        
       </div>
-      
+
+      {/* Modal View for Appraisals */}
+      {isModalOpen && selectedAppraisal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-stone-900/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl p-12 border border-stone-100 space-y-6 max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-stone-50 pb-4">
+              <h2 className="text-3xl font-serif italic text-stone-800">
+                Performance Appraisal
+              </h2>
+              <button onClick={() => setIsModalOpen(false)}>
+                <X size={24} className="text-stone-300 hover:text-stone-900" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-stone-500 uppercase tracking-widest">
+                Reviewer: <span className="font-bold text-stone-900">{selectedAppraisal.employee}</span>
+              </p>
+              <p className="text-xs text-[#a9b897] uppercase tracking-widest">
+                Status: {selectedAppraisal.score}
+              </p>
+            </div>
+
+            <div className="space-y-6 py-4">
+              {appraisalQuestions.map((question, index) => (
+                <div key={index} className="space-y-2">
+                  <label className="text-xs font-black uppercase text-stone-600 block">
+                    {index + 1}. {question}
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={appraisalAnswers[index] || ""}
+                    onChange={(e) => setAppraisalAnswers({ ...appraisalAnswers, [index]: e.target.value })}
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none resize-none text-stone-700"
+                    placeholder="Type your response here..."
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-4 border-t border-stone-50 pt-6">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-6 py-3 rounded-2xl text-xs font-bold text-stone-500 hover:bg-stone-50 cursor-pointer transition border border-stone-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveAppraisalResponses}
+                className="px-8 py-3 bg-stone-900 text-white rounded-2xl text-xs font-bold hover:bg-stone-800 transition-all cursor-pointer shadow-xl"
+              >
+                Submit Form
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

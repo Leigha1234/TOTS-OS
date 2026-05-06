@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { supabase } from "@/lib/supabase-client";
+import { createBrowserClient } from "@supabase/ssr";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { getUserRole, canCreate } from "@/lib/permissions";
 import { 
@@ -30,7 +30,7 @@ interface Task {
 export default function ProjectsPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [activeMode, setActiveMode] = useState("work"); 
-  const [activeTab, setActiveTab] = useState("list"); 
+  const [activeTab, setActiveTab] = useState("overview"); 
 
   // Application States
   const [projects, setProjects] = useState<any[]>([]);
@@ -72,6 +72,14 @@ export default function ProjectsPage() {
     { member: "John Smith", tasksAssigned: 3, capacity: 60, status: "Active" },
   ]);
 
+  // Safely initialize the Supabase browser client
+  const supabase = useMemo(() => {
+    return createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }, []);
+
   const loadData = useCallback(async (team: string) => {
     const { data, error } = await supabase
       .from("projects")
@@ -84,7 +92,7 @@ export default function ProjectsPage() {
     }
     setProjects(data || []);
     setLoading(false);
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -123,7 +131,7 @@ export default function ProjectsPage() {
       loadData(team);
     }
     init();
-  }, [loadData]);
+  }, [loadData, supabase]);
 
   const runClarityScan = () => {
     setIsScanActive(true);
@@ -653,53 +661,58 @@ export default function ProjectsPage() {
                       value={newSubtask} 
                       onChange={(e) => setNewSubtask(e.target.value)} 
                       placeholder="Add subtask..."
-                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:ring-4 ring-[#a9b897]/5 font-medium placeholder:text-stone-300"
+                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-100 rounded-xl outline-none"
                     />
-                    <button onClick={handleAddSubtask} className="bg-[#a9b897] text-white px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase hover:opacity-90">
+                    <button 
+                      onClick={handleAddSubtask} 
+                      className="px-4 py-2 bg-stone-900 text-white text-[8px] font-black uppercase tracking-widest rounded-xl hover:bg-stone-700"
+                    >
                       Add
                     </button>
                   </div>
                 </div>
 
-                {/* Discussion Comments Module */}
+                {/* Comments Module */}
                 <div className="pt-6 border-t border-stone-50">
-                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-4">Discussion Board</span>
-                  <div className="space-y-4 mb-4">
-                    {selectedTask.comments?.map((c, i) => (
-                      <div key={i} className="p-4 bg-stone-50 border border-stone-200/20 rounded-2xl text-xs text-stone-600">
-                        {c}
+                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-4">Comments</span>
+                  <div className="space-y-3">
+                    {selectedTask.comments?.map((comment, idx) => (
+                      <div key={idx} className="p-4 bg-stone-50/70 border border-stone-200/40 rounded-2xl text-xs text-stone-600 flex items-start gap-3">
+                        <MessageSquare size={14} className="text-stone-400 mt-0.5" />
+                        <div>
+                          <p className="font-bold text-stone-800 mb-0.5">Contributor</p>
+                          <p>{comment}</p>
+                        </div>
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-4 items-center">
+                  <div className="flex gap-3 mt-4">
                     <input 
-                      type="text" 
-                      placeholder="Write comment..." 
                       value={newComment} 
                       onChange={(e) => setNewComment(e.target.value)} 
-                      className="flex-1 p-4 text-xs bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:ring-4 ring-[#a9b897]/5 font-medium placeholder:text-stone-300"
+                      placeholder="Type a comment..."
+                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-100 rounded-xl outline-none"
                     />
                     <button 
                       onClick={handleAddComment} 
-                      className="bg-stone-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black tracking-widest uppercase hover:bg-stone-700 transition-all"
+                      className="px-4 py-2 bg-stone-900 text-white text-[8px] font-black uppercase tracking-widest rounded-xl hover:bg-stone-700"
                     >
-                      Post
+                      Comment
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-            
+
             <button 
-              onClick={() => setSelectedTask(null)} 
-              className="w-full bg-stone-100 border border-stone-200/60 mt-8 py-4 rounded-2xl text-[10px] font-bold tracking-widest uppercase text-stone-500 hover:bg-stone-200 transition-all"
+              onClick={() => setSelectedTask(null)}
+              className="w-full mt-10 py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-stone-700 text-center"
             >
-              Close Drawer
+              Close Task Stream
             </button>
           </div>
         </div>
       )}
-
     </div>
   );
 }

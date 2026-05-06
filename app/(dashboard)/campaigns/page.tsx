@@ -13,7 +13,7 @@ const TEMPLATES = [
   { id: 'minimal', name: 'Minimalist', icon: <Type size={14}/> },
   { id: 'creative', name: 'Creative', icon: <Sparkles size={14}/> },
   { id: 'bold', name: 'Bold', icon: <Bold size={14}/> },
-  { id: 'colorful', name: 'Colorful', icon: <Palette size={14}/> },
+  { id: 'colorful', name: 'Colourful', icon: <Palette size={14}/> },
   { id: 'elegant', name: 'Elegant', icon: <AlignLeft size={14}/> },
 ];
 
@@ -66,6 +66,10 @@ export default function CampaignsPage() {
         generatedBannerHtml = `[ BANNER IMAGE: https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80 ]\n\n`;
       } else if (form.template_id === 'bold') {
         generatedBannerHtml = `========================================\n🌟 CAMPAIGN DISPATCH\n========================================\n\n`;
+      } else if (form.template_id === 'creative') {
+        generatedBannerHtml = `✨ CREATIVE HIGHLIGHT - ${clarityTopic.toUpperCase()} ✨\n────────────────────────────────────────\n\n`;
+      } else if (form.template_id === 'elegant') {
+        generatedBannerHtml = `* * * ${selectedStyle.toUpperCase()} DISPATCH * * *\n\n`;
       }
 
       setForm(prev => ({ 
@@ -130,17 +134,17 @@ export default function CampaignsPage() {
   const getTemplateStyleClasses = () => {
     switch (form.template_id) {
       case "creative":
-        return "border-2 border-amber-300 shadow-amber-100/50 bg-amber-50/10";
+        return "border-2 border-amber-300 shadow-amber-100/50 bg-amber-50/10 text-amber-900";
       case "bold":
-        return "border-2 border-stone-900 shadow-stone-900/10 bg-stone-900/5 text-stone-900";
+        return "border-2 border-stone-900 shadow-stone-900/10 bg-stone-900/5 text-stone-900 font-black tracking-wide";
       case "colorful":
-        return "border-2 border-teal-500 shadow-teal-100/50 bg-teal-50/20";
+        return "border-2 border-teal-500 shadow-teal-100/50 bg-teal-50/20 text-teal-900";
       case "elegant":
-        return "border border-stone-300 font-serif bg-stone-50/5";
+        return "border border-stone-300 font-serif bg-stone-50/5 text-stone-700";
       case "blank":
-        return "border border-dashed border-stone-300 bg-white";
+        return "border border-dashed border-stone-300 bg-white text-stone-600";
       default:
-        return "border border-stone-200 bg-white";
+        return "border border-stone-200 bg-white text-stone-600";
     }
   };
 
@@ -288,19 +292,19 @@ export default function CampaignsPage() {
                     <div className={`w-full max-w-3xl min-h-[800px] rounded-[4rem] p-20 flex flex-col shadow-xl transition-all ${getTemplateStyleClasses()}`}>
                       <input 
                         placeholder="Campaign Title / Name..." 
-                        className="text-2xl font-bold text-stone-800 outline-none mb-8 bg-transparent border-b border-stone-50 pb-4 placeholder:text-stone-300"
+                        className="text-2xl font-bold outline-none mb-8 bg-transparent border-b border-stone-50 pb-4 placeholder:text-stone-300"
                         value={form.title}
                         onChange={e => setForm({...form, title: e.target.value})}
                       />
                       <input 
                         placeholder="Subject Line..." 
-                        className="text-4xl font-serif italic text-stone-800 outline-none mb-12 bg-transparent placeholder:text-stone-300 border-b border-stone-50 pb-6"
+                        className="text-4xl font-serif italic outline-none mb-12 bg-transparent placeholder:text-stone-300 border-b border-stone-50 pb-6"
                         value={form.subject}
                         onChange={e => setForm({...form, subject: e.target.value})}
                       />
                       <textarea 
                         placeholder="Commence transmission..."
-                        className="flex-1 text-xl font-serif italic text-stone-600 leading-relaxed outline-none resize-none bg-transparent placeholder:text-stone-300"
+                        className="flex-1 text-xl font-serif italic leading-relaxed outline-none resize-none bg-transparent placeholder:text-stone-300"
                         value={form.content}
                         onChange={e => setForm({...form, content: e.target.value})}
                       />

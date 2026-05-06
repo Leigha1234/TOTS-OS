@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { supabase } from "@/lib/supabase-client"; 
+import { createBrowserClient } from "@supabase/ssr";
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
   Plus, Landmark, X, Loader2, MapPin, Clock, Users, Link as LinkIcon, Navigation
@@ -41,6 +41,14 @@ export default function CalendarPage() {
   const [vcLink, setVcLink] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Safely initialize Supabase browser client
+  const supabase = useMemo(() => {
+    return createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }, []);
 
   useEffect(() => {
     fetchEvents();
@@ -218,7 +226,7 @@ export default function CalendarPage() {
   
   const selectedDayEvents = useMemo(() => getCombinedEventsForDay(selectedDay), [selectedDay, tasks, invoices, quotes, projectDeadlines, socials, emails, payroll, holidays]);
 
-  // Helper function to capitalize Month name
+  // Helper function to capitalize Month name (ensures it is a capital string representation)
   const getCapitalizedMonth = (date: Date) => {
     const regular = format(date, "MMMM");
     return regular.charAt(0).toUpperCase() + regular.slice(1);
@@ -243,7 +251,7 @@ export default function CalendarPage() {
               <div className="flex justify-between items-start mb-8">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-1 text-left">Create Event</p>
-                  <h3 className="text-3xl font-serif italic text-stone-800">{format(selectedDay, "do MMMM")}</h3>
+                  <h3 className="text-3xl font-serif italic text-stone-800">{format(selectedDay, "do")} {getCapitalizedMonth(selectedDay)}</h3>
                 </div>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-stone-50 rounded-full transition-colors">
                   <X size={20} className="text-stone-400" />

@@ -135,14 +135,14 @@ export default function TimesheetsPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
           <div>
             <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Client</label>
             <input 
               placeholder="Client Reference" 
               value={timesheetClient} 
               onChange={(e) => setTimesheetClient(e.target.value)}
-              className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+              className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-3.5 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
             />
           </div>
           <div>
@@ -151,7 +151,7 @@ export default function TimesheetsPage() {
               placeholder="Task Name" 
               value={timesheetTask} 
               onChange={(e) => setTimesheetTask(e.target.value)}
-              className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+              className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-3.5 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
             />
           </div>
           <div>
@@ -160,7 +160,7 @@ export default function TimesheetsPage() {
               placeholder="Assignee Name" 
               value={timesheetTeamMember} 
               onChange={(e) => setTimesheetTeamMember(e.target.value)}
-              className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+              className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-3.5 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
             />
           </div>
           <div>
@@ -176,7 +176,7 @@ export default function TimesheetsPage() {
             </div>
           </div>
           <div className="flex items-end">
-            <button onClick={addTimesheetEntry} className="w-full py-4 bg-stone-900 text-white rounded-2xl font-bold text-xs hover:bg-stone-800 transition-all cursor-pointer">
+            <button onClick={addTimesheetEntry} className="w-full py-3.5 bg-stone-900 text-white rounded-2xl font-bold text-xs hover:bg-stone-800 transition-all cursor-pointer">
               + Log Entry
             </button>
           </div>

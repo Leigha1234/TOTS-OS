@@ -23,16 +23,7 @@ import {
   Mail,
   DollarSign,
   Users,
-  Eye,
-  Send,
-  Check,
-  ShieldCheck,
   Activity,
-  History,
-  TrendingUp,
-  Award,
-  BookOpen,
-  PieChart
 } from "lucide-react";
 
 interface ContentDraft {
@@ -71,9 +62,9 @@ export default function SocialPage() {
   const [isMounted, setIsMounted] = useState(false);
 
   // Extended Advanced Analytics Data
-  const [totalEngagements, setTotalEngagements] = useState("2,482");
-  const [campaignBudget, setCampaignBudget] = useState("£12,450");
-  const [synthNodeCache, setSynthNodeCache] = useState("Online (100% Sync)");
+  const [totalEngagements] = useState("2,482");
+  const [campaignBudget] = useState("£12,450");
+  const [synthNodeCache] = useState("Online (100% Sync)"); // <-- Corrected variable name
 
   // Calendar Engine States
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -104,7 +95,6 @@ export default function SocialPage() {
         .from("social_posts")
         .select("*", { count: 'exact', head: true })
         .gte("scheduled_for", startOfWeek);
-      if (count !== null) setWeeklyCount(count);
       setWeeklyCount(count || 0);
     } catch (e) {
       console.error("Capacity check failed", e);
@@ -122,7 +112,7 @@ export default function SocialPage() {
       if (!error && data) {
         const mapped: ContentDraft[] = data.map((item: any) => ({
           id: item.id,
-          type: "image",
+          type: item.type || "image",
           caption: item.caption,
           hashtags: [],
           mentions: [],
@@ -174,6 +164,7 @@ export default function SocialPage() {
     if (!selectedScheduleDate) return alert("Please select a date on the draft card.");
 
     const { error } = await supabase.from("social_posts").insert([{
+      type: post.type,
       caption: post.caption,
       platform: post.platform,
       scheduled_for: selectedScheduleDate,
@@ -192,7 +183,6 @@ export default function SocialPage() {
     }
   };
 
-  // Calendar Engine Helpers
   const getDaysInMonth = (year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate();
   };
@@ -253,8 +243,8 @@ export default function SocialPage() {
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Social Stats</span>
-            <span className="text-3xl font-serif italic">1,248 <span className="text-xs text-green-600 not-italic font-sans font-bold">+12%</span></span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Weekly Limit</span>
+            <span className="text-3xl font-serif italic">{weeklyCount} / {WEEKLY_LIMIT}</span>
           </div>
           <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl"><Rss size={20} /></div>
         </div>
@@ -274,8 +264,8 @@ export default function SocialPage() {
         </div>
         <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Team Working Today</span>
-            <span className="text-lg font-serif italic">Jane & David</span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 block mb-1">Platform Status</span>
+            <span className="text-lg font-serif italic">Online Sync</span>
           </div>
           <div className="p-4 bg-stone-50 text-stone-600 rounded-2xl"><Users size={20} /></div>
         </div>
@@ -372,13 +362,13 @@ export default function SocialPage() {
                     <div className="relative aspect-square rounded-2xl overflow-hidden bg-white shadow-inner">
                       <img src={post.media_url} className="w-full h-full object-cover grayscale mix-blend-multiply opacity-70" alt="Generated Content Preview" />
                       <div className="absolute top-4 left-4 bg-white/90 px-3 py-1 rounded-full text-[9px] font-black flex items-center gap-2">
-                         <BarChart3 size={10} /> RESONANCE: {post.excellence_score}%
+                         <BarChart3 size={10} /> Type: {post.type.toUpperCase()}
                       </div>
                     </div>
 
                     <div className="space-y-3 flex-1">
                       <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                        {post.platform} // {post.type}
+                        {post.platform} // SCORE: {post.excellence_score}
                       </p>
                       <p className="text-stone-900 font-serif text-lg leading-relaxed italic line-clamp-4">
                         "{post.caption}"
@@ -408,7 +398,7 @@ export default function SocialPage() {
             </div>
           </div>
 
-          {/* ASIDE - Extended Predictive Section */}
+          {/* ASIDE - Predictive Section */}
           <aside className="lg:col-span-4 space-y-8">
             <div className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm space-y-10 sticky top-12">
               <div className="space-y-1">
@@ -444,7 +434,7 @@ export default function SocialPage() {
               </div>
             </div>
 
-            {/* NEW: Performance & Analytics Sub-Dashboard */}
+            {/* Performance & Analytics Sub-Dashboard */}
             <div className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm space-y-6">
               <div className="flex items-center justify-between">
                  <h3 className="text-lg font-serif italic text-stone-800">Advanced Status Feed</h3>
@@ -453,7 +443,7 @@ export default function SocialPage() {
               <div className="space-y-4 text-[10px] uppercase font-bold tracking-widest text-stone-400">
                  <div className="flex justify-between items-center py-2 border-b border-stone-50">
                     <span>Synthesizer State</span>
-                    <span className="text-green-600">{synthNodeCache}</span>
+                    <span className="text-green-600">{synthNodeCache}</span> {/* <-- Fixed variable call */}
                  </div>
                  <div className="flex justify-between items-center py-2 border-b border-stone-50">
                     <span>Engagements</span>

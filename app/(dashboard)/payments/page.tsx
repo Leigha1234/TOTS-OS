@@ -46,7 +46,7 @@ export default function FinancialsPage() {
   });
 
   // Derived metrics
-  const currentProfit = metrics.revYtd - metrics.operatingCosts;
+  const currentProfit: number = metrics.revYtd - metrics.operatingCosts;
 
   // Detailed Document Lists
   const [invoices, setInvoices] = useState<any[]>([
@@ -213,7 +213,7 @@ export default function FinancialsPage() {
         <button 
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-stone-900 text-white shadow-xl cursor-pointer"
         >
-          Financials
+          Payments
         </button>
         <button 
           onClick={() => router.push("/timesheets")}
@@ -226,6 +226,64 @@ export default function FinancialsPage() {
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
         >
           HR & Payroll
+        </button>
+      </div>
+
+      {/* Financial Operations Forms at the Top */}
+      <div className="flex flex-wrap gap-6 pt-4 pb-4">
+        <button
+          onClick={() => setIsInvoiceOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <FileText size={16} className="text-[#a9b897]" /> Create Invoice
+        </button>
+        <button
+          onClick={() => setIsQuoteOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <FileDigit size={16} className="text-[#a9b897]" /> Create Quote
+        </button>
+        <button
+          onClick={() => setIsExpenseOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <ShieldAlert size={16} className="text-red-500" /> Log Expense
+        </button>
+        <button
+          onClick={() => setIsViewDetailsOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <Eye size={16} className="text-stone-500" /> View Accounts
+        </button>
+        <button
+          onClick={() => setIsClientDirectoryOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <Users size={16} className="text-stone-500" /> Client Directory
+        </button>
+        <button
+          onClick={() => setIsAnalyticsOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <Award size={16} className="text-[#a9b897]" /> Insights
+        </button>
+        <button
+          onClick={() => setIsUploadModalOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <Upload size={16} className="text-blue-500" /> Upload Receipts
+        </button>
+        <button
+          onClick={() => setIsTaxCalcOpen(true)}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <span className="p-1 bg-yellow-50 text-yellow-600 rounded"></span> Tax Calculator
+        </button>
+        <button
+          onClick={() => downloadReport("financials")}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <Download size={16} className="text-stone-500" /> Download Reports
         </button>
       </div>
 
@@ -270,7 +328,7 @@ export default function FinancialsPage() {
             <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Tax Due</span>
           </div>
           <div>
-            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.calculatedTaxDue || metrics.calculatedTaxDue.toLocaleString()}</p>
+            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.calculatedTaxDue.toLocaleString()}</p>
             <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Calculated Balance</p>
           </div>
         </div>
@@ -328,64 +386,6 @@ export default function FinancialsPage() {
             {expenses.length === 0 && <p className="text-center text-[10px] text-stone-400 py-6">No expenses logged yet.</p>}
           </div>
         </div>
-      </div>
-
-      {/* Financial Operations Forms */}
-      <div className="flex flex-wrap gap-6 pt-4 border-t border-stone-200/60 pt-12">
-        <button
-          onClick={() => setIsInvoiceOpen(true)}
-          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
-        >
-          <FileText size={16} className="text-[#a9b897]" /> Create Invoice
-        </button>
-        <button
-          onClick={() => setIsQuoteOpen(true)}
-          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
-        >
-          <FileDigit size={16} className="text-[#a9b897]" /> Create Quote
-        </button>
-        <button
-          onClick={() => setIsExpenseOpen(true)}
-          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
-        >
-          <ShieldAlert size={16} className="text-red-500" /> Log Expense
-        </button>
-        <button
-          onClick={() => setIsViewDetailsOpen(true)}
-          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
-        >
-          <Eye size={16} className="text-stone-500" /> View Accounts
-        </button>
-        <button
-          onClick={() => setIsClientDirectoryOpen(true)}
-          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
-        >
-          <Users size={16} className="text-stone-500" /> Client Directory
-        </button>
-        <button
-          onClick={() => setIsAnalyticsOpen(true)}
-          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
-        >
-          <Award size={16} className="text-[#a9b897]" /> Insights
-        </button>
-        <button
-          onClick={() => setIsUploadModalOpen(true)}
-          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
-        >
-          <Upload size={16} className="text-blue-500" /> Upload Receipts
-        </button>
-        <button
-          onClick={() => setIsTaxCalcOpen(true)}
-          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
-        >
-          <span className="p-1 bg-yellow-50 text-yellow-600 rounded"></span> Tax Calculator
-        </button>
-        <button
-          onClick={() => downloadReport("financials")}
-          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
-        >
-          <Download size={16} className="text-stone-500" /> Download Reports
-        </button>
       </div>
 
       {/* Invoice Modal Slide */}

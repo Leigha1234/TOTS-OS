@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Clock, Trash2, BarChart3 } from "lucide-react";
 
 interface TimesheetEntry {
   id: string;
@@ -16,12 +17,10 @@ interface TimesheetEntry {
   sun: number;
 }
 
-export default function TimesheetsPage({ 
-  onNavigate 
-}: { 
-  onNavigate?: (tab: string) => void; 
-}) {
+export default function TimesheetsPage() {
   const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
+  
   const [selectedWeek, setSelectedWeek] = useState("2026-W18");
   const [timesheetList, setTimesheetList] = useState<TimesheetEntry[]>([
     { id: "1", client: "Cyberdyne Systems", task: "Platform Integration", mon: 4, tue: 8, wed: 6, thu: 8, fri: 4, sat: 0, sun: 0 },
@@ -100,19 +99,18 @@ export default function TimesheetsPage({
       {/* Navigation Controls */}
       <div className="flex flex-wrap gap-4 border-b border-stone-200 pb-4">
         <button 
-          onClick={() => onNavigate && onNavigate("financials")}
+          onClick={() => router.push("/financials")}
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
         >
           Financials
         </button>
         <button 
-          onClick={() => onNavigate && onNavigate("timesheets")}
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-stone-900 text-white shadow-xl cursor-pointer"
         >
           Timesheets
         </button>
         <button 
-          onClick={() => onNavigate && onNavigate("hr")}
+          onClick={() => router.push("/hr")}
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
         >
           HR & Payroll

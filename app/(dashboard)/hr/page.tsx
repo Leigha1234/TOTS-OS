@@ -1,35 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Plus, 
-  Minus,
-  Mail,
-  FileText,
   Save,
-  Check,
-  Briefcase,
   Users,
-  ShieldCheck,
-  ShieldAlert,
-  FileDigit,
-  UserPlus,
   Clock,
   Calendar,
   X,
   Award,
-  DollarSign,
-  Upload,
-  Eye,
-  FileCheck,
-  Ban,
   Trash2,
-  User
+  UserPlus
 } from "lucide-react";
 
 export default function HRPage() {
   const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
 
   // Advanced HR Form
   const [empName, setEmpName] = useState("Jane Doe");
@@ -98,6 +85,27 @@ export default function HRPage() {
           <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Personnel Operations</p>
         </div>
       </header>
+
+      {/* Navigation Controls */}
+      <div className="flex flex-wrap gap-4 border-b border-stone-200 pb-4">
+        <button 
+          onClick={() => router.push("/financials")}
+          className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
+        >
+          Financials
+        </button>
+        <button 
+          onClick={() => router.push("/timesheets")}
+          className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
+        >
+          Timesheets
+        </button>
+        <button 
+          className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-stone-900 text-white shadow-xl cursor-pointer"
+        >
+          HR & Payroll
+        </button>
+      </div>
 
       {/* Metric Summaries */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

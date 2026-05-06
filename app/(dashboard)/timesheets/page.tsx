@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Trash2, BarChart3 } from "lucide-react";
+import { Clock, Trash2, Users } from "lucide-react";
 
 interface TimesheetEntry {
   id: string;
@@ -15,6 +15,7 @@ interface TimesheetEntry {
   fri: number;
   sat: number;
   sun: number;
+  teamMember?: string;
 }
 
 export default function TimesheetsPage() {
@@ -23,12 +24,13 @@ export default function TimesheetsPage() {
   
   const [selectedWeek, setSelectedWeek] = useState("2026-W18");
   const [timesheetList, setTimesheetList] = useState<TimesheetEntry[]>([
-    { id: "1", client: "Cyberdyne Systems", task: "Platform Integration", mon: 4, tue: 8, wed: 6, thu: 8, fri: 4, sat: 0, sun: 0 },
-    { id: "2", client: "Aperture Labs", task: "Bug Fixing", mon: 2, tue: 2, wed: 4, thu: 2, fri: 2, sat: 0, sun: 0 }
+    { id: "1", client: "Cyberdyne Systems", task: "Platform Integration", mon: 4, tue: 8, wed: 6, thu: 8, fri: 4, sat: 0, sun: 0, teamMember: "Sarah Chen" },
+    { id: "2", client: "Aperture Labs", task: "Bug Fixing", mon: 2, tue: 2, wed: 4, thu: 2, fri: 2, sat: 0, sun: 0, teamMember: "Jane Doe" }
   ]);
 
   const [timesheetClient, setTimesheetClient] = useState("");
   const [timesheetTask, setTimesheetTask] = useState("");
+  const [timesheetTeamMember, setTimesheetTeamMember] = useState("");
   const [timesheetMon, setTimesheetMon] = useState("0");
   const [timesheetTue, setTimesheetTue] = useState("0");
   const [timesheetWed, setTimesheetWed] = useState("0");
@@ -48,6 +50,7 @@ export default function TimesheetsPage() {
       id: Date.now().toString(),
       client: timesheetClient,
       task: timesheetTask,
+      teamMember: timesheetTeamMember || "Unassigned",
       mon: parseFloat(timesheetMon) || 0,
       tue: parseFloat(timesheetTue) || 0,
       wed: parseFloat(timesheetWed) || 0,
@@ -62,6 +65,7 @@ export default function TimesheetsPage() {
     // Reset inputs
     setTimesheetClient("");
     setTimesheetTask("");
+    setTimesheetTeamMember("");
     setTimesheetMon("0");
     setTimesheetTue("0");
     setTimesheetWed("0");
@@ -99,7 +103,7 @@ export default function TimesheetsPage() {
       {/* Navigation Controls */}
       <div className="flex flex-wrap gap-4 border-b border-stone-200 pb-4">
         <button 
-          onClick={() => router.push("/payments")}
+          onClick={() => router.push("/financials")}
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
         >
           Financials
@@ -131,7 +135,7 @@ export default function TimesheetsPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <div>
             <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Client</label>
             <input 
@@ -147,6 +151,15 @@ export default function TimesheetsPage() {
               placeholder="Task Name" 
               value={timesheetTask} 
               onChange={(e) => setTimesheetTask(e.target.value)}
+              className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Team Member</label>
+            <input 
+              placeholder="Assignee Name" 
+              value={timesheetTeamMember} 
+              onChange={(e) => setTimesheetTeamMember(e.target.value)}
               className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
             />
           </div>
@@ -175,6 +188,7 @@ export default function TimesheetsPage() {
               <div>
                 <span className="text-xs font-black uppercase">{t.client}</span>
                 <p className="text-[10px] text-stone-500 mt-1">{t.task}</p>
+                <p className="text-[9px] text-[#a9b897] font-bold mt-0.5 tracking-wide">Worker: {t.teamMember}</p>
               </div>
               <div className="flex items-center gap-6">
                 <span className="text-[10px] font-mono text-stone-400 uppercase tracking-widest font-bold">

@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { 
   Save,
   Users,
   Clock,
   Calendar,
-  X,
   Award,
   Trash2,
   UserPlus
@@ -33,6 +31,20 @@ export default function HRPage() {
 
   const [payrollEntries, setPayrollEntries] = useState<any[]>([
     { id: "1", employee: "Sarah Chen", role: "Developer", total: 2000, dateOfPay: "2026-05-28" }
+  ]);
+
+  // States for new operational cards
+  const [payslips, setPayslips] = useState<any[]>([
+    { id: "P-1", employee: "Jane Doe", month: "May", amount: 2500 }
+  ]);
+  const [appraisals, setAppraisals] = useState<any[]>([
+    { id: "A-1", employee: "Jane Doe", score: "Exceeds Expectations", date: "2026-04-12" }
+  ]);
+  const [holidayRequests, setHolidayRequests] = useState<any[]>([
+    { id: "H-1", employee: "Jane Doe", dates: "May 10 - May 17", status: "Pending" }
+  ]);
+  const [sickPayEntries, setSickPayEntries] = useState<any[]>([
+    { id: "S-1", employee: "Jane Doe", days: 2, reason: "Influenza" }
   ]);
 
   const [newEmployeeName, setNewEmployeeName] = useState("");
@@ -65,6 +77,45 @@ export default function HRPage() {
     setPayrollEntries(payrollEntries.filter(entry => entry.id !== id));
   };
 
+  // Operations for the new cards
+  const [newPayslipEmp, setNewPayslipEmp] = useState("");
+  const [newPayslipAmount, setNewPayslipAmount] = useState("");
+  const addPayslip = () => {
+    if(!newPayslipEmp || !newPayslipAmount) return;
+    setPayslips([...payslips, { id: Date.now().toString(), employee: newPayslipEmp, month: "May", amount: parseFloat(newPayslipAmount) }]);
+    setNewPayslipEmp("");
+    setNewPayslipAmount("");
+  }
+
+  const [newAppraisalEmp, setNewAppraisalEmp] = useState("");
+  const [newAppraisalScore, setNewAppraisalScore] = useState("");
+  const addAppraisal = () => {
+    if(!newAppraisalEmp || !newAppraisalScore) return;
+    setAppraisals([...appraisals, { id: Date.now().toString(), employee: newAppraisalEmp, score: newAppraisalScore, date: new Date().toISOString().split("T")[0] }]);
+    setNewAppraisalEmp("");
+    setNewAppraisalScore("");
+  }
+
+  const [newHolidayEmp, setNewHolidayEmp] = useState("");
+  const [newHolidayDates, setNewHolidayDates] = useState("");
+  const addHolidayRequest = () => {
+    if(!newHolidayEmp || !newHolidayDates) return;
+    setHolidayRequests([...holidayRequests, { id: Date.now().toString(), employee: newHolidayEmp, dates: newHolidayDates, status: "Pending" }]);
+    setNewHolidayEmp("");
+    setNewHolidayDates("");
+  }
+
+  const [newSickEmp, setNewSickEmp] = useState("");
+  const [newSickDays, setNewSickDays] = useState("");
+  const [newSickReason, setNewSickReason] = useState("");
+  const addSickPay = () => {
+    if(!newSickEmp || !newSickDays || !newSickReason) return;
+    setSickPayEntries([...sickPayEntries, { id: Date.now().toString(), employee: newSickEmp, days: parseInt(newSickDays), reason: newSickReason }]);
+    setNewSickEmp("");
+    setNewSickDays("");
+    setNewSickReason("");
+  }
+
   if (!isMounted) return null;
 
   return (
@@ -89,7 +140,7 @@ export default function HRPage() {
       {/* Navigation Controls */}
       <div className="flex flex-wrap gap-4 border-b border-stone-200 pb-4">
         <button 
-          onClick={() => router.push("/payments")}
+          onClick={() => router.push("/financials")}
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
         >
           Financials
@@ -265,7 +316,7 @@ export default function HRPage() {
           </div>
         </div>
 
-        {/* Sidebar Payroll Operations Section */}
+        {/* Sidebar Operations Section */}
         <div className="space-y-8">
           
           {/* Add Entry Card */}
@@ -342,8 +393,104 @@ export default function HRPage() {
             </div>
           </div>
         </div>
-
       </div>
+
+      {/* NEW HR Operations Cards: Payslips, Appraisals, Holiday Requests & Sick Pay */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pt-12 border-t border-stone-200/60">
+        
+        {/* Payslips Card */}
+        <div className="bg-white border border-stone-200/60 p-8 rounded-[2.5rem] shadow-sm flex flex-col justify-between">
+          <div>
+            <h4 className="text-lg font-serif italic mb-4">Payslips</h4>
+            <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
+              {payslips.map(p => (
+                <div key={p.id} className="p-3 bg-stone-50 border border-stone-100 rounded-xl flex justify-between items-center text-xs">
+                  <div>
+                    <span className="font-bold">{p.employee}</span>
+                    <p className="text-[9px] text-stone-400 mt-0.5">{p.month} Payslip</p>
+                  </div>
+                  <span className="font-mono font-bold">£{p.amount}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-stone-100 space-y-2">
+            <input placeholder="Name" value={newPayslipEmp} onChange={(e) => setNewPayslipEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <input placeholder="Amount" type="number" value={newPayslipAmount} onChange={(e) => setNewPayslipAmount(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <button onClick={addPayslip} className="w-full py-2 bg-stone-900 text-white rounded-lg text-[10px] font-bold cursor-pointer">Add Payslip</button>
+          </div>
+        </div>
+
+        {/* Appraisals Card */}
+        <div className="bg-white border border-stone-200/60 p-8 rounded-[2.5rem] shadow-sm flex flex-col justify-between">
+          <div>
+            <h4 className="text-lg font-serif italic mb-4">Appraisals</h4>
+            <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
+              {appraisals.map(a => (
+                <div key={a.id} className="p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs">
+                  <p className="font-bold">{a.employee}</p>
+                  <p className="text-[9px] text-[#a9b897] font-semibold mt-0.5">{a.score}</p>
+                  <span className="text-[8px] text-stone-400">{a.date}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-stone-100 space-y-2">
+            <input placeholder="Name" value={newAppraisalEmp} onChange={(e) => setNewAppraisalEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <input placeholder="Score" value={newAppraisalScore} onChange={(e) => setNewAppraisalScore(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <button onClick={addAppraisal} className="w-full py-2 bg-stone-900 text-white rounded-lg text-[10px] font-bold cursor-pointer">Add Appraisal</button>
+          </div>
+        </div>
+
+        {/* Holiday Requests Card */}
+        <div className="bg-white border border-stone-200/60 p-8 rounded-[2.5rem] shadow-sm flex flex-col justify-between">
+          <div>
+            <h4 className="text-lg font-serif italic mb-4">Holiday Requests</h4>
+            <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
+              {holidayRequests.map(h => (
+                <div key={h.id} className="p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs flex justify-between items-center">
+                  <div>
+                    <span className="font-bold">{h.employee}</span>
+                    <p className="text-[9px] text-stone-400 mt-0.5">{h.dates}</p>
+                  </div>
+                  <span className="text-[8px] px-2 py-1 bg-yellow-50 text-yellow-600 rounded-md font-bold">{h.status}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-stone-100 space-y-2">
+            <input placeholder="Name" value={newHolidayEmp} onChange={(e) => setNewHolidayEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <input placeholder="Dates (e.g. May 12-14)" value={newHolidayDates} onChange={(e) => setNewHolidayDates(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <button onClick={addHolidayRequest} className="w-full py-2 bg-stone-900 text-white rounded-lg text-[10px] font-bold cursor-pointer">Request Time Off</button>
+          </div>
+        </div>
+
+        {/* Sick Pay Card */}
+        <div className="bg-white border border-stone-200/60 p-8 rounded-[2.5rem] shadow-sm flex flex-col justify-between">
+          <div>
+            <h4 className="text-lg font-serif italic mb-4">Sick Pay Ledger</h4>
+            <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
+              {sickPayEntries.map(s => (
+                <div key={s.id} className="p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs flex justify-between items-center">
+                  <div>
+                    <span className="font-bold">{s.employee}</span>
+                    <p className="text-[9px] text-stone-400 mt-0.5">Reason: {s.reason}</p>
+                  </div>
+                  <span className="text-[10px] font-bold">{s.days} Days</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-stone-100 space-y-2">
+            <input placeholder="Name" value={newSickEmp} onChange={(e) => setNewSickEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <input placeholder="Days" type="number" value={newSickDays} onChange={(e) => setNewSickDays(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <input placeholder="Reason" value={newSickReason} onChange={(e) => setNewSickReason(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <button onClick={addSickPay} className="w-full py-2 bg-stone-900 text-white rounded-lg text-[10px] font-bold cursor-pointer">Add Sick Record</button>
+          </div>
+        </div>
+        
+      </div>
+      
     </div>
   );
 }

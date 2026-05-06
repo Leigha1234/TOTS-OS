@@ -5,22 +5,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { 
   FileText,
-  Save,
   ShieldAlert,
   FileDigit,
   Award,
   Upload,
   Eye,
-  FileCheck,
-  Ban,
-  Trash2,
-  TrendingUp,
-  BarChart3,
-  ShieldCheck,
   X,
   Clock,
   Users,
-  Plus
+  TrendingUp,
+  BarChart3,
+  ShieldCheck,
+  Download
 } from "lucide-react";
 
 export default function FinancialsPage() {
@@ -48,6 +44,9 @@ export default function FinancialsPage() {
     projectedTax: 25000,
     annualForecast: 320000
   });
+
+  // Derived metrics
+  const currentProfit = metrics.revYtd - metrics.operatingCosts;
 
   // Detailed Document Lists
   const [invoices, setInvoices] = useState<any[]>([
@@ -175,6 +174,19 @@ export default function FinancialsPage() {
     setIsClientDirectoryOpen(false);
   };
 
+  const downloadReport = (type: string) => {
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + ["ID,Client,Amount,Status,Date"].join(",") + "\n"
+      + invoices.map(e => `${e.id},${e.client},${e.amount},${e.status},${e.date}`).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${type}_report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (!isMounted) return null;
 
   return (
@@ -232,12 +244,12 @@ export default function FinancialsPage() {
 
         <div className="bg-white border border-stone-200 p-10 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[200px]">
           <div className="flex justify-between items-start">
-            <div className="p-3 bg-red-50 text-red-500 rounded-2xl"><ShieldAlert size={24} /></div>
-            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Liabilities</span>
+            <div className="p-3 bg-green-50 text-green-600 rounded-2xl"><Award size={24} /></div>
+            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Current Profit</span>
           </div>
           <div>
-            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.liabilities.toLocaleString()}</p>
-            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Active Balance</p>
+            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{currentProfit.toLocaleString()}</p>
+            <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Net Operations</p>
           </div>
         </div>
 
@@ -258,7 +270,7 @@ export default function FinancialsPage() {
             <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">Tax Due</span>
           </div>
           <div>
-            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.calculatedTaxDue.toLocaleString()}</p>
+            <p className="text-4xl font-mono tracking-tighter text-stone-800">£{metrics.calculatedTaxDue || metrics.calculatedTaxDue.toLocaleString()}</p>
             <p className="text-[10px] text-stone-400 uppercase font-black mt-2 tracking-widest">Calculated Balance</p>
           </div>
         </div>
@@ -366,7 +378,13 @@ export default function FinancialsPage() {
           onClick={() => setIsTaxCalcOpen(true)}
           className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
         >
-          <ShieldCheck size={16} className="text-yellow-600" /> Tax Calculator
+          <span className="p-1 bg-yellow-50 text-yellow-600 rounded"></span> Tax Calculator
+        </button>
+        <button
+          onClick={() => downloadReport("financials")}
+          className="px-8 py-5 bg-white border border-stone-200 rounded-[2rem] shadow-sm text-xs font-black tracking-widest uppercase text-stone-800 hover:border-stone-400 transition-all flex items-center gap-4 cursor-pointer"
+        >
+          <Download size={16} className="text-stone-500" /> Download Reports
         </button>
       </div>
 

@@ -99,7 +99,7 @@ export default function TimesheetsPage() {
       {/* Navigation Controls */}
       <div className="flex flex-wrap gap-4 border-b border-stone-200 pb-4">
         <button 
-          onClick={() => router.push("/financials")}
+          onClick={() => router.push("/payments")}
           className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
         >
           Financials

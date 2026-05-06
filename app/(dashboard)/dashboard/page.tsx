@@ -158,7 +158,7 @@ export default function DashboardPage() {
             label: "Current Profit", 
             value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stats.currentProfit), 
             icon: DollarSign, 
-            path: "/finance" 
+            path: "/payments" 
           },
         ].map((item) => (
           <motion.div

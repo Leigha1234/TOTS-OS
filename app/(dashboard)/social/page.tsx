@@ -22,7 +22,17 @@ import {
   Rss,
   Mail,
   DollarSign,
-  Users
+  Users,
+  Eye,
+  Send,
+  Check,
+  ShieldCheck,
+  Activity,
+  History,
+  TrendingUp,
+  Award,
+  BookOpen,
+  PieChart
 } from "lucide-react";
 
 interface ContentDraft {
@@ -60,17 +70,23 @@ export default function SocialPage() {
   const [selectedScheduleDate, setSelectedScheduleDate] = useState<string>('');
   const [isMounted, setIsMounted] = useState(false);
 
+  // Extended Advanced Analytics Data
+  const [totalEngagements, setTotalEngagements] = useState("2,482");
+  const [campaignBudget, setCampaignBudget] = useState("£12,450");
+  const [synthNodeCache, setSynthNodeCache] = useState("Online (100% Sync)");
+
   // Calendar Engine States
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  // Platform Channels
+  const platforms = ["Instagram", "LinkedIn", "Twitter", "Global Pool"];
+  
   const contentTypes = [
     { id: "image", label: "Image", icon: ImageIcon, code: "IMG" },
     { id: "carousel", label: "Carousel", icon: Layers, code: "CRSL" },
     { id: "video", label: "Video", icon: Video, code: "MOV" },
     { id: "blog", label: "Blog", icon: FileText, code: "TXT" },
   ] as const;
-
-  const platforms = ["Instagram", "LinkedIn", "Twitter", "Global Pool"];
 
   useEffect(() => {
     setIsMounted(true);
@@ -89,6 +105,7 @@ export default function SocialPage() {
         .select("*", { count: 'exact', head: true })
         .gte("scheduled_for", startOfWeek);
       if (count !== null) setWeeklyCount(count);
+      setWeeklyCount(count || 0);
     } catch (e) {
       console.error("Capacity check failed", e);
     }
@@ -232,7 +249,7 @@ export default function SocialPage() {
         </div>
       </header>
 
-      {/* Dashboard Stats Banner */}
+      {/* Extended Dashboard Stats Banner */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm flex items-center justify-between">
           <div>
@@ -334,6 +351,7 @@ export default function SocialPage() {
               </div>
             </section>
 
+            {/* Content Preview Block */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               <AnimatePresence>
                 {drafts.map((post, idx) => (
@@ -390,7 +408,8 @@ export default function SocialPage() {
             </div>
           </div>
 
-          <aside className="lg:col-span-4">
+          {/* ASIDE - Extended Predictive Section */}
+          <aside className="lg:col-span-4 space-y-8">
             <div className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm space-y-10 sticky top-12">
               <div className="space-y-1">
                 <h2 className="text-3xl font-serif italic text-stone-900 tracking-tighter">Resonance Engine</h2>
@@ -423,6 +442,31 @@ export default function SocialPage() {
                 </p>
                 <button className="text-[9px] font-black uppercase tracking-widest text-purple-600 hover:text-purple-800 transition-colors pt-2 cursor-pointer">View Node Data →</button>
               </div>
+            </div>
+
+            {/* NEW: Performance & Analytics Sub-Dashboard */}
+            <div className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm space-y-6">
+              <div className="flex items-center justify-between">
+                 <h3 className="text-lg font-serif italic text-stone-800">Advanced Status Feed</h3>
+                 <Activity size={16} className="text-purple-500" />
+              </div>
+              <div className="space-y-4 text-[10px] uppercase font-bold tracking-widest text-stone-400">
+                 <div className="flex justify-between items-center py-2 border-b border-stone-50">
+                    <span>Synthesizer State</span>
+                    <span className="text-green-600">{synthNodeCache}</span>
+                 </div>
+                 <div className="flex justify-between items-center py-2 border-b border-stone-50">
+                    <span>Engagements</span>
+                    <span className="text-stone-800">{totalEngagements}</span>
+                 </div>
+                 <div className="flex justify-between items-center py-2">
+                    <span>Budget Allocation</span>
+                    <span className="text-purple-600">{campaignBudget}</span>
+                 </div>
+              </div>
+              <button className="w-full py-4 bg-stone-900 text-white rounded-2xl text-[9px] font-black tracking-widest uppercase hover:bg-stone-800 transition-colors">
+                Run Diagnostics
+              </button>
             </div>
           </aside>
         </div>

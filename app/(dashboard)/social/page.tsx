@@ -45,14 +45,6 @@ interface ContentDraft {
   };
 }
 
-interface AnalyticsNode {
-  id: string;
-  label: string;
-  value: string | number;
-  trend: "up" | "down" | "stable";
-  percentage: string;
-}
-
 /**
  * CONFIGURATION CONSTANTS
  */
@@ -103,10 +95,8 @@ export default function SocialLabDashboard() {
   const [horizonPosts, setHorizonPosts] = useState<ContentDraft[]>([]);
   const [viewMode, setViewMode] = useState<'stream' | 'calendar'>('stream');
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedScheduleDate, setSelectedScheduleDate] = useState<string>('');
 
   // --- UI & ACCESSIBILITY ---
-  const [showTerminal, setShowTerminal] = useState(false);
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
@@ -140,7 +130,7 @@ export default function SocialLabDashboard() {
         .order("scheduled_for", { ascending: true });
       if (data) setHorizonPosts(data as any);
     } catch (e) {
-      console.warn("Supabase connectivity simulated/failed. Entering Offline Mode.");
+      console.warn("Supabase connectivity simulated. Entering Standalone Mode.");
     }
   };
 
@@ -151,7 +141,6 @@ export default function SocialLabDashboard() {
     if (!prompt || isGenerating) return;
     setIsGenerating(true);
 
-    // Simulated Latency for AI Response
     await new Promise(resolve => setTimeout(resolve, 2200));
 
     const newDraft: ContentDraft = {
@@ -208,7 +197,7 @@ export default function SocialLabDashboard() {
           >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-stone-900 rounded-lg text-white">
-                <Terminal size={18} />
+                <Layers size={18} />
               </div>
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-400">Environment: Stable</p>
@@ -302,9 +291,6 @@ export default function SocialLabDashboard() {
                       className="w-full h-72 bg-stone-50 rounded-[3rem] p-10 md:p-14 text-2xl md:text-3xl font-serif outline-none italic text-stone-800 placeholder-stone-200 resize-none transition-all focus:bg-white focus:ring-8 focus:ring-stone-100/50 border border-transparent focus:border-stone-100"
                     />
                     <div className="absolute bottom-10 right-10 flex items-center gap-6">
-                       <button className="text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 transition-colors hidden md:block">
-                         + Load Template
-                       </button>
                        <button
                          onClick={synthesizeContent}
                          disabled={!prompt || isGenerating}
@@ -335,7 +321,7 @@ export default function SocialLabDashboard() {
                 {/* DRAFT OUTPUT GRID */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <AnimatePresence>
-                    {drafts.map((draft, idx) => (
+                    {drafts.map((draft) => (
                       <motion.div
                         key={draft.id}
                         layout
@@ -356,9 +342,6 @@ export default function SocialLabDashboard() {
 
                         <div className="aspect-square bg-stone-50 rounded-[2.5rem] overflow-hidden relative shadow-inner">
                           <img src={draft.media_url} className="w-full h-full object-cover grayscale mix-blend-multiply opacity-60 group-hover:scale-105 group-hover:grayscale-0 transition-all duration-1000" />
-                          <div className="absolute top-6 left-6 flex gap-2">
-                             <div className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-[8px] font-black uppercase">Score: {draft.excellence_score}</div>
-                          </div>
                         </div>
 
                         <div className="space-y-4">
@@ -369,10 +352,6 @@ export default function SocialLabDashboard() {
                         </div>
 
                         <div className="pt-8 border-t border-stone-50 flex flex-col gap-4">
-                           <div className="flex items-center gap-3 bg-stone-50 p-4 rounded-2xl border border-stone-100">
-                              <Calendar size={14} className="text-stone-300" />
-                              <input type="datetime-local" className="bg-transparent text-[10px] font-black uppercase outline-none w-full" />
-                           </div>
                            <button className="w-full bg-stone-900 text-white py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:shadow-2xl transition-all">
                               Synchronize with Horizon
                            </button>
@@ -402,7 +381,6 @@ export default function SocialLabDashboard() {
                         {[
                           { label: "Retention Potential", val: "94.2%", color: "text-[#a9b897]" },
                           { label: "Neural Clarity", val: "High", color: "text-blue-400" },
-                          { label: "Sync Window", val: "Optimal", color: "text-purple-400" },
                         ].map((m, i) => (
                           <div key={i} className="flex justify-between items-end border-b border-white/5 pb-6">
                             <p className="text-[10px] font-black uppercase tracking-widest text-white/20">{m.label}</p>
@@ -434,15 +412,6 @@ export default function SocialLabDashboard() {
                          </div>
                          <div className="h-2 w-full bg-stone-50 rounded-full overflow-hidden">
                             <motion.div initial={{ width: 0 }} animate={{ width: `${(weeklyCount / WEEKLY_LIMIT) * 100}%` }} className="h-full bg-stone-900" />
-                         </div>
-                       </div>
-                       <div className="space-y-3">
-                         <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-stone-400">
-                           <span>Neural Memory Load</span>
-                           <span>42%</span>
-                         </div>
-                         <div className="h-2 w-full bg-stone-50 rounded-full overflow-hidden">
-                            <motion.div initial={{ width: 0 }} animate={{ width: "42%" }} className="h-full bg-stone-300" />
                          </div>
                        </div>
                      </div>
@@ -490,32 +459,6 @@ export default function SocialLabDashboard() {
                     </div>
                   ))}
                </div>
-               
-               {/* DETAILED GROWTH PLOT (Simulated) */}
-               <div className="bg-white border border-stone-100 rounded-[4rem] p-12 md:p-20 shadow-sm space-y-10">
-                  <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                     <div>
-                        <h3 className="text-3xl font-serif italic tracking-tighter">Growth Architecture</h3>
-                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mt-1">Rolling 30-Day Simulation</p>
-                     </div>
-                     <button className="px-8 py-4 bg-stone-50 rounded-2xl text-[9px] font-black uppercase tracking-widest border border-stone-100">Export Manifest</button>
-                  </header>
-                  <div className="h-96 w-full flex items-end gap-2 md:gap-4">
-                     {Array.from({ length: 24 }).map((_, i) => (
-                        <motion.div 
-                          key={i}
-                          initial={{ height: 0 }}
-                          animate={{ height: `${20 + (Math.random() * 80)}%` }}
-                          transition={{ delay: i * 0.05, duration: 1 }}
-                          className="flex-1 bg-stone-100 rounded-t-xl hover:bg-stone-900 transition-colors cursor-pointer relative group"
-                        >
-                           <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-[8px] font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                              {(Math.random() * 100).toFixed(1)}K
-                           </div>
-                        </motion.div>
-                     ))}
-                  </div>
-               </div>
             </motion.div>
           )}
 
@@ -550,7 +493,6 @@ export default function SocialLabDashboard() {
                         <div className="text-center md:text-left min-w-[140px]">
                            <span className="text-[10px] font-black uppercase text-stone-300 tracking-widest block mb-2">May 2026</span>
                            <span className="text-6xl font-serif italic text-stone-900 block leading-none">{12 + i}</span>
-                           <span className="text-[10px] font-mono text-stone-400 uppercase mt-2 block">18:45 GMT</span>
                         </div>
                         <div className="w-32 h-32 rounded-3xl overflow-hidden bg-stone-50 shadow-inner">
                            <img src={post.media_url || "https://images.unsplash.com/photo-1497215728101-856f4ea42174?q=80&w=400&auto=format&fit=crop"} className="w-full h-full object-cover grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" />
@@ -560,7 +502,6 @@ export default function SocialLabDashboard() {
                            <p className="text-2xl font-serif italic text-stone-800 leading-tight">"{post.caption.substring(0, 100)}..."</p>
                         </div>
                         <div className="flex gap-4">
-                           <button className="w-16 h-16 rounded-full border border-stone-100 flex items-center justify-center text-stone-200 hover:text-stone-900 hover:bg-stone-50 transition-all"><Edit2 size={20}/></button>
                            <button className="px-10 bg-stone-50 border border-stone-100 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-stone-900 hover:text-white transition-all">Live Sync</button>
                         </div>
                      </motion.div>
@@ -598,51 +539,6 @@ export default function SocialLabDashboard() {
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* --- GLOBAL TERMINAL INTERFACE --- */}
-        <div className="fixed bottom-10 right-10 z-[100]">
-           <button 
-             onClick={() => setShowTerminal(!showTerminal)}
-             className="w-16 h-16 bg-stone-900 text-[#a9b897] rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all duration-500"
-           >
-              {showTerminal ? <Minimize2 size={24} /> : <Command size={24} />}
-           </button>
-           <AnimatePresence>
-             {showTerminal && (
-               <motion.div
-                 initial={{ opacity: 0, y: 100, scale: 0.8, filter: "blur(10px)" }}
-                 animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-                 exit={{ opacity: 0, y: 100, scale: 0.8, filter: "blur(10px)" }}
-                 className="absolute bottom-24 right-0 w-[420px] h-[550px] bg-stone-950 rounded-[3rem] border border-stone-800 shadow-[0_50px_120px_-20px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col backdrop-blur-xl"
-               >
-                  <header className="p-8 border-b border-stone-800 flex justify-between items-center bg-stone-900/40">
-                    <div className="flex gap-2">
-                       <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/40" />
-                       <div className="w-3 h-3 rounded-full bg-amber-500/20 border border-amber-500/40" />
-                       <div className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/40" />
-                    </div>
-                    <span className="text-[10px] font-mono uppercase text-stone-500 tracking-[0.3em]">Root@TheOrganisedTypes</span>
-                  </header>
-                  <div className="flex-1 p-10 font-mono text-[11px] text-stone-400 overflow-y-auto space-y-6 scrollbar-hide">
-                     <p className="text-[#a9b897] leading-relaxed">{`> [SYSTEM]: Initializing Social Lab Interface...`}</p>
-                     <p className="leading-relaxed">{`> [NETWORK]: Established encrypted handshake with Supabase cluster.`}</p>
-                     <p className="text-blue-400 leading-relaxed">{`> [STORAGE]: Content manifests loaded from strategic_horizon_db.`}</p>
-                     <p className="text-stone-600 leading-relaxed">{`> [LOG]: Neural model OMEGA-4 operating at peak efficiency.`}</p>
-                     <div className="pt-6 border-t border-stone-800 space-y-4">
-                        <p className="text-stone-500">// ACTIVE DAEMONS:</p>
-                        <div className="flex justify-between items-center"><span className="text-stone-400">resonance_sim_v4</span> <span className="text-green-500">ACTIVE</span></div>
-                        <div className="flex justify-between items-center"><span className="text-stone-400">platform_sync_bridge</span> <span className="text-green-500">ACTIVE</span></div>
-                        <div className="flex justify-between items-center"><span className="text-stone-400">auto_hashtag_gen</span> <span className="text-amber-500">STANDBY</span></div>
-                     </div>
-                  </div>
-                  <div className="p-6 border-t border-stone-800 bg-stone-900/20 flex items-center gap-4">
-                     <span className="text-white font-black text-sm">$</span>
-                     <input className="bg-transparent border-none outline-none text-xs w-full text-stone-300 font-mono" placeholder="Query content engine..." />
-                  </div>
-               </motion.div>
-             )}
-           </AnimatePresence>
-        </div>
 
         {/* --- GLOBAL FOOTER --- */}
         <footer className="pt-24 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-10 pb-20 opacity-60 hover:opacity-100 transition-opacity">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 
 /**
- * TOTS-OS MASTER SETTINGS ENGINE
- * VERSION: 2.1.0 - PRODUCTION SECURE
+ * TOTS-OS COMMAND CENTER - FULL VERSION 2.8.5
+ * Includes: Identity, Hive Recruitment, Treasury Ledger, Brand Arch, Comms & Danger Zone.
  */
 
 const APP_PAGES = [
@@ -29,7 +29,7 @@ const APP_PAGES = [
   { id: "archive", label: "Data Archive" }
 ];
 
-const TIERS = ["STANDARD", "PREMIUM", "ELITE", "ENTERPRISE"];
+const FONTS = ["Inter", "Merriweather", "Geist", "Orbitron", "Montserrat"];
 
 function SettingsContent() {
   const router = useRouter();
@@ -62,7 +62,6 @@ function SettingsContent() {
   const [brandColor, setBrandColor] = useState("#a9b897");
   const [secondaryColor, setSecondaryColor] = useState("#e5e7eb");
   const [selectedFont, setSelectedFont] = useState("Inter");
-  const [logoUrl, setLogoUrl] = useState("");
   
   // -- TREASURY & BUSINESS --
   const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
@@ -77,13 +76,13 @@ function SettingsContent() {
   });
   const [campaignList, setCampaignList] = useState<string[]>([]);
   const [newCampaign, setNewCampaign] = useState("");
-  const [emailCampaigns, setEmailCampaigns] = useState("");
 
   // -- SYSTEM LOGS --
-  const [auditLogs, setAuditLogs] = useState<string[]>([
-    "• System Kernel initialized.",
-    "• Establishing secure handshake..."
-  ]);
+  const [auditLogs, setAuditLogs] = useState<string[]>(["• Kernel Cold Boot Sequence..."]);
+
+  const addLog = useCallback((msg: string) => {
+    setAuditLogs(prev => [`• ${msg} [${new Date().toLocaleTimeString()}]`, ...prev]);
+  }, []);
 
   useEffect(() => { init(); }, []);
 
@@ -97,7 +96,13 @@ function SettingsContent() {
 
       const { data: p } = await supabase.from("profiles").select("*").eq("id", authUser.id).maybeSingle();
       if (p) {
-        setProfile(p);
+        setProfile({
+          full_name: p.full_name || "",
+          phone: p.phone || "",
+          avatar_url: p.avatar_url || "",
+          next_of_kin: p.next_of_kin || "",
+          email_signature: p.email_signature || ""
+        });
         if (p.tier) setCurrentTier(p.tier.toUpperCase());
       }
 
@@ -119,43 +124,44 @@ function SettingsContent() {
           setBankInfo(s.bank_info || { name: "", acc: "", sort: "" });
           setWebhookUrl(s.webhook_url || "");
           setCompanyDetails(s.company_details || "");
-          setLogoUrl(s.logo_url || "");
           setSocialLinks(s.social_links || { website: "", instagram: "", linkedin: "", twitter: "", tiktok: "" });
           setCampaignList(s.campaigns || []);
           setNextOfKinPhone(s.next_of_kin_phone || "");
-          setEmailCampaigns(s.email_campaigns || "");
         }
       }
-      setAuditLogs(prev => [`• Handshake confirmed: ${authUser.email}`, ...prev]);
-    } catch (err) { console.error("Init Failure", err); }
-    finally { setLoading(false); }
+      addLog(`Secure Sync Established: ${authUser.email}`);
+    } catch (err) { 
+      console.error("Init Failure", err);
+      addLog("Sync Deviation Detected.");
+    } finally { 
+      setLoading(false); 
+    }
   }
 
   const handleGlobalSave = async () => {
-    if (!user?.id) return alert("System Deviation: No active user node.");
+    if (!user?.id) return;
     setSaving(true);
+    addLog("Commencing Global Commit...");
+    
     try {
-      // 1. Profile Core
+      // 1. Identity Profile Sync
       const { error: profileErr } = await supabase.from("profiles").update({
-        full_name: profile?.full_name || "",
-        phone: profile?.phone || "",
-        next_of_kin: profile?.next_of_kin || "",
-        email_signature: profile?.email_signature || "",
-        avatar_url: profile?.avatar_url || "",
-        tier: currentTier
+        full_name: profile.full_name,
+        phone: profile.phone,
+        next_of_kin: profile.next_of_kin,
+        email_signature: profile.email_signature,
       }).eq("id", user.id);
       if (profileErr) throw profileErr;
 
-      // 2. Auth Node
-      if (email !== user.email || password) {
-        const up: any = { email };
-        if (password) up.password = password;
-        const { error: authErr } = await supabase.auth.updateUser(up);
+      // 2. Auth Node Sync
+      if (password) {
+        const { error: authErr } = await supabase.auth.updateUser({ password });
         if (authErr) throw authErr;
-        setPassword(""); 
+        setPassword("");
+        addLog("Auth security keys rotated.");
       }
 
-      // 3. System Global
+      // 3. System Global Settings Sync
       if (teamId) {
         const { error: settingsErr } = await supabase.from("settings").upsert({
           team_id: teamId,
@@ -165,25 +171,20 @@ function SettingsContent() {
           bank_info: bankInfo,
           webhook_url: webhookUrl,
           company_details: companyDetails,
-          logo_url: logoUrl,
           social_links: socialLinks,
           campaigns: campaignList,
-          next_of_kin_phone: nextOfKinPhone,
-          email_campaigns: emailCampaigns
+          next_of_kin_phone: nextOfKinPhone
         });
         if (settingsErr) throw settingsErr;
       }
 
-      setAuditLogs(prev => [`• Commit successful at ${new Date().toLocaleTimeString()}`, ...prev]);
-      alert("System State Synchronized.");
-    } catch (err: any) { alert("Critical Sync Error: " + err.message); }
-    finally { setSaving(false); }
-  };
-
-  const addCampaign = () => {
-    if (newCampaign && !campaignList.includes(newCampaign)) {
-      setCampaignList([...campaignList, newCampaign]);
-      setNewCampaign("");
+      addLog("System Matrix Update: SUCCESS.");
+      alert("Changes Committed to Node.");
+    } catch (err: any) { 
+      addLog(`COMMIT ERROR: ${err.message}`);
+      alert("Critical Sync Error: " + err.message); 
+    } finally { 
+      setSaving(false); 
     }
   };
 
@@ -197,265 +198,286 @@ function SettingsContent() {
         permissions: selectedPermissions 
       });
       if (error) throw error;
+      addLog(`Invited Node: ${inviteEmail}`);
       setInviteEmail("");
       init();
-    } catch (err: any) { alert("Provisioning Error: " + err.message); }
+    } catch (err: any) { 
+      addLog(`Provision Error: ${err.message}`);
+    }
+  };
+
+  const togglePermission = (id: string) => {
+    setSelectedPermissions(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
   };
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#fcfaf7]">
-      <Loader2 className="animate-spin text-[#a9b897]" size={48} />
-      <p className="mt-4 text-[10px] font-black uppercase tracking-[0.5em] text-stone-300">Decrypting Node State...</p>
+      <Loader2 className="animate-spin text-[#a9b897]" size={56} />
+      <p className="mt-6 text-[10px] font-black uppercase tracking-[0.6em] text-stone-300">Decrypting System Node...</p>
     </div>
   );
 
   const publicInviteLink = typeof window !== 'undefined' ? `${window.location.origin}/login?invite=${teamId}` : '';
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
+    <div className={`min-h-screen transition-colors duration-700 ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
       <style jsx global>{`
-        body { font-family: '${selectedFont}', sans-serif; }
+        body { font-family: '${selectedFont}', sans-serif; transition: background 0.5s; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: ${brandColor}40; border-radius: 10px; }
+        .command-card { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .command-card:hover { transform: translateY(-4px); box-shadow: 0 30px 60px -12px rgba(0,0,0,0.05); }
       `}</style>
 
-      <div className="max-w-[1600px] mx-auto p-6 lg:p-16 space-y-12 pb-40">
+      <div className="max-w-[1650px] mx-auto p-6 lg:p-20 space-y-20 pb-40">
         
-        {/* HEADER SECTION */}
-        <header className="flex flex-col md:flex-row justify-between items-end gap-8 border-b border-stone-200 pb-16">
-          <div className="space-y-4">
-            <h1 className="text-8xl md:text-9xl font-serif italic tracking-tighter leading-none" style={{ color: brandColor }}>Command</h1>
+        {/* --- HEADER --- */}
+        <header className="flex flex-col md:flex-row justify-between items-end gap-10 border-b border-stone-200/60 pb-20">
+          <div className="space-y-6">
+            <h1 className="text-9xl md:text-[12rem] font-serif italic tracking-tighter leading-none" style={{ color: brandColor }}>Command</h1>
             <div className="flex items-center gap-6">
-              <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.4em] opacity-40">
-                <ShieldCheck size={12} /> Active Node: {user?.email}
+              <span className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.5em] opacity-40">
+                <ShieldCheck size={14} /> Active Node: {user?.email}
               </span>
-              <span className="px-4 py-1 bg-stone-100 rounded-full text-[8px] font-black uppercase tracking-widest">{currentTier} Tier</span>
+              <span className="px-5 py-1.5 bg-stone-100 rounded-full text-[8px] font-black uppercase tracking-widest">{currentTier} TIER</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-4">
-            <button onClick={() => supabase.auth.signOut().then(() => router.push("/login"))} className="flex items-center gap-3 px-8 py-6 rounded-3xl border border-red-100 bg-white font-black text-[10px] uppercase tracking-widest text-red-500 hover:bg-red-50 transition-all shadow-sm">
-              <LogOut size={16} /> Logout
+          <div className="flex flex-wrap gap-5">
+            <button onClick={() => supabase.auth.signOut().then(() => router.push("/login"))} className="flex items-center gap-3 px-10 py-7 rounded-[2.5rem] border border-red-100 bg-white font-black text-[10px] uppercase tracking-widest text-red-500 hover:bg-red-50 transition-all shadow-sm">
+               <LogOut size={16} /> Exit
             </button>
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-6 rounded-3xl border border-stone-200 bg-white">
-               {isDarkMode ? <Sun size={24} className="text-orange-400"/> : <Moon size={24} />}
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-7 rounded-[2.5rem] border border-stone-200 bg-white hover:bg-stone-50 transition-all shadow-sm">
+               {isDarkMode ? <Sun size={28} className="text-orange-400"/> : <Moon size={28} />}
             </button>
-            <button onClick={handleGlobalSave} disabled={saving} className="flex items-center gap-4 px-12 py-6 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-2xl text-white" style={{ backgroundColor: brandColor }}>
-              {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18} />} Commit Changes
+            <button onClick={handleGlobalSave} disabled={saving} className="flex items-center gap-5 px-16 py-7 rounded-[2.5rem] font-black text-[11px] uppercase tracking-[0.2em] hover:scale-105 transition-all shadow-2xl text-white" style={{ backgroundColor: brandColor }}>
+              {saving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20} />} Commit Changes
             </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
           
-          {/* SIDEBAR COL */}
-          <div className="lg:col-span-4 space-y-12">
+          {/* --- LEFT COLUMN: IDENTITY & VISUALS --- */}
+          <div className="lg:col-span-4 space-y-16">
             
-            {/* IDENTITY MODULE */}
-            <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-10">
-              <div className="relative group w-44 h-44 mx-auto rounded-full bg-stone-50 border-4 border-dashed border-stone-100 flex items-center justify-center overflow-hidden">
-                {profile?.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover" /> : <UserCircle size={64} className="opacity-10" />}
-                <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
-                  <Camera size={24} />
+            {/* PROFILE MODULE */}
+            <section className="command-card bg-white p-12 rounded-[5rem] border border-stone-100 shadow-sm space-y-12">
+              <div className="relative group w-56 h-56 mx-auto rounded-full bg-stone-50 border-8 border-dashed border-stone-100 flex items-center justify-center overflow-hidden">
+                {profile?.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover" /> : <UserCircle size={80} className="opacity-10" />}
+                <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
+                  <Camera size={28} />
+                  <span className="text-[8px] font-black uppercase mt-2">Upload Profile</span>
                   <input type="file" className="hidden" />
                 </label>
               </div>
-              <input value={profile?.full_name || ""} onChange={e => setProfile({...profile, full_name: e.target.value})} placeholder="Identity Name" className="text-center font-serif italic text-3xl w-full bg-transparent outline-none" />
+              <input value={profile?.full_name} onChange={e => setProfile({...profile, full_name: e.target.value})} placeholder="Identity Name" className="text-center font-serif italic text-4xl w-full bg-transparent outline-none border-b border-transparent focus:border-stone-100 pb-4" />
               
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-6 bg-stone-50 rounded-3xl border border-stone-100">
-                  <Mail size={18} className="text-stone-300" /><input value={email} onChange={e => setEmail(e.target.value)} className="bg-transparent text-xs font-bold outline-none w-full" />
+              <div className="space-y-5">
+                <div className="flex items-center gap-5 p-7 bg-stone-50 rounded-[2.5rem] border border-stone-100">
+                  <Mail size={20} className="text-stone-300" /><input value={email} onChange={e => setEmail(e.target.value)} className="bg-transparent text-xs font-bold outline-none w-full" />
                 </div>
-                <div className="flex items-center gap-4 p-6 bg-stone-50 rounded-3xl border border-stone-100">
-                  <Fingerprint size={18} className="text-stone-300" /><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="New Password" className="bg-transparent text-xs font-bold outline-none w-full" />
+                <div className="flex items-center gap-5 p-7 bg-stone-50 rounded-[2.5rem] border border-stone-100">
+                  <Fingerprint size={20} className="text-stone-300" /><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Update Passkey" className="bg-transparent text-xs font-bold outline-none w-full" />
                 </div>
-                <div className="flex items-center gap-4 p-6 bg-stone-50 rounded-3xl border border-stone-100">
-                  <Phone size={18} className="text-stone-300" /><input value={profile?.phone || ""} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="Contact Node" className="bg-transparent text-xs font-bold outline-none w-full" />
+                <div className="flex items-center gap-5 p-7 bg-stone-50 rounded-[2.5rem] border border-stone-100">
+                  <Phone size={20} className="text-stone-300" /><input value={profile?.phone} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="System Contact" className="bg-transparent text-xs font-bold outline-none w-full" />
                 </div>
               </div>
             </section>
 
-            {/* VISUAL ARCHITECTURE */}
-            <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-8">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-3"><Palette size={16} /> Brand Design</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[8px] font-black uppercase text-stone-400">Primary</label>
-                  <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-full h-14 rounded-2xl cursor-pointer bg-transparent" />
+            {/* BRAND ARCHITECTURE */}
+            <section className="command-card bg-white p-12 rounded-[5rem] border border-stone-100 shadow-sm space-y-10">
+              <h2 className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40 flex items-center gap-4"><Palette size={18} /> Architecture</h2>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-1">Primary Color</label>
+                  <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-full h-16 rounded-3xl cursor-pointer bg-stone-50 border border-stone-100" />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[8px] font-black uppercase text-stone-400">Secondary</label>
-                  <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-full h-14 rounded-2xl cursor-pointer bg-transparent" />
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black uppercase text-stone-400 ml-1">Secondary</label>
+                  <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-full h-16 rounded-3xl cursor-pointer bg-stone-50 border border-stone-100" />
                 </div>
               </div>
-              <div className="space-y-3 pt-4">
-                <label className="text-[8px] font-black uppercase text-stone-400">Typography Suite</label>
-                <select value={selectedFont} onChange={e => setSelectedFont(e.target.value)} className="w-full p-5 rounded-2xl border border-stone-100 bg-stone-50 text-xs font-bold outline-none appearance-none">
-                  <option value="Inter">Inter (Universal Sans)</option>
-                  <option value="Merriweather">Merriweather (Executive Serif)</option>
-                  <option value="Geist">Geist (Modern Mono)</option>
-                  <option value="Orbitron">Cyber (Futuristic)</option>
-                </select>
+              <div className="space-y-4 pt-4">
+                <label className="text-[9px] font-black uppercase text-stone-400 ml-1">System Typography</label>
+                <div className="grid grid-cols-1 gap-2">
+                  {FONTS.map(f => (
+                    <button key={f} onClick={() => setSelectedFont(f)} className={`p-5 rounded-2xl border text-left text-xs font-bold transition-all ${selectedFont === f ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-100 bg-stone-50 text-stone-400'}`}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
               </div>
             </section>
             
-            {/* AUDIT MODULE */}
-            <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-6">
-              <h2 className="text-[10px] font-black uppercase tracking-widest opacity-40 flex items-center gap-3"><History size={16}/> Event Logs</h2>
-              <div className="text-[9px] font-bold opacity-30 space-y-3 h-32 overflow-y-auto custom-scrollbar font-mono leading-relaxed">
+            {/* SYSTEM AUDIT */}
+            <section className="command-card bg-white p-12 rounded-[5rem] border border-stone-100 shadow-sm space-y-8">
+              <h2 className="text-[11px] font-black uppercase tracking-widest opacity-40 flex items-center gap-4"><History size={18}/> Audit Trail</h2>
+              <div className="text-[10px] font-bold opacity-30 space-y-4 h-48 overflow-y-auto custom-scrollbar font-mono leading-relaxed pr-4">
                 {auditLogs.map((log, index) => <p key={index}>{log}</p>)}
               </div>
             </section>
           </div>
 
-          {/* MAIN OPERATIONS COL */}
-          <div className="lg:col-span-8 space-y-12">
+          {/* --- RIGHT COLUMN: OPERATIONS & LOGISTICS --- */}
+          <div className="lg:col-span-8 space-y-16">
             
-            {/* THE HIVE (TEAM RECRUITMENT) */}
-            <section className="bg-white p-12 rounded-[5rem] border border-stone-100 shadow-sm space-y-12">
+            {/* THE HIVE (RECRUITMENT) */}
+            <section className="command-card bg-white p-16 rounded-[6rem] border border-stone-100 shadow-sm space-y-16">
               <div className="flex justify-between items-end">
-                <h2 className="text-[12px] font-black uppercase tracking-[0.5em] opacity-40 flex items-center gap-4"><Users size={18} /> The Hive</h2>
-                <button onClick={() => router.push('/billing')} className="px-6 py-3 bg-stone-900 text-white rounded-full text-[9px] font-black uppercase tracking-widest">Upgrade Seats</button>
+                <div className="space-y-2">
+                   <h2 className="text-[14px] font-black uppercase tracking-[0.6em] opacity-40 flex items-center gap-5"><Users size={22} /> The Hive</h2>
+                   <p className="text-[10px] font-bold text-stone-300 uppercase tracking-widest">Team Permission Management</p>
+                </div>
+                <span className="text-[10px] font-black uppercase bg-stone-100 px-6 py-3 rounded-full">{teamMembers.length} ACTIVE NODES</span>
               </div>
 
               {/* INVITE NODE */}
-              <div className="space-y-6 bg-stone-50/50 p-10 rounded-[3.5rem] border border-stone-100">
-                <div className="flex gap-4">
-                  <input placeholder="Provision email..." value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="flex-1 p-5 rounded-3xl border border-stone-100 bg-white text-xs font-bold outline-none" />
-                  <button onClick={handleInvite} className="px-10 py-5 bg-stone-900 text-white rounded-3xl font-black text-[10px] uppercase tracking-widest">Recruit</button>
+              <div className="space-y-8 bg-stone-50 p-12 rounded-[4rem] border border-stone-100">
+                <div className="flex flex-col md:flex-row gap-5">
+                  <input placeholder="Provision email identity..." value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="flex-1 p-6 rounded-[2rem] border border-stone-200 bg-white text-sm font-bold outline-none" />
+                  <button onClick={handleInvite} className="px-12 py-6 bg-stone-900 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl">Recruit Node</button>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {APP_PAGES.map(p => (
-                    <button key={p.id} onClick={() => setSelectedPermissions(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])} className={`p-4 rounded-2xl border text-[9px] font-black uppercase transition-all ${selectedPermissions.includes(p.id) ? 'border-stone-900 bg-stone-900 text-white shadow-lg' : 'border-stone-200 text-stone-400 bg-white'}`}>
-                      {p.label}
-                    </button>
-                  ))}
+                <div className="space-y-4">
+                  <p className="text-[9px] font-black uppercase opacity-30 ml-2 tracking-widest">Initial Access Toggles</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {APP_PAGES.map(p => (
+                      <button key={p.id} onClick={() => togglePermission(p.id)} className={`p-5 rounded-2xl border text-[10px] font-black uppercase transition-all ${selectedPermissions.includes(p.id) ? 'border-stone-900 bg-stone-900 text-white shadow-lg' : 'border-stone-200 text-stone-400 bg-white hover:border-stone-300'}`}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* PUBLIC INVITE LINK */}
-              <div className="p-8 bg-stone-50 rounded-[3rem] border border-stone-100 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-widest">Public Node Link</p>
-                  <p className="text-[11px] font-mono opacity-40 truncate max-w-xs">{publicInviteLink}</p>
+              {/* PUBLIC LINK */}
+              <div className="p-10 bg-stone-50 rounded-[4rem] border border-stone-100 flex flex-col md:flex-row items-center justify-between gap-8">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">External Handshake URL</p>
+                  <p className="text-[12px] font-mono opacity-50 truncate max-w-md">{publicInviteLink}</p>
                 </div>
-                <button onClick={() => { navigator.clipboard.writeText(publicInviteLink); alert("Link Synchronized."); }} className="flex items-center gap-3 px-8 py-4 bg-white border border-stone-200 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-900 hover:text-white transition-all">
-                  <Copy size={14} /> Copy Handshake
+                <button onClick={() => { navigator.clipboard.writeText(publicInviteLink); alert("Handshake Link Copied."); }} className="flex items-center gap-4 px-10 py-5 bg-white border border-stone-200 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-stone-900 hover:text-white transition-all shadow-sm">
+                  <Copy size={16} /> Copy
                 </button>
               </div>
 
-              {/* MEMBER NODES */}
-              <div className="space-y-3">
+              {/* NODE LIST */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {teamMembers.map((m, i) => (
-                  <div key={i} className="flex items-center justify-between p-6 bg-white rounded-[2.5rem] border border-stone-100 shadow-sm group hover:border-stone-300 transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-stone-50 border border-stone-100 flex items-center justify-center font-black text-[12px] group-hover:scale-110 transition-transform">
-                        {m?.email?.charAt(0).toUpperCase() || 'U'}
+                  <div key={i} className="flex items-center justify-between p-8 bg-white rounded-[3rem] border border-stone-100 shadow-sm group hover:border-stone-400 transition-all">
+                    <div className="flex items-center gap-6">
+                      <div className="w-14 h-14 rounded-full bg-stone-50 border border-stone-100 flex items-center justify-center font-black text-[14px] group-hover:scale-110 transition-transform">
+                        {m?.email?.charAt(0).toUpperCase()}
                       </div>
-                      <div className="space-y-0.5">
+                      <div className="space-y-1">
                         <p className="text-xs font-black">{m?.email}</p>
-                        <p className="text-[8px] font-black uppercase tracking-widest opacity-30">{m.role}</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-30">{m.role}</p>
                       </div>
                     </div>
-                    <button className="p-4 text-stone-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><ShieldAlert size={20}/></button>
+                    <button className="p-5 text-stone-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><ShieldAlert size={24}/></button>
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* TREASURY LEDGER (BANKING) */}
-            <section className="text-white p-14 rounded-[5rem] shadow-2xl relative overflow-hidden" style={{ backgroundColor: secondaryColor }}>
-              <div className="absolute top-0 right-0 p-12 opacity-5"><Landmark size={120} /></div>
-              <div className="flex items-center gap-4 mb-12 opacity-50"><Landmark size={24} /><h2 className="text-[12px] font-black uppercase tracking-[0.5em]">Treasury Ledger</h2></div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
-                <div className="space-y-2">
-                   <label className="text-[8px] font-black uppercase opacity-40 ml-2">Bank Identity</label>
-                   <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} placeholder="e.g. MONZO" className="w-full bg-white/10 border border-white/10 p-6 rounded-3xl text-sm font-bold outline-none placeholder:text-white/20" />
+            {/* TREASURY LEDGER */}
+            <section className="text-white p-16 rounded-[6rem] shadow-2xl relative overflow-hidden command-card" style={{ backgroundColor: secondaryColor }}>
+              <div className="absolute top-0 right-0 p-16 opacity-5 pointer-events-none"><Landmark size={200} /></div>
+              <div className="flex items-center gap-5 mb-16 opacity-60"><Landmark size={28} /><h2 className="text-[14px] font-black uppercase tracking-[0.6em]">Treasury Ledger</h2></div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-10 relative z-10">
+                <div className="space-y-3">
+                   <label className="text-[9px] font-black uppercase opacity-40 ml-3 tracking-widest">Bank Identity</label>
+                   <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} placeholder="INSTITUTION NAME" className="w-full bg-white/10 border border-white/10 p-7 rounded-[2rem] text-sm font-bold outline-none placeholder:text-white/20 focus:bg-white/20 transition-all" />
                 </div>
-                <div className="space-y-2">
-                   <label className="text-[8px] font-black uppercase opacity-40 ml-2">Account No.</label>
-                   <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} placeholder="00000000" className="w-full bg-white/10 border border-white/10 p-6 rounded-3xl text-sm font-mono outline-none placeholder:text-white/20" />
+                <div className="space-y-3">
+                   <label className="text-[9px] font-black uppercase opacity-40 ml-3 tracking-widest">Account Node</label>
+                   <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} placeholder="00000000" className="w-full bg-white/10 border border-white/10 p-7 rounded-[2rem] text-sm font-mono outline-none focus:bg-white/20 transition-all" />
                 </div>
-                <div className="space-y-2">
-                   <label className="text-[8px] font-black uppercase opacity-40 ml-2">Sort Code</label>
-                   <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} placeholder="00-00-00" className="w-full bg-white/10 border border-white/10 p-6 rounded-3xl text-sm font-mono outline-none placeholder:text-white/20" />
+                <div className="space-y-3">
+                   <label className="text-[9px] font-black uppercase opacity-40 ml-3 tracking-widest">Routing/Sort</label>
+                   <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} placeholder="00-00-00" className="w-full bg-white/10 border border-white/10 p-7 rounded-[2rem] text-sm font-mono outline-none focus:bg-white/20 transition-all" />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-                 <div className="space-y-2">
-                   <label className="text-[8px] font-black uppercase opacity-40 ml-2">Currency Module</label>
-                   <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-full bg-white/10 border border-white/10 p-6 rounded-3xl text-sm font-bold outline-none appearance-none">
-                     <option value="GBP (£)">GBP (£)</option>
-                     <option value="USD ($)">USD ($)</option>
-                     <option value="EUR (€)">EUR (€)</option>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mt-10">
+                 <div className="space-y-3">
+                   <label className="text-[9px] font-black uppercase opacity-40 ml-3 tracking-widest">Currency Locale</label>
+                   <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-full bg-white/10 border border-white/10 p-7 rounded-[2rem] text-sm font-bold outline-none appearance-none cursor-pointer focus:bg-white/20 transition-all">
+                     <option value="GBP (£)">British Pound (£)</option>
+                     <option value="USD ($)">US Dollar ($)</option>
+                     <option value="EUR (€)">Euro (€)</option>
                    </select>
                  </div>
-                 <div className="space-y-2">
-                   <label className="text-[8px] font-black uppercase opacity-40 ml-2">Internal Webhook URL</label>
-                   <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://api.tots-os.com/..." className="w-full bg-white/10 border border-white/10 p-6 rounded-3xl text-sm font-mono outline-none placeholder:text-white/20" />
+                 <div className="space-y-3">
+                   <label className="text-[9px] font-black uppercase opacity-40 ml-3 tracking-widest">Sync Webhook</label>
+                   <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://api.tots-os.com/endpoint" className="w-full bg-white/10 border border-white/10 p-7 rounded-[2rem] text-sm font-mono outline-none focus:bg-white/20 transition-all" />
                  </div>
               </div>
             </section>
 
-            {/* EXTERNAL ECOSYSTEM (SOCIALS & CAMPAIGNS) */}
-            <section className="bg-white p-12 rounded-[5rem] border border-stone-100 shadow-sm space-y-12">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-                <div className="space-y-8">
-                  <h2 className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40 flex items-center gap-4"><Link2 size={18} /> Social Handshakes</h2>
-                  <div className="space-y-3">
+            {/* ECOSYSTEM & CAMPAIGNS */}
+            <section className="command-card bg-white p-16 rounded-[6rem] border border-stone-100 shadow-sm space-y-16">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
+                <div className="space-y-10">
+                  <h2 className="text-[12px] font-black uppercase tracking-[0.5em] opacity-40 flex items-center gap-5"><Link2 size={22} /> Ecosystem</h2>
+                  <div className="space-y-4">
                     {Object.keys(socialLinks).map((key) => (
-                      <div key={key} className="flex items-center gap-4 p-5 bg-stone-50 border border-stone-100 rounded-3xl">
-                        <Globe size={16} className="opacity-20" />
+                      <div key={key} className="flex items-center gap-5 p-6 bg-stone-50 border border-stone-100 rounded-[2rem] group hover:border-stone-400 transition-all">
+                        <Globe size={18} className="opacity-20 group-hover:opacity-100 transition-opacity" />
                         <input value={(socialLinks as any)[key]} onChange={e => setSocialLinks({...socialLinks, [key]: e.target.value})} placeholder={key.toUpperCase()} className="w-full bg-transparent text-xs font-bold outline-none" />
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="space-y-8">
-                   <h2 className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40 flex items-center gap-4"><Zap size={18} /> Campaign Infrastructure</h2>
-                   <div className="flex gap-3">
-                     <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="Campaign Ref..." className="flex-1 p-5 bg-stone-50 border border-stone-100 rounded-3xl text-xs font-bold outline-none" />
-                     <button onClick={addCampaign} className="px-8 bg-stone-900 text-white rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-lg">Inject</button>
+                <div className="space-y-10">
+                   <h2 className="text-[12px] font-black uppercase tracking-[0.5em] opacity-40 flex items-center gap-5"><Zap size={22} /> Campaign Hub</h2>
+                   <div className="flex gap-4">
+                     <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="Add identifier..." className="flex-1 p-6 bg-stone-50 border border-stone-200 rounded-[2rem] text-xs font-bold outline-none" />
+                     <button onClick={() => { if(newCampaign){ setCampaignList([...campaignList, newCampaign]); setNewCampaign(""); }}} className="px-10 bg-stone-900 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-all">Inject</button>
                    </div>
-                   <div className="h-64 overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                   <div className="h-72 overflow-y-auto custom-scrollbar space-y-3 pr-4">
                      {campaignList.map((c, i) => (
-                       <div key={i} className="flex justify-between items-center bg-stone-50 p-5 border border-stone-100 rounded-3xl">
-                         <span className="text-xs font-bold opacity-60 italic">REF: {c}</span>
-                         <button onClick={() => setCampaignList(campaignList.filter((_, idx) => idx !== i))} className="text-stone-300 hover:text-red-500"><Trash2 size={16}/></button>
+                       <div key={i} className="flex justify-between items-center bg-stone-50 p-6 border border-stone-100 rounded-[2rem] group hover:bg-white transition-all">
+                         <span className="text-xs font-bold opacity-60 tracking-wider uppercase">{c}</span>
+                         <button onClick={() => setCampaignList(campaignList.filter((_, idx) => idx !== i))} className="text-stone-300 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
                        </div>
                      ))}
-                     {campaignList.length === 0 && <p className="text-[10px] opacity-20 italic p-10 text-center">No active campaign nodes.</p>}
+                     {campaignList.length === 0 && <p className="text-[10px] opacity-20 italic p-16 text-center tracking-widest">NO ACTIVE CAMPAIGN NODES.</p>}
                    </div>
                 </div>
               </div>
             </section>
 
-            {/* COMMS SIGNATURE & META */}
-            <section className="bg-white p-12 rounded-[5rem] border border-stone-100 shadow-sm space-y-12">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                 <div className="space-y-4">
-                   <h2 className="text-[11px] font-black uppercase tracking-widest opacity-40 flex items-center gap-3"><Type size={16}/> Comms Signature</h2>
-                   <textarea value={profile?.email_signature || ""} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Professional identity closure..." className="w-full h-48 p-10 rounded-[3.5rem] border border-stone-100 bg-stone-50/50 text-sm italic font-serif outline-none resize-none leading-relaxed" />
+            {/* COMMS & REGISTRY */}
+            <section className="command-card bg-white p-16 rounded-[6rem] border border-stone-100 shadow-sm space-y-16">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+                 <div className="space-y-6">
+                   <h2 className="text-[12px] font-black uppercase tracking-[0.5em] opacity-40 flex items-center gap-5"><Type size={22}/> Identity Signature</h2>
+                   <textarea value={profile.email_signature} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Professional closure node..." className="w-full h-64 p-12 rounded-[4rem] border border-stone-100 bg-stone-50/50 text-sm italic font-serif outline-none resize-none leading-relaxed focus:bg-white transition-all" />
                  </div>
-                 <div className="space-y-4">
-                   <h2 className="text-[11px] font-black uppercase tracking-widest opacity-40 flex items-center gap-3"><Database size={16}/> Company Registry</h2>
-                   <textarea value={companyDetails} onChange={e => setCompanyDetails(e.target.value)} placeholder="VAT No., Registered Address, HQ Node..." className="w-full h-48 p-10 rounded-[3.5rem] border border-stone-100 bg-stone-50/50 text-[10px] font-black uppercase tracking-[0.3em] outline-none resize-none leading-loose" />
+                 <div className="space-y-6">
+                   <h2 className="text-[12px] font-black uppercase tracking-[0.5em] opacity-40 flex items-center gap-5"><Database size={22}/> System Metadata</h2>
+                   <textarea value={companyDetails} onChange={e => setCompanyDetails(e.target.value)} placeholder="Registration Number, VAT, HQ Coordinates..." className="w-full h-64 p-12 rounded-[4rem] border border-stone-100 bg-stone-50/50 text-[10px] font-black uppercase tracking-[0.4em] outline-none resize-none leading-loose focus:bg-white transition-all" />
                  </div>
                </div>
             </section>
 
-            {/* EMERGENCY PROTOCOLS */}
-            <section className="bg-red-50/30 border border-red-100 p-12 rounded-[5rem] flex flex-col md:flex-row gap-8 items-center justify-between">
-              <div className="flex items-center gap-4 text-red-600">
-                <AlertTriangle size={32} />
-                <div className="space-y-1">
-                  <h2 className="text-[12px] font-black uppercase tracking-[0.5em]">Emergency Shutdown</h2>
-                  <p className="text-[9px] font-black opacity-40 uppercase tracking-widest">Permanent Node Deletion & Data Wipe</p>
+            {/* DANGER ZONE */}
+            <section className="bg-red-50/40 border border-red-100 p-16 rounded-[6rem] flex flex-col md:flex-row gap-10 items-center justify-between">
+              <div className="flex items-center gap-6 text-red-600">
+                <AlertTriangle size={40} />
+                <div className="space-y-2">
+                  <h2 className="text-[14px] font-black uppercase tracking-[0.6em]">System Termination</h2>
+                  <p className="text-[10px] font-black opacity-40 uppercase tracking-[0.2em]">De-provision node & wipe linked data caches.</p>
                 </div>
               </div>
-              <div className="flex gap-4 w-full md:w-auto">
-                <button className="flex-1 px-10 py-6 bg-white border border-red-200 text-red-600 rounded-[2.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all"><Download size={18} className="inline mr-2"/> Data Export</button>
-                <button className="flex-1 px-10 py-6 bg-red-600 text-white rounded-[2.5rem] font-black text-[10px] uppercase tracking-widest hover:shadow-2xl transition-all">Execute Wipe</button>
+              <div className="flex gap-5 w-full md:w-auto">
+                <button className="flex-1 px-12 py-7 bg-white border border-red-200 text-red-600 rounded-[2.5rem] font-black text-[11px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm">
+                   <Download size={20} className="inline mr-2"/> Export Data
+                </button>
+                <button className="flex-1 px-12 py-7 bg-red-600 text-white rounded-[2.5rem] font-black text-[11px] uppercase tracking-widest hover:shadow-2xl transition-all">Execute Wipe</button>
               </div>
             </section>
 
@@ -466,13 +488,11 @@ function SettingsContent() {
   );
 }
 
-// ROOT COMPONENT WITH SUSPENSE BOUNDARY
 export default function SettingsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#fcfaf7] gap-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#fcfaf7]">
         <Loader2 className="animate-spin text-stone-200" size={64} />
-        <p className="text-[9px] font-black uppercase tracking-[0.5em] text-stone-300">Initializing Command...</p>
       </div>
     }>
       <SettingsContent />

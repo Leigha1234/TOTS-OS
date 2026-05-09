@@ -1,367 +1,290 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useEffect, useState, Suspense, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase-client"; 
 import { 
-  Search, X, Download, Folder, ChevronDown, 
-  FileText, Sparkles, Globe, ShieldCheck, Activity, 
-  Terminal, HardDrive, Fingerprint, TrendingUp,
-  Save, Share2, LayoutGrid, Layers3, ArrowLeft,
-  ChevronRight, Calendar, Info, AlertTriangle, FileCode,
-  Zap, Radio, HardDriveDownload, Database, Command,
-  Settings, Eye, EyeOff, Lock, RefreshCw, Cpu
+  Save, Moon, Sun, Loader2, Landmark, 
+  Users, Trash2, Check, Download,
+  Eye, EyeOff, UserPlus, AlertTriangle,
+  Camera, Mail, Phone, HeartPulse, Palette,
+  UserCircle, Fingerprint, Globe, History, Zap, ShieldCheck,
+  Upload, Link2, FolderGit, Type, HeartHandshake, ListChecks,
+  Database, User, Copy, ArrowUpRight, LogOut, ChevronRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
-// --- FULL DATA REPOSITORY ---
-const VAULT_DATA = [
-  { 
-    id: 1, 
-    title: "Client Intake System", 
-    category: "Onboarding & CRM", 
-    clarityLevel: "High",
-    tags: ["CRM", "Onboarding", "Workflow"],
-    metadata: { lastUpdated: "2026-05-01", version: "2.1.0", author: "TOTS Core", complianceScore: 98, integrityHash: "0x882" },
-    content: `CLIENT ONBOARDING SYSTEM\n\n📄 Intake Form\nName: [Client Name]\nBusiness: [Business Name]\nService purchased: [Service Name]\nStart date: [YYYY-MM-DD]\n\n⚙️ Workflow\n[ ] New client created\n[ ] Send welcome email\n[ ] Send contract + invoice\n[ ] Create project board\n[ ] Book kickoff call\n\n✉️ Template\nHi [Name],\nGreat to have you onboard.\nFollow this link to book your call: [link]`
-  },
-  { 
-    id: 9, 
-    title: "Terms & Conditions Builder", 
-    category: "Legal & Governance", 
-    clarityLevel: "High",
-    tags: ["Legal", "Contract", "Compliance"],
-    metadata: { lastUpdated: "2026-05-09", version: "3.2.0", author: "Legal Node", complianceScore: 100, integrityHash: "0xLegal" },
-    content: `BUSINESS LEGAL FOUNDATIONS - T&Cs\n\n⚠️ MASTER DISCLAIMER\nFramework only. Consult a solicitor.\n\n1. Introduction\nAgreement between [Business] and [Client].\n\n2. Scope\nDelivery of: [Work]`
-  },
-  {
-    id: 13,
-    title: "Profit & Loss Forecaster", 
-    category: "Finance", 
-    clarityLevel: "High",
-    tags: ["Finance", "Forecasting", "Profit"],
-    metadata: { lastUpdated: "2026-05-07", version: "1.2.0", author: "Finance Node", complianceScore: 94, integrityHash: "0xFinance" },
-    content: `P&L FORECASTER\n\nMonthly Input:\n- Projected Revenue\n- Fixed Costs\n- Variable Costs\n\nFormula:\nMargin = (Revenue - Total Costs) / Revenue`
-  }
+const APP_PAGES = [
+  { id: "dashboard", label: "Main Dashboard" },
+  { id: "invoices", label: "Invoice Manager" },
+  { id: "crm", label: "Client CRM" },
+  { id: "banking", label: "Banking & Ledger" },
+  { id: "projects", label: "Project Boards" },
+  { id: "settings", label: "System Settings" },
 ];
 
-export default function GlobalVaultSystem() {
-  // --- CORE STATE ---
-  const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [expandedFolders, setExpandedFolders] = useState<string[]>(["Legal & Governance", "Operations", "Finance"]);
-  const [commandHistory, setCommandHistory] = useState<any[]>([]);
-  const [systemUptime, setSystemUptime] = useState(0);
+const TIERS = ["STANDARD", "PREMIUM", "ELITE"];
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#fcfaf7]"><Loader2 className="animate-spin text-[#a9b897]" size={40} /></div>}>
+      <SettingsContent />
+    </Suspense>
+  );
+}
+
+function SettingsContent() {
+  const router = useRouter();
   
-  // --- SETTINGS & CONFIG STATE ---
-  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
-  const [autoSync, setAutoSync] = useState(true);
-  const [aiAssist, setAiAssist] = useState(true);
-  const [isDiagnosticRunning, setIsDiagnosticRunning] = useState(false);
-  const [installationMessage, setInstallationMessage] = useState<string | null>(null);
-  const [installProgress, setInstallProgress] = useState(0);
+  // --- UI & SYSTEM STATE ---
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [teamId, setTeamId] = useState<string | null>(null);
 
-  const printRef = useRef<HTMLDivElement>(null);
+  // --- FORM STATE ---
+  const [currentTier, setCurrentTier] = useState("STANDARD");
+  const [profile, setProfile] = useState<any>({
+    full_name: "", phone: "", avatar_url: "", next_of_kin: "", email_signature: ""
+  });
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["dashboard"]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setSystemUptime(prev => prev + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  // --- BRAND & INFRASTRUCTURE ---
+  const [brandColor, setBrandColor] = useState("#a9b897");
+  const [secondaryColor, setSecondaryColor] = useState("#1c1917");
+  const [selectedFont, setSelectedFont] = useState("Inter");
+  const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
+  const [companyDetails, setCompanyDetails] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [socialLinks, setSocialLinks] = useState({ website: "", instagram: "", linkedin: "", twitter: "" });
+  const [campaignList, setCampaignList] = useState<string[]>([]);
+  const [newCampaign, setNewCampaign] = useState("");
+  const [nextOfKin, setNextOfKin] = useState("");
+  const [nextOfKinPhone, setNextOfKinPhone] = useState("");
+  const [auditLogs, setAuditLogs] = useState<string[]>(["• System Link Established."]);
 
-  const addCommandLog = (cmd: string) => {
-    setCommandHistory(prev => [{
-      id: Math.random().toString(36),
-      timestamp: new Date().toLocaleTimeString(),
-      command: cmd
-    }, ...prev].slice(0, 6));
+  // Derived Values
+  const inviteLink = useMemo(() => teamId ? `https://www.tots-os.co.uk/login?invite=${teamId}` : "", [teamId]);
+
+  useEffect(() => { init(); }, []);
+
+  async function init() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return router.push("/login");
+      setUser(user);
+      setEmail(user.email || "");
+
+      const { data: p } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      if (p) {
+        setProfile(p);
+        setNextOfKin(p.next_of_kin || "");
+        if (p.tier) setCurrentTier(p.tier.toUpperCase());
+      }
+
+      const { data: membership } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).maybeSingle();
+      if (membership?.team_id) {
+        setTeamId(membership.team_id);
+        const [membersRes, settingsRes] = await Promise.all([
+          supabase.from("team_members").select("*").eq("team_id", membership.team_id),
+          supabase.from("settings").select("*").eq("team_id", membership.team_id).maybeSingle()
+        ]);
+        if (membersRes.data) setTeamMembers(membersRes.data);
+        if (settingsRes.data) {
+          setBrandColor(settingsRes.data.brand_color || "#a9b897");
+          setSecondaryColor(settingsRes.data.secondary_color || "#1c1917");
+          setSelectedFont(settingsRes.data.font_family || "Inter");
+          setBankInfo(settingsRes.data.bank_info || { name: "", acc: "", sort: "" });
+          setCompanyDetails(settingsRes.data.company_details || "");
+          setLogoUrl(settingsRes.data.logo_url || "");
+          setSocialLinks(settingsRes.data.social_links || { website: "", instagram: "", linkedin: "", twitter: "" });
+          setCampaignList(settingsRes.data.campaigns || []);
+          setNextOfKinPhone(settingsRes.data.next_of_kin_phone || "");
+        }
+      }
+    } catch (err) { console.error("Init Error", err); } finally { setLoading(false); }
+  }
+
+  // --- ACTION HANDLERS ---
+  const handleGlobalSave = async () => {
+    setSaving(true);
+    try {
+      await supabase.from("profiles").update({
+        full_name: profile.full_name,
+        phone: profile.phone,
+        next_of_kin: nextOfKin,
+        tier: currentTier
+      }).eq("id", user.id);
+      
+      if (email !== user.email || password) {
+        await supabase.auth.updateUser({ email, password });
+      }
+
+      if (teamId) {
+        await supabase.from("settings").upsert({
+          team_id: teamId,
+          brand_color: brandColor,
+          secondary_color: secondaryColor,
+          font_family: selectedFont,
+          bank_info: bankInfo,
+          company_details: companyDetails,
+          social_links: socialLinks,
+          campaigns: campaignList,
+          next_of_kin_phone: nextOfKinPhone
+        });
+      }
+      setAuditLogs(prev => [`• System Synchronized: ${new Date().toLocaleTimeString()}`, ...prev]);
+    } catch (err: any) { alert(err.message); } finally { setSaving(false); }
   };
 
-  const filteredDocs = useMemo(() => {
-    return VAULT_DATA.filter(doc => 
-      doc.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      doc.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [searchTerm]);
-
-  const categories = useMemo(() => Array.from(new Set(VAULT_DATA.map(d => d.category))), []);
-
-  // --- FUNCTIONALITY HANDLERS ---
-  const triggerSync = async () => {
-    setInstallationMessage("Rebuilding Infrastructure...");
-    for (let i = 0; i <= 100; i += 10) {
-      setInstallProgress(i);
-      await new Promise(r => setTimeout(r, 100));
-    }
-    addCommandLog("Full System Sync: Complete.");
-    setInstallationMessage(null);
+  const copyInviteLink = () => {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink).then(() => {
+      setAuditLogs(prev => [`• Invite link copied to clipboard`, ...prev]);
+      alert("Link copied.");
+    });
   };
 
-  const runAudit = async () => {
-    setIsDiagnosticRunning(true);
-    addCommandLog("Starting Integrity Audit...");
-    await new Promise(r => setTimeout(r, 2000));
-    addCommandLog("Audit Result: 100% Integrity.");
-    setIsDiagnosticRunning(false);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
   };
 
-  const exportPDF = async () => {
-    if (!printRef.current || !selectedDoc) return;
-    addCommandLog("Exporting High-Fidelity PDF...");
-    const canvas = await html2canvas(printRef.current);
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
-    pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
-    pdf.save(`TOTS_Asset_${selectedDoc.id}.pdf`);
-  };
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#fcfaf7]"><Loader2 className="animate-spin text-[#a9b897]" size={40} /></div>;
 
   return (
-    <div className={`min-h-screen ${isPrivacyMode ? 'bg-stone-950' : 'bg-[#faf9f6]'} text-stone-900 selection:bg-[#a9b897] overflow-x-hidden transition-colors duration-700`}>
+    <div className={`min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
       
-      {/* 1. SYNC OVERLAY */}
-      <AnimatePresence>
-        {installationMessage && (
-          <motion.div initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="fixed top-0 left-0 right-0 z-[500] bg-stone-900 p-6 text-center border-b border-[#a9b897]/30"
-          >
-            <div className="max-w-md mx-auto space-y-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897]">{installationMessage}</p>
-              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                <motion.div className="h-full bg-[#a9b897]" animate={{ width: `${installProgress}%` }} />
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <style jsx global>{`
+        :root { --brand-primary: ${brandColor}; --brand-secondary: ${secondaryColor}; --font-main: '${selectedFont}', sans-serif; }
+        body { font-family: var(--font-main) !important; }
+        .custom-brand-text { color: var(--brand-primary); }
+        .custom-brand-bg { background-color: var(--brand-primary); }
+        .custom-secondary-bg { background-color: var(--brand-secondary); }
+      `}</style>
 
-      <div className="max-w-[1800px] mx-auto px-4 md:px-12 lg:px-24 py-12 lg:py-24">
+      {/* MOBILE CTA */}
+      <div className="lg:hidden fixed bottom-6 left-4 right-4 z-[100]">
+        <button onClick={handleGlobalSave} className="w-full py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white custom-brand-bg shadow-2xl">
+          {saving ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Commit Changes"}
+        </button>
+      </div>
+
+      <div className="max-w-[1600px] mx-auto p-4 md:p-12 lg:p-20 space-y-12 pb-32 lg:pb-20">
         
-        {/* 2. HEADER */}
-        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-12 border-b border-stone-200 pb-16 mb-16 lg:mb-24">
-          <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-stone-900 rounded-2xl text-white shadow-xl shadow-stone-900/20">
-                <Fingerprint size={24} />
-              </div>
-              <div>
-                <p className={`text-[10px] font-black uppercase tracking-[0.4em] ${isPrivacyMode ? 'text-stone-500' : 'text-stone-400'}`}>Archival Tier: RESTRICTED</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  <p className="text-[9px] font-mono text-stone-500 uppercase tracking-tighter">UPTIME: {Math.floor(systemUptime / 60)}m {systemUptime % 60}s</p>
-                </div>
-              </div>
-            </div>
-            <h1 className={`text-6xl md:text-8xl lg:text-9xl font-serif italic tracking-tighter leading-none ${isPrivacyMode ? 'text-white' : ''}`}>
-              The <span className="text-stone-300">Vault</span>
-            </h1>
+        {/* HEADER */}
+        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 border-b border-stone-200 pb-12">
+          <div className="space-y-4">
+            <h1 className="text-5xl md:text-8xl font-serif italic tracking-tighter leading-none custom-brand-text">Command Center</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Node: {user?.email}</p>
           </div>
-
-          {/* Quick Action Hub (Desktop & Tablet) */}
-          <div className="flex flex-wrap gap-3 w-full xl:w-auto">
-             <button onClick={triggerSync} className="flex-1 lg:flex-none px-8 py-5 bg-[#a9b897] text-stone-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:shadow-xl transition-all flex items-center justify-center gap-3">
-                <RefreshCw size={16} className={installProgress > 0 && installProgress < 100 ? 'animate-spin' : ''} /> Sync Infrastructure
-             </button>
-             <button onClick={runAudit} className={`flex-1 lg:flex-none px-8 py-5 border-2 ${isPrivacyMode ? 'border-stone-800 text-stone-400' : 'border-stone-200'} rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-stone-900 hover:text-white transition-all flex items-center justify-center gap-3`}>
-                <Activity size={16} className={isDiagnosticRunning ? 'animate-pulse text-red-500' : ''} /> {isDiagnosticRunning ? "Scanning..." : "Integrity Scan"}
-             </button>
+          
+          <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+            <button onClick={() => router.push("/team")} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-5 rounded-2xl border border-stone-200 bg-white font-black text-[9px] uppercase tracking-widest">
+              <Users size={14} className="custom-brand-text" /> Team
+            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-5 rounded-2xl border border-stone-200 bg-white">
+                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+              <button onClick={handleLogout} className="p-5 rounded-2xl border border-stone-200 bg-white text-stone-400">
+                <LogOut size={18} />
+              </button>
+            </div>
+            <button onClick={handleGlobalSave} className="hidden lg:flex items-center justify-center gap-4 px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white custom-brand-bg shadow-xl">
+              {saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />} Commit Changes
+            </button>
           </div>
         </header>
 
-        {/* 3. MONITORING GRID */}
-        {!selectedDoc && (
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16 lg:mb-24">
-            {[
-              { label: "Archived Nodes", val: "402", icon: HardDrive, color: "stone" },
-              { label: "Sync Status", val: "Live", icon: Radio, color: "green" },
-              { label: "System Load", val: "14%", icon: Cpu, color: "blue" },
-              { label: "Data Integrity", val: "99.9%", icon: ShieldCheck, color: "purple" }
-            ].map((stat, i) => (
-              <div key={i} className={`p-8 rounded-[3rem] border ${isPrivacyMode ? 'bg-stone-900 border-stone-800 text-white' : 'bg-white border-stone-100'} shadow-sm flex justify-between items-end group hover:shadow-xl transition-all`}>
-                <div className="space-y-2">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-stone-400 group-hover:text-[#a9b897]">{stat.label}</p>
-                  <p className="text-3xl font-serif italic">{stat.val}</p>
-                </div>
-                <stat.icon size={24} className="text-stone-200 group-hover:text-[#a9b897] transition-all" />
-              </div>
-            ))}
-          </section>
-        )}
-
-        {/* 4. MAIN INTERFACE */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
           
-          {/* SIDEBAR */}
-          <div className={`${selectedDoc ? 'hidden lg:block' : 'block'} lg:col-span-4 space-y-12`}>
-            
-            {/* Search */}
-            <div className="relative group">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300" size={20} />
-              <input 
-                className={`w-full p-6 pl-14 rounded-[2.5rem] outline-none shadow-sm focus:ring-[12px] transition-all text-sm font-bold ${isPrivacyMode ? 'bg-stone-900 border-stone-800 text-white focus:ring-white/5' : 'bg-white border-stone-200 focus:ring-stone-900/5'}`} 
-                placeholder="Search data nodes..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)} 
-              />
-            </div>
-
-            {/* FOLDERS */}
-            <div className="space-y-4">
-              {categories.map((cat) => (
-                <div key={cat} className={`rounded-[2.5rem] border overflow-hidden shadow-sm ${isPrivacyMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
-                  <button 
-                    onClick={() => setExpandedFolders(prev => prev.includes(cat) ? prev.filter(f => f !== cat) : [...prev, cat])}
-                    className="w-full flex justify-between items-center p-8 text-[11px] font-black uppercase tracking-widest text-stone-400"
-                  >
-                    <div className="flex items-center gap-4">
-                      <Folder size={18} className={expandedFolders.includes(cat) ? "text-[#a9b897]" : ""} />
-                      {cat}
-                    </div>
-                    <ChevronDown size={16} className={`transition-transform ${expandedFolders.includes(cat) ? "rotate-180" : ""}`} />
-                  </button>
-
-                  <AnimatePresence>
-                    {expandedFolders.includes(cat) && (
-                      <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className={`${isPrivacyMode ? 'bg-black/20' : 'bg-stone-50/50'} p-4 pt-0 space-y-2`}>
-                        {filteredDocs.filter(d => d.category === cat).map(doc => (
-                          <button 
-                            key={doc.id} 
-                            onClick={() => { setSelectedDoc(doc); addCommandLog(`Engaging node ID_${doc.id}`); }}
-                            className={`w-full text-left p-6 rounded-3xl transition-all border ${selectedDoc?.id === doc.id ? "bg-stone-900 text-white border-stone-900 shadow-xl" : "bg-white border-transparent hover:border-stone-100"}`}
-                          >
-                            <p className={`text-[12px] font-bold mb-1 ${isPrivacyMode && selectedDoc?.id !== doc.id ? 'text-stone-300' : ''}`}>{doc.title}</p>
-                            <div className="flex justify-between items-center opacity-40 text-[8px] font-mono uppercase tracking-widest">
-                               <span>{doc.metadata.version}</span>
-                               <span>{doc.clarityLevel}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+          {/* LEFT: Identity */}
+          <div className="lg:col-span-4 space-y-8">
+            <section className={`p-8 rounded-[3rem] border shadow-sm space-y-8 ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
+              <div className="flex flex-col items-center gap-6">
+                <div className="relative group w-32 h-32 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden">
+                  {logoUrl ? <img src={logoUrl} className="w-full h-full object-cover" /> : <UserCircle size={48} className="opacity-10" />}
+                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer"><Camera size={18} /><input type="file" className="hidden" /></label>
                 </div>
-              ))}
-            </div>
+                <input value={profile.full_name || ""} onChange={e => setProfile({...profile, full_name: e.target.value})} className="text-center font-serif italic text-3xl w-full bg-transparent outline-none custom-brand-text" placeholder="Identity Name" />
+              </div>
 
-            {/* SYSTEM CONFIGURATION (The Missing Settings) */}
-            <div className={`p-10 rounded-[3.5rem] border ${isPrivacyMode ? 'bg-stone-900 border-stone-800 text-white' : 'bg-white border-stone-100 shadow-sm'} space-y-8`}>
-                <div className="flex items-center gap-4 border-b border-stone-100 pb-6 mb-2">
-                   <Settings size={20} className="text-[#a9b897]" />
-                   <h4 className="text-[11px] font-black uppercase tracking-[0.3em]">Control Panel</h4>
+              <div className="space-y-3 pt-4 border-t border-stone-50">
+                <div className="flex items-center gap-4 p-4 bg-stone-50/50 rounded-2xl border border-stone-100">
+                  <Mail size={16} className="text-stone-300" />
+                  <input value={email} onChange={e => setEmail(e.target.value)} className="bg-transparent text-xs font-bold outline-none w-full" />
                 </div>
-                
-                <div className="space-y-6">
-                   <div className="flex justify-between items-center">
-                      <div className="space-y-1">
-                         <p className="text-[10px] font-bold">Privacy Mode</p>
-                         <p className="text-[8px] text-stone-400 uppercase">Obfuscate Interface</p>
-                      </div>
-                      <button onClick={() => { setIsPrivacyMode(!isPrivacyMode); addCommandLog(`Privacy Mode: ${!isPrivacyMode ? 'ON' : 'OFF'}`); }} className={`w-12 h-6 rounded-full transition-colors relative ${isPrivacyMode ? 'bg-[#a9b897]' : 'bg-stone-200'}`}>
-                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isPrivacyMode ? 'left-7' : 'left-1'}`} />
-                      </button>
-                   </div>
-
-                   <div className="flex justify-between items-center">
-                      <div className="space-y-1">
-                         <p className="text-[10px] font-bold">AI Synthesis</p>
-                         <p className="text-[8px] text-stone-400 uppercase">Neural Optimization</p>
-                      </div>
-                      <button onClick={() => setAiAssist(!aiAssist)} className={`w-12 h-6 rounded-full transition-colors relative ${aiAssist ? 'bg-[#a9b897]' : 'bg-stone-200'}`}>
-                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${aiAssist ? 'left-7' : 'left-1'}`} />
-                      </button>
-                   </div>
+                <div className="flex items-center gap-4 p-4 bg-stone-50/50 rounded-2xl border border-stone-100">
+                  <Fingerprint size={16} className="text-stone-300" />
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="bg-transparent text-xs font-bold outline-none w-full" placeholder="Update Password" />
                 </div>
-
-                {/* Live Console Output */}
-                <div className="bg-black/5 rounded-3xl p-6 font-mono text-[9px] text-stone-400 space-y-2">
-                   {commandHistory.map(log => (
-                     <div key={log.id} className="flex gap-4">
-                        <span className="text-[#a9b897]">{log.timestamp}</span>
-                        <span>{log.command}</span>
-                     </div>
-                   ))}
-                </div>
-            </div>
+              </div>
+            </section>
           </div>
 
-          {/* MAIN VIEWPORT */}
-          <main className="lg:col-span-8">
-            <AnimatePresence mode="wait">
-              {selectedDoc ? (
-                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
-                  className={`rounded-[4rem] border shadow-2xl overflow-hidden ${isPrivacyMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}
-                  ref={printRef}
-                >
-                  {/* Viewport Header */}
-                  <div className="p-8 lg:p-16 border-b border-stone-100 lg:border-stone-50 space-y-10">
-                    <div className="flex flex-wrap gap-3">
-                       <button onClick={() => setSelectedDoc(null)} className="lg:hidden p-3 bg-stone-100 rounded-xl mr-2"><ArrowLeft size={16} /></button>
-                       <span className="px-4 py-1.5 bg-stone-100 rounded-full text-[9px] font-black uppercase tracking-widest text-stone-500">{selectedDoc.category}</span>
-                       <span className="px-4 py-1.5 bg-green-50 text-green-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-green-100">Verified Node</span>
-                    </div>
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8">
-                       <h2 className={`text-4xl md:text-6xl font-serif italic tracking-tighter leading-none max-w-xl ${isPrivacyMode ? 'text-white' : ''}`}>{selectedDoc.title}</h2>
-                       <div className="flex gap-3 w-full lg:w-auto">
-                          <button onClick={exportPDF} className="flex-1 lg:flex-none p-5 bg-stone-50 border border-stone-200 rounded-2xl hover:bg-stone-900 hover:text-white transition-all">
-                             <Download size={18} />
-                          </button>
-                          <button onClick={() => addCommandLog("Changes Committed to Ledger.")} className="flex-1 lg:flex-none px-10 py-5 bg-stone-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-[#a9b897] hover:text-stone-900 transition-all">
-                             Commit Change
-                          </button>
-                       </div>
-                    </div>
+          {/* RIGHT: Config */}
+          <div className="lg:col-span-8 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               <section className={`p-8 rounded-[3rem] border ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-sm'} space-y-6`}>
+                 <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">Aesthetics</h2>
+                 <div className="flex justify-between items-center bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                   <span className="text-[10px] font-black uppercase">Brand Accent</span>
+                   <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-8 h-8 rounded-lg cursor-pointer bg-transparent" />
+                 </div>
+                 <select value={selectedFont} onChange={e => setSelectedFont(e.target.value)} className="w-full p-4 rounded-2xl bg-stone-50 border border-stone-100 text-xs font-bold">
+                   <option value="Inter">Inter (Global)</option>
+                   <option value="Merriweather">Merriweather (Serif)</option>
+                   <option value="Geist">Geist (Mono)</option>
+                 </select>
+               </section>
+
+               <section className={`p-8 rounded-[3rem] border ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-sm'} space-y-4`}>
+                 <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Tier</h2>
+                 {TIERS.map(t => (
+                   <button key={t} onClick={() => setCurrentTier(t)} className={`w-full p-4 rounded-2xl border text-[10px] font-black uppercase tracking-widest ${currentTier === t ? 'custom-brand-bg text-white' : 'bg-stone-50 text-stone-400'}`}>
+                     {t} {currentTier === t && <Check size={14} className="inline ml-2" />}
+                   </button>
+                 ))}
+               </section>
+            </div>
+
+            {/* TEAM */}
+            <section className={`p-8 lg:p-12 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
+               <div className="flex flex-col md:flex-row justify-between gap-6 mb-10">
+                 <h2 className="text-3xl font-serif italic custom-brand-text">The Hive</h2>
+                 <button onClick={copyInviteLink} className="flex items-center gap-3 px-6 py-3 bg-stone-50 rounded-full border border-stone-100 text-[10px] font-black uppercase tracking-widest">
+                   <Copy size={14} /> Copy Invite
+                 </button>
+               </div>
+               <div className="space-y-4">
+                 <input placeholder="New seat email..." value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="w-full p-5 rounded-2xl bg-stone-50 border border-stone-100 text-xs font-bold outline-none" />
+                 <div className="flex flex-wrap gap-2">
+                   {APP_PAGES.map(page => (
+                     <button key={page.id} onClick={() => setSelectedPermissions(prev => prev.includes(page.id) ? prev.filter(p => p !== page.id) : [...prev, page.id])} className={`px-4 py-2 rounded-full border text-[8px] font-black uppercase ${selectedPermissions.includes(page.id) ? 'custom-brand-bg text-white' : 'border-stone-100'}`}>{page.label}</button>
+                   ))}
+                 </div>
+               </div>
+            </section>
+
+            {/* BANKING */}
+            <section className="custom-secondary-bg p-8 lg:p-16 rounded-[4rem] text-white shadow-2xl relative overflow-hidden">
+               <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+                  <h2 className="text-3xl font-serif italic text-[#a9b897]">Ledger Distribution</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                     <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} className="bg-white/5 border border-white/10 p-5 rounded-2xl text-sm font-bold outline-none" placeholder="Bank" />
+                     <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} className="bg-white/5 border border-white/10 p-5 rounded-2xl text-sm font-bold outline-none" placeholder="Account" />
+                     <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} className="bg-white/5 border border-white/10 p-5 rounded-2xl text-sm font-bold outline-none" placeholder="Sort" />
                   </div>
-
-                  {/* AI Bridge Bar */}
-                  {aiAssist && (
-                    <div className="bg-[#a9b897]/5 p-8 lg:px-16 lg:py-10 border-b border-[#a9b897]/10 flex flex-col md:flex-row justify-between items-center gap-6">
-                       <div className="flex items-center gap-4 text-[#a9b897]">
-                          <Sparkles size={18} />
-                          <p className="text-[10px] font-black uppercase tracking-[0.3em]">Neural Synthesis Bridge Active</p>
-                       </div>
-                       <button onClick={() => addCommandLog("Running Optimization Pulse...")} className="w-full md:w-auto px-8 py-3 bg-stone-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:scale-105 transition-all">
-                          Optimize Logic
-                       </button>
-                    </div>
-                  )}
-
-                  {/* Editor */}
-                  <div className="p-8 lg:p-16">
-                     <textarea 
-                        className={`w-full h-[500px] lg:h-[700px] font-mono text-sm lg:text-base leading-relaxed outline-none resize-none border-none bg-transparent ${isPrivacyMode ? 'text-stone-400' : 'text-stone-700'}`}
-                        defaultValue={selectedDoc.content}
-                        spellCheck="false"
-                     />
-                  </div>
-
-                  {/* Footer Stats */}
-                  <div className="bg-stone-900 p-8 lg:p-16 text-white grid grid-cols-2 lg:grid-cols-4 gap-12">
-                     <div className="space-y-1">
-                        <p className="text-[8px] font-black uppercase opacity-40 tracking-widest">Compliance</p>
-                        <p className="text-xs font-mono text-[#a9b897]">{selectedDoc.metadata.complianceScore}% Score</p>
-                     </div>
-                     <div className="space-y-1">
-                        <p className="text-[8px] font-black uppercase opacity-40 tracking-widest">Integrity Hash</p>
-                        <p className="text-xs font-mono">{selectedDoc.metadata.integrityHash}</p>
-                     </div>
-                     <div className="space-y-1">
-                        <p className="text-[8px] font-black uppercase opacity-40 tracking-widest">Version</p>
-                        <p className="text-xs font-mono">v{selectedDoc.metadata.version}</p>
-                     </div>
-                     <div className="space-y-1 text-right">
-                        <button onClick={() => setSelectedDoc(null)} className="text-[9px] font-black uppercase tracking-widest underline decoration-[#a9b897] hover:text-[#a9b897] transition-all">Collapse Node</button>
-                     </div>
-                  </div>
-                </motion.div>
-              ) : (
-                <div className={`hidden lg:flex flex-col items-center justify-center h-[900px] border-2 border-dashed rounded-[5rem] space-y-6 ${isPrivacyMode ? 'border-stone-800' : 'border-stone-200'}`}>
-                   <div className="p-10 bg-white/5 rounded-full shadow-inner animate-pulse">
-                      <FileCode size={48} className="text-stone-200" />
-                   </div>
-                   <p className="text-stone-300 font-serif italic text-2xl">Awaiting node selection...</p>
-                </div>
-              )}
-            </AnimatePresence>
-          </main>
-
+               </div>
+               <div className="absolute top-0 right-0 w-64 h-64 bg-[#a9b897]/5 blur-[100px] rounded-full" />
+            </section>
+          </div>
         </div>
       </div>
     </div>

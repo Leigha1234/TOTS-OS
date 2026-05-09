@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, Suspense, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+import { supabase } from "@/lib/supabase-client"; 
 import { 
   Save, Moon, Sun, Loader2, Landmark, 
   Users, Trash2, Check, Download,
@@ -10,445 +10,539 @@ import {
   Camera, Mail, Phone, HeartPulse, Palette,
   UserCircle, Fingerprint, Globe, History, Zap, ShieldCheck,
   Upload, Link2, FolderGit, Type, HeartHandshake, ListChecks,
-  Database, User, LogOut, Copy, Share2, ShieldAlert,
-  ChevronRight, ArrowUpRight, Command, Github, Twitter
+  Database, User
 } from "lucide-react";
 
-/**
- * TOTS-OS COMMAND CENTER | FULL PRODUCTION ARCHITECTURE
- * VERSION: 3.1.2 - HARDENED (FIXES NULL OBJECT ERRORS)
- */
-
 const APP_PAGES = [
-  { id: "dashboard", label: "Main Dashboard", description: "Node analytics & system health" },
-  { id: "calendar", label: "System Calendar", description: "Temporal scheduling node" },
-  { id: "campaigns", label: "Campaign Hub", description: "Marketing & reach orchestration" },
-  { id: "contacts", label: "Entity CRM", description: "Relationship mapping" },
-  { id: "notes", label: "Knowledge Base", description: "Unstructured data storage" },
-  { id: "finance", label: "Treasury", description: "Liquidity & ledger management" },
-  { id: "projects", label: "Project Boards", description: "Task orchestration" },
-  { id: "settings", label: "System Settings", description: "Kernel & identity config" }
+  { id: "dashboard", label: "Main Dashboard" },
+  { id: "invoices", label: "Invoice Manager" },
+  { id: "crm", label: "Client CRM" },
+  { id: "banking", label: "Banking & Ledger" },
+  { id: "projects", label: "Project Boards" },
+  { id: "settings", label: "System Settings" },
 ];
 
-const FONTS = [
-  { name: "Inter", type: "Sans Serif" },
-  { name: "Merriweather", type: "Executive Serif" },
-  { name: "Geist", type: "Modern Mono" },
-  { name: "Orbitron", type: "Brutalist" },
-  { name: "Montserrat", type: "Classic Geometric" }
-];
+const TIERS = ["STANDARD", "PREMIUM", "ELITE"];
 
-function SettingsContent() {
+export default function SettingsPage() {
   const router = useRouter();
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  // -- SYSTEM STATES --
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
-  // -- IDENTITY --
   const [user, setUser] = useState<any>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [currentTier, setCurrentTier] = useState("STANDARD");
   const [profile, setProfile] = useState<any>({
     full_name: "", phone: "", avatar_url: "", next_of_kin: "", email_signature: ""
   });
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  
+  // Auth Updates
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // -- THE HIVE --
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["dashboard"]);
 
-  // -- BRANDING --
   const [brandColor, setBrandColor] = useState("#a9b897");
   const [secondaryColor, setSecondaryColor] = useState("#e5e7eb");
   const [selectedFont, setSelectedFont] = useState("Inter");
-  
-  // -- BUSINESS & TREASURY --
+  const [customFont, setCustomFont] = useState("");
   const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
-  const [companyDetails, setCompanyDetails] = useState("");
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [nextOfKinPhone, setNextOfKinPhone] = useState("");
+  const [timezone, setTimezone] = useState("UTC+0 (London)");
   const [currency, setCurrency] = useState("GBP (£)");
+  const [webhookUrl, setWebhookUrl] = useState("");
 
-  // -- SOCIAL & CAMPAIGNS --
-  const [socialLinks, setSocialLinks] = useState({ 
-    website: "", instagram: "", linkedin: "", twitter: "", tiktok: "" 
-  });
+  // Extension Features States
+  const [companyDetails, setCompanyDetails] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [socialLinks, setSocialLinks] = useState({ website: "", instagram: "", linkedin: "", twitter: "" });
   const [campaignList, setCampaignList] = useState<string[]>([]);
   const [newCampaign, setNewCampaign] = useState("");
+  
+  // Next of Kin states
+  const [nextOfKin, setNextOfKin] = useState("");
+  const [nextOfKinPhone, setNextOfKinPhone] = useState("");
 
-  // -- AUDIT --
-  const [auditLogs, setAuditLogs] = useState<string[]>(["• System initialization..."]);
+  // Expanded fields
+  const [emailCampaigns, setEmailCampaigns] = useState("");
+  const [auditLogs, setAuditLogs] = useState<string[]>([
+    "• Node initialized successfully.",
+    "• System Architecture linked to dynamic state."
+  ]);
 
-  const addLog = useCallback((msg: string) => {
-    setAuditLogs(prev => [`• ${msg} [${new Date().toLocaleTimeString()}]`, ...prev]);
+  useEffect(() => { 
+    init(); 
   }, []);
-
-  useEffect(() => { init(); }, []);
 
   async function init() {
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return router.push("/login");
-      
-      setUser(authUser);
-      setEmail(authUser.email || "");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return router.push("/login");
+      setUser(user);
+      setEmail(user.email || "");
 
-      const { data: p } = await supabase.from("profiles").select("*").eq("id", authUser.id).maybeSingle();
+      const { data: p } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
       if (p) {
-        setProfile({
-          full_name: p.full_name || "",
-          phone: p.phone || "",
-          avatar_url: p.avatar_url || "",
-          next_of_kin: p.next_of_kin || "",
-          email_signature: p.email_signature || ""
-        });
+        setProfile((prev: any) => ({ ...prev, ...p }));
+        setNextOfKin(p.next_of_kin || "");
+        if (p.tier) setCurrentTier(p.tier.toUpperCase());
       }
 
-      const { data: membership } = await supabase.from("team_members").select("team_id").eq("user_id", authUser.id).maybeSingle();
-      
+      const { data: membership } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).maybeSingle();
       if (membership?.team_id) {
         setTeamId(membership.team_id);
         const [membersRes, settingsRes] = await Promise.all([
           supabase.from("team_members").select("*").eq("team_id", membership.team_id),
           supabase.from("settings").select("*").eq("team_id", membership.team_id).maybeSingle()
         ]);
-
         if (membersRes.data) setTeamMembers(membersRes.data);
         if (settingsRes.data) {
-          const s = settingsRes.data;
-          setBrandColor(s.brand_color || "#a9b897");
-          setSecondaryColor(s.secondary_color || "#e5e7eb");
-          setSelectedFont(s.font_family || "Inter");
-          setBankInfo(s.bank_info || { name: "", acc: "", sort: "" });
-          setWebhookUrl(s.webhook_url || "");
-          setCompanyDetails(s.company_details || "");
-          setSocialLinks(s.social_links || { website: "", instagram: "", linkedin: "", twitter: "", tiktok: "" });
-          setCampaignList(s.campaigns || []);
+          setBrandColor(settingsRes.data.brand_color || "#a9b897");
+          setSecondaryColor(settingsRes.data.secondary_color || "#e5e7eb");
+          setSelectedFont(settingsRes.data.font_family || "Inter");
+          setBankInfo(settingsRes.data.bank_info || { name: "", acc: "", sort: "" });
+          setWebhookUrl(settingsRes.data.webhook_url || "");
+          setCompanyDetails(settingsRes.data.company_details || "");
+          setLogoUrl(settingsRes.data.logo_url || "");
+          setSocialLinks(settingsRes.data.social_links || { website: "", instagram: "", linkedin: "", twitter: "" });
+          setCampaignList(settingsRes.data.campaigns || []);
+          setNextOfKinPhone(settingsRes.data.next_of_kin_phone || "");
+          if (settingsRes.data.email_campaigns) setEmailCampaigns(settingsRes.data.email_campaigns);
         }
       }
-      addLog("Node heartbeat detected.");
-    } catch (err) { 
-      addLog("Sync failure in kernel.");
-    } finally { 
-      setLoading(false); 
-    }
+    } catch (err) { console.error("Init Error:", err); } finally { setLoading(false); }
   }
 
   const handleGlobalSave = async () => {
-    if (!user?.id) return;
     setSaving(true);
-    addLog("Commencing state commit...");
     try {
-      // 1. Profile Update
-      const { error: profileErr } = await supabase.from("profiles").update({
-        full_name: profile.full_name,
-        phone: profile.phone,
-        email_signature: profile.email_signature,
-      }).eq("id", user.id);
-      if (profileErr) throw profileErr;
+      await supabase.from("profiles").update({
+        full_name: profile?.full_name || "",
+        phone: profile?.phone || "",
+        next_of_kin: nextOfKin,
+        email_signature: profile?.email_signature || "",
+        avatar_url: profile?.avatar_url || "",
+        tier: currentTier
+      }).eq("id", user?.id);
+      
+      if (email !== user.email || password) {
+        const updateData: any = { email };
+        if (password) updateData.password = password;
+        const { error } = await supabase.auth.updateUser(updateData);
+        if (error) throw error;
+        setPassword("");
+      }
 
-      // 2. Settings Update
       if (teamId) {
-        const { error: settingsErr } = await supabase.from("settings").upsert({
+        await supabase.from("settings").upsert({
           team_id: teamId,
           brand_color: brandColor,
           secondary_color: secondaryColor,
-          font_family: selectedFont,
+          font_family: customFont || selectedFont,
           bank_info: bankInfo,
           webhook_url: webhookUrl,
           company_details: companyDetails,
+          logo_url: logoUrl,
           social_links: socialLinks,
-          campaigns: campaignList
+          campaigns: campaignList,
+          next_of_kin_phone: nextOfKinPhone,
+          email_campaigns: emailCampaigns
         });
-        if (settingsErr) throw settingsErr;
       }
-      addLog("System state synchronized.");
-      alert("All Changes Committed to Node.");
-    } catch (err: any) { 
-      addLog(`Commit Error: ${err.message}`);
-      alert(`Critical Sync Error: ${err.message}`);
-    } finally { 
-      setSaving(false); 
+
+      setAuditLogs(prev => [`• Settings updated at ${new Date().toLocaleTimeString()}`, ...prev]);
+      alert("Settings synchronized globally.");
+    } catch (err: any) { alert("Sync Error: " + err.message); } finally { setSaving(false); }
+  };
+
+  const addCampaign = () => {
+    if (newCampaign && !campaignList.includes(newCampaign)) {
+      setCampaignList([...campaignList, newCampaign]);
+      setNewCampaign("");
     }
   };
 
-  if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#fcfaf7]">
-      <Loader2 className="animate-spin text-stone-300" size={60} />
-      <span className="mt-8 text-[9px] font-black uppercase tracking-[0.8em] opacity-20">Syncing Node...</span>
-    </div>
-  );
+  const removeCampaign = (index: number) => {
+    setCampaignList(campaignList.filter((_, i) => i !== index));
+  };
 
-  const inviteLink = `https://www.tots-os.co.uk/login?invite=${teamId}`;
+  const handleTierSelection = (tierName: string) => {
+    setCurrentTier(tierName);
+    router.push("/billing");
+  };
+
+  const handleInvite = async () => {
+    if (!inviteEmail || !teamId) return;
+    setSaving(true);
+    const { error } = await supabase.from("team_members").insert({
+      team_id: teamId,
+      email: inviteEmail.toLowerCase().trim(),
+      role: "member",
+      permissions: selectedPermissions 
+    });
+    if (!error) { 
+      setInviteEmail(""); 
+      init(); 
+      setAuditLogs(prev => [`• Provisioned new seat for ${inviteEmail}`, ...prev]);
+    }
+    setSaving(false);
+  };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#fcfaf7]"><Loader2 className="animate-spin text-[#a9b897]" size={40} /></div>;
 
   return (
-    <div className={`min-h-screen transition-all duration-1000 ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
+      
+      {/* Dynamic CSS Custom Overrides */}
       <style jsx global>{`
-        body { font-family: '${selectedFont}', sans-serif; overflow-x: hidden; }
-        .ultra-card { transition: all 0.6s cubic-bezier(0.2, 1, 0.2, 1); }
-        .ultra-card:hover { transform: translateY(-8px); box-shadow: 0 40px 80px -20px rgba(0,0,0,0.1); }
-        .hide-scroll::-webkit-scrollbar { display: none; }
+        body {
+          font-family: '${customFont || selectedFont}', sans-serif;
+        }
+        .custom-brand-text {
+          color: ${brandColor};
+        }
+        .custom-brand-bg {
+          background-color: ${brandColor};
+        }
       `}</style>
 
-      <div className="max-w-[1700px] mx-auto p-6 md:p-12 lg:p-24 space-y-32">
+      <div className="max-w-7xl mx-auto p-6 lg:p-16 space-y-12 pb-40">
         
-        {/* --- HEADER BLOCK --- */}
-        <header className="flex flex-col md:flex-row justify-between items-end gap-12 border-b-2 border-stone-100 pb-24">
-          <div className="space-y-8">
-            <div className="flex items-center gap-4 opacity-30">
-               <Command size={20} />
-               <span className="text-[10px] font-black uppercase tracking-[0.6em]">System Control Panel</span>
-            </div>
-            <h1 className="text-[10rem] md:text-[14rem] font-serif italic tracking-tighter leading-[0.85] select-none" style={{ color: brandColor }}>
-              Command
-            </h1>
-            <div className="flex items-center gap-8 pl-2">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Uplink Active: {user?.email}</span>
-              </div>
-            </div>
+        {/* HEADER */}
+        <header className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-stone-200 pb-12">
+          <div className="space-y-2">
+            <h1 className="text-7xl font-serif italic tracking-tighter leading-none custom-brand-text" style={{ color: brandColor }}>Command Center</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Node: {user?.email}</p>
           </div>
+          <div className="flex flex-wrap gap-4">
+            <button 
+              onClick={() => router.push("/import")} 
+              className="flex items-center gap-3 px-8 py-5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 font-black text-[10px] uppercase tracking-widest text-stone-700 transition-all shadow-sm"
+            >
+              <Database size={14} style={{ color: brandColor }} /> Import Data
+            </button>
 
-          <div className="flex flex-wrap gap-6 items-center">
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-20 h-20 rounded-full border-2 border-stone-100 bg-white flex items-center justify-center hover:bg-stone-900 group transition-all">
-               {isDarkMode ? <Sun size={24} className="group-hover:text-white" /> : <Moon size={24} />}
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-4 rounded-2xl border border-stone-200 bg-white">
+               {isDarkMode ? <Sun size={20} className="text-black"/> : <Moon size={20} />}
             </button>
-            <button onClick={handleGlobalSave} disabled={saving} className="group flex items-center gap-6 px-16 py-10 rounded-full font-black text-[12px] uppercase tracking-[0.3em] text-white shadow-2xl hover:scale-105 transition-all" style={{ backgroundColor: brandColor }}>
-              {saving ? <Loader2 className="animate-spin" /> : <Save size={20} />} 
-              Commit All Changes
-            </button>
-            <button onClick={() => supabase.auth.signOut().then(() => router.push("/login"))} className="w-20 h-20 rounded-full border-2 border-red-50 bg-white flex items-center justify-center text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm">
-               <LogOut size={24} />
+            <button 
+              onClick={handleGlobalSave} 
+              disabled={saving} 
+              className="flex items-center gap-4 px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl text-white"
+              style={{ backgroundColor: brandColor }}
+            >
+              {saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />} Commit All Changes
             </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-24">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           
-          {/* --- LEFT: IDENTITY & VISUALS --- */}
-          <div className="lg:col-span-4 space-y-24">
+          {/* LEFT COLUMN */}
+          <div className="lg:col-span-4 space-y-12">
             
-            {/* BRANDING */}
-            <section className="ultra-card bg-white p-16 rounded-[6rem] border border-stone-100 space-y-12 shadow-sm">
-              <h2 className="text-[12px] font-black uppercase tracking-[0.5em] opacity-40 flex items-center gap-4"><Palette size={20} /> Identity Aesthetics</h2>
-              <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <label className="text-[9px] font-black uppercase opacity-40">Primary Color</label>
-                  <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-full h-24 rounded-[2rem] cursor-pointer bg-transparent border-0" />
+            {/* BRAND ARCHITECTURE */}
+            <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2">
+                <Palette size={14} className="text-[#a9b897]" /> Brand & Assets
+              </h2>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black uppercase text-stone-400">Accent Architecture Color</label>
+                  <div className="flex items-center gap-4">
+                    <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer" />
+                    <span className="font-mono text-[10px] uppercase text-stone-400">{brandColor}</span>
+                  </div>
                 </div>
-                <div className="space-y-4">
-                  <label className="text-[9px] font-black uppercase opacity-40">Secondary</label>
-                  <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-full h-24 rounded-[2rem] cursor-pointer bg-transparent border-0" />
+
+                <div className="space-y-2 pt-4 border-t border-stone-50">
+                  <label className="text-[9px] font-black uppercase text-stone-400">Secondary Accent Color</label>
+                  <div className="flex items-center gap-4">
+                    <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer" />
+                    <span className="font-mono text-[10px] uppercase text-stone-400">{secondaryColor}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 pt-4 border-t border-stone-50">
+                  <label className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-2">
+                    <Type size={12} /> Typography Preset
+                  </label>
+                  <select 
+                    value={selectedFont} 
+                    onChange={e => {
+                      setSelectedFont(e.target.value);
+                      setCustomFont(""); 
+                    }}
+                    className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none"
+                  >
+                    <option value="Inter">Inter (Sans-Serif)</option>
+                    <option value="Merriweather">Merriweather (Serif)</option>
+                    <option value="Geist">Geist (Modern Mono)</option>
+                    <option value="Playfair Display">Playfair Display (Elegant Serif)</option>
+                    <option value="Roboto Mono">Roboto Mono (Developer)</option>
+                    <option value="Orbitron">Orbitron (Futuristic Display)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2 pt-4 border-t border-stone-50">
+                  <label className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-2">
+                    <Upload size={12} /> Import Custom Font (Name)
+                  </label>
+                  <input 
+                    type="text" 
+                    value={customFont} 
+                    onChange={e => setCustomFont(e.target.value)}
+                    placeholder="e.g. 'Courier New', or enter font-family name..." 
+                    className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none" 
+                  />
+                </div>
+
+                <div className="space-y-2 pt-4 border-t border-stone-50">
+                  <label className="text-[9px] font-black uppercase text-stone-400">Company Logo Upload</label>
+                  <input 
+                    type="text" 
+                    value={logoUrl} 
+                    onChange={e => setLogoUrl(e.target.value)}
+                    placeholder="Insert URL for logo file..." 
+                    className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none" 
+                  />
+                </div>
+
+                <div className="space-y-2 pt-4 border-t border-stone-50">
+                  <label className="text-[9px] font-black uppercase text-stone-400">Company Details / Footer Info</label>
+                  <textarea 
+                    rows={6}
+                    value={companyDetails} 
+                    onChange={e => setCompanyDetails(e.target.value)}
+                    placeholder="Enter company address, reg. numbers, or corporate statements..." 
+                    className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none resize-none" 
+                  />
                 </div>
               </div>
-              <div className="space-y-6 pt-6">
-                <label className="text-[9px] font-black uppercase opacity-40 tracking-widest ml-1">System Typography</label>
-                <div className="grid grid-cols-1 gap-3">
-                  {FONTS.map(f => (
-                    <button key={f.name} onClick={() => setSelectedFont(f.name)} className={`flex justify-between items-center px-8 py-6 rounded-[2rem] border-2 transition-all ${selectedFont === f.name ? 'border-stone-900 bg-stone-900 text-white shadow-xl' : 'border-stone-50 bg-stone-50 text-stone-400 hover:border-stone-200'}`}>
-                      <span className="text-sm font-black" style={{ fontFamily: f.name }}>{f.name}</span>
-                      <span className="text-[8px] font-black uppercase opacity-40">{f.type}</span>
+            </section>
+
+            {/* TIER SELECTION */}
+            <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
+               <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2"><ShieldCheck size={14}/> Subscription Tier</h2>
+               <div className="grid grid-cols-1 gap-2">
+                  {TIERS.map((t) => (
+                    <button 
+                      key={t} 
+                      onClick={() => handleTierSelection(t)} 
+                      className="p-4 rounded-2xl border text-[9px] font-black uppercase transition-all flex justify-between items-center"
+                      style={{
+                        borderColor: currentTier === t ? brandColor : "#f0f0f0",
+                        backgroundColor: currentTier === t ? brandColor : "transparent",
+                        color: currentTier === t ? "#ffffff" : "#a3a3a3"
+                      }}
+                    >
+                      {t} {currentTier === t && <Check size={12} />}
                     </button>
                   ))}
-                </div>
-              </div>
+               </div>
             </section>
 
-            {/* IDENTITY NODE */}
-            <section className="ultra-card bg-white p-16 rounded-[6rem] border border-stone-100 space-y-12 shadow-sm text-center">
-              <div className="relative mx-auto w-64 h-64 rounded-full border-[10px] border-stone-50 overflow-hidden group shadow-inner">
-                {profile.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-stone-50 flex items-center justify-center opacity-10"><User size={80} /></div>}
-                <label className="absolute inset-0 bg-stone-900/80 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-all duration-500">
-                  <Camera size={32} />
-                  <span className="text-[9px] font-black uppercase tracking-widest mt-3">Upload Image</span>
-                  <input type="file" className="hidden" />
-                </label>
+            <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-8">
+              <div className="flex flex-col items-center gap-6">
+                <div className="relative group w-32 h-32 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden">
+                  {profile?.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover" /> : <UserCircle size={40} className="opacity-10" />}
+                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer"><Camera size={20} /><input type="file" className="hidden" /></label>
+                </div>
+                <input value={profile?.full_name || ""} onChange={e => setProfile({...profile, full_name: e.target.value})} placeholder="Full Name" className="text-center font-serif italic text-2xl w-full bg-transparent outline-none" />
               </div>
-              <div className="space-y-6 pt-4">
-                <input value={profile.full_name} onChange={e => setProfile({...profile, full_name: e.target.value})} placeholder="Full Identity Name" className="text-center font-serif italic text-4xl w-full bg-transparent outline-none border-b-2 border-stone-50 focus:border-stone-900 pb-4 transition-all" />
-                <div className="grid gap-4">
-                  <div className="flex items-center gap-6 p-7 bg-stone-50 rounded-[2.5rem] border border-stone-100">
-                    <Mail size={18} className="opacity-20" /><input value={email} disabled className="bg-transparent text-[11px] font-black w-full outline-none opacity-40 uppercase tracking-widest" />
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Mail size={18} className="text-stone-400" /><input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
+                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Fingerprint size={18} className="text-stone-400" /><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="New Password" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
+                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Phone size={18} className="text-[#a9b897]" /><input value={profile?.phone || ""} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="Phone" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
+                
+                {/* Emergency Contacts placed inside the profile card */}
+                <div className="space-y-3 p-5 bg-stone-50 rounded-2xl">
+                  <label className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-2">
+                    <HeartPulse size={14} className="text-red-400" /> Emergency Contacts
+                  </label>
+                  <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-stone-100">
+                    <User size={16} className="text-stone-400" />
+                    <input 
+                      value={nextOfKin} 
+                      onChange={e => setNextOfKin(e.target.value)} 
+                      placeholder="Next of Kin Name" 
+                      className="bg-transparent text-xs font-bold outline-none w-full" 
+                    />
                   </div>
-                  <div className="flex items-center gap-6 p-7 bg-stone-50 rounded-[2.5rem] border border-stone-100">
-                    <Fingerprint size={18} className="opacity-20" /><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Passkey Update" className="bg-transparent text-[11px] font-black w-full outline-none uppercase tracking-widest" />
+                  <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-stone-100">
+                    <Phone size={16} className="text-stone-400" />
+                    <input 
+                      placeholder="Next of Kin Phone Number" 
+                      value={nextOfKinPhone} 
+                      onChange={(e) => setNextOfKinPhone(e.target.value)} 
+                      className="bg-transparent text-xs font-bold outline-none w-full" 
+                    />
                   </div>
                 </div>
-              </div>
-            </section>
 
-            {/* AUDIT LOGS */}
-            <section className="bg-stone-900 p-12 rounded-[5rem] space-y-8 shadow-2xl">
-              <div className="flex items-center justify-between opacity-50 text-white">
-                 <h2 className="text-[9px] font-black uppercase tracking-[0.4em]">Audit Trail</h2>
-                 <History size={14} />
-              </div>
-              <div className="h-48 overflow-y-auto hide-scroll space-y-4 font-mono text-[9px] leading-relaxed text-stone-400">
-                {auditLogs.map((log, i) => <p key={i} className={i === 0 ? "text-green-400" : ""}>{log}</p>)}
               </div>
             </section>
           </div>
 
-          {/* --- RIGHT: OPERATIONS & HIVE --- */}
-          <div className="lg:col-span-8 space-y-24">
+          {/* RIGHT COLUMN */}
+          <div className="lg:col-span-8 space-y-12">
             
-            {/* THE HIVE (FIXES CHARAT ERROR) */}
-            <section className="ultra-card bg-white p-16 md:p-24 rounded-[7rem] border border-stone-100 shadow-sm space-y-20">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
+            {/* EXTERNAL LINKS SECTION */}
+            <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-6">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2">
+                <Link2 size={14} className="text-[#a9b897]" /> Platforms & Campaigns
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h2 className="text-[16px] font-black uppercase tracking-[0.8em] opacity-40 flex items-center gap-6"><Users size={24} /> The Hive</h2>
-                  <p className="text-[11px] font-bold text-stone-300 uppercase tracking-widest">Team Node Orchestration</p>
-                </div>
-                <div className="px-10 py-4 bg-stone-50 rounded-full border border-stone-100">
-                  <span className="text-[10px] font-black uppercase tracking-widest opacity-40">{teamMembers.length} Active Nodes</span>
-                </div>
-              </div>
-
-              <div className="space-y-12 bg-[#fcfaf7] p-12 md:p-20 rounded-[5rem] border border-stone-100">
-                <div className="flex flex-col md:flex-row gap-6">
-                  <input placeholder="Search node email..." value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="flex-1 p-8 rounded-[2.5rem] border border-stone-200 bg-white text-sm font-bold outline-none focus:border-stone-900" />
-                  <button onClick={() => {}} className="px-16 py-8 bg-stone-900 text-white rounded-[2.5rem] font-black text-[12px] uppercase tracking-widest shadow-xl transition-all">Provision</button>
+                  <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest">Web / Social Media Links</label>
+                  <input value={socialLinks.website} onChange={e => setSocialLinks({...socialLinks, website: e.target.value})} placeholder="Website URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.instagram} onChange={e => setSocialLinks({...socialLinks, instagram: e.target.value})} placeholder="Instagram Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.linkedin} onChange={e => setSocialLinks({...socialLinks, linkedin: e.target.value})} placeholder="LinkedIn Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.twitter} onChange={e => setSocialLinks({...socialLinks, twitter: e.target.value})} placeholder="X (Twitter) Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
                 </div>
                 
-                <div className="space-y-8">
-                  <p className="text-[9px] font-black uppercase tracking-widest opacity-30 flex items-center gap-4"><ShieldAlert size={14}/> Page Access Permissions</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                    {APP_PAGES.map(p => (
-                      <button key={p.id} onClick={() => setSelectedPermissions(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])} className={`group text-left p-6 rounded-[2rem] border-2 transition-all ${selectedPermissions.includes(p.id) ? 'border-stone-900 bg-stone-900 text-white shadow-xl' : 'border-stone-200 bg-white hover:border-stone-400'}`}>
-                        <p className="text-[10px] font-black uppercase tracking-widest">{p.label}</p>
-                        <p className={`text-[8px] mt-1 font-bold ${selectedPermissions.includes(p.id) ? 'text-white/40' : 'text-stone-300'}`}>{p.description}</p>
-                      </button>
+                <div className="space-y-4">
+                  <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                    <FolderGit size={14} /> Campaign List Management
+                  </label>
+                  <div className="flex gap-2">
+                    <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="Enter Campaign Name" className="flex-1 p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                    <button onClick={addCampaign} className="px-5 bg-stone-900 text-white rounded-2xl text-[10px] uppercase font-bold">Add</button>
+                  </div>
+                  <div className="h-44 overflow-y-auto space-y-2 border border-stone-100 rounded-3xl p-6 bg-stone-50/20">
+                    {campaignList.map((campaign, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-white p-3 border border-stone-100 rounded-xl">
+                        <span className="text-xs font-serif italic">{campaign}</span>
+                        <button onClick={() => removeCampaign(idx)} className="text-stone-300 hover:text-red-500"><Trash2 size={14}/></button>
+                      </div>
                     ))}
+                    {campaignList.length === 0 && <span className="text-[10px] text-stone-300 italic">No campaigns listed.</span>}
                   </div>
                 </div>
               </div>
+            </section>
 
-              {/* MEMBERS LIST */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {teamMembers.map((m, i) => (
-                  <div key={i} className="flex items-center justify-between p-10 bg-white rounded-[3.5rem] border border-stone-100 shadow-sm hover:border-stone-400 transition-all group">
-                    <div className="flex items-center gap-8">
-                      {/* FIXED: Uses default if email is missing to prevent crash */}
-                      <div className="w-16 h-16 rounded-full bg-stone-50 border border-stone-100 flex items-center justify-center font-serif italic text-xl text-stone-300 group-hover:text-stone-900 transition-all">
-                        {m?.email ? m.email.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-black">{m?.email || "Unknown Entity"}</p>
-                        <span className="text-[8px] font-black uppercase bg-stone-50 px-3 py-1 rounded-full border border-stone-100">{m.role}</span>
-                      </div>
+            {/* EMAIL CAMPAIGNS SECTION */}
+            <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                     <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
+                        <ListChecks size={14} className="text-[#a9b897]" /> Email Campaigns List
+                     </label>
+                     <textarea 
+                        value={emailCampaigns}
+                        onChange={(e) => setEmailCampaigns(e.target.value)}
+                        className="w-full p-4 bg-stone-50/50 rounded-2xl text-xs leading-relaxed outline-none h-36 resize-none border border-stone-100 focus:border-[#a9b897]/50 transition-colors text-stone-600"
+                        placeholder="E.g., Summer Promotion, Winter Newsletter, VIP Launch"
+                     />
+                  </div>
+                  <div className="flex flex-col justify-center">
+                    <p className="text-[9px] text-stone-400 italic">Manage and assign email marketing campaigns or lists for your records.</p>
+                  </div>
+               </div>
+            </section>
+
+            <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm">
+              <div className="flex justify-between items-center mb-10">
+                <h2 className="text-[12px] font-black uppercase tracking-[0.5em] opacity-40">The Hive</h2>
+                <button onClick={() => router.push('/billing')} className="text-[9px] font-black bg-stone-900 text-[#a9b897] px-4 py-2 rounded-full uppercase tracking-widest">Add Seat £19.95</button>
+              </div>
+              <div className="space-y-8">
+                <input placeholder="Invite email..." value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="w-full p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-base outline-none" />
+                {inviteEmail.length > 0 && (
+                  <div className="space-y-6 pt-6 border-t border-stone-50">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {APP_PAGES.map((page) => (
+                        <button 
+                          key={page.id} 
+                          onClick={() => setSelectedPermissions(prev => prev.includes(page.id) ? prev.filter(p => p !== page.id) : [...prev, page.id])} 
+                          className="p-4 rounded-2xl border text-[9px] font-black uppercase transition-all"
+                          style={{
+                            borderColor: selectedPermissions.includes(page.id) ? brandColor : "#f0f0f0",
+                            backgroundColor: selectedPermissions.includes(page.id) ? `${brandColor}10` : "transparent",
+                          }}
+                        >
+                          {page.label}
+                        </button>
+                      ))}
                     </div>
-                    <button className="p-4 text-stone-100 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 size={20}/></button>
+                    <button 
+                      onClick={handleInvite} 
+                      className="w-full py-6 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest"
+                      style={{ backgroundColor: brandColor }}
+                    >
+                      Provision Seat
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="mt-12 space-y-4">
+                {teamMembers.map(member => (
+                  <div key={member.id} className="flex items-center justify-between p-6 bg-stone-50/50 rounded-[2rem] border border-stone-100">
+                    <span className="text-sm font-bold">{member.email}</span>
+                    <button onClick={() => supabase.from("team_members").delete().eq("id", member.id).then(() => init())} className="text-stone-300 hover:text-red-500"><Trash2 size={18}/></button>
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* TREASURY */}
-            <section className="ultra-card text-white p-16 md:p-24 rounded-[7rem] shadow-2xl relative overflow-hidden" style={{ backgroundColor: secondaryColor }}>
-              <div className="absolute top-0 right-0 p-24 opacity-5 pointer-events-none"><Landmark size={300} /></div>
-              <div className="relative z-10 space-y-20">
-                <h2 className="text-[16px] font-black uppercase tracking-[0.8em] opacity-60 flex items-center gap-6"><Landmark size={32} /> Treasury Ledger</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                   <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-3">Entity Identity</label>
-                      <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} placeholder="Institution Name" className="w-full bg-white/5 border border-white/10 p-8 rounded-[2.5rem] text-sm font-bold outline-none focus:bg-white/15 uppercase" />
-                   </div>
-                   <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-3">Account Number</label>
-                      <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} placeholder="00000000" className="w-full bg-white/5 border border-white/10 p-8 rounded-[2.5rem] text-sm font-mono outline-none focus:bg-white/15" />
-                   </div>
-                   <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-3">Routing Node</label>
-                      <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} placeholder="00-00-00" className="w-full bg-white/5 border border-white/10 p-8 rounded-[2.5rem] text-sm font-mono outline-none focus:bg-white/15" />
-                   </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-4">
+                <h2 className="text-[10px] font-black uppercase tracking-widest opacity-40 flex items-center gap-2"><Zap size={14}/> Integrations</h2>
+                <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="Webhook URL" className="w-full p-4 bg-stone-50 rounded-2xl text-[10px] font-mono outline-none border border-stone-100" />
+              </section>
+              <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-4">
+                <h2 className="text-[10px] font-black uppercase tracking-widest opacity-40 flex items-center gap-2"><History size={14}/> Audit Log</h2>
+                <div className="text-[9px] font-bold opacity-50 space-y-2 h-16 overflow-y-auto">
+                  {auditLogs.map((log, index) => (
+                    <p key={index}>{log}</p>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <section className="bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
+              <h2 className="text-[11px] font-black uppercase tracking-widest opacity-40">Signature</h2>
+              <textarea value={profile?.email_signature || ""} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Regards, Management" className="w-full h-32 p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-sm outline-none resize-none" />
+            </section>
+
+            {/* BANKING SECTION */}
+            <section className="text-white p-12 rounded-[4rem] shadow-2xl custom-secondary-bg" style={{ backgroundColor: secondaryColor }}>
+              <div className="flex items-center gap-3 mb-8 opacity-50">
+                <Landmark size={18} />
+                <h2 className="text-[10px] font-black uppercase tracking-[0.3em]">Banking Distribution</h2>
+              </div>
+              <div className="flex flex-wrap gap-6">
+                <div className="flex-1 min-w-[240px] space-y-3">
+                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Bank Entity</label>
+                  <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} placeholder="e.g. Barclays" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
+                </div>
+                <div className="flex-1 min-w-[240px] space-y-3">
+                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Account Reference</label>
+                  <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} placeholder="00000000" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
+                </div>
+                <div className="flex-1 min-w-[240px] space-y-3">
+                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Sort / Routing</label>
+                  <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} placeholder="00-00-00" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
                 </div>
               </div>
             </section>
 
-            {/* PLATFORMS & CAMPAIGNS */}
-            <section className="ultra-card bg-white p-16 md:p-24 rounded-[7rem] border border-stone-100 shadow-sm space-y-24">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-24">
-                <div className="space-y-12">
-                   <h2 className="text-[12px] font-black uppercase tracking-[0.6em] opacity-40 flex items-center gap-6"><Globe size={22} /> Global Ecosystem</h2>
-                   <div className="space-y-5">
-                      {Object.keys(socialLinks).map((key) => (
-                        <div key={key} className="flex items-center gap-6 p-7 bg-stone-50 border border-stone-100 rounded-[2.5rem] group hover:border-stone-900 transition-all">
-                          <div className="w-10 h-10 flex items-center justify-center opacity-20 group-hover:opacity-100"><Share2 size={18}/></div>
-                          <input value={(socialLinks as any)[key]} onChange={e => setSocialLinks({...socialLinks, [key]: e.target.value})} placeholder={key.toUpperCase()} className="w-full bg-transparent text-[11px] font-black uppercase tracking-widest outline-none" />
-                        </div>
-                      ))}
-                   </div>
-                </div>
-                <div className="space-y-12">
-                   <h2 className="text-[12px] font-black uppercase tracking-[0.6em] opacity-40 flex items-center gap-6"><Zap size={22} /> Campaign Registry</h2>
-                   <div className="flex gap-4">
-                     <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="New Campaign ID..." className="flex-1 p-8 bg-stone-50 border border-stone-200 rounded-[2.5rem] text-xs font-bold outline-none" />
-                     <button onClick={() => { if(newCampaign){ setCampaignList([...campaignList, newCampaign]); setNewCampaign(""); }}} className="w-20 h-20 bg-stone-900 text-white rounded-full flex items-center justify-center hover:scale-110 shadow-xl transition-all"><Check size={24}/></button>
-                   </div>
-                   <div className="h-80 overflow-y-auto hide-scroll space-y-3">
-                     {campaignList.map((c, i) => (
-                       <div key={i} className="flex justify-between items-center bg-stone-50 p-8 border border-stone-100 rounded-[3rem] group hover:border-stone-900 transition-all">
-                         <span className="text-[10px] font-black uppercase tracking-widest">{c}</span>
-                         <button onClick={() => setCampaignList(campaignList.filter((_, idx) => idx !== i))} className="text-stone-200 hover:text-red-500 transition-colors"><Trash2 size={20}/></button>
-                       </div>
-                     ))}
-                   </div>
-                </div>
+            <section className="bg-red-50/50 border border-red-100 p-10 rounded-[3.5rem] space-y-6">
+              <div className="flex items-center gap-3 text-red-600">
+                <AlertTriangle size={20} />
+                <h2 className="text-[11px] font-black uppercase tracking-widest">Danger Zone</h2>
               </div>
-            </section>
-
-            {/* COMMS & METADATA (FIXES SIGNATURE ERROR) */}
-            <section className="ultra-card bg-white p-16 md:p-24 rounded-[7rem] border border-stone-100 shadow-sm space-y-16">
-               <div className="grid grid-cols-1 xl:grid-cols-2 gap-16">
-                 <div className="space-y-6">
-                   <h2 className="text-[12px] font-black uppercase tracking-[0.6em] opacity-40 flex items-center gap-5"><Type size={22}/> Identity Signature</h2>
-                   <textarea value={profile.email_signature} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Professional automated signature..." className="w-full h-80 p-12 rounded-[4rem] border border-stone-100 bg-stone-50/50 text-sm italic font-serif outline-none resize-none leading-relaxed focus:bg-white focus:border-stone-900 transition-all" />
-                 </div>
-                 <div className="space-y-6">
-                   <h2 className="text-[12px] font-black uppercase tracking-[0.6em] opacity-40 flex items-center gap-5"><Database size={22}/> Corporate Metadata</h2>
-                   <textarea value={companyDetails} onChange={e => setCompanyDetails(e.target.value)} placeholder="VAT No., Reg. Office, Operations Node..." className="w-full h-80 p-12 rounded-[4rem] border border-stone-100 bg-stone-50/50 text-[10px] font-black uppercase tracking-[0.5em] outline-none resize-none leading-[2.5] focus:bg-white focus:border-stone-900 transition-all" />
-                 </div>
-               </div>
-            </section>
-
-            {/* DANGER ZONE */}
-            <section className="bg-red-50/30 border-2 border-red-100 p-16 md:p-24 rounded-[7rem] flex flex-col xl:flex-row gap-12 items-center justify-between">
-              <div className="flex items-center gap-10 text-red-600 text-center xl:text-left">
-                <AlertTriangle size={48} />
-                <div className="space-y-2">
-                  <h2 className="text-[18px] font-black uppercase tracking-[0.8em]">Emergency Protocol</h2>
-                  <p className="text-[10px] font-black opacity-50 uppercase tracking-[0.2em]">Permanent system wipe & node de-provisioning.</p>
-                </div>
-              </div>
-              <div className="flex gap-6 w-full xl:w-auto">
-                <button className="flex-1 px-16 py-8 bg-white border-2 border-red-100 text-red-500 rounded-full font-black text-[12px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm">
-                   <Download size={20} className="inline mr-4"/> Export Data
-                </button>
-                <button className="flex-1 px-16 py-8 bg-red-600 text-white rounded-full font-black text-[12px] uppercase tracking-widest hover:shadow-2xl transition-all">
-                  Execute Wipe
-                </button>
+              <div className="flex flex-col md:flex-row gap-4">
+                <button className="flex-1 py-4 bg-white border border-red-200 text-red-600 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"><Download size={14}/> Export Node Data</button>
+                <button className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest hover:brightness-110 transition-all">Terminate Account</button>
               </div>
             </section>
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function SettingsPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-[#fcfaf7] flex items-center justify-center"><Loader2 className="animate-spin text-stone-200" size={40} /></div>}>
-      <SettingsContent />
-    </Suspense>
   );
 }

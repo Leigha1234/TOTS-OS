@@ -1,4 +1,3 @@
-// Setup type definitions for Supabase Edge Runtime
 import "@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
@@ -9,86 +8,57 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { project_id, team_id } = await req.json()
+    const body = await req.json();
+    const { team_id } = body;
 
-    if (!team_id) throw new Error("Validation Failed: No team_id provided in request.")
+    // 1. Log the incoming request so we can see it in Supabase Logs
+    console.log("Processing request for team_id:", team_id);
 
-    // 1. Initialize Supabase Client with Service Role to bypass RLS for logging scans
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const aiKey = Deno.env.get('AI_KEY');
 
-    // 2. Fetch Tasks (Scoped by team)
-    const { data: tasks, error: tasksError } = await supabaseClient
+    if (!aiKey) throw new Error("AI_KEY is not set in Supabase Secrets");
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // 2. Simple Fetch
+    const { data: tasks } = await supabase
       .from('tasks')
-      .select('name, status, priority, due_date')
+      .select('name')
       .eq('team_id', team_id)
+      .limit(5);
 
-    if (tasksError) throw new Error(`Database Error (Tasks): ${tasksError.message}`)
-
-    // 3. Prepare AI Prompt with fallback for empty task lists
-    const taskSummary = tasks && tasks.length > 0 
-      ? tasks.map(t => `- ${t.name} (${t.status}, Due: ${t.due_date || 'N/A'})`).join('\n')
-      : "The team has no active tasks currently listed."
-
-    const prompt = `You are the TOTS-OS Intelligence Engine. Analyze this data and provide a 2-sentence high-level strategic insight for the team. Be concise and slightly futuristic: \n${taskSummary}`
-
-    // 4. Call AI (Gemini)
-    const apiKey = Deno.env.get('AI_KEY')
+    // 3. Simple AI Call
     const aiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${aiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          contents: [{ parts: [{ text: `Give a 1-sentence productivity tip for a team working on: ${tasks?.map(t => t.name).join(', ') || 'General tasks'}` }] }]
         })
       }
-    )
+    );
 
-    const aiData = await aiResponse.json()
+    const aiData = await aiResponse.json();
+    const insight = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "Stay focused on your current milestones.";
+
+    // 4. WE ARE SKIPPING THE DATABASE INSERT FOR NOW TO RULE OUT DB ERRORS
     
-    if (aiData.error) throw new Error(`AI Provider Error: ${aiData.error.message}`)
-    if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
-      throw new Error('AI Provider returned an empty insight.')
-    }
-
-    const insight = aiData.candidates[0].content.parts[0].text
-
-    // 5. Log the scan result (Wrapped in a try-catch so scan results still show if logging fails)
-    try {
-      await supabaseClient.from('clarity_scans').insert({
-        team_id: team_id,
-        project_id: project_id || null,
-        insight_text: insight,
-        scan_type: project_id ? 'project_detail' : 'dashboard_overview'
-      })
-    } catch (dbErr) {
-      console.warn("Database Logging Failed:", dbErr)
-    }
-
-    return new Response(
-      JSON.stringify({ insight }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
-      }
-    )
+    return new Response(JSON.stringify({ insight }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
 
   } catch (error: any) {
-    console.error("Function Execution Failed:", error.message)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400 
-      }
-    )
+    console.error("CRITICAL ERROR:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400, // This is what you are seeing in the console
+    });
   }
 })

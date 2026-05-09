@@ -1,17 +1,16 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useRouter } from "next/navigation"; // Added router for navigation
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client"; 
 import Papa from "papaparse"; 
 import { 
   UploadCloud, CheckCircle2, Loader2, Database, AlertCircle, Info, ChevronRight, ArrowLeft
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Button from "@/app/components/Button";
 
 export default function DataImportPage() {
-  const router = useRouter(); // Initialize router
+  const router = useRouter(); 
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState("");
@@ -94,13 +93,13 @@ export default function DataImportPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] border-none">
-      <div className="max-w-7xl mx-auto p-6 space-y-10 pb-40">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 md:space-y-10 pb-40">
         
         {/* NAVIGATION BACK BUTTON */}
-        <div className="flex justify-start">
+        <div className="flex justify-center md:justify-start">
           <button 
             onClick={() => router.push('/settings')}
-            className="group flex items-center gap-3 px-6 py-3 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] hover:bg-stone-900 hover:text-white transition-all shadow-sm"
+            className="group flex items-center gap-3 px-6 py-3 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] hover:bg-stone-900 hover:text-white transition-all shadow-sm w-full md:w-auto justify-center"
           >
             <ArrowLeft size={16} className="text-[#a9b897] group-hover:text-white transition-colors" />
             <span className="text-[10px] font-black uppercase tracking-widest">Back to System</span>
@@ -108,16 +107,18 @@ export default function DataImportPage() {
         </div>
 
         {/* HEADER SECTION */}
-        <div className="flex flex-col md:flex-row justify-between items-center p-10 rounded-[3rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm gap-6">
-          <div>
+        <div className="flex flex-col md:flex-row justify-between items-center p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm gap-6 text-center md:text-left">
+          <div className="flex flex-col items-center md:items-start">
             <div className="flex items-center gap-2 text-[#a9b897] mb-1">
               <Database size={14} />
               <p className="text-[9px] font-black uppercase tracking-[0.3em]">System Infrastructure</p>
             </div>
-            <h1 className="text-5xl font-serif italic text-[#a9b897]">Data Migration</h1>
+            <h1 className="text-3xl md:text-5xl font-serif italic text-[#a9b897]">Data Migration</h1>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-2 opacity-50 text-[var(--text-muted)]">Target: Supabase Cloud Ingestion</p>
           </div>
-          <div className="flex gap-4">
+          
+          {/* Desktop-only button (hidden on mobile, replaced by bottom bar) */}
+          <div className="hidden md:flex gap-4">
             {file && status === 'idle' && (
               <button 
                 onClick={startMigration}
@@ -129,34 +130,34 @@ export default function DataImportPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
           {/* MAIN DROPZONE */}
           <div className="lg:col-span-8">
-            <section className="p-10 rounded-[2.5rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm h-full flex flex-col justify-center items-center">
+            <section className="p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm h-full flex flex-col justify-center items-center">
               <div 
                 onClick={() => status !== 'processing' && fileInputRef.current?.click()}
-                className={`w-full border-2 border-dashed rounded-[2rem] p-20 transition-all duration-500 flex flex-col items-center justify-center text-center space-y-6 cursor-pointer ${
+                className={`w-full border-2 border-dashed rounded-[1.5rem] md:rounded-[2rem] p-8 md:p-20 transition-all duration-500 flex flex-col items-center justify-center text-center space-y-6 cursor-pointer ${
                   file ? 'border-[#a9b897] bg-[#a9b897]/5' : 'border-[var(--border)] hover:border-[#a9b897]'
                 }`}
               >
                 <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".csv" />
                 
-                <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center transition-all ${
+                <div className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center transition-all ${
                   status === 'success' ? 'bg-green-500 text-white' : 'bg-[var(--bg-soft)] text-[#a9b897]'
                 }`}>
-                  {status === 'processing' ? <Loader2 className="animate-spin" /> : status === 'success' ? <CheckCircle2 /> : <UploadCloud />}
+                  {status === 'processing' ? <Loader2 className="animate-spin" /> : status === 'success' ? <CheckCircle2 size={28} /> : <UploadCloud size={28} />}
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-2xl font-serif italic text-[var(--text-main)]">
+                  <h3 className="text-xl md:text-2xl font-serif italic text-[var(--text-main)] break-all px-2">
                     {status === 'success' ? `Migration Successful` : file ? file.name : "Select Source Architecture"}
                   </h3>
                   {status === 'success' && <p className="text-[10px] font-black uppercase text-[#a9b897] tracking-widest">{rowCount} Nodes Injected</p>}
                 </div>
 
                 {status === 'error' && (
-                  <div className="flex items-center gap-2 text-red-500 font-mono text-[10px] uppercase bg-red-500/10 px-4 py-2 rounded-xl">
-                    <AlertCircle size={14} /> {errorMessage}
+                  <div className="flex items-center gap-2 text-red-500 font-mono text-[10px] uppercase bg-red-500/10 px-4 py-3 rounded-xl max-w-full">
+                    <AlertCircle size={14} className="shrink-0" /> {errorMessage}
                   </div>
                 )}
               </div>
@@ -165,7 +166,7 @@ export default function DataImportPage() {
 
           {/* SIDEBAR RULES */}
           <div className="lg:col-span-4 space-y-6">
-            <section className="p-10 rounded-[2.5rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm">
+            <section className="p-8 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm">
               <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6">Verification Logic</h2>
               <ul className="space-y-6">
                 <li className="flex gap-4">
@@ -183,7 +184,7 @@ export default function DataImportPage() {
               </ul>
             </section>
 
-            <section className="p-8 rounded-[2rem] bg-[#a9b897]/10 border border-[#a9b897]/20">
+            <section className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] bg-[#a9b897]/10 border border-[#a9b897]/20">
                <div className="flex items-center gap-3 mb-2">
                  <Info size={16} className="text-[#a9b897]" />
                  <h4 className="text-[9px] font-black uppercase tracking-widest text-[#a9b897]">System Note</h4>
@@ -194,6 +195,27 @@ export default function DataImportPage() {
             </section>
           </div>
         </div>
+      </div>
+
+      {/* MOBILE STICKY BUTTON (Only visible on mobile if file is selected) */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 md:hidden bg-gradient-to-t from-[var(--bg)] to-transparent pointer-events-none">
+        <AnimatePresence>
+          {file && status === 'idle' && (
+            <motion.div 
+              initial={{ y: 100 }} 
+              animate={{ y: 0 }} 
+              exit={{ y: 100 }}
+              className="pointer-events-auto"
+            >
+              <button 
+                onClick={startMigration}
+                className="w-full px-8 py-5 bg-[#a9b897] text-stone-900 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-2"
+              >
+                Commit Ingestion <ChevronRight size={14} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

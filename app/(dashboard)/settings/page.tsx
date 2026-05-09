@@ -9,7 +9,8 @@ import {
   Phone, Palette, UserCircle, Fingerprint, ShieldCheck, Link2, 
   Database, Copy, LogOut, Smartphone, Zap, Sparkles,
   LayoutDashboard, Calendar, Megaphone, DollarSign,
-  Briefcase, BarChart3, Globe, Lock, StickyNote, ArrowUpRight
+  Briefcase, BarChart3, Globe, Lock, StickyNote, ArrowUpRight,
+  UploadCloud, FileSpreadsheet, ShieldAlert
 } from "lucide-react";
 
 const NAV_OPTIONS = [
@@ -87,7 +88,6 @@ function SettingsContent() {
         setNextOfKin(p.next_of_kin || "");
         setCurrentTier(p.tier?.toUpperCase() || "STANDARD");
         setMobileNav(p.mobile_nav_config || ["/dashboard", "/clarity", "/calendar"]);
-        // If profile has colors, use them
         if (p.brand_color) setBrandColor(p.brand_color);
         if (p.secondary_color) setSecondaryColor(p.secondary_color);
       }
@@ -126,7 +126,6 @@ function SettingsContent() {
   const handleGlobalSave = async () => {
     setSaving(true);
     try {
-      // Sync to Profiles
       const { error: profileError } = await supabase.from("profiles").update({ 
         full_name: profile.full_name, 
         phone: profile.phone, 
@@ -140,7 +139,6 @@ function SettingsContent() {
 
       if (profileError) throw profileError;
 
-      // Sync to Team Settings
       if (teamId) {
         await supabase.from("settings").upsert({
           team_id: teamId, brand_color: brandColor, secondary_color: secondaryColor, font_family: selectedFont,
@@ -158,12 +156,16 @@ function SettingsContent() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
   if (loading) return null;
 
   return (
     <div className={`min-h-screen transition-colors duration-700 ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
       
-      {/* 🧬 DYNAMIC THEME ENGINE */}
       <style jsx global>{`
         :root { 
           --brand-primary: ${brandColor}; 
@@ -178,7 +180,6 @@ function SettingsContent() {
 
       <div className="max-w-7xl mx-auto p-6 md:p-12 lg:p-20 space-y-16">
         
-        {/* COMMAND HEADER */}
         <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 border-b border-stone-200 pb-16">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
@@ -200,8 +201,8 @@ function SettingsContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
           
-          {/* PERSONAL ARCHITECTURE */}
           <div className="lg:col-span-4 space-y-10">
+            {/* PROFILE CARD */}
             <section className={`p-10 rounded-[3.5rem] border shadow-sm space-y-10 ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
               <div className="flex flex-col items-center gap-8">
                 <div className="relative group w-40 h-40 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden transition-all hover:border-brand">
@@ -227,10 +228,16 @@ function SettingsContent() {
                     <input value={email} onChange={e => setEmail(e.target.value)} className="bg-transparent text-xs font-bold outline-none w-full text-stone-600" />
                   </div>
                 </div>
+                <button 
+                  onClick={handleLogout}
+                  className="w-full flex items-center justify-center gap-3 p-5 rounded-3xl border border-red-100 text-red-500 hover:bg-red-50 transition-all font-black text-[9px] uppercase tracking-widest"
+                >
+                  <LogOut size={14} /> Terminate Session
+                </button>
               </div>
             </section>
 
-            {/* AESTHETIC ENGINE */}
+            {/* AESTHETICS */}
             <section className={`p-10 rounded-[3.5rem] border ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-sm'} space-y-8`}>
               <div className="flex items-center justify-between">
                 <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-3"><Palette size={16}/> Aesthetic Engine</h2>
@@ -248,14 +255,45 @@ function SettingsContent() {
             </section>
           </div>
 
-          {/* SYSTEM ARCHITECTURE */}
           <div className="lg:col-span-8 space-y-12">
             
+            {/* IMPORT HUB (NEW/RESTORED) */}
+            <section className={`p-10 lg:p-14 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
+               <div className="flex justify-between items-start mb-12">
+                  <div className="space-y-2">
+                    <h2 className="text-4xl font-serif italic text-brand">Import Hub</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Data Migration Protocols</p>
+                  </div>
+                  <Database size={24} className="text-stone-200" />
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <button className="flex items-center gap-6 p-8 rounded-[2.5rem] bg-stone-50 border border-stone-100 hover:border-brand transition-all group text-left">
+                    <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center text-stone-400 group-hover:text-brand transition-colors">
+                      <UploadCloud size={24} />
+                    </div>
+                    <div>
+                      <h4 className="text-[11px] font-black uppercase tracking-widest text-stone-900">Import CRM</h4>
+                      <p className="text-[9px] font-bold text-stone-400 mt-1 uppercase">CSV / VCF Format</p>
+                    </div>
+                  </button>
+                  <button className="flex items-center gap-6 p-8 rounded-[2.5rem] bg-stone-50 border border-stone-100 hover:border-brand transition-all group text-left">
+                    <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center text-stone-400 group-hover:text-brand transition-colors">
+                      <FileSpreadsheet size={24} />
+                    </div>
+                    <div>
+                      <h4 className="text-[11px] font-black uppercase tracking-widest text-stone-900">Import Ledger</h4>
+                      <p className="text-[9px] font-bold text-stone-400 mt-1 uppercase">XLS / Statement</p>
+                    </div>
+                  </button>
+               </div>
+            </section>
+
             {/* MOBILE NAV CONFIG */}
             <section className={`p-10 lg:p-14 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
                <div className="flex justify-between items-start mb-12">
                   <div className="space-y-2">
-                    <h2 className="text-4xl font-serif italic text-brand">Mobile Architecture</h2>
+                    <h2 className="text-4xl font-serif italic text-brand">Architecture</h2>
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Select 3 Core Neural Hubs</p>
                   </div>
                   <div className="px-5 py-2 rounded-full bg-stone-50 border border-stone-100 text-[10px] font-black text-brand uppercase tracking-widest">
@@ -267,19 +305,12 @@ function SettingsContent() {
                   {NAV_OPTIONS.map((option) => {
                     const isSelected = mobileNav.includes(option.id);
                     const isDisabled = !isSelected && mobileNav.length >= 3;
-                    
                     return (
                       <button
                         key={option.id}
                         onClick={() => handleToggleNav(option.id)}
                         disabled={isDisabled}
-                        className={`
-                          relative flex flex-col items-center gap-4 p-8 rounded-[2.5rem] border transition-all
-                          ${isSelected 
-                            ? 'bg-brand text-white border-transparent shadow-xl scale-[1.05]' 
-                            : 'bg-stone-50 border-stone-100 text-stone-400 hover:border-stone-300 hover:text-stone-600'}
-                          ${isDisabled ? 'opacity-20 grayscale cursor-not-allowed' : 'opacity-100'}
-                        `}
+                        className={`relative flex flex-col items-center gap-4 p-8 rounded-[2.5rem] border transition-all ${isSelected ? 'bg-brand text-white border-transparent shadow-xl scale-[1.05]' : 'bg-stone-50 border-stone-100 text-stone-400 hover:border-stone-300 hover:text-stone-600'} ${isDisabled ? 'opacity-20 grayscale cursor-not-allowed' : 'opacity-100'}`}
                       >
                         <option.icon size={24} strokeWidth={1.5} />
                         <span className="text-[9px] font-black uppercase tracking-widest text-center leading-tight">{option.label}</span>
@@ -290,19 +321,26 @@ function SettingsContent() {
                </div>
             </section>
 
-            {/* TEAM & ACCESS */}
+            {/* TEAM & LEGACY (RESTORED BUTTONS) */}
             <section className={`p-10 lg:p-14 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
                <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-12">
-                 <div className="space-y-2">
-                   <h2 className="text-4xl font-serif italic text-brand">The Network</h2>
+                 <div className="space-y-2 text-center md:text-left">
+                   <h2 className="text-4xl font-serif italic text-brand">Legacy Management</h2>
                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-30">Team Provisioning</p>
                  </div>
-                 <button onClick={() => {navigator.clipboard.writeText(inviteLink); alert("Link Copied");}} className="group flex items-center gap-4 bg-stone-900 text-white pl-6 pr-4 py-3 rounded-full hover:bg-brand transition-all shadow-xl">
-                    <span className="text-[10px] font-black uppercase tracking-widest">Generate Invite</span>
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20">
-                      <Copy size={14} />
-                    </div>
-                 </button>
+                 <div className="flex gap-3">
+                   <button onClick={() => {navigator.clipboard.writeText(inviteLink); alert("Link Copied");}} className="group flex items-center gap-4 bg-stone-900 text-white pl-6 pr-4 py-3 rounded-full hover:bg-brand transition-all shadow-xl">
+                      <span className="text-[10px] font-black uppercase tracking-widest">Invite Link</span>
+                      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20">
+                        <Copy size={14} />
+                      </div>
+                   </button>
+                   {/* Team Page Access Button */}
+                   <button onClick={() => router.push('/team')} className="flex items-center gap-3 bg-white border border-stone-200 px-6 py-3 rounded-full hover:bg-stone-50 transition-all shadow-sm">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-stone-600">Full Team Page</span>
+                      <ArrowUpRight size={14} className="text-stone-300" />
+                   </button>
+                 </div>
                </div>
 
                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">

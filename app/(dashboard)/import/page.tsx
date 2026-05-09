@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { supabase } from "@/lib/supabase-client"; // Use sync client
+import { useRouter } from "next/navigation"; // Added router for navigation
+import { supabase } from "@/lib/supabase-client"; 
 import Papa from "papaparse"; 
 import { 
-  UploadCloud, CheckCircle2, Loader2, Database, AlertCircle, Info, ChevronRight
+  UploadCloud, CheckCircle2, Loader2, Database, AlertCircle, Info, ChevronRight, ArrowLeft
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/app/components/Button";
 
 export default function DataImportPage() {
+  const router = useRouter(); // Initialize router
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState("");
@@ -94,6 +96,17 @@ export default function DataImportPage() {
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] border-none">
       <div className="max-w-7xl mx-auto p-6 space-y-10 pb-40">
         
+        {/* NAVIGATION BACK BUTTON */}
+        <div className="flex justify-start">
+          <button 
+            onClick={() => router.push('/settings')}
+            className="group flex items-center gap-3 px-6 py-3 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] hover:bg-stone-900 hover:text-white transition-all shadow-sm"
+          >
+            <ArrowLeft size={16} className="text-[#a9b897] group-hover:text-white transition-colors" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Back to System</span>
+          </button>
+        </div>
+
         {/* HEADER SECTION */}
         <div className="flex flex-col md:flex-row justify-between items-center p-10 rounded-[3rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm gap-6">
           <div>

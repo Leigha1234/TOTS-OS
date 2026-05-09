@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation"; // Added router for navigation
 import { supabase } from "@/lib/supabase-client"; // Import sync client
 import { 
   Globe, Mail, Upload, Phone, Share2, 
-  Check, Loader2, Type, Palette, ListChecks, HeartHandshake
+  Check, Loader2, Type, Palette, ListChecks, HeartHandshake, ArrowLeft
 } from "lucide-react";
 
 export default function SettingsPage() {
+  const router = useRouter(); // Initialize router
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -122,6 +124,17 @@ export default function SettingsPage() {
     <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#e9e9e1] text-stone-800'}`}>
       <div className="max-w-7xl mx-auto p-12 space-y-12">
         
+        {/* NAVIGATION BACK BUTTON */}
+        <div className="flex justify-start">
+          <button 
+            onClick={() => router.push('/settings')}
+            className="group flex items-center gap-3 px-6 py-3 rounded-2xl border border-stone-300 bg-white/50 backdrop-blur-sm hover:bg-stone-900 hover:text-white transition-all shadow-sm"
+          >
+            <ArrowLeft size={16} className="text-[#a9b897] group-hover:text-white transition-colors" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Back to System</span>
+          </button>
+        </div>
+
         {/* HEADER */}
         <header className="flex justify-between items-end border-b border-stone-300 pb-10">
           <div>

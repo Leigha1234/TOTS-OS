@@ -5,14 +5,14 @@ import Sidebar from "@/app/components/Sidebar";
 import Link from "next/link";
 import { 
   LayoutDashboard, Users, Calendar, Megaphone, 
-  DollarSign, Briefcase, BarChart3, Globe, Lock, Settings, Menu, X 
+  DollarSign, Briefcase, BarChart3, Globe, Lock, Settings, Menu, X,
+  Sparkles // Added Sparkles for Clarity
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Lock body scroll when menu is open to prevent "ghost scrolling"
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = "hidden";
@@ -23,6 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const allLinks = [
     { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+    { href: "/clarity", label: "Clarity", icon: Sparkles }, // Added to global list
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/crm", label: "Contacts", icon: Users },
     { href: "/campaigns", label: "Campaigns", icon: Megaphone },
@@ -50,8 +51,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* MOBILE BOTTOM NAV */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-xl border-t border-stone-200 z-[90] px-6 flex items-center justify-between pb-safe">
           <MobileNavItem href="/dashboard" icon={LayoutDashboard} label="Home" />
+          {/* Priority Placement: Replaced CRM with Clarity for instant AI access */}
+          <MobileNavItem href="/clarity" icon={Sparkles} label="Clarity" /> 
           <MobileNavItem href="/calendar" icon={Calendar} label="Events" />
-          <MobileNavItem href="/crm" icon={Users} label="CRM" />
           <button 
             onClick={() => setMobileMenuOpen(true)}
             className="flex flex-col items-center gap-1 text-stone-400"

@@ -7,10 +7,10 @@ import {
   Quote, ArrowLeft, MoreVertical, FolderPlus, Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { createBrowserClient } from "@supabase/ssr"; // Changed this
+import { createBrowserClient } from "@supabase/ssr";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialize Gemini
+// Initialize Gemini - Ensure this is in your .env.local
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
@@ -19,12 +19,12 @@ type Chat = { id: string; title: string; messages: Message[] };
 type Project = { id: string; name: string; clarity_chats: Chat[] };
 
 export default function ClarityAIPage() {
+  // CORRECTED SUPABASE INIT
   const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-    process.env.NEXT_PUBLIC_SUPABASE_KEY || ""
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // --- STATE ---
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -35,13 +35,18 @@ export default function ClarityAIPage() {
   
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // --- 1. FETCH PROJECTS & CHATS ---
+  // FETCH PROJECTS & CHATS
   useEffect(() => {
     const fetchData = async () => {
-      const { data: pData } = await supabase
+      const { data: pData, error } = await supabase
         .from('clarity_projects')
         .select('*, clarity_chats(*)')
         .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("Error fetching projects:", error.message);
+        return;
+      }
 
       if (pData) {
         setProjects(pData);
@@ -56,82 +61,99 @@ export default function ClarityAIPage() {
     fetchData();
   }, [supabase]);
 
-  // --- 2. FETCH MESSAGES WHEN CHAT CHANGES ---
+  // FETCH MESSAGES
   useEffect(() => {
     if (!activeChatId) return;
     const fetchMessages = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('clarity_messages')
         .select('*')
         .eq('chat_id', activeChatId)
         .order('created_at', { ascending: true });
+      
+      if (error) console.error(error.message);
       if (data) setMessages(data);
     };
     fetchMessages();
   }, [activeChatId, supabase]);
 
-  // Scroll to bottom
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // --- 3. ACTIONS ---
   const handleCreateProject = async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const { data: newP } = await supabase
       .from('clarity_projects')
-      .insert([{ user_id: user?.id, name: 'New Initiative' }])
+      .insert([{ user_id: user.id, name: 'New Initiative' }])
       .select().single();
 
     if (newP) {
       const { data: newC } = await supabase
         .from('clarity_chats')
-        .insert([{ project_id: newP.id, user_id: user?.id, title: 'Initial Strategy' }])
+        .insert([{ project_id: newP.id, user_id: user.id, title: 'Initial Strategy' }])
         .select().single();
       
-      setProjects([{ ...newP, clarity_chats: [newC] }, ...projects]);
-      setActiveProjectId(newP.id);
-      setActiveChatId(newC.id);
+      if (newC) {
+        setProjects([{ ...newP, clarity_chats: [newC] }, ...projects]);
+        setActiveProjectId(newP.id);
+        setActiveChatId(newC.id);
+      }
     }
   };
 
   const sendMessage = async () => {
     if (!input.trim() || !activeChatId || isLoading) return;
-    setIsLoading(true);
+    
     const userText = input;
     setInput("");
+    setIsLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        setIsLoading(false);
+        return;
+    }
 
-    // A. Save User Message
-    const { data: userMsg } = await supabase
+    // 1. Save User Message
+    const { data: userMsg, error: userError } = await supabase
       .from('clarity_messages')
-      .insert([{ chat_id: activeChatId, user_id: user?.id, role: 'user', content: userText }])
+      .insert([{ chat_id: activeChatId, user_id: user.id, role: 'user', content: userText }])
       .select().single();
 
-    if (userMsg) setMessages(prev => [...prev, userMsg]);
+    if (userError) {
+        console.error("DB Error (User Msg):", userError.message);
+        setIsLoading(false);
+        return;
+    }
+
+    setMessages(prev => [...prev, userMsg]);
 
     try {
-      // B. Call Gemini
-      // Provide context of the conversation
-      const chatHistory = messages.map(m => ({
+      // 2. Call Gemini
+      // Format history correctly: Gemini expects roles 'user' and 'model'
+      const history = messages.map(m => ({
         role: m.role === "user" ? "user" : "model",
         parts: [{ text: m.content }],
       }));
 
-      const chat = model.startChat({ history: chatHistory });
+      const chat = model.startChat({ history });
       const result = await chat.sendMessage(userText);
-      const botResponse = result.response.text();
+      const botResponse = await result.response.text();
 
-      // C. Save Bot Message
-      const { data: botMsg } = await supabase
+      // 3. Save Bot Message
+      const { data: botMsg, error: botError } = await supabase
         .from('clarity_messages')
-        .insert([{ chat_id: activeChatId, user_id: user?.id, role: 'assistant', content: botResponse }])
+        .insert([{ chat_id: activeChatId, user_id: user.id, role: 'assistant', content: botResponse }])
         .select().single();
 
+      if (botError) throw new Error(botError.message);
       if (botMsg) setMessages(prev => [...prev, botMsg]);
+
     } catch (err) {
-      console.error("Gemini Error:", err);
+      console.error("Gemini/DB Error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -211,7 +233,7 @@ export default function ClarityAIPage() {
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center space-y-6 opacity-30">
                <Bot size={64} className="text-[#a9b897]"/>
-               <p className="font-serif italic text-2xl">Seeking a point of clarity?</p>
+               <p className="font-serif italic text-2xl text-center">Seeking a point of clarity?</p>
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-10 pb-10">
@@ -221,7 +243,7 @@ export default function ClarityAIPage() {
                     {m.role === 'assistant' ? <Bot size={18} /> : <User size={18} />}
                   </div>
                   <div className="flex-1 space-y-2">
-                    <p className="text-sm leading-relaxed text-stone-700">{m.content}</p>
+                    <p className="text-sm leading-relaxed text-stone-700 whitespace-pre-wrap">{m.content}</p>
                   </div>
                 </div>
               ))}

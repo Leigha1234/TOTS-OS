@@ -9,16 +9,24 @@ import {
   Phone, HeartPulse, Palette, UserCircle, 
   Fingerprint, History, ShieldCheck, Link2, 
   Database, Copy, LogOut, ExternalLink,
-  Smartphone, CreditCard, Share2
+  Smartphone, CreditCard, Share2, Sparkles,
+  LayoutDashboard, Calendar, Megaphone, DollarSign,
+  Briefcase, BarChart3, Globe, Lock, StickyNote
 } from "lucide-react";
 
-const APP_PAGES = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "invoices", label: "Invoices" },
-  { id: "crm", label: "CRM" },
-  { id: "banking", label: "Banking" },
-  { id: "projects", label: "Projects" },
-  { id: "settings", label: "Settings" },
+// List of all possible pages that can be pinned
+const NAV_OPTIONS = [
+  { id: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "/clarity", label: "Clarity AI", icon: Sparkles },
+  { id: "/calendar", label: "Calendar", icon: Calendar },
+  { id: "/crm", label: "CRM", icon: Users },
+  { id: "/notes", label: "Notes", icon: StickyNote },
+  { id: "/campaigns", label: "Campaigns", icon: Megaphone },
+  { id: "/payments", label: "Finance", icon: DollarSign },
+  { id: "/projects", label: "Projects", icon: Briefcase },
+  { id: "/reports", label: "Reports", icon: BarChart3 },
+  { id: "/social", label: "Social", icon: Globe },
+  { id: "/vault", label: "Vault", icon: Lock },
 ];
 
 const TIERS = ["STANDARD", "PREMIUM", "ELITE"];
@@ -48,7 +56,9 @@ function SettingsContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["dashboard"]);
+  
+  // --- MOBILE NAV CONFIG ---
+  const [mobileNav, setMobileNav] = useState<string[]>(["/dashboard", "/clarity", "/calendar"]);
 
   // --- CONFIG STATE ---
   const [brandColor, setBrandColor] = useState("#a9b897");
@@ -80,6 +90,7 @@ function SettingsContent() {
         setProfile(p);
         setNextOfKin(p.next_of_kin || "");
         if (p.tier) setCurrentTier(p.tier.toUpperCase());
+        if (p.mobile_nav_config) setMobileNav(p.mobile_nav_config);
       }
 
       const { data: membership } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).maybeSingle();
@@ -105,11 +116,27 @@ function SettingsContent() {
     } catch (err) { console.error(err); } finally { setLoading(false); }
   }
 
+  const handleToggleNav = (id: string) => {
+    setMobileNav(prev => {
+      if (prev.includes(id)) return prev.filter(item => item !== id);
+      if (prev.length >= 3) return prev; // Lock at 3
+      return [...prev, id];
+    });
+  };
+
   const handleGlobalSave = async () => {
     setSaving(true);
     try {
-      await supabase.from("profiles").update({ full_name: profile.full_name, phone: profile.phone, next_of_kin: nextOfKin, tier: currentTier }).eq("id", user.id);
+      await supabase.from("profiles").update({ 
+        full_name: profile.full_name, 
+        phone: profile.phone, 
+        next_of_kin: nextOfKin, 
+        tier: currentTier,
+        mobile_nav_config: mobileNav // Save the 3 chosen pages
+      }).eq("id", user.id);
+
       if (email !== user.email || password) await supabase.auth.updateUser({ email, password });
+      
       if (teamId) {
         await supabase.from("settings").upsert({
           team_id: teamId, brand_color: brandColor, secondary_color: secondaryColor, font_family: selectedFont,
@@ -147,7 +174,7 @@ function SettingsContent() {
 
       <div className="max-w-[1600px] mx-auto p-4 md:p-12 lg:p-20 space-y-12 pb-32">
         
-        {/* TOP BAR / NAVIGATION LINKS */}
+        {/* TOP BAR */}
         <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 border-b border-stone-200 pb-12">
           <div className="space-y-4">
             <h1 className="text-5xl md:text-8xl font-serif italic tracking-tighter leading-none custom-brand-text">Command Center</h1>
@@ -176,8 +203,9 @@ function SettingsContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
           
-          {/* LEFT: Identity & Aesthetics */}
+          {/* LEFT COLUMN */}
           <div className="lg:col-span-4 space-y-8">
+            {/* Identity Card */}
             <section className={`p-8 rounded-[3rem] border shadow-sm space-y-8 ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
               <div className="flex flex-col items-center gap-6">
                 <div className="relative group w-32 h-32 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden">
@@ -205,6 +233,7 @@ function SettingsContent() {
               </div>
             </section>
 
+            {/* Aesthetics */}
             <section className={`p-8 rounded-[3rem] border ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-sm'} space-y-6`}>
               <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2"><Palette size={14}/> Aesthetics</h2>
               <div className="grid grid-cols-2 gap-4">
@@ -225,10 +254,56 @@ function SettingsContent() {
             </section>
           </div>
 
-          {/* RIGHT: Team, Banking, Platforms */}
+          {/* RIGHT COLUMN */}
           <div className="lg:col-span-8 space-y-8">
             
-            {/* TEAM PROVISIONING & INVITE */}
+            {/* NEW SECTION: MOBILE NAV ARCHITECTURE */}
+            <section className={`p-8 lg:p-12 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
+               <div className="space-y-1 mb-8">
+                  <h2 className="text-4xl font-serif italic custom-brand-text">Mobile Architecture</h2>
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">Choose your Top 3 Pinned Pages</p>
+               </div>
+
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {NAV_OPTIONS.map((option) => {
+                    const isSelected = mobileNav.includes(option.id);
+                    const isDisabled = !isSelected && mobileNav.length >= 3;
+                    
+                    return (
+                      <button
+                        key={option.id}
+                        onClick={() => handleToggleNav(option.id)}
+                        disabled={isDisabled}
+                        className={`
+                          relative flex flex-col items-start gap-4 p-6 rounded-[2rem] border transition-all text-left
+                          ${isSelected 
+                            ? 'custom-brand-bg text-white border-transparent shadow-xl scale-[1.02]' 
+                            : 'bg-stone-50 border-stone-100 text-stone-400 hover:border-stone-200'}
+                          ${isDisabled ? 'opacity-20 grayscale cursor-not-allowed' : 'opacity-100'}
+                        `}
+                      >
+                        <option.icon size={20} className={isSelected ? 'text-white' : 'text-stone-300'} />
+                        <div className="space-y-1">
+                          <span className="text-[9px] font-black uppercase tracking-widest block">{option.label}</span>
+                          {isSelected && <span className="text-[7px] font-bold opacity-60 uppercase tracking-tighter">Pinned No. {mobileNav.indexOf(option.id) + 1}</span>}
+                        </div>
+                        {isSelected && <div className="absolute top-4 right-4"><Check size={12}/></div>}
+                      </button>
+                    );
+                  })}
+               </div>
+               
+               <div className="mt-8 p-6 bg-stone-50 rounded-3xl border border-stone-100 flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Selection Status</p>
+                  <div className="flex gap-1">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className={`w-8 h-1.5 rounded-full ${mobileNav.length >= i ? 'custom-brand-bg' : 'bg-stone-200'}`} />
+                    ))}
+                  </div>
+               </div>
+            </section>
+
+            {/* TEAM & INVITE */}
             <section className={`p-8 lg:p-12 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
                <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-10">
                  <div className="space-y-1">
@@ -243,22 +318,17 @@ function SettingsContent() {
 
                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-4">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest">Invite New Seat</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-300">Provision Seat</h3>
                     <input placeholder="Colleague Email..." value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="w-full p-5 rounded-2xl bg-stone-50 border border-stone-100 text-xs font-bold outline-none" />
-                    <div className="grid grid-cols-2 gap-2">
-                       {APP_PAGES.map(page => (
-                         <button key={page.id} onClick={() => setSelectedPermissions(prev => prev.includes(page.id) ? prev.filter(p => p !== page.id) : [...prev, page.id])} className={`p-3 rounded-xl border text-[8px] font-black uppercase transition-all ${selectedPermissions.includes(page.id) ? 'custom-brand-bg text-white border-transparent' : 'border-stone-100 text-stone-400'}`}>{page.label}</button>
-                       ))}
-                    </div>
-                    <button className="w-full py-5 custom-brand-bg text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg">Provision Seat</button>
+                    <button className="w-full py-5 custom-brand-bg text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg">Send Protocol</button>
                   </div>
                   <div className="space-y-4">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest">Active Members ({teamMembers.length})</h3>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-300">Active Nodes ({teamMembers.length})</h3>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
                        {teamMembers.map(m => (
                          <div key={m.id} className="flex justify-between items-center p-4 bg-stone-50 rounded-2xl border border-stone-100">
                            <span className="text-xs font-bold truncate pr-4">{m.email}</span>
-                           <button className="text-stone-300 hover:text-red-500"><Trash2 size={14}/></button>
+                           <button className="text-stone-300 hover:text-red-500 transition-colors"><Trash2 size={14}/></button>
                          </div>
                        ))}
                     </div>
@@ -266,7 +336,7 @@ function SettingsContent() {
                </div>
             </section>
 
-            {/* BANKING LEDGER */}
+            {/* LEDGER DISTRIBUTION */}
             <section className="custom-secondary-bg p-8 lg:p-16 rounded-[4rem] text-white shadow-2xl relative overflow-hidden">
                <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-12">
                   <div className="space-y-2">
@@ -291,17 +361,17 @@ function SettingsContent() {
                <div className="absolute top-0 right-0 w-96 h-96 bg-[#a9b897]/5 blur-[120px] rounded-full" />
             </section>
 
-            {/* PLATFORMS & CAMPAIGNS */}
+            {/* DATA BRIDGES */}
             <section className={`p-8 lg:p-12 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2 mb-8"><Link2 size={16} className="custom-brand-text" /> Data Bridges</h2>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-4">
-                     <label className="text-[10px] font-black uppercase tracking-widest">Social & Web</label>
+                     <label className="text-[10px] font-black uppercase tracking-widest text-stone-300">Social & Web</label>
                      <input value={socialLinks.website} onChange={e => setSocialLinks({...socialLinks, website: e.target.value})} placeholder="Website URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none" />
                      <input value={socialLinks.instagram} onChange={e => setSocialLinks({...socialLinks, instagram: e.target.value})} placeholder="Instagram Handle" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none" />
                   </div>
                   <div className="space-y-4">
-                     <label className="text-[10px] font-black uppercase tracking-widest">Campaign Identifiers</label>
+                     <label className="text-[10px] font-black uppercase tracking-widest text-stone-300">Campaign Identifiers</label>
                      <div className="flex gap-2">
                         <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="New Campaign..." className="flex-1 p-4 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none" />
                         <button onClick={addCampaign} className="px-6 custom-brand-bg text-white rounded-xl font-bold text-[10px] uppercase">Add</button>
@@ -317,16 +387,6 @@ function SettingsContent() {
                </div>
             </section>
 
-            {/* AUDIT LOGS */}
-            <section className={`p-8 rounded-[3rem] border ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-sm'}`}>
-               <div className="flex items-center gap-3 mb-4 opacity-40">
-                 <History size={14} />
-                 <h2 className="text-[9px] font-black uppercase tracking-widest">System Audit Log</h2>
-               </div>
-               <div className="space-y-1 font-mono text-[9px] opacity-60">
-                  {auditLogs.map((log, i) => <p key={i}>{log}</p>)}
-               </div>
-            </section>
           </div>
         </div>
       </div>

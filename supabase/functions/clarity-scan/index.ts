@@ -11,54 +11,61 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const body = await req.json();
-    const { team_id } = body;
+    const { team_id, project_id } = await req.json();
 
-    // 1. Log the incoming request so we can see it in Supabase Logs
-    console.log("Processing request for team_id:", team_id);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const aiKey = Deno.env.get('AI_KEY');
-
-    if (!aiKey) throw new Error("AI_KEY is not set in Supabase Secrets");
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // 2. Simple Fetch
+    // 1. Fetch real task data
     const { data: tasks } = await supabase
       .from('tasks')
-      .select('name')
+      .select('name, status')
       .eq('team_id', team_id)
-      .limit(5);
+      .limit(10);
 
-    // 3. Simple AI Call
+    const taskList = tasks?.length 
+      ? tasks.map(t => `${t.name} (${t.status})`).join(', ') 
+      : "No current tasks";
+
+    // 2. Call Gemini for a real strategic insight
+    const aiKey = Deno.env.get('AI_KEY');
     const aiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${aiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `Give a 1-sentence productivity tip for a team working on: ${tasks?.map(t => t.name).join(', ') || 'General tasks'}` }] }]
+          contents: [{ parts: [{ text: `Context: ${taskList}. Task: Provide a 1-sentence professional strategic advice for this team.` }] }]
         })
       }
     );
 
     const aiData = await aiResponse.json();
-    const insight = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "Stay focused on your current milestones.";
+    const insight = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "Focus on high-priority milestones to maintain momentum.";
 
-    // 4. WE ARE SKIPPING THE DATABASE INSERT FOR NOW TO RULE OUT DB ERRORS
-    
+    // 3. THE SAFETY NET: Try to log, but don't crash if it fails
+    try {
+      await supabase.from('clarity_scans').insert({
+        team_id,
+        project_id: project_id || null,
+        insight_text: insight,
+        scan_type: 'dashboard_overview'
+      });
+    } catch (logError) {
+      console.error("History logging skipped:", logError);
+    }
+
     return new Response(JSON.stringify({ insight }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
 
   } catch (error: any) {
-    console.error("CRITICAL ERROR:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400, // This is what you are seeing in the console
+      status: 400,
     });
   }
 })

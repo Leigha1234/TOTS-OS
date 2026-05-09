@@ -5,14 +5,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client"; 
 import { useSettings } from "@/app/context/SettingsContext";
 import { 
-  Save, Moon, Sun, Loader2, Landmark, 
-  Users, Trash2, Check, Camera, Mail, 
-  Phone, HeartPulse, Palette, UserCircle, 
-  Fingerprint, History, ShieldCheck, Link2, 
-  Database, Copy, LogOut, ExternalLink,
-  Smartphone, CreditCard, Share2, Sparkles,
+  Save, Sun, Loader2, Users, Trash2, Check, Camera, Mail, 
+  Phone, Palette, UserCircle, Fingerprint, ShieldCheck, Link2, 
+  Database, Copy, LogOut, Smartphone, Zap, Sparkles,
   LayoutDashboard, Calendar, Megaphone, DollarSign,
-  Briefcase, BarChart3, Globe, Lock, StickyNote
+  Briefcase, BarChart3, Globe, Lock, StickyNote, ArrowUpRight
 } from "lucide-react";
 
 const NAV_OPTIONS = [
@@ -32,8 +29,9 @@ const NAV_OPTIONS = [
 export default function SettingsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
-        <Loader2 className="animate-spin text-[var(--brand-primary)]" size={40} />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#fcfaf7] gap-4">
+        <Loader2 className="animate-spin text-stone-300" size={40} />
+        <p className="font-serif italic text-stone-400">Loading System Protocols...</p>
       </div>
     }>
       <SettingsContent />
@@ -43,7 +41,7 @@ export default function SettingsPage() {
 
 function SettingsContent() {
   const router = useRouter();
-  const { refreshSettings } = useSettings();
+  const { refreshSettings } = useSettings(); 
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,7 +56,7 @@ function SettingsContent() {
   const [password, setPassword] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   
-  const [mobileNav, setMobileNav] = useState<string[]>(["/dashboard", "/clarity", "/calendar"]);
+  const [mobileNav, setMobileNav] = useState<string[]>([]);
 
   const [brandColor, setBrandColor] = useState("#a9b897");
   const [secondaryColor, setSecondaryColor] = useState("#1c1917");
@@ -71,9 +69,8 @@ function SettingsContent() {
   const [newCampaign, setNewCampaign] = useState("");
   const [nextOfKin, setNextOfKin] = useState("");
   const [nextOfKinPhone, setNextOfKinPhone] = useState("");
-  const [auditLogs, setAuditLogs] = useState<string[]>(["• System Bridge Online"]);
 
-  const inviteLink = useMemo(() => teamId ? `https://www.tots-os.co.uk/login?invite=${teamId}` : "", [teamId]);
+  const inviteLink = useMemo(() => teamId ? `https://tots-os.co.uk/invite/${teamId}` : "", [teamId]);
 
   useEffect(() => { init(); }, []);
 
@@ -88,8 +85,11 @@ function SettingsContent() {
       if (p) {
         setProfile(p);
         setNextOfKin(p.next_of_kin || "");
-        if (p.tier) setCurrentTier(p.tier.toUpperCase());
-        if (p.mobile_nav_config) setMobileNav(p.mobile_nav_config);
+        setCurrentTier(p.tier?.toUpperCase() || "STANDARD");
+        setMobileNav(p.mobile_nav_config || ["/dashboard", "/clarity", "/calendar"]);
+        // If profile has colors, use them
+        if (p.brand_color) setBrandColor(p.brand_color);
+        if (p.secondary_color) setSecondaryColor(p.secondary_color);
       }
 
       const { data: membership } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).maybeSingle();
@@ -101,7 +101,7 @@ function SettingsContent() {
         ]);
         if (membersRes.data) setTeamMembers(membersRes.data);
         if (settingsRes.data) {
-          setBrandColor(settingsRes.data.brand_color || "#a9b897");
+          if (settingsRes.data.brand_color) setBrandColor(settingsRes.data.brand_color);
           setSecondaryColor(settingsRes.data.secondary_color || "#1c1917");
           setSelectedFont(settingsRes.data.font_family || "Inter");
           setBankInfo(settingsRes.data.bank_info || { name: "", acc: "", sort: "" });
@@ -115,15 +115,24 @@ function SettingsContent() {
     } catch (err) { console.error(err); } finally { setLoading(false); }
   }
 
+  const handleToggleNav = (id: string) => {
+    setMobileNav(prev => {
+      if (prev.includes(id)) return prev.filter(item => item !== id);
+      if (prev.length >= 3) return prev;
+      return [...prev, id];
+    });
+  };
+
   const handleGlobalSave = async () => {
     setSaving(true);
     try {
+      // Sync to Profiles
       const { error: profileError } = await supabase.from("profiles").update({ 
         full_name: profile.full_name, 
         phone: profile.phone, 
         next_of_kin: nextOfKin, 
         tier: currentTier,
-        brand_color: brandColor, 
+        brand_color: brandColor,
         secondary_color: secondaryColor,
         font_family: selectedFont,
         mobile_nav_config: mobileNav 
@@ -131,27 +140,17 @@ function SettingsContent() {
 
       if (profileError) throw profileError;
 
-      if (email !== user.email || password) await supabase.auth.updateUser({ email, password });
-      
+      // Sync to Team Settings
       if (teamId) {
         await supabase.from("settings").upsert({
-          team_id: teamId, 
-          brand_color: brandColor, 
-          secondary_color: secondaryColor, 
-          font_family: selectedFont,
-          bank_info: bankInfo, 
-          company_details: companyDetails, 
-          logo_url: logoUrl, 
-          social_links: socialLinks, 
-          campaigns: campaignList, 
-          next_of_kin_phone: nextOfKinPhone // Fixed naming error here
+          team_id: teamId, brand_color: brandColor, secondary_color: secondaryColor, font_family: selectedFont,
+          bank_info: bankInfo, company_details: companyDetails, logo_url: logoUrl, social_links: socialLinks, 
+          campaigns: campaignList, next_of_kin_phone: nextOfKinPhone
         });
       }
 
       await refreshSettings();
-      setAuditLogs(prev => [`• Global sync: ${new Date().toLocaleTimeString()}`, ...prev]);
-      alert("System Protocol Updated & Synced Globally");
-
+      alert("Neural Configuration Synced Successfully.");
     } catch (err: any) { 
       alert(err.message); 
     } finally { 
@@ -159,143 +158,208 @@ function SettingsContent() {
     }
   };
 
-  const handleToggleNav = (id: string) => {
-    setMobileNav(prev => {
-      if (prev.includes(id)) return prev.filter(item => item !== id);
-      if (prev.length >= 3) return prev; 
-      return [...prev, id];
-    });
-  };
-
-  const copyInviteLink = () => {
-    navigator.clipboard.writeText(inviteLink);
-    alert("Invite link copied to clipboard.");
-  };
-
-  const addCampaign = () => {
-    if (newCampaign && !campaignList.includes(newCampaign)) {
-      setCampaignList([...campaignList, newCampaign]);
-      setNewCampaign("");
-    }
-  };
+  if (loading) return null;
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 bg-[var(--bg)] text-[var(--text-main)]`}>
+    <div className={`min-h-screen transition-colors duration-700 ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
       
+      {/* 🧬 DYNAMIC THEME ENGINE */}
       <style jsx global>{`
-        :root { --brand-primary: ${brandColor}; --brand-secondary: ${secondaryColor}; }
-        body { font-family: '${selectedFont}', sans-serif !important; }
+        :root { 
+          --brand-primary: ${brandColor}; 
+          --brand-secondary: ${secondaryColor}; 
+        }
+        body { font-family: '${selectedFont}', sans-serif; }
+        .bg-brand { background-color: var(--brand-primary) !important; }
+        .text-brand { color: var(--brand-primary) !important; }
+        .border-brand { border-color: var(--brand-primary) !important; }
+        .bg-secondary { background-color: var(--brand-secondary) !important; }
       `}</style>
 
-      <div className="max-w-[1600px] mx-auto p-4 md:p-12 lg:p-20 space-y-12 pb-32">
+      <div className="max-w-7xl mx-auto p-6 md:p-12 lg:p-20 space-y-16">
         
-        {/* HEADER */}
-        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 border-b border-[var(--border)] pb-12">
-          <div className="space-y-4">
-            <h1 className="text-5xl md:text-8xl font-serif italic tracking-tighter leading-none text-[var(--brand-primary)]">Command Center</h1>
-            <div className="flex flex-wrap gap-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
-               <span className="flex items-center gap-2"><Smartphone size={12}/> System Active</span>
-               <span className="flex items-center gap-2"><ShieldCheck size={12}/> Tier: {currentTier}</span>
+        {/* COMMAND HEADER */}
+        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 border-b border-stone-200 pb-16">
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <Zap size={14} className="text-brand animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40">System Configuration</span>
             </div>
+            <h1 className="text-7xl md:text-8xl font-serif italic tracking-tighter leading-[0.8] text-brand">Command</h1>
           </div>
           
-          <div className="grid grid-cols-2 md:flex items-center gap-3 w-full xl:w-auto">
-            <button onClick={() => router.push("/import")} className="flex items-center justify-center gap-2 p-4 md:px-6 md:py-5 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-[var(--bg-soft)] transition-all">
-              <Database size={14} className="text-[var(--brand-primary)]" /> Import Data
+          <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 transition-colors">
+              <Sun size={20} className={isDarkMode ? "text-stone-400" : "text-brand"} />
             </button>
-            <button onClick={() => router.push("/team")} className="flex items-center justify-center gap-2 p-4 md:px-6 md:py-5 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] font-black text-[9px] uppercase tracking-widest shadow-sm hover:bg-[var(--bg-soft)] transition-all">
-              <Users size={14} className="text-[var(--brand-primary)]" /> Team Page
-            </button>
-            <div className="flex gap-2">
-              <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-5 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-main)]"><Sun size={18} /></button>
-              <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="p-5 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)]"><LogOut size={18} /></button>
-            </div>
-            <button onClick={handleGlobalSave} className="col-span-2 flex items-center justify-center gap-4 px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white bg-[var(--brand-primary)] shadow-xl hover:opacity-90 transition-all">
-              {saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />} Commit Sync
+            <button onClick={handleGlobalSave} className="flex-1 md:flex-none flex items-center justify-center gap-4 px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] text-white bg-brand shadow-2xl hover:brightness-110 transition-all">
+              {saving ? <Loader2 className="animate-spin" size={16}/> : <Fingerprint size={16} />} Commit Changes
             </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
           
-          <div className="lg:col-span-4 space-y-8">
-            {/* PROFILE SECTION */}
-            <section className={`p-8 rounded-[3rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm space-y-8`}>
-              <div className="flex flex-col items-center gap-6">
-                <div className="relative group w-32 h-32 rounded-full bg-[var(--bg-soft)] border-2 border-dashed border-[var(--border)] flex items-center justify-center overflow-hidden">
-                  {logoUrl ? <img src={logoUrl} className="w-full h-full object-cover" /> : <UserCircle size={48} className="opacity-10 text-[var(--text-main)]" />}
-                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer"><Camera size={18} /><input type="file" className="hidden" /></label>
+          {/* PERSONAL ARCHITECTURE */}
+          <div className="lg:col-span-4 space-y-10">
+            <section className={`p-10 rounded-[3.5rem] border shadow-sm space-y-10 ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
+              <div className="flex flex-col items-center gap-8">
+                <div className="relative group w-40 h-40 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden transition-all hover:border-brand">
+                  {logoUrl ? <img src={logoUrl} className="w-full h-full object-cover" alt="Profile" /> : <UserCircle size={64} className="opacity-5" />}
+                  <label className="absolute inset-0 bg-stone-900/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer text-[9px] font-black uppercase tracking-widest gap-2">
+                    <Camera size={20} /> Update
+                    <input type="file" className="hidden" />
+                  </label>
                 </div>
-                <input value={profile.full_name || ""} onChange={e => setProfile({...profile, full_name: e.target.value})} className="text-center font-serif italic text-3xl w-full bg-transparent outline-none text-[var(--brand-primary)]" placeholder="Identity" />
+                <input 
+                  value={profile.full_name || ""} 
+                  onChange={e => setProfile({...profile, full_name: e.target.value})} 
+                  className="text-center font-serif italic text-4xl w-full bg-transparent outline-none text-brand" 
+                  placeholder="Identity Name" 
+                />
               </div>
 
-              <div className="space-y-3 pt-4 border-t border-[var(--border)]">
-                <div className="flex items-center gap-4 p-4 bg-[var(--bg-soft)] rounded-2xl border border-[var(--border)]">
-                  <Mail size={16} className="text-[var(--text-muted)]" />
-                  <input value={email} onChange={e => setEmail(e.target.value)} className="bg-transparent text-xs font-bold outline-none w-full text-[var(--text-main)]" />
+              <div className="space-y-4 pt-6 border-t border-stone-100">
+                <div className="group space-y-2">
+                  <label className="text-[9px] font-black uppercase tracking-widest opacity-30 ml-4">Communication</label>
+                  <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-3xl border border-stone-100 focus-within:border-brand transition-colors">
+                    <Mail size={16} className="text-stone-300" />
+                    <input value={email} onChange={e => setEmail(e.target.value)} className="bg-transparent text-xs font-bold outline-none w-full text-stone-600" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 p-4 bg-[var(--bg-soft)] rounded-2xl border border-[var(--border)]">
-                  <Phone size={16} className="text-[var(--text-muted)]" />
-                  <input value={profile.phone || ""} onChange={e => setProfile({...profile, phone: e.target.value})} className="bg-transparent text-xs font-bold outline-none w-full text-[var(--text-main)]" placeholder="Phone" />
-                </div>
-              </div>
-
-              <div className="p-6 bg-red-500/5 border border-red-500/10 rounded-3xl space-y-3">
-                 <h3 className="text-[9px] font-black uppercase tracking-widest text-red-500">Emergency Protocol</h3>
-                 <input value={nextOfKin} onChange={e => setNextOfKin(e.target.value)} className="w-full bg-[var(--card-bg)] p-3 rounded-xl border border-[var(--border)] text-xs outline-none text-[var(--text-main)]" placeholder="Next of Kin Name" />
-                 <input value={nextOfKinPhone} onChange={e => setNextOfKinPhone(e.target.value)} className="w-full bg-[var(--card-bg)] p-3 rounded-xl border border-[var(--border)] text-xs outline-none text-[var(--text-main)]" placeholder="Next of Kin Phone" />
               </div>
             </section>
 
-            {/* AESTHETICS SECTION */}
-            <section className={`p-8 rounded-[3rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm space-y-6`}>
-              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)] flex items-center gap-2"><Palette size={14}/> Aesthetics</h2>
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <label className="text-[8px] font-black uppercase text-[var(--text-muted)]">Primary</label>
-                    <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-full h-10 rounded-xl cursor-pointer bg-transparent border-none" />
+            {/* AESTHETIC ENGINE */}
+            <section className={`p-10 rounded-[3.5rem] border ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-sm'} space-y-8`}>
+              <div className="flex items-center justify-between">
+                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-3"><Palette size={16}/> Aesthetic Engine</h2>
+              </div>
+              <div className="grid grid-cols-2 gap-6">
+                 <div className="space-y-3">
+                    <label className="text-[9px] font-black uppercase opacity-40 ml-2">Primary</label>
+                    <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-full h-14 rounded-2xl cursor-pointer bg-transparent border-none" />
                  </div>
-                 <div className="space-y-2">
-                    <label className="text-[8px] font-black uppercase text-[var(--text-muted)]">Secondary</label>
-                    <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-full h-10 rounded-xl cursor-pointer bg-transparent border-none" />
+                 <div className="space-y-3">
+                    <label className="text-[9px] font-black uppercase opacity-40 ml-2">Secondary</label>
+                    <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-full h-14 rounded-2xl cursor-pointer bg-transparent border-none" />
                  </div>
               </div>
-              <select value={selectedFont} onChange={e => setSelectedFont(e.target.value)} className="w-full p-4 rounded-2xl bg-[var(--bg-soft)] border border-[var(--border)] text-xs font-bold outline-none text-[var(--text-main)]">
-                 <option value="Inter">Inter (Global)</option>
-                 <option value="Merriweather">Merriweather (Serif)</option>
-                 <option value="Geist">Geist (Modern)</option>
-              </select>
             </section>
           </div>
 
-          <div className="lg:col-span-8 space-y-8">
-            {/* DATA BRIDGES / SOCIALS SECTION */}
-            <section className={`p-8 lg:p-12 rounded-[4rem] border border-[var(--border)] bg-[var(--card-bg)] shadow-sm`}>
-               <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)] flex items-center gap-2 mb-8"><Link2 size={16} className="text-[var(--brand-primary)]" /> Data Bridges</h2>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <div className="space-y-4">
-                     <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Social & Web</label>
-                     <input value={socialLinks.website} onChange={e => setSocialLinks({...socialLinks, website: e.target.value})} placeholder="Website URL" className="w-full p-4 bg-[var(--bg-soft)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-main)] outline-none" />
-                     <input value={socialLinks.instagram} onChange={e => setSocialLinks({...socialLinks, instagram: e.target.value})} placeholder="Instagram Handle" className="w-full p-4 bg-[var(--bg-soft)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-main)] outline-none" />
+          {/* SYSTEM ARCHITECTURE */}
+          <div className="lg:col-span-8 space-y-12">
+            
+            {/* MOBILE NAV CONFIG */}
+            <section className={`p-10 lg:p-14 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
+               <div className="flex justify-between items-start mb-12">
+                  <div className="space-y-2">
+                    <h2 className="text-4xl font-serif italic text-brand">Mobile Architecture</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Select 3 Core Neural Hubs</p>
+                  </div>
+                  <div className="px-5 py-2 rounded-full bg-stone-50 border border-stone-100 text-[10px] font-black text-brand uppercase tracking-widest">
+                    {mobileNav.length} / 3 Active
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {NAV_OPTIONS.map((option) => {
+                    const isSelected = mobileNav.includes(option.id);
+                    const isDisabled = !isSelected && mobileNav.length >= 3;
+                    
+                    return (
+                      <button
+                        key={option.id}
+                        onClick={() => handleToggleNav(option.id)}
+                        disabled={isDisabled}
+                        className={`
+                          relative flex flex-col items-center gap-4 p-8 rounded-[2.5rem] border transition-all
+                          ${isSelected 
+                            ? 'bg-brand text-white border-transparent shadow-xl scale-[1.05]' 
+                            : 'bg-stone-50 border-stone-100 text-stone-400 hover:border-stone-300 hover:text-stone-600'}
+                          ${isDisabled ? 'opacity-20 grayscale cursor-not-allowed' : 'opacity-100'}
+                        `}
+                      >
+                        <option.icon size={24} strokeWidth={1.5} />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-center leading-tight">{option.label}</span>
+                        {isSelected && <div className="absolute top-3 right-3"><Check size={12}/></div>}
+                      </button>
+                    );
+                  })}
+               </div>
+            </section>
+
+            {/* TEAM & ACCESS */}
+            <section className={`p-10 lg:p-14 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
+               <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-12">
+                 <div className="space-y-2">
+                   <h2 className="text-4xl font-serif italic text-brand">The Network</h2>
+                   <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-30">Team Provisioning</p>
+                 </div>
+                 <button onClick={() => {navigator.clipboard.writeText(inviteLink); alert("Link Copied");}} className="group flex items-center gap-4 bg-stone-900 text-white pl-6 pr-4 py-3 rounded-full hover:bg-brand transition-all shadow-xl">
+                    <span className="text-[10px] font-black uppercase tracking-widest">Generate Invite</span>
+                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20">
+                      <Copy size={14} />
+                    </div>
+                 </button>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  <div className="space-y-6">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-300 ml-2">Invite Collaborator</label>
+                    <div className="flex gap-2">
+                      <input placeholder="Email Address..." value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="flex-1 p-5 rounded-3xl bg-stone-50 border border-stone-100 text-xs font-bold outline-none focus:border-brand transition-all" />
+                      <button className="px-8 bg-stone-900 text-white rounded-3xl font-black text-[9px] uppercase tracking-widest hover:bg-brand transition-colors">Dispatch</button>
+                    </div>
                   </div>
                   <div className="space-y-4">
-                     <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Campaign Identifiers</label>
-                     <div className="flex gap-2">
-                        <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="New Campaign..." className="flex-1 p-4 bg-[var(--bg-soft)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-main)] outline-none" />
-                        <button onClick={addCampaign} className="px-6 bg-[var(--brand-primary)] text-white rounded-xl font-bold text-[10px] uppercase">Add</button>
-                     </div>
-                     <div className="flex flex-wrap gap-2 pt-2">
-                        {campaignList.map((c, i) => (
-                          <div key={i} className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-soft)] border border-[var(--border)] rounded-lg text-[10px] font-bold text-[var(--text-main)]">
-                             {c} <button onClick={() => setCampaignList(campaignList.filter((_, idx) => idx !== i))} className="text-[var(--text-muted)] hover:text-red-500"><Trash2 size={10}/></button>
-                          </div>
-                        ))}
-                     </div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-300 ml-2">Active Nodes ({teamMembers.length})</label>
+                    <div className="space-y-3">
+                       {teamMembers.map(m => (
+                         <div key={m.id} className="flex justify-between items-center p-5 bg-stone-50 rounded-3xl border border-stone-100 hover:border-brand/20 transition-colors group">
+                           <div className="flex items-center gap-3">
+                              <div className="w-2 h-2 rounded-full bg-brand" />
+                              <span className="text-xs font-bold text-stone-600">{m.email}</span>
+                           </div>
+                           <button className="text-stone-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16}/></button>
+                         </div>
+                       ))}
+                    </div>
                   </div>
                </div>
             </section>
-          </div>
 
+            {/* FINANCE INFRASTRUCTURE */}
+            <section className="bg-secondary p-12 lg:p-20 rounded-[4.5rem] text-white shadow-2xl relative overflow-hidden group">
+               <div className="relative z-10 space-y-12">
+                  <div className="flex justify-between items-center">
+                    <div className="space-y-2">
+                      <h2 className="text-4xl font-serif italic text-brand">Ledger Protocol</h2>
+                      <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Secure Payout Data</p>
+                    </div>
+                    <Lock size={32} className="text-brand opacity-20 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                     <div className="space-y-3">
+                        <label className="text-[9px] font-black uppercase opacity-40 tracking-widest ml-2">Bank Institution</label>
+                        <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl text-sm font-bold outline-none focus:border-brand focus:bg-white/10 transition-all" placeholder="Name" />
+                     </div>
+                     <div className="space-y-3">
+                        <label className="text-[9px] font-black uppercase opacity-40 tracking-widest ml-2">Account No.</label>
+                        <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl text-sm font-bold outline-none focus:border-brand focus:bg-white/10 transition-all" placeholder="8 Digits" />
+                     </div>
+                     <div className="space-y-3">
+                        <label className="text-[9px] font-black uppercase opacity-40 tracking-widest ml-2">Sort Code</label>
+                        <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl text-sm font-bold outline-none focus:border-brand focus:bg-white/10 transition-all" placeholder="00-00-00" />
+                     </div>
+                  </div>
+               </div>
+               <div className="absolute top-0 right-0 w-full h-full bg-brand/5 blur-[150px] pointer-events-none" />
+            </section>
+
+          </div>
         </div>
       </div>
     </div>

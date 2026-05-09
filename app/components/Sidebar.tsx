@@ -10,38 +10,58 @@ import {
   Briefcase, Settings, Sparkles
 } from "lucide-react";
 
+// FIXED: Labels here must match the 'label' property in allLinks exactly
 const MODULE_PERMISSIONS: Record<string, string[]> = {
   STANDARD: ["Dashboard", "Contacts", "Notes", "Calendar"],
-  PREMIUM: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Clarity"],
-  ELITE: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Reports", "Social", "Vault", "Settings", "Clarity"],
+  PREMIUM: ["Dashboard", "Clarity", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects"],
+  ELITE: [
+    "Dashboard", 
+    "Clarity", 
+    "Calendar", 
+    "Campaigns", 
+    "Contacts", 
+    "Notes", 
+    "Finance", 
+    "Projects", 
+    "Reports", 
+    "Social", 
+    "Vault", 
+    "Settings"
+  ],
 };
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [userTier, setUserTier] = useState("STANDARD");
-  const [brandColor, setBrandColor] = useState("#a9b897"); // Default fallback
+  const [brandColor, setBrandColor] = useState("#a9b897"); 
 
   useEffect(() => {
     const fetchSettings = async () => {
       const supabase = await createClient();
       
-      // 1. Fetch User Tier
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase.from("profiles").select("tier, team_id").eq("id", user.id).single();
+        // Fetch tier and brand color
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("tier, team_id, brand_color")
+          .eq("id", user.id)
+          .single();
+
         if (profile) {
-          setUserTier(profile.tier.toUpperCase());
-          
-          // 2. Fetch Brand Color from settings
-          // Assuming your settings table is linked by team_id
-          const { data: settings } = await supabase
-            .from("settings")
-            .select("brand_color")
-            .eq("team_id", profile.team_id)
-            .single();
-          
-          if (settings?.brand_color) setBrandColor(settings.brand_color);
+          setUserTier(profile.tier?.toUpperCase() || "STANDARD");
+          // Prioritize profile brand color, fallback to settings table
+          if (profile.brand_color) {
+            setBrandColor(profile.brand_color);
+          } else {
+            const { data: settings } = await supabase
+              .from("settings")
+              .select("brand_color")
+              .eq("team_id", profile.team_id)
+              .single();
+            if (settings?.brand_color) setBrandColor(settings.brand_color);
+          }
         }
       }
     };
@@ -96,7 +116,6 @@ export default function Sidebar() {
             <Link 
               key={item.href} 
               href={item.href}
-              // Active background uses the brand color
               style={{ backgroundColor: isActive ? brandColor : 'transparent' }}
               className={`
                 group flex items-center gap-4 p-2.5 rounded-xl transition-all
@@ -107,7 +126,6 @@ export default function Sidebar() {
             >
               <item.icon 
                 size={16} 
-                // Icon color is white when active, brand color when hovered
                 style={{ color: isActive ? '#fff' : undefined }}
                 className={`${!isActive ? "text-stone-400 group-hover:text-stone-900" : ""}`} 
               />
@@ -133,7 +151,6 @@ export default function Sidebar() {
           </div>
         ) : (
           <div className="flex justify-center">
-            {/* Pulsing indicator uses brand color */}
             <div 
               className="w-2 h-2 rounded-full animate-pulse" 
               style={{ backgroundColor: brandColor }}

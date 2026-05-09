@@ -42,30 +42,40 @@ export default function DashboardPage() {
 
   const loadDashboardData = useCallback(async (team: string) => {
     try {
-      // ONBOARDING CHECK: Verify if brand identity exists
+      // 1. AUTH & PROFILE CHECK
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return router.push("/login");
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      // 2. ONBOARDING CHECK: If no name or no business name, redirect to setup
       const { data: settings } = await supabase
         .from("settings")
         .select("business_name")
         .eq("team_id", team)
         .maybeSingle();
 
-      if (!settings?.business_name) {
+      // If they haven't completed the "Initialize Identity" step (full_name check)
+      if (!profile?.full_name || !settings?.business_name) {
         router.push("/settings?onboarding=true");
         return;
       }
 
+      setUserName(profile.full_name);
+
+      // 3. LOAD STATS
       const { count: projectCount } = await supabase
         .from("projects")
         .select("*", { count: 'exact', head: true })
         .eq("team_id", team);
 
       setStats(prev => ({ ...prev, activeProjects: projectCount || 0 }));
-      
-      const { data: profile } = await supabase.auth.getUser();
-      if (profile?.user?.user_metadata?.full_name) {
-        setUserName(profile.user.user_metadata.full_name);
-      }
 
+      // 4. LOAD TASKS/NOTES
       const { data: notesData } = await supabase
         .from("notes")
         .select("*")
@@ -118,14 +128,9 @@ export default function DashboardPage() {
         }
       });
 
-      if (error) {
-        console.error("Supabase Function Error:", error);
-        throw new Error(error.message || "The Intelligence Engine is currently offline.");
-      }
-
+      if (error) throw new Error(error.message || "The Intelligence Engine is offline.");
       setInsight(data.insight);
     } catch (err: any) {
-      console.error("Detailed AI Scan Error:", err);
       setInsight(`Scan Interrupted: ${err.message || "Connection lost."}`);
     } finally {
       setIsScanActive(false);

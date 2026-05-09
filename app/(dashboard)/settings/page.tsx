@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   Save, Moon, Sun, Loader2, Landmark, 
@@ -12,6 +12,7 @@ import {
   Upload, Link2, FolderGit, Type, HeartHandshake, ListChecks,
   Database, User, Copy, ArrowUpRight
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const APP_PAGES = [
   { id: "dashboard", label: "Main Dashboard" },
@@ -25,7 +26,18 @@ const APP_PAGES = [
 const TIERS = ["STANDARD", "PREMIUM", "ELITE"];
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#fcfaf7]"><Loader2 className="animate-spin text-[#a9b897]" size={40} /></div>}>
+      <SettingsContent />
+    </Suspense>
+  );
+}
+
+function SettingsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isOnboarding = searchParams.get("onboarding") === "true";
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -156,7 +168,12 @@ export default function SettingsPage() {
       }
 
       setAuditLogs(prev => [`• Settings updated at ${new Date().toLocaleTimeString()}`, ...prev]);
-      alert("Settings synchronized globally.");
+      
+      if (isOnboarding) {
+        router.push("/import");
+      } else {
+        alert("Settings synchronized globally.");
+      }
     } catch (err: any) { alert("Sync Error: " + err.message); } finally { setSaving(false); }
   };
 
@@ -203,7 +220,39 @@ export default function SettingsPage() {
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
       
-      {/* Global CSS Injector: Updates entire system UI based on state */}
+      {/* ONBOARDING OVERLAY */}
+      <AnimatePresence>
+        {isOnboarding && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ y: 20, scale: 0.95 }} animate={{ y: 0, scale: 1 }}
+              className="bg-white rounded-[3.5rem] p-12 max-w-xl text-center space-y-8 shadow-2xl border border-white relative"
+            >
+              <div className="w-24 h-24 bg-[#a9b897]/20 rounded-[2.5rem] flex items-center justify-center mx-auto text-[#a9b897]">
+                <Palette size={48} />
+              </div>
+              <div className="space-y-3">
+                <h2 className="text-5xl font-serif italic tracking-tight text-stone-900">Initialize Identity</h2>
+                <p className="text-stone-500 text-sm leading-relaxed font-medium px-6">
+                  Before the TOTS OS can activate its intelligence engines, it requires your brand DNA. 
+                  Please configure your core identity to proceed.
+                </p>
+              </div>
+              <button 
+                onClick={() => router.replace("/settings")}
+                className="w-full py-5 bg-[#1c1c1c] text-[#a9b897] rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                Begin Calibration
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Global CSS Injector */}
       <style jsx global>{`
         :root {
           --brand-primary: ${brandColor};
@@ -213,12 +262,9 @@ export default function SettingsPage() {
         body {
           font-family: var(--font-main) !important;
         }
-        /* Overriding system elements to follow brand state */
         .custom-brand-text { color: var(--brand-primary); }
         .custom-brand-bg { background-color: var(--brand-primary); }
         .custom-secondary-bg { background-color: var(--brand-secondary); }
-        
-        /* Global button/input focus states */
         input:focus, textarea:focus { border-color: var(--brand-primary) !important; }
       `}</style>
 
@@ -314,7 +360,7 @@ export default function SettingsPage() {
                     type="text" 
                     value={customFont} 
                     onChange={e => setCustomFont(e.target.value)}
-                    placeholder="e.g. 'Courier New', or enter font-family name..." 
+                    placeholder="e.g. 'Courier New'..." 
                     className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none" 
                   />
                 </div>
@@ -336,7 +382,7 @@ export default function SettingsPage() {
                     rows={6}
                     value={companyDetails} 
                     onChange={e => setCompanyDetails(e.target.value)}
-                    placeholder="Enter company address, reg. numbers, or corporate statements..." 
+                    placeholder="Enter company address..." 
                     className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none resize-none" 
                   />
                 </div>
@@ -400,7 +446,6 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
-
               </div>
             </section>
           </div>
@@ -408,7 +453,6 @@ export default function SettingsPage() {
           {/* RIGHT COLUMN */}
           <div className="lg:col-span-8 space-y-12">
             
-            {/* EXTERNAL LINKS SECTION */}
             <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-6">
               <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2">
                 <Link2 size={14} className="custom-brand-text" /> Platforms & Campaigns
@@ -417,9 +461,9 @@ export default function SettingsPage() {
                 <div className="space-y-4">
                   <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest">Web / Social Media Links</label>
                   <input value={socialLinks.website} onChange={e => setSocialLinks({...socialLinks, website: e.target.value})} placeholder="Website URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
-                  <input value={socialLinks.instagram} onChange={e => setSocialLinks({...socialLinks, instagram: e.target.value})} placeholder="Instagram Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
-                  <input value={socialLinks.linkedin} onChange={e => setSocialLinks({...socialLinks, linkedin: e.target.value})} placeholder="LinkedIn Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
-                  <input value={socialLinks.twitter} onChange={e => setSocialLinks({...socialLinks, twitter: e.target.value})} placeholder="X (Twitter) Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.instagram} onChange={e => setSocialLinks({...socialLinks, instagram: e.target.value})} placeholder="Instagram URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.linkedin} onChange={e => setSocialLinks({...socialLinks, linkedin: e.target.value})} placeholder="LinkedIn URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.twitter} onChange={e => setSocialLinks({...socialLinks, twitter: e.target.value})} placeholder="Twitter URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
                 </div>
                 
                 <div className="space-y-4">
@@ -427,7 +471,7 @@ export default function SettingsPage() {
                     <FolderGit size={14} /> Campaign List Management
                   </label>
                   <div className="flex gap-2">
-                    <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="Enter Campaign Name" className="flex-1 p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                    <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="Campaign Name" className="flex-1 p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
                     <button onClick={addCampaign} className="px-5 bg-stone-900 text-white rounded-2xl text-[10px] uppercase font-bold">Add</button>
                   </div>
                   <div className="h-44 overflow-y-auto space-y-2 border border-stone-100 rounded-3xl p-6 bg-stone-50/20">
@@ -437,13 +481,11 @@ export default function SettingsPage() {
                         <button onClick={() => removeCampaign(idx)} className="text-stone-300 hover:text-red-500"><Trash2 size={14}/></button>
                       </div>
                     ))}
-                    {campaignList.length === 0 && <span className="text-[10px] text-stone-300 italic">No campaigns listed.</span>}
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* EMAIL CAMPAIGNS SECTION */}
             <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-6">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
@@ -454,11 +496,11 @@ export default function SettingsPage() {
                         value={emailCampaigns}
                         onChange={(e) => setEmailCampaigns(e.target.value)}
                         className="w-full p-4 bg-stone-50/50 rounded-2xl text-xs leading-relaxed outline-none h-36 resize-none border border-stone-100 focus:border-[#a9b897]/50 transition-colors text-stone-600"
-                        placeholder="E.g., Summer Promotion, Winter Newsletter, VIP Launch"
+                        placeholder="E.g., Summer Promotion..."
                      />
                   </div>
                   <div className="flex flex-col justify-center">
-                    <p className="text-[9px] text-stone-400 italic">Manage and assign email marketing campaigns or lists for your records.</p>
+                    <p className="text-[9px] text-stone-400 italic">Manage and assign email marketing campaigns.</p>
                   </div>
                </div>
             </section>
@@ -469,7 +511,6 @@ export default function SettingsPage() {
                 <button onClick={() => router.push('/billing')} className="text-[9px] font-black bg-stone-900 text-[#a9b897] px-4 py-2 rounded-full uppercase tracking-widest">Add Seat £19.95</button>
               </div>
 
-              {/* Invite Link Display Section */}
               {teamId && (
                 <div className="mb-8 p-6 bg-stone-50 rounded-3xl border border-stone-100 flex items-center justify-between gap-4 group">
                   <div className="space-y-1 overflow-hidden">
@@ -501,12 +542,7 @@ export default function SettingsPage() {
                         </button>
                       ))}
                     </div>
-                    <button 
-                      onClick={handleInvite} 
-                      className="w-full py-6 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest custom-brand-bg"
-                    >
-                      Provision Seat
-                    </button>
+                    <button onClick={handleInvite} className="w-full py-6 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest custom-brand-bg">Provision Seat</button>
                   </div>
                 )}
               </div>
@@ -537,10 +573,9 @@ export default function SettingsPage() {
 
             <section className="bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
               <h2 className="text-[11px] font-black uppercase tracking-widest opacity-40">Signature</h2>
-              <textarea value={profile?.email_signature || ""} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Regards, Management" className="w-full h-32 p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-sm outline-none resize-none" />
+              <textarea value={profile?.email_signature || ""} onChange={e => setProfile({...profile, email_signature: e.target.value})} placeholder="Regards..." className="w-full h-32 p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-sm outline-none resize-none" />
             </section>
 
-            {/* BANKING SECTION */}
             <section className="text-white p-12 rounded-[4rem] shadow-2xl custom-secondary-bg">
               <div className="flex items-center gap-3 mb-8 opacity-50">
                 <Landmark size={18} />
@@ -549,27 +584,16 @@ export default function SettingsPage() {
               <div className="flex flex-wrap gap-6">
                 <div className="flex-1 min-w-[240px] space-y-3">
                   <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Bank Entity</label>
-                  <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} placeholder="e.g. Barclays" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
+                  <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} placeholder="Barclays" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none" />
                 </div>
                 <div className="flex-1 min-w-[240px] space-y-3">
                   <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Account Reference</label>
-                  <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} placeholder="00000000" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
+                  <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} placeholder="00000000" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none" />
                 </div>
                 <div className="flex-1 min-w-[240px] space-y-3">
                   <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Sort / Routing</label>
-                  <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} placeholder="00-00-00" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
+                  <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} placeholder="00-00-00" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none" />
                 </div>
-              </div>
-            </section>
-
-            <section className="bg-red-50/50 border border-red-100 p-10 rounded-[3.5rem] space-y-6">
-              <div className="flex items-center gap-3 text-red-600">
-                <AlertTriangle size={20} />
-                <h2 className="text-[11px] font-black uppercase tracking-widest">Danger Zone</h2>
-              </div>
-              <div className="flex flex-col md:flex-row gap-4">
-                <button className="flex-1 py-4 bg-white border border-red-200 text-red-600 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"><Download size={14}/> Export Node Data</button>
-                <button className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest hover:brightness-110 transition-all">Terminate Account</button>
               </div>
             </section>
           </div>

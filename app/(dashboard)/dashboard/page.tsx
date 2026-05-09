@@ -42,6 +42,18 @@ export default function DashboardPage() {
 
   const loadDashboardData = useCallback(async (team: string) => {
     try {
+      // ONBOARDING CHECK: Verify if brand identity exists
+      const { data: settings } = await supabase
+        .from("settings")
+        .select("business_name")
+        .eq("team_id", team)
+        .maybeSingle();
+
+      if (!settings?.business_name) {
+        router.push("/settings?onboarding=true");
+        return;
+      }
+
       const { count: projectCount } = await supabase
         .from("projects")
         .select("*", { count: 'exact', head: true })
@@ -78,18 +90,18 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     async function init() {
-      const team = "onytzlfsegmcngchsnnl"; // Use your actual team UUID here
+      const team = await getUserTeam();
       if (!team) { setLoading(false); return; }
       loadDashboardData(team);
     }
     init();
   }, [loadDashboardData]);
 
-  // --- UPDATED AI SCAN LOGIC ---
+  // --- AI SCAN LOGIC ---
   const runClarityScan = async () => {
     setIsScanActive(true);
     setShowScanModal(true);
@@ -99,7 +111,6 @@ export default function DashboardPage() {
       const team = await getUserTeam();
       if (!team) throw new Error("Authentication error: No active team session found.");
 
-      // Call the Edge Function
       const { data, error } = await supabase.functions.invoke('clarity-scan', {
         body: { 
           team_id: team,
@@ -107,17 +118,14 @@ export default function DashboardPage() {
         }
       });
 
-      // Handle Supabase Function errors
       if (error) {
         console.error("Supabase Function Error:", error);
         throw new Error(error.message || "The Intelligence Engine is currently offline.");
       }
 
-      // Set the real AI insight
       setInsight(data.insight);
     } catch (err: any) {
       console.error("Detailed AI Scan Error:", err);
-      // Display the specific error message in the UI modal
       setInsight(`Scan Interrupted: ${err.message || "Connection lost."}`);
     } finally {
       setIsScanActive(false);

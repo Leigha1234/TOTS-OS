@@ -57,36 +57,30 @@ export default function DataImportPage() {
             return actualKey ? row[actualKey] : null;
           };
 
-          // Mapping specifically for your PROFILES table
+          // FIXED: Mapping to match your Supabase screenshot columns
           return {
-            full_name: findValue(['Full Name', 'Name', 'name', 'client', 'Entity']),
-            email: findValue(['Email', 'email', 'email address']),
-            phone: findValue(['Phone', 'phone number', 'tel']),
-            // We use user_id to link this "client" profile to YOU (the logged-in user)
-            // Note: If your profiles table uses 'id' for the logged in user, 
-            // ensure you have a separate table for 'clients'.
-            user_id: user.id, 
-            tier: "STANDARD",
-            onboarding_status: "Imported"
+            name: findValue(['Full Name', 'Name', 'name', 'client', 'Entity']) || "Unknown Entity",
+            role: 'user', // Default role for imported profiles
+            // Add other columns below if you add them to Supabase later (e.g., email, phone)
           };
         });
 
         // Clean out empty rows
-        const validData = formattedData.filter(d => d.full_name || d.email);
+        const validData = formattedData.filter(d => d.name !== "Unknown Entity");
 
         if (validData.length === 0) {
           setStatus('error');
-          setErrorMessage("No valid nodes found. Check CSV headers (Full Name, Email).");
+          setErrorMessage("No valid nodes found. Check CSV headers (Name).");
           return;
         }
 
-        // CRITICAL CHANGE: Changed "customers" to "profiles" to match your CRM
+        // Target 'profiles' as seen in your table editor
         const { error } = await supabase.from("profiles").insert(validData);
 
         if (error) {
           console.error("Supabase Ingestion Error:", error);
           setStatus('error');
-          // If error 42703 occurs here, we need to verify your column names in Supabase
+          // This will now show the specific reason if the DB rejects it
           setErrorMessage(error.message);
         } else {
           setRowCount(validData.length);
@@ -123,7 +117,7 @@ export default function DataImportPage() {
               <p className="text-[9px] font-black uppercase tracking-[0.3em]">Data Pipeline</p>
             </div>
             <h1 className="text-3xl md:text-5xl font-serif italic text-[#a9b897]">Import Hub</h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-2 opacity-50 text-stone-400">Target: Profiles Production Table</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-2 opacity-50 text-stone-400">Target: Profiles Table</p>
           </div>
           
           {file && status === 'idle' && (
@@ -176,26 +170,16 @@ export default function DataImportPage() {
                 <li className="flex gap-4">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#a9b897] mt-1.5 shrink-0" />
                   <p className="font-serif italic text-sm text-stone-500 leading-relaxed">
-                    Verify that your column headers include <strong className="text-stone-900">Full Name</strong> and <strong className="text-stone-900">Email</strong>.
+                    The OS maps the <strong className="text-stone-900">Name</strong> header automatically to your profile schema.
                   </p>
                 </li>
                 <li className="flex gap-4">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#a9b897] mt-1.5 shrink-0" />
                   <p className="font-serif italic text-sm text-stone-500 leading-relaxed">
-                    System defaults status to <strong className="text-stone-900">Imported</strong> for new CRM entries.
+                    Ensure your CSV is strictly comma-separated and not an Excel (.xlsx) file.
                   </p>
                 </li>
               </ul>
-            </section>
-
-            <section className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] bg-[#a9b897]/10 border border-[#a9b897]/20">
-               <div className="flex items-center gap-3 mb-2">
-                 <Info size={16} className="text-[#a9b897]" />
-                 <h4 className="text-[9px] font-black uppercase tracking-widest text-[#a9b897]">Sync Note</h4>
-               </div>
-               <p className="text-[11px] font-serif italic text-[#a9b897]/80">
-                 Ingested data is immediately visible in the Contacts module after the green confirmation appears.
-               </p>
             </section>
           </div>
         </div>

@@ -9,7 +9,6 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests (Important for browser security)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -17,37 +16,30 @@ Deno.serve(async (req) => {
   try {
     const { project_id, team_id } = await req.json()
 
-    if (!team_id) {
-      throw new Error("Missing team_id in request body")
-    }
+    if (!team_id) throw new Error("Validation Failed: No team_id provided in request.")
 
-    // 1. Initialize Supabase Client with Service Role (to bypass RLS for logging)
+    // 1. Initialize Supabase Client with Service Role to bypass RLS for logging scans
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 2. Fetch Tasks for the scan
-    let query = supabaseClient
+    // 2. Fetch Tasks (Scoped by team)
+    const { data: tasks, error: tasksError } = await supabaseClient
       .from('tasks')
       .select('name, status, priority, due_date')
       .eq('team_id', team_id)
 
-    if (project_id) {
-      query = query.eq('project_id', project_id)
-    }
+    if (tasksError) throw new Error(`Database Error (Tasks): ${tasksError.message}`)
 
-    const { data: tasks, error: tasksError } = await query
-    if (tasksError) throw tasksError
-
-    // 3. Prepare the AI Prompt
+    // 3. Prepare AI Prompt with fallback for empty task lists
     const taskSummary = tasks && tasks.length > 0 
       ? tasks.map(t => `- ${t.name} (${t.status}, Due: ${t.due_date || 'N/A'})`).join('\n')
-      : "No active tasks found for this team currently."
+      : "The team has no active tasks currently listed."
 
-    const prompt = `You are the TOTS-OS Intelligence Engine. Analyze the following project state and provide a 2-sentence high-level strategic insight. Be concise, professional, and slightly futuristic in tone: \n${taskSummary}`
+    const prompt = `You are the TOTS-OS Intelligence Engine. Analyze this data and provide a 2-sentence high-level strategic insight for the team. Be concise and slightly futuristic: \n${taskSummary}`
 
-    // 4. Call the AI (Gemini Pro)
+    // 4. Call AI (Gemini)
     const apiKey = Deno.env.get('AI_KEY')
     const aiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
@@ -62,19 +54,14 @@ Deno.serve(async (req) => {
 
     const aiData = await aiResponse.json()
     
-    // Check if Gemini returned an error (like an invalid API key)
-    if (aiData.error) {
-      throw new Error(`AI Provider Error: ${aiData.error.message}`)
-    }
-
-    if (!aiData.candidates || aiData.candidates.length === 0) {
-      throw new Error('AI Provider failed to generate insight.')
+    if (aiData.error) throw new Error(`AI Provider Error: ${aiData.error.message}`)
+    if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error('AI Provider returned an empty insight.')
     }
 
     const insight = aiData.candidates[0].content.parts[0].text
 
-    // 5. Log the scan result for history
-    // We use a try/catch here so that even if the log fails, the user still gets their insight
+    // 5. Log the scan result (Wrapped in a try-catch so scan results still show if logging fails)
     try {
       await supabaseClient.from('clarity_scans').insert({
         team_id: team_id,
@@ -82,11 +69,10 @@ Deno.serve(async (req) => {
         insight_text: insight,
         scan_type: project_id ? 'project_detail' : 'dashboard_overview'
       })
-    } catch (dbLogErr) {
-      console.error("Failed to log scan to database:", dbLogErr)
+    } catch (dbErr) {
+      console.warn("Database Logging Failed:", dbErr)
     }
 
-    // 6. Final response
     return new Response(
       JSON.stringify({ insight }),
       { 
@@ -95,12 +81,10 @@ Deno.serve(async (req) => {
       }
     )
 
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error("Edge Function Error:", errorMessage)
-
+  } catch (error: any) {
+    console.error("Function Execution Failed:", error.message)
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: error.message }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400 

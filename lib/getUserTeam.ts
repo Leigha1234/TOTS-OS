@@ -1,9 +1,11 @@
-import { createClient } from "./supabase";
+import { supabase } from "./supabase-client"; 
 
+/**
+ * Helper to fetch the current user's team_id.
+ * It checks the 'team_members' table for a record matching the logged-in user.
+ */
 export async function getUserTeam() {
-  const supabase = await createClient();
-
-  // ✅ Always safely extract user
+  // 1. Get the authenticated user session
   const {
     data: { user },
     error: authError,
@@ -19,7 +21,8 @@ export async function getUserTeam() {
     return null;
   }
 
-  // ✅ Query team
+  // 2. Query the team_members table
+  // Make sure your table in Supabase is actually named "team_members"
   const { data, error } = await supabase
     .from("team_members")
     .select("team_id")

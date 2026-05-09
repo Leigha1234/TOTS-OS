@@ -82,7 +82,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function init() {
-      const team = await getUserTeam();
+      const team = "onytzlfsegmcngchsnnl"; // Use your actual team UUID here
       if (!team) { setLoading(false); return; }
       loadDashboardData(team);
     }

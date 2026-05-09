@@ -5,12 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase"; 
 import { 
-  LayoutDashboard, Users, CheckSquare, Briefcase, Settings, Menu,
-  Calendar, Megaphone, StickyNote, DollarSign, BarChart3, Globe, Lock,
-  Sparkles, BrainCircuit
+  LayoutDashboard, Users, Menu, Calendar, Megaphone, 
+  StickyNote, DollarSign, BarChart3, Globe, Lock,
+  Briefcase, Settings, Sparkles
 } from "lucide-react";
 
-// Added 'Clarity' to Premium and Elite permissions
 const MODULE_PERMISSIONS: Record<string, string[]> = {
   STANDARD: ["Dashboard", "Contacts", "Notes", "Calendar"],
   PREMIUM: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Clarity"],
@@ -21,22 +20,37 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [userTier, setUserTier] = useState("STANDARD");
+  const [brandColor, setBrandColor] = useState("#a9b897"); // Default fallback
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchSettings = async () => {
       const supabase = await createClient();
+      
+      // 1. Fetch User Tier
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data } = await supabase.from("profiles").select("tier").eq("id", user.id).single();
-        if (data) setUserTier(data.tier.toUpperCase());
+        const { data: profile } = await supabase.from("profiles").select("tier, team_id").eq("id", user.id).single();
+        if (profile) {
+          setUserTier(profile.tier.toUpperCase());
+          
+          // 2. Fetch Brand Color from settings
+          // Assuming your settings table is linked by team_id
+          const { data: settings } = await supabase
+            .from("settings")
+            .select("brand_color")
+            .eq("team_id", profile.team_id)
+            .single();
+          
+          if (settings?.brand_color) setBrandColor(settings.brand_color);
+        }
       }
     };
-    fetchUserData();
+    fetchSettings();
   }, []);
 
   const allLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/clarity", label: "Clarity", icon: Sparkles }, // Added Clarity AI link
+    { href: "/clarity", label: "Clarity", icon: Sparkles },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/campaigns", label: "Campaigns", icon: Megaphone },
     { href: "/crm", label: "Contacts", icon: Users },
@@ -55,13 +69,11 @@ export default function Sidebar() {
 
   return (
     <aside className={`
-      hidden md:flex flex-col
-      h-screen bg-stone-50 border-r border-stone-200 
+      hidden md:flex flex-col h-screen bg-stone-50 border-r border-stone-200 
       transition-all duration-300 overflow-y-auto 
       ${collapsed ? "w-20" : "w-64"}
     `}>
       
-      {/* Header Area */}
       <div className="flex items-center justify-between p-6 h-20 shrink-0">
         {!collapsed && (
           <h1 className="font-black italic uppercase tracking-widest text-sm text-stone-900">
@@ -71,13 +83,11 @@ export default function Sidebar() {
         <button 
           onClick={() => setCollapsed(!collapsed)} 
           className="p-2 hover:bg-stone-200 rounded-lg transition-colors"
-          aria-label="Toggle Sidebar"
         >
           <Menu size={18} />
         </button>
       </div>
 
-      {/* Navigation Links */}
       <nav className="flex-1 space-y-1 px-4 mb-6">
         {visibleLinks.map((item) => {
           const isActive = pathname === item.href;
@@ -86,16 +96,20 @@ export default function Sidebar() {
             <Link 
               key={item.href} 
               href={item.href}
+              // Active background uses the brand color
+              style={{ backgroundColor: isActive ? brandColor : 'transparent' }}
               className={`
                 group flex items-center gap-4 p-2.5 rounded-xl transition-all
                 ${isActive 
-                  ? "bg-stone-900 text-white shadow-lg shadow-stone-200" 
+                  ? "text-white shadow-lg shadow-stone-200" 
                   : "text-stone-500 hover:bg-stone-100 hover:text-stone-900"}
               `}
             >
               <item.icon 
                 size={16} 
-                className={`${isActive ? "text-[#a9b897]" : "text-stone-400 group-hover:text-stone-900"}`} 
+                // Icon color is white when active, brand color when hovered
+                style={{ color: isActive ? '#fff' : undefined }}
+                className={`${!isActive ? "text-stone-400 group-hover:text-stone-900" : ""}`} 
               />
               {!collapsed && (
                 <span className="font-bold uppercase text-[9px] tracking-widest">
@@ -107,7 +121,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer Info */}
       <div className="p-6 border-t border-stone-200 bg-stone-100/50">
         {!collapsed ? (
           <div className="space-y-1">
@@ -120,7 +133,11 @@ export default function Sidebar() {
           </div>
         ) : (
           <div className="flex justify-center">
-            <div className="w-2 h-2 rounded-full bg-[#a9b897] animate-pulse" />
+            {/* Pulsing indicator uses brand color */}
+            <div 
+              className="w-2 h-2 rounded-full animate-pulse" 
+              style={{ backgroundColor: brandColor }}
+            />
           </div>
         )}
       </div>

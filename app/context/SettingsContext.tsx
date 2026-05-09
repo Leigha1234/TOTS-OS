@@ -1,9 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
-// Define the shape of our settings for TypeScript
 interface SettingsState {
   brandColor: string;
   secondaryColor: string;
@@ -32,14 +31,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const [settings, setSettings] = useState<SettingsState>(defaultSettings);
+  const [brandColor, setBrandColor] = useState(defaultSettings.brandColor);
+  const [secondaryColor, setSecondaryColor] = useState(defaultSettings.secondaryColor);
+  const [fontFamily, setFontFamily] = useState(defaultSettings.fontFamily);
+  const [logoUrl, setLogoUrl] = useState(defaultSettings.logoUrl);
+  const [mobileNav, setMobileNav] = useState<string[]>(defaultSettings.mobileNav);
+  const [loading, setLoading] = useState(true);
 
-  // We use useCallback so this function doesn't change on every render
   const refreshSettings = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setSettings(prev => ({ ...prev, loading: false }));
+        setLoading(false);
         return;
       }
 
@@ -47,52 +50,57 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         .from("profiles")
         .select("brand_color, secondary_color, font_family, logo_url, mobile_nav_config")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
       if (p) {
-        setSettings({
-          brandColor: p.brand_color || "#a9b897",
-          secondaryColor: p.secondary_color || "#1c1917",
-          fontFamily: p.font_family || "Inter",
-          logoUrl: p.logo_url || "",
-          mobileNav: p.mobile_nav_config || ["/dashboard", "/clarity", "/calendar"],
-          loading: false,
-          refreshSettings // Keep the function in state
-        });
+        if (p.brand_color) setBrandColor(p.brand_color);
+        if (p.secondary_color) setSecondaryColor(p.secondary_color);
+        if (p.font_family) setFontFamily(p.font_family);
+        if (p.logo_url) setLogoUrl(p.logo_url);
+        if (p.mobile_nav_config) setMobileNav(p.mobile_nav_config);
       }
     } catch (err) {
-      console.error("Error refreshing settings:", err);
-      setSettings(prev => ({ ...prev, loading: false }));
+      console.error("Error refreshing system settings:", err);
+    } finally {
+      setLoading(false);
     }
   }, [supabase]);
 
-  // Initial load
+  // Initial Sync
   useEffect(() => {
     refreshSettings();
   }, [refreshSettings]);
 
-  // SYSTEM-WIDE INJECTION
-  // This is the "Magic" that makes colors and fonts update everywhere instantly
+  // GLOBAL STYLE INJECTION
   useEffect(() => {
     if (typeof window !== "undefined") {
       const root = document.documentElement;
       
-      // 1. Inject Colors into CSS Variables
-      root.style.setProperty("--brand-primary", settings.brandColor);
-      root.style.setProperty("--brand-secondary", settings.secondaryColor);
+      // Inject Primary Brand Color
+      root.style.setProperty("--brand-primary", brandColor);
+      // Inject Secondary Brand Color
+      root.style.setProperty("--brand-secondary", secondaryColor);
       
-      // 2. Inject Font into Body
-      document.body.style.fontFamily = settings.fontFamily;
-      
-      // 3. Optional: Update Favicon or Title if needed
-      // console.log("System Styles Synced:", settings.brandColor);
+      // Force font family on body
+      document.body.style.fontFamily = `'${fontFamily}', sans-serif`;
     }
-  }, [settings.brandColor, settings.secondaryColor, settings.fontFamily]);
+  }, [brandColor, secondaryColor, fontFamily]);
+
+  // Memoize the context value to prevent unnecessary re-renders of the App tree
+  const value = useMemo(() => ({
+    brandColor,
+    secondaryColor,
+    fontFamily,
+    logoUrl,
+    mobileNav,
+    loading,
+    refreshSettings
+  }), [brandColor, secondaryColor, fontFamily, logoUrl, mobileNav, loading, refreshSettings]);
 
   return (
-    <SettingsContext.Provider value={settings}>
+    <SettingsContext.Provider value={value}>
       {children}
     </SettingsContext.Provider>
   );

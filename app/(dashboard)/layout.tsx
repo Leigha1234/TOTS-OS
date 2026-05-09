@@ -16,12 +16,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   
-  // Connect to global settings
+  // Connect to global settings context
   const { 
     mobileNav = ["/dashboard", "/clarity", "/calendar"], 
     logoUrl, 
     brandColor = "#a9b897",
-    loading 
+    fontFamily = "Inter"
   } = useSettings();
 
   const allLinks = [
@@ -39,18 +39,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
-  // Filter links based on the user's "Top 3" selection in Settings
+  // Logic to pin exactly what the user chose in their settings
   const pinnedMobileLinks = allLinks.filter(link => 
     mobileNav.includes(link.href)
   ).slice(0, 3);
 
-  // Prevent background scrolling when mobile menu is open
+  // Prevent background scrolling for better UX when "More" menu is open
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "unset";
   }, [mobileMenuOpen]);
 
   return (
-    <div className="flex h-screen w-full bg-[#fcfaf7] overflow-hidden">
+    <div 
+      className="flex h-screen w-full bg-[#fcfaf7] overflow-hidden"
+      style={{ fontFamily: `'${fontFamily}', sans-serif` }}
+    >
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden md:block h-full flex-shrink-0">
         <Sidebar />
@@ -62,7 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </div>
 
-        {/* MOBILE BOTTOM NAV - DYNAMICALLY PINNED */}
+        {/* MOBILE BOTTOM NAV */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-2xl border-t border-stone-100 z-[90] px-8 flex items-center justify-between pb-safe">
           {pinnedMobileLinks.map((link) => (
             <MobileNavItem 
@@ -77,21 +80,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           
           <button 
             onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center gap-1 transition-colors text-stone-400"
+            className="flex flex-col items-center gap-1 transition-colors text-stone-400 active:scale-90"
           >
             <Menu size={22} strokeWidth={1.5} />
             <span className="text-[7px] font-black uppercase tracking-tighter">System</span>
           </button>
         </nav>
 
-        {/* MOBILE FULL-SCREEN MENU */}
+        {/* MOBILE FULL-SCREEN OVERLAY */}
         <AnimatePresence>
           {mobileMenuOpen && (
             <motion.div 
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
               className="fixed inset-0 z-[200] bg-[#fcfaf7] overflow-y-auto"
             >
               <div className="min-h-full p-8 pb-32">
@@ -104,7 +107,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       Infrastructure
                     </p>
                     <div className="flex items-center gap-3">
-                      {logoUrl && <img src={logoUrl} alt="Logo" className="w-10 h-10 object-contain rounded-xl" />}
+                      {logoUrl ? (
+                        <img src={logoUrl} alt="Logo" className="w-10 h-10 object-contain rounded-xl" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-stone-900 flex items-center justify-center text-white">
+                           <LayoutDashboard size={20} />
+                        </div>
+                      )}
                       <span className="font-serif italic text-4xl tracking-tighter text-stone-900">Tots OS</span>
                     </div>
                   </div>
@@ -116,7 +125,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </button>
                 </div>
 
-                {/* GRID OF ALL PAGES */}
+                {/* APP GRID */}
                 <div className="grid grid-cols-2 gap-4">
                   {allLinks.map((link) => (
                     <Link 
@@ -169,16 +178,18 @@ function MobileNavItem({
   return (
     <Link 
       href={href} 
-      className="flex flex-col items-center gap-1 transition-all duration-300"
+      className="flex flex-col items-center gap-1 transition-all duration-300 active:scale-90"
       style={{ color: isActive ? activeColor : '#d6d3d1' }}
     >
-      <Icon size={22} strokeWidth={isActive ? 2 : 1.5} />
+      <Icon size={22} strokeWidth={isActive ? 2.5 : 1.5} />
       <span className={`text-[7px] font-black uppercase tracking-tighter ${isActive ? 'opacity-100' : 'opacity-60'}`}>
         {label}
       </span>
+      
+      {/* Active Indicator Dot */}
       {isActive && (
         <motion.div 
-          layoutId="activeTab"
+          layoutId="activeTabIndicator"
           className="w-1 h-1 rounded-full mt-0.5"
           style={{ backgroundColor: activeColor }}
         />

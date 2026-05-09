@@ -1,23 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/app/components/Sidebar";
-import { ThemeProvider } from "../components/GlobalProviders";
 import Link from "next/link";
-import { Sparkles, LayoutDashboard, Users, Receipt, Settings, Menu, X, Globe, Lock, BarChart3, Megaphone, Calendar } from "lucide-react";
+import { 
+  LayoutDashboard, Users, Calendar, Megaphone, 
+  DollarSign, Briefcase, BarChart3, Globe, Lock, Settings, Menu, X 
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // All links for the "More" overlay
-  const mobileLinks = [
+  // Lock body scroll when menu is open to prevent "ghost scrolling"
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+  }, [mobileMenuOpen]);
+
+  const allLinks = [
     { href: "/dashboard", label: "Home", icon: LayoutDashboard },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/crm", label: "Contacts", icon: Users },
     { href: "/campaigns", label: "Campaigns", icon: Megaphone },
-    { href: "/payments", label: "Finance", icon: Receipt },
-    { href: "/projects", label: "Projects", icon: Settings },
+    { href: "/payments", label: "Finance", icon: DollarSign },
+    { href: "/projects", label: "Projects", icon: Briefcase },
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/social", label: "Social", icon: Globe },
     { href: "/vault", label: "Vault", icon: Lock },
@@ -25,72 +35,85 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   return (
-    <ThemeProvider>
-      <div className="flex flex-col md:flex-row w-full h-screen md:overflow-hidden bg-[#fcfaf7]">
-        <aside className="hidden md:block z-50 h-full flex-shrink-0 border-r border-stone-200">
-          <Sidebar />
-        </aside>
+    <div className="flex h-screen w-full bg-[#fcfaf7] overflow-hidden">
+      {/* DESKTOP SIDEBAR */}
+      <aside className="hidden md:block h-full">
+        <Sidebar />
+      </aside>
 
-        <main className="flex-1 h-full overflow-y-auto relative">
-          <div className="p-4 md:p-12 pb-32 md:pb-12">{children}</div>
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 flex flex-col min-w-0 h-full relative">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 pb-32 md:pb-12">
+          {children}
+        </div>
 
-          {/* MOBILE BOTTOM NAV */}
-          <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-xl border-t border-stone-200 z-[100] px-6 flex items-center justify-between pb-safe">
-            <MobileNavLink href="/dashboard" icon={<LayoutDashboard size={20} />} label="Home" />
-            <MobileNavLink href="/calendar" icon={<Calendar size={20} />} label="Events" />
-            <MobileNavLink href="/crm" icon={<Users size={20} />} label="CRM" />
-            {/* The "More" Trigger */}
-            <button 
-              onClick={() => setMobileMenuOpen(true)}
-              className="flex flex-col items-center gap-1 text-stone-400"
+        {/* MOBILE BOTTOM NAV */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-xl border-t border-stone-200 z-[90] px-6 flex items-center justify-between pb-safe">
+          <MobileNavItem href="/dashboard" icon={LayoutDashboard} label="Home" />
+          <MobileNavItem href="/calendar" icon={Calendar} label="Events" />
+          <MobileNavItem href="/crm" icon={Users} label="CRM" />
+          <button 
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center gap-1 text-stone-400"
+          >
+            <Menu size={20} />
+            <span className="text-[8px] font-black uppercase tracking-tighter">More</span>
+          </button>
+        </nav>
+
+        {/* MOBILE FULL-SCREEN OVERLAY */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[200] bg-white overflow-y-auto"
             >
-              <Menu size={20} />
-              <span className="text-[8px] font-black uppercase tracking-tighter">More</span>
-            </button>
-          </nav>
-
-          {/* MOBILE FULL-SCREEN OVERLAY */}
-          <AnimatePresence>
-            {mobileMenuOpen && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="fixed inset-0 z-[200] bg-white p-8 flex flex-col md:hidden"
-              >
-                <div className="flex justify-between items-center mb-12">
-                  <span className="font-serif italic text-2xl">Tots OS Menu</span>
-                  <button onClick={() => setMobileMenuOpen(false)} className="p-2 bg-stone-100 rounded-full">
+              <div className="min-h-full p-8 pb-40">
+                <div className="flex justify-between items-center mb-10">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897]">System Menu</p>
+                    <span className="font-serif italic text-3xl text-stone-800 text-left block">Tots OS</span>
+                  </div>
+                  <button 
+                    onClick={() => setMobileMenuOpen(false)} 
+                    className="p-3 bg-stone-100 rounded-2xl active:scale-90"
+                  >
                     <X size={20} />
                   </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  {mobileLinks.map((link) => (
+                  {allLinks.map((link) => (
                     <Link 
                       key={link.href}
                       href={link.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex flex-col gap-3 p-6 bg-stone-50 rounded-[2rem] border border-stone-100 active:scale-95 transition-all"
+                      className="flex flex-col justify-between h-32 p-6 bg-[#faf9f6] rounded-[2rem] border border-stone-100 active:bg-stone-200 transition-all shadow-sm"
                     >
-                      <div className="text-[#a9b897]">{<link.icon size={24} />}</div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-stone-600">{link.label}</span>
+                      <div className="text-[#a9b897]">
+                        <link.icon size={22} />
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-600 text-left">
+                        {link.label}
+                      </span>
                     </Link>
                   ))}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </main>
-      </div>
-    </ThemeProvider>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+    </div>
   );
 }
 
-function MobileNavLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+function MobileNavItem({ href, icon: Icon, label }: { href: string; icon: any; label: string }) {
   return (
     <Link href={href} className="flex flex-col items-center gap-1 text-stone-400 active:text-stone-900 transition-colors">
-      {icon}
+      <Icon size={20} />
       <span className="text-[8px] font-black uppercase tracking-tighter">{label}</span>
     </Link>
   );

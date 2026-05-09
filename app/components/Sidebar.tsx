@@ -6,14 +6,15 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase"; 
 import { 
   LayoutDashboard, Users, CheckSquare, Briefcase, Settings, Menu,
-  Calendar, Megaphone, StickyNote, DollarSign, BarChart3, Share2, Globe, Clock, Lock,
-  X
+  Calendar, Megaphone, StickyNote, DollarSign, BarChart3, Globe, Lock,
+  Sparkles, BrainCircuit
 } from "lucide-react";
 
+// Added 'Clarity' to Premium and Elite permissions
 const MODULE_PERMISSIONS: Record<string, string[]> = {
   STANDARD: ["Dashboard", "Contacts", "Notes", "Calendar"],
-  PREMIUM: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns"],
-  ELITE: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Reports", "Social", "Vault", "Settings"],
+  PREMIUM: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Clarity"],
+  ELITE: ["Dashboard", "Contacts", "Notes", "Calendar", "Projects", "Finance", "Campaigns", "Reports", "Social", "Vault", "Settings", "Clarity"],
 };
 
 export default function Sidebar() {
@@ -35,6 +36,7 @@ export default function Sidebar() {
 
   const allLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/clarity", label: "Clarity", icon: Sparkles }, // Added Clarity AI link
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/campaigns", label: "Campaigns", icon: Megaphone },
     { href: "/crm", label: "Contacts", icon: Users },
@@ -52,11 +54,6 @@ export default function Sidebar() {
   );
 
   return (
-    /* RESPONSIVE LOGIC:
-       - Hidden on mobile ('hidden')
-       - Becomes a flexible column on desktop ('md:flex')
-       - Height matches viewport ('h-screen')
-    */
     <aside className={`
       hidden md:flex flex-col
       h-screen bg-stone-50 border-r border-stone-200 
@@ -83,7 +80,6 @@ export default function Sidebar() {
       {/* Navigation Links */}
       <nav className="flex-1 space-y-1 px-4 mb-6">
         {visibleLinks.map((item) => {
-          if (item.label === "Profile") return null;
           const isActive = pathname === item.href;
 
           return (

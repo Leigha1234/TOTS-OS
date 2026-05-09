@@ -16,7 +16,6 @@ export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
-  // -- Dashboard Stats --
   const [stats, setStats] = useState({
     activeProjects: 0,
     invoicesDue: 2, 
@@ -42,7 +41,6 @@ export default function DashboardPage() {
 
   const loadDashboardData = useCallback(async (team: string) => {
     try {
-      // 1. Basic User Fetch
       const { data: authData } = await supabase.auth.getUser();
       if (!authData.user) return router.push("/login");
 
@@ -52,11 +50,8 @@ export default function DashboardPage() {
         .eq("id", authData.user.id)
         .maybeSingle();
 
-      if (profile?.full_name) {
-        setUserName(profile.full_name);
-      }
+      if (profile?.full_name) setUserName(profile.full_name);
 
-      // 2. Load Stats
       const { count: projectCount } = await supabase
         .from("projects")
         .select("*", { count: 'exact', head: true })
@@ -64,7 +59,6 @@ export default function DashboardPage() {
 
       setStats(prev => ({ ...prev, activeProjects: projectCount || 0 }));
 
-      // 3. Load Tasks/Notes
       const { data: notesData } = await supabase
         .from("notes")
         .select("*")
@@ -94,10 +88,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function init() {
       const team = await getUserTeam();
-      if (!team) { 
-        setLoading(false); 
-        return; 
-      }
+      if (!team) { setLoading(false); return; }
       loadDashboardData(team);
     }
     init();
@@ -107,15 +98,12 @@ export default function DashboardPage() {
     setIsScanActive(true);
     setShowScanModal(true);
     setInsight(null); 
-
     try {
       const team = await getUserTeam();
       if (!team) throw new Error("No active team session found.");
-
       const { data, error } = await supabase.functions.invoke('clarity-scan', {
         body: { team_id: team, project_id: null }
       });
-
       if (error) throw new Error(error.message || "Intelligence Engine Offline");
       setInsight(data.insight);
     } catch (err: any) {
@@ -130,106 +118,107 @@ export default function DashboardPage() {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
+    <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4 p-6">
       <Loader2 className="animate-spin text-[#a9b897]" size={32} />
       <p className="font-serif italic text-stone-400 text-lg">Syncing TOTS OS...</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 lg:p-12 space-y-12 max-w-[1600px] mx-auto">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 max-w-[1600px] mx-auto">
       
       {/* HEADER */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-12 gap-8">
-        <div className="space-y-4">
-          <div className="flex items-center gap-6 text-[#a9b897]">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-8 md:pb-12 gap-6 md:gap-8">
+        <div className="space-y-3 md:space-y-4 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-4 md:gap-6 text-[#a9b897]">
             <div className="flex items-center gap-2">
-              <UserIcon size={14} />
-              <p className="font-black uppercase text-[9px] tracking-[0.4em]">Node Active: {userName}</p>
+              <UserIcon size={12} />
+              <p className="font-black uppercase text-[8px] md:text-[9px] tracking-[0.3em] md:tracking-[0.4em]">Node: {userName}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Clock size={14} />
-              <p className="font-black uppercase text-[9px] tracking-[0.4em]">
-                {currentTime.toLocaleDateString()} — {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <Clock size={12} />
+              <p className="font-black uppercase text-[8px] md:text-[9px] tracking-[0.3em] md:tracking-[0.4em]">
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
           </div>
-          <h1 className="text-7xl font-serif italic tracking-tighter leading-none">Dashboard</h1>
+          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none">Dashboard</h1>
         </div>
 
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
-          className="flex items-center gap-4 bg-white border border-stone-200 px-8 py-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer"
+          className="w-full md:w-auto flex items-center justify-center gap-4 bg-white border border-stone-200 px-6 py-4 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer"
         >
-          {isScanActive ? <Loader2 className="animate-spin text-[#a9b897]" size={20} /> : <Sparkles className="text-[#a9b897]" size={20} />}
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-600">
+          {isScanActive ? <Loader2 className="animate-spin text-[#a9b897]" size={18} /> : <Sparkles className="text-[#a9b897]" size={18} />}
+          <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-stone-600">
             {isScanActive ? "Running Analysis..." : "Intelligence Scan"}
           </span>
         </motion.button>
       </header>
 
-      {/* MODULES GRID */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      {/* MODULES GRID: 1 col on small mobile, 2 col on tablet, 5 col on desktop */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
         {[
           { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects" },
           { label: "Invoices Due", value: stats.invoicesDue, icon: FileText, path: "/payments" },
-          { label: "Social Stats (Pending)", value: stats.socialsPending, icon: Share2, path: "/social" },
-          { label: "Email Stats (Scheduled)", value: stats.emailsScheduled, icon: Mail, path: "/campaigns" },
+          { label: "Social Stats", value: stats.socialsPending, icon: Share2, path: "/social" },
+          { label: "Emails Scheduled", value: stats.emailsScheduled, icon: Mail, path: "/campaigns" },
           { 
             label: "Current Profit", 
-            value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stats.currentProfit), 
+            value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(stats.currentProfit), 
             icon: DollarSign, 
             path: "/payments" 
           },
         ].map((item) => (
           <motion.div
             key={item.label}
-            whileHover={{ y: -8 }}
+            whileHover={{ y: -5 }}
             onClick={() => router.push(item.path)}
-            className="group bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm hover:shadow-2xl hover:border-[#a9b897]/30 transition-all cursor-pointer relative flex flex-col justify-between h-[280px]"
+            className="group bg-white border border-stone-200 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm hover:shadow-2xl transition-all cursor-pointer relative flex flex-col justify-between min-h-[220px] md:h-[280px]"
           >
             <div>
-              <div className="p-4 bg-stone-50 rounded-2xl text-stone-300 group-hover:text-[#a9b897] group-hover:bg-[#a9b897]/5 transition-all w-fit mb-8">
-                <item.icon size={28} />
+              <div className="p-3 md:p-4 bg-stone-50 rounded-xl md:rounded-2xl text-stone-300 group-hover:text-[#a9b897] group-hover:bg-[#a9b897]/5 transition-all w-fit mb-4 md:mb-8">
+                <item.icon size={24} />
               </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-2">{item.label}</p>
-              <p className="text-4xl font-serif italic text-stone-900 leading-none truncate">{item.value}</p>
+              <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-1 md:mb-2">{item.label}</p>
+              <p className="text-3xl md:text-4xl font-serif italic text-stone-900 leading-none truncate">{item.value}</p>
             </div>
             
-            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors">
-              Access Module <ArrowRight size={12} />
+            <div className="flex items-center gap-2 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors mt-4">
+              Access <ArrowRight size={10} />
             </div>
           </motion.div>
         ))}
       </section>
 
-      {/* SIDE SECTIONS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
-        <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm lg:col-span-2 h-full">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+      {/* BOTTOM SECTIONS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12 items-start">
+        {/* CHECKLIST */}
+        <section className="bg-white border border-stone-200 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm lg:col-span-2">
+          <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 md:mb-8 flex items-center gap-2">
             <CheckSquare size={14} className="text-[#a9b897]" />
             Synchronized Checklist
           </h2>
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {todos.map((todo) => (
               <div 
                 key={todo.id} 
                 onClick={() => toggleTodo(todo.id)}
-                className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer ${
+                className={`flex items-center gap-4 p-4 md:p-5 rounded-xl md:rounded-2xl border transition-all cursor-pointer ${
                   todo.completed 
                     ? "bg-stone-50 border-stone-200 opacity-60" 
                     : "bg-[#faf9f6] border-stone-200 hover:border-stone-400"
                 }`}
               >
-                <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
+                <div className={`w-4 h-4 md:w-5 md:h-5 rounded flex items-center justify-center border transition-all shrink-0 ${
                   todo.completed 
                     ? "bg-[#a9b897] border-[#a9b897] text-white" 
                     : "border-stone-400 text-transparent"
                 }`}>
-                  &#10003;
+                  <span className="text-[10px] md:text-[12px]">&#10003;</span>
                 </div>
-                <span className={`text-xs font-bold uppercase tracking-wide ${todo.completed ? 'line-through text-stone-400' : 'text-stone-900'}`}>
+                <span className={`text-[10px] md:text-xs font-bold uppercase tracking-wide truncate ${todo.completed ? 'line-through text-stone-400' : 'text-stone-900'}`}>
                   {todo.text}
                 </span>
               </div>
@@ -237,55 +226,57 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm h-full flex flex-col justify-between">
+        {/* ROSTER */}
+        <section className="bg-white border border-stone-200 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm flex flex-col justify-between">
           <div>
-            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+            <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 md:mb-8 flex items-center gap-2">
               <Users size={14} className="text-[#a9b897]" />
-              Staffed Node Roster
+              Staff Node Roster
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {teamMembers.map((member, index) => (
-                <div key={index} className="flex items-center gap-4 bg-stone-50/75 p-5 rounded-2xl border border-stone-200/40">
-                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-xs font-bold uppercase tracking-wide text-stone-900">{member}</span>
+                <div key={index} className="flex items-center gap-4 bg-stone-50/75 p-4 md:p-5 rounded-xl md:rounded-2xl border border-stone-200/40">
+                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-wide text-stone-900 truncate">{member}</span>
                 </div>
               ))}
             </div>
           </div>
-          <div className="mt-12 p-6 rounded-[2rem] bg-stone-50 border border-stone-100/50 flex items-center gap-4">
-            <ShieldCheck size={20} className="text-[#a9b897] shrink-0" />
-            <p className="text-[10px] tracking-wider uppercase font-semibold text-stone-500 leading-relaxed">
-              All listed staff are provisioned with data access.
+          <div className="mt-8 md:mt-12 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] bg-stone-50 border border-stone-100/50 flex items-center gap-4">
+            <ShieldCheck size={18} className="text-[#a9b897] shrink-0" />
+            <p className="text-[8px] md:text-[9px] tracking-wider uppercase font-semibold text-stone-500 leading-relaxed">
+              Staff provisioned with data access.
             </p>
           </div>
         </section>
       </div>
 
-      {/* INTELLIGENCE SCAN MODAL */}
+      {/* SCAN MODAL */}
       <AnimatePresence>
         {showScanModal && (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-stone-950/40 backdrop-blur-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-stone-950/40 backdrop-blur-md"
           >
-            <div className="bg-[#1c1c1c] text-stone-100 p-12 rounded-[3.5rem] w-full max-w-4xl border border-[#a9b897]/20 shadow-2xl flex items-center justify-between">
-              <div className="flex items-center gap-8">
-                <Zap className="text-[#a9b897]" size={32} />
-                <div className="max-w-2xl">
-                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-2">Scan Mode: Node Initiated</p>
-                  <p className="font-serif italic text-3xl text-stone-200 leading-tight">
-                    {insight || "Analyzing operational flow and calculating stats..."}
+            <div className="bg-[#1c1c1c] text-stone-100 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] w-full max-w-4xl border border-[#a9b897]/20 shadow-2xl relative">
+              <button 
+                onClick={() => setShowScanModal(false)} 
+                className="absolute top-4 right-4 md:top-8 md:right-8 p-2 text-stone-600 hover:text-white transition-colors"
+              >
+                <X size={20}/>
+              </button>
+              
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8">
+                <Zap className="text-[#a9b897] shrink-0" size={28} />
+                <div className="text-center md:text-left">
+                  <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-2">Scan Node Initiated</p>
+                  <p className="font-serif italic text-xl md:text-3xl text-stone-200 leading-tight">
+                    {insight || "Analyzing operational flow..."}
                   </p>
                 </div>
               </div>
-              <button 
-                onClick={() => setShowScanModal(false)} 
-                className="p-4 text-stone-600 hover:text-white transition-colors border border-stone-800 rounded-2xl bg-stone-900/50 cursor-pointer"
-              >
-                <X size={24}/>
-              </button>
             </div>
           </motion.div>
         )}

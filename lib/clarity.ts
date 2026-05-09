@@ -42,7 +42,7 @@ export async function runClarity({ invoices, tasks, teamId, context = "dashboard
 }
 
 // 🧮 HEURISTIC FALLBACK (Your original logic)
-function generateHeuristicInsights(invoices: any[], tasks: any[], context: string) {
+export function generateHeuristicInsights(invoices: any[], tasks: any[], context: string) {
   const messages: string[] = [];
   const actions: string[] = [];
   const now = new Date();

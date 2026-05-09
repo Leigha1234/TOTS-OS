@@ -7,33 +7,42 @@
 
 /* 🌿 THE ORGANISED TYPES DESIGN SYSTEM */
 :root {
+  /* Dynamic Variables - Controlled by SettingsProvider JS */
+  --brand-primary: #a9b897;
+  --brand-secondary: #1c1917;
+  
   --bg: #ece5de;
   --bg-soft: #f6f3ef;
   --card: rgba(255, 255, 255, 0.7);
   --border: #d6d1cb;
   --text: #000000;
   --muted: #797870;
-  --accent: #a9b897;
-  --accent-strong: #8fa07d;
+  
+  /* Legacy mapping for backward compatibility */
+  --accent: var(--brand-primary);
+  --accent-strong: var(--brand-secondary);
 }
 
 /* 🌍 GLOBAL RESET */
 html, body {
   background: var(--bg) !important;
   color: var(--text);
+  /* font-family is updated via JS in SettingsProvider */
   font-family: "Poppins", Inter, system-ui, sans-serif;
   margin: 0;
   padding: 0;
+  transition: background-color 0.3s ease;
 }
 
-/* ✨ BACKGROUND */
+/* ✨ BACKGROUND - Now uses dynamic brand primary */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 20%, rgba(169,184,151,0.15), transparent 40%),
-    radial-gradient(circle at 80% 30%, rgba(169,184,151,0.1), transparent 40%);
+    radial-gradient(circle at 20% 20%, var(--brand-primary), transparent 40%),
+    radial-gradient(circle at 80% 30%, var(--brand-primary), transparent 40%);
+  opacity: 0.15; /* Maintain transparency regardless of color choice */
   z-index: -1;
 }
 
@@ -66,20 +75,21 @@ body::before {
   padding: 20px;
 }
 
-/* 🔘 BUTTON */
+/* 🔘 DYNAMIC BUTTON */
 button {
-  background: var(--accent);
-  color: var(--text);
+  background: var(--brand-primary);
+  color: #fff; /* White text for contrast on brand colors */
   border-radius: 12px;
   padding: 9px 16px;
   font-weight: 500;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
   border: none;
   cursor: pointer;
 }
 
 button:hover {
-  background: var(--accent-strong);
+  background: var(--brand-secondary);
+  transform: scale(1.02);
 }
 
 /* ✏️ INPUT */
@@ -88,7 +98,7 @@ input, select, textarea {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px;
-  font-family: "Poppins", Inter, system-ui, sans-serif;
+  font-family: inherit;
 }
 
 /* 🧠 CLARITY */
@@ -99,6 +109,11 @@ input, select, textarea {
   padding: 22px;
 }
 
+/* 🎨 BRAND HELPERS - Use these in your components */
+.text-brand { color: var(--brand-primary); }
+.bg-brand { background-color: var(--brand-primary); }
+.border-brand { border-color: var(--brand-primary); }
+
 /* 🦶 FOOTER */
 .footer {
   margin-top: 60px;
@@ -108,29 +123,10 @@ input, select, textarea {
   backdrop-filter: blur(10px);
 }
 
-.footer-inner {
-  max-width: 1100px;
-  margin: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.footer-row {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
 .footer-logo {
   font-weight: 600;
   font-size: 16px;
-}
-
-.footer-muted {
-  font-size: 12px;
-  color: var(--muted);
+  color: var(--brand-primary);
 }
 
 /* 📬 NEWSLETTER POPUP */
@@ -159,16 +155,26 @@ input, select, textarea {
   background: transparent !important;
 }
 
-/* 🖱️ DYNAMIC MOUSE GLOW */
+/* 🖱️ DYNAMIC MOUSE GLOW - Now uses brand primary */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   background: radial-gradient(
     circle at var(--x, 50%) var(--y, 50%),
-    rgba(169,184,151,0.15),
+    var(--brand-primary),
     transparent 40%
   );
+  opacity: 0.12;
   pointer-events: none;
   z-index: 9999;
+}
+
+/* 📱 SCROLLBAR UTILITY */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

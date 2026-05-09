@@ -35,9 +35,7 @@ export default function SettingsPage() {
 
 function SettingsContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isOnboarding = searchParams.get("onboarding") === "true";
-
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -50,7 +48,6 @@ function SettingsContent() {
   });
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   
-  // Auth Updates
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -62,29 +59,23 @@ function SettingsContent() {
   const [selectedFont, setSelectedFont] = useState("Inter");
   const [customFont, setCustomFont] = useState("");
   const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
-  const [timezone, setTimezone] = useState("UTC+0 (London)");
-  const [currency, setCurrency] = useState("GBP (£)");
   const [webhookUrl, setWebhookUrl] = useState("");
 
-  // Extension Features States
   const [companyDetails, setCompanyDetails] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [socialLinks, setSocialLinks] = useState({ website: "", instagram: "", linkedin: "", twitter: "" });
   const [campaignList, setCampaignList] = useState<string[]>([]);
   const [newCampaign, setNewCampaign] = useState("");
   
-  // Next of Kin states
   const [nextOfKin, setNextOfKin] = useState("");
   const [nextOfKinPhone, setNextOfKinPhone] = useState("");
 
-  // Expanded fields
   const [emailCampaigns, setEmailCampaigns] = useState("");
   const [auditLogs, setAuditLogs] = useState<string[]>([
     "• Node initialized successfully.",
     "• System Architecture linked to dynamic state."
   ]);
 
-  // Invite Link Helper
   const inviteLink = teamId ? `https://www.tots-os.co.uk/login?invite=${teamId}` : "";
 
   useEffect(() => { 
@@ -168,12 +159,8 @@ function SettingsContent() {
       }
 
       setAuditLogs(prev => [`• Settings updated at ${new Date().toLocaleTimeString()}`, ...prev]);
+      alert("Settings synchronized globally.");
       
-      if (isOnboarding) {
-        router.push("/import");
-      } else {
-        alert("Settings synchronized globally.");
-      }
     } catch (err: any) { alert("Sync Error: " + err.message); } finally { setSaving(false); }
   };
 
@@ -220,38 +207,6 @@ function SettingsContent() {
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
       
-      {/* ONBOARDING OVERLAY */}
-      <AnimatePresence>
-        {isOnboarding && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-stone-900/60 backdrop-blur-xl flex items-center justify-center p-6"
-          >
-            <motion.div 
-              initial={{ y: 20, scale: 0.95 }} animate={{ y: 0, scale: 1 }}
-              className="bg-white rounded-[3.5rem] p-12 max-w-xl text-center space-y-8 shadow-2xl border border-white relative"
-            >
-              <div className="w-24 h-24 bg-[#a9b897]/20 rounded-[2.5rem] flex items-center justify-center mx-auto text-[#a9b897]">
-                <Palette size={48} />
-              </div>
-              <div className="space-y-3">
-                <h2 className="text-5xl font-serif italic tracking-tight text-stone-900">Initialize Identity</h2>
-                <p className="text-stone-500 text-sm leading-relaxed font-medium px-6">
-                  Before the TOTS OS can activate its intelligence engines, it requires your brand DNA. 
-                  Please configure your core identity to proceed.
-                </p>
-              </div>
-              <button 
-                onClick={() => router.replace("/settings")}
-                className="w-full py-5 bg-[#1c1c1c] text-[#a9b897] rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-95 transition-all"
-              >
-                Begin Calibration
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Global CSS Injector */}
       <style jsx global>{`
         :root {
@@ -583,16 +538,16 @@ function SettingsContent() {
               </div>
               <div className="flex flex-wrap gap-6">
                 <div className="flex-1 min-w-[240px] space-y-3">
-                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Bank Entity</label>
-                  <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} placeholder="Barclays" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none" />
+                  <label className="text-[8px] font-black uppercase opacity-40">Bank Name</label>
+                  <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} className="w-full bg-black/20 border border-white/10 p-5 rounded-2xl text-xs font-bold outline-none" />
                 </div>
                 <div className="flex-1 min-w-[240px] space-y-3">
-                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Account Reference</label>
-                  <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} placeholder="00000000" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none" />
+                  <label className="text-[8px] font-black uppercase opacity-40">Account Number</label>
+                  <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} className="w-full bg-black/20 border border-white/10 p-5 rounded-2xl text-xs font-bold outline-none" />
                 </div>
                 <div className="flex-1 min-w-[240px] space-y-3">
-                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Sort / Routing</label>
-                  <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} placeholder="00-00-00" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none" />
+                  <label className="text-[8px] font-black uppercase opacity-40">Sort Code</label>
+                  <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} className="w-full bg-black/20 border border-white/10 p-5 rounded-2xl text-xs font-bold outline-none" />
                 </div>
               </div>
             </section>

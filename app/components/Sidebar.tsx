@@ -3,69 +3,39 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createClient } from "@/lib/supabase"; 
+import { supabase } from "@/lib/supabase-client"; 
+import { useSettings } from "@/app/context/SettingsContext"; // 🧬 Use the context here
 import { 
   LayoutDashboard, Users, Menu, Calendar, Megaphone, 
   StickyNote, DollarSign, BarChart3, Globe, Lock,
   Briefcase, Settings, Sparkles
 } from "lucide-react";
 
-// FIXED: Labels here must match the 'label' property in allLinks exactly
 const MODULE_PERMISSIONS: Record<string, string[]> = {
   STANDARD: ["Dashboard", "Contacts", "Notes", "Calendar"],
   PREMIUM: ["Dashboard", "Clarity", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects"],
-  ELITE: [
-    "Dashboard", 
-    "Clarity", 
-    "Calendar", 
-    "Campaigns", 
-    "Contacts", 
-    "Notes", 
-    "Finance", 
-    "Projects", 
-    "Reports", 
-    "Social", 
-    "Vault", 
-    "Settings"
-  ],
+  ELITE: ["Dashboard", "Clarity", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects", "Reports", "Social", "Vault", "Settings"],
 };
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { settings } = useSettings(); // 🧬 Get real-time settings from context
   const [collapsed, setCollapsed] = useState(false);
   const [userTier, setUserTier] = useState("STANDARD");
-  const [brandColor, setBrandColor] = useState("#a9b897"); 
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      const supabase = await createClient();
-      
+    async function getTier() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Fetch tier and brand color
         const { data: profile } = await supabase
           .from("profiles")
-          .select("tier, team_id, brand_color")
+          .select("tier")
           .eq("id", user.id)
           .single();
-
-        if (profile) {
-          setUserTier(profile.tier?.toUpperCase() || "STANDARD");
-          // Prioritize profile brand color, fallback to settings table
-          if (profile.brand_color) {
-            setBrandColor(profile.brand_color);
-          } else {
-            const { data: settings } = await supabase
-              .from("settings")
-              .select("brand_color")
-              .eq("team_id", profile.team_id)
-              .single();
-            if (settings?.brand_color) setBrandColor(settings.brand_color);
-          }
-        }
+        if (profile?.tier) setUserTier(profile.tier.toUpperCase());
       }
-    };
-    fetchSettings();
+    }
+    getTier();
   }, []);
 
   const allLinks = [
@@ -83,6 +53,7 @@ export default function Sidebar() {
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
+  // Logic to filter based on ELITE tier
   const visibleLinks = allLinks.filter(link => 
     MODULE_PERMISSIONS[userTier]?.includes(link.label)
   );
@@ -90,7 +61,7 @@ export default function Sidebar() {
   return (
     <aside className={`
       hidden md:flex flex-col h-screen bg-stone-50 border-r border-stone-200 
-      transition-all duration-300 overflow-y-auto 
+      transition-all duration-300 overflow-y-auto z-50
       ${collapsed ? "w-20" : "w-64"}
     `}>
       
@@ -116,7 +87,8 @@ export default function Sidebar() {
             <Link 
               key={item.href} 
               href={item.href}
-              style={{ backgroundColor: isActive ? brandColor : 'transparent' }}
+              // 🧬 Dynamic color from Context
+              style={{ backgroundColor: isActive ? settings.brandColor : 'transparent' }}
               className={`
                 group flex items-center gap-4 p-2.5 rounded-xl transition-all
                 ${isActive 
@@ -153,7 +125,8 @@ export default function Sidebar() {
           <div className="flex justify-center">
             <div 
               className="w-2 h-2 rounded-full animate-pulse" 
-              style={{ backgroundColor: brandColor }}
+              // 🧬 Dynamic color from Context
+              style={{ backgroundColor: settings.brandColor }}
             />
           </div>
         )}

@@ -42,32 +42,21 @@ export default function DashboardPage() {
 
   const loadDashboardData = useCallback(async (team: string) => {
     try {
-      // 1. AUTH & PROFILE CHECK
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return router.push("/login");
+      // 1. Basic User Fetch
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) return router.push("/login");
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name")
-        .eq("id", user.id)
+        .eq("id", authData.user.id)
         .maybeSingle();
 
-      // 2. ONBOARDING CHECK: If no name or no business name, redirect to setup
-      const { data: settings } = await supabase
-        .from("settings")
-        .select("business_name")
-        .eq("team_id", team)
-        .maybeSingle();
-
-      // If they haven't completed the "Initialize Identity" step (full_name check)
-      if (!profile?.full_name || !settings?.business_name) {
-        router.push("/settings?onboarding=true");
-        return;
+      if (profile?.full_name) {
+        setUserName(profile.full_name);
       }
 
-      setUserName(profile.full_name);
-
-      // 3. LOAD STATS
+      // 2. Load Stats
       const { count: projectCount } = await supabase
         .from("projects")
         .select("*", { count: 'exact', head: true })
@@ -75,7 +64,7 @@ export default function DashboardPage() {
 
       setStats(prev => ({ ...prev, activeProjects: projectCount || 0 }));
 
-      // 4. LOAD TASKS/NOTES
+      // 3. Load Tasks/Notes
       const { data: notesData } = await supabase
         .from("notes")
         .select("*")
@@ -96,7 +85,7 @@ export default function DashboardPage() {
         ]);
       }
     } catch (err) {
-      console.error("Sync Error:", err);
+      console.error("Dashboard Sync Error:", err);
     } finally {
       setLoading(false);
     }
@@ -105,13 +94,15 @@ export default function DashboardPage() {
   useEffect(() => {
     async function init() {
       const team = await getUserTeam();
-      if (!team) { setLoading(false); return; }
+      if (!team) { 
+        setLoading(false); 
+        return; 
+      }
       loadDashboardData(team);
     }
     init();
   }, [loadDashboardData]);
 
-  // --- AI SCAN LOGIC ---
   const runClarityScan = async () => {
     setIsScanActive(true);
     setShowScanModal(true);
@@ -119,19 +110,16 @@ export default function DashboardPage() {
 
     try {
       const team = await getUserTeam();
-      if (!team) throw new Error("Authentication error: No active team session found.");
+      if (!team) throw new Error("No active team session found.");
 
       const { data, error } = await supabase.functions.invoke('clarity-scan', {
-        body: { 
-          team_id: team,
-          project_id: null 
-        }
+        body: { team_id: team, project_id: null }
       });
 
-      if (error) throw new Error(error.message || "The Intelligence Engine is offline.");
+      if (error) throw new Error(error.message || "Intelligence Engine Offline");
       setInsight(data.insight);
     } catch (err: any) {
-      setInsight(`Scan Interrupted: ${err.message || "Connection lost."}`);
+      setInsight(`Scan Interrupted: ${err.message}`);
     } finally {
       setIsScanActive(false);
     }
@@ -302,7 +290,6 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

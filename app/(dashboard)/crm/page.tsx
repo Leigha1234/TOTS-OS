@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
-import { Plus, Search, User, X, Check } from "lucide-react";
+import { Plus, Search, User, X, Check, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -14,7 +14,8 @@ const MAILING_LIST_OPTIONS = [
 ];
 
 export default function CRMDirectory() {
-  const [customers, setCustomers] = useState<any[]>([]);
+  // Changed state to reflect 'profiles' table data
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -25,240 +26,173 @@ export default function CRMDirectory() {
 
   const [form, setForm] = useState({
     name: "",
-    company: "",
-    email: "",
-    phone: "",
-    address: ""
+    role: "user", // Default role per your DB schema
+    avatar_url: ""
   });
 
   useEffect(() => {
-    loadCustomers();
+    loadProfiles();
   }, []);
 
-  async function loadCustomers() {
+  async function loadProfiles() {
     setLoading(true);
+    // POINTING TO 'profiles' TABLE
     const { data, error } = await supabase
-      .from("customers")
+      .from("profiles")
       .select("*")
-      .order("created_at", { ascending: false });
-    if (!error && data) setCustomers(data);
+      .order("name", { ascending: true });
+    
+    if (!error && data) {
+      setProfiles(data);
+    } else {
+      console.error("Fetch error:", error);
+    }
     setLoading(false);
   }
 
-  async function addCustomer(e: React.FormEvent) {
+  async function addProfile(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    
     const payload = {
-      ...form,
-      on_mailing_list: addToMailingList,
-      mailing_list_category: addToMailingList && selectedLists.length > 0 ? selectedLists.join(", ") : "General"
+      name: form.name,
+      role: form.role,
+      avatar_url: form.avatar_url,
     };
-    const { data, error } = await supabase.from("customers").insert([payload]).select().single();
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .insert([payload])
+      .select()
+      .single();
+
     if (error) {
       alert(error.message);
       setSaving(false);
       return;
     }
-    setCustomers((prev) => [data, ...prev]);
-    setForm({ name: "", company: "", email: "", phone: "", address: "" });
-    setAddToMailingList(false);
-    setSelectedLists([]);
+
+    setProfiles((prev) => [data, ...prev]);
+    setForm({ name: "", role: "user", avatar_url: "" });
     setShowModal(false);
     setSaving(false);
   }
 
-  const toggleListSelection = (listName: string) => {
-    setSelectedLists(prev => 
-      prev.includes(listName) ? prev.filter(l => l !== listName) : [...prev, listName]
-    );
-  };
-
-  const filtered = customers.filter(
-    (c) =>
-      c.name?.toLowerCase().includes(search.toLowerCase()) ||
-      c.company?.toLowerCase().includes(search.toLowerCase())
+  const filtered = profiles.filter(
+    (p) => p.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-stone-50 p-4 md:p-8 pb-32 md:pb-8">
       <div className="max-w-6xl mx-auto">
 
-        {/* RESPONSIVE HEADER */}
+        {/* HEADER */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-end mb-8 md:mb-10 gap-6">
           <div className="space-y-1">
-            <p className="text-[10px] md:text-xs uppercase tracking-[0.3em] text-[var(--brand-primary)] font-black">
-              CRM Module
+            <p className="text-[10px] md:text-xs uppercase tracking-[0.3em] text-[#a9b897] font-black">
+              Neural Network
             </p>
             <h1 className="text-4xl md:text-6xl font-serif italic text-stone-800 tracking-tighter lowercase">Client Directory</h1>
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
             <div className="relative flex-1 md:flex-none">
-              <Search
-                size={16}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
-              />
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
-                placeholder="Search node..."
+                placeholder="Search database..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full md:w-64 pl-10 pr-4 py-3 md:py-4 rounded-2xl border border-stone-200 bg-white outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/20 transition-all text-sm"
+                className="w-full md:w-64 pl-10 pr-4 py-3 md:py-4 rounded-2xl border border-stone-200 bg-white outline-none focus:ring-2 focus:ring-[#a9b897]/20 transition-all text-sm"
               />
             </div>
 
             <button
               onClick={() => setShowModal(true)}
-              className="bg-stone-900 hover:bg-stone-800 p-4 md:p-5 rounded-2xl text-white transition-all shadow-xl active:scale-95"
+              className="bg-stone-900 hover:bg-stone-800 p-4 md:p-5 rounded-2xl text-white transition-all shadow-xl"
             >
               <Plus size={20} />
             </button>
           </div>
         </div>
 
-        {/* CUSTOMER LIST */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-3 md:gap-4">
-          {loading && (
-            <div className="text-center p-12 bg-white border border-stone-100 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-stone-300">
-              Synchronizing Directory...
+        {/* PROFILE LIST */}
+        <div className="grid grid-cols-1 gap-3">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border border-stone-100 gap-4">
+              <Loader2 className="animate-spin text-[#a9b897]" />
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Synchronizing Nodes...</p>
             </div>
-          )}
-
-          {!loading && filtered.length > 0 &&
-            filtered.map((customer) => (
-              <Link 
-                href={`/crm/${customer.id}`} 
-                key={customer.id}
-                className="bg-white border border-stone-100 rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-6 flex items-center gap-4 md:gap-6 hover:shadow-md transition-all active:scale-[0.98] group"
+          ) : filtered.length > 0 ? (
+            filtered.map((profile) => (
+              <div 
+                key={profile.id}
+                className="bg-white border border-stone-100 rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-6 flex items-center justify-between group hover:shadow-md transition-all"
               >
-                <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-stone-50 text-stone-400 group-hover:bg-stone-900 group-hover:text-white transition-colors flex items-center justify-center shrink-0 border border-stone-100">
-                  <User size={20} />
-                </div>
+                <div className="flex items-center gap-4 md:gap-6">
+                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-stone-50 text-stone-400 group-hover:bg-[#a9b897] group-hover:text-white transition-colors flex items-center justify-center shrink-0 border border-stone-100">
+                    {profile.avatar_url ? (
+                      <img src={profile.avatar_url} className="w-full h-full object-cover rounded-2xl" />
+                    ) : (
+                      <User size={20} />
+                    )}
+                  </div>
 
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-lg md:text-xl font-bold text-stone-800 truncate">{customer.name}</h3>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                    <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[var(--brand-primary)]">{customer.company || "Independent"}</p>
-                    <p className="hidden xs:block text-xs text-stone-400 truncate">{customer.email}</p>
+                  <div>
+                    <h3 className="text-lg md:text-xl font-bold text-stone-800">{profile.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="px-2 py-0.5 bg-stone-100 text-stone-400 rounded text-[8px] font-black uppercase tracking-widest">
+                        {profile.role || 'user'}
+                      </span>
+                      <span className="text-[10px] text-stone-300 font-mono">{profile.id.slice(0,8)}</span>
+                    </div>
                   </div>
                 </div>
-              </Link>
-            ))}
-
-          {!loading && filtered.length === 0 && (
+                
+                <Link 
+                  href={`/crm/${profile.id}`}
+                  className="p-4 rounded-xl opacity-0 group-hover:opacity-100 hover:bg-stone-50 transition-all"
+                >
+                  <Check size={18} className="text-[#a9b897]" />
+                </Link>
+              </div>
+            ))
+          ) : (
             <div className="text-center py-20 bg-white border border-dashed border-stone-200 rounded-[3rem]">
-              <p className="text-stone-300 text-[10px] font-black uppercase tracking-[0.4em]">Zero Results</p>
-              <p className="text-stone-500 text-sm mt-2 italic font-serif">Adjust parameters or provision new client.</p>
+              <p className="text-stone-300 text-[10px] font-black uppercase tracking-[0.4em]">Directory Empty</p>
+              <p className="text-stone-500 text-sm mt-2 italic font-serif">Run a Data Migration to populate this module.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* MOBILE RESPONSIVE MODAL */}
+      {/* ADD MODAL */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center p-0 md:p-6">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
-              onClick={() => setShowModal(false)}
-            />
-
-            <motion.div 
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="relative z-10 bg-white rounded-t-[2.5rem] md:rounded-[3rem] p-6 md:p-10 w-full max-w-xl shadow-2xl max-h-[92vh] overflow-y-auto border border-stone-100"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="relative z-10 bg-white rounded-t-[2.5rem] md:rounded-[3rem] p-6 md:p-10 w-full max-w-xl shadow-2xl overflow-y-auto">
               <div className="flex justify-between items-center mb-8">
-                <div className="space-y-1">
-                   <p className="text-[8px] font-black uppercase tracking-widest text-[var(--brand-primary)]">Entry Form</p>
-                   <h2 className="text-2xl md:text-3xl font-serif italic text-stone-800">Add New Client</h2>
-                </div>
-
-                <button onClick={() => setShowModal(false)} className="p-2 bg-stone-50 rounded-full text-stone-400 hover:text-stone-900 transition-colors">
-                  <X size={20} />
-                </button>
+                <h2 className="text-2xl font-serif italic">New Directory Entry</h2>
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-stone-50 rounded-full"><X size={20} /></button>
               </div>
 
-              <form onSubmit={addCustomer} className="space-y-4 pb-8 md:pb-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Identity</label>
-                    <input required placeholder="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/10" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Organization</label>
-                    <input placeholder="Company Name" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })}
-                      className="w-full bg-stone-50 border border-stone-200/50 rounded-xl p-4 text-sm focus:outline-none" />
-                  </div>
-                </div>
-
+              <form onSubmit={addProfile} className="space-y-6">
                 <div className="space-y-1">
-                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Electronic Mail</label>
-                  <input type="email" placeholder="client@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm focus:outline-none" />
+                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Identity Name</label>
+                  <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm outline-none focus:ring-2 focus:ring-[#a9b897]/20" />
                 </div>
-
+                
                 <div className="space-y-1">
-                   <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Physical Location</label>
-                   <textarea placeholder="Address details..." value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm h-24 resize-none focus:outline-none" />
+                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Access Level</label>
+                  <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm outline-none">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                    <option value="client">Client</option>
+                  </select>
                 </div>
 
-                {/* MAILING LIST TOGGLE */}
-                <div className="border-t border-stone-100 pt-6 mt-6">
-                  <label className="flex items-center justify-between cursor-pointer group">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500 group-hover:text-stone-800 transition-colors">
-                      Activate Marketing Sequence
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={addToMailingList}
-                      onChange={() => setAddToMailingList(!addToMailingList)}
-                      className="h-5 w-5 rounded-lg border-stone-300 text-[var(--brand-primary)] focus:ring-transparent"
-                    />
-                  </label>
-                </div>
-
-                {/* MAILING LIST OPTIONS */}
-                {addToMailingList && (
-                  <motion.div 
-                    initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-                    className="space-y-2 mt-4 pt-4 border-t border-stone-50"
-                  >
-                    <p className="text-[8px] font-black uppercase tracking-widest text-stone-400 mb-3 ml-1">Audience Segments</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {MAILING_LIST_OPTIONS.map((listName) => {
-                        const isChecked = selectedLists.includes(listName);
-                        return (
-                          <div 
-                            key={listName}
-                            onClick={() => toggleListSelection(listName)}
-                            className={`flex items-center justify-between p-3 md:p-4 rounded-xl border transition-all cursor-pointer ${
-                              isChecked 
-                                ? 'bg-[var(--brand-primary)]/5 border-[var(--brand-primary)] text-stone-900' 
-                                : 'bg-white border-stone-100 text-stone-500 hover:border-stone-200'
-                            }`}
-                          >
-                            <span className="text-[10px] font-bold uppercase tracking-tight">{listName}</span>
-                            {isChecked && <Check size={12} className="text-[var(--brand-primary)]" />}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black mt-8 text-[10px] tracking-[0.3em] uppercase hover:bg-stone-800 disabled:opacity-40 transition-all shadow-xl flex items-center justify-center gap-2"
-                >
-                  {saving ? <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : "Provision Client"}
+                <button type="submit" disabled={saving} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] tracking-[0.3em] uppercase hover:bg-stone-800 disabled:opacity-40 shadow-xl transition-all">
+                  {saving ? "Processing..." : "Commit Profile"}
                 </button>
               </form>
             </motion.div>

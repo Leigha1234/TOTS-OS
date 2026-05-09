@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { 
-  Sparkles, ArrowRight, Briefcase, Activity,
-  X, Loader2, Zap, FileText, Share2, Mail, Layers, User as UserIcon, Clock, CheckSquare, DollarSign, Users, ShieldCheck
+  Sparkles, ArrowRight, Briefcase, 
+  X, Loader2, Zap, FileText, Share2, Mail, User as UserIcon, Clock, CheckSquare, DollarSign, Users, ShieldCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -25,19 +25,16 @@ export default function DashboardPage() {
     currentProfit: 18450.00,
   });
 
-  // Additional New State Modules
-  const [teamMembers, setTeamMembers] = useState<string[]>([
+  const [teamMembers] = useState<string[]>([
     "Sarah Jenkins (Creative)", 
     "David Miller (Strategy)"
   ]);
+  
   const [isScanActive, setIsScanActive] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
   const [showScanModal, setShowScanModal] = useState(false);
-
-  // -- To-Do Checklist State --
   const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean }[]>([]);
 
-  // Update time every second
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -57,7 +54,6 @@ export default function DashboardPage() {
         setUserName(profile.user.user_metadata.full_name);
       }
 
-      // Fetch To-Dos from user notes or fallback items
       const { data: notesData } = await supabase
         .from("notes")
         .select("*")
@@ -71,7 +67,6 @@ export default function DashboardPage() {
           completed: false
         })));
       } else {
-        // Fallback checklist
         setTodos([
           { id: "1", text: "Sync Ledger with Finance Team", completed: false },
           { id: "2", text: "Optimize Campaign Webhook URLs", completed: false },
@@ -94,33 +89,36 @@ export default function DashboardPage() {
     init();
   }, [loadDashboardData]);
 
- const runClarityScan = async () => {
+  // --- UPDATED AI SCAN LOGIC ---
+  const runClarityScan = async () => {
     setIsScanActive(true);
     setShowScanModal(true);
-    setInsight(null); // Clear previous insight
+    setInsight(null); 
 
     try {
-      // 1. Get the current team
       const team = await getUserTeam();
-      if (!team) throw new Error("No team found");
+      if (!team) throw new Error("Authentication error: No active team session found.");
 
-      // 2. Call your Edge Function
+      // Call the Edge Function
       const { data, error } = await supabase.functions.invoke('clarity-scan', {
         body: { 
           team_id: team,
-          // Since this is a global dashboard scan, we might not have a specific project_id
-          // Your Edge Function index.ts should be updated to handle "all tasks" if project_id is null
           project_id: null 
         }
       });
 
-      if (error) throw error;
+      // Handle Supabase Function errors
+      if (error) {
+        console.error("Supabase Function Error:", error);
+        throw new Error(error.message || "The Intelligence Engine is currently offline.");
+      }
 
-      // 3. Set the real AI insight
+      // Set the real AI insight
       setInsight(data.insight);
-    } catch (err) {
-      console.error("AI Scan Error:", err);
-      setInsight("Scan Interrupted: Ensure Edge Functions are deployed and AI_KEY is set.");
+    } catch (err: any) {
+      console.error("Detailed AI Scan Error:", err);
+      // Display the specific error message in the UI modal
+      setInsight(`Scan Interrupted: ${err.message || "Connection lost."}`);
     } finally {
       setIsScanActive(false);
     }
@@ -207,7 +205,6 @@ export default function DashboardPage() {
 
       {/* SIDE SECTIONS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
-        {/* TO-DO CHECKLIST SECTION */}
         <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm lg:col-span-2 h-full">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
             <CheckSquare size={14} className="text-[#a9b897]" />
@@ -239,7 +236,6 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* TEAM ON SHIFT SECTION */}
         <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm h-full flex flex-col justify-between">
           <div>
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
@@ -276,7 +272,7 @@ export default function DashboardPage() {
             <div className="bg-[#1c1c1c] text-stone-100 p-12 rounded-[3.5rem] w-full max-w-4xl border border-[#a9b897]/20 shadow-2xl flex items-center justify-between">
               <div className="flex items-center gap-8">
                 <Zap className="text-[#a9b897]" size={32} />
-                <div>
+                <div className="max-w-2xl">
                   <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-2">Scan Mode: Node Initiated</p>
                   <p className="font-serif italic text-3xl text-stone-200 leading-tight">
                     {insight || "Analyzing operational flow and calculating stats..."}

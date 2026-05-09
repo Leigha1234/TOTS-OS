@@ -21,6 +21,19 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [selectedFont, setSelectedFontState] = useState("Inter");
   const [isDarkMode, setIsDarkModeState] = useState(false);
 
+  // Apply CSS variables to the document root whenever they change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const root = document.documentElement;
+      root.style.setProperty("--brand-primary", brandColor);
+      root.style.setProperty("--brand-secondary", secondaryColor);
+      root.style.setProperty("--font-family", `'${selectedFont}', sans-serif`);
+      
+      // Update body font directly to ensure priority
+      document.body.style.fontFamily = `'${selectedFont}', sans-serif`;
+    }
+  }, [brandColor, secondaryColor, selectedFont]);
+
   useEffect(() => {
     const savedBrand = localStorage.getItem('app-brand-color');
     const savedSecondary = localStorage.getItem('app-secondary-color');
@@ -60,18 +73,27 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       selectedFont, setSelectedFont,
       isDarkMode, setIsDarkMode
     }}>
+      {/* We keep the styled-jsx here as a backup layer, 
+         but the useEffect above is what handles the global variable injection 
+      */}
       <style jsx global>{`
+        :root {
+          --brand-primary: ${brandColor};
+          --brand-secondary: ${secondaryColor};
+        }
         body, html {
-          font-family: '${selectedFont}', sans-serif !important;
+          font-family: var(--font-family) !important;
+          background-color: ${isDarkMode ? '#0c0a09' : '#fcfaf7'};
+          color: ${isDarkMode ? '#f5f5f4' : '#1c1917'};
         }
         .custom-brand-text {
-          color: ${brandColor} !important;
+          color: var(--brand-primary) !important;
         }
         .custom-brand-bg {
-          background-color: ${brandColor} !important;
+          background-color: var(--brand-primary) !important;
         }
         .custom-secondary-bg {
-          background-color: ${secondaryColor} !important;
+          background-color: var(--brand-secondary) !important;
         }
       `}</style>
       {children}

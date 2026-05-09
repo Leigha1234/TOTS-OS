@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { Plus, Search, User, X, Check } from "lucide-react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion"; // Added for smoother mobile transitions
+import { motion, AnimatePresence } from "framer-motion";
 
 const MAILING_LIST_OPTIONS = [
   "General Newsletter",
@@ -86,7 +86,7 @@ export default function CRMDirectory() {
         {/* RESPONSIVE HEADER */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-end mb-8 md:mb-10 gap-6">
           <div className="space-y-1">
-            <p className="text-[10px] md:text-xs uppercase tracking-[0.3em] text-[#a9b897] font-black">
+            <p className="text-[10px] md:text-xs uppercase tracking-[0.3em] text-[var(--brand-primary)] font-black">
               CRM Module
             </p>
             <h1 className="text-4xl md:text-6xl font-serif italic text-stone-800 tracking-tighter lowercase">Client Directory</h1>
@@ -102,7 +102,7 @@ export default function CRMDirectory() {
                 placeholder="Search node..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full md:w-64 pl-10 pr-4 py-3 md:py-4 rounded-2xl border border-stone-200 bg-white outline-none focus:ring-2 focus:ring-[#a9b897]/20 transition-all text-sm"
+                className="w-full md:w-64 pl-10 pr-4 py-3 md:py-4 rounded-2xl border border-stone-200 bg-white outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/20 transition-all text-sm"
               />
             </div>
 
@@ -137,7 +137,7 @@ export default function CRMDirectory() {
                 <div className="min-w-0 flex-1">
                   <h3 className="text-lg md:text-xl font-bold text-stone-800 truncate">{customer.name}</h3>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                    <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[#a9b897]">{customer.company || "Independent"}</p>
+                    <p className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[var(--brand-primary)]">{customer.company || "Independent"}</p>
                     <p className="hidden xs:block text-xs text-stone-400 truncate">{customer.email}</p>
                   </div>
                 </div>
@@ -174,7 +174,7 @@ export default function CRMDirectory() {
             >
               <div className="flex justify-between items-center mb-8">
                 <div className="space-y-1">
-                   <p className="text-[8px] font-black uppercase tracking-widest text-[#a9b897]">Entry Form</p>
+                   <p className="text-[8px] font-black uppercase tracking-widest text-[var(--brand-primary)]">Entry Form</p>
                    <h2 className="text-2xl md:text-3xl font-serif italic text-stone-800">Add New Client</h2>
                 </div>
 
@@ -188,7 +188,7 @@ export default function CRMDirectory() {
                   <div className="space-y-1">
                     <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Identity</label>
                     <input required placeholder="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#a9b897]/10" />
+                      className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]/10" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Organization</label>
@@ -219,7 +219,7 @@ export default function CRMDirectory() {
                       type="checkbox"
                       checked={addToMailingList}
                       onChange={() => setAddToMailingList(!addToMailingList)}
-                      className="h-5 w-5 rounded-lg border-stone-300 text-[#a9b897] focus:ring-transparent"
+                      className="h-5 w-5 rounded-lg border-stone-300 text-[var(--brand-primary)] focus:ring-transparent"
                     />
                   </label>
                 </div>
@@ -240,12 +240,12 @@ export default function CRMDirectory() {
                             onClick={() => toggleListSelection(listName)}
                             className={`flex items-center justify-between p-3 md:p-4 rounded-xl border transition-all cursor-pointer ${
                               isChecked 
-                                ? 'bg-[#a9b897]/5 border-[#a9b897] text-[#1c1917]' 
+                                ? 'bg-[var(--brand-primary)]/5 border-[var(--brand-primary)] text-stone-900' 
                                 : 'bg-white border-stone-100 text-stone-500 hover:border-stone-200'
                             }`}
                           >
                             <span className="text-[10px] font-bold uppercase tracking-tight">{listName}</span>
-                            {isChecked && <Check size={12} className="text-[#a9b897]" />}
+                            {isChecked && <Check size={12} className="text-[var(--brand-primary)]" />}
                           </div>
                         )
                       })}

@@ -147,7 +147,7 @@ export default function HRPage() {
       {/* HR Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-10 gap-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-[#a9b897]">
+          <div className="flex items-center gap-2 text-[var(--brand-primary)]">
             <Users size={14} />
             <p className="font-black uppercase text-[9px] tracking-[0.4em]">Human Resources Operations</p>
           </div>
@@ -185,7 +185,7 @@ export default function HRPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="bg-stone-900 text-stone-100 p-10 rounded-[2.5rem] shadow-2xl flex flex-col justify-between min-h-[200px]">
           <div className="flex justify-between items-start">
-            <div className="p-3 bg-stone-800 rounded-2xl text-[#a9b897]"><Award size={24} /></div>
+            <div className="p-3 bg-stone-800 rounded-2xl text-[var(--brand-primary)]"><Award size={24} /></div>
             <span className="text-[9px] font-black uppercase text-stone-500 tracking-[0.3em]">Total Payroll</span>
           </div>
           <div>
@@ -221,7 +221,7 @@ export default function HRPage() {
         {/* Profile Input Information Forms */}
         <div className="lg:col-span-2 bg-white border border-stone-200/60 p-10 rounded-[3rem] shadow-sm space-y-8">
           <div className="flex items-center gap-4 border-b border-stone-100 pb-6">
-            <UserPlus size={20} className="text-[#a9b897]" />
+            <UserPlus size={20} className="text-[var(--brand-primary)]" />
             <h3 className="text-2xl font-serif italic text-stone-800">Employee Profiles & Records</h3>
           </div>
 
@@ -231,7 +231,7 @@ export default function HRPage() {
               <input 
                 value={empName} 
                 onChange={(e) => setEmpName(e.target.value)}
-                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
               />
             </div>
             <div>
@@ -239,7 +239,7 @@ export default function HRPage() {
               <input 
                 value={empNumber} 
                 onChange={(e) => setEmpNumber(e.target.value)}
-                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
               />
             </div>
             <div>
@@ -247,7 +247,7 @@ export default function HRPage() {
               <input 
                 value={empRole} 
                 onChange={(e) => setEmpRole(e.target.value)}
-                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
               />
             </div>
             <div>
@@ -255,7 +255,7 @@ export default function HRPage() {
               <select 
                 value={contractType} 
                 onChange={(e) => setContractType(e.target.value)}
-                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
               >
                 <option value="Full-Time">Full-Time</option>
                 <option value="Part-Time">Part-Time</option>
@@ -269,7 +269,7 @@ export default function HRPage() {
                 type="number"
                 value={workingHours} 
                 onChange={(e) => setWorkingHours(e.target.value)}
-                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
               />
             </div>
             <div>
@@ -278,7 +278,7 @@ export default function HRPage() {
                 type="number"
                 value={holidayEntitlement} 
                 onChange={(e) => setHolidayEntitlement(e.target.value)}
-                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
               />
             </div>
             <div>
@@ -286,7 +286,7 @@ export default function HRPage() {
               <input 
                 value={nextOfKinName} 
                 onChange={(e) => setNextOfKinName(e.target.value)}
-                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
               />
             </div>
             <div>
@@ -294,7 +294,7 @@ export default function HRPage() {
               <input 
                 value={nextOfKinNumber} 
                 onChange={(e) => setNextOfKinNumber(e.target.value)}
-                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
               />
             </div>
           </div>
@@ -307,7 +307,7 @@ export default function HRPage() {
                 <input 
                   value={bankName} 
                   onChange={(e) => setBankName(e.target.value)}
-                  className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
                 />
               </div>
               <div>
@@ -315,7 +315,7 @@ export default function HRPage() {
                 <input 
                   value={accountNumber} 
                   onChange={(e) => setAccountNumber(e.target.value)}
-                  className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
                 />
               </div>
               <div>
@@ -323,7 +323,7 @@ export default function HRPage() {
                 <input 
                   value={sortCode} 
                   onChange={(e) => setSortCode(e.target.value)}
-                  className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
                 />
               </div>
             </div>
@@ -353,7 +353,7 @@ export default function HRPage() {
                   placeholder="Employee Name"
                   value={newEmployeeName} 
                   onChange={(e) => setNewEmployeeName(e.target.value)}
-                  className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
                 />
               </div>
               <div>
@@ -362,7 +362,7 @@ export default function HRPage() {
                   placeholder="Role Title"
                   value={newEmployeeRole} 
                   onChange={(e) => setNewEmployeeRole(e.target.value)}
-                  className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
                 />
               </div>
               <div>
@@ -372,14 +372,14 @@ export default function HRPage() {
                   placeholder="Amount"
                   value={newEmployeePay} 
                   onChange={(e) => setNewEmployeePay(e.target.value)}
-                  className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
+                  className="w-full mt-2 bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30"
                 />
               </div>
             </div>
 
             <button 
               onClick={addPayrollEntry}
-              className="w-full py-4 bg-[#a9b897] text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[#99a788] transition-all cursor-pointer shadow-lg"
+              className="w-full py-4 bg-[var(--brand-primary)] text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:brightness-105 transition-all cursor-pointer shadow-lg"
             >
               Log Payment Record
             </button>
@@ -395,7 +395,7 @@ export default function HRPage() {
                   <div className="space-y-1">
                     <p className="text-xs font-bold text-stone-800">{entry.employee}</p>
                     <p className="text-[9px] font-medium text-stone-500 uppercase">{entry.role}</p>
-                    <p className="text-[9px] font-mono text-[#a9b897] mt-1">Due: {entry.dateOfPay}</p>
+                    <p className="text-[9px] font-mono text-[var(--brand-primary)] mt-1">Due: {entry.dateOfPay}</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-xs font-mono font-bold text-stone-900">£{entry.total.toLocaleString()}</span>
@@ -418,7 +418,7 @@ export default function HRPage() {
         </div>
       </div>
 
-      {/* NEW HR Operations Cards: Payslips, Appraisals, Holiday Requests & Sick Pay */}
+      {/* NEW HR Operations Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pt-12 border-t border-stone-200/60">
         
         {/* Payslips Card */}
@@ -438,8 +438,8 @@ export default function HRPage() {
             </div>
           </div>
           <div className="mt-6 pt-4 border-t border-stone-100 space-y-2">
-            <input placeholder="Name" value={newPayslipEmp} onChange={(e) => setNewPayslipEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
-            <input placeholder="Amount" type="number" value={newPayslipAmount} onChange={(e) => setNewPayslipAmount(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <input placeholder="Name" value={newPayslipEmp} onChange={(e) => setNewPayslipEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none focus:border-[var(--brand-primary)]/30" />
+            <input placeholder="Amount" type="number" value={newPayslipAmount} onChange={(e) => setNewPayslipAmount(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none focus:border-[var(--brand-primary)]/30" />
             <button onClick={addPayslip} className="w-full py-2 bg-stone-900 text-white rounded-lg text-[10px] font-bold cursor-pointer">Add Payslip</button>
           </div>
         </div>
@@ -456,15 +456,15 @@ export default function HRPage() {
                   className="p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs cursor-pointer hover:bg-stone-100/80 transition-colors"
                 >
                   <p className="font-bold">{a.employee}</p>
-                  <p className="text-[9px] text-[#a9b897] font-semibold mt-0.5">{a.score}</p>
+                  <p className="text-[9px] text-[var(--brand-primary)] font-semibold mt-0.5">{a.score}</p>
                   <span className="text-[8px] text-stone-400">{a.date}</span>
                 </div>
               ))}
             </div>
           </div>
           <div className="mt-6 pt-4 border-t border-stone-100 space-y-2">
-            <input placeholder="Name" value={newAppraisalEmp} onChange={(e) => setNewAppraisalEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
-            <input placeholder="Score" value={newAppraisalScore} onChange={(e) => setNewAppraisalScore(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <input placeholder="Name" value={newAppraisalEmp} onChange={(e) => setNewAppraisalEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none focus:border-[var(--brand-primary)]/30" />
+            <input placeholder="Score" value={newAppraisalScore} onChange={(e) => setNewAppraisalScore(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none focus:border-[var(--brand-primary)]/30" />
             <button onClick={addAppraisal} className="w-full py-2 bg-stone-900 text-white rounded-lg text-[10px] font-bold cursor-pointer">Add Appraisal</button>
           </div>
         </div>
@@ -486,8 +486,8 @@ export default function HRPage() {
             </div>
           </div>
           <div className="mt-6 pt-4 border-t border-stone-100 space-y-2">
-            <input placeholder="Name" value={newHolidayEmp} onChange={(e) => setNewHolidayEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
-            <input placeholder="Dates (e.g. May 12-14)" value={newHolidayDates} onChange={(e) => setNewHolidayDates(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <input placeholder="Name" value={newHolidayEmp} onChange={(e) => setNewHolidayEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none focus:border-[var(--brand-primary)]/30" />
+            <input placeholder="Dates (e.g. May 12-14)" value={newHolidayDates} onChange={(e) => setNewHolidayDates(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none focus:border-[var(--brand-primary)]/30" />
             <button onClick={addHolidayRequest} className="w-full py-2 bg-stone-900 text-white rounded-lg text-[10px] font-bold cursor-pointer">Request Time Off</button>
           </div>
         </div>
@@ -509,9 +509,9 @@ export default function HRPage() {
             </div>
           </div>
           <div className="mt-6 pt-4 border-t border-stone-100 space-y-2">
-            <input placeholder="Name" value={newSickEmp} onChange={(e) => setNewSickEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
-            <input placeholder="Days" type="number" value={newSickDays} onChange={(e) => setNewSickDays(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
-            <input placeholder="Reason" value={newSickReason} onChange={(e) => setNewSickReason(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none" />
+            <input placeholder="Name" value={newSickEmp} onChange={(e) => setNewSickEmp(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none focus:border-[var(--brand-primary)]/30" />
+            <input placeholder="Days" type="number" value={newSickDays} onChange={(e) => setNewSickDays(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none focus:border-[var(--brand-primary)]/30" />
+            <input placeholder="Reason" value={newSickReason} onChange={(e) => setNewSickReason(e.target.value)} className="w-full p-2 text-[10px] bg-stone-50 border border-stone-100 rounded-lg outline-none focus:border-[var(--brand-primary)]/30" />
             <button onClick={addSickPay} className="w-full py-2 bg-stone-900 text-white rounded-lg text-[10px] font-bold cursor-pointer">Add Sick Record</button>
           </div>
         </div>
@@ -534,7 +534,7 @@ export default function HRPage() {
               <p className="text-xs text-stone-500 uppercase tracking-widest">
                 Reviewer: <span className="font-bold text-stone-900">{selectedAppraisal.employee}</span>
               </p>
-              <p className="text-xs text-[#a9b897] uppercase tracking-widest">
+              <p className="text-xs text-[var(--brand-primary)] uppercase tracking-widest">
                 Status: {selectedAppraisal.score}
               </p>
             </div>
@@ -549,7 +549,7 @@ export default function HRPage() {
                     rows={3}
                     value={appraisalAnswers[index] || ""}
                     onChange={(e) => setAppraisalAnswers({ ...appraisalAnswers, [index]: e.target.value })}
-                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none resize-none text-stone-700"
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-semibold focus:ring-4 ring-[var(--brand-primary)]/5 outline-none focus:border-[var(--brand-primary)]/30 resize-none text-stone-700"
                     placeholder="Type your response here..."
                   />
                 </div>

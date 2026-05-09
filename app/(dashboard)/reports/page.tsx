@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase-client"; // Use sync client
+import { supabase } from "@/lib/supabase-client"; 
 import { motion } from "framer-motion";
 import { 
   Globe, 
@@ -11,20 +11,18 @@ import {
   Mail, 
   BarChart3, 
   Share2,
-  Download
+  Download,
+  Loader2
 } from "lucide-react";
 
 export default function ReportsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  // Raw finance datasets held for downloading
   const [invoiceData, setInvoiceData] = useState<any[]>([]);
 
   useEffect(() => {
     async function init() {
       try {
-        // Authenticate the user and fetch their team
         const { data: { user } } = await supabase.auth.getUser();
         
         let teamId = null;
@@ -36,12 +34,8 @@ export default function ReportsPage() {
           teamId = mem?.team_id;
         }
 
-        // Fallback team ID for testing/development if user session is not available
-        if (!teamId) {
-          teamId = "team-123";
-        }
+        if (!teamId) teamId = "team-123";
 
-        // Use Promise.all to fetch relevant reports across different platform sectors
         const [inv, tks, ts, posts, emails] = await Promise.all([
           supabase.from("invoices").select("*").eq("team_id", teamId),
           supabase.from("tasks").select("*").eq("team_id", teamId),
@@ -78,7 +72,6 @@ export default function ReportsPage() {
         setData({
           revenue: rev,
           totalHours: hrs,
-          payrollEst: hrs * 25,
           overdueCount: inv.data?.filter(i => i.due_date && new Date(i.due_date) < new Date() && i.status !== "paid").length || 0,
           tasksDone: tks.data?.filter(t => t.status === "done").length || 0,
           social: socialStats,
@@ -95,27 +88,12 @@ export default function ReportsPage() {
   }, []);
 
   const downloadFinanceReport = () => {
-    if (!invoiceData.length) {
-      alert("No financial data available to download.");
-      return;
-    }
-    
-    // Format headers and rows
+    if (!invoiceData.length) return;
     const headers = ["Invoice ID", "Amount", "Currency", "Status", "Due Date"];
-    const rows = invoiceData.map(inv => [
-      inv.id,
-      inv.amount,
-      inv.currency || "GBP",
-      inv.status,
-      inv.due_date || "N/A"
-    ]);
-
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    
-    const encodedUri = encodeURI(csvContent);
+    const rows = invoiceData.map(inv => [inv.id, inv.amount, inv.currency || "GBP", inv.status, inv.due_date || "N/A"]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", encodeURI(csvContent));
     link.setAttribute("download", "finance_report.csv");
     document.body.appendChild(link);
     link.click();
@@ -123,49 +101,51 @@ export default function ReportsPage() {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
       <div className="text-center space-y-6">
-        <div className="flex justify-center"><Globe className="text-[#a9b897] animate-spin" size={32} /></div>
+        <div className="flex justify-center">
+          <Loader2 className="text-[var(--brand-primary)] animate-spin" size={32} />
+        </div>
         <div className="space-y-2">
-          <p className="text-[#a9b897] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">Syncing Global Nodes</p>
-          <p className="text-stone-500 font-serif italic text-sm">Establishing secure data link...</p>
+          <p className="text-[var(--brand-primary)] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">Syncing Intelligence Nodes</p>
+          <p className="text-[var(--text-muted)] font-serif italic text-sm">Establishing secure data link...</p>
         </div>
       </div>
     </div>
   );
 
-  if (!data) return <div className="p-12 text-stone-400 font-serif italic">No operational data detected.</div>;
+  if (!data) return <div className="p-12 text-[var(--text-muted)] font-serif italic">No operational data detected.</div>;
 
   const openRate = data.email.sent > 0 ? ((data.email.opens / data.email.sent) * 100).toFixed(1) : "0.0";
   const clickRate = data.email.opens > 0 ? ((data.email.clicks / data.email.opens) * 100).toFixed(1) : "0.0";
 
   return (
-    <div className="p-8 lg:p-16 max-w-[1600px] mx-auto min-h-screen bg-stone-50 text-stone-900 space-y-16">
+    <div className="p-8 lg:p-16 max-w-[1600px] mx-auto min-h-screen bg-[var(--bg)] text-[var(--text-main)] space-y-16">
       
-      {/* MINIMALIST HEADER */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-[#a9b897]">
+          <div className="flex items-center gap-2 text-[var(--brand-primary)]">
             <Zap size={14} fill="currentColor" />
             <span className="text-[10px] font-black uppercase tracking-[0.4em]">Operational OS</span>
           </div>
-          <h1 className="text-7xl font-serif italic tracking-tighter text-stone-900">Intelligence</h1>
+          <h1 className="text-7xl font-serif italic tracking-tighter text-[var(--text-main)]">Intelligence</h1>
         </div>
         
         <div className="flex items-center gap-4">
           <button 
             onClick={downloadFinanceReport}
-            className="bg-stone-900 text-white hover:bg-stone-700 transition-all px-6 py-4 rounded-2xl flex items-center gap-3 shadow-sm cursor-pointer"
+            className="bg-stone-900 text-white hover:bg-stone-700 transition-all px-6 py-4 rounded-2xl flex items-center gap-3 shadow-sm"
           >
             <Download size={16} />
-            <span className="text-[10px] font-black uppercase tracking-wider">Download Finance Report</span>
+            <span className="text-[10px] font-black uppercase tracking-wider">Export Finance Data</span>
           </button>
 
-          <div className="bg-white border border-stone-200 px-6 py-4 rounded-2xl flex items-center gap-4 shadow-sm">
+          <div className="bg-[var(--card-bg)] border border-[var(--border)] px-6 py-4 rounded-2xl flex items-center gap-4 shadow-sm">
             <ShieldCheck className="text-green-600" size={18} />
             <div className="space-y-0.5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-stone-800">System Status</p>
-              <p className="text-[9px] font-mono text-stone-400 uppercase">Link: [STABLE]</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-main)]">System Status</p>
+              <p className="text-[9px] font-mono text-[var(--text-muted)] uppercase">Link: [STABLE]</p>
             </div>
           </div>
         </div>
@@ -179,27 +159,26 @@ export default function ReportsPage() {
           { label: "Labor Allocation", val: `${data.totalHours}h`, trend: "Optimal", color: "text-purple-600" },
           { label: "Risk Exposure", val: data.overdueCount, trend: "Overdue", color: "text-red-500" }
         ].map((stat, i) => (
-          <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-stone-200/60 shadow-sm group hover:border-[#a9b897]/30 transition-colors">
+          <div key={i} className="bg-[var(--card-bg)] p-10 rounded-[2.5rem] border border-[var(--border)] shadow-sm group hover:border-[var(--brand-primary)]/30 transition-colors">
             <div className="flex justify-between items-start mb-10">
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">{stat.label}</span>
-              <ArrowUpRight size={14} className="text-stone-300 group-hover:text-[#a9b897] transition-colors" />
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">{stat.label}</span>
+              <ArrowUpRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--brand-primary)] transition-colors" />
             </div>
-            <p className="text-4xl font-serif italic text-stone-900 tracking-tight">{stat.val}</p>
+            <p className="text-4xl font-serif italic text-[var(--text-main)] tracking-tight">{stat.val}</p>
             <div className="mt-4 flex items-center gap-2">
-              <span className={`text-[8px] font-mono uppercase px-2 py-0.5 rounded border border-stone-100 bg-stone-50 ${stat.color}`}>{stat.trend}</span>
+              <span className={`text-[8px] font-mono uppercase px-2 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-soft)] ${stat.color}`}>{stat.trend}</span>
             </div>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
         {/* EMAIL INTELLIGENCE */}
-        <div className="lg:col-span-2 bg-white border border-stone-200/60 p-12 rounded-[3.5rem] shadow-sm relative overflow-hidden">
+        <div className="lg:col-span-2 bg-[var(--card-bg)] border border-[var(--border)] p-12 rounded-[3.5rem] shadow-sm relative overflow-hidden">
           <div className="relative z-10 space-y-16">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-stone-50 border border-stone-100 rounded-2xl text-[#a9b897]"><Mail size={20} /></div>
-              <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400">Communication Reach</h2>
+              <div className="p-3 bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl text-[var(--brand-primary)]"><Mail size={20} /></div>
+              <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Reach Analysis</h2>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
@@ -210,21 +189,23 @@ export default function ReportsPage() {
                 { l: "Total Sent", v: data.email.sent.toLocaleString(), sub: "Outbound" }
               ].map((m, i) => (
                 <div key={i} className="space-y-4">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-stone-400">{m.l}</p>
-                  <p className={`text-5xl font-serif italic text-stone-900 ${m.c || ''}`}>{m.v}</p>
-                  <p className="text-[10px] font-mono text-stone-400">{m.sub}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{m.l}</p>
+                  <p className={`text-5xl font-serif italic text-[var(--text-main)] ${m.c || ''}`}>{m.v}</p>
+                  <p className="text-[10px] font-mono text-[var(--text-muted)]">{m.sub}</p>
                 </div>
               ))}
             </div>
           </div>
-          <div className="absolute right-0 top-0 p-12 opacity-5"><BarChart3 size={200} className="text-stone-900" /></div>
+          <div className="absolute right-0 top-0 p-12 opacity-5 pointer-events-none">
+            <BarChart3 size={200} className="text-[var(--text-main)]" />
+          </div>
         </div>
 
         {/* SOCIAL INDEX */}
-        <div className="bg-white border border-stone-200/60 p-12 rounded-[3.5rem] shadow-sm space-y-12">
+        <div className="bg-[var(--card-bg)] border border-[var(--border)] p-12 rounded-[3.5rem] shadow-sm space-y-12">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-stone-50 border border-stone-100 rounded-2xl text-[#a9b897]"><Share2 size={20} /></div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400">Platform Power</h2>
+            <div className="p-3 bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl text-[var(--brand-primary)]"><Share2 size={20} /></div>
+            <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Platform Power</h2>
           </div>
           
           <div className="space-y-10">
@@ -237,15 +218,15 @@ export default function ReportsPage() {
               return (
                 <div key={platform} className="group">
                   <div className="flex justify-between items-end mb-4">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-stone-800 group-hover:text-[#a9b897] transition-colors">{platform}</span>
-                    <span className="text-[10px] font-mono text-stone-400">{score.toLocaleString()} PTS</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-[var(--text-main)] group-hover:text-[var(--brand-primary)] transition-colors">{platform}</span>
+                    <span className="text-[10px] font-mono text-[var(--text-muted)]">{score.toLocaleString()} PTS</span>
                   </div>
-                  <div className="h-1.5 w-full bg-stone-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 w-full bg-[var(--bg-soft)] rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${percentage}%` }}
                       transition={{ duration: 1.5, ease: "circOut" }}
-                      className="h-full bg-gradient-to-r from-stone-400 to-[#a9b897]" 
+                      className="h-full bg-gradient-to-r from-[var(--text-muted)] to-[var(--brand-primary)]" 
                     />
                   </div>
                 </div>

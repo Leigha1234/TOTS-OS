@@ -104,7 +104,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
 
   if (loading) return (
     <div className="h-screen bg-[#faf9f6] flex items-center justify-center">
-      <Loader2 className="animate-spin text-[#a9b897]" size={32} />
+      <Loader2 className="animate-spin text-[var(--brand-primary)]" size={32} />
     </div>
   );
 
@@ -112,9 +112,9 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-16 pb-32">
       <div className="max-w-6xl mx-auto space-y-8 md:space-y-12">
         
-        {/* TOP HEADER - MOBILE STACKED */}
+        {/* TOP HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <Link href="/crm" className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] group transition-colors">
+          <Link href="/crm" className="flex items-center gap-2 text-stone-400 hover:text-[var(--brand-primary)] group transition-colors">
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             <span className="text-[10px] font-black uppercase tracking-[0.4em]">Directory</span>
           </Link>
@@ -134,7 +134,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                 <button onClick={() => setIsEditing(false)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-3 bg-white border border-stone-200 rounded-xl md:rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all">
                   <X size={14} /> Cancel
                 </button>
-                <button onClick={handleUpdate} disabled={isSaving} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-8 py-3 bg-[#a9b897] text-[#1c1917] rounded-xl md:rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all">
+                <button onClick={handleUpdate} disabled={isSaving} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-8 py-3 bg-[var(--brand-primary)] text-white rounded-xl md:rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all hover:brightness-95">
                   {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Check size={14} />} Save
                 </button>
               </>
@@ -142,10 +142,10 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
           </div>
         </div>
 
-        {/* CUSTOMER PROFILE HEADER - RESPONSIVE LAYOUT */}
+        {/* CUSTOMER PROFILE HEADER */}
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-8 border-b border-stone-200 pb-8 md:pb-12">
           <div className="space-y-6 flex-1">
-            <div className="p-4 bg-white w-fit rounded-2xl md:rounded-3xl text-[#a9b897] shadow-sm border border-stone-100">
+            <div className="p-4 bg-white w-fit rounded-2xl md:rounded-3xl text-[var(--brand-primary)] shadow-sm border border-stone-100">
               <User size={32} />
             </div>
             
@@ -154,7 +154,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                 <input 
                   value={editForm.name} 
                   onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                  className="text-4xl md:text-6xl font-serif italic tracking-tighter bg-transparent border-b border-[#a9b897] outline-none w-full"
+                  className="text-4xl md:text-6xl font-serif italic tracking-tighter bg-transparent border-b border-[var(--brand-primary)] outline-none w-full"
                 />
               ) : (
                 <h1 className="text-4xl md:text-6xl font-serif italic tracking-tighter uppercase break-words">{customer.name}</h1>
@@ -163,7 +163,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap items-center gap-4 md:gap-8 text-stone-500 italic font-serif text-lg md:text-xl">
                 <div className="flex items-center gap-3 bg-white/50 p-2 rounded-lg">
-                  <Building2 size={18} className="text-[#a9b897] shrink-0" />
+                  <Building2 size={18} className="text-[var(--brand-primary)] shrink-0" />
                   {isEditing ? (
                     <input value={editForm.company} onChange={(e) => setEditForm({...editForm, company: e.target.value})} className="bg-transparent border-b border-stone-200 outline-none w-full text-base" />
                   ) : (
@@ -172,7 +172,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                 </div>
                 
                 <div className="flex items-center gap-3 bg-white/50 p-2 rounded-lg">
-                  <Mail size={18} className="text-[#a9b897] shrink-0" />
+                  <Mail size={18} className="text-[var(--brand-primary)] shrink-0" />
                   {isEditing ? (
                     <input value={editForm.email} onChange={(e) => setEditForm({...editForm, email: e.target.value})} className="bg-transparent border-b border-stone-200 outline-none w-full text-base" />
                   ) : (
@@ -181,7 +181,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                 </div>
 
                 <div className="flex items-center gap-3 bg-white/50 p-2 rounded-lg">
-                  <Phone size={18} className="text-[#a9b897] shrink-0" />
+                  <Phone size={18} className="text-[var(--brand-primary)] shrink-0" />
                   {isEditing ? (
                     <input value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="bg-transparent border-b border-stone-200 outline-none w-full text-base" />
                   ) : (
@@ -194,39 +194,39 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
               <textarea 
                 value={editForm.address}
                 onChange={(e) => setEditForm({...editForm, address: e.target.value})}
-                className="bg-white border border-stone-200 rounded-xl p-4 w-full text-sm font-sans min-h-[100px]"
+                className="bg-white border border-stone-200 rounded-xl p-4 w-full text-sm font-sans min-h-[100px] outline-none focus:border-[var(--brand-primary)]"
                 placeholder="Update Address"
               />
             ) : (
               customer.address && (
                 <div className="flex gap-2 text-stone-500 bg-white/80 border p-4 rounded-xl border-stone-100 max-w-md">
-                   <MapPin size={16} className="text-[#a9b897] shrink-0" />
+                   <MapPin size={16} className="text-[var(--brand-primary)] shrink-0" />
                    <p className="text-xs leading-relaxed">{customer.address}</p>
                 </div>
               )
             )}
           </div>
 
-          {/* NEURAL STATUS BOX - STACKS ON MOBILE */}
-          <div className="p-6 md:p-8 px-10 flex flex-col justify-center gap-2 shadow-sm border-l-4 border-l-[#a9b897] bg-white rounded-r-2xl lg:min-w-[240px]">
+          {/* NEURAL STATUS BOX */}
+          <div className="p-6 md:p-8 px-10 flex flex-col justify-center gap-2 shadow-sm border-l-4 border-l-[var(--brand-primary)] bg-white rounded-r-2xl lg:min-w-[240px]">
               <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.3em]">Neural Status</p>
               {isEditing ? (
                 <select 
                   value={editForm.stage}
                   onChange={(e) => setEditForm({...editForm, stage: e.target.value})}
-                  className="bg-transparent font-serif italic text-2xl text-[#a9b897] outline-none cursor-pointer w-full"
+                  className="bg-transparent font-serif italic text-2xl text-[var(--brand-primary)] outline-none cursor-pointer w-full"
                 >
                   <option value="Lead">Lead</option>
                   <option value="Active">Active</option>
                   <option value="Elite">Elite</option>
                 </select>
               ) : (
-                <p className="font-serif italic text-3xl text-[#a9b897]">{customer.stage || "Active Node"}</p>
+                <p className="font-serif italic text-3xl text-[var(--brand-primary)]">{customer.stage || "Active Node"}</p>
               )}
           </div>
         </div>
 
-        {/* NAVIGATION TABS - SCROLLABLE ON MOBILE */}
+        {/* NAVIGATION TABS */}
         <div className="flex overflow-x-auto pb-4 gap-2 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0 scroll-smooth">
           {[
             { id: 'info', label: 'Info' },
@@ -238,14 +238,13 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
             <button 
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)} 
-              className={`whitespace-nowrap px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${activeTab === tab.id ? 'bg-[#a9b897] text-[#1c1917]' : 'bg-white border text-stone-400 hover:bg-stone-50'}`}
+              className={`whitespace-nowrap px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${activeTab === tab.id ? 'bg-[var(--brand-primary)] text-white' : 'bg-white border text-stone-400 hover:bg-stone-50'}`}
             >
               {tab.label}
             </button>
           ))}
         </div>
 
-        {/* TAB CONTENTS - RESPONSIVE GRIDS */}
         <div className="space-y-6">
           {activeTab === 'info' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -264,7 +263,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                     <label className="text-[9px] text-stone-400 uppercase tracking-widest font-black mb-3 block">Segments</label>
                     <div className="flex flex-wrap gap-2">
                       {customer.mailing_list_category?.split(',').map((cat: string) => (
-                        <span key={cat} className="text-[9px] font-black bg-[#a9b897]/10 text-[#a9b897] px-4 py-2 rounded-full border border-[#a9b897]/20 uppercase">
+                        <span key={cat} className="text-[9px] font-black bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] px-4 py-2 rounded-full border border-[var(--brand-primary)]/20 uppercase">
                           {cat.trim()}
                         </span>
                       )) || <span className="text-xs italic text-stone-400">Default Segment</span>}
@@ -276,13 +275,13 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
               <div className="bg-stone-900 rounded-[2rem] md:rounded-[3rem] p-8 text-white flex flex-col justify-between">
                 <div>
                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-500 border-b border-stone-800 pb-4 mb-6">Vault</h3>
-                   <label className="flex flex-col items-center justify-center border-2 border-dashed border-stone-700 rounded-2xl p-8 hover:border-[#a9b897] cursor-pointer transition-all bg-stone-800/30">
-                      <Upload size={20} className="text-[#a9b897] mb-2"/>
+                   <label className="flex flex-col items-center justify-center border-2 border-dashed border-stone-700 rounded-2xl p-8 hover:border-[var(--brand-primary)] cursor-pointer transition-all bg-stone-800/30">
+                      <Upload size={20} className="text-[var(--brand-primary)] mb-2"/>
                       <span className="text-[10px] font-black uppercase text-stone-400">Secure Upload</span>
                       <input type="file" className="hidden" />
                    </label>
                 </div>
-                <div className="mt-8 flex items-center gap-4 text-[#a9b897] opacity-60">
+                <div className="mt-8 flex items-center gap-4 text-[var(--brand-primary)] opacity-60">
                    <ShieldCheck size={20}/>
                    <p className="text-[9px] font-black uppercase tracking-widest">End-to-End Encrypted</p>
                 </div>
@@ -295,11 +294,11 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
               <div className="p-6 md:p-10 bg-white rounded-[2rem] md:rounded-[3rem] border border-stone-100 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Active Tasks</h3>
-                   <ListTodo size={14} className="text-[#a9b897]"/>
+                   <ListTodo size={14} className="text-[var(--brand-primary)]"/>
                 </div>
                 <div className="flex gap-2 mb-6">
-                  <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Assign task..." className="flex-1 text-xs p-3 border rounded-xl bg-stone-50 outline-none focus:ring-1 focus:ring-[#a9b897]" />
-                  <button onClick={handleAddTask} className="bg-[#a9b897] p-3 rounded-xl active:scale-90 transition-all"><Plus size={16}/></button>
+                  <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Assign task..." className="flex-1 text-xs p-3 border rounded-xl bg-stone-50 outline-none focus:ring-1 focus:ring-[var(--brand-primary)]" />
+                  <button onClick={handleAddTask} className="bg-[var(--brand-primary)] text-white p-3 rounded-xl active:scale-90 transition-all hover:brightness-95"><Plus size={16}/></button>
                 </div>
                 <div className="space-y-2">
                   {tasks.map((t, i) => (
@@ -310,19 +309,17 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                   ))}
                 </div>
               </div>
-              {/* Note Content similar to Task above */}
             </div>
           )}
 
-          {/* Email Tab - Standard Responsive Grid */}
           {activeTab === 'email' && (
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
                 <div className="p-6 md:p-10 bg-white rounded-[2rem] md:rounded-[3rem] border border-stone-100 shadow-sm">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mb-6">Dispatch Correspondence</h3>
                   <div className="space-y-4">
-                    <input placeholder="Subject" className="w-full text-xs p-4 border border-stone-100 rounded-xl bg-stone-50 outline-none" />
-                    <textarea rows={5} placeholder="Body" className="w-full text-xs p-4 border border-stone-100 rounded-xl bg-stone-50 outline-none resize-none" />
-                    <button className="w-full bg-[#a9b897] py-4 rounded-xl font-black text-[9px] uppercase tracking-widest flex justify-center items-center gap-2">
+                    <input placeholder="Subject" className="w-full text-xs p-4 border border-stone-100 rounded-xl bg-stone-50 outline-none focus:border-[var(--brand-primary)]" />
+                    <textarea rows={5} placeholder="Body" className="w-full text-xs p-4 border border-stone-100 rounded-xl bg-stone-50 outline-none resize-none focus:border-[var(--brand-primary)]" />
+                    <button className="w-full bg-[var(--brand-primary)] text-white py-4 rounded-xl font-black text-[9px] uppercase tracking-widest flex justify-center items-center gap-2 hover:brightness-95">
                       <Send size={14}/> Transmit
                     </button>
                   </div>

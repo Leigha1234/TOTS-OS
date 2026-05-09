@@ -2,19 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import Card from "@/app/components/Card"; 
-import Button from "@/app/components/Button";
 import { 
   Plus, X, Clock, Type, Image as ImageIcon, 
-  FileText, Upload, User, Search
+  FileText, User, ShieldCheck, Zap, Activity,
+  Settings2, SendHorizonal, Inbox
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 const TEMPLATES = [
-  { id: 'minimal', name: 'Minimalist', icon: <Type size={16}/>, description: "Classic typewriter aesthetic." },
-  { id: 'visual', name: 'Visual', icon: <ImageIcon size={16}/>, description: "Hero image focused design." },
-  { id: 'letter', name: 'Founder', icon: <User size={16}/>, description: "Personalized letterhead style." },
-  { id: 'report', name: 'Intel', icon: <FileText size={16}/>, description: "Structured data & insights." }
+  { id: 'minimal', name: 'Minimalist', icon: <Type size={14}/> },
+  { id: 'visual', name: 'Visual', icon: <ImageIcon size={14}/> },
+  { id: 'letter', name: 'Founder', icon: <User size={14}/> },
+  { id: 'report', name: 'Intel', icon: <FileText size={14}/> }
 ];
 
 export default function CampaignsPage() {
@@ -27,12 +27,6 @@ export default function CampaignsPage() {
   const [loading, setLoading] = useState(false);
   const [audienceType, setAudienceType] = useState<'list' | 'individual'>('individual');
   
-  const [branding, setBranding] = useState({
-    logo_url: "",
-    contact_details: "Studio 4, The Creative Quarter, London",
-    company_name: "The Organised Types"
-  });
-
   const [form, setForm] = useState({
     title: "",
     subject: "",
@@ -68,21 +62,22 @@ export default function CampaignsPage() {
   }
 
   const handleSchedule = async () => {
-    if (!teamId) return alert("Team ID missing.");
+    if (!teamId) return;
     const targetSet = audienceType === 'list' ? form.list_id : form.customer_id;
-    if (!targetSet || !form.title || !form.subject) return alert("Missing required fields.");
+    if (!targetSet || !form.title || !form.subject) {
+      return toast.error("Configuration Error", { description: "Missing protocol fields." });
+    }
 
     setLoading(true);
     const supabase = await createClient();
-    const payload = {
+    const { error } = await supabase.from("campaigns").insert([{
       ...form,
       team_id: teamId,
       status: 'scheduled',
-      content: `${form.content}\n\n---\n${branding.company_name}\n${branding.contact_details}`
-    };
+    }]);
 
-    const { error } = await supabase.from("campaigns").insert([payload]);
     if (!error) {
+      toast.success("Transmission Locked", { description: "Dispatch scheduled in queue." });
       setShowModal(false);
       loadData(teamId);
       setForm({ title: "", subject: "", list_id: "", customer_id: "", template_id: "minimal", scheduled_for: "", content: "" });
@@ -91,103 +86,148 @@ export default function CampaignsPage() {
   };
 
   return (
-    <main className="p-8 md:p-12 space-y-12 max-w-7xl mx-auto min-h-screen bg-[#faf9f6] text-stone-900">
+    <main className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] p-8 md:p-20 space-y-16">
       
-      {/* HEADER */}
-      <div className="flex justify-between items-end border-b border-stone-200 pb-12">
-        <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Communications</p>
-          <h1 className="text-5xl font-serif italic text-stone-800 tracking-tighter">Campaigns</h1>
+      {/* HEADER PROTOCOL */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-[var(--border)] pb-12 gap-8">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-[var(--brand-primary)]">
+            <Activity size={14} />
+            <p className="font-black uppercase text-[10px] tracking-[0.4em]">Communications Hub</p>
+          </div>
+          <h1 className="text-6xl md:text-8xl font-serif italic tracking-tighter leading-none">Campaigns</h1>
         </div>
-        <Button onClick={() => setShowModal(true)} className="bg-stone-900 text-[#a9b897] flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl">
-          <Plus size={16} /> New Dispatch
-        </Button>
-      </div>
+        
+        <button 
+          onClick={() => setShowModal(true)}
+          className="bg-[var(--text-main)] text-[var(--bg)] px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-3 hover:bg-[var(--brand-primary)] hover:text-white transition-all shadow-xl group"
+        >
+          <Plus size={16} className="group-hover:rotate-90 transition-transform duration-500" />
+          Create Transmission
+        </button>
+      </header>
 
-      {/* DASHBOARD */}
+      {/* SYSTEM GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-        <div className="lg:col-span-8 space-y-6">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Queue</h2>
+        
+        {/* TRANSMISSION QUEUE */}
+        <div className="lg:col-span-8 space-y-8">
+          <div className="flex items-center gap-4">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Active Queue</h2>
+            <div className="h-px flex-1 bg-[var(--border)] opacity-50" />
+          </div>
+
           {campaigns.length === 0 ? (
-            <div className="p-16 text-center bg-white border border-stone-100 rounded-[3rem] italic text-stone-300">No transmissions in queue.</div>
+            <div className="h-64 flex flex-col items-center justify-center bg-[var(--bg-soft)] border border-dashed border-[var(--border)] rounded-[3rem] text-[var(--text-muted)]">
+              <Inbox size={32} strokeWidth={1} className="mb-4 opacity-20" />
+              <p className="font-serif italic text-xl">Queue is currently idle.</p>
+            </div>
           ) : (
-            campaigns.map(c => (
-              <Card key={c.id} className="p-8 rounded-[2.5rem] flex justify-between items-center hover:border-[#a9b897]/50 transition-all cursor-default">
-                <div className="flex items-center gap-6">
-                  <div className="p-4 bg-stone-50 rounded-2xl text-[#a9b897]"><Clock size={20} /></div>
-                  <div>
-                    <h3 className="font-bold text-lg">{c.title}</h3>
-                    <p className="text-[9px] uppercase tracking-widest text-stone-400">
-                      Target: {new Date(c.scheduled_for).toLocaleString()}
-                    </p>
+            <div className="space-y-4">
+              {campaigns.map(c => (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                  key={c.id} 
+                  className="p-8 bg-[var(--card-bg)] border border-[var(--border)] rounded-[2.5rem] flex justify-between items-center hover:shadow-xl hover:border-[var(--brand-primary)]/30 transition-all group"
+                >
+                  <div className="flex items-center gap-8">
+                    <div className="w-14 h-14 flex items-center justify-center bg-[var(--bg-soft)] rounded-2xl border border-[var(--border)] text-[var(--brand-primary)] group-hover:scale-110 transition-transform">
+                      <Clock size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-serif italic text-[var(--text-main)] leading-none mb-2">{c.title}</h3>
+                      <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                        <Zap size={10} />
+                        <span>Scheduled: {new Date(c.scheduled_for).toLocaleString()}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="text-[9px] font-black uppercase tracking-widest px-4 py-2 bg-stone-100 rounded-full text-stone-500">{c.status}</div>
-              </Card>
-            ))
+                  <div className="px-5 py-2 bg-[var(--bg-soft)] border border-[var(--border)] rounded-full text-[9px] font-black uppercase tracking-widest text-[var(--brand-primary)]">
+                    {c.status}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           )}
         </div>
 
-        <aside className="lg:col-span-4 bg-[#1c1c1c] rounded-[3rem] p-10 text-white h-fit shadow-2xl">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-500 mb-6">Network Nodes</h2>
-          <div className="space-y-4 font-mono">
-            <div className="flex justify-between text-[10px] uppercase text-[#a9b897]">
-              <span>Active Recipients</span>
-              <span>{customers.length}</span>
-            </div>
-            <div className="flex justify-between text-[10px] uppercase text-stone-500 border-t border-stone-800 pt-4">
-              <span>Mailing Segments</span>
-              <span>{lists.length}</span>
+        {/* NETWORK STATS */}
+        <aside className="lg:col-span-4 space-y-6">
+          <div className="bg-[var(--text-main)] rounded-[3.5rem] p-12 text-[var(--bg)] shadow-2xl relative overflow-hidden">
+            <Zap className="absolute -right-10 -bottom-10 w-48 h-48 opacity-5 text-[var(--brand-primary)]" />
+            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 mb-10">Network Nodes</h2>
+            
+            <div className="space-y-8 relative z-10">
+              <div className="space-y-1">
+                <p className="text-5xl font-serif italic tracking-tighter text-[var(--brand-primary)]">{customers.length}</p>
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Verified Recipients</p>
+              </div>
+              <div className="h-px bg-white/5" />
+              <div className="space-y-1">
+                <p className="text-5xl font-serif italic tracking-tighter text-white">{lists.length}</p>
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Active Segments</p>
+              </div>
             </div>
           </div>
         </aside>
       </div>
 
-      {/* COMPOSER MODAL */}
+      {/* COMPOSER MODAL (Neural Control Center) */}
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 bg-stone-950/60 backdrop-blur-xl z-50 flex items-center justify-center p-6">
+          <div className="fixed inset-0 bg-stone-950/80 backdrop-blur-2xl z-50 flex items-center justify-center p-6">
             <motion.div 
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white w-full max-w-7xl h-[92vh] rounded-[4rem] shadow-3xl flex overflow-hidden border border-stone-200 relative"
+              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-[var(--bg)] w-full max-w-7xl h-[90vh] rounded-[4rem] shadow-3xl flex overflow-hidden border border-[var(--border)]"
             >
-              <div className="w-80 bg-stone-50 border-r border-stone-100 flex flex-col p-8 overflow-y-auto">
-                <header className="flex justify-between items-center mb-8">
-                  <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-400">Config</p>
-                  <button onClick={() => setShowModal(false)} className="text-stone-300 hover:text-stone-900"><X size={20}/></button>
+              {/* SIDEBAR CONFIG */}
+              <div className="w-96 bg-[var(--bg-soft)] border-r border-[var(--border)] flex flex-col p-12 overflow-y-auto">
+                <header className="flex justify-between items-center mb-12">
+                  <div className="flex items-center gap-2">
+                    <Settings2 size={14} className="text-[var(--brand-primary)]" />
+                    <p className="text-[9px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Parameters</p>
+                  </div>
+                  <button onClick={() => setShowModal(false)} className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">
+                    <X size={24}/>
+                  </button>
                 </header>
 
-                <div className="space-y-8">
-                  <section>
-                    <label className="text-[8px] font-black uppercase text-stone-400 block mb-4">Template Style</label>
-                    <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-12">
+                  {/* STYLE NODES */}
+                  <section className="space-y-6">
+                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Interface Style</label>
+                    <div className="grid grid-cols-2 gap-3">
                       {TEMPLATES.map(t => (
                         <button 
                           key={t.id} 
                           onClick={() => setForm({...form, template_id: t.id})}
-                          className={`p-3 rounded-xl border text-center transition-all ${form.template_id === t.id ? 'bg-white border-stone-200 shadow-sm text-[#a9b897]' : 'border-transparent text-stone-400 opacity-60'}`}
+                          className={`p-5 rounded-2xl border transition-all flex flex-col items-center gap-3 ${
+                            form.template_id === t.id 
+                            ? 'bg-[var(--card-bg)] border-[var(--brand-primary)] text-[var(--brand-primary)] shadow-lg scale-105' 
+                            : 'border-[var(--border)] text-[var(--text-muted)] opacity-50'
+                          }`}
                         >
-                          <div className="flex justify-center mb-1">{t.icon}</div>
-                          <span className="text-[8px] font-black uppercase">{t.name}</span>
+                          {t.icon}
+                          <span className="text-[9px] font-black uppercase tracking-widest">{t.name}</span>
                         </button>
                       ))}
                     </div>
                   </section>
 
-                  <section className="space-y-4">
-                    <label className="text-[8px] font-black uppercase text-stone-400">Audience Segment</label>
-                    <div className="bg-stone-200/50 p-1 rounded-xl flex">
-                      <button onClick={() => setAudienceType('individual')} className={`flex-1 py-2 rounded-lg text-[8px] font-black uppercase transition-all ${audienceType === 'individual' ? 'bg-white shadow-sm' : 'text-stone-400'}`}>Node</button>
-                      <button onClick={() => setAudienceType('list')} className={`flex-1 py-2 rounded-lg text-[8px] font-black uppercase transition-all ${audienceType === 'list' ? 'bg-white shadow-sm' : 'text-stone-400'}`}>List</button>
+                  {/* TARGETING SYSTEM */}
+                  <section className="space-y-6">
+                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Target Vector</label>
+                    <div className="bg-[var(--bg)] p-1.5 rounded-2xl border border-[var(--border)] flex">
+                      <button onClick={() => setAudienceType('individual')} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${audienceType === 'individual' ? 'bg-[var(--text-main)] text-[var(--bg)] shadow-md' : 'text-[var(--text-muted)]'}`}>Individual</button>
+                      <button onClick={() => setAudienceType('list')} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${audienceType === 'list' ? 'bg-[var(--text-main)] text-[var(--bg)] shadow-md' : 'text-[var(--text-muted)]'}`}>Segment</button>
                     </div>
+                    
                     <select 
-                      className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-[10px] font-bold uppercase outline-none"
+                      className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-2xl px-6 py-5 text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 ring-[var(--brand-primary)]/10 transition-all cursor-pointer"
                       value={audienceType === 'individual' ? form.customer_id : form.list_id}
                       onChange={e => setForm(audienceType === 'individual' ? {...form, customer_id: e.target.value} : {...form, list_id: e.target.value})}
                     >
-                      <option value="">Select Target...</option>
+                      <option value="">Select Recipient...</option>
                       {audienceType === 'individual' 
                         ? customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)
                         : lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)
@@ -195,20 +235,59 @@ export default function CampaignsPage() {
                     </select>
                   </section>
                 </div>
+
+                <div className="mt-auto pt-12 border-t border-[var(--border)] opacity-20">
+                  <p className="text-[8px] font-mono text-center">ENCRYPTION_PROTOCOL_ACTIVE</p>
+                </div>
               </div>
 
-              <div className="flex-1 bg-[#fcfbf9] overflow-y-auto p-12 flex flex-col items-center">
-                 {/* ... remainder of UI for editor remains same ... */}
-                 <div className="mt-12 flex items-center gap-8">
-                  <button onClick={() => setShowModal(false)} className="text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 transition-colors">Abort</button>
-                  <Button 
-                    disabled={loading}
-                    onClick={handleSchedule} 
-                    className="bg-stone-900 text-[#a9b897] px-16 py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-xl hover:scale-105 active:scale-95 transition-all"
-                  >
-                    {loading ? "Transmitting..." : "Schedule Dispatch"}
-                  </Button>
-                </div>
+              {/* EDITOR VIEW */}
+              <div className="flex-1 bg-[var(--bg)] overflow-y-auto p-16 flex flex-col">
+                 <div className="max-w-2xl w-full mx-auto space-y-12">
+                    <div className="space-y-4">
+                      <input 
+                        placeholder="Internal Campaign Name"
+                        className="text-4xl md:text-5xl font-serif italic bg-transparent outline-none border-b border-[var(--border)] pb-4 w-full focus:border-[var(--brand-primary)] transition-colors placeholder:opacity-20"
+                        value={form.title}
+                        onChange={e => setForm({...form, title: e.target.value})}
+                      />
+                      <input 
+                        placeholder="Email Subject Line"
+                        className="text-sm font-medium bg-[var(--bg-soft)] rounded-xl px-6 py-4 w-full border border-[var(--border)] outline-none"
+                        value={form.subject}
+                        onChange={e => setForm({...form, subject: e.target.value})}
+                      />
+                    </div>
+
+                    <textarea 
+                      placeholder="Compose your transmission..."
+                      rows={12}
+                      className="w-full bg-transparent text-lg font-serif italic leading-relaxed outline-none border-l-2 border-[var(--border)] pl-8 focus:border-[var(--brand-primary)] transition-all resize-none"
+                      value={form.content}
+                      onChange={e => setForm({...form, content: e.target.value})}
+                    />
+
+                    <div className="flex flex-col md:flex-row items-center justify-between border-t border-[var(--border)] pt-12 gap-8">
+                       <input 
+                        type="datetime-local"
+                        className="bg-[var(--bg-soft)] border border-[var(--border)] px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none"
+                        value={form.scheduled_for}
+                        onChange={e => setForm({...form, scheduled_for: e.target.value})}
+                       />
+
+                       <div className="flex items-center gap-8">
+                          <button onClick={() => setShowModal(false)} className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">Abort</button>
+                          <button 
+                            disabled={loading}
+                            onClick={handleSchedule} 
+                            className="bg-[var(--brand-primary)] text-white px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-4"
+                          >
+                            <SendHorizonal size={16} />
+                            {loading ? "Transmitting..." : "Schedule Dispatch"}
+                          </button>
+                       </div>
+                    </div>
+                 </div>
               </div>
             </motion.div>
           </div>

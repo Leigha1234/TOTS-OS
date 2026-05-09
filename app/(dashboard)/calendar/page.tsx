@@ -31,7 +31,8 @@ export default function CalendarPage() {
   const [selectedDateString, setSelectedDateString] = useState(format(new Date(), "yyyy-MM-dd"));
   const [eventTime, setEventTime] = useState("12:00");
   const [eventLocation, setEventLocation] = useState("");
-  const [eventColor, setEventColor] = useState("#a9b897");
+  // Default to the variable for the picker
+  const [eventColor, setEventColor] = useState("var(--brand-primary)");
   const [vcLink, setVcLink] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -118,7 +119,7 @@ export default function CalendarPage() {
   const getCombinedEventsForDay = (day: Date) => {
     const dayStr = format(day, "yyyy-MM-dd");
     return [
-      ...tasks.filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === dayStr).map(t => ({ ...t, type: "Task" })),
+      ...tasks.filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === dayStr).map(t => ({ ...t, type: "Task", color: t.color || 'var(--brand-primary)' })),
       ...invoices.filter(i => i.due_date && format(new Date(i.due_date), "yyyy-MM-dd") === dayStr).map(i => ({ ...i, title: `Invoice: ${i.amount}`, type: "Invoice", color: "#eab308" })),
       ...projectDeadlines.filter(p => p.deadline && format(new Date(p.deadline), "yyyy-MM-dd") === dayStr).map(p => ({ ...p, title: `Deadline: ${p.name}`, type: "Project", color: "#3b82f6" })),
       ...socials.filter(s => s.scheduled_for && format(new Date(s.scheduled_for), "yyyy-MM-dd") === dayStr).map(s => ({ ...s, title: `Post: ${s.platform}`, type: "Social", color: "#ec4899" })),
@@ -131,7 +132,6 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-[#faf9f6] p-3 md:p-10 text-stone-900 pb-32">
       
-      {/* MODAL: Fixed Framer Motion Syntax */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 flex items-end md:items-center justify-center z-[100]">
@@ -159,7 +159,12 @@ export default function CalendarPage() {
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Event Title</label>
-                  <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Node Activity..." className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm focus:outline-none ring-2 ring-transparent focus:ring-[#a9b897]/20 transition-all" />
+                  <input 
+                    value={newTitle} 
+                    onChange={(e) => setNewTitle(e.target.value)} 
+                    placeholder="Node Activity..." 
+                    className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm focus:outline-none ring-2 ring-transparent focus:ring-[var(--brand-primary)]/20 transition-all" 
+                  />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-3">
@@ -198,7 +203,7 @@ export default function CalendarPage() {
         <div className="lg:col-span-9 bg-white rounded-[2.5rem] md:rounded-[3.5rem] border border-stone-100 shadow-sm overflow-hidden">
           <div className="p-6 md:p-10 flex justify-between items-center bg-white border-b border-stone-50">
              <div className="space-y-1">
-               <p className="hidden md:block text-[9px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Chronos Module</p>
+               <p className="hidden md:block text-[9px] font-black uppercase tracking-[0.4em] text-[var(--brand-primary)]">Chronos Module</p>
                <h1 className="text-3xl md:text-5xl font-serif italic text-stone-800 lowercase capitalize leading-none">
                  {format(currentMonth, "MMMM")}
                </h1>
@@ -235,11 +240,18 @@ export default function CalendarPage() {
                     {format(day, "d")}
                   </span>
                   
-                  {/* Desktop List vs Mobile Dots */}
                   <div className="mt-2">
                     <div className="hidden md:flex flex-col gap-1">
                       {dayEvents.slice(0, 2).map((e, i) => (
-                        <div key={i} className="text-[7px] font-black uppercase truncate p-1.5 rounded-lg border leading-none" style={{ backgroundColor: `${e.color}10`, borderColor: `${e.color}40`, color: '#444' }}>
+                        <div 
+                          key={i} 
+                          className="text-[7px] font-black uppercase truncate p-1.5 rounded-lg border leading-none" 
+                          style={{ 
+                            backgroundColor: `${e.color}15`, 
+                            borderColor: `${e.color}40`, 
+                            color: 'inherit' 
+                          }}
+                        >
                           {e.title}
                         </div>
                       ))}
@@ -262,7 +274,7 @@ export default function CalendarPage() {
           <div className="bg-white p-8 rounded-[2.5rem] md:rounded-[3rem] border border-stone-100 shadow-sm flex flex-col min-h-[450px]">
             <div className="flex justify-between items-start mb-8">
               <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897] mb-1">{format(selectedDay, "EEEE")}</p>
+                <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[var(--brand-primary)] mb-1">{format(selectedDay, "EEEE")}</p>
                 <h2 className="text-3xl font-serif italic text-stone-800 leading-none">{format(selectedDay, "do MMM")}</h2>
               </div>
               <motion.button 
@@ -282,7 +294,11 @@ export default function CalendarPage() {
                 </div>
               ) : (
                 selectedDayEvents.map((e, i) => (
-                  <div key={i} className="p-5 rounded-[1.5rem] border bg-[#faf9f6] transition-all hover:border-stone-300" style={{ borderLeftWidth: '4px', borderLeftColor: e.color }}>
+                  <div 
+                    key={i} 
+                    className="p-5 rounded-[1.5rem] border bg-[#faf9f6] transition-all hover:border-stone-300" 
+                    style={{ borderLeftWidth: '4px', borderLeftColor: e.color }}
+                  >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[7px] font-black uppercase tracking-widest text-stone-400">{e.type}</span>
                       {e.created_at && <span className="text-[7px] text-stone-400 font-bold">{format(new Date(e.created_at), "HH:mm")}</span>}
@@ -300,8 +316,8 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* FISCAL CARD: Hidden on small mobile to reduce clutter */}
-          <div className="hidden sm:block bg-[#a9b897] p-8 rounded-[3rem] text-white relative overflow-hidden group shadow-lg shadow-[#a9b897]/20">
+          {/* FISCAL CARD: Dynamic primary background */}
+          <div className="hidden sm:block bg-[var(--brand-primary)] p-8 rounded-[3rem] text-white relative overflow-hidden group shadow-lg shadow-[var(--brand-primary)]/20">
             <div className="relative z-10">
               <Landmark size={24} className="mb-4 opacity-50 group-hover:scale-110 transition-transform" />
               <p className="text-[8px] font-black uppercase tracking-[0.3em] mb-1 opacity-80">Financial Sentinel</p>

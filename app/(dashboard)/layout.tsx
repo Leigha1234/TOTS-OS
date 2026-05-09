@@ -16,11 +16,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   
-  // Connect to global settings context
   const { 
     mobileNav = ["/dashboard", "/clarity", "/calendar"], 
     logoUrl, 
-    brandColor = "#a9b897",
     fontFamily = "Inter"
   } = useSettings();
 
@@ -39,12 +37,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
-  // Logic to pin exactly what the user chose in their settings
   const pinnedMobileLinks = allLinks.filter(link => 
     mobileNav.includes(link.href)
   ).slice(0, 3);
 
-  // Prevent background scrolling for better UX when "More" menu is open
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "unset";
   }, [mobileMenuOpen]);
@@ -74,7 +70,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               icon={link.icon} 
               label={link.label} 
               isActive={pathname === link.href}
-              activeColor={brandColor}
             />
           ))}
           
@@ -102,7 +97,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className="space-y-2">
                     <p 
                       className="text-[9px] font-black uppercase tracking-[0.4em]"
-                      style={{ color: brandColor }}
+                      style={{ color: 'var(--brand-primary)' }} // USE CSS VARIABLE
                     >
                       Infrastructure
                     </p>
@@ -138,7 +133,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         : 'bg-white/50 border-stone-100 hover:bg-white active:scale-95'
                       }`}
                     >
-                      <div style={{ color: pathname === link.href ? brandColor : '#d6d3d1' }}>
+                      <div style={{ color: pathname === link.href ? 'var(--brand-primary)' : '#d6d3d1' }}>
                         <link.icon size={24} strokeWidth={1.5} />
                       </div>
                       <span className={`text-[10px] font-black uppercase tracking-widest ${
@@ -149,10 +144,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </Link>
                   ))}
                 </div>
-                
-                <p className="mt-12 text-center text-[8px] font-black uppercase tracking-[0.5em] opacity-20">
-                  Tots OS v4.0 Mobile Handshake
-                </p>
               </div>
             </motion.div>
           )}
@@ -166,32 +157,29 @@ function MobileNavItem({
   href, 
   icon: Icon, 
   label, 
-  isActive, 
-  activeColor 
+  isActive
 }: { 
   href: string; 
   icon: any; 
   label: string; 
   isActive: boolean;
-  activeColor: string;
 }) {
   return (
     <Link 
       href={href} 
       className="flex flex-col items-center gap-1 transition-all duration-300 active:scale-90"
-      style={{ color: isActive ? activeColor : '#d6d3d1' }}
+      style={{ color: isActive ? 'var(--brand-primary)' : '#d6d3d1' }} // USE CSS VARIABLE
     >
       <Icon size={22} strokeWidth={isActive ? 2.5 : 1.5} />
       <span className={`text-[7px] font-black uppercase tracking-tighter ${isActive ? 'opacity-100' : 'opacity-60'}`}>
         {label}
       </span>
       
-      {/* Active Indicator Dot */}
       {isActive && (
         <motion.div 
           layoutId="activeTabIndicator"
           className="w-1 h-1 rounded-full mt-0.5"
-          style={{ backgroundColor: activeColor }}
+          style={{ backgroundColor: 'var(--brand-primary)' }} // USE CSS VARIABLE
         />
       )}
     </Link>

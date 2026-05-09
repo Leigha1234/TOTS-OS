@@ -63,7 +63,6 @@ export default function CampaignsPage() {
   };
 
   const handleSchedule = async () => {
-    // ... logic remains same as original ...
     setShowModal(false);
   };
 
@@ -82,12 +81,12 @@ export default function CampaignsPage() {
       {/* RESPONSIVE HEADER */}
       <header className="max-w-7xl mx-auto flex flex-col md:flex-row md:justify-between md:items-end mb-8 md:mb-16 border-b border-stone-200 pb-10 gap-6">
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[#a9b897] mb-3">System Hub</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[var(--brand-primary)] mb-3 opacity-80">System Hub</p>
           <h1 className="text-5xl md:text-7xl font-serif italic text-stone-800 tracking-tighter">Campaigns</h1>
         </div>
         <button 
           onClick={() => { setStep('editor'); setShowModal(true); }}
-          className="bg-[#a9b897] w-full md:w-auto px-8 py-4 md:py-5 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 shadow-sm active:scale-95 transition-all"
+          className="bg-[var(--brand-primary)] text-white w-full md:w-auto px-8 py-4 md:py-5 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 shadow-sm active:scale-95 transition-all hover:brightness-95"
         >
           <Plus size={18} /> New Campaign
         </button>
@@ -105,7 +104,7 @@ export default function CampaignsPage() {
             campaigns.map(c => (
               <div key={c.id} className="bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] border border-stone-100 flex flex-col md:flex-row gap-4 md:justify-between md:items-center group shadow-sm">
                 <div className="flex items-center gap-4 md:gap-8">
-                  <div className="p-3 md:p-5 bg-stone-50 rounded-2xl text-[#a9b897]"><Clock size={20} /></div>
+                  <div className="p-3 md:p-5 bg-stone-50 rounded-2xl text-[var(--brand-primary)]"><Clock size={20} /></div>
                   <div>
                     <h3 className="font-bold text-lg md:text-xl text-stone-800 line-clamp-1">{c.title}</h3>
                     <p className="text-[9px] md:text-[10px] text-stone-400 uppercase tracking-widest mt-1">{c.subscriber_lists?.name || 'All Segments'}</p>
@@ -120,12 +119,12 @@ export default function CampaignsPage() {
         {/* SEGMENTS ASIDE */}
         <aside className="lg:col-span-4 order-1 lg:order-2">
           <div className="bg-stone-50 border border-stone-200 rounded-[2.5rem] md:rounded-[3.5rem] p-8 md:p-12 shadow-sm">
-            <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[#a9b897] mb-6 md:mb-10">Active Segments</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[var(--brand-primary)] mb-6 md:mb-10">Active Segments</p>
             <div className="space-y-4 md:space-y-6">
               {lists.map(l => (
                 <div key={l.id} className="flex justify-between items-center border-b border-stone-200 pb-4 text-[10px] md:text-xs font-black tracking-widest uppercase text-stone-600">
                   {l.name}
-                  <div className="h-2 w-2 rounded-full bg-[#a9b897]" />
+                  <div className="h-2 w-2 rounded-full bg-[var(--brand-primary)]" />
                 </div>
               ))}
             </div>
@@ -149,7 +148,7 @@ export default function CampaignsPage() {
                 <button onClick={() => setShowModal(false)}><X size={20}/></button>
               </div>
 
-              {/* TEMPLATE SIDEBAR (Responsive) */}
+              {/* TEMPLATE SIDEBAR */}
               <div className={`
                 ${showTemplateMenu ? 'flex' : 'hidden md:flex'} 
                 absolute md:relative inset-0 md:inset-auto z-20 w-full md:w-80 bg-stone-50 border-r border-stone-200 p-8 md:p-12 flex-col shrink-0
@@ -163,7 +162,7 @@ export default function CampaignsPage() {
                     <button 
                       key={t.id} 
                       onClick={() => { setForm({...form, template_id: t.id}); setShowTemplateMenu(false); }}
-                      className={`w-full flex items-center gap-3 p-3 md:p-4 rounded-xl md:rounded-2xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all ${form.template_id === t.id ? 'bg-[#a9b897] text-white shadow-sm' : 'bg-white border border-stone-100 text-stone-600'}`}
+                      className={`w-full flex items-center gap-3 p-3 md:p-4 rounded-xl md:rounded-2xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all ${form.template_id === t.id ? 'bg-[var(--brand-primary)] text-white shadow-sm' : 'bg-white border border-stone-100 text-stone-600'}`}
                     >
                       {t.icon} <span>{t.name}</span>
                     </button>
@@ -178,7 +177,10 @@ export default function CampaignsPage() {
                   <div className="w-full max-w-3xl flex flex-col items-center pb-20">
                     <div className="w-full flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                       <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Campaign Dispatch Draft</span>
-                      <button onClick={() => setShowClarityPrompt(true)} className="w-full md:w-auto px-6 py-3 rounded-full shadow-md text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 bg-[#a9b897] text-[#1c1917]">
+                      <button 
+                        onClick={() => setShowClarityPrompt(true)} 
+                        className="w-full md:w-auto px-6 py-3 rounded-full shadow-md text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 bg-[var(--brand-primary)] text-white"
+                      >
                         <Wand2 size={14} /> Clarity Engine
                       </button>
                     </div>
@@ -193,7 +195,10 @@ export default function CampaignsPage() {
                             placeholder="Topic details..."
                           />
                           <div className="flex gap-2">
-                            <button onClick={executeGeneration} className="bg-stone-900 text-[#a9b897] px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
+                            <button 
+                              onClick={executeGeneration} 
+                              className="bg-stone-900 text-[var(--brand-primary)] px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2"
+                            >
                               {isGenerating ? <Loader2 size={12} className="animate-spin"/> : <Sparkles size={12}/>} Generate
                             </button>
                             <button onClick={() => setShowClarityPrompt(false)} className="px-6 py-3 text-[9px] font-black uppercase text-stone-400">Cancel</button>
@@ -206,12 +211,12 @@ export default function CampaignsPage() {
                     <div className={`w-full min-h-[600px] md:min-h-[800px] rounded-[2.5rem] md:rounded-[4rem] p-8 md:p-20 flex flex-col shadow-xl ${getTemplateStyleClasses()}`}>
                       <input 
                         placeholder="Campaign Title..." 
-                        className="text-xl md:text-2xl font-bold outline-none mb-6 bg-transparent border-b border-stone-50 pb-4 placeholder:text-stone-300"
+                        className="text-xl md:text-2xl font-bold outline-none mb-6 bg-transparent border-b border-stone-50/20 pb-4 placeholder:text-stone-300"
                         value={form.title} onChange={e => setForm({...form, title: e.target.value})}
                       />
                       <textarea 
                         placeholder="Subject Line..." 
-                        className="text-2xl md:text-4xl font-serif italic outline-none mb-8 md:mb-12 bg-transparent placeholder:text-stone-300 border-b border-stone-50 pb-6 resize-none h-24"
+                        className="text-2xl md:text-4xl font-serif italic outline-none mb-8 md:mb-12 bg-transparent placeholder:text-stone-300 border-b border-stone-50/20 pb-6 resize-none h-24"
                         value={form.subject} onChange={e => setForm({...form, subject: e.target.value})}
                       />
                       <textarea 
@@ -219,15 +224,15 @@ export default function CampaignsPage() {
                         className="flex-1 text-lg md:text-xl font-serif italic leading-relaxed outline-none resize-none bg-transparent placeholder:text-stone-300 min-h-[300px]"
                         value={form.content} onChange={e => setForm({...form, content: e.target.value})}
                       />
-                      <footer className="mt-12 pt-8 border-t border-stone-50 text-center space-y-2">
-                         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-800">The Organised Types</p>
-                         <p className="text-[9px] text-stone-300 uppercase tracking-widest italic">London HQ</p>
+                      <footer className="mt-12 pt-8 border-t border-stone-50/20 text-center space-y-2">
+                         <p className="text-[10px] font-black uppercase tracking-[0.4em]">The Organised Types</p>
+                         <p className="text-[9px] text-stone-400 uppercase tracking-widest italic">London HQ</p>
                       </footer>
                     </div>
 
                     <button 
                       onClick={() => setStep('schedule')}
-                      className="mt-12 bg-stone-900 px-16 md:px-28 py-5 md:py-7 rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-[0.4em] text-[#a9b897] shadow-2xl active:scale-95 transition-all"
+                      className="mt-12 bg-stone-900 px-16 md:px-28 py-5 md:py-7 rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-[0.4em] text-[var(--brand-primary)] shadow-2xl active:scale-95 transition-all"
                     >
                       Continue
                     </button>
@@ -240,19 +245,22 @@ export default function CampaignsPage() {
                      <div className="space-y-6 text-left mb-10">
                        <div>
                          <label className="text-[9px] font-black uppercase text-stone-400 mb-2 block">Segment</label>
-                         <select value={form.list_id} onChange={e => setForm({...form, list_id: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-xs">
+                         <select value={form.list_id} onChange={e => setForm({...form, list_id: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-xs outline-none focus:border-[var(--brand-primary)]">
                            <option value="">Select list...</option>
                            {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                          </select>
                        </div>
                        <div>
                          <label className="text-[9px] font-black uppercase text-stone-400 mb-2 block">Release Time</label>
-                         <input type="datetime-local" value={form.scheduled_for} onChange={e => setForm({...form, scheduled_for: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-xs" />
+                         <input type="datetime-local" value={form.scheduled_for} onChange={e => setForm({...form, scheduled_for: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-xs outline-none focus:border-[var(--brand-primary)]" />
                        </div>
                      </div>
                      <div className="flex flex-col md:flex-row justify-center gap-3">
-                       <button onClick={() => setStep('editor')} className="px-8 py-4 rounded-xl bg-stone-100 text-stone-500 font-black text-[9px] uppercase">Back</button>
-                       <button onClick={handleSchedule} className="px-10 py-4 rounded-xl bg-[#a9b897] text-white font-black text-[9px] uppercase shadow-lg shadow-[#a9b897]/20 flex items-center justify-center gap-2">
+                       <button onClick={() => setStep('editor')} className="px-8 py-4 rounded-xl bg-stone-100 text-stone-500 font-black text-[9px] uppercase hover:bg-stone-200">Back</button>
+                       <button 
+                        onClick={handleSchedule} 
+                        className="px-10 py-4 rounded-xl bg-[var(--brand-primary)] text-white font-black text-[9px] uppercase shadow-lg shadow-[var(--brand-primary)]/20 flex items-center justify-center gap-2 hover:brightness-95"
+                       >
                          <CalendarIcon size={14}/> Confirm Schedule
                        </button>
                      </div>

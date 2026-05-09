@@ -21,7 +21,29 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [selectedFont, setSelectedFontState] = useState("Inter");
   const [isDarkMode, setIsDarkModeState] = useState(false);
 
-  // Load saved state from storage on load
+  // 🧪 GLOBAL CSS VARIABLE INJECTION
+  // This ensures that var(--brand-primary) works everywhere in your CSS files
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const root = document.documentElement;
+      
+      root.style.setProperty("--brand-primary", brandColor);
+      root.style.setProperty("--brand-secondary", secondaryColor);
+      root.style.setProperty("--font-family", `'${selectedFont}', sans-serif`);
+      
+      // Update body classes for dark mode if needed
+      if (isDarkMode) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+      
+      // Force immediate body font update
+      document.body.style.fontFamily = `'${selectedFont}', sans-serif`;
+    }
+  }, [brandColor, secondaryColor, selectedFont, isDarkMode]);
+
+  // Load saved state from storage on mount
   useEffect(() => {
     const savedBrand = localStorage.getItem('app-brand-color');
     const savedSecondary = localStorage.getItem('app-secondary-color');
@@ -61,6 +83,28 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       selectedFont, setSelectedFont,
       isDarkMode, setIsDarkMode
     }}>
+      {/* We use styled-jsx as a secondary bridge to enforce high-priority styles */}
+      <style jsx global>{`
+        :root {
+          --brand-primary: ${brandColor};
+          --brand-secondary: ${secondaryColor};
+        }
+        body {
+          font-family: '${selectedFont}', sans-serif !important;
+          background-color: ${isDarkMode ? '#0c0a09' : '#fcfaf7'};
+          color: ${isDarkMode ? '#f5f5f4' : '#1c1917'};
+          transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .custom-brand-text {
+          color: var(--brand-primary) !important;
+        }
+        .custom-brand-bg {
+          background-color: var(--brand-primary) !important;
+        }
+        .custom-secondary-bg {
+          background-color: var(--brand-secondary) !important;
+        }
+      `}</style>
       {children}
     </ThemeContext.Provider>
   );

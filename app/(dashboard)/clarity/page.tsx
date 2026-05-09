@@ -11,7 +11,6 @@ import { createBrowserClient } from "@supabase/ssr";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
-// We initialize the model inside the function to ensure the key is loaded
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 type Message = { id: string; role: "user" | "assistant"; content: string; created_at: string };
@@ -80,9 +79,8 @@ export default function ClarityAIPage() {
   const sendMessage = async () => {
     if (!input.trim() || !activeChatId || isLoading) return;
     
-    // Check for API Key
     if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
-      alert("System Error: Gemini API Key is missing from environment variables.");
+      alert("System Error: Gemini API Key is missing.");
       return;
     }
 
@@ -93,24 +91,19 @@ export default function ClarityAIPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1. Save User Message to Database
     const { data: userMsg, error: userError } = await supabase
       .from('clarity_messages')
       .insert([{ chat_id: activeChatId, user_id: user.id, role: 'user', content: userText }])
       .select().single();
 
     if (userError) {
-      console.error("Database Error:", userError);
       setIsLoading(false);
       return;
     }
 
-    // Update UI immediately
     setMessages(prev => [...prev, userMsg]);
 
     try {
-      // 2. Prepare History for Gemini (MUST alternate user/model)
-      // We filter to ensure we only send valid turns to the AI
       const history = messages
         .filter(m => m.content && (m.role === "user" || m.role === "assistant"))
         .map(m => ({
@@ -118,19 +111,15 @@ export default function ClarityAIPage() {
           parts: [{ text: m.content }],
         }));
 
-      // 3. Initiate AI Handshake
       const chatSession = model.startChat({
         history: history,
-        generationConfig: {
-          maxOutputTokens: 1000,
-        },
+        generationConfig: { maxOutputTokens: 1000 },
       });
 
       const result = await chatSession.sendMessage(userText);
       const response = await result.response;
       const botResponse = response.text();
 
-      // 4. Save AI Response to Database
       const { data: botMsg } = await supabase
         .from('clarity_messages')
         .insert([{ chat_id: activeChatId, user_id: user.id, role: 'assistant', content: botResponse }])
@@ -140,7 +129,6 @@ export default function ClarityAIPage() {
 
     } catch (error) {
       console.error("Clarity AI Error:", error);
-      // Optional: Add a dummy error message to the chat so the user knows it failed
     } finally {
       setIsLoading(false);
     }
@@ -149,7 +137,6 @@ export default function ClarityAIPage() {
   return (
     <div className="flex h-screen bg-[#fcfaf7] text-stone-900 overflow-hidden font-sans">
       
-      {/* MOBILE OVERLAY */}
       <AnimatePresence>
         {isSidebarOpen && (
           <motion.div 
@@ -185,7 +172,7 @@ export default function ClarityAIPage() {
             <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
               <div className="flex justify-between items-center px-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">Projects</span>
-                <button className="p-1 hover:bg-stone-50 rounded-lg text-[#a9b897]"><FolderPlus size={18}/></button>
+                <button className="p-1 hover:bg-stone-50 rounded-lg text-[var(--brand-primary)]"><FolderPlus size={18}/></button>
               </div>
 
               {projects.map(p => (
@@ -195,7 +182,7 @@ export default function ClarityAIPage() {
                     className={`w-full flex items-center justify-between p-3 md:p-4 rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all ${activeProjectId === p.id ? 'bg-stone-900 text-white shadow-xl' : 'hover:bg-stone-50 text-stone-400'}`}
                   >
                     <span className="truncate">{p.name}</span>
-                    <Layers size={14} className={activeProjectId === p.id ? "text-[#a9b897]" : "opacity-20"} />
+                    <Layers size={14} className={activeProjectId === p.id ? "text-[var(--brand-primary)]" : "opacity-20"} />
                   </button>
 
                   {activeProjectId === p.id && (
@@ -204,7 +191,7 @@ export default function ClarityAIPage() {
                         <button
                           key={chat.id}
                           onClick={() => { setActiveChatId(chat.id); if(window.innerWidth < 768) setIsSidebarOpen(false); }}
-                          className={`w-full text-left p-3 rounded-xl text-xs transition-all ${activeChatId === chat.id ? 'bg-[#a9b897]/10 text-stone-900 font-bold' : 'text-stone-400 hover:text-stone-600'}`}
+                          className={`w-full text-left p-3 rounded-xl text-xs transition-all ${activeChatId === chat.id ? 'bg-[var(--brand-primary)]/10 text-stone-900 font-bold' : 'text-stone-400 hover:text-stone-600'}`}
                         >
                           <div className="flex items-center gap-2">
                             <MessageSquare size={12} className="flex-shrink-0" />
@@ -221,7 +208,6 @@ export default function ClarityAIPage() {
         )}
       </AnimatePresence>
 
-      {/* MAIN CHAT AREA */}
       <main className="flex-1 flex flex-col relative min-w-0 bg-[#fcfaf7]">
         <header className="h-16 md:h-20 border-b border-stone-100 flex items-center justify-between px-4 md:px-8 bg-white/50 backdrop-blur-xl">
           <div className="flex items-center gap-3 md:gap-4 min-w-0">
@@ -235,21 +221,21 @@ export default function ClarityAIPage() {
             </h2>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-stone-900 text-white rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest flex-shrink-0">
-            <Zap size={10} className="text-[#a9b897] md:w-3 md:h-3" /> <span className="hidden xs:inline">Gemini 1.5</span>
+            <Zap size={10} className="text-[var(--brand-primary)] md:w-3 md:h-3" /> <span className="hidden xs:inline">Gemini 1.5</span>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-12 space-y-6 md:space-y-8 scrollbar-hide">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center space-y-6 opacity-30 px-6 text-center">
-               <Bot size={48} className="text-[#a9b897] md:w-16 md:h-16"/>
+               <Bot size={48} className="text-[var(--brand-primary)] md:w-16 md:h-16"/>
                <p className="font-serif italic text-xl md:text-2xl">Seeking a point of clarity?</p>
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-6 md:space-y-10 pb-10">
               {messages.map((m) => (
                 <div key={m.id} className={`flex gap-3 md:gap-6 ${m.role === 'assistant' ? 'bg-white p-4 md:p-8 rounded-3xl md:rounded-[2.5rem] border border-stone-100 shadow-sm' : ''}`}>
-                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex-shrink-0 flex items-center justify-center shadow-md ${m.role === 'assistant' ? 'bg-stone-900 text-white' : 'bg-[#a9b897] text-white'}`}>
+                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex-shrink-0 flex items-center justify-center shadow-md ${m.role === 'assistant' ? 'bg-stone-900 text-white' : 'bg-[var(--brand-primary)] text-white'}`}>
                     {m.role === 'assistant' ? <Bot size={14} className="md:w-[18px]" /> : <User size={14} className="md:w-[18px]" />}
                   </div>
                   <div className="flex-1 space-y-2 min-w-0">
@@ -270,7 +256,7 @@ export default function ClarityAIPage() {
 
         <div className="p-4 md:p-12 border-t md:border-t-0 border-stone-100 bg-white md:bg-transparent">
           <div className="max-w-3xl mx-auto relative group">
-            <div className="relative bg-white border border-stone-200 rounded-[1.5rem] md:rounded-[2.5rem] p-1.5 md:p-2 flex items-end shadow-lg md:shadow-xl">
+            <div className="relative bg-white border border-stone-200 rounded-[1.5rem] md:rounded-[2.5rem] p-1.5 md:p-2 flex items-end shadow-lg md:shadow-xl focus-within:border-[var(--brand-primary)] transition-colors">
                <textarea 
                   rows={1}
                   value={input}
@@ -282,7 +268,7 @@ export default function ClarityAIPage() {
                <button 
                   onClick={sendMessage}
                   disabled={!input.trim() || isLoading}
-                  className="p-3 md:p-5 bg-stone-900 text-white rounded-2xl md:rounded-[2rem] hover:bg-[#a9b897] transition-all disabled:opacity-20"
+                  className="p-3 md:p-5 bg-stone-900 text-white rounded-2xl md:rounded-[2rem] hover:bg-[var(--brand-primary)] transition-all disabled:opacity-20"
                >
                  {isLoading ? <Loader2 size={16} className="animate-spin md:w-5" /> : <Send size={16} className="md:w-5" />}
                </button>

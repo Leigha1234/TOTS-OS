@@ -7,7 +7,7 @@ import { getUserTeam } from "@/lib/getUserTeam";
 import { getUserPlan } from "@/lib/getUserPlan";
 import { getUserRole, canCreate } from "@/lib/permissions";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, GripVertical, Calendar, User as UserIcon, Lock, Filter } from "lucide-react";
+import { Plus, GripVertical, Calendar, User as UserIcon, Lock, Filter, Loader2 } from "lucide-react";
 
 const COLUMNS = [
   { id: "todo", label: "Backlog" },
@@ -104,29 +104,38 @@ export default function ProjectPage() {
 
   const priorityMeta = (p: string) => {
     switch(p) {
-      case 'high': return { color: 'text-red-500', bg: 'bg-red-500/5' };
-      case 'medium': return { color: 'text-amber-500', bg: 'bg-amber-500/5' };
-      default: return { color: 'text-[#a9b897]', bg: 'bg-[#a9b897]/5' };
+      case 'high': return { color: 'text-red-500', bg: 'bg-red-500/10' };
+      case 'medium': return { color: 'text-amber-500', bg: 'bg-amber-500/10' };
+      default: return { color: 'text-[var(--brand-primary)]', bg: 'bg-[var(--brand-primary)]/10' };
     }
   };
 
   if (loading) {
-    return <div className="flex h-screen items-center justify-center text-stone-400 font-serif italic">Loading Project Architecture...</div>;
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[var(--bg)]">
+        <Loader2 className="animate-spin text-[var(--text-muted)]" size={32} />
+        <p className="text-[var(--text-muted)] font-serif italic">Initializing Board Architecture...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] p-8 md:p-12 space-y-12">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-200 pb-10">
+    <div className="min-h-screen bg-[var(--bg)] p-8 md:p-12 space-y-12">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-[var(--border)] pb-10">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-[#a9b897]">
+          <div className="flex items-center gap-2 text-[var(--brand-primary)]">
             <Filter size={14} />
             <span className="text-[10px] font-black uppercase tracking-[0.3em]">Task Orchestration</span>
           </div>
-          <h1 className="text-5xl font-serif italic text-stone-900 tracking-tighter leading-none">Project Board</h1>
+          <h1 className="text-5xl font-serif italic text-[var(--text-main)] tracking-tighter leading-none">Project Board</h1>
         </div>
         {plan === "free" && (
-          <motion.button whileHover={{ scale: 1.02 }} onClick={() => router.push("/billing")} className="flex items-center gap-3 bg-stone-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest">
-            <Lock size={14} className="text-[#a9b897]" /> Upgrade to Unlock
+          <motion.button 
+            whileHover={{ scale: 1.02 }} 
+            onClick={() => router.push("/billing")} 
+            className="flex items-center gap-3 bg-stone-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest"
+          >
+            <Lock size={14} className="text-[var(--brand-primary)]" /> Upgrade to Unlock
           </motion.button>
         )}
       </header>
@@ -138,9 +147,9 @@ export default function ProjectPage() {
           onChange={(e) => setNewTask(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addTask()}
           disabled={plan === "free"}
-          className="w-full bg-white border border-stone-200 rounded-2xl p-6 pl-14 shadow-sm focus:ring-2 ring-[#a9b897]/20 outline-none transition-all font-serif italic text-lg"
+          className="w-full bg-[var(--card-bg)] border border-[var(--border)] rounded-2xl p-6 pl-14 shadow-sm focus:ring-2 ring-[var(--brand-primary)]/20 outline-none transition-all font-serif italic text-[var(--text-main)] text-lg placeholder:text-[var(--text-muted)]"
         />
-        <Plus className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-[#a9b897] transition-colors" size={20} />
+        <Plus className="absolute left-6 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-[var(--brand-primary)] transition-colors" size={20} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -152,8 +161,8 @@ export default function ProjectPage() {
             className="space-y-6"
           >
             <div className="flex items-center justify-between px-2">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">{col.label}</h2>
-              <span className="text-[9px] font-mono text-stone-300 bg-stone-100 px-2 py-0.5 rounded italic">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">{col.label}</h2>
+              <span className="text-[9px] font-mono text-[var(--text-muted)] bg-[var(--bg-soft)] px-2 py-0.5 rounded italic border border-[var(--border)]">
                 {tasks.filter(t => t.status === col.id).length}
               </span>
             </div>
@@ -169,33 +178,33 @@ export default function ProjectPage() {
                     exit={{ opacity: 0, scale: 0.95 }} 
                     draggable 
                     onDragStart={() => setDragged(t)} 
-                    className="group bg-white border border-stone-200 rounded-[2rem] p-6 shadow-sm hover:shadow-xl hover:border-[#a9b897] transition-all cursor-grab active:cursor-grabbing"
+                    className="group bg-[var(--card-bg)] border border-[var(--border)] rounded-[2rem] p-6 shadow-sm hover:shadow-xl hover:border-[var(--brand-primary)] transition-all cursor-grab active:cursor-grabbing"
                   >
                     <div className="flex gap-4">
-                      <GripVertical className="text-stone-200 group-hover:text-stone-400 transition-colors shrink-0 mt-1" size={18} />
+                      <GripVertical className="text-[var(--text-muted)]/30 group-hover:text-[var(--text-muted)] transition-colors shrink-0 mt-1" size={18} />
                       <div className="flex-1 space-y-4">
                         <input 
                           value={t.title} 
                           onChange={(e) => updateTask(t.id, { title: e.target.value })} 
-                          className="bg-transparent w-full outline-none font-serif italic text-stone-900 text-lg leading-tight" 
+                          className="bg-transparent w-full outline-none font-serif italic text-[var(--text-main)] text-lg leading-tight" 
                         />
                         <div className="flex flex-wrap items-center gap-3">
                           <select 
                             value={t.priority || "medium"} 
                             onChange={(e) => updateTask(t.id, { priority: e.target.value })} 
-                            className={`text-[9px] font-black uppercase tracking-widest p-1 px-2 rounded-lg border-none outline-none ${priorityMeta(t.priority).bg} ${priorityMeta(t.priority).color}`}
+                            className={`text-[9px] font-black uppercase tracking-widest p-1 px-2 rounded-lg border-none outline-none appearance-none ${priorityMeta(t.priority).bg} ${priorityMeta(t.priority).color}`}
                           >
                             <option value="low">Low</option>
                             <option value="medium">Medium</option>
                             <option value="high">High</option>
                           </select>
-                          <div className="relative flex items-center text-stone-400">
+                          <div className="relative flex items-center text-[var(--text-muted)]">
                             <Calendar size={12} className="absolute left-2 pointer-events-none" />
                             <input 
                               type="date" 
                               value={t.due_date || ""} 
                               onChange={(e) => updateTask(t.id, { due_date: e.target.value })} 
-                              className="bg-stone-50 text-[9px] font-black uppercase tracking-widest pl-7 pr-2 py-1.5 rounded-lg outline-none" 
+                              className="bg-[var(--bg-soft)] text-[var(--text-main)] text-[9px] font-black uppercase tracking-widest pl-7 pr-2 py-1.5 rounded-lg border border-[var(--border)] outline-none" 
                             />
                           </div>
                         </div>
@@ -206,7 +215,7 @@ export default function ProjectPage() {
               </AnimatePresence>
 
               {tasks.filter((t) => t.status === col.id).length === 0 && (
-                <div className="h-48 border border-dashed border-stone-200 rounded-[2rem] flex items-center justify-center text-[10px] tracking-widest uppercase text-stone-300">
+                <div className="h-48 border border-dashed border-[var(--border)] rounded-[2rem] flex items-center justify-center text-[10px] tracking-widest uppercase text-[var(--text-muted)] opacity-50">
                   Empty Stage
                 </div>
               )}

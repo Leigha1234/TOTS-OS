@@ -55,6 +55,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error;
 
       if (p) {
+        // Only update if values exist in DB, otherwise stay at defaults
         if (p.brand_color) setBrandColor(p.brand_color);
         if (p.secondary_color) setSecondaryColor(p.secondary_color);
         if (p.font_family) setFontFamily(p.font_family);
@@ -68,27 +69,32 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase]);
 
-  // Initial Sync
+  // Initial Sync on Mount
   useEffect(() => {
     refreshSettings();
   }, [refreshSettings]);
 
-  // GLOBAL STYLE INJECTION
+  // 🚀 GLOBAL STYLE INJECTION HANDSHAKE
   useEffect(() => {
     if (typeof window !== "undefined") {
       const root = document.documentElement;
       
-      // Inject Primary Brand Color
+      // Inject CSS Variables into :root
       root.style.setProperty("--brand-primary", brandColor);
-      // Inject Secondary Brand Color
       root.style.setProperty("--brand-secondary", secondaryColor);
       
-      // Force font family on body
-      document.body.style.fontFamily = `'${fontFamily}', sans-serif`;
+      // Inject Font Variable
+      root.style.setProperty("--font-main", `'${fontFamily}', sans-serif`);
+      
+      // Apply Font and Theme Loaded State
+      document.body.style.fontFamily = `var(--font-main)`;
+      root.setAttribute("data-theme-loaded", "true");
+
+      // Log for Debugging (Optional: remove in production)
+      // console.log("🎨 Theme Injected:", { brandColor, fontFamily });
     }
   }, [brandColor, secondaryColor, fontFamily]);
 
-  // Memoize the context value to prevent unnecessary re-renders of the App tree
   const value = useMemo(() => ({
     brandColor,
     secondaryColor,

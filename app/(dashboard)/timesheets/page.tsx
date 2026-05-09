@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Trash2, Users } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Clock, Trash2, Users, ArrowLeft, 
+  Plus, Database, Calendar as CalendarIcon,
+  ChevronRight, Timer
+} from "lucide-react";
 
 interface TimesheetEntry {
   id: string;
@@ -28,183 +33,221 @@ export default function TimesheetsPage() {
     { id: "2", client: "Aperture Labs", task: "Bug Fixing", mon: 2, tue: 2, wed: 4, thu: 2, fri: 2, sat: 0, sun: 0, teamMember: "Jane Doe" }
   ]);
 
-  const [timesheetClient, setTimesheetClient] = useState("");
-  const [timesheetTask, setTimesheetTask] = useState("");
-  const [timesheetTeamMember, setTimesheetTeamMember] = useState("");
-  const [timesheetMon, setTimesheetMon] = useState("0");
-  const [timesheetTue, setTimesheetTue] = useState("0");
-  const [timesheetWed, setTimesheetWed] = useState("0");
-  const [timesheetThu, setTimesheetThu] = useState("0");
-  const [timesheetFri, setTimesheetFri] = useState("0");
-  const [timesheetSat, setTimesheetSat] = useState("0");
-  const [timesheetSun, setTimesheetSun] = useState("0");
+  // Form State
+  const [formData, setFormData] = useState({
+    client: "",
+    task: "",
+    member: "",
+    mon: "0", tue: "0", wed: "0", thu: "0", fri: "0", sat: "0", sun: "0"
+  });
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  useEffect(() => { setIsMounted(true); }, []);
 
   const addTimesheetEntry = () => {
-    if (!timesheetClient || !timesheetTask) return;
+    if (!formData.client || !formData.task) return;
     
     const newEntry: TimesheetEntry = {
       id: Date.now().toString(),
-      client: timesheetClient,
-      task: timesheetTask,
-      teamMember: timesheetTeamMember || "Unassigned",
-      mon: parseFloat(timesheetMon) || 0,
-      tue: parseFloat(timesheetTue) || 0,
-      wed: parseFloat(timesheetWed) || 0,
-      thu: parseFloat(timesheetThu) || 0,
-      fri: parseFloat(timesheetFri) || 0,
-      sat: parseFloat(timesheetSat) || 0,
-      sun: parseFloat(timesheetSun) || 0,
+      client: formData.client,
+      task: formData.task,
+      teamMember: formData.member || "Unassigned",
+      mon: parseFloat(formData.mon) || 0,
+      tue: parseFloat(formData.tue) || 0,
+      wed: parseFloat(formData.wed) || 0,
+      thu: parseFloat(formData.thu) || 0,
+      fri: parseFloat(formData.fri) || 0,
+      sat: parseFloat(formData.sat) || 0,
+      sun: parseFloat(formData.sun) || 0,
     };
 
     setTimesheetList([...timesheetList, newEntry]);
-    
-    // Reset inputs
-    setTimesheetClient("");
-    setTimesheetTask("");
-    setTimesheetTeamMember("");
-    setTimesheetMon("0");
-    setTimesheetTue("0");
-    setTimesheetWed("0");
-    setTimesheetThu("0");
-    setTimesheetFri("0");
-    setTimesheetSat("0");
-    setTimesheetSun("0");
+    setFormData({ client: "", task: "", member: "", mon: "0", tue: "0", wed: "0", thu: "0", fri: "0", sat: "0", sun: "0" });
   };
 
-  const deleteTimesheetEntry = (id: string) => {
-    setTimesheetList(timesheetList.filter((item) => item.id !== id));
-  };
+  const deleteEntry = (id: string) => setTimesheetList(prev => prev.filter(t => t.id !== id));
 
   if (!isMounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 lg:p-12 max-w-[1400px] mx-auto space-y-12">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] selection:bg-[var(--brand-primary)] selection:text-white transition-colors duration-500">
       
-      {/* Header */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-10 gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-[#a9b897]">
-            <Clock size={14} />
-            <p className="font-black uppercase text-[9px] tracking-[0.4em]">Operations Management</p>
-          </div>
-          <h1 className="text-5xl font-serif italic tracking-tighter">Operational Timesheets</h1>
-        </div>
+      <div className="max-w-[1600px] mx-auto px-6 py-12 md:p-16 lg:p-20 space-y-12 pb-32">
         
-        <div className="flex items-center gap-4 bg-white border border-stone-200 px-6 py-4 rounded-2xl shadow-sm">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Live Time Recording</p>
-        </div>
-      </header>
-
-      {/* Navigation Controls */}
-      <div className="flex flex-wrap gap-4 border-b border-stone-200 pb-4">
-        <button 
-          onClick={() => router.push("/payments")}
-          className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
-        >
-          Financials
-        </button>
-        <button 
-          className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-stone-900 text-white shadow-xl cursor-pointer"
-        >
-          Timesheets
-        </button>
-        <button 
-          onClick={() => router.push("/hr")}
-          className="px-6 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-white border border-stone-200 text-stone-500 hover:bg-stone-50 cursor-pointer transition"
-        >
-          HR & Payroll
-        </button>
-      </div>
-
-      <div className="bg-white border border-stone-200/60 p-10 rounded-[3rem] shadow-sm space-y-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-stone-100 pb-6">
-          <div className="flex items-center gap-4">
-            <Clock size={20} className="text-[#a9b897]" />
-            <h3 className="text-2xl font-serif italic text-stone-800">Timesheets Summary</h3>
-          </div>
-          <input 
-            type="week" 
-            value={selectedWeek}
-            onChange={(e) => setSelectedWeek(e.target.value)}
-            className="bg-stone-50 border border-stone-200 text-xs font-bold px-4 py-3 rounded-2xl outline-none"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
-          <div>
-            <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Client</label>
-            <input 
-              placeholder="Client Reference" 
-              value={timesheetClient} 
-              onChange={(e) => setTimesheetClient(e.target.value)}
-              className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-3.5 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-            />
-          </div>
-          <div>
-            <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Task Description</label>
-            <input 
-              placeholder="Task Name" 
-              value={timesheetTask} 
-              onChange={(e) => setTimesheetTask(e.target.value)}
-              className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-3.5 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-            />
-          </div>
-          <div>
-            <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Team Member</label>
-            <input 
-              placeholder="Assignee Name" 
-              value={timesheetTeamMember} 
-              onChange={(e) => setTimesheetTeamMember(e.target.value)}
-              className="w-full mt-3 bg-stone-50 border border-stone-100 rounded-2xl p-3.5 text-xs font-semibold focus:ring-4 ring-[#a9b897]/5 outline-none"
-            />
-          </div>
-          <div>
-            <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-[0.2em]">Hours (Mon to Sun)</label>
-            <div className="grid grid-cols-7 gap-1 mt-3">
-              <input value={timesheetMon} onChange={(e) => setTimesheetMon(e.target.value)} className="w-full bg-stone-50 border border-stone-100 p-3 rounded-lg text-center font-bold text-xs outline-none" placeholder="M" />
-              <input value={timesheetTue} onChange={(e) => setTimesheetTue(e.target.value)} className="w-full bg-stone-50 border border-stone-100 p-3 rounded-lg text-center font-bold text-xs outline-none" placeholder="T" />
-              <input value={timesheetWed} onChange={(e) => setTimesheetWed(e.target.value)} className="w-full bg-stone-50 border border-stone-100 p-3 rounded-lg text-center font-bold text-xs outline-none" placeholder="W" />
-              <input value={timesheetThu} onChange={(e) => setTimesheetThu(e.target.value)} className="w-full bg-stone-50 border border-stone-100 p-3 rounded-lg text-center font-bold text-xs outline-none" placeholder="T" />
-              <input value={timesheetFri} onChange={(e) => setTimesheetFri(e.target.value)} className="w-full bg-stone-50 border border-stone-100 p-3 rounded-lg text-center font-bold text-xs outline-none" placeholder="F" />
-              <input value={timesheetSat} onChange={(e) => setTimesheetSat(e.target.value)} className="w-full bg-stone-50 border border-stone-100 p-3 rounded-lg text-center font-bold text-xs outline-none" placeholder="S" />
-              <input value={timesheetSun} onChange={(e) => setTimesheetSun(e.target.value)} className="w-full bg-stone-50 border border-stone-100 p-3 rounded-lg text-center font-bold text-xs outline-none" placeholder="S" />
+        {/* HEADER */}
+        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 border-b border-[var(--border)] pb-12">
+          <div className="space-y-4">
+            <button 
+              onClick={() => router.back()}
+              className="flex items-center gap-2 text-[var(--text-muted)] hover:text-[var(--brand-primary)] transition-colors mb-4"
+            >
+              <ArrowLeft size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Return</span>
+            </button>
+            <h1 className="text-5xl md:text-8xl font-serif italic tracking-tighter leading-none text-[var(--brand-primary)]">
+              Timesheets
+            </h1>
+            <div className="flex flex-wrap gap-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+               <span className="flex items-center gap-2"><Timer size={12}/> Live Recording</span>
+               <span className="flex items-center gap-2"><Database size={12}/> Operations Node</span>
             </div>
           </div>
-          <div className="flex items-end">
-            <button onClick={addTimesheetEntry} className="w-full py-3.5 bg-stone-900 text-white rounded-2xl font-bold text-xs hover:bg-stone-800 transition-all cursor-pointer">
-              + Log Entry
-            </button>
+          
+          <div className="flex flex-wrap gap-3 w-full xl:w-auto">
+            {["Financials", "Timesheets", "HR & Payroll"].map((label) => (
+              <button 
+                key={label}
+                onClick={() => label !== "Timesheets" && router.push(`/${label.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-')}`)}
+                className={`flex-1 md:flex-none px-8 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                  label === "Timesheets" 
+                  ? "bg-[var(--brand-primary)] text-white shadow-xl" 
+                  : "bg-[var(--card-bg)] border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-soft)]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        </div>
+        </header>
 
-        <div className="space-y-4 pt-6 border-t border-stone-100">
-          {timesheetList.map((t) => (
-            <div key={t.id} className="flex justify-between items-center bg-stone-50 p-6 rounded-2xl border border-stone-100">
-              <div>
-                <span className="text-xs font-black uppercase">{t.client}</span>
-                <p className="text-[10px] text-stone-500 mt-1">{t.task}</p>
-                <p className="text-[9px] text-[#a9b897] font-bold mt-0.5 tracking-wide">Worker: {t.teamMember}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          
+          {/* LOGGING INTERFACE */}
+          <section className="lg:col-span-12 bg-[var(--card-bg)] border border-[var(--border)] p-8 md:p-12 rounded-[4rem] shadow-sm space-y-12">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-[var(--border)] pb-8">
+              <div className="flex items-center gap-4">
+                <div className="p-4 bg-[var(--bg-soft)] rounded-2xl">
+                  <Clock size={24} className="text-[var(--brand-primary)]" />
+                </div>
+                <div>
+                  <h3 className="text-3xl font-serif italic">Operational Log</h3>
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Neural Time Entry</p>
+                </div>
               </div>
-              <div className="flex items-center gap-6">
-                <span className="text-[10px] font-mono text-stone-400 uppercase tracking-widest font-bold">
-                  {t.mon + t.tue + t.wed + t.thu + t.fri + t.sat + t.sun} Hrs
-                </span>
-                <button onClick={() => deleteTimesheetEntry(t.id)} className="text-stone-300 hover:text-red-500 transition-colors cursor-pointer">
-                  <Trash2 size={16} />
+              <div className="flex items-center gap-3 bg-[var(--bg-soft)] p-2 rounded-2xl border border-[var(--border)]">
+                <CalendarIcon size={14} className="ml-3 text-[var(--text-muted)]" />
+                <input 
+                  type="week" 
+                  value={selectedWeek}
+                  onChange={(e) => setSelectedWeek(e.target.value)}
+                  className="bg-transparent text-[10px] font-black uppercase tracking-widest px-4 py-3 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* INPUT GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+              <div className="md:col-span-3 space-y-3">
+                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-2">Client Node</label>
+                <input 
+                  placeholder="Entity Name" 
+                  value={formData.client} 
+                  onChange={(e) => setFormData({...formData, client: e.target.value})}
+                  className="w-full bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl p-5 text-xs font-bold outline-none focus:border-[var(--brand-primary)] transition-all"
+                />
+              </div>
+              <div className="md:col-span-3 space-y-3">
+                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-2">Objective</label>
+                <input 
+                  placeholder="Task Description" 
+                  value={formData.task} 
+                  onChange={(e) => setFormData({...formData, task: e.target.value})}
+                  className="w-full bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl p-5 text-xs font-bold outline-none focus:border-[var(--brand-primary)] transition-all"
+                />
+              </div>
+              <div className="md:col-span-2 space-y-3">
+                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-2">Assignee</label>
+                <div className="flex items-center bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl px-4">
+                  <Users size={14} className="text-[var(--text-muted)]" />
+                  <input 
+                    placeholder="Name" 
+                    value={formData.member} 
+                    onChange={(e) => setFormData({...formData, member: e.target.value})}
+                    className="w-full bg-transparent p-5 text-xs font-bold outline-none"
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-3 space-y-3">
+                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-2 text-center block">Hours (M-S)</label>
+                <div className="grid grid-cols-7 gap-1">
+                  {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => (
+                    <input 
+                      key={day}
+                      value={(formData as any)[day]} 
+                      onChange={(e) => setFormData({...formData, [day]: e.target.value})} 
+                      className="w-full bg-[var(--bg-soft)] border border-[var(--border)] p-3 rounded-xl text-center font-black text-[10px] outline-none focus:border-[var(--brand-primary)]" 
+                      placeholder={day[0].toUpperCase()} 
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="md:col-span-1">
+                <button 
+                  onClick={addTimesheetEntry} 
+                  className="w-full aspect-square md:aspect-auto md:py-5 bg-[var(--text-main)] text-[var(--bg)] rounded-2xl flex items-center justify-center hover:bg-[var(--brand-primary)] hover:text-white transition-all shadow-lg"
+                >
+                  <Plus size={20} />
                 </button>
               </div>
             </div>
-          ))}
-          {timesheetList.length === 0 && (
-            <div className="text-center py-10">
-              <p className="text-xs text-stone-400 font-serif italic">No timesheet entries logged.</p>
+
+            {/* LIST ENTRIES */}
+            <div className="space-y-4 pt-12 border-t border-[var(--border)]">
+              <AnimatePresence mode="popLayout">
+                {timesheetList.map((t) => (
+                  <motion.div 
+                    key={t.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="flex flex-col md:flex-row justify-between items-center bg-[var(--bg-soft)] p-8 rounded-[2.5rem] border border-[var(--border)] group hover:border-[var(--brand-primary)] transition-all"
+                  >
+                    <div className="flex items-center gap-8 w-full md:w-auto">
+                      <div className="w-12 h-12 rounded-full bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--brand-primary)]">
+                        <Timer size={18} />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--brand-primary)]">{t.client}</span>
+                        <h4 className="text-xl font-serif italic text-[var(--text-main)]">{t.task}</h4>
+                        <p className="text-[9px] text-[var(--text-muted)] font-bold mt-1 uppercase tracking-widest flex items-center gap-2">
+                          <Users size={10} /> {t.teamMember}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-12 mt-6 md:mt-0 w-full md:w-auto justify-between md:justify-end border-t md:border-none pt-6 md:pt-0 border-[var(--border)]">
+                      <div className="flex gap-2">
+                        {[t.mon, t.tue, t.wed, t.thu, t.fri, t.sat, t.sun].map((h, i) => (
+                          <div key={i} className={`w-8 h-8 rounded-lg flex items-center justify-center text-[8px] font-black border ${h > 0 ? 'bg-[var(--brand-primary)]/10 border-[var(--brand-primary)]/20 text-[var(--brand-primary)]' : 'bg-transparent border-[var(--border)] text-[var(--text-muted)]/30'}`}>
+                            {h}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-8">
+                        <div className="text-right">
+                          <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Total</p>
+                          <span className="text-2xl font-serif italic text-[var(--text-main)]">
+                            {t.mon + t.tue + t.wed + t.thu + t.fri + t.sat + t.sun} <span className="text-[10px] font-sans not-italic uppercase opacity-30">Hrs</span>
+                          </span>
+                        </div>
+                        <button 
+                          onClick={() => deleteEntry(t.id)} 
+                          className="p-4 rounded-xl text-[var(--text-muted)] hover:text-red-500 hover:bg-red-50 transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {timesheetList.length === 0 && (
+                <div className="text-center py-20 border-2 border-dashed border-[var(--border)] rounded-[3rem]">
+                  <p className="text-sm text-[var(--text-muted)] font-serif italic">Operational logs empty. Pending synchronization.</p>
+                </div>
+              )}
             </div>
-          )}
+          </section>
         </div>
       </div>
     </div>

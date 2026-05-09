@@ -76,7 +76,7 @@ export default function ProjectsPage() {
   const supabase = useMemo(() => {
     return createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
   }, []);
 
@@ -108,7 +108,8 @@ export default function ProjectsPage() {
           { id: "c1", name: "Apex Solutions", team_id: mockTeam }
         ]);
         setProjects([
-          { id: "p1", name: "Project Zero", team_id: mockTeam, customers: { name: "Apex Solutions" } }
+          { id: "p1", name: "Project Zero", team_id: mockTeam, customers: { name: "Apex Solutions" } },
+          { id: "p2", name: "Atlas Stream", team_id: mockTeam, customers: { name: "Apex Solutions" } }
         ]);
         setTasks([
           { id: "t1", project_id: "p1", name: "Configure Node Network", status: "In Progress", priority: "High", dueDate: "2026-05-15", assignee: "Jane Doe", subtasks: ["Test Sockets", "Compile Data"], comments: ["Setup seems stable."] },
@@ -167,7 +168,6 @@ export default function ProjectsPage() {
     }
   }
 
-  // Asana-style inline task generator
   const handleAddTask = (projectId: string) => {
     const taskName = newTaskName[projectId]?.trim();
     if (!taskName) return;
@@ -329,9 +329,8 @@ export default function ProjectsPage() {
           </div>
         </aside>
 
-        {/* 4. MAIN WORKSPACE */}
+        {/* 4. DYNAMIC WORKSPACE RENDERER */}
         <div className="flex-1 space-y-10">
-          {/* ASANA-STYLE SUB-TABS */}
           <div className="flex flex-wrap gap-4 border-b border-stone-100 pb-3">
             {["Overview", "List", "Board", "Timeline", "Workload", "OKRs"].map((tab) => (
               <button 
@@ -349,10 +348,10 @@ export default function ProjectsPage() {
           </div>
 
           {/* OVERVIEW VIEW */}
-          {activeTab === "overview" && (
+          {activeTab === "overview" && activeMode === "work" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
               <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] col-span-2">
-                <h2 className="text-2xl font-serif italic text-stone-800 mb-4">Workspace Summary</h2>
+                <h2 className="text-2xl font-serif italic text-stone-800 mb-4">Workspace Summary (Work Engine)</h2>
                 <p className="text-xs text-stone-500 leading-relaxed mb-6">
                   Project portfolio containing workspace performance and deployment nodes. 
                   Select a project below or switch to the List View to assign action items.
@@ -370,7 +369,6 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              {/* QUICK FORM */}
               <div className="bg-white border border-stone-200 p-8 rounded-[2.5rem] flex flex-col justify-between">
                 <div>
                   <h3 className="text-lg font-serif italic text-stone-800 mb-6">Add Project</h3>
@@ -409,6 +407,50 @@ export default function ProjectsPage() {
             </div>
           )}
 
+          {/* STRATEGY VIEW */}
+          {activeTab === "overview" && activeMode === "strategy" && (
+            <div className="bg-white border border-stone-200 p-10 rounded-[2.5rem] space-y-8 pt-8">
+               <h3 className="text-2xl font-serif italic text-stone-800">Strategy & Metric Review</h3>
+               <p className="text-xs text-stone-500 leading-relaxed max-w-2xl">
+                 You are currently operating within Strategy mode. The dashboard tracks the overarching business roadmap, resource allocation, and key performance goals.
+               </p>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                  {goals.map((g) => (
+                     <div key={g.id} className="bg-stone-50/50 p-8 rounded-3xl border border-stone-100 space-y-6">
+                        <span className="text-[9px] font-black text-[#a9b897] uppercase tracking-[0.2em]">Target Metric</span>
+                        <h4 className="text-md font-serif italic text-stone-900">{g.title}</h4>
+                        <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden">
+                           <motion.div initial={{ width: 0 }} whileInView={{ width: `${g.progress}%` }} viewport={{ once: true }} className="h-full bg-stone-900 w-full" />
+                        </div>
+                        <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">Target Period: {g.target}</p>
+                     </div>
+                  ))}
+               </div>
+            </div>
+          )}
+
+          {/* COMPANY / WORKFLOW FALLBACK VIEW */}
+          {activeTab === "overview" && (activeMode === "company" || activeMode === "workflows") && (
+            <div className="bg-white border border-stone-200 p-10 rounded-[2.5rem] space-y-8 pt-8">
+               <h3 className="text-2xl font-serif italic text-stone-800">Operational Organization</h3>
+               <p className="text-xs text-stone-500 leading-relaxed max-w-2xl">
+                 You are currently in the <strong>{activeMode}</strong> engine. Review team structure and automated workflows below.
+               </p>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6">
+                 {workload.map((w, index) => (
+                   <div key={index} className="bg-stone-50/50 border border-stone-100 p-8 rounded-3xl space-y-6">
+                     <span className="text-[8px] font-black uppercase text-stone-400 tracking-wider">Team Member</span>
+                     <p className="font-serif italic text-stone-800 text-lg">{w.member}</p>
+                     <div className="flex justify-between text-xs border-t border-stone-200/40 pt-4">
+                       <span className="text-stone-400">Workload Capacity:</span>
+                       <span className="font-bold text-stone-800">{w.capacity}%</span>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+            </div>
+          )}
+
           {/* LIST VIEW */}
           {activeTab === "list" && (
             <div ref={printRef} className="pt-4 space-y-8">
@@ -427,7 +469,6 @@ export default function ProjectsPage() {
                     </button>
                   </div>
                   
-                  {/* Task List Container */}
                   <div className="divide-y divide-stone-100 border-t border-stone-100">
                     {tasks.filter(t => t.project_id === p.id).map(t => (
                       <div 
@@ -445,7 +486,6 @@ export default function ProjectsPage() {
                         </div>
 
                         <div className="flex items-center gap-6">
-                          {/* Priority Selector */}
                           <select
                             value={t.priority}
                             onChange={(e) => handleUpdateTaskPriority(t.id, e.target.value as any)}
@@ -456,7 +496,6 @@ export default function ProjectsPage() {
                             <option value="High">High</option>
                           </select>
 
-                          {/* Status Selector */}
                           <select
                             value={t.status}
                             onChange={(e) => handleUpdateTaskStatus(t.id, e.target.value as any)}
@@ -470,7 +509,6 @@ export default function ProjectsPage() {
                       </div>
                     ))}
 
-                    {/* Quick Task Adding Input */}
                     <div className="flex items-center gap-4 pt-6 mt-2 border-t border-stone-50">
                       <Plus size={14} className="text-stone-400" />
                       <input
@@ -595,7 +633,7 @@ export default function ProjectsPage() {
             </div>
           )}
 
-          {/* OKRs VIEW */}
+          {/* OKRS VIEW */}
           {activeTab === "okrs" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
               {goals.map((g) => (
@@ -655,60 +693,50 @@ export default function ProjectsPage() {
                         {sub}
                       </div>
                     ))}
-                  </div>
-                  <div className="flex gap-3 mt-4">
-                    <input 
-                      value={newSubtask} 
-                      onChange={(e) => setNewSubtask(e.target.value)} 
-                      placeholder="Add subtask..."
-                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-100 rounded-xl outline-none"
-                    />
-                    <button 
-                      onClick={handleAddSubtask} 
-                      className="px-4 py-2 bg-stone-900 text-white text-[8px] font-black uppercase tracking-widest rounded-xl hover:bg-stone-700"
-                    >
-                      Add
-                    </button>
+                    <div className="flex gap-3 mt-4">
+                      <input 
+                        value={newSubtask} 
+                        onChange={(e) => setNewSubtask(e.target.value)} 
+                        placeholder="Create subtask..." 
+                        className="flex-1 p-3 bg-stone-50/20 border border-stone-200 rounded-xl text-xs outline-none focus:ring-2 ring-[#a9b897]/20" 
+                      />
+                      <button onClick={handleAddSubtask} className="px-4 py-2 bg-stone-900 text-white rounded-xl text-[9px] uppercase font-bold tracking-wider hover:bg-stone-700">Add</button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Comments Module */}
+                {/* Commenting Module */}
                 <div className="pt-6 border-t border-stone-50">
-                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-4">Comments</span>
-                  <div className="space-y-3">
-                    {selectedTask.comments?.map((comment, idx) => (
-                      <div key={idx} className="p-4 bg-stone-50/70 border border-stone-200/40 rounded-2xl text-xs text-stone-600 flex items-start gap-3">
-                        <MessageSquare size={14} className="text-stone-400 mt-0.5" />
-                        <div>
-                          <p className="font-bold text-stone-800 mb-0.5">Contributor</p>
-                          <p>{comment}</p>
-                        </div>
+                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-4">Activity Log / Comments</span>
+                  <div className="space-y-3 h-44 overflow-y-auto pb-4">
+                    {selectedTask.comments?.map((comment, index) => (
+                      <div key={index} className="p-4 bg-stone-50 rounded-2xl text-xs text-stone-600 border border-stone-200/40 flex items-center gap-3">
+                        <MessageSquare size={14} className="text-[#a9b897]" />
+                        {comment}
                       </div>
                     ))}
+                    {(!selectedTask.comments || selectedTask.comments.length === 0) && (
+                      <p className="text-[10px] text-stone-300 italic">No historical activities logged.</p>
+                    )}
                   </div>
-                  <div className="flex gap-3 mt-4">
+                  <div className="flex gap-4">
                     <input 
                       value={newComment} 
                       onChange={(e) => setNewComment(e.target.value)} 
-                      placeholder="Type a comment..."
-                      className="flex-1 p-3 text-xs bg-stone-50 border border-stone-100 rounded-xl outline-none"
+                      placeholder="Add comment or status note..." 
+                      className="flex-1 p-4 bg-stone-50/20 border border-stone-200 rounded-2xl text-xs outline-none" 
                     />
-                    <button 
-                      onClick={handleAddComment} 
-                      className="px-4 py-2 bg-stone-900 text-white text-[8px] font-black uppercase tracking-widest rounded-xl hover:bg-stone-700"
-                    >
-                      Comment
-                    </button>
+                    <button onClick={handleAddComment} className="px-6 bg-stone-900 text-white rounded-2xl text-[9px] uppercase font-bold tracking-widest hover:bg-stone-700">Add</button>
                   </div>
                 </div>
               </div>
             </div>
-
+            
             <button 
               onClick={() => setSelectedTask(null)}
-              className="w-full mt-10 py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-stone-700 text-center"
+              className="w-full mt-8 py-4 border border-stone-200 rounded-2xl text-[10px] uppercase font-black tracking-widest hover:bg-stone-50 transition-all text-stone-500 cursor-pointer"
             >
-              Close Task Stream
+              Close Panel
             </button>
           </div>
         </div>

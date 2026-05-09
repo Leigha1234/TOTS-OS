@@ -94,13 +94,36 @@ export default function DashboardPage() {
     init();
   }, [loadDashboardData]);
 
-  const runClarityScan = () => {
+ const runClarityScan = async () => {
     setIsScanActive(true);
     setShowScanModal(true);
-    setTimeout(() => {
-      setInsight(`Analysis Complete: ${userName}, your ecosystem is performing at 94% efficiency. Address the ${stats.invoicesDue} outstanding invoices to reach peak flow.`);
+    setInsight(null); // Clear previous insight
+
+    try {
+      // 1. Get the current team
+      const team = await getUserTeam();
+      if (!team) throw new Error("No team found");
+
+      // 2. Call your Edge Function
+      const { data, error } = await supabase.functions.invoke('clarity-scan', {
+        body: { 
+          team_id: team,
+          // Since this is a global dashboard scan, we might not have a specific project_id
+          // Your Edge Function index.ts should be updated to handle "all tasks" if project_id is null
+          project_id: null 
+        }
+      });
+
+      if (error) throw error;
+
+      // 3. Set the real AI insight
+      setInsight(data.insight);
+    } catch (err) {
+      console.error("AI Scan Error:", err);
+      setInsight("Scan Interrupted: Ensure Edge Functions are deployed and AI_KEY is set.");
+    } finally {
       setIsScanActive(false);
-    }, 2000);
+    }
   };
 
   const toggleTodo = (id: string) => {

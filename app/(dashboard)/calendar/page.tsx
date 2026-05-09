@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
-  Plus, Landmark, X, Loader2, MapPin, Clock, Users, Link as LinkIcon, Navigation
+  Plus, Landmark, X, Loader2, MapPin, Clock, Link as LinkIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -19,30 +19,23 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(new Date());
   
-  // States for data modules
+  // System Data States
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [quotes, setQuotes] = useState<any[]>([]);
   const [projectDeadlines, setProjectDeadlines] = useState<any[]>([]);
   const [socials, setSocials] = useState<any[]>([]);
-  const [emails, setEmails] = useState<any[]>([]);
-  const [payroll, setPayroll] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<any[]>([]);
 
-  // Extended Modal State
+  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  
-  // States for date and time drop-down selection
   const [selectedDateString, setSelectedDateString] = useState(format(new Date(), "yyyy-MM-dd"));
   const [eventTime, setEventTime] = useState("12:00");
-  
   const [eventLocation, setEventLocation] = useState("");
   const [eventColor, setEventColor] = useState("#a9b897");
   const [vcLink, setVcLink] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Safely initialize Supabase browser client
   const supabase = useMemo(() => {
     return createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,70 +46,40 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchEvents();
     fetchSystemData();
-  }, [currentMonth]);
+  }, [currentMonth, supabase]);
 
   async function fetchEvents() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("user_id", user.id);
-
-      if (error) {
-        console.error("Error fetching tasks:", error.message);
-      } else {
-        setTasks(data || []);
-      }
-    } catch (err) {
-      console.error("Fetch exception:", err);
+      const { data } = await supabase.from("tasks").select("*").eq("user_id", user.id);
+      setTasks(data || []);
     } finally {
       setLoading(false);
     }
   }
 
-  // Fetch contextual data for invoices, quotes, deadlines, social, emails, payroll and holidays.
   async function fetchSystemData() {
     try {
-      // 1. Invoices
-      const { data: invData } = await supabase.from("invoices").select("*");
-      setInvoices(invData || []);
-
-      // 2. Quotes
-      const { data: quoteData } = await supabase.from("quotes").select("*");
-      setQuotes(quoteData || []);
-
-      // 3. Project Deadlines
-      const { data: projData } = await supabase.from("projects").select("*");
-      setProjectDeadlines(projData || []);
-
-      // 4. Social Posts
-      const { data: socData } = await supabase.from("social_posts").select("*");
-      setSocials(socData || []);
-
-      // 5. Campaigns / Emails
-      const { data: emailData } = await supabase.from("campaigns").select("*");
-      setEmails(emailData || []);
-
-      // 6. Payroll
-      const { data: payData } = await supabase.from("payroll").select("*");
-      setPayroll(payData || []);
-
-      // 7. Holidays
-      const { data: holData } = await supabase.from("holidays").select("*");
-      setHolidays(holData || []);
+      const [inv, proj, soc, hol] = await Promise.all([
+        supabase.from("invoices").select("*"),
+        supabase.from("projects").select("*"),
+        supabase.from("social_posts").select("*"),
+        supabase.from("holidays").select("*"),
+      ]);
+      setInvoices(inv.data || []);
+      setProjectDeadlines(proj.data || []);
+      setSocials(soc.data || []);
+      setHolidays(hol.data || []);
     } catch (e) {
-      console.error("Failed to load business node contextual data", e);
+      console.error("Contextual data sync failed", e);
     }
   }
 
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
     setSelectedDateString(format(day, "yyyy-MM-dd"));
-    setIsModalOpen(true);
   };
 
   async function handleCreateEntry() {
@@ -124,42 +87,18 @@ export default function CalendarPage() {
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error("User not authenticated");
-        return;
-      }
-      
+      if (!user) return;
       const combinedDate = new Date(`${selectedDateString}T${eventTime}:00`);
-
-      const payload = {
-        title: newTitle,
-        user_id: user.id,
-        created_at: combinedDate.toISOString(),
-        description: notes || "",
-        status: "todo",
-        priority: 1,
-        color: eventColor || "#a9b897",
-        location: eventLocation || "",
-        vc_link: vcLink || ""
-      };
-
-      const { error } = await supabase.from("tasks").insert([payload]);
-
-      if (error) {
-        console.error("Supabase Error Details:", error.message, error.details);
-        alert(`Save Failed: ${error.message}`);
-      } else {
-        setNewTitle("");
-        setEventTime("12:00");
-        setEventLocation("");
-        setEventColor("#a9b897");
-        setVcLink("");
-        setNotes("");
+      const { error } = await supabase.from("tasks").insert([{
+        title: newTitle, user_id: user.id, created_at: combinedDate.toISOString(),
+        description: notes, status: "todo", priority: 1, color: eventColor,
+        location: eventLocation, vc_link: vcLink
+      }]);
+      if (!error) {
         setIsModalOpen(false);
-        fetchEvents(); // Refresh items in calendar
+        setNewTitle("");
+        fetchEvents();
       }
-    } catch (err) {
-      console.error("Submission Exception:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -176,179 +115,76 @@ export default function CalendarPage() {
     };
   }, [currentMonth]);
 
-  // Aggregate all events for a specific day
   const getCombinedEventsForDay = (day: Date) => {
     const dayStr = format(day, "yyyy-MM-dd");
-    
-    const taskEvents = tasks
-      .filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === dayStr)
-      .map(t => ({ id: t.id, title: t.title, type: "Task", color: t.color || "#a9b897", time: format(new Date(t.created_at), "HH:mm") }));
-      
-    const invoiceEvents = invoices
-      .filter(i => i.due_date && format(new Date(i.due_date), "yyyy-MM-dd") === dayStr)
-      .map(i => ({ id: `inv-${i.id}`, title: `Invoice Due: ${i.title || i.amount || ''}`, type: "Invoice", color: "#eab308", time: "" }));
-      
-    const quoteEvents = quotes
-      .filter(q => q.due_date && format(new Date(q.due_date), "yyyy-MM-dd") === dayStr)
-      .map(q => ({ id: `q-${q.id}`, title: `Quote Due: ${q.title || ''}`, type: "Quote", color: "#f97316", time: "" }));
-      
-    const deadlineEvents = projectDeadlines
-      .filter(p => p.deadline && format(new Date(p.deadline), "yyyy-MM-dd") === dayStr)
-      .map(p => ({ id: `proj-${p.id}`, title: `Deadline: ${p.name || ''}`, type: "Project", color: "#3b82f6", time: "" }));
-      
-    const socialEvents = socials
-      .filter(s => s.scheduled_for && format(new Date(s.scheduled_for), "yyyy-MM-dd") === dayStr)
-      .map(s => ({ id: `soc-${s.id}`, title: `Social Post: ${s.platform || ''}`, type: "Social", color: "#ec4899", time: format(new Date(s.scheduled_for), "HH:mm") }));
-      
-    const emailEvents = emails
-      .filter(e => e.scheduled_for && format(new Date(e.scheduled_for), "yyyy-MM-dd") === dayStr)
-      .map(e => ({ id: `email-${e.id}`, title: `Email Campaign: ${e.subject || ''}`, type: "Email", color: "#8b5cf6", time: format(new Date(e.scheduled_for), "HH:mm") }));
-
-    const payEvents = payroll
-      .filter(pay => pay.payment_date && format(new Date(pay.payment_date), "yyyy-MM-dd") === dayStr)
-      .map(pay => ({ id: `pay-${pay.id}`, title: `Payroll Run: ${pay.description || ''}`, type: "Payroll", color: "#14b8a6", time: "" }));
-      
-    const holEvents = holidays
-      .filter(h => h.date && format(new Date(h.date), "yyyy-MM-dd") === dayStr)
-      .map(h => ({ id: `hol-${h.id}`, title: `Holiday: ${h.name || ''}`, type: "Holiday", color: "#10b981", time: "" }));
-
     return [
-      ...taskEvents,
-      ...invoiceEvents,
-      ...quoteEvents,
-      ...deadlineEvents,
-      ...socialEvents,
-      ...emailEvents,
-      ...payEvents,
-      ...holEvents
+      ...tasks.filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === dayStr).map(t => ({ ...t, type: "Task" })),
+      ...invoices.filter(i => i.due_date && format(new Date(i.due_date), "yyyy-MM-dd") === dayStr).map(i => ({ ...i, title: `Invoice: ${i.amount}`, type: "Invoice", color: "#eab308" })),
+      ...projectDeadlines.filter(p => p.deadline && format(new Date(p.deadline), "yyyy-MM-dd") === dayStr).map(p => ({ ...p, title: `Deadline: ${p.name}`, type: "Project", color: "#3b82f6" })),
+      ...socials.filter(s => s.scheduled_for && format(new Date(s.scheduled_for), "yyyy-MM-dd") === dayStr).map(s => ({ ...s, title: `Post: ${s.platform}`, type: "Social", color: "#ec4899" })),
+      ...holidays.filter(h => h.date && format(new Date(h.date), "yyyy-MM-dd") === dayStr).map(h => ({ ...h, title: h.name, type: "Holiday", color: "#10b981" }))
     ];
   };
   
-  const selectedDayEvents = useMemo(() => getCombinedEventsForDay(selectedDay), [selectedDay, tasks, invoices, quotes, projectDeadlines, socials, emails, payroll, holidays]);
-
-  // Helper function to capitalize Month name (ensures it is a capital string representation)
-  const getCapitalizedMonth = (date: Date) => {
-    const regular = format(date, "MMMM");
-    return regular.charAt(0).toUpperCase() + regular.slice(1);
-  };
+  const selectedDayEvents = useMemo(() => getCombinedEventsForDay(selectedDay), [selectedDay, tasks, invoices, projectDeadlines, socials, holidays]);
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] p-4 md:p-10 text-stone-900 overflow-x-hidden">
+    <div className="min-h-screen bg-[#faf9f6] p-3 md:p-10 text-stone-900 pb-32">
       
-      {/* MODAL */}
+      {/* MODAL: Fixed Framer Motion Syntax */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 flex items-center justify-center z-[100] p-4">
+          <div className="fixed inset-0 flex items-end md:items-center justify-center z-[100]">
             <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-stone-900/20 backdrop-blur-md" 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setIsModalOpen(false)} 
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" 
             />
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-white rounded-[3rem] p-10 shadow-2xl border border-stone-100 max-h-[85vh] overflow-y-auto"
+              initial={{ y: "100%", opacity: 0 }} 
+              animate={{ y: 0, opacity: 1 }} 
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="relative w-full md:max-w-lg bg-white rounded-t-[2.5rem] md:rounded-[3rem] p-6 md:p-10 shadow-2xl border border-stone-100 max-h-[90vh] overflow-y-auto"
             >
-              <div className="flex justify-between items-start mb-8">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-1 text-left">Create Event</p>
-                  <h3 className="text-3xl font-serif italic text-stone-800">{format(selectedDay, "do")} {getCapitalizedMonth(selectedDay)}</h3>
-                </div>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-stone-50 rounded-full transition-colors">
-                  <X size={20} className="text-stone-400" />
+              <div className="flex justify-between items-start mb-6">
+                <h3 className="text-2xl font-serif italic text-stone-800">New Entry</h3>
+                <button onClick={() => setIsModalOpen(false)} className="p-2 bg-stone-50 rounded-full transition-colors hover:bg-stone-100">
+                  <X size={18} />
                 </button>
               </div>
 
-              <div className="space-y-5">
-                <div>
-                  <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Title</label>
-                  <input 
-                    autoFocus
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    placeholder="What's happening?"
-                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 font-serif italic"
-                  />
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Event Title</label>
+                  <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Node Activity..." className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm focus:outline-none ring-2 ring-transparent focus:ring-[#a9b897]/20 transition-all" />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Date</label>
-                    <input 
-                      type="date"
-                      value={selectedDateString}
-                      onChange={(e) => setSelectedDateString(e.target.value)}
-                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 text-stone-600 font-medium"
-                    />
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Schedule Date</label>
+                    <input type="date" value={selectedDateString} onChange={(e) => setSelectedDateString(e.target.value)} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs focus:outline-none" />
                   </div>
-                  <div>
-                     <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Time</label>
-                     <input 
-                       type="time"
-                       value={eventTime}
-                       onChange={(e) => setEventTime(e.target.value)}
-                       className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 text-stone-600 font-medium"
-                     />
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Time</label>
+                    <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs focus:outline-none" />
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Category/Color</label>
-                  <select 
-                    value={eventColor}
-                    onChange={(e) => setEventColor(e.target.value)}
-                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none focus:ring-2 ring-[#a9b897]/20 text-stone-600 font-medium"
-                  >
-                    <option value="#a9b897">Soft Sage</option>
-                    <option value="#8fa07d">Sage Strong</option>
-                    <option value="#eab308">Yellow Sun</option>
-                    <option value="#3b82f6">Ocean Blue</option>
-                    <option value="#ef4444">Alert Red</option>
-                  </select>
-                </div>
-
-                <div>
-                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Location</label>
-                   <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3">
-                     <MapPin size={14} className="text-stone-400" />
-                     <input 
-                       value={eventLocation}
-                       onChange={(e) => setEventLocation(e.target.value)}
-                       placeholder="e.g. Boardroom or Remote"
-                       className="w-full bg-transparent text-xs focus:outline-none"
-                     />
-                   </div>
-                </div>
-
-                <div>
-                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Video Call Link</label>
-                   <div className="flex items-center gap-3 bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3">
-                     <LinkIcon size={14} className="text-stone-400" />
-                     <input 
-                       value={vcLink}
-                       onChange={(e) => setVcLink(e.target.value)}
-                       placeholder="https://..."
-                       className="w-full bg-transparent text-xs focus:outline-none"
-                     />
-                   </div>
-                </div>
-
-                <div>
-                   <label className="text-[8px] font-black tracking-widest text-stone-400 uppercase mb-1 ml-1 block">Internal & External Notes</label>
-                   <textarea 
-                     value={notes}
-                     onChange={(e) => setNotes(e.target.value)}
-                     placeholder="Meeting brief or checklist items..."
-                     className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs focus:outline-none h-20 resize-none font-serif italic"
-                   />
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Additional Intelligence</label>
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Strategic notes..." className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm h-24 resize-none focus:outline-none" />
                 </div>
 
                 <button 
-                  onClick={handleCreateEntry}
-                  disabled={isSubmitting || !newTitle}
-                  className="w-full bg-[#a9b897] text-white py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-3 shadow-lg shadow-[#a9b897]/20"
+                  onClick={handleCreateEntry} 
+                  disabled={isSubmitting || !newTitle} 
+                  className="w-full bg-stone-900 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-2 hover:bg-stone-800 transition-all shadow-xl disabled:opacity-50"
                 >
-                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                  Save Event
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} 
+                  Provision Entry
                 </button>
               </div>
             </motion.div>
@@ -356,72 +192,64 @@ export default function CalendarPage() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1600px] mx-auto grid lg:grid-cols-12 gap-8 items-start">
+      <div className="max-w-[1600px] mx-auto grid lg:grid-cols-12 gap-6 md:gap-8">
         
-        {/* MAIN CALENDAR GRID */}
-        <div className="lg:col-span-9 bg-white rounded-[3.5rem] border border-stone-100 shadow-sm overflow-hidden">
-          <div className="p-8 flex justify-between items-center border-b border-stone-50">
-             <div className="flex items-center gap-6">
-               <h1 className="text-5xl font-serif italic text-stone-800 tracking-tighter leading-none lowercase capitalize">
-                 {getCapitalizedMonth(currentMonth)}
+        {/* CALENDAR BLOCK */}
+        <div className="lg:col-span-9 bg-white rounded-[2.5rem] md:rounded-[3.5rem] border border-stone-100 shadow-sm overflow-hidden">
+          <div className="p-6 md:p-10 flex justify-between items-center bg-white border-b border-stone-50">
+             <div className="space-y-1">
+               <p className="hidden md:block text-[9px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Chronos Module</p>
+               <h1 className="text-3xl md:text-5xl font-serif italic text-stone-800 lowercase capitalize leading-none">
+                 {format(currentMonth, "MMMM")}
                </h1>
-               <button 
-                 onClick={() => setCurrentMonth(new Date())}
-                 className="text-[9px] font-black tracking-widest uppercase bg-stone-50 border border-stone-200 px-3 py-2 rounded-xl text-stone-500 hover:bg-stone-100 transition"
-               >
-                 Jump To Today
-               </button>
              </div>
-             
              <div className="flex gap-2">
-                <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-3 bg-stone-50 rounded-full text-stone-400 hover:text-stone-800 transition-colors"><ChevronLeft size={18}/></button>
-                <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-3 bg-stone-50 rounded-full text-stone-400 hover:text-stone-800 transition-colors"><ChevronRight size={18}/></button>
+                <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-3 bg-stone-50 rounded-full text-stone-400 hover:text-stone-900 transition-colors"><ChevronLeft size={20}/></button>
+                <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-3 bg-stone-50 rounded-full text-stone-400 hover:text-stone-900 transition-colors"><ChevronRight size={20}/></button>
              </div>
           </div>
           
-          <div className="grid grid-cols-7 border-b border-stone-50 bg-stone-50/30">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-              <div key={d} className="py-4 text-center text-[9px] font-black uppercase tracking-[0.3em] text-stone-300">{d}</div>
+          <div className="grid grid-cols-7 bg-stone-50/30 border-b border-stone-50">
+            {["S", "M", "T", "W", "T", "F", "S"].map(d => (
+              <div key={d} className="py-4 text-center text-[8px] md:text-[9px] font-black uppercase tracking-widest text-stone-300">{d}</div>
             ))}
           </div>
 
           <div className="grid grid-cols-7">
             {calendarDays.map((day) => {
               const dayEvents = getCombinedEventsForDay(day);
-              const isCurrentMonth = isSameMonth(day, monthStart);
+              const isSelected = isSameDay(day, selectedDay);
               const isToday = isSameDay(day, new Date());
+              const isCurrentMonth = isSameMonth(day, monthStart);
               
               return (
                 <div 
                   key={day.toISOString()}
                   onClick={() => handleDayClick(day)}
-                  className={`min-h-[140px] p-4 border-r border-b border-stone-50 transition-all cursor-pointer relative
-                    ${!isCurrentMonth ? 'opacity-20' : 'bg-white hover:bg-[#a9b897]/5'}
-                    group
+                  className={`min-h-[90px] md:min-h-[140px] p-2 md:p-5 border-r border-b border-stone-50 transition-all cursor-pointer relative
+                    ${!isCurrentMonth ? 'opacity-10 pointer-events-none' : 'bg-white hover:bg-stone-50/50'}
+                    ${isSelected && isCurrentMonth ? 'bg-[#fcfaf7]' : ''}
                   `}
                 >
-                  <span className={`text-xs font-bold transition-colors ${isToday ? 'bg-stone-900 text-white px-2 py-1 rounded-lg' : 'text-stone-800 group-hover:text-[#a9b897]'}`}>
+                  <span className={`text-[10px] md:text-xs font-bold transition-all ${isToday ? 'bg-stone-900 text-white px-2 py-0.5 rounded-md' : 'text-stone-800'}`}>
                     {format(day, "d")}
                   </span>
                   
-                  {/* Event Previews */}
-                  <div className="mt-2 space-y-1">
-                    {dayEvents.slice(0, 3).map(e => (
-                      <div 
-                        key={e.id} 
-                        className="text-[8px] font-black uppercase truncate border p-1 rounded tracking-tighter"
-                        style={{
-                          backgroundColor: `${e.color || '#a9b897'}20`, 
-                          borderColor: e.color || '#a9b897',
-                          color: '#444'
-                        }}
-                      >
-                        {e.title}
-                      </div>
-                    ))}
-                    {dayEvents.length > 3 && (
-                      <p className="text-[7px] font-black text-stone-300 uppercase mt-1">+{dayEvents.length - 3} more</p>
-                    )}
+                  {/* Desktop List vs Mobile Dots */}
+                  <div className="mt-2">
+                    <div className="hidden md:flex flex-col gap-1">
+                      {dayEvents.slice(0, 2).map((e, i) => (
+                        <div key={i} className="text-[7px] font-black uppercase truncate p-1.5 rounded-lg border leading-none" style={{ backgroundColor: `${e.color}10`, borderColor: `${e.color}40`, color: '#444' }}>
+                          {e.title}
+                        </div>
+                      ))}
+                      {dayEvents.length > 2 && <p className="text-[7px] font-black text-stone-300 uppercase pl-1">+{dayEvents.length - 2} More</p>}
+                    </div>
+                    <div className="flex md:hidden gap-1 flex-wrap mt-2">
+                      {dayEvents.slice(0, 4).map((e, i) => (
+                        <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: e.color }} />
+                      ))}
+                    </div>
                   </div>
                 </div>
               );
@@ -429,54 +257,58 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* SIDEBAR DETAIL */}
-        <aside className="lg:col-span-3 flex flex-col gap-6 h-full">
-          <div className="bg-white p-8 rounded-[3rem] border border-stone-100 shadow-sm flex flex-col min-h-[400px]">
-            <div className="text-center mb-8">
-              <h2 className="text-4xl font-serif italic text-stone-800 leading-none mb-2">{format(selectedDay, "do")}</h2>
-              <h3 className="text-2xl font-serif italic text-stone-400">{getCapitalizedMonth(selectedDay)}</h3>
-              <div className="h-px bg-stone-100 w-12 mx-auto my-4" />
-              <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Agenda</p>
+        {/* SIDEBAR AGENDA */}
+        <aside className="lg:col-span-3 space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] md:rounded-[3rem] border border-stone-100 shadow-sm flex flex-col min-h-[450px]">
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897] mb-1">{format(selectedDay, "EEEE")}</p>
+                <h2 className="text-3xl font-serif italic text-stone-800 leading-none">{format(selectedDay, "do MMM")}</h2>
+              </div>
+              <motion.button 
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsModalOpen(true)} 
+                className="p-4 bg-stone-900 text-white rounded-2xl shadow-xl hover:bg-stone-800 transition-all"
+              >
+                <Plus size={20} />
+              </motion.button>
             </div>
 
-            <div className="flex-grow space-y-3 overflow-y-auto max-h-[400px]">
+            <div className="flex-1 space-y-3 overflow-y-auto max-h-[350px] pr-2 scrollbar-hide">
               {selectedDayEvents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 opacity-30">
-                   <CalendarIcon size={32} className="mb-2" />
-                   <p className="text-stone-400 font-serif italic text-sm">No entries scheduled.</p>
+                <div className="py-12 text-center space-y-2 opacity-30">
+                  <CalendarIcon size={24} className="mx-auto text-stone-400" />
+                  <p className="text-xs font-serif italic text-stone-500">Zero operations scheduled.</p>
                 </div>
               ) : (
-                selectedDayEvents.map(e => (
-                  <div 
-                    key={e.id} 
-                    className="p-4 rounded-2xl border transition-colors space-y-1"
-                    style={{
-                      backgroundColor: `${e.color || '#a9b897'}10`,
-                      borderColor: e.color || '#a9b897'
-                    }}
-                  >
-                    <p className="text-[10px] font-bold leading-tight uppercase tracking-tight text-stone-800">{e.title}</p>
-                    <span className="text-[8px] font-mono bg-white/70 px-1.5 py-0.5 rounded border border-black/5 uppercase text-stone-500 tracking-wider mb-1 inline-block">{e.type}</span>
-                    {e.time && <p className="text-[8px] text-stone-500 flex items-center gap-1"><Clock size={10}/> {e.time}</p>}
+                selectedDayEvents.map((e, i) => (
+                  <div key={i} className="p-5 rounded-[1.5rem] border bg-[#faf9f6] transition-all hover:border-stone-300" style={{ borderLeftWidth: '4px', borderLeftColor: e.color }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[7px] font-black uppercase tracking-widest text-stone-400">{e.type}</span>
+                      {e.created_at && <span className="text-[7px] text-stone-400 font-bold">{format(new Date(e.created_at), "HH:mm")}</span>}
+                    </div>
+                    <p className="text-[10px] font-bold text-stone-800 leading-tight uppercase tracking-tight">{e.title}</p>
                   </div>
                 ))
               )}
             </div>
             
-            <p className="text-[7px] text-center uppercase tracking-widest text-stone-300 mt-6 font-bold">
-              Click any date to add entry
-            </p>
+            <div className="mt-8 pt-6 border-t border-stone-50">
+              <p className="text-[7px] text-center uppercase tracking-[0.3em] text-stone-300 font-black">
+                Select date to update node agenda
+              </p>
+            </div>
           </div>
 
-          {/* FISCAL CARD */}
-          <div className="bg-[#a9b897] p-8 rounded-[3rem] text-white relative overflow-hidden flex-shrink-0">
+          {/* FISCAL CARD: Hidden on small mobile to reduce clutter */}
+          <div className="hidden sm:block bg-[#a9b897] p-8 rounded-[3rem] text-white relative overflow-hidden group shadow-lg shadow-[#a9b897]/20">
             <div className="relative z-10">
-              <Landmark size={24} className="mb-4 opacity-50" />
-              <p className="text-[8px] font-black uppercase tracking-widest mb-1 opacity-80">Fiscal Deadline</p>
-              <p className="text-3xl font-serif italic leading-none mb-4">May 31st</p>
-              <p className="text-[10px] opacity-90 leading-relaxed font-medium">VAT Quarter Return sequence required in 52 days.</p>
+              <Landmark size={24} className="mb-4 opacity-50 group-hover:scale-110 transition-transform" />
+              <p className="text-[8px] font-black uppercase tracking-[0.3em] mb-1 opacity-80">Financial Sentinel</p>
+              <p className="text-2xl font-serif italic leading-none mb-2">VAT Cycle End</p>
+              <p className="text-[10px] font-medium opacity-90 leading-relaxed">System tracking 52 days until next tax sequence.</p>
             </div>
-            <CalendarIcon size={120} className="absolute -right-6 -bottom-6 opacity-10" />
+            <CalendarIcon size={120} className="absolute -right-6 -bottom-6 opacity-10 group-hover:rotate-12 transition-transform duration-700" />
           </div>
         </aside>
       </div>

@@ -3,7 +3,18 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
-const SettingsContext = createContext<any>(null);
+// 1. Create a default state so it's never null
+const defaultSettings = {
+  brandColor: "#a9b897",
+  secondaryColor: "#1c1917",
+  fontFamily: "Inter",
+  logoUrl: "",
+  mobileNav: ["/dashboard", "/clarity", "/calendar"],
+  loading: true,
+  refreshSettings: async () => {}
+};
+
+const SettingsContext = createContext(defaultSettings);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const supabase = createBrowserClient(
@@ -11,14 +22,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const [settings, setSettings] = useState({
-    brandColor: "#a9b897",
-    secondaryColor: "#1c1917",
-    fontFamily: "Inter",
-    logoUrl: "",
-    mobileNav: ["/dashboard", "/clarity", "/calendar"],
-    loading: true
-  });
+  const [settings, setSettings] = useState(defaultSettings);
 
   const refreshSettings = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -37,7 +41,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         fontFamily: p.font_family || "Inter",
         logoUrl: p.logo_url || "",
         mobileNav: p.mobile_nav_config || ["/dashboard", "/clarity", "/calendar"],
-        loading: false
+        loading: false,
+        refreshSettings
       });
     }
   };
@@ -46,18 +51,25 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     refreshSettings();
   }, []);
 
-  // Update CSS Variables globally whenever colors or fonts change
   useEffect(() => {
-    document.documentElement.style.setProperty("--brand-primary", settings.brandColor);
-    document.documentElement.style.setProperty("--brand-secondary", settings.secondaryColor);
-    document.body.style.fontFamily = settings.fontFamily;
-  }, [settings]);
+    if (typeof window !== "undefined") {
+      document.documentElement.style.setProperty("--brand-primary", settings.brandColor);
+      document.documentElement.style.setProperty("--brand-secondary", settings.secondaryColor);
+    }
+  }, [settings.brandColor, settings.secondaryColor]);
 
   return (
-    <SettingsContext.Provider value={{ ...settings, refreshSettings }}>
+    <SettingsContext.Provider value={settings}>
       {children}
     </SettingsContext.Provider>
   );
 }
 
-export const useSettings = () => useContext(SettingsContext);
+// 2. Add a safety check in the hook
+export const useSettings = () => {
+  const context = useContext(SettingsContext);
+  if (context === undefined) {
+    return defaultSettings; // Fallback to defaults instead of crashing
+  }
+  return context;
+};

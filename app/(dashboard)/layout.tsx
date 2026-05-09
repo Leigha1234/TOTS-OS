@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "@/app/components/Sidebar";
 import Link from "next/link";
-import { useSettings } from "../context/SettingsContext"; 
+import { useSettings } from "@/app/context/SettingsContext";
 import { 
   LayoutDashboard, Users, Calendar, Megaphone, 
   DollarSign, Briefcase, BarChart3, Globe, Lock, Settings, Menu, X,
@@ -11,13 +11,21 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// This prevents the "prerender error" on Vercel by telling Next.js 
+// that this layout depends on dynamic user state.
+export const dynamic = "force-dynamic";
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // Pulling global state from our Context Brain
-  const { mobileNav, logoUrl, brandColor, loading } = useSettings();
+  // Use a fallback object to prevent destructuring errors during build
+  const settings = useSettings() || {};
+  const { 
+    mobileNav = ["/dashboard", "/clarity", "/calendar"], 
+    logoUrl, 
+    brandColor = "#a9b897" 
+  } = settings;
 
-  // Registry of all possible links for mapping
   const allLinks = [
     { href: "/dashboard", label: "Home", icon: LayoutDashboard },
     { href: "/clarity", label: "Clarity", icon: Sparkles },
@@ -33,9 +41,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
-  // Dynamic filter for the 3 pinned items
+  // Safely filter based on mobileNav array
   const pinnedMobileLinks = allLinks.filter(link => 
-    mobileNav?.includes(link.href)
+    mobileNav.includes(link.href)
   ).slice(0, 3);
 
   useEffect(() => {
@@ -59,7 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </div>
 
-        {/* MOBILE BOTTOM NAV - Respects Pinned Settings */}
+        {/* MOBILE BOTTOM NAV */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-xl border-t border-stone-200 z-[90] px-6 flex items-center justify-between pb-safe">
           {pinnedMobileLinks.map((link) => (
             <MobileNavItem 
@@ -67,6 +75,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               href={link.href} 
               icon={link.icon} 
               label={link.label} 
+              activeColor={brandColor}
             />
           ))}
           
@@ -99,7 +108,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </p>
                     <div className="flex items-center gap-3">
                       {logoUrl && <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain" />}
-                      <span className="font-serif italic text-3xl text-stone-800 text-left block">Tots OS</span>
+                      <span className="font-serif italic text-3xl text-stone-800">Tots OS</span>
                     </div>
                   </div>
                   <button 
@@ -121,7 +130,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div style={{ color: brandColor }}>
                         <link.icon size={22} />
                       </div>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-600 text-left">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">
                         {link.label}
                       </span>
                     </Link>
@@ -136,10 +145,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   );
 }
 
-function MobileNavItem({ href, icon: Icon, label }: { href: string; icon: any; label: string }) {
-  // We can use standard Tailwind 'active' states or pull the brandColor here too
+function MobileNavItem({ href, icon: Icon, label, activeColor }: { href: string; icon: any; label: string, activeColor: string }) {
   return (
-    <Link href={href} className="flex flex-col items-center gap-1 text-stone-400 active:text-stone-900 transition-colors">
+    <Link href={href} className="flex flex-col items-center gap-1 text-stone-400 hover:text-stone-900 transition-colors">
       <Icon size={20} />
       <span className="text-[8px] font-black uppercase tracking-tighter">{label}</span>
     </Link>

@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client"; 
+import { useSettings } from "@/app/context/SettingsContext"; // Ensure this path matches your project
 import { 
   Save, Moon, Sun, Loader2, Landmark, 
   Users, Trash2, Check, Camera, Mail, 
@@ -29,8 +30,6 @@ const NAV_OPTIONS = [
   { id: "/vault", label: "Vault", icon: Lock },
 ];
 
-const TIERS = ["STANDARD", "PREMIUM", "ELITE"];
-
 export default function SettingsPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#fcfaf7]"><Loader2 className="animate-spin text-[#a9b897]" size={40} /></div>}>
@@ -41,6 +40,7 @@ export default function SettingsPage() {
 
 function SettingsContent() {
   const router = useRouter();
+  const { refreshSettings } = useSettings(); // Hook into the global context brain
   
   // --- UI STATE ---
   const [loading, setLoading] = useState(true);
@@ -127,16 +127,24 @@ function SettingsContent() {
   const handleGlobalSave = async () => {
     setSaving(true);
     try {
-      await supabase.from("profiles").update({ 
+      // 1. Update Profile & Mobile Nav Architecture
+      const { error: profileError } = await supabase.from("profiles").update({ 
         full_name: profile.full_name, 
         phone: profile.phone, 
         next_of_kin: nextOfKin, 
         tier: currentTier,
-        mobile_nav_config: mobileNav // Save the 3 chosen pages
+        brand_color: brandColor, // Syncing brand colors to profile for global context
+        secondary_color: secondaryColor,
+        font_family: selectedFont,
+        mobile_nav_config: mobileNav 
       }).eq("id", user.id);
 
+      if (profileError) throw profileError;
+
+      // 2. Auth Updates
       if (email !== user.email || password) await supabase.auth.updateUser({ email, password });
       
+      // 3. Team Settings Update
       if (teamId) {
         await supabase.from("settings").upsert({
           team_id: teamId, brand_color: brandColor, secondary_color: secondaryColor, font_family: selectedFont,
@@ -144,8 +152,18 @@ function SettingsContent() {
           campaigns: campaignList, next_of_kin_phone: nextOfKinPhone
         });
       }
+
+      // 4. THE HANDSHAKE: Tell the global context to refresh styles and nav across the whole app
+      await refreshSettings();
+      
       setAuditLogs(prev => [`• Global sync: ${new Date().toLocaleTimeString()}`, ...prev]);
-    } catch (err: any) { alert(err.message); } finally { setSaving(false); }
+      alert("System Protocol Updated & Synced Globally");
+
+    } catch (err: any) { 
+      alert(err.message); 
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   const copyInviteLink = () => {
@@ -257,7 +275,7 @@ function SettingsContent() {
           {/* RIGHT COLUMN */}
           <div className="lg:col-span-8 space-y-8">
             
-            {/* NEW SECTION: MOBILE NAV ARCHITECTURE */}
+            {/* MOBILE NAV ARCHITECTURE */}
             <section className={`p-8 lg:p-12 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
                <div className="space-y-1 mb-8">
                   <h2 className="text-4xl font-serif italic custom-brand-text">Mobile Architecture</h2>

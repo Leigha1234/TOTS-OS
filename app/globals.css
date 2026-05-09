@@ -7,7 +7,7 @@
 
 /* 🌿 THE ORGANISED TYPES DESIGN SYSTEM */
 :root {
-  /* Dynamic Variables - Controlled by SettingsProvider JS */
+  /* These act as defaults. The SettingsProvider will override these live. */
   --brand-primary: #a9b897;
   --brand-secondary: #1c1917;
   
@@ -27,11 +27,11 @@
 html, body {
   background: var(--bg) !important;
   color: var(--text);
-  /* font-family is updated via JS in SettingsProvider */
+  /* Fallback fonts; SettingsProvider will inject the user choice */
   font-family: "Poppins", Inter, system-ui, sans-serif;
   margin: 0;
   padding: 0;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 /* ✨ BACKGROUND - Now uses dynamic brand primary */
@@ -40,10 +40,11 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 20%, var(--brand-primary), transparent 40%),
-    radial-gradient(circle at 80% 30%, var(--brand-primary), transparent 40%);
-  opacity: 0.15; /* Maintain transparency regardless of color choice */
+    radial-gradient(circle at 20% 20%, var(--brand-primary), transparent 45%),
+    radial-gradient(circle at 80% 30%, var(--brand-primary), transparent 45%);
+  opacity: 0.12; 
   z-index: -1;
+  transition: background 0.6s ease;
 }
 
 /* 🧊 GLASS */
@@ -60,12 +61,12 @@ body::before {
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 18px;
-  transition: all 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.4s ease;
 }
 
 .card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.06);
 }
 
 /* 📄 PAPER */
@@ -78,18 +79,23 @@ body::before {
 /* 🔘 DYNAMIC BUTTON */
 button {
   background: var(--brand-primary);
-  color: #fff; /* White text for contrast on brand colors */
+  color: #ffffff; 
   border-radius: 12px;
   padding: 9px 16px;
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   border: none;
   cursor: pointer;
 }
 
 button:hover {
   background: var(--brand-secondary);
-  transform: scale(1.02);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+button:active {
+  transform: translateY(0px);
 }
 
 /* ✏️ INPUT */
@@ -99,6 +105,12 @@ input, select, textarea {
   border-radius: 12px;
   padding: 10px;
   font-family: inherit;
+  transition: border-color 0.3s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
 }
 
 /* 🧠 CLARITY */
@@ -109,10 +121,19 @@ input, select, textarea {
   padding: 22px;
 }
 
-/* 🎨 BRAND HELPERS - Use these in your components */
-.text-brand { color: var(--brand-primary); }
-.bg-brand { background-color: var(--brand-primary); }
-.border-brand { border-color: var(--brand-primary); }
+/* 🎨 BRAND HELPERS - Use these for text and backgrounds in components */
+.text-brand { 
+  color: var(--brand-primary); 
+  transition: color 0.4s ease;
+}
+.bg-brand { 
+  background-color: var(--brand-primary); 
+  transition: background-color 0.4s ease;
+}
+.border-brand { 
+  border-color: var(--brand-primary); 
+  transition: border-color 0.4s ease;
+}
 
 /* 🦶 FOOTER */
 .footer {
@@ -127,6 +148,7 @@ input, select, textarea {
   font-weight: 600;
   font-size: 16px;
   color: var(--brand-primary);
+  transition: color 0.4s ease;
 }
 
 /* 📬 NEWSLETTER POPUP */
@@ -155,7 +177,7 @@ input, select, textarea {
   background: transparent !important;
 }
 
-/* 🖱️ DYNAMIC MOUSE GLOW - Now uses brand primary */
+/* 🖱️ DYNAMIC MOUSE GLOW */
 body::after {
   content: "";
   position: fixed;
@@ -163,11 +185,12 @@ body::after {
   background: radial-gradient(
     circle at var(--x, 50%) var(--y, 50%),
     var(--brand-primary),
-    transparent 40%
+    transparent 45%
   );
-  opacity: 0.12;
+  opacity: 0.08;
   pointer-events: none;
   z-index: 9999;
+  transition: background 0.4s ease;
 }
 
 /* 📱 SCROLLBAR UTILITY */

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "@/app/components/Sidebar";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSettings } from "@/app/context/SettingsContext";
 import { 
   LayoutDashboard, Users, Calendar, Megaphone, 
@@ -11,20 +12,17 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// This prevents the "prerender error" on Vercel by telling Next.js 
-// that this layout depends on dynamic user state.
-export const dynamic = "force-dynamic";
-
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
   
-  // Use a fallback object to prevent destructuring errors during build
-  const settings = useSettings() || {};
+  // Connect to global settings
   const { 
     mobileNav = ["/dashboard", "/clarity", "/calendar"], 
     logoUrl, 
-    brandColor = "#a9b897" 
-  } = settings;
+    brandColor = "#a9b897",
+    loading 
+  } = useSettings();
 
   const allLinks = [
     { href: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -41,23 +39,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
-  // Safely filter based on mobileNav array
+  // Filter links based on the user's "Top 3" selection in Settings
   const pinnedMobileLinks = allLinks.filter(link => 
     mobileNav.includes(link.href)
   ).slice(0, 3);
 
+  // Prevent background scrolling when mobile menu is open
   useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "unset";
   }, [mobileMenuOpen]);
 
   return (
     <div className="flex h-screen w-full bg-[#fcfaf7] overflow-hidden">
       {/* DESKTOP SIDEBAR */}
-      <aside className="hidden md:block h-full">
+      <aside className="hidden md:block h-full flex-shrink-0">
         <Sidebar />
       </aside>
 
@@ -67,75 +62,88 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </div>
 
-        {/* MOBILE BOTTOM NAV */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-xl border-t border-stone-200 z-[90] px-6 flex items-center justify-between pb-safe">
+        {/* MOBILE BOTTOM NAV - DYNAMICALLY PINNED */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-2xl border-t border-stone-100 z-[90] px-8 flex items-center justify-between pb-safe">
           {pinnedMobileLinks.map((link) => (
             <MobileNavItem 
               key={link.href} 
               href={link.href} 
               icon={link.icon} 
               label={link.label} 
+              isActive={pathname === link.href}
               activeColor={brandColor}
             />
           ))}
           
           <button 
             onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center gap-1 text-stone-400"
+            className="flex flex-col items-center gap-1 transition-colors text-stone-400"
           >
-            <Menu size={20} />
-            <span className="text-[8px] font-black uppercase tracking-tighter">More</span>
+            <Menu size={22} strokeWidth={1.5} />
+            <span className="text-[7px] font-black uppercase tracking-tighter">System</span>
           </button>
         </nav>
 
-        {/* MOBILE FULL-SCREEN OVERLAY */}
+        {/* MOBILE FULL-SCREEN MENU */}
         <AnimatePresence>
           {mobileMenuOpen && (
             <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[200] bg-white overflow-y-auto"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-0 z-[200] bg-[#fcfaf7] overflow-y-auto"
             >
-              <div className="min-h-full p-8 pb-40">
-                <div className="flex justify-between items-center mb-10">
-                  <div className="space-y-1">
+              <div className="min-h-full p-8 pb-32">
+                <div className="flex justify-between items-start mb-12">
+                  <div className="space-y-2">
                     <p 
-                      className="text-[8px] font-black uppercase tracking-[0.4em]"
+                      className="text-[9px] font-black uppercase tracking-[0.4em]"
                       style={{ color: brandColor }}
                     >
-                      System Menu
+                      Infrastructure
                     </p>
                     <div className="flex items-center gap-3">
-                      {logoUrl && <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain" />}
-                      <span className="font-serif italic text-3xl text-stone-800">Tots OS</span>
+                      {logoUrl && <img src={logoUrl} alt="Logo" className="w-10 h-10 object-contain rounded-xl" />}
+                      <span className="font-serif italic text-4xl tracking-tighter text-stone-900">Tots OS</span>
                     </div>
                   </div>
                   <button 
                     onClick={() => setMobileMenuOpen(false)} 
-                    className="p-3 bg-stone-100 rounded-2xl active:scale-90"
+                    className="p-4 bg-white border border-stone-200 rounded-[1.5rem] shadow-sm active:scale-95 transition-transform"
                   >
-                    <X size={20} />
+                    <X size={24} className="text-stone-900" />
                   </button>
                 </div>
 
+                {/* GRID OF ALL PAGES */}
                 <div className="grid grid-cols-2 gap-4">
                   {allLinks.map((link) => (
                     <Link 
                       key={link.href}
                       href={link.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex flex-col justify-between h-32 p-6 bg-[#faf9f6] rounded-[2rem] border border-stone-100 active:bg-stone-200 transition-all shadow-sm"
+                      className={`flex flex-col justify-between h-32 p-6 rounded-[2.5rem] border transition-all duration-300 ${
+                        pathname === link.href 
+                        ? 'bg-white border-stone-200 shadow-xl scale-[1.02]' 
+                        : 'bg-white/50 border-stone-100 hover:bg-white active:scale-95'
+                      }`}
                     >
-                      <div style={{ color: brandColor }}>
-                        <link.icon size={22} />
+                      <div style={{ color: pathname === link.href ? brandColor : '#d6d3d1' }}>
+                        <link.icon size={24} strokeWidth={1.5} />
                       </div>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${
+                        pathname === link.href ? 'text-stone-900' : 'text-stone-400'
+                      }`}>
                         {link.label}
                       </span>
                     </Link>
                   ))}
                 </div>
+                
+                <p className="mt-12 text-center text-[8px] font-black uppercase tracking-[0.5em] opacity-20">
+                  Tots OS v4.0 Mobile Handshake
+                </p>
               </div>
             </motion.div>
           )}
@@ -145,11 +153,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   );
 }
 
-function MobileNavItem({ href, icon: Icon, label, activeColor }: { href: string; icon: any; label: string, activeColor: string }) {
+function MobileNavItem({ 
+  href, 
+  icon: Icon, 
+  label, 
+  isActive, 
+  activeColor 
+}: { 
+  href: string; 
+  icon: any; 
+  label: string; 
+  isActive: boolean;
+  activeColor: string;
+}) {
   return (
-    <Link href={href} className="flex flex-col items-center gap-1 text-stone-400 hover:text-stone-900 transition-colors">
-      <Icon size={20} />
-      <span className="text-[8px] font-black uppercase tracking-tighter">{label}</span>
+    <Link 
+      href={href} 
+      className="flex flex-col items-center gap-1 transition-all duration-300"
+      style={{ color: isActive ? activeColor : '#d6d3d1' }}
+    >
+      <Icon size={22} strokeWidth={isActive ? 2 : 1.5} />
+      <span className={`text-[7px] font-black uppercase tracking-tighter ${isActive ? 'opacity-100' : 'opacity-60'}`}>
+        {label}
+      </span>
+      {isActive && (
+        <motion.div 
+          layoutId="activeTab"
+          className="w-1 h-1 rounded-full mt-0.5"
+          style={{ backgroundColor: activeColor }}
+        />
+      )}
     </Link>
   );
 }

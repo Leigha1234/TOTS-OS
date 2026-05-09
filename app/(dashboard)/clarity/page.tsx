@@ -11,6 +11,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
+// We initialize the model inside the function to ensure the key is loaded
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 type Message = { id: string; role: "user" | "assistant"; content: string; created_at: string };
@@ -28,12 +29,11 @@ export default function ClarityAIPage() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
   const [isLoading, setIsLoading] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Responsive Sidebar initialization
   useEffect(() => {
     if (window.innerWidth >= 768) {
       setIsSidebarOpen(true);
@@ -42,7 +42,7 @@ export default function ClarityAIPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: pData, error } = await supabase
+      const { data: pData } = await supabase
         .from('clarity_projects')
         .select('*, clarity_chats(*)')
         .order('created_at', { ascending: false });
@@ -79,6 +79,13 @@ export default function ClarityAIPage() {
 
   const sendMessage = async () => {
     if (!input.trim() || !activeChatId || isLoading) return;
+    
+    // Check for API Key
+    if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
+      alert("System Error: Gemini API Key is missing from environment variables.");
+      return;
+    }
+
     const userText = input;
     setInput("");
     setIsLoading(true);
@@ -86,28 +93,54 @@ export default function ClarityAIPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: userMsg } = await supabase
+    // 1. Save User Message to Database
+    const { data: userMsg, error: userError } = await supabase
       .from('clarity_messages')
       .insert([{ chat_id: activeChatId, user_id: user.id, role: 'user', content: userText }])
       .select().single();
 
-    if (userMsg) setMessages(prev => [...prev, userMsg]);
+    if (userError) {
+      console.error("Database Error:", userError);
+      setIsLoading(false);
+      return;
+    }
+
+    // Update UI immediately
+    setMessages(prev => [...prev, userMsg]);
 
     try {
-      const history = messages.map(m => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content }],
-      }));
-      const chat = model.startChat({ history });
-      const result = await chat.sendMessage(userText);
-      const botResponse = await result.response.text();
+      // 2. Prepare History for Gemini (MUST alternate user/model)
+      // We filter to ensure we only send valid turns to the AI
+      const history = messages
+        .filter(m => m.content && (m.role === "user" || m.role === "assistant"))
+        .map(m => ({
+          role: m.role === "user" ? "user" : "model",
+          parts: [{ text: m.content }],
+        }));
 
+      // 3. Initiate AI Handshake
+      const chatSession = model.startChat({
+        history: history,
+        generationConfig: {
+          maxOutputTokens: 1000,
+        },
+      });
+
+      const result = await chatSession.sendMessage(userText);
+      const response = await result.response;
+      const botResponse = response.text();
+
+      // 4. Save AI Response to Database
       const { data: botMsg } = await supabase
         .from('clarity_messages')
         .insert([{ chat_id: activeChatId, user_id: user.id, role: 'assistant', content: botResponse }])
         .select().single();
 
       if (botMsg) setMessages(prev => [...prev, botMsg]);
+
+    } catch (error) {
+      console.error("Clarity AI Error:", error);
+      // Optional: Add a dummy error message to the chat so the user knows it failed
     } finally {
       setIsLoading(false);
     }
@@ -192,9 +225,11 @@ export default function ClarityAIPage() {
       <main className="flex-1 flex flex-col relative min-w-0 bg-[#fcfaf7]">
         <header className="h-16 md:h-20 border-b border-stone-100 flex items-center justify-between px-4 md:px-8 bg-white/50 backdrop-blur-xl">
           <div className="flex items-center gap-3 md:gap-4 min-w-0">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-stone-100 rounded-xl">
-              <Menu size={20} />
-            </button>
+            {!isSidebarOpen && (
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-stone-100 rounded-xl">
+                <Menu size={20} />
+              </button>
+            )}
             <h2 className="text-xs md:text-sm font-serif italic text-stone-500 truncate">
               {projects.find(p => p.id === activeProjectId)?.name || "Clarity"}
             </h2>

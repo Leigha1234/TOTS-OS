@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { Mail, Fingerprint, Loader2, UserPlus, LogIn } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState(""); // Added for team naming logic
   const [loading, setLoading] = useState(false);
+  
+  const searchParams = useSearchParams();
+  const inviteId = searchParams.get("invite");
 
-  // Initialize the Supabase Client safely inside the component
+  // Automatically switch to register mode if an invite link is used
+  useEffect(() => {
+    if (inviteId) {
+      setIsRegister(true);
+    }
+  }, [inviteId]);
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -26,11 +37,15 @@ export default function LoginPage() {
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`,
+          // This data is what the SQL trigger looks for!
+          data: {
+            full_name: fullName || email.split('@')[0],
+            invite_team_id: inviteId, 
+          },
         },
       });
 
       if (error) {
-        console.error(error);
         alert(error.message);
       } else {
         alert("Registration link sent! Please check your email to confirm your account.");
@@ -42,7 +57,6 @@ export default function LoginPage() {
       });
 
       if (error) {
-        console.error(error);
         alert(error.message);
       } else if (data.session) {
         window.location.href = "/dashboard";
@@ -62,11 +76,29 @@ export default function LoginPage() {
             {isRegister ? "Onboarding" : "Sign In"}
           </h1>
           <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400 font-bold">
-            {isRegister ? "Create your TOTS OS profile" : "Secure Node Access"}
+            {inviteId ? "Joining Team via Node Invite" : isRegister ? "Create your TOTS OS profile" : "Secure Node Access"}
           </p>
         </div>
 
         <div className="space-y-4">
+          {isRegister && (
+            <div className="space-y-2">
+              <label className="text-[9px] font-black uppercase text-stone-400 tracking-wider ml-1">
+                Full Name
+              </label>
+              <div className="flex items-center gap-3 p-4 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#a9b897] transition-all">
+                <input
+                  type="text"
+                  placeholder="John Doe"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="bg-transparent text-xs outline-none w-full font-bold"
+                  required={isRegister}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-[9px] font-black uppercase text-stone-400 tracking-wider ml-1">
               Work Email

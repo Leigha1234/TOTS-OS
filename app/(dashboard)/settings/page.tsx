@@ -10,7 +10,7 @@ import {
   Camera, Mail, Phone, HeartPulse, Palette,
   UserCircle, Fingerprint, Globe, History, Zap, ShieldCheck,
   Upload, Link2, FolderGit, Type, HeartHandshake, ListChecks,
-  Database, User
+  Database, User, LogOut, Copy
 } from "lucide-react";
 
 const APP_PAGES = [
@@ -115,6 +115,11 @@ export default function SettingsPage() {
     } catch (err) { console.error("Init Error:", err); } finally { setLoading(false); }
   }
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
   const handleGlobalSave = async () => {
     setSaving(true);
     try {
@@ -192,6 +197,8 @@ export default function SettingsPage() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#fcfaf7]"><Loader2 className="animate-spin text-[#a9b897]" size={40} /></div>;
 
+  const publicInviteLink = typeof window !== 'undefined' ? `${window.location.origin}/login?invite=${teamId}` : '';
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
       
@@ -217,6 +224,12 @@ export default function SettingsPage() {
             <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Node: {user?.email}</p>
           </div>
           <div className="flex flex-wrap gap-4">
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-3 px-6 py-5 rounded-2xl border border-red-100 bg-white hover:bg-red-50 font-black text-[10px] uppercase tracking-widest text-red-500 transition-all shadow-sm"
+            >
+              <LogOut size={14} /> Terminate Session
+            </button>
             <button 
               onClick={() => router.push("/import")} 
               className="flex items-center gap-3 px-8 py-5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 font-black text-[10px] uppercase tracking-widest text-stone-700 transition-all shadow-sm"
@@ -294,7 +307,7 @@ export default function SettingsPage() {
                     type="text" 
                     value={customFont} 
                     onChange={e => setCustomFont(e.target.value)}
-                    placeholder="e.g. 'Courier New', or enter font-family name..." 
+                    placeholder="e.g. 'Courier New'..." 
                     className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none" 
                   />
                 </div>
@@ -316,11 +329,33 @@ export default function SettingsPage() {
                     rows={6}
                     value={companyDetails} 
                     onChange={e => setCompanyDetails(e.target.value)}
-                    placeholder="Enter company address, reg. numbers, or corporate statements..." 
+                    placeholder="Enter company address, reg. numbers, etc..." 
                     className="w-full p-4 rounded-xl border border-stone-100 bg-stone-50/50 text-xs outline-none resize-none" 
                   />
                 </div>
               </div>
+            </section>
+
+            {/* TEAM RECRUITMENT LINK */}
+            <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
+               <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2"><UserPlus size={14}/> Node Recruitment</h2>
+               <div className="space-y-3">
+                  <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest">Universal Team Invite Link</label>
+                  <div className="flex gap-2">
+                    <input 
+                      readOnly 
+                      value={publicInviteLink} 
+                      className="flex-1 p-3 bg-stone-50 rounded-xl border border-stone-100 text-[10px] font-mono outline-none text-stone-500" 
+                    />
+                    <button 
+                      onClick={() => { navigator.clipboard.writeText(publicInviteLink); alert("Invite link copied."); }}
+                      className="p-3 bg-stone-900 text-white rounded-xl hover:bg-stone-800 transition-colors"
+                    >
+                      <Copy size={14} />
+                    </button>
+                  </div>
+                  <p className="text-[8px] text-stone-400 italic">Send this to team members to link them to your dashboard.</p>
+               </div>
             </section>
 
             {/* TIER SELECTION */}
@@ -357,31 +392,20 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Fingerprint size={18} className="text-stone-400" /><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="New Password" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Phone size={18} className="text-[#a9b897]" /><input value={profile?.phone || ""} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="Phone" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
                 
-                {/* Emergency Contacts placed inside the profile card */}
+                {/* Emergency Contacts */}
                 <div className="space-y-3 p-5 bg-stone-50 rounded-2xl">
                   <label className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-2">
                     <HeartPulse size={14} className="text-red-400" /> Emergency Contacts
                   </label>
                   <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-stone-100">
                     <User size={16} className="text-stone-400" />
-                    <input 
-                      value={nextOfKin} 
-                      onChange={e => setNextOfKin(e.target.value)} 
-                      placeholder="Next of Kin Name" 
-                      className="bg-transparent text-xs font-bold outline-none w-full" 
-                    />
+                    <input value={nextOfKin} onChange={e => setNextOfKin(e.target.value)} placeholder="Next of Kin Name" className="bg-transparent text-xs font-bold outline-none w-full" />
                   </div>
                   <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-stone-100">
                     <Phone size={16} className="text-stone-400" />
-                    <input 
-                      placeholder="Next of Kin Phone Number" 
-                      value={nextOfKinPhone} 
-                      onChange={(e) => setNextOfKinPhone(e.target.value)} 
-                      className="bg-transparent text-xs font-bold outline-none w-full" 
-                    />
+                    <input placeholder="Phone Number" value={nextOfKinPhone} onChange={(e) => setNextOfKinPhone(e.target.value)} className="bg-transparent text-xs font-bold outline-none w-full" />
                   </div>
                 </div>
-
               </div>
             </section>
           </div>
@@ -396,19 +420,19 @@ export default function SettingsPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest">Web / Social Media Links</label>
+                  <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest">Social Media Links</label>
                   <input value={socialLinks.website} onChange={e => setSocialLinks({...socialLinks, website: e.target.value})} placeholder="Website URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
-                  <input value={socialLinks.instagram} onChange={e => setSocialLinks({...socialLinks, instagram: e.target.value})} placeholder="Instagram Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
-                  <input value={socialLinks.linkedin} onChange={e => setSocialLinks({...socialLinks, linkedin: e.target.value})} placeholder="LinkedIn Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
-                  <input value={socialLinks.twitter} onChange={e => setSocialLinks({...socialLinks, twitter: e.target.value})} placeholder="X (Twitter) Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.instagram} onChange={e => setSocialLinks({...socialLinks, instagram: e.target.value})} placeholder="Instagram URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.linkedin} onChange={e => setSocialLinks({...socialLinks, linkedin: e.target.value})} placeholder="LinkedIn URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                  <input value={socialLinks.twitter} onChange={e => setSocialLinks({...socialLinks, twitter: e.target.value})} placeholder="X Profile URL" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
                 </div>
                 
                 <div className="space-y-4">
                   <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                    <FolderGit size={14} /> Campaign List Management
+                    <FolderGit size={14} /> Campaign Management
                   </label>
                   <div className="flex gap-2">
-                    <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="Enter Campaign Name" className="flex-1 p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
+                    <input value={newCampaign} onChange={e => setNewCampaign(e.target.value)} placeholder="Campaign Name" className="flex-1 p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none" />
                     <button onClick={addCampaign} className="px-5 bg-stone-900 text-white rounded-2xl text-[10px] uppercase font-bold">Add</button>
                   </div>
                   <div className="h-44 overflow-y-auto space-y-2 border border-stone-100 rounded-3xl p-6 bg-stone-50/20">
@@ -418,7 +442,6 @@ export default function SettingsPage() {
                         <button onClick={() => removeCampaign(idx)} className="text-stone-300 hover:text-red-500"><Trash2 size={14}/></button>
                       </div>
                     ))}
-                    {campaignList.length === 0 && <span className="text-[10px] text-stone-300 italic">No campaigns listed.</span>}
                   </div>
                 </div>
               </div>
@@ -435,11 +458,11 @@ export default function SettingsPage() {
                         value={emailCampaigns}
                         onChange={(e) => setEmailCampaigns(e.target.value)}
                         className="w-full p-4 bg-stone-50/50 rounded-2xl text-xs leading-relaxed outline-none h-36 resize-none border border-stone-100 focus:border-[#a9b897]/50 transition-colors text-stone-600"
-                        placeholder="E.g., Summer Promotion, Winter Newsletter, VIP Launch"
+                        placeholder="E.g., Summer Promotion, Winter Newsletter..."
                      />
                   </div>
                   <div className="flex flex-col justify-center">
-                    <p className="text-[9px] text-stone-400 italic">Manage and assign email marketing campaigns or lists for your records.</p>
+                    <p className="text-[9px] text-stone-400 italic">Manage and assign email marketing campaigns.</p>
                   </div>
                </div>
             </section>
@@ -468,13 +491,7 @@ export default function SettingsPage() {
                         </button>
                       ))}
                     </div>
-                    <button 
-                      onClick={handleInvite} 
-                      className="w-full py-6 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest"
-                      style={{ backgroundColor: brandColor }}
-                    >
-                      Provision Seat
-                    </button>
+                    <button onClick={handleInvite} className="w-full py-6 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest" style={{ backgroundColor: brandColor }}>Provision Seat</button>
                   </div>
                 )}
               </div>
@@ -496,9 +513,7 @@ export default function SettingsPage() {
               <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-4">
                 <h2 className="text-[10px] font-black uppercase tracking-widest opacity-40 flex items-center gap-2"><History size={14}/> Audit Log</h2>
                 <div className="text-[9px] font-bold opacity-50 space-y-2 h-16 overflow-y-auto">
-                  {auditLogs.map((log, index) => (
-                    <p key={index}>{log}</p>
-                  ))}
+                  {auditLogs.map((log, index) => <p key={index}>{log}</p>)}
                 </div>
               </section>
             </div>
@@ -509,32 +524,26 @@ export default function SettingsPage() {
             </section>
 
             {/* BANKING SECTION */}
-            <section className="text-white p-12 rounded-[4rem] shadow-2xl custom-secondary-bg" style={{ backgroundColor: secondaryColor }}>
-              <div className="flex items-center gap-3 mb-8 opacity-50">
-                <Landmark size={18} />
-                <h2 className="text-[10px] font-black uppercase tracking-[0.3em]">Banking Distribution</h2>
-              </div>
+            <section className="text-white p-12 rounded-[4rem] shadow-2xl" style={{ backgroundColor: secondaryColor }}>
+              <div className="flex items-center gap-3 mb-8 opacity-50"><Landmark size={18} /><h2 className="text-[10px] font-black uppercase tracking-[0.3em]">Banking Distribution</h2></div>
               <div className="flex flex-wrap gap-6">
                 <div className="flex-1 min-w-[240px] space-y-3">
                   <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Bank Entity</label>
-                  <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} placeholder="e.g. Barclays" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
+                  <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} placeholder="Bank Name" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none" />
                 </div>
                 <div className="flex-1 min-w-[240px] space-y-3">
-                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Account Reference</label>
-                  <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} placeholder="00000000" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
+                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Account No</label>
+                  <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} placeholder="00000000" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none" />
                 </div>
                 <div className="flex-1 min-w-[240px] space-y-3">
-                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Sort / Routing</label>
-                  <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} placeholder="00-00-00" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none focus:border-[#a9b897]/50 transition-colors" />
+                  <label className="text-[8px] font-black uppercase opacity-30 tracking-widest ml-2">Sort Code</label>
+                  <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} placeholder="00-00-00" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-xs outline-none" />
                 </div>
               </div>
             </section>
 
             <section className="bg-red-50/50 border border-red-100 p-10 rounded-[3.5rem] space-y-6">
-              <div className="flex items-center gap-3 text-red-600">
-                <AlertTriangle size={20} />
-                <h2 className="text-[11px] font-black uppercase tracking-widest">Danger Zone</h2>
-              </div>
+              <div className="flex items-center gap-3 text-red-600"><AlertTriangle size={20} /><h2 className="text-[11px] font-black uppercase tracking-widest">Danger Zone</h2></div>
               <div className="flex flex-col md:flex-row gap-4">
                 <button className="flex-1 py-4 bg-white border border-red-200 text-red-600 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"><Download size={14}/> Export Node Data</button>
                 <button className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest hover:brightness-110 transition-all">Terminate Account</button>

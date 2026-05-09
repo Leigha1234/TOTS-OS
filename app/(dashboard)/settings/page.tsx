@@ -10,7 +10,7 @@ import {
   Camera, Mail, Phone, HeartPulse, Palette,
   UserCircle, Fingerprint, Globe, History, Zap, ShieldCheck,
   Upload, Link2, FolderGit, Type, HeartHandshake, ListChecks,
-  Database, User, Copy, ArrowUpRight
+  Database, User, Copy, ArrowUpRight, LogOut
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -164,6 +164,11 @@ function SettingsContent() {
     } catch (err: any) { alert("Sync Error: " + err.message); } finally { setSaving(false); }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
   const addCampaign = () => {
     if (newCampaign && !campaignList.includes(newCampaign)) {
       setCampaignList([...campaignList, newCampaign]);
@@ -249,6 +254,11 @@ function SettingsContent() {
             <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-4 rounded-2xl border border-stone-200 bg-white">
                {isDarkMode ? <Sun size={20} className="text-black"/> : <Moon size={20} />}
             </button>
+
+            <button onClick={handleLogout} className="p-4 rounded-2xl border border-stone-200 bg-white hover:bg-red-50 hover:text-red-600 transition-colors">
+               <LogOut size={20} />
+            </button>
+
             <button 
               onClick={handleGlobalSave} 
               disabled={saving} 

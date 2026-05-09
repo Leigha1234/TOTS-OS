@@ -10,7 +10,7 @@ import {
   Camera, Mail, Phone, HeartPulse, Palette,
   UserCircle, Fingerprint, Globe, History, Zap, ShieldCheck,
   Upload, Link2, FolderGit, Type, HeartHandshake, ListChecks,
-  Database, User
+  Database, User, Copy, ArrowUpRight
 } from "lucide-react";
 
 const APP_PAGES = [
@@ -71,6 +71,9 @@ export default function SettingsPage() {
     "• Node initialized successfully.",
     "• System Architecture linked to dynamic state."
   ]);
+
+  // Invite Link Helper
+  const inviteLink = teamId ? `https://www.tots-os.co.uk/login?invite=${teamId}` : "";
 
   useEffect(() => { 
     init(); 
@@ -190,22 +193,33 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
+  const copyInviteLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    alert("Invite link copied to clipboard.");
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#fcfaf7]"><Loader2 className="animate-spin text-[#a9b897]" size={40} /></div>;
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
       
-      {/* Dynamic CSS Custom Overrides */}
+      {/* Global CSS Injector: Updates entire system UI based on state */}
       <style jsx global>{`
+        :root {
+          --brand-primary: ${brandColor};
+          --brand-secondary: ${secondaryColor};
+          --font-main: '${customFont || selectedFont}', sans-serif;
+        }
         body {
-          font-family: '${customFont || selectedFont}', sans-serif;
+          font-family: var(--font-main) !important;
         }
-        .custom-brand-text {
-          color: ${brandColor};
-        }
-        .custom-brand-bg {
-          background-color: ${brandColor};
-        }
+        /* Overriding system elements to follow brand state */
+        .custom-brand-text { color: var(--brand-primary); }
+        .custom-brand-bg { background-color: var(--brand-primary); }
+        .custom-secondary-bg { background-color: var(--brand-secondary); }
+        
+        /* Global button/input focus states */
+        input:focus, textarea:focus { border-color: var(--brand-primary) !important; }
       `}</style>
 
       <div className="max-w-7xl mx-auto p-6 lg:p-16 space-y-12 pb-40">
@@ -213,7 +227,7 @@ export default function SettingsPage() {
         {/* HEADER */}
         <header className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-stone-200 pb-12">
           <div className="space-y-2">
-            <h1 className="text-7xl font-serif italic tracking-tighter leading-none custom-brand-text" style={{ color: brandColor }}>Command Center</h1>
+            <h1 className="text-7xl font-serif italic tracking-tighter leading-none custom-brand-text">Command Center</h1>
             <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Node: {user?.email}</p>
           </div>
           <div className="flex flex-wrap gap-4">
@@ -221,7 +235,14 @@ export default function SettingsPage() {
               onClick={() => router.push("/import")} 
               className="flex items-center gap-3 px-8 py-5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 font-black text-[10px] uppercase tracking-widest text-stone-700 transition-all shadow-sm"
             >
-              <Database size={14} style={{ color: brandColor }} /> Import Data
+              <Database size={14} className="custom-brand-text" /> Import Data
+            </button>
+
+            <button 
+              onClick={() => router.push("/team")} 
+              className="flex items-center gap-3 px-8 py-5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 font-black text-[10px] uppercase tracking-widest text-stone-700 transition-all shadow-sm"
+            >
+              <Users size={14} className="custom-brand-text" /> Team Node
             </button>
 
             <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-4 rounded-2xl border border-stone-200 bg-white">
@@ -230,8 +251,7 @@ export default function SettingsPage() {
             <button 
               onClick={handleGlobalSave} 
               disabled={saving} 
-              className="flex items-center gap-4 px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl text-white"
-              style={{ backgroundColor: brandColor }}
+              className="flex items-center gap-4 px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl text-white custom-brand-bg"
             >
               {saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16} />} Commit All Changes
             </button>
@@ -246,7 +266,7 @@ export default function SettingsPage() {
             {/* BRAND ARCHITECTURE */}
             <section className="bg-white p-8 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-6">
               <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2">
-                <Palette size={14} className="text-[#a9b897]" /> Brand & Assets
+                <Palette size={14} className="custom-brand-text" /> Brand & Assets
               </h2>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -355,9 +375,8 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Mail size={18} className="text-stone-400" /><input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
                 <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Fingerprint size={18} className="text-stone-400" /><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="New Password" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
-                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Phone size={18} className="text-[#a9b897]" /><input value={profile?.phone || ""} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="Phone" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
+                <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-2xl"><Phone size={18} className="custom-brand-text" /><input value={profile?.phone || ""} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="Phone" className="bg-transparent text-xs font-bold outline-none w-full" /></div>
                 
-                {/* Emergency Contacts placed inside the profile card */}
                 <div className="space-y-3 p-5 bg-stone-50 rounded-2xl">
                   <label className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-2">
                     <HeartPulse size={14} className="text-red-400" /> Emergency Contacts
@@ -392,7 +411,7 @@ export default function SettingsPage() {
             {/* EXTERNAL LINKS SECTION */}
             <section className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-sm space-y-6">
               <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-2">
-                <Link2 size={14} className="text-[#a9b897]" /> Platforms & Campaigns
+                <Link2 size={14} className="custom-brand-text" /> Platforms & Campaigns
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
@@ -429,7 +448,7 @@ export default function SettingsPage() {
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                      <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
-                        <ListChecks size={14} className="text-[#a9b897]" /> Email Campaigns List
+                        <ListChecks size={14} className="custom-brand-text" /> Email Campaigns List
                      </label>
                      <textarea 
                         value={emailCampaigns}
@@ -449,6 +468,20 @@ export default function SettingsPage() {
                 <h2 className="text-[12px] font-black uppercase tracking-[0.5em] opacity-40">The Hive</h2>
                 <button onClick={() => router.push('/billing')} className="text-[9px] font-black bg-stone-900 text-[#a9b897] px-4 py-2 rounded-full uppercase tracking-widest">Add Seat £19.95</button>
               </div>
+
+              {/* Invite Link Display Section */}
+              {teamId && (
+                <div className="mb-8 p-6 bg-stone-50 rounded-3xl border border-stone-100 flex items-center justify-between gap-4 group">
+                  <div className="space-y-1 overflow-hidden">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Public Invitation Link</p>
+                    <p className="text-[10px] font-mono text-stone-500 truncate">{inviteLink}</p>
+                  </div>
+                  <button onClick={copyInviteLink} className="p-4 bg-white border border-stone-200 rounded-2xl hover:bg-stone-900 hover:text-white transition-all shadow-sm">
+                    <Copy size={16} />
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-8">
                 <input placeholder="Invite email..." value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="w-full p-6 rounded-3xl border border-stone-100 bg-stone-50/50 text-base outline-none" />
                 {inviteEmail.length > 0 && (
@@ -470,8 +503,7 @@ export default function SettingsPage() {
                     </div>
                     <button 
                       onClick={handleInvite} 
-                      className="w-full py-6 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest"
-                      style={{ backgroundColor: brandColor }}
+                      className="w-full py-6 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest custom-brand-bg"
                     >
                       Provision Seat
                     </button>
@@ -509,7 +541,7 @@ export default function SettingsPage() {
             </section>
 
             {/* BANKING SECTION */}
-            <section className="text-white p-12 rounded-[4rem] shadow-2xl custom-secondary-bg" style={{ backgroundColor: secondaryColor }}>
+            <section className="text-white p-12 rounded-[4rem] shadow-2xl custom-secondary-bg">
               <div className="flex items-center gap-3 mb-8 opacity-50">
                 <Landmark size={18} />
                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em]">Banking Distribution</h2>

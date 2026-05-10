@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
-  Plus, Landmark, X, Loader2, MapPin, Clock, Link as LinkIcon
+  Plus, Landmark, X, Loader2, MapPin, Clock, Link as LinkIcon,
+  Video, Users, Palette
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -13,17 +14,29 @@ import {
   isSameDay, eachDayOfInterval 
 } from "date-fns";
 
+/**
+ * TOTS OS v4.5 - INTERACTIVE CHRONOS
+ * Features: Click-to-Add, Virtual Links, Color Selection, Location Sync
+ */
+
+const PRESET_COLORS = [
+  { name: 'Brand', value: 'var(--brand-primary)' },
+  { name: 'Social', value: '#ec4899' },
+  { name: 'Finance', value: '#eab308' },
+  { name: 'Strategy', value: '#8b5cf6' },
+  { name: 'Urgent', value: '#f43f5e' }
+];
+
 export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(new Date());
   
-  // System Data States
+  // System Data
   const [invoices, setInvoices] = useState<any[]>([]);
   const [projectDeadlines, setProjectDeadlines] = useState<any[]>([]);
   const [socials, setSocials] = useState<any[]>([]);
-  const [holidays, setHolidays] = useState<any[]>([]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,18 +44,15 @@ export default function CalendarPage() {
   const [selectedDateString, setSelectedDateString] = useState(format(new Date(), "yyyy-MM-dd"));
   const [eventTime, setEventTime] = useState("12:00");
   const [eventLocation, setEventLocation] = useState("");
-  // Default to the variable for the picker
-  const [eventColor, setEventColor] = useState("var(--brand-primary)");
+  const [eventColor, setEventColor] = useState(PRESET_COLORS[0].value);
   const [vcLink, setVcLink] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const supabase = useMemo(() => {
-    return createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-  }, []);
+  const supabase = useMemo(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ), []);
 
   useEffect(() => {
     fetchEvents();
@@ -62,25 +72,25 @@ export default function CalendarPage() {
   }
 
   async function fetchSystemData() {
-    try {
-      const [inv, proj, soc, hol] = await Promise.all([
-        supabase.from("invoices").select("*"),
-        supabase.from("projects").select("*"),
-        supabase.from("social_posts").select("*"),
-        supabase.from("holidays").select("*"),
-      ]);
-      setInvoices(inv.data || []);
-      setProjectDeadlines(proj.data || []);
-      setSocials(soc.data || []);
-      setHolidays(hol.data || []);
-    } catch (e) {
-      console.error("Contextual data sync failed", e);
-    }
+    const [inv, proj, soc] = await Promise.all([
+      supabase.from("invoices").select("*"),
+      supabase.from("projects").select("*"),
+      supabase.from("social_posts").select("*"),
+    ]);
+    setInvoices(inv.data || []);
+    setProjectDeadlines(proj.data || []);
+    setSocials(soc.data || []);
   }
 
+  // LOGIC: Click once to select, Click again to open "Add Entry"
   const handleDayClick = (day: Date) => {
-    setSelectedDay(day);
-    setSelectedDateString(format(day, "yyyy-MM-dd"));
+    if (isSameDay(day, selectedDay)) {
+      setSelectedDateString(format(day, "yyyy-MM-dd"));
+      setIsModalOpen(true);
+    } else {
+      setSelectedDay(day);
+      setSelectedDateString(format(day, "yyyy-MM-dd"));
+    }
   };
 
   async function handleCreateEntry() {
@@ -98,6 +108,8 @@ export default function CalendarPage() {
       if (!error) {
         setIsModalOpen(false);
         setNewTitle("");
+        setVcLink("");
+        setEventLocation("");
         fetchEvents();
       }
     } finally {
@@ -120,76 +132,84 @@ export default function CalendarPage() {
     const dayStr = format(day, "yyyy-MM-dd");
     return [
       ...tasks.filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === dayStr).map(t => ({ ...t, type: "Task", color: t.color || 'var(--brand-primary)' })),
-      ...invoices.filter(i => i.due_date && format(new Date(i.due_date), "yyyy-MM-dd") === dayStr).map(i => ({ ...i, title: `Invoice: ${i.amount}`, type: "Invoice", color: "#eab308" })),
+      ...invoices.filter(i => i.due_date && format(new Date(i.due_date), "yyyy-MM-dd") === dayStr).map(i => ({ ...i, title: `Invoice: £${i.amount}`, type: "Invoice", color: "#eab308" })),
       ...projectDeadlines.filter(p => p.deadline && format(new Date(p.deadline), "yyyy-MM-dd") === dayStr).map(p => ({ ...p, title: `Deadline: ${p.name}`, type: "Project", color: "#3b82f6" })),
       ...socials.filter(s => s.scheduled_for && format(new Date(s.scheduled_for), "yyyy-MM-dd") === dayStr).map(s => ({ ...s, title: `Post: ${s.platform}`, type: "Social", color: "#ec4899" })),
-      ...holidays.filter(h => h.date && format(new Date(h.date), "yyyy-MM-dd") === dayStr).map(h => ({ ...h, title: h.name, type: "Holiday", color: "#10b981" }))
     ];
   };
   
-  const selectedDayEvents = useMemo(() => getCombinedEventsForDay(selectedDay), [selectedDay, tasks, invoices, projectDeadlines, socials, holidays]);
+  const selectedDayEvents = useMemo(() => getCombinedEventsForDay(selectedDay), [selectedDay, tasks, invoices, projectDeadlines, socials]);
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] p-3 md:p-10 text-stone-900 pb-32">
+    <div className="min-h-screen bg-[#faf9f6] p-4 md:p-10 text-stone-900 pb-32">
       
+      {/* MODAL: PROVISION ENTRY */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 flex items-end md:items-center justify-center z-[100]">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              onClick={() => setIsModalOpen(false)} 
-              className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" 
-            />
-            <motion.div 
-              initial={{ y: "100%", opacity: 0 }} 
-              animate={{ y: 0, opacity: 1 }} 
-              exit={{ y: "100%", opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="relative w-full md:max-w-lg bg-white rounded-t-[2.5rem] md:rounded-[3rem] p-6 md:p-10 shadow-2xl border border-stone-100 max-h-[90vh] overflow-y-auto"
-            >
-              <div className="flex justify-between items-start mb-6">
-                <h3 className="text-2xl font-serif italic text-stone-800">New Entry</h3>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 bg-stone-50 rounded-full transition-colors hover:bg-stone-100">
-                  <X size={18} />
-                </button>
+          <div className="fixed inset-0 flex items-end md:items-center justify-center z-[200] p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" />
+            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="relative w-full md:max-w-xl bg-white rounded-[2.5rem] md:rounded-[3.5rem] p-8 md:p-12 shadow-2xl border border-stone-100 max-h-[90vh] overflow-y-auto no-scrollbar">
+              
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">Node Provisioning</p>
+                  <h3 className="text-3xl font-serif italic text-stone-800">New Entry</h3>
+                </div>
+                <button onClick={() => setIsModalOpen(false)} className="p-3 bg-stone-50 rounded-full hover:bg-stone-100 transition-colors"><X size={20} /></button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
+                {/* Title */}
                 <div className="space-y-1">
-                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Event Title</label>
-                  <input 
-                    value={newTitle} 
-                    onChange={(e) => setNewTitle(e.target.value)} 
-                    placeholder="Node Activity..." 
-                    className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm focus:outline-none ring-2 ring-transparent focus:ring-[var(--brand-primary)]/20 transition-all" 
-                  />
+                  <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-1">Event Name</label>
+                  <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g. Creative Strategy Sync" className="w-full bg-stone-50 border-b border-stone-200 py-4 px-2 text-lg focus:outline-none focus:border-stone-900 transition-all font-serif italic" />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
+                {/* Date & Time */}
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Schedule Date</label>
-                    <input type="date" value={selectedDateString} onChange={(e) => setSelectedDateString(e.target.value)} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs focus:outline-none" />
+                    <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-1">Date</label>
+                    <input type="date" value={selectedDateString} onChange={(e) => setSelectedDateString(e.target.value)} className="w-full bg-stone-50 rounded-2xl p-4 text-xs focus:outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Time</label>
-                    <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs focus:outline-none" />
+                    <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-1">Time</label>
+                    <div className="relative">
+                      <Clock size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} className="w-full bg-stone-50 rounded-2xl p-4 pl-10 text-xs focus:outline-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Virtual Link & Location */}
+                <div className="space-y-4">
+                  <div className="relative">
+                    <Video size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input value={vcLink} onChange={(e) => setVcLink(e.target.value)} placeholder="Virtual Meeting Link (Zoom/Meet)" className="w-full bg-stone-50 rounded-2xl p-4 pl-10 text-xs focus:outline-none" />
+                  </div>
+                  <div className="relative">
+                    <MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} placeholder="Physical Location / Office" className="w-full bg-stone-50 rounded-2xl p-4 pl-10 text-xs focus:outline-none" />
+                  </div>
+                </div>
+
+                {/* Color Picker */}
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-1 flex items-center gap-2"><Palette size={12}/> Protocol Color</label>
+                  <div className="flex gap-3">
+                    {PRESET_COLORS.map(c => (
+                      <button key={c.name} onClick={() => setEventColor(c.value)} className={`w-8 h-8 rounded-full border-2 transition-all ${eventColor === c.value ? 'border-stone-900 scale-110 shadow-lg' : 'border-transparent'}`} style={{ backgroundColor: c.value }} />
+                    ))}
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Additional Intelligence</label>
-                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Strategic notes..." className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm h-24 resize-none focus:outline-none" />
+                  <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-1">Strategy Notes</label>
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal objectives..." className="w-full bg-stone-50 rounded-3xl p-6 text-sm h-28 resize-none focus:outline-none border border-transparent focus:border-stone-100" />
                 </div>
 
-                <button 
-                  onClick={handleCreateEntry} 
-                  disabled={isSubmitting || !newTitle} 
-                  className="w-full bg-stone-900 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-2 hover:bg-stone-800 transition-all shadow-xl disabled:opacity-50"
-                >
-                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} 
-                  Provision Entry
+                <button onClick={handleCreateEntry} disabled={isSubmitting || !newTitle} className="w-full bg-stone-900 text-white py-6 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-xl disabled:opacity-50">
+                  {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} 
+                  Establish Entry
                 </button>
               </div>
             </motion.div>
@@ -197,30 +217,30 @@ export default function CalendarPage() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1600px] mx-auto grid lg:grid-cols-12 gap-6 md:gap-8">
+      <div className="max-w-[1600px] mx-auto grid lg:grid-cols-12 gap-8">
         
-        {/* CALENDAR BLOCK */}
-        <div className="lg:col-span-9 bg-white rounded-[2.5rem] md:rounded-[3.5rem] border border-stone-100 shadow-sm overflow-hidden">
-          <div className="p-6 md:p-10 flex justify-between items-center bg-white border-b border-stone-50">
+        {/* MAIN CALENDAR */}
+        <div className="lg:col-span-9 bg-white rounded-[3rem] md:rounded-[4rem] border border-stone-100 shadow-sm overflow-hidden flex flex-col">
+          <div className="p-8 md:p-12 flex justify-between items-center border-b border-stone-50">
              <div className="space-y-1">
-               <p className="hidden md:block text-[9px] font-black uppercase tracking-[0.4em] text-[var(--brand-primary)]">Chronos Module</p>
-               <h1 className="text-3xl md:text-5xl font-serif italic text-stone-800 lowercase capitalize leading-none">
-                 {format(currentMonth, "MMMM")}
+               <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[var(--brand-primary)]">Chronos Node</p>
+               <h1 className="text-4xl md:text-6xl font-serif italic text-stone-800 leading-none lowercase">
+                 {format(currentMonth, "MMMM")} <span className="text-stone-200">{format(currentMonth, "yyyy")}</span>
                </h1>
              </div>
-             <div className="flex gap-2">
-                <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-3 bg-stone-50 rounded-full text-stone-400 hover:text-stone-900 transition-colors"><ChevronLeft size={20}/></button>
-                <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-3 bg-stone-50 rounded-full text-stone-400 hover:text-stone-900 transition-colors"><ChevronRight size={20}/></button>
+             <div className="flex gap-3">
+                <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-4 bg-stone-50 rounded-2xl text-stone-400 hover:text-stone-900 transition-colors shadow-sm"><ChevronLeft size={24}/></button>
+                <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-4 bg-stone-50 rounded-2xl text-stone-400 hover:text-stone-900 transition-colors shadow-sm"><ChevronRight size={24}/></button>
              </div>
           </div>
           
-          <div className="grid grid-cols-7 bg-stone-50/30 border-b border-stone-50">
-            {["S", "M", "T", "W", "T", "F", "S"].map(d => (
-              <div key={d} className="py-4 text-center text-[8px] md:text-[9px] font-black uppercase tracking-widest text-stone-300">{d}</div>
+          <div className="grid grid-cols-7 bg-stone-50/20 border-b border-stone-50">
+            {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(d => (
+              <div key={d} className="py-4 text-center text-[9px] font-black uppercase tracking-widest text-stone-300">{d}</div>
             ))}
           </div>
 
-          <div className="grid grid-cols-7">
+          <div className="grid grid-cols-7 flex-1">
             {calendarDays.map((day) => {
               const dayEvents = getCombinedEventsForDay(day);
               const isSelected = isSameDay(day, selectedDay);
@@ -231,37 +251,25 @@ export default function CalendarPage() {
                 <div 
                   key={day.toISOString()}
                   onClick={() => handleDayClick(day)}
-                  className={`min-h-[90px] md:min-h-[140px] p-2 md:p-5 border-r border-b border-stone-50 transition-all cursor-pointer relative
-                    ${!isCurrentMonth ? 'opacity-10 pointer-events-none' : 'bg-white hover:bg-stone-50/50'}
-                    ${isSelected && isCurrentMonth ? 'bg-[#fcfaf7]' : ''}
+                  className={`min-h-[110px] md:min-h-[160px] p-4 md:p-6 border-r border-b border-stone-50 transition-all cursor-pointer relative group
+                    ${!isCurrentMonth ? 'bg-stone-50/30' : 'bg-white hover:bg-stone-50/50'}
+                    ${isSelected ? 'bg-[#fcfaf7]' : ''}
                   `}
                 >
-                  <span className={`text-[10px] md:text-xs font-bold transition-all ${isToday ? 'bg-stone-900 text-white px-2 py-0.5 rounded-md' : 'text-stone-800'}`}>
-                    {format(day, "d")}
-                  </span>
+                  <div className="flex justify-between items-start">
+                    <span className={`text-[11px] md:text-sm font-bold transition-all ${isToday ? 'bg-stone-900 text-white px-2 py-1 rounded-lg' : 'text-stone-800 opacity-40 group-hover:opacity-100'}`}>
+                      {format(day, "d")}
+                    </span>
+                    {isSelected && <Plus size={12} className="text-stone-300" />}
+                  </div>
                   
-                  <div className="mt-2">
-                    <div className="hidden md:flex flex-col gap-1">
-                      {dayEvents.slice(0, 2).map((e, i) => (
-                        <div 
-                          key={i} 
-                          className="text-[7px] font-black uppercase truncate p-1.5 rounded-lg border leading-none" 
-                          style={{ 
-                            backgroundColor: `${e.color}15`, 
-                            borderColor: `${e.color}40`, 
-                            color: 'inherit' 
-                          }}
-                        >
-                          {e.title}
-                        </div>
-                      ))}
-                      {dayEvents.length > 2 && <p className="text-[7px] font-black text-stone-300 uppercase pl-1">+{dayEvents.length - 2} More</p>}
-                    </div>
-                    <div className="flex md:hidden gap-1 flex-wrap mt-2">
-                      {dayEvents.slice(0, 4).map((e, i) => (
-                        <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: e.color }} />
-                      ))}
-                    </div>
+                  <div className="mt-4 space-y-1.5 overflow-hidden">
+                    {dayEvents.slice(0, 3).map((e, i) => (
+                      <div key={i} className="text-[8px] font-black uppercase truncate p-2 rounded-xl border-l-[3px] bg-white shadow-sm" style={{ borderLeftColor: e.color }}>
+                        {e.title}
+                      </div>
+                    ))}
+                    {dayEvents.length > 3 && <p className="text-[8px] font-black text-stone-300 uppercase pl-2">+{dayEvents.length - 3} Operations</p>}
                   </div>
                 </div>
               );
@@ -270,64 +278,67 @@ export default function CalendarPage() {
         </div>
 
         {/* SIDEBAR AGENDA */}
-        <aside className="lg:col-span-3 space-y-6">
-          <div className="bg-white p-8 rounded-[2.5rem] md:rounded-[3rem] border border-stone-100 shadow-sm flex flex-col min-h-[450px]">
-            <div className="flex justify-between items-start mb-8">
+        <aside className="lg:col-span-3 space-y-8">
+          <div className="bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-sm flex flex-col min-h-[500px]">
+            <div className="flex justify-between items-start mb-10">
               <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[var(--brand-primary)] mb-1">{format(selectedDay, "EEEE")}</p>
-                <h2 className="text-3xl font-serif italic text-stone-800 leading-none">{format(selectedDay, "do MMM")}</h2>
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-[var(--brand-primary)] mb-2">{format(selectedDay, "EEEE")}</p>
+                <h2 className="text-4xl font-serif italic text-stone-800 leading-none">{format(selectedDay, "do MMM")}</h2>
               </div>
-              <motion.button 
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setIsModalOpen(true)} 
-                className="p-4 bg-stone-900 text-white rounded-2xl shadow-xl hover:bg-stone-800 transition-all"
-              >
-                <Plus size={20} />
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setIsModalOpen(true)} className="p-5 bg-stone-900 text-white rounded-[1.5rem] shadow-2xl hover:bg-stone-800 transition-all">
+                <Plus size={24} />
               </motion.button>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-y-auto max-h-[350px] pr-2 scrollbar-hide">
+            <div className="flex-1 space-y-4 overflow-y-auto max-h-[400px] pr-2 no-scrollbar">
               {selectedDayEvents.length === 0 ? (
-                <div className="py-12 text-center space-y-2 opacity-30">
-                  <CalendarIcon size={24} className="mx-auto text-stone-400" />
-                  <p className="text-xs font-serif italic text-stone-500">Zero operations scheduled.</p>
+                <div className="py-16 text-center opacity-30">
+                  <CalendarIcon size={32} className="mx-auto text-stone-300 mb-4" />
+                  <p className="text-sm font-serif italic text-stone-500">Node inactive today.</p>
                 </div>
               ) : (
                 selectedDayEvents.map((e, i) => (
-                  <div 
-                    key={i} 
-                    className="p-5 rounded-[1.5rem] border bg-[#faf9f6] transition-all hover:border-stone-300" 
-                    style={{ borderLeftWidth: '4px', borderLeftColor: e.color }}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[7px] font-black uppercase tracking-widest text-stone-400">{e.type}</span>
-                      {e.created_at && <span className="text-[7px] text-stone-400 font-bold">{format(new Date(e.created_at), "HH:mm")}</span>}
+                  <div key={i} className="p-6 rounded-[2rem] border bg-[#faf9f6] transition-all hover:bg-white hover:shadow-lg group">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[8px] font-black uppercase tracking-widest px-2 py-1 bg-stone-100 rounded-md" style={{ color: e.color }}>{e.type}</span>
+                      {e.created_at && <span className="text-[9px] text-stone-400 font-bold">{format(new Date(e.created_at), "HH:mm")}</span>}
                     </div>
-                    <p className="text-[10px] font-bold text-stone-800 leading-tight uppercase tracking-tight">{e.title}</p>
+                    <p className="text-xs font-bold text-stone-800 leading-tight uppercase mb-3">{e.title}</p>
+                    
+                    {/* Event Metadata (Virtual Link / Location) */}
+                    {(e.vc_link || e.location) && (
+                      <div className="pt-3 border-t border-stone-200 flex flex-col gap-2">
+                        {e.vc_link && <a href={e.vc_link} target="_blank" className="flex items-center gap-2 text-[9px] font-bold text-blue-500 hover:underline"><Video size={10}/> Join Link</a>}
+                        {e.location && <div className="flex items-center gap-2 text-[9px] text-stone-400 font-medium"><MapPin size={10}/> {e.location}</div>}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
             </div>
             
-            <div className="mt-8 pt-6 border-t border-stone-50">
-              <p className="text-[7px] text-center uppercase tracking-[0.3em] text-stone-300 font-black">
-                Select date to update node agenda
-              </p>
+            <div className="mt-10 pt-6 border-t border-stone-50 text-center">
+              <p className="text-[8px] uppercase tracking-[0.4em] text-stone-300 font-black">Sync Frequency: Realtime</p>
             </div>
           </div>
 
-          {/* FISCAL CARD: Dynamic primary background */}
-          <div className="hidden sm:block bg-[var(--brand-primary)] p-8 rounded-[3rem] text-white relative overflow-hidden group shadow-lg shadow-[var(--brand-primary)]/20">
+          {/* FISCAL SENTINEL CARD */}
+          <div className="bg-[var(--brand-primary)] p-10 rounded-[3.5rem] text-white relative overflow-hidden group shadow-2xl">
             <div className="relative z-10">
-              <Landmark size={24} className="mb-4 opacity-50 group-hover:scale-110 transition-transform" />
-              <p className="text-[8px] font-black uppercase tracking-[0.3em] mb-1 opacity-80">Financial Sentinel</p>
-              <p className="text-2xl font-serif italic leading-none mb-2">VAT Cycle End</p>
-              <p className="text-[10px] font-medium opacity-90 leading-relaxed">System tracking 52 days until next tax sequence.</p>
+              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mb-6"><Landmark size={20} /></div>
+              <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-2 opacity-70">Fiscal Sentinel</p>
+              <h3 className="text-3xl font-serif italic leading-none mb-4">VAT Cycle</h3>
+              <p className="text-xs font-medium opacity-90 leading-relaxed max-w-[180px]">Automated tracking: 52 days remaining in current sequence.</p>
             </div>
-            <CalendarIcon size={120} className="absolute -right-6 -bottom-6 opacity-10 group-hover:rotate-12 transition-transform duration-700" />
+            <CalendarIcon size={160} className="absolute -right-12 -bottom-12 opacity-10 group-hover:rotate-12 transition-transform duration-1000" />
           </div>
         </aside>
       </div>
+
+      <style jsx global>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }

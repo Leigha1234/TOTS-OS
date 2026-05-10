@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase-client";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { 
   Sparkles, ArrowRight, Briefcase, 
-  X, Loader2, Zap, FileText, Share2, Mail, User as UserIcon, Clock, CheckSquare, DollarSign, Users, ShieldCheck
+  X, Loader2, Zap, FileText, Share2, Mail, User as UserIcon, Clock, CheckSquare, PoundSterling, Users, ShieldCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -166,8 +166,8 @@ export default function DashboardPage() {
           { label: "Emails Scheduled", value: stats.emailsScheduled, icon: Mail, path: "/campaigns" },
           { 
             label: "Current Profit", 
-            value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(stats.currentProfit), 
-            icon: DollarSign, 
+            value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(stats.currentProfit), 
+            icon: PoundSterling, 
             path: "/payments" 
           },
         ].map((item) => (

@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
-  Plus, X, Loader2, MapPin, Clock, Video, Landmark, ExternalLink
+  Plus, X, Loader2, MapPin, Clock, Video, Landmark, ExternalLink, Mail
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -24,6 +24,7 @@ const PRESET_COLORS = [
 export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [tasks, setTasks] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [selectedDay, setSelectedDay] = useState(new Date());
   
   // Modal States
@@ -46,16 +47,41 @@ export default function CalendarPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ), []);
 
-  useEffect(() => { fetchEvents(); }, [currentMonth, supabase]);
+  useEffect(() => { fetchAllData(); }, [currentMonth, supabase]);
 
-  async function fetchEvents() {
+  async function fetchAllData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data } = await supabase.from("tasks").select("*").eq("user_id", user.id);
-    setTasks(data || []);
+
+    const [tasksRes, campaignsRes] = await Promise.all([
+      supabase.from("tasks").select("*").eq("user_id", user.id),
+      supabase.from("campaigns").select("*").eq("user_id", user.id)
+    ]);
+
+    setTasks(tasksRes.data || []);
+    setCampaigns(campaignsRes.data || []);
   }
 
-  // INTERACTION: Click Day (Open Create)
+  // Helper to merge and filter events for a specific day
+  const getEventsForDay = (day: Date) => {
+    const dayTasks = tasks.filter(t => isSameDay(new Date(t.created_at), day)).map(t => ({
+        ...t,
+        displayType: 'TASK',
+        dateField: t.created_at
+    }));
+
+    const dayCampaigns = campaigns.filter(c => c.scheduled_for && isSameDay(new Date(c.scheduled_for), day)).map(c => ({
+        ...c,
+        displayType: 'CAMPAIGN',
+        color: '#8b5cf6', // Protocol Purple for Email
+        dateField: c.scheduled_for
+    }));
+
+    return [...dayTasks, ...dayCampaigns].sort((a, b) => 
+        new Date(a.dateField).getTime() - new Date(b.dateField).getTime()
+    );
+  };
+
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
     setSelectedDateString(format(day, "yyyy-MM-dd"));
@@ -64,11 +90,10 @@ export default function CalendarPage() {
     setIsModalOpen(true);
   };
 
-  // INTERACTION: Click specific Event (Open View)
-  const handleEventClick = (e: React.MouseEvent, task: any) => {
+  const handleEventClick = (e: React.MouseEvent, item: any) => {
     e.preventDefault();
-    e.stopPropagation(); // CRITICAL: Stops the day click from firing
-    setSelectedTask(task);
+    e.stopPropagation();
+    setSelectedTask(item);
     setViewMode("view");
     setIsModalOpen(true);
   };
@@ -90,7 +115,7 @@ export default function CalendarPage() {
       if (error) throw error;
       setIsModalOpen(false);
       setNewTitle(""); setNotes(""); setVcLink(""); setEventLocation("");
-      fetchEvents();
+      fetchAllData();
     } catch (err: any) {
       alert(`DB Error: ${err.message}`);
     } finally {
@@ -103,9 +128,7 @@ export default function CalendarPage() {
     return eachDayOfInterval({ start: startOfWeek(start), end: endOfWeek(endOfMonth(start)) });
   }, [currentMonth]);
 
-  const selectedDayEvents = useMemo(() => {
-    return tasks.filter(t => isSameDay(new Date(t.created_at), selectedDay));
-  }, [selectedDay, tasks]);
+  const selectedDayEvents = useMemo(() => getEventsForDay(selectedDay), [selectedDay, tasks, campaigns]);
 
   return (
     <div className="min-h-screen bg-[#faf9f6] p-4 md:p-10 text-stone-900 pb-32">
@@ -145,13 +168,18 @@ export default function CalendarPage() {
                 ) : (
                   <div className="space-y-6">
                     <div>
-                      <span className="text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">Title</span>
-                      <h4 className="text-2xl font-serif italic text-stone-800">{selectedTask?.title}</h4>
+                      <span className="text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">{selectedTask?.displayType}</span>
+                      <h4 className="text-2xl font-serif italic text-stone-800">{selectedTask?.title || selectedTask?.subject}</h4>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-2 text-stone-500 text-xs"><Clock size={14}/> {selectedTask?.created_at && format(new Date(selectedTask.created_at), "HH:mm")}</div>
-                      <div className="flex items-center gap-2 text-stone-500 text-xs"><CalendarIcon size={14}/> {selectedTask?.created_at && format(new Date(selectedTask.created_at), "MMM do")}</div>
+                      <div className="flex items-center gap-2 text-stone-500 text-xs"><Clock size={14}/> {format(new Date(selectedTask?.dateField), "HH:mm")}</div>
+                      <div className="flex items-center gap-2 text-stone-500 text-xs"><CalendarIcon size={14}/> {format(new Date(selectedTask?.dateField), "MMM do")}</div>
                     </div>
+                    {selectedTask?.displayType === 'CAMPAIGN' && (
+                        <div className="flex items-center gap-3 p-4 bg-purple-50 text-purple-700 rounded-2xl border border-purple-100">
+                            <Mail size={16}/> <span className="text-[10px] font-black uppercase tracking-widest">Scheduled Email Dispatch</span>
+                        </div>
+                    )}
                     {selectedTask?.vc_link && (
                       <a href={selectedTask.vc_link} target="_blank" className="flex items-center justify-between p-4 bg-stone-900 text-white rounded-2xl group transition-all hover:bg-stone-800">
                         <div className="flex items-center gap-3"><Video size={16}/><span className="text-xs font-bold uppercase tracking-widest">Join Meeting</span></div>
@@ -161,7 +189,7 @@ export default function CalendarPage() {
                     {selectedTask?.location && <div className="flex items-center gap-3 text-stone-600 text-xs"><MapPin size={16} className="text-stone-300"/> {selectedTask.location}</div>}
                     <div className="p-5 bg-stone-50 rounded-2xl border border-stone-100 min-h-[100px]">
                       <p className="text-[8px] font-black uppercase text-stone-400 mb-2">Strategy Notes</p>
-                      <p className="text-xs text-stone-600 leading-relaxed italic">{selectedTask?.description || "No notes provided."}</p>
+                      <p className="text-xs text-stone-600 leading-relaxed italic">{selectedTask?.description || selectedTask?.content || "No detailed notes."}</p>
                     </div>
                   </div>
                 )}
@@ -198,32 +226,37 @@ export default function CalendarPage() {
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
               <div key={d} className="py-5 text-center text-[9px] font-black uppercase tracking-widest text-stone-300 border-b border-stone-50">{d}</div>
             ))}
-            {calendarDays.map((day) => (
-              <div 
-                key={day.toISOString()}
-                onClick={() => handleDayClick(day)}
-                className={`min-h-[120px] p-3 border-r border-b border-stone-50 transition-all cursor-pointer relative group
-                  ${!isSameMonth(day, currentMonth) ? 'bg-stone-50/30 opacity-20' : 'bg-white hover:bg-stone-50/50'}
-                  ${isSameDay(day, selectedDay) ? 'bg-stone-50/80' : ''}
-                `}
-              >
-                <span className={`text-[11px] font-bold ${isSameDay(day, new Date()) ? 'bg-stone-900 text-white px-1.5 py-0.5 rounded-md' : 'text-stone-800'}`}>
-                  {format(day, "d")}
-                </span>
-                <div className="mt-2 space-y-1 relative z-10">
-                  {tasks.filter(t => isSameDay(new Date(t.created_at), day)).slice(0, 3).map((t, i) => (
-                    <div 
-                      key={t.id || i} 
-                      onClick={(e) => handleEventClick(e, t)}
-                      className="text-[7px] font-black uppercase truncate p-1.5 rounded-lg border-l-2 bg-white shadow-sm hover:translate-x-1 transition-all hover:bg-stone-50 pointer-events-auto" 
-                      style={{ borderLeftColor: t.color || '#A3B18A' }}
-                    >
-                      {t.title}
-                    </div>
-                  ))}
+            {calendarDays.map((day) => {
+              const dayEvents = getEventsForDay(day);
+              return (
+                <div 
+                  key={day.toISOString()}
+                  onClick={() => handleDayClick(day)}
+                  className={`min-h-[120px] p-3 border-r border-b border-stone-50 transition-all cursor-pointer relative group
+                    ${!isSameMonth(day, currentMonth) ? 'bg-stone-50/30 opacity-20' : 'bg-white hover:bg-stone-50/50'}
+                    ${isSameDay(day, selectedDay) ? 'bg-stone-50/80' : ''}
+                  `}
+                >
+                  <span className={`text-[11px] font-bold ${isSameDay(day, new Date()) ? 'bg-stone-900 text-white px-1.5 py-0.5 rounded-md' : 'text-stone-800'}`}>
+                    {format(day, "d")}
+                  </span>
+                  <div className="mt-2 space-y-1 relative z-10">
+                    {dayEvents.slice(0, 3).map((item, i) => (
+                      <div 
+                        key={item.id || i} 
+                        onClick={(e) => handleEventClick(e, item)}
+                        className="text-[7px] font-black uppercase truncate p-1.5 rounded-lg border-l-2 bg-white shadow-sm hover:translate-x-1 transition-all hover:bg-stone-50 pointer-events-auto flex items-center gap-1" 
+                        style={{ borderLeftColor: item.color || '#A3B18A' }}
+                      >
+                        {item.displayType === 'CAMPAIGN' && <Mail size={8} className="shrink-0 text-purple-400"/>}
+                        <span className="truncate">{item.title || item.subject}</span>
+                      </div>
+                    ))}
+                    {dayEvents.length > 3 && <div className="text-[6px] font-black text-stone-300 pl-1">+{dayEvents.length - 3} MORE</div>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -245,10 +278,12 @@ export default function CalendarPage() {
                   selectedDayEvents.map((e, i) => (
                     <div key={e.id || i} onClick={(ev) => handleEventClick(ev, e)} className="p-4 rounded-2xl bg-[#faf9f6] border border-stone-100 cursor-pointer hover:bg-white hover:shadow-md transition-all group">
                       <div className="flex justify-between items-center mb-1">
-                         <span className="text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-white shadow-sm" style={{ color: e.color }}>Entry</span>
-                         <span className="text-[8px] font-bold text-stone-400">{format(new Date(e.created_at), "HH:mm")}</span>
+                         <span className="text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-white shadow-sm flex items-center gap-1" style={{ color: e.color }}>
+                            {e.displayType === 'CAMPAIGN' && <Mail size={8}/>} {e.displayType}
+                         </span>
+                         <span className="text-[8px] font-bold text-stone-400">{format(new Date(e.dateField), "HH:mm")}</span>
                       </div>
-                      <p className="text-[10px] font-bold text-stone-800 uppercase leading-tight group-hover:text-stone-900">{e.title}</p>
+                      <p className="text-[10px] font-bold text-stone-800 uppercase leading-tight group-hover:text-stone-900">{e.title || e.subject}</p>
                     </div>
                   ))
                 )}

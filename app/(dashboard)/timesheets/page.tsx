@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { 
-  Clock, Trash2, Users, ArrowLeft, 
-  Plus, Database, Calendar as CalendarIcon,
-  ChevronRight, Timer
+  Clock, Trash2, Users, Plus, Database, 
+  Calendar, Timer, Check, Activity, 
+  ChevronRight, Filter, Download, Briefcase
 } from "lucide-react";
+
+/**
+ * TIMESHEETS CORE - v5.0.0
+ * Analytical specialized view with grid-entry system
+ */
 
 interface TimesheetEntry {
   id: string;
@@ -20,32 +25,39 @@ interface TimesheetEntry {
   fri: number;
   sat: number;
   sun: number;
-  teamMember?: string;
+  teamMember: string;
 }
 
 export default function TimesheetsPage() {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
-  
-  const [selectedWeek, setSelectedWeek] = useState("2026-W18");
+
+  // --- UI STATE ---
+  const [isNotificationVisible, setIsNotificationVisible] = useState(false);
+  const [notificationMsg, setNotificationMsg] = useState("");
+  const [selectedWeek, setSelectedWeek] = useState("2026-W19");
+
+  // --- DATA STATE ---
   const [timesheetList, setTimesheetList] = useState<TimesheetEntry[]>([
     { id: "1", client: "Cyberdyne Systems", task: "Platform Integration", mon: 4, tue: 8, wed: 6, thu: 8, fri: 4, sat: 0, sun: 0, teamMember: "Sarah Chen" },
     { id: "2", client: "Aperture Labs", task: "Bug Fixing", mon: 2, tue: 2, wed: 4, thu: 2, fri: 2, sat: 0, sun: 0, teamMember: "Jane Doe" }
   ]);
 
-  // Form State
   const [formData, setFormData] = useState({
-    client: "",
-    task: "",
-    member: "",
+    client: "", task: "", member: "",
     mon: "0", tue: "0", wed: "0", thu: "0", fri: "0", sat: "0", sun: "0"
   });
 
   useEffect(() => { setIsMounted(true); }, []);
 
-  const addTimesheetEntry = () => {
+  const notify = (msg: string) => {
+    setNotificationMsg(msg);
+    setIsNotificationVisible(true);
+    setTimeout(() => setIsNotificationVisible(false), 3000);
+  };
+
+  const addEntry = () => {
     if (!formData.client || !formData.task) return;
-    
     const newEntry: TimesheetEntry = {
       id: Date.now().toString(),
       client: formData.client,
@@ -59,196 +71,199 @@ export default function TimesheetsPage() {
       sat: parseFloat(formData.sat) || 0,
       sun: parseFloat(formData.sun) || 0,
     };
-
-    setTimesheetList([...timesheetList, newEntry]);
+    setTimesheetList([newEntry, ...timesheetList]);
     setFormData({ client: "", task: "", member: "", mon: "0", tue: "0", wed: "0", thu: "0", fri: "0", sat: "0", sun: "0" });
+    notify("Time entry synchronized");
   };
 
-  const deleteEntry = (id: string) => setTimesheetList(prev => prev.filter(t => t.id !== id));
+  const calculateTotal = (t: TimesheetEntry) => t.mon + t.tue + t.wed + t.thu + t.fri + t.sat + t.sun;
 
   if (!isMounted) return null;
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] selection:bg-[var(--brand-primary)] selection:text-white transition-colors duration-500">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans p-6 md:p-12 selection:bg-[#a9b897] selection:text-white">
       
-      <div className="max-w-[1600px] mx-auto px-6 py-12 md:p-16 lg:p-20 space-y-12 pb-32">
+      {/* Notifications */}
+      <AnimatePresence>
+        {isNotificationVisible && (
+          <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }} className="fixed top-12 left-1/2 -translate-x-1/2 z-[200] bg-stone-900 text-white px-10 py-5 rounded-full shadow-2xl flex items-center gap-4">
+            <Check size={16} className="text-[#a9b897]" />
+            <p className="text-[9px] font-black uppercase tracking-widest">{notificationMsg}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="max-w-[1400px] mx-auto space-y-16">
         
-        {/* HEADER */}
-        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 border-b border-[var(--border)] pb-12">
+        {/* --- HEADER & NAVIGATION --- */}
+        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-10">
           <div className="space-y-4">
-            <button 
-              onClick={() => router.back()}
-              className="flex items-center gap-2 text-[var(--text-muted)] hover:text-[var(--brand-primary)] transition-colors mb-4"
-            >
-              <ArrowLeft size={14} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Return</span>
-            </button>
-            <h1 className="text-5xl md:text-8xl font-serif italic tracking-tighter leading-none text-[var(--brand-primary)]">
-              Timesheets
-            </h1>
-            <div className="flex flex-wrap gap-4 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
-               <span className="flex items-center gap-2"><Timer size={12}/> Live Recording</span>
-               <span className="flex items-center gap-2"><Database size={12}/> Operations Node</span>
+            <div className="flex items-center gap-3 text-stone-400">
+              <Activity size={14} className="text-[#a9b897]" />
+              <p className="font-black uppercase text-[10px] tracking-[0.4em]">Operations Node v5.0</p>
             </div>
+            <h1 className="text-7xl font-serif italic tracking-tighter leading-tight">Timesheets</h1>
           </div>
-          
-          <div className="flex flex-wrap gap-3 w-full xl:w-auto">
-            {["Financials", "Timesheets", "HR & Payroll"].map((label) => (
-              <button 
-                key={label}
-                onClick={() => label !== "Timesheets" && router.push(`/${label.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-')}`)}
-                className={`flex-1 md:flex-none px-8 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                  label === "Timesheets" 
-                  ? "bg-[var(--brand-primary)] text-white shadow-xl" 
-                  : "bg-[var(--card-bg)] border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-soft)]"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+
+          <nav className="flex bg-white border border-stone-200 p-1.5 rounded-[2rem] shadow-sm">
+            <button onClick={() => router.push('/payments')} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 transition-all">Payments</button>
+            <button onClick={() => router.push('/finance-reports')} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 transition-all">Reports</button>
+            <button onClick={() => router.push('/hr')} className="px-10 py-4 text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 transition-all">HR</button>
+            <button className="px-10 py-4 text-[10px] font-black uppercase tracking-widest bg-stone-900 text-white rounded-full shadow-xl">Timesheets</button>
+          </nav>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          
-          {/* LOGGING INTERFACE */}
-          <section className="lg:col-span-12 bg-[var(--card-bg)] border border-[var(--border)] p-8 md:p-12 rounded-[4rem] shadow-sm space-y-12">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-[var(--border)] pb-8">
+        {/* --- METRICS & CONTROLS --- */}
+        <section className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="lg:col-span-1 bg-stone-900 text-white p-10 rounded-[3.5rem] flex flex-col justify-between h-64">
+            <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Billable Capacity</p>
+            <h2 className="text-6xl font-mono tracking-tighter text-[#a9b897]">84%</h2>
+            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-stone-400">
+              <Timer size={12} /> +4% vs target
+            </div>
+          </div>
+
+          <div className="lg:col-span-3 bg-white border border-stone-200 p-10 rounded-[3.5rem] flex items-center justify-between">
+            <div className="space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Week Configuration</p>
               <div className="flex items-center gap-4">
-                <div className="p-4 bg-[var(--bg-soft)] rounded-2xl">
-                  <Clock size={24} className="text-[var(--brand-primary)]" />
-                </div>
-                <div>
-                  <h3 className="text-3xl font-serif italic">Operational Log</h3>
-                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Neural Time Entry</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-[var(--bg-soft)] p-2 rounded-2xl border border-[var(--border)]">
-                <CalendarIcon size={14} className="ml-3 text-[var(--text-muted)]" />
-                <input 
+                 <input 
                   type="week" 
-                  value={selectedWeek}
+                  value={selectedWeek} 
                   onChange={(e) => setSelectedWeek(e.target.value)}
-                  className="bg-transparent text-[10px] font-black uppercase tracking-widest px-4 py-3 outline-none"
+                  className="text-4xl font-serif italic bg-transparent border-none outline-none cursor-pointer"
                 />
+                <Calendar size={20} className="text-[#a9b897]" />
               </div>
             </div>
+            <div className="flex gap-4">
+              <button onClick={() => notify("Exporting CSV...")} className="p-6 bg-stone-50 rounded-full hover:bg-stone-100 transition-colors">
+                <Download size={20} className="text-stone-400" />
+              </button>
+              <button onClick={() => notify("Approving Week...")} className="px-10 py-6 bg-stone-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform">
+                Submit For Review
+              </button>
+            </div>
+          </div>
+        </section>
 
-            {/* INPUT GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
-              <div className="md:col-span-3 space-y-3">
-                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-2">Client Node</label>
-                <input 
-                  placeholder="Entity Name" 
-                  value={formData.client} 
-                  onChange={(e) => setFormData({...formData, client: e.target.value})}
-                  className="w-full bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl p-5 text-xs font-bold outline-none focus:border-[var(--brand-primary)] transition-all"
-                />
-              </div>
-              <div className="md:col-span-3 space-y-3">
-                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-2">Objective</label>
-                <input 
-                  placeholder="Task Description" 
-                  value={formData.task} 
-                  onChange={(e) => setFormData({...formData, task: e.target.value})}
-                  className="w-full bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl p-5 text-xs font-bold outline-none focus:border-[var(--brand-primary)] transition-all"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-3">
-                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-2">Assignee</label>
-                <div className="flex items-center bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl px-4">
-                  <Users size={14} className="text-[var(--text-muted)]" />
+        {/* --- ENTRY INTERFACE --- */}
+        <section className="bg-white border border-stone-200 rounded-[3.5rem] p-12 space-y-12 shadow-sm">
+          <div className="flex items-center gap-4 border-b border-stone-50 pb-8">
+            <Database size={20} className="text-[#a9b897]" />
+            <h3 className="text-3xl font-serif italic">Operational Log Entry</h3>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-end">
+            <div className="xl:col-span-3 space-y-3">
+              <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-2">Client Entity</label>
+              <input 
+                placeholder="Entity name" 
+                value={formData.client} 
+                onChange={(e) => setFormData({...formData, client: e.target.value})}
+                className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm font-bold outline-none focus:border-[#a9b897]" 
+              />
+            </div>
+            <div className="xl:col-span-3 space-y-3">
+              <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-2">Objective</label>
+              <input 
+                placeholder="Task description" 
+                value={formData.task} 
+                onChange={(e) => setFormData({...formData, task: e.target.value})}
+                className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm font-bold outline-none focus:border-[#a9b897]" 
+              />
+            </div>
+            <div className="xl:col-span-5 space-y-3">
+              <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-2 text-center block">Daily Hours allocation (M-S)</label>
+              <div className="grid grid-cols-7 gap-2">
+                {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => (
                   <input 
-                    placeholder="Name" 
-                    value={formData.member} 
-                    onChange={(e) => setFormData({...formData, member: e.target.value})}
-                    className="w-full bg-transparent p-5 text-xs font-bold outline-none"
+                    key={day}
+                    value={(formData as any)[day]} 
+                    onChange={(e) => setFormData({...formData, [day]: e.target.value})} 
+                    className="w-full bg-stone-50 border border-stone-100 p-4 rounded-xl text-center font-black text-[10px] outline-none focus:border-[#a9b897]" 
+                    placeholder={day[0].toUpperCase()} 
                   />
-                </div>
-              </div>
-              <div className="md:col-span-3 space-y-3">
-                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] ml-2 text-center block">Hours (M-S)</label>
-                <div className="grid grid-cols-7 gap-1">
-                  {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => (
-                    <input 
-                      key={day}
-                      value={(formData as any)[day]} 
-                      onChange={(e) => setFormData({...formData, [day]: e.target.value})} 
-                      className="w-full bg-[var(--bg-soft)] border border-[var(--border)] p-3 rounded-xl text-center font-black text-[10px] outline-none focus:border-[var(--brand-primary)]" 
-                      placeholder={day[0].toUpperCase()} 
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="md:col-span-1">
-                <button 
-                  onClick={addTimesheetEntry} 
-                  className="w-full aspect-square md:aspect-auto md:py-5 bg-[var(--text-main)] text-[var(--bg)] rounded-2xl flex items-center justify-center hover:bg-[var(--brand-primary)] hover:text-white transition-all shadow-lg"
-                >
-                  <Plus size={20} />
-                </button>
-              </div>
-            </div>
-
-            {/* LIST ENTRIES */}
-            <div className="space-y-4 pt-12 border-t border-[var(--border)]">
-              <AnimatePresence mode="popLayout">
-                {timesheetList.map((t) => (
-                  <motion.div 
-                    key={t.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="flex flex-col md:flex-row justify-between items-center bg-[var(--bg-soft)] p-8 rounded-[2.5rem] border border-[var(--border)] group hover:border-[var(--brand-primary)] transition-all"
-                  >
-                    <div className="flex items-center gap-8 w-full md:w-auto">
-                      <div className="w-12 h-12 rounded-full bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--brand-primary)]">
-                        <Timer size={18} />
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--brand-primary)]">{t.client}</span>
-                        <h4 className="text-xl font-serif italic text-[var(--text-main)]">{t.task}</h4>
-                        <p className="text-[9px] text-[var(--text-muted)] font-bold mt-1 uppercase tracking-widest flex items-center gap-2">
-                          <Users size={10} /> {t.teamMember}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-12 mt-6 md:mt-0 w-full md:w-auto justify-between md:justify-end border-t md:border-none pt-6 md:pt-0 border-[var(--border)]">
-                      <div className="flex gap-2">
-                        {[t.mon, t.tue, t.wed, t.thu, t.fri, t.sat, t.sun].map((h, i) => (
-                          <div key={i} className={`w-8 h-8 rounded-lg flex items-center justify-center text-[8px] font-black border ${h > 0 ? 'bg-[var(--brand-primary)]/10 border-[var(--brand-primary)]/20 text-[var(--brand-primary)]' : 'bg-transparent border-[var(--border)] text-[var(--text-muted)]/30'}`}>
-                            {h}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-8">
-                        <div className="text-right">
-                          <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Total</p>
-                          <span className="text-2xl font-serif italic text-[var(--text-main)]">
-                            {t.mon + t.tue + t.wed + t.thu + t.fri + t.sat + t.sun} <span className="text-[10px] font-sans not-italic uppercase opacity-30">Hrs</span>
-                          </span>
-                        </div>
-                        <button 
-                          onClick={() => deleteEntry(t.id)} 
-                          className="p-4 rounded-xl text-[var(--text-muted)] hover:text-red-500 hover:bg-red-50 transition-all"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
                 ))}
-              </AnimatePresence>
-
-              {timesheetList.length === 0 && (
-                <div className="text-center py-20 border-2 border-dashed border-[var(--border)] rounded-[3rem]">
-                  <p className="text-sm text-[var(--text-muted)] font-serif italic">Operational logs empty. Pending synchronization.</p>
-                </div>
-              )}
+              </div>
             </div>
-          </section>
-        </div>
+            <div className="xl:col-span-1">
+              <button 
+                onClick={addEntry}
+                className="w-full aspect-square bg-stone-900 text-white rounded-2xl flex items-center justify-center hover:bg-[#a9b897] transition-all shadow-xl active:scale-95"
+              >
+                <Plus size={24} />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* --- ENTRIES LIST --- */}
+        <section className="space-y-6">
+          <div className="flex justify-between items-center px-4">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Current Assignments</h4>
+            <div className="text-[10px] font-black uppercase text-stone-400">
+              Total Recorded: <span className="text-stone-900 ml-2">{timesheetList.reduce((acc, curr) => acc + calculateTotal(curr), 0)} Hrs</span>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <AnimatePresence mode="popLayout">
+              {timesheetList.map((t) => (
+                <motion.div 
+                  key={t.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-white border border-stone-200 p-8 rounded-[3rem] flex flex-col lg:flex-row justify-between items-center gap-8 group hover:border-[#a9b897] transition-all"
+                >
+                  <div className="flex items-center gap-8 w-full lg:w-auto">
+                    <div className="w-14 h-14 bg-stone-50 rounded-2xl flex items-center justify-center text-stone-300 group-hover:text-[#a9b897] transition-colors">
+                      <Briefcase size={22} />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#a9b897] mb-1">{t.client}</p>
+                      <h4 className="text-2xl font-serif italic text-stone-800">{t.task}</h4>
+                      <div className="flex items-center gap-3 mt-2">
+                        <Users size={12} className="text-stone-300" />
+                        <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">{t.teamMember}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap lg:flex-nowrap items-center gap-8 w-full lg:w-auto justify-between border-t lg:border-none pt-6 lg:pt-0 border-stone-50">
+                    <div className="flex gap-2">
+                      {[t.mon, t.tue, t.wed, t.thu, t.fri, t.sat, t.sun].map((h, i) => (
+                        <div key={i} className={`w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-black border ${h > 0 ? 'bg-stone-900 text-white border-stone-900' : 'bg-stone-50 border-stone-100 text-stone-300'}`}>
+                          {h}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-8 border-l border-stone-100 pl-8">
+                      <div className="text-right">
+                        <p className="text-[8px] font-black uppercase text-stone-400 tracking-widest mb-1">Accumulated</p>
+                        <span className="text-3xl font-serif italic text-stone-900">
+                          {calculateTotal(t)}<span className="text-[10px] font-sans not-italic text-stone-300 ml-1">HRS</span>
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setTimesheetList(prev => prev.filter(item => item.id !== t.id));
+                          notify("Entry removed from log");
+                        }}
+                        className="p-4 rounded-2xl text-stone-200 hover:text-red-500 hover:bg-red-50 transition-all"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </section>
+
       </div>
     </div>
   );

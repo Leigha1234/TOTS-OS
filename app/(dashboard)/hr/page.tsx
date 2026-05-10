@@ -3,17 +3,12 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client"; // Using your specific client file
+import { supabase } from "@/lib/supabase-client"; 
 import { 
-  Users, Save, Calendar, Landmark, Fingerprint, 
-  X, Check, Briefcase, FileText, Mail, 
-  AlertCircle, Loader2, Activity, UserPlus, Award
+  Save, Calendar, Landmark, Fingerprint, 
+  X, Check, FileText, Mail, 
+  AlertCircle, Loader2, Activity
 } from "lucide-react";
-
-/**
- * HR & PAYROLL CORE - v5.2.0
- * Fully integrated with Supabase Profiles table
- */
 
 export default function HRPage() {
   const [isMounted, setIsMounted] = useState(false);
@@ -28,6 +23,7 @@ export default function HRPage() {
 
   // --- DATABASE DATA STATE ---
   const [profile, setProfile] = useState<any>({
+    id: null,
     full_name: "",
     role: "",
     address: "",
@@ -46,10 +42,22 @@ export default function HRPage() {
   async function fetchProfile() {
     try {
       setIsLoading(true);
-      // Fetching the first profile for this demo - adjust .eq('id', user.id) for auth
-      const { data, error } = await supabase.from('profiles').select('*').single();
-      if (error) throw error;
-      if (data) setProfile(data);
+      setError(null);
+
+      // FIX: Changed .single() to .limit(1) to avoid JSON Coercion error
+      const { data, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .limit(1); 
+
+      if (fetchError) throw fetchError;
+
+      if (data && data.length > 0) {
+        setProfile(data[0]);
+      } else {
+        // Handle case where no profile exists yet
+        notify("No profile found. Please initialize your record.");
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -58,13 +66,27 @@ export default function HRPage() {
   }
 
   async function handleSave() {
+    if (!profile.id) {
+        setError("Cannot update: No profile ID found in database.");
+        return;
+    }
+
     try {
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('profiles')
-        .update(profile)
+        .update({
+            full_name: profile.full_name,
+            role: profile.role,
+            phone: profile.phone,
+            address: profile.address,
+            company_details: profile.company_details,
+            bank_name: profile.bank_name,
+            account_number: profile.account_number,
+            sort_code: profile.sort_code
+        })
         .eq('id', profile.id);
       
-      if (error) throw error;
+      if (updateError) throw updateError;
       notify("Database synchronized successfully");
     } catch (err: any) {
       setError(err.message);
@@ -79,7 +101,6 @@ export default function HRPage() {
 
   if (!isMounted) return null;
 
-  // --- REUSABLE MODAL ---
   const Modal = ({ id, title, children }: { id: string, title: string, children: React.ReactNode }) => (
     <AnimatePresence>
       {activeModal === id && (
@@ -110,7 +131,6 @@ export default function HRPage() {
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans p-6 md:p-12 selection:bg-[#a9b897] selection:text-white">
       
-      {/* Toast Notification */}
       <AnimatePresence>
         {isNotificationVisible && (
           <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }} className="fixed top-12 left-1/2 -translate-x-1/2 z-[200] bg-stone-900 text-white px-10 py-5 rounded-full shadow-2xl flex items-center gap-4">
@@ -122,26 +142,25 @@ export default function HRPage() {
 
       <div className="max-w-[1400px] mx-auto space-y-16">
         
-        {/* --- HEADER --- */}
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-10">
           <div className="space-y-4">
             <div className="flex items-center gap-3 text-stone-400">
               <Fingerprint size={14} className="text-[#a9b897]" />
-              <p className="font-black uppercase text-[10px] tracking-[0.4em]">Workforce Identity v5.2</p>
+              <p className="font-black uppercase text-[10px] tracking-[0.4em]">Workforce Identity v5.2.1</p>
             </div>
             <h1 className="text-6xl md:text-7xl font-serif italic tracking-tighter leading-tight">Human Resources</h1>
           </div>
 
           <nav className="flex flex-wrap bg-white border border-stone-200 p-1.5 rounded-[2rem] shadow-sm">
-            {['Payments', 'Finance-Reports', 'HR', 'Timesheets'].map((path) => (
+            {['Payments', 'Reports', 'HR', 'Timesheets'].map((path) => (
               <button 
                 key={path}
-                onClick={() => path !== 'HR' && router.push(`/${path.toLowerCase()}`)}
+                onClick={() => path !== 'HR' && router.push(`/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)}
                 className={`px-8 py-3.5 text-[10px] font-black uppercase tracking-widest transition-all rounded-full ${
                   path === 'HR' ? "bg-stone-900 text-white shadow-lg" : "text-stone-400 hover:text-stone-900"
                 }`}
               >
-                {path.replace('-', ' ')}
+                {path}
               </button>
             ))}
           </nav>
@@ -150,27 +169,25 @@ export default function HRPage() {
         {error && (
           <div className="bg-red-50 border border-red-100 p-5 rounded-3xl flex items-center gap-4 text-red-600">
             <AlertCircle size={20} />
-            <p className="text-[10px] font-black uppercase tracking-widest">Database Error: {error}</p>
+            <p className="text-[10px] font-black uppercase tracking-widest">Feed Error: {error}</p>
           </div>
         )}
 
-        {/* --- MAIN INTERFACE --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           
-          {/* LEFT: Core Personnel Record */}
           <section className="lg:col-span-2 bg-white border border-stone-200 p-8 md:p-12 rounded-[3.5rem] space-y-12 shadow-sm min-w-0">
-            <div className="flex justify-between items-end border-b border-stone-50 pb-8">
+            <div className="flex justify-between items-end border-b border-stone-50 pb-8 gap-4">
               <div className="space-y-2 min-w-0">
                 <h4 className="text-3xl md:text-4xl font-serif italic tracking-tighter truncate">
                   Personnel Record
                 </h4>
                 <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 truncate">
-                  Master File: {profile.full_name || "New Employee"}
+                  {profile.full_name || "Profile Loading..."}
                 </p>
               </div>
               <button 
                 onClick={handleSave}
-                className="p-4 bg-stone-900 text-white rounded-2xl hover:bg-[#a9b897] transition-all active:scale-95 flex-shrink-0"
+                className="p-5 bg-stone-900 text-white rounded-2xl hover:bg-[#a9b897] transition-all active:scale-95 flex-shrink-0 shadow-lg"
               >
                 <Save size={20} />
               </button>
@@ -209,7 +226,7 @@ export default function HRPage() {
 
             <div className="pt-10 border-t border-stone-50">
               <h5 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-stone-400 flex items-center gap-3">
-                <Landmark size={14} className="text-[#a9b897]" /> Financial Disbursement Data
+                <Landmark size={14} className="text-[#a9b897]" /> Banking & Disbursements
               </h5>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
@@ -223,7 +240,7 @@ export default function HRPage() {
                       value={profile[bank.key] || ""}
                       onChange={(e) => setProfile({...profile, [bank.key]: e.target.value})}
                       className="w-full bg-transparent font-mono font-bold text-xs outline-none focus:text-[#a9b897]"
-                      placeholder="REQUIRED"
+                      placeholder="SET DATA"
                     />
                   </div>
                 ))}
@@ -231,16 +248,15 @@ export default function HRPage() {
             </div>
           </section>
 
-          {/* RIGHT: Quick Actions & Metrics */}
           <div className="space-y-8">
             <div className="bg-stone-900 rounded-[3.5rem] p-10 text-white space-y-10 shadow-xl overflow-hidden relative">
               <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Employment Summary</p>
               <div className="space-y-6">
                 <div>
                   <h2 className="text-5xl font-mono tracking-tighter text-[#a9b897]">28.0</h2>
-                  <p className="text-[9px] font-black uppercase text-stone-400 mt-1">Holiday Days Remaining</p>
+                  <p className="text-[9px] font-black uppercase text-stone-400 mt-1">Holiday Balance</p>
                 </div>
-                <div className="w-full bg-stone-800 h-1.5 rounded-full">
+                <div className="w-full bg-stone-800 h-1.5 rounded-full overflow-hidden">
                   <div className="bg-[#a9b897] h-full w-[65%]" />
                 </div>
               </div>
@@ -261,10 +277,10 @@ export default function HRPage() {
                 <Activity size={14} /> System Tasks
               </h6>
               <div className="space-y-3">
-                <button className="w-full flex items-center justify-between p-4 bg-stone-50 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-100 transition-all border border-stone-100">
+                <button className="w-full flex items-center justify-between p-4 bg-stone-50 rounded-2xl text-[9px] font-black uppercase hover:bg-stone-100 transition-all border border-stone-100">
                   Request P60 <Mail size={14} className="text-stone-300" />
                 </button>
-                <button className="w-full flex items-center justify-between p-4 bg-stone-50 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-100 transition-all border border-stone-100">
+                <button className="w-full flex items-center justify-between p-4 bg-stone-50 rounded-2xl text-[9px] font-black uppercase hover:bg-stone-100 transition-all border border-stone-100">
                   Staff Handbook <FileText size={14} className="text-stone-300" />
                 </button>
               </div>
@@ -276,7 +292,7 @@ export default function HRPage() {
       {/* --- MODALS --- */}
       <Modal id="leave" title="Time-Off Request">
         <div className="space-y-8 py-4">
-          <p className="text-sm text-stone-500 leading-relaxed">Select your required dates for absence. Once submitted, this will be routed to your department head for synchronization.</p>
+          <p className="text-sm text-stone-500 leading-relaxed">Absence requests are synchronized with your department lead automatically.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Start Date</label>
@@ -291,7 +307,7 @@ export default function HRPage() {
         </div>
       </Modal>
 
-      <Modal id="payslip" title="Compensation History">
+      <Modal id="payslip" title="Compensation Archive">
         <div className="space-y-4 py-4">
            {['May 2026', 'April 2026', 'March 2026'].map((month) => (
              <div key={month} className="flex items-center justify-between p-6 bg-stone-50 rounded-3xl border border-stone-100 hover:border-stone-300 transition-all cursor-pointer group">
@@ -301,7 +317,7 @@ export default function HRPage() {
                  </div>
                  <p className="text-sm font-bold">{month} Payslip</p>
                </div>
-               <span className="text-[9px] font-black uppercase text-[#a9b897]">Download PDF</span>
+               <span className="text-[9px] font-black uppercase text-[#a9b897]">Download</span>
              </div>
            ))}
         </div>
@@ -310,7 +326,6 @@ export default function HRPage() {
   );
 }
 
-// Simple helper icon
 const DownloadIcon = ({ size }: { size: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 );

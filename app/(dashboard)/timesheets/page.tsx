@@ -134,22 +134,36 @@ export default function TimesheetsPage() {
 
       <div className="max-w-[1400px] mx-auto space-y-12 md:space-y-16">
         
-        {/* --- HEADER --- */}
+        {/* --- RESTORED HEADER & NAVIGATION --- */}
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-10">
           <div className="space-y-4">
             <div className="flex items-center gap-3 text-stone-400">
               <Activity size={14} className="text-[#a9b897]" />
-              <p className="font-black uppercase text-[10px] tracking-[0.4em]">Operations Node v5.1</p>
+              <p className="font-black uppercase text-[10px] tracking-[0.4em]">Operations Node v5.2</p>
             </div>
             <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-tight">Timesheets</h1>
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 text-[9px] font-black uppercase">
-              <AlertCircle size={14} /> Database Sync Error: {error}
-            </div>
-          )}
+          <nav className="flex flex-wrap bg-white border border-stone-200 p-1.5 rounded-[2rem] shadow-sm">
+            {['Payments', 'Reports', 'HR', 'Timesheets'].map((path) => (
+              <button 
+                key={path}
+                onClick={() => path !== 'Timesheets' && router.push(`/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)}
+                className={`px-8 py-3.5 text-[10px] font-black uppercase tracking-widest transition-all rounded-full ${
+                  path === 'Timesheets' ? "bg-stone-900 text-white shadow-lg" : "text-stone-400 hover:text-stone-900"
+                }`}
+              >
+                {path}
+              </button>
+            ))}
+          </nav>
         </header>
+
+        {error && (
+          <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 text-[9px] font-black uppercase">
+            <AlertCircle size={14} /> Database Sync Error: {error}
+          </div>
+        )}
 
         {/* --- ENTRY INTERFACE --- */}
         <section className="bg-white border border-stone-200 rounded-[2.5rem] md:rounded-[3.5rem] p-6 md:p-12 space-y-10 shadow-sm">

@@ -160,10 +160,10 @@ export default function TimesheetsPage() {
           </div>
 
           <nav className="flex items-center bg-[#c8d3b9] p-2 rounded-full shadow-inner">
-            {['dashboard', 'Payments', 'Reports', 'HR', 'Timesheets'].map((path) => (
+            {['Dashboard', 'Payments', 'Reports', 'HR', 'Timesheets'].map((path) => (
               <button 
                 key={path}
-                onClick={() => path !== 'Timesheets' && router.push(path === 'dashboard' ? '/' : `/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)}
+                onClick={() => path !== 'Timesheets' && router.push(path === 'Dashboard' ? '/' : `/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)}
                 className={`px-10 py-4 text-[10px] font-black uppercase tracking-widest transition-all rounded-full ${
                   path === 'Timesheets' ? "bg-white text-stone-900 shadow-xl scale-105" : "text-white hover:text-stone-800"
                 }`}

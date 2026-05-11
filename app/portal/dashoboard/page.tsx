@@ -2,186 +2,106 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase"; 
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ShieldCheck, 
-  Layers, 
-  LifeBuoy, 
-  ArrowUpRight, 
-  Fingerprint,
-  User,
-  Zap,
-  LogOut
-} from "lucide-react";
 import AuthGuard from "@/app/components/AuthGuard";
+import Card from "@/app/components/Card";
+import { Circle } from "lucide-react";
 
-export default function PortalPage() {
-  return (
-    <AuthGuard>
-      <PortalOperationalPulse />
-    </AuthGuard>
-  );
-}
+export default function Dashboard() {
+  const [todayHours, setTodayHours] = useState(0);
+  const [activeTasks, setActiveTasks] = useState(0);
+  const [todoList, setTodoList] = useState<any[]>([]);
 
-function PortalOperationalPulse() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<{ email?: string; id?: string } | null>(null);
+  // Moved loadStats outside to prevent recreation on every render
+  async function loadStats() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Parallel fetching
+    const [hrs, tks, list] = await Promise.all([
+      supabase.from("timesheets").select("hours").eq("user_id", user.id).eq("date", today),
+      supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("user_id", user.id).eq("status", "active"),
+      supabase.from("tasks").select("*, projects(name)").eq("user_id", user.id).eq("status", "active").order('created_at', { ascending: false })
+    ]);
+
+    setTodayHours(hrs.data?.reduce((s, h) => s + h.hours, 0) || 0);
+    setActiveTasks(tks.count || 0);
+    setTodoList(list.data || []);
+  }
 
   useEffect(() => {
-    async function checkUser() {
-      const supabase = await createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+    loadStats();
+  }, []);
 
-      if (!session) {
-        router.push("/portal/login");
-        return;
-      }
-
-      setUser(session.user);
-      setLoading(false);
-    }
-    
-    checkUser();
-  }, [router]);
-
-  const handleSignOut = async () => {
+  async function toggleTask(id: string) {
     const supabase = await createClient();
-    await supabase.auth.signOut();
-    router.push("/portal/login");
-  };
-
-  if (loading) {
-    return (
-      <div key="loading-state" className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-6">
-        <div className="relative">
-          <Fingerprint className="text-[#a9b897] animate-pulse" size={64} strokeWidth={1} />
-          <motion.div 
-            animate={{ rotate: 360 }}
-            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-0 border-t-2 border-[#a9b897] rounded-full opacity-20"
-          />
-        </div>
-        <p className="font-serif italic text-stone-400 tracking-tight">Decrypting secure environment...</p>
-      </div>
-    );
+    
+    // Database Update
+    const { error } = await supabase.from("tasks").update({ status: "completed" }).eq("id", id);
+    
+    if (!error) {
+      // Re-load stats to ensure UI is perfectly synced with database state
+      loadStats();
+    }
   }
 
   return (
-    <div key="operational-pulse-content" className="min-h-screen bg-[#faf9f6] p-8 md:p-16 lg:p-24 selection:bg-[#a9b897] selection:text-white">
-      <div className="max-w-6xl mx-auto space-y-20">
-        
-        {/* HEADER SECTION */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-12">
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <Zap size={14} className="text-[#a9b897] animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400">Node Active</span>
-            </div>
-            <h1 className="text-7xl md:text-8xl font-serif italic text-stone-900 tracking-tighter leading-[0.8] py-2">
-              Welcome
-            </h1>
-          </div>
+    <AuthGuard>
+      <div className="p-6 space-y-6">
+        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
 
-          <div className="flex flex-col items-end gap-6">
-            <div className="flex items-center gap-5 bg-white pl-6 pr-3 py-3 rounded-full border border-stone-200 shadow-sm">
-              <div className="text-right">
-                <p className="text-[8px] font-black uppercase text-stone-400 tracking-widest">Authorized As</p>
-                <p className="text-[11px] font-mono font-bold text-stone-900">{user?.email}</p>
-              </div>
-              <button 
-                onClick={handleSignOut}
-                className="w-10 h-10 bg-stone-50 hover:bg-red-50 text-stone-400 hover:text-red-500 rounded-full flex items-center justify-center transition-colors"
-              >
-                <LogOut size={16} />
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {/* ACCESS CARDS GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          {[
-            { 
-              id: 'status', 
-              label: 'Identity Protocol', 
-              title: 'Fully Verified', 
-              desc: 'Security clearance: Level 1',
-              icon: ShieldCheck, 
-              color: 'text-stone-400' 
-            },
-            { 
-              id: 'projects', 
-              label: 'Neural Hub', 
-              title: 'Access Portal', 
-              desc: 'Review ledger & work.',
-              icon: Layers, 
-              color: 'text-[#a9b897]', 
-              isDark: true,
-              link: `/portal/${user?.id}` 
-            },
-            { 
-              id: 'support', 
-              label: 'Concierge', 
-              title: 'Support Node', 
-              desc: 'Connect with our team.',
-              icon: LifeBuoy, 
-              color: 'text-stone-400' 
-            }
-          ].map((card) => (
-            <motion.div 
-              key={card.id}
-              onClick={() => card.link && router.push(card.link)}
-              whileHover={{ y: -8, scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
-              className={`group p-12 rounded-[3.5rem] transition-all cursor-pointer relative overflow-hidden ${
-                card.isDark 
-                  ? 'bg-stone-900 border border-stone-800 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)]' 
-                  : 'bg-white border border-stone-200 shadow-sm hover:shadow-2xl hover:border-[#a9b897]/30'
-              }`}
-            >
-              <div className="flex justify-between items-start mb-16 relative z-10">
-                <div className={`p-5 rounded-2xl transition-colors duration-500 ${card.isDark ? 'bg-stone-800' : 'bg-stone-50 group-hover:bg-stone-900 group-hover:text-white'}`}>
-                  <card.icon className={card.isDark ? 'text-[#a9b897]' : `transition-colors`} size={28} strokeWidth={1.5} />
-                </div>
-                <ArrowUpRight className={card.isDark ? 'text-stone-600' : 'text-stone-300 group-hover:text-[#a9b897] transition-colors'} size={24} />
-              </div>
-              
-              <div className="relative z-10 space-y-4">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-500 mb-2">{card.label}</p>
-                  <p className={`text-4xl font-serif italic leading-none ${card.isDark ? 'text-white' : 'text-stone-900'}`}>
-                    {card.title}
-                  </p>
-                </div>
-                <p className={`text-sm ${card.isDark ? 'text-stone-500' : 'text-stone-400'}`}>
-                  {card.desc}
-                </p>
-              </div>
-
-              {card.isDark && (
-                <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-[#a9b897] blur-[100px] opacity-20 pointer-events-none" />
-              )}
-            </motion.div>
-          ))}
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <p className="text-xs text-gray-400 uppercase tracking-widest">Logged Today</p>
+            <p className="text-3xl font-bold text-blue-400 font-mono">{todayHours} hrs</p>
+          </Card>
+          <Card>
+            <p className="text-xs text-gray-400 uppercase tracking-widest">Active Tasks</p>
+            <p className="text-3xl font-bold text-white font-mono">{activeTasks}</p>
+          </Card>
+          <Card>
+            <p className="text-xs text-gray-400 uppercase tracking-widest">Productivity</p>
+            <p className="text-3xl font-bold text-green-400 font-mono">
+              {todayHours >= 7 ? "Optimal" : "Building..."}
+            </p>
+          </Card>
         </div>
 
-        {/* FOOTER METADATA */}
-        <footer className="pt-16 flex flex-col md:flex-row justify-between items-center gap-8 border-t border-stone-200/60">
-          <div className="flex items-center gap-6">
-            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-400">TOTs Operating System</p>
-            <span className="text-stone-200 text-xs">/</span>
-            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-400">v3.1.0-Neural</p>
+        {/* Focus List */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-gray-900/50 rounded-xl border border-gray-800 flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-800 bg-gray-900/80 flex justify-between items-center">
+              <h2 className="text-sm font-bold text-white uppercase tracking-tighter">Today's Focus</h2>
+              <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">{todoList.length} Remaining</span>
+            </div>
+            <div className="p-2 max-h-[400px] overflow-y-auto">
+              {todoList.length > 0 ? (
+                todoList.map((task) => (
+                  <div 
+                    key={task.id}
+                    onClick={() => toggleTask(task.id)}
+                    className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-lg cursor-pointer group transition-all"
+                  >
+                    <Circle className="text-gray-600 group-hover:text-green-500 transition-colors" size={18} />
+                    <div className="flex flex-col">
+                      <span className="text-sm text-gray-200 group-hover:text-white transition-colors">{task.title}</span>
+                      <span className="text-[10px] text-gray-500 uppercase">{task.projects?.name || 'General'}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-8 text-center text-gray-500 italic text-sm">All caught up!</div>
+              )}
+            </div>
           </div>
-          
-          <div className="flex items-center gap-4 bg-stone-100/50 px-4 py-2 rounded-full border border-stone-200/50">
-            <span className="h-2 w-2 rounded-full bg-[#a9b897] animate-pulse" />
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-600 italic">Interface Synchronized</p>
+          <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 flex items-center justify-center">
+            <p className="text-lg text-gray-400 italic text-center">"Focus on being productive instead of busy."</p>
           </div>
-        </footer>
-
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   );
 }

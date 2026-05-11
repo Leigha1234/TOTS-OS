@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { motion } from "framer-motion";
 import { 
-  Globe, 
   Zap, 
   ShieldCheck, 
   ArrowUpRight, 
@@ -12,7 +11,11 @@ import {
   BarChart3, 
   Share2,
   Download,
-  Loader2
+  Loader2,
+  TrendingUp,
+  Activity,
+  Target,
+  AlertCircle
 } from "lucide-react";
 
 export default function ReportsPage() {
@@ -103,112 +106,126 @@ export default function ReportsPage() {
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
       <div className="text-center space-y-6">
-        <div className="flex justify-center">
-          <Loader2 className="text-[var(--brand-primary)] animate-spin" size={32} />
-        </div>
-        <div className="space-y-2">
-          <p className="text-[var(--brand-primary)] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">Syncing Intelligence Nodes</p>
-          <p className="text-[var(--text-muted)] font-serif italic text-sm">Establishing secure data link...</p>
-        </div>
+        <Loader2 className="text-[var(--brand-primary)] animate-spin mx-auto" size={40} />
+        <p className="text-[var(--brand-primary)] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">Compiling Ledger Intelligence</p>
       </div>
     </div>
   );
-
-  if (!data) return <div className="p-12 text-[var(--text-muted)] font-serif italic">No operational data detected.</div>;
 
   const openRate = data.email.sent > 0 ? ((data.email.opens / data.email.sent) * 100).toFixed(1) : "0.0";
   const clickRate = data.email.opens > 0 ? ((data.email.clicks / data.email.opens) * 100).toFixed(1) : "0.0";
 
   return (
-    <div className="p-8 lg:p-16 max-w-[1600px] mx-auto min-h-screen bg-[var(--bg)] text-[var(--text-main)] space-y-16">
+    <div className="p-8 lg:p-16 max-w-[1600px] mx-auto min-h-screen bg-[var(--bg)] text-[var(--text-main)] space-y-20">
       
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-[var(--brand-primary)]">
-            <Zap size={14} fill="currentColor" />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em]">Operational OS</span>
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 text-[var(--brand-primary)]">
+            <TrendingUp size={18} />
+            <span className="text-[11px] font-black uppercase tracking-[0.6em]">System Ledger v2.0</span>
           </div>
-          <h1 className="text-7xl font-serif italic tracking-tighter text-[var(--text-main)]">Intelligence</h1>
+          <h1 className="text-8xl md:text-9xl font-serif italic tracking-tighter leading-none">Intelligence</h1>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap gap-4">
           <button 
             onClick={downloadFinanceReport}
-            className="bg-stone-900 text-white hover:bg-stone-700 transition-all px-6 py-4 rounded-2xl flex items-center gap-3 shadow-sm"
+            className="bg-stone-900 text-white hover:bg-[#a9b897] transition-all px-10 py-5 rounded-full flex items-center gap-4 shadow-2xl active:scale-95"
           >
-            <Download size={16} />
-            <span className="text-[10px] font-black uppercase tracking-wider">Export Finance Data</span>
+            <Download size={18} />
+            <span className="text-[11px] font-black uppercase tracking-widest">Execute Data Export</span>
           </button>
 
-          <div className="bg-[var(--card-bg)] border border-[var(--border)] px-6 py-4 rounded-2xl flex items-center gap-4 shadow-sm">
-            <ShieldCheck className="text-green-600" size={18} />
-            <div className="space-y-0.5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-main)]">System Status</p>
-              <p className="text-[9px] font-mono text-[var(--text-muted)] uppercase">Link: [STABLE]</p>
+          <div className="bg-white border border-[var(--border)] px-8 py-5 rounded-full flex items-center gap-4 shadow-sm">
+            <ShieldCheck className="text-[#a9b897]" size={20} />
+            <div className="pr-4 border-r border-stone-100">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Node Status</p>
+              <p className="text-[10px] font-bold text-stone-900">ENCRYPTED</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#a9b897] animate-pulse" />
+              <span className="text-[9px] font-mono text-[#a9b897]">STABLE</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* TOP TIER METRICS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* REFACTORED 2x2 GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         {[
-          { label: "Aggregate Revenue", val: `£${data.revenue.toLocaleString()}`, trend: "+12.5%", color: "text-green-600" },
-          { label: "Execution Index", val: `${data.tasksDone} Nodes`, trend: "Active", color: "text-blue-600" },
-          { label: "Labor Allocation", val: `${data.totalHours}h`, trend: "Optimal", color: "text-purple-600" },
-          { label: "Risk Exposure", val: data.overdueCount, trend: "Overdue", color: "text-red-500" }
+          { label: "Aggregate Revenue", val: `£${data.revenue.toLocaleString()}`, trend: "+12.5% Growth", icon: <Activity className="text-green-600" />, sub: "Net total across all paid directives" },
+          { label: "Execution Index", val: `${data.tasksDone} Nodes`, trend: "High Priority", icon: <Target className="text-blue-600" />, sub: "Completed operational task units" },
+          { label: "Labor Allocation", val: `${data.totalHours} Hours`, trend: "Billable", icon: <Zap className="text-purple-600" />, sub: "Resource time tracked on active projects" },
+          { label: "Risk Exposure", val: data.overdueCount, trend: "Requires Action", icon: <AlertCircle className="text-red-500" />, sub: "Delinquent invoices past settlement date" }
         ].map((stat, i) => (
-          <div key={i} className="bg-[var(--card-bg)] p-10 rounded-[2.5rem] border border-[var(--border)] shadow-sm group hover:border-[var(--brand-primary)]/30 transition-colors">
-            <div className="flex justify-between items-start mb-10">
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">{stat.label}</span>
-              <ArrowUpRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--brand-primary)] transition-colors" />
+          <div key={i} className="bg-white p-12 md:p-16 rounded-[4rem] border border-stone-100 shadow-sm group hover:border-[#a9b897]/50 transition-all duration-500 relative overflow-hidden">
+            <div className="relative z-10 flex flex-col justify-between h-full space-y-12">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <p className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400">{stat.label}</p>
+                  <p className="text-[10px] font-serif italic text-stone-300">{stat.sub}</p>
+                </div>
+                <div className="p-4 bg-stone-50 rounded-2xl group-hover:bg-stone-900 group-hover:text-white transition-all">
+                  {stat.icon}
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <p className="text-7xl md:text-8xl font-serif italic text-stone-900 tracking-tighter leading-none">{stat.val}</p>
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full border border-stone-100 bg-stone-50 text-[#a9b897]">
+                    {stat.trend}
+                  </span>
+                  <ArrowUpRight size={18} className="text-stone-200 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                </div>
+              </div>
             </div>
-            <p className="text-4xl font-serif italic text-[var(--text-main)] tracking-tight">{stat.val}</p>
-            <div className="mt-4 flex items-center gap-2">
-              <span className={`text-[8px] font-mono uppercase px-2 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-soft)] ${stat.color}`}>{stat.trend}</span>
-            </div>
+            <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-[#a9b897]/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* EMAIL INTELLIGENCE */}
-        <div className="lg:col-span-2 bg-[var(--card-bg)] border border-[var(--border)] p-12 rounded-[3.5rem] shadow-sm relative overflow-hidden">
-          <div className="relative z-10 space-y-16">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl text-[var(--brand-primary)]"><Mail size={20} /></div>
-              <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Reach Analysis</h2>
+      {/* LOWER TIER: ANALYTICS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="lg:col-span-2 bg-stone-900 text-white p-16 rounded-[4rem] shadow-2xl relative overflow-hidden">
+          <div className="relative z-10 space-y-20">
+            <div className="flex items-center gap-6">
+              <div className="p-4 bg-white/10 rounded-[2rem] text-[#a9b897]"><Mail size={24} /></div>
+              <div className="space-y-1">
+                <h2 className="text-[12px] font-black uppercase tracking-[0.5em]">Reach Analysis</h2>
+                <p className="text-[10px] font-serif italic text-white/40">Inbound engagement metrics</p>
+              </div>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
               {[
-                { l: "Open Rate", v: `${openRate}%`, sub: "Avg: 22.4%" },
-                { l: "CTR", v: `${clickRate}%`, sub: "Total Clicks" },
-                { l: "Churn", v: data.email.unsubs, sub: "Unsubscribes", c: "text-red-500" },
-                { l: "Total Sent", v: data.email.sent.toLocaleString(), sub: "Outbound" }
+                { l: "Open Rate", v: `${openRate}%`, sub: "Avg: 22%" },
+                { l: "CTR", v: `${clickRate}%`, sub: "Interaction" },
+                { l: "Churn", v: data.email.unsubs, sub: "Opt-outs", c: "text-red-400" },
+                { l: "Delivery", v: data.email.sent.toLocaleString(), sub: "Outbound" }
               ].map((m, i) => (
-                <div key={i} className="space-y-4">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{m.l}</p>
-                  <p className={`text-5xl font-serif italic text-[var(--text-main)] ${m.c || ''}`}>{m.v}</p>
-                  <p className="text-[10px] font-mono text-[var(--text-muted)]">{m.sub}</p>
+                <div key={i} className="space-y-4 border-l border-white/10 pl-8">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/30">{m.l}</p>
+                  <p className={`text-6xl font-serif italic leading-none ${m.c || 'text-white'}`}>{m.v}</p>
+                  <p className="text-[10px] font-mono text-white/20">{m.sub}</p>
                 </div>
               ))}
             </div>
           </div>
-          <div className="absolute right-0 top-0 p-12 opacity-5 pointer-events-none">
-            <BarChart3 size={200} className="text-[var(--text-main)]" />
-          </div>
+          <BarChart3 size={300} className="absolute right-0 bottom-0 opacity-[0.03] translate-x-1/4 translate-y-1/4" />
         </div>
 
-        {/* SOCIAL INDEX */}
-        <div className="bg-[var(--card-bg)] border border-[var(--border)] p-12 rounded-[3.5rem] shadow-sm space-y-12">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl text-[var(--brand-primary)]"><Share2 size={20} /></div>
-            <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Platform Power</h2>
+        <div className="bg-white border border-stone-100 p-16 rounded-[4rem] shadow-sm space-y-16">
+          <div className="flex items-center gap-6">
+            <div className="p-4 bg-stone-50 rounded-[2rem] text-[#a9b897]"><Share2 size={24} /></div>
+            <div className="space-y-1">
+              <h2 className="text-[12px] font-black uppercase tracking-[0.5em]">Platform Power</h2>
+              <p className="text-[10px] font-serif italic text-stone-400">Social reach distribution</p>
+            </div>
           </div>
           
-          <div className="space-y-10">
+          <div className="space-y-12">
             {['instagram', 'linkedin', 'twitter'].map((platform) => {
               const score = data.trends?.[platform] || 0;
               const allScores = Object.values(data.trends || {}) as number[];
@@ -217,16 +234,16 @@ export default function ReportsPage() {
 
               return (
                 <div key={platform} className="group">
-                  <div className="flex justify-between items-end mb-4">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-[var(--text-main)] group-hover:text-[var(--brand-primary)] transition-colors">{platform}</span>
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]">{score.toLocaleString()} PTS</span>
+                  <div className="flex justify-between items-end mb-5">
+                    <span className="text-[12px] font-black uppercase tracking-[0.2em] text-stone-800">{platform}</span>
+                    <span className="text-[10px] font-mono text-stone-400">{score.toLocaleString()} PTS</span>
                   </div>
-                  <div className="h-1.5 w-full bg-[var(--bg-soft)] rounded-full overflow-hidden">
+                  <div className="h-2 w-full bg-stone-50 rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${percentage}%` }}
                       transition={{ duration: 1.5, ease: "circOut" }}
-                      className="h-full bg-gradient-to-r from-[var(--text-muted)] to-[var(--brand-primary)]" 
+                      className="h-full bg-stone-900 group-hover:bg-[#a9b897] transition-colors" 
                     />
                   </div>
                 </div>

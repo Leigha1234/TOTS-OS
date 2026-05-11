@@ -17,13 +17,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   
   const { 
-    mobileNav = ["/Business Pulse", "/clarity", "/calendar"], 
+    mobileNav = ["/dashboard", "/clarity", "/calendar"], 
     logoUrl, 
     fontFamily = "Inter"
   } = useSettings();
 
   const allLinks = [
-    { href: "/Business Pulse", label: "Home", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Home", icon: LayoutDashboard },
     { href: "/clarity", label: "Clarity", icon: Sparkles },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/crm", label: "Contacts", icon: Users },

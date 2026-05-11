@@ -146,7 +146,7 @@ export default function HRPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-3 text-stone-400">
               <Fingerprint size={14} className="text-[#a9b897]" />
-              <p className="font-black uppercase text-[10px] tracking-[0.4em]">Workforce Identity v5.2.1</p>
+              <p className="font-black uppercase text-[10px] tracking-[0.4em]">Workforce Identity v5.2.2</p>
             </div>
             <h1 className="text-4xl md:text-6xl font-serif italic tracking-tighter">Human Resources</h1>
           </div>

@@ -19,12 +19,12 @@ import AuthGuard from "@/app/components/AuthGuard";
 export default function PortalPage() {
   return (
     <AuthGuard>
-      <PortalBusiness Pulse />
+      <PortalOperationalPulse />
     </AuthGuard>
   );
 }
 
-function PortalBusiness Pulse() {
+function PortalOperationalPulse() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ email?: string; id?: string } | null>(null);
@@ -69,7 +69,7 @@ function PortalBusiness Pulse() {
   }
 
   return (
-    <div key="Business Pulse-content" className="min-h-screen bg-[#faf9f6] p-8 md:p-16 lg:p-24 selection:bg-[#a9b897] selection:text-white">
+    <div key="operational-pulse-content" className="min-h-screen bg-[#faf9f6] p-8 md:p-16 lg:p-24 selection:bg-[#a9b897] selection:text-white">
       <div className="max-w-6xl mx-auto space-y-20">
         
         {/* HEADER SECTION */}
@@ -119,7 +119,7 @@ function PortalBusiness Pulse() {
               icon: Layers, 
               color: 'text-[#a9b897]', 
               isDark: true,
-              link: `/portal/${user?.id}` // Dynamic link based on the user ID
+              link: `/portal/${user?.id}` 
             },
             { 
               id: 'support', 

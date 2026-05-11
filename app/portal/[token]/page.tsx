@@ -15,7 +15,7 @@ import {
   Zap
 } from "lucide-react";
 
-export default function ClientBusiness Pulse() {
+export default function ClientOperationalPulse() {
   const supabase = useMemo(() => createClient(), []);
 
   const [docs, setDocs] = useState<any[]>([]);
@@ -46,7 +46,7 @@ export default function ClientBusiness Pulse() {
     const invoices = data || [];
     setDocs(invoices);
 
-    // FIX: Changed to await because the new Clarity AI is an async Neural Engine
+    // FIX: Clarity AI Neural Engine synchronization
     try {
       const result = await generateInsights({ 
         invoices, 
@@ -55,7 +55,7 @@ export default function ClientBusiness Pulse() {
       });
       
       setInsights(result.insights || []);
-      setHeadline(result.headline || "Portal Status");
+      setHeadline(result.headline || "Operational Pulse Status");
     } catch (err) {
       console.error("Clarity sync failed:", err);
       setHeadline("System Online");
@@ -73,7 +73,7 @@ export default function ClientBusiness Pulse() {
     if (insights.length <= 1) return;
     const i = setInterval(() => {
       setActiveSlide((p) => (p + 1) % insights.length);
-    }, 5000); // Slightly slower rotation for better readability
+    }, 5000); 
     return () => clearInterval(i);
   }, [insights]);
 
@@ -104,7 +104,7 @@ export default function ClientBusiness Pulse() {
   }
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] p-6 md:p-12 lg:p-20">
+    <div key="operational-pulse-root" className="min-h-screen bg-[#faf9f6] p-6 md:p-12 lg:p-20">
       <div className="max-w-4xl mx-auto space-y-12">
         
         {/* HEADER */}
@@ -131,7 +131,7 @@ export default function ClientBusiness Pulse() {
                 <h2 className="text-3xl md:text-4xl font-serif italic mb-6 text-stone-100 leading-tight">{headline}</h2>
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={activeSlide}
+                    key={`slide-${activeSlide}`}
                     initial={{ opacity: 0, x: 10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -10 }}
@@ -145,19 +145,18 @@ export default function ClientBusiness Pulse() {
               <div className="flex gap-3">
                 {insights.map((_, idx) => (
                   <button 
-                    key={idx}
+                    key={`dot-${idx}`}
                     onClick={() => setActiveSlide(idx)}
                     className={`h-1 transition-all duration-700 rounded-full ${idx === activeSlide ? 'w-12 bg-[#a9b897]' : 'w-3 bg-stone-800'}`} 
                   />
                 ))}
               </div>
             </div>
-            {/* Aesthetic Glow */}
             <div className="absolute top-[-20%] right-[-10%] w-96 h-96 bg-[#a9b897] blur-[150px] opacity-[0.15] pointer-events-none" />
           </section>
         )}
 
-        {/* LEDGER / INVOICES */}
+        {/* LEDGER / REVENUE NODES */}
         <div className="space-y-8">
           <div className="flex items-center gap-4">
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 whitespace-nowrap">

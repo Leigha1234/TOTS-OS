@@ -4,14 +4,15 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase"; 
 import AuthGuard from "@/app/components/AuthGuard";
 import Card from "@/app/components/Card";
-import { Circle } from "lucide-react";
+import { Circle, Zap, Activity, Target, CheckCircle2 } from "lucide-react";
+import { motion } from "framer-motion";
 
-export default function Business Pulse() {
+export default function OperationalPulse() {
   const [todayHours, setTodayHours] = useState(0);
   const [activeTasks, setActiveTasks] = useState(0);
   const [todoList, setTodoList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Moved loadStats outside to prevent recreation on every render
   async function loadStats() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -19,7 +20,6 @@ export default function Business Pulse() {
 
     const today = new Date().toISOString().split('T')[0];
     
-    // Parallel fetching
     const [hrs, tks, list] = await Promise.all([
       supabase.from("timesheets").select("hours").eq("user_id", user.id).eq("date", today),
       supabase.from("tasks").select("*", { count: 'exact', head: true }).eq("user_id", user.id).eq("status", "active"),
@@ -29,6 +29,7 @@ export default function Business Pulse() {
     setTodayHours(hrs.data?.reduce((s, h) => s + h.hours, 0) || 0);
     setActiveTasks(tks.count || 0);
     setTodoList(list.data || []);
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -37,68 +38,102 @@ export default function Business Pulse() {
 
   async function toggleTask(id: string) {
     const supabase = await createClient();
-    
-    // Database Update
     const { error } = await supabase.from("tasks").update({ status: "completed" }).eq("id", id);
-    
     if (!error) {
-      // Re-load stats to ensure UI is perfectly synced with database state
       loadStats();
     }
   }
 
   return (
     <AuthGuard>
-      <div className="p-6 space-y-6">
-        <h1 className="text-2xl font-bold text-white">Business Pulse</h1>
+      <div className="p-8 lg:p-16 max-w-[1600px] mx-auto min-h-screen bg-[#faf9f6] text-stone-900 space-y-12">
+        
+        {/* HEADER */}
+        <header className="space-y-4">
+          <div className="flex items-center gap-3 text-[#a9b897]">
+            <Zap size={16} fill="currentColor" />
+            <span className="text-[10px] font-black uppercase tracking-[0.5em]">System Node Active</span>
+          </div>
+          <h1 className="text-7xl md:text-8xl font-serif italic tracking-tighter leading-none">
+            Operational Pulse
+          </h1>
+        </header>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <p className="text-xs text-gray-400 uppercase tracking-widest">Logged Today</p>
-            <p className="text-3xl font-bold text-blue-400 font-mono">{todayHours} hrs</p>
-          </Card>
-          <Card>
-            <p className="text-xs text-gray-400 uppercase tracking-widest">Active Tasks</p>
-            <p className="text-3xl font-bold text-white font-mono">{activeTasks}</p>
-          </Card>
-          <Card>
-            <p className="text-xs text-gray-400 uppercase tracking-widest">Productivity</p>
-            <p className="text-3xl font-bold text-green-400 font-mono">
-              {todayHours >= 7 ? "Optimal" : "Building..."}
-            </p>
-          </Card>
+        {/* STATS GRID - Squircle/Stadium Style */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            { label: "LOGGED TODAY", val: `${todayHours} HRS`, sub: "TIME ALLOCATION", color: "text-[#a9b897]" },
+            { label: "ACTIVE DEPLOYMENTS", val: activeTasks, sub: "RESOURCE LOAD", color: "text-stone-900" },
+            { label: "EFFICIENCY INDEX", val: todayHours >= 7 ? "OPTIMAL" : "BUILDING", sub: "CAPACITY MONITOR", color: "text-[#a9b897]" }
+          ].map((stat, i) => (
+            <div 
+              key={i} 
+              className="bg-white border border-stone-100 p-12 rounded-[4rem] shadow-sm flex flex-col justify-between h-[320px] transition-all hover:shadow-xl group"
+            >
+              <div className="flex justify-between items-start">
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">
+                  {stat.label}
+                </p>
+                <Activity size={20} className="text-stone-200 group-hover:text-[#a9b897] transition-colors" />
+              </div>
+              <h2 className={`text-6xl font-serif italic tracking-tighter ${stat.color}`}>
+                {stat.val}
+              </h2>
+              <div className="inline-flex items-center gap-3 px-4 py-2 bg-stone-50 rounded-full w-fit border border-stone-100">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#a9b897] animate-pulse" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">{stat.sub}</span>
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Focus List */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-gray-900/50 rounded-xl border border-gray-800 flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-gray-800 bg-gray-900/80 flex justify-between items-center">
-              <h2 className="text-sm font-bold text-white uppercase tracking-tighter">Today's Focus</h2>
-              <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">{todoList.length} Remaining</span>
+        {/* FOCUS ENGINE */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          <div className="lg:col-span-3 bg-white border border-stone-100 rounded-[4rem] overflow-hidden flex flex-col shadow-sm">
+            <div className="p-10 border-b border-stone-50 flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <Target size={20} className="text-[#a9b897]" />
+                <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-900">Mission Priorities</h2>
+              </div>
+              <span className="text-[9px] font-black uppercase bg-[#a9b897]/10 text-[#a9b897] px-4 py-2 rounded-full tracking-widest">
+                {todoList.length} QUEUED
+              </span>
             </div>
-            <div className="p-2 max-h-[400px] overflow-y-auto">
+            
+            <div className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
               {todoList.length > 0 ? (
                 todoList.map((task) => (
-                  <div 
+                  <motion.div 
                     key={task.id}
+                    whileHover={{ x: 10 }}
                     onClick={() => toggleTask(task.id)}
-                    className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-lg cursor-pointer group transition-all"
+                    className="flex items-center gap-6 p-8 bg-stone-50/50 hover:bg-white hover:shadow-lg rounded-3xl cursor-pointer border border-transparent hover:border-stone-100 transition-all group"
                   >
-                    <Circle className="text-gray-600 group-hover:text-green-500 transition-colors" size={18} />
-                    <div className="flex flex-col">
-                      <span className="text-sm text-gray-200 group-hover:text-white transition-colors">{task.title}</span>
-                      <span className="text-[10px] text-gray-500 uppercase">{task.projects?.name || 'General'}</span>
+                    <Circle className="text-stone-300 group-hover:text-[#a9b897] transition-colors" size={24} />
+                    <div className="flex flex-col gap-1">
+                      <span className="text-lg font-bold uppercase tracking-tight text-stone-800 group-hover:text-stone-900">{task.title}</span>
+                      <span className="text-[10px] text-[#a9b897] font-black uppercase tracking-widest">{task.projects?.name || 'TACTICAL ASSET'}</span>
                     </div>
-                  </div>
+                  </motion.div>
                 ))
               ) : (
-                <div className="p-8 text-center text-gray-500 italic text-sm">All caught up!</div>
+                <div className="p-20 text-center space-y-4">
+                  <CheckCircle2 size={48} className="mx-auto text-[#a9b897] opacity-20" />
+                  <p className="font-serif italic text-stone-400 text-xl text-center">All operational tasks finalized.</p>
+                </div>
               )}
             </div>
           </div>
-          <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 flex items-center justify-center">
-            <p className="text-lg text-gray-400 italic text-center">"Focus on being productive instead of busy."</p>
+
+          <div className="lg:col-span-2 bg-stone-900 p-12 rounded-[4rem] flex flex-col justify-center items-center text-center space-y-8 shadow-2xl relative overflow-hidden">
+            <div className="relative z-10">
+              <p className="text-[#a9b897] text-[10px] font-black uppercase tracking-[0.5em] mb-6">Strategic Directive</p>
+              <p className="text-3xl md:text-4xl font-serif italic text-stone-200 leading-tight tracking-tight">
+                "Focus on being productive instead of busy."
+              </p>
+            </div>
+            {/* Aesthetic Glow */}
+            <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#a9b897] blur-[120px] opacity-20" />
           </div>
         </div>
       </div>

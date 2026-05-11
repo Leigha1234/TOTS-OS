@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase-client";
 import { 
   Save, Calendar, Landmark, Fingerprint, 
   X, Check, FileText, Mail, 
-  AlertCircle, Loader2, Activity
+  AlertCircle, Loader2, Activity, Download
 } from "lucide-react";
 
 export default function HRPage() {
@@ -44,7 +44,7 @@ export default function HRPage() {
       setIsLoading(true);
       setError(null);
 
-      // FIX: Changed .single() to .limit(1) to avoid JSON Coercion error
+      // We use .limit(1) to safely handle the object return from Supabase
       const { data, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
@@ -55,8 +55,7 @@ export default function HRPage() {
       if (data && data.length > 0) {
         setProfile(data[0]);
       } else {
-        // Handle case where no profile exists yet
-        notify("No profile found. Please initialize your record.");
+        notify("Identity not found. Initializing record.");
       }
     } catch (err: any) {
       setError(err.message);
@@ -67,7 +66,7 @@ export default function HRPage() {
 
   async function handleSave() {
     if (!profile.id) {
-        setError("Cannot update: No profile ID found in database.");
+        setError("Write Denied: Profile ID missing.");
         return;
     }
 
@@ -87,7 +86,7 @@ export default function HRPage() {
         .eq('id', profile.id);
       
       if (updateError) throw updateError;
-      notify("Database synchronized successfully");
+      notify("Workforce Identity Synchronized");
     } catch (err: any) {
       setError(err.message);
     }
@@ -101,6 +100,7 @@ export default function HRPage() {
 
   if (!isMounted) return null;
 
+  // --- REUSABLE MODAL COMPONENT ---
   const Modal = ({ id, title, children }: { id: string, title: string, children: React.ReactNode }) => (
     <AnimatePresence>
       {activeModal === id && (
@@ -111,10 +111,10 @@ export default function HRPage() {
         >
           <motion.div 
             initial={{ scale: 0.95, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: 20, opacity: 0 }}
-            className="bg-white w-full max-w-4xl rounded-[3rem] p-10 md:p-14 shadow-2xl relative overflow-y-auto max-h-[90vh]"
+            className="bg-white w-full max-w-4xl rounded-[3rem] p-10 md:p-14 shadow-2xl relative overflow-y-auto max-h-[90vh] border border-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={() => setActiveModal(null)} className="absolute top-8 right-8 p-3 hover:bg-stone-100 rounded-full transition-all">
+            <button onClick={() => setActiveModal(null)} className="absolute top-8 right-8 p-3 hover:bg-stone-50 rounded-full transition-all text-stone-400 hover:text-stone-900">
               <X size={20}/>
             </button>
             <div className="mb-10">
@@ -142,6 +142,7 @@ export default function HRPage() {
 
       <div className="max-w-[1400px] mx-auto space-y-16">
         
+        {/* --- NAVIGATION & HEADER --- */}
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-10">
           <div className="space-y-4">
             <div className="flex items-center gap-3 text-stone-400">
@@ -151,13 +152,13 @@ export default function HRPage() {
             <h1 className="text-6xl md:text-7xl font-serif italic tracking-tighter leading-tight">Human Resources</h1>
           </div>
 
-          <nav className="flex flex-wrap bg-white border border-stone-200 p-1.5 rounded-[2rem] shadow-sm">
+          <nav className="flex flex-wrap bg-stone-100/50 border border-stone-200 p-1.5 rounded-[2.5rem] shadow-inner">
             {['Payments', 'Reports', 'HR', 'Timesheets'].map((path) => (
               <button 
                 key={path}
                 onClick={() => path !== 'HR' && router.push(`/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)}
                 className={`px-8 py-3.5 text-[10px] font-black uppercase tracking-widest transition-all rounded-full ${
-                  path === 'HR' ? "bg-stone-900 text-white shadow-lg" : "text-stone-400 hover:text-stone-900"
+                  path === 'HR' ? "bg-white text-stone-900 shadow-sm border border-stone-200" : "text-stone-400 hover:text-stone-900"
                 }`}
               >
                 {path}
@@ -175,7 +176,8 @@ export default function HRPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           
-          <section className="lg:col-span-2 bg-white border border-stone-200 p-8 md:p-12 rounded-[3.5rem] space-y-12 shadow-sm min-w-0">
+          {/* --- MAIN PROFILE FORM --- */}
+          <section className="lg:col-span-2 bg-white border border-stone-200 p-8 md:p-12 rounded-[3.5rem] space-y-12 shadow-sm">
             <div className="flex justify-between items-end border-b border-stone-50 pb-8 gap-4">
               <div className="space-y-2 min-w-0">
                 <h4 className="text-3xl md:text-4xl font-serif italic tracking-tighter truncate">
@@ -187,14 +189,14 @@ export default function HRPage() {
               </div>
               <button 
                 onClick={handleSave}
-                className="p-5 bg-stone-900 text-white rounded-2xl hover:bg-[#a9b897] transition-all active:scale-95 flex-shrink-0 shadow-lg"
+                className="p-5 bg-stone-900 text-white rounded-2xl hover:bg-[#a9b897] transition-all active:scale-95 flex-shrink-0 shadow-xl"
               >
                 <Save size={20} />
               </button>
             </div>
 
             {isLoading ? (
-              <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#a9b897]" /></div>
+              <div className="flex justify-center py-24"><Loader2 className="animate-spin text-[#a9b897]" size={32} /></div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
                 {[
@@ -202,7 +204,7 @@ export default function HRPage() {
                   { label: 'Professional Role', key: 'role' },
                   { label: 'Contact Number', key: 'phone' },
                   { label: 'Physical Address', key: 'address', full: true },
-                  { label: 'Company Registration Details', key: 'company_details', full: true },
+                  { label: 'Company Registration', key: 'company_details', full: true },
                 ].map((field) => (
                   <div key={field.key} className={`${field.full ? 'md:col-span-2' : ''} space-y-3`}>
                     <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-2">{field.label}</label>
@@ -210,13 +212,13 @@ export default function HRPage() {
                       <textarea 
                         value={profile[field.key] || ""}
                         onChange={(e) => setProfile({...profile, [field.key]: e.target.value})}
-                        className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-[#a9b897] transition-all font-semibold text-sm min-h-[100px] resize-none"
+                        className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-900 focus:bg-white transition-all font-bold text-sm min-h-[100px] resize-none"
                       />
                     ) : (
                       <input 
                         value={profile[field.key] || ""}
                         onChange={(e) => setProfile({...profile, [field.key]: e.target.value})}
-                        className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-[#a9b897] transition-all font-semibold text-sm" 
+                        className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-900 focus:bg-white transition-all font-bold text-sm" 
                       />
                     )}
                   </div>
@@ -234,7 +236,7 @@ export default function HRPage() {
                   { label: 'Account Number', key: 'account_number' },
                   { label: 'Sort Code', key: 'sort_code' }
                 ].map((bank) => (
-                  <div key={bank.key} className="p-6 bg-stone-50 rounded-3xl border border-stone-100 space-y-2">
+                  <div key={bank.key} className="p-6 bg-stone-50 rounded-3xl border border-stone-100 space-y-2 focus-within:border-stone-300 transition-colors">
                     <p className="text-[8px] font-black uppercase text-stone-400">{bank.label}</p>
                     <input 
                       value={profile[bank.key] || ""}
@@ -248,40 +250,48 @@ export default function HRPage() {
             </div>
           </section>
 
+          {/* --- SIDEBAR CONTROLS --- */}
           <div className="space-y-8">
-            <div className="bg-stone-900 rounded-[3.5rem] p-10 text-white space-y-10 shadow-xl overflow-hidden relative">
-              <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Employment Summary</p>
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-5xl font-mono tracking-tighter text-[#a9b897]">28.0</h2>
-                  <p className="text-[9px] font-black uppercase text-stone-400 mt-1">Holiday Balance</p>
+            <div className="bg-stone-900 rounded-[3.5rem] p-10 text-white space-y-12 shadow-xl relative overflow-hidden">
+              <div className="relative z-10 space-y-10">
+                <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Employment Summary</p>
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-6xl font-mono tracking-tighter text-[#a9b897]">28.0</h2>
+                    <p className="text-[9px] font-black uppercase text-stone-400 mt-2 tracking-widest">Holiday Balance Remaining</p>
+                  </div>
+                  <div className="w-full bg-stone-800 h-1.5 rounded-full overflow-hidden">
+                    <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: '65%' }}
+                        className="bg-[#a9b897] h-full" 
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-stone-800 h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-[#a9b897] h-full w-[65%]" />
+                <div className="grid grid-cols-2 gap-4">
+                  <button onClick={() => setActiveModal('leave')} className="p-6 bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center gap-4 hover:bg-white/10 transition-all group">
+                    <Calendar size={20} className="text-[#a9b897] group-hover:scale-110 transition-transform" />
+                    <span className="text-[8px] font-black uppercase tracking-widest">Book Leave</span>
+                  </button>
+                  <button onClick={() => setActiveModal('payslip')} className="p-6 bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center gap-4 hover:bg-white/10 transition-all group">
+                    <FileText size={20} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[8px] font-black uppercase tracking-widest">Payslips</span>
+                  </button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <button onClick={() => setActiveModal('leave')} className="p-5 bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center gap-3 hover:bg-white/10 transition-all">
-                  <Calendar size={18} className="text-[#a9b897]" />
-                  <span className="text-[8px] font-black uppercase tracking-widest">Book Leave</span>
-                </button>
-                <button onClick={() => setActiveModal('payslip')} className="p-5 bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center gap-3 hover:bg-white/10 transition-all">
-                  <FileText size={18} />
-                  <span className="text-[8px] font-black uppercase tracking-widest">Payslips</span>
-                </button>
-              </div>
+              <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-[#a9b897]/5 rounded-full blur-3xl" />
             </div>
 
-            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-6 shadow-sm">
-              <h6 className="text-[10px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
-                <Activity size={14} /> System Tasks
+            <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8 shadow-sm">
+              <h6 className="text-[10px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-3">
+                <Activity size={14} className="text-[#a9b897]" /> System Directives
               </h6>
               <div className="space-y-3">
-                <button className="w-full flex items-center justify-between p-4 bg-stone-50 rounded-2xl text-[9px] font-black uppercase hover:bg-stone-100 transition-all border border-stone-100">
-                  Request P60 <Mail size={14} className="text-stone-300" />
+                <button className="w-full flex items-center justify-between p-5 bg-stone-50 rounded-2xl text-[9px] font-black uppercase hover:bg-stone-100 transition-all border border-stone-100 group">
+                  Request P60 <Mail size={16} className="text-stone-300 group-hover:text-stone-900 transition-colors" />
                 </button>
-                <button className="w-full flex items-center justify-between p-4 bg-stone-50 rounded-2xl text-[9px] font-black uppercase hover:bg-stone-100 transition-all border border-stone-100">
-                  Staff Handbook <FileText size={14} className="text-stone-300" />
+                <button className="w-full flex items-center justify-between p-5 bg-stone-50 rounded-2xl text-[9px] font-black uppercase hover:bg-stone-100 transition-all border border-stone-100 group">
+                  Staff Handbook <FileText size={16} className="text-stone-300 group-hover:text-stone-900 transition-colors" />
                 </button>
               </div>
             </div>
@@ -289,35 +299,44 @@ export default function HRPage() {
         </div>
       </div>
 
-      {/* --- MODALS --- */}
+      {/* --- LEAVE MODAL --- */}
       <Modal id="leave" title="Time-Off Request">
-        <div className="space-y-8 py-4">
-          <p className="text-sm text-stone-500 leading-relaxed">Absence requests are synchronized with your department lead automatically.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-2">Start Date</label>
-              <input type="date" className="w-full p-5 bg-stone-50 rounded-2xl border border-stone-100 outline-none" />
+        <div className="space-y-10 py-6">
+          <p className="text-sm text-stone-500 leading-relaxed font-medium">Absence requests are routed to the department lead and synchronized with the operational ledger automatically.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase text-stone-400 ml-2">Start Date</label>
+              <input type="date" className="w-full p-5 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-[#a9b897] focus:bg-white font-bold transition-all" />
             </div>
-            <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-2">End Date</label>
-              <input type="date" className="w-full p-5 bg-stone-50 rounded-2xl border border-stone-100 outline-none" />
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase text-stone-400 ml-2">End Date</label>
+              <input type="date" className="w-full p-5 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-[#a9b897] focus:bg-white font-bold transition-all" />
             </div>
           </div>
-          <button onClick={() => { notify("Leave Request Logged"); setActiveModal(null); }} className="w-full bg-stone-900 text-white py-6 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.3em] shadow-xl hover:bg-[#a9b897] transition-all">Submit for Review</button>
+          <button 
+            onClick={() => { notify("Leave Request Dispatched"); setActiveModal(null); }} 
+            className="w-full bg-stone-900 text-white py-7 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.4em] shadow-2xl hover:bg-[#a9b897] transition-all"
+          >
+            Submit for Review
+          </button>
         </div>
       </Modal>
 
+      {/* --- PAYSLIP MODAL --- */}
       <Modal id="payslip" title="Compensation Archive">
-        <div className="space-y-4 py-4">
-           {['May 2026', 'April 2026', 'March 2026'].map((month) => (
-             <div key={month} className="flex items-center justify-between p-6 bg-stone-50 rounded-3xl border border-stone-100 hover:border-stone-300 transition-all cursor-pointer group">
-               <div className="flex items-center gap-4">
-                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-stone-300 group-hover:text-stone-900 transition-colors">
-                   <DownloadIcon size={18} />
+        <div className="space-y-4 py-6">
+           {['May 2026', 'April 2026', 'March 2026', 'February 2026'].map((month) => (
+             <div key={month} className="flex items-center justify-between p-7 bg-stone-50 rounded-[2rem] border border-stone-100 hover:border-[#a9b897]/30 hover:bg-white transition-all cursor-pointer group shadow-sm">
+               <div className="flex items-center gap-5">
+                 <div className="w-12 h-12 bg-white border border-stone-100 rounded-xl flex items-center justify-center text-stone-300 group-hover:text-stone-900 group-hover:border-[#a9b897] transition-all">
+                   <Download size={20} />
                  </div>
-                 <p className="text-sm font-bold">{month} Payslip</p>
+                 <div>
+                    <p className="text-sm font-bold text-stone-800">{month} Payslip</p>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mt-1 text-xs">PDF Document • 1.2MB</p>
+                 </div>
                </div>
-               <span className="text-[9px] font-black uppercase text-[#a9b897]">Download</span>
+               <span className="text-[9px] font-black uppercase text-[#a9b897] tracking-widest border border-[#a9b897]/20 px-4 py-2 rounded-full bg-[#a9b897]/5">Secure Download</span>
              </div>
            ))}
         </div>
@@ -325,7 +344,3 @@ export default function HRPage() {
     </div>
   );
 }
-
-const DownloadIcon = ({ size }: { size: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-);

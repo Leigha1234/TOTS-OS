@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // 🧠 CLARITY AI - NEURAL ENGINE
-export async function runClarity({ invoices, tasks, teamId, context = "dashboard" }: any) {
+export async function runClarity({ invoices, tasks, teamId, context = "Business Pulse" }: any) {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
 

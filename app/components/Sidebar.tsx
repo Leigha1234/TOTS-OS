@@ -13,10 +13,10 @@ import {
 
 // The source of truth for access levels
 const MODULE_PERMISSIONS: Record<string, string[]> = {
-  STANDARD: ["Dashboard", "Contacts", "Notes", "Calendar"],
-  PREMIUM: ["Dashboard", "Clarity", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects"],
+  STANDARD: ["Business Pulse", "Contacts", "Notes", "Calendar"],
+  PREMIUM: ["Business Pulse", "Clarity", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects"],
   ELITE: [
-    "Dashboard", "Clarity", "Calendar", "Campaigns", "Contacts", 
+    "Business Pulse", "Clarity", "Calendar", "Campaigns", "Contacts", 
     "Notes", "Finance", "Projects", "Reports", "Social", "Vault", "Settings"
   ],
 };
@@ -63,7 +63,7 @@ export default function Sidebar() {
   }, [context?.settings]); // Re-sync if context settings update
 
   const allLinks = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/Business Pulse", label: "Business Pulse", icon: LayoutDashboard },
     { href: "/clarity", label: "Clarity", icon: Sparkles },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/campaigns", label: "Campaigns", icon: Megaphone },

@@ -8,7 +8,7 @@ import { useSettings } from "@/app/context/SettingsContext";
 import { 
   LayoutDashboard, Users, Calendar, Megaphone, 
   DollarSign, Briefcase, BarChart3, Globe, Lock, Settings, Menu, X,
-  Sparkles, StickyNote 
+  Sparkles, StickyNote, 
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -17,13 +17,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   
   const { 
-    mobileNav = ["/dashboard", "/clarity", "/calendar"], 
+    mobileNav = ["/Business Pulse", "/clarity", "/calendar"], 
     logoUrl, 
     fontFamily = "Inter"
   } = useSettings();
 
   const allLinks = [
-    { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+    { href: "/Business Pulse", label: "Home", icon: LayoutDashboard },
     { href: "/clarity", label: "Clarity", icon: Sparkles },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/crm", label: "Contacts", icon: Users },

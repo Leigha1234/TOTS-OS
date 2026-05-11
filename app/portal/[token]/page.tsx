@@ -15,7 +15,7 @@ import {
   Zap
 } from "lucide-react";
 
-export default function ClientDashboard() {
+export default function ClientBusiness Pulse() {
   const supabase = useMemo(() => createClient(), []);
 
   const [docs, setDocs] = useState<any[]>([]);

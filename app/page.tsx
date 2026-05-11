@@ -11,5 +11,5 @@ export default async function Page() {
     redirect('/login');
   }
 
-  redirect('/dashboard');
+  redirect('/Business Pulse');
 }

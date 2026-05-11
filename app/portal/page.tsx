@@ -6,7 +6,7 @@ import AuthGuard from "@/app/components/AuthGuard";
 import Card from "@/app/components/Card";
 import { Circle } from "lucide-react";
 
-export default function Dashboard() {
+export default function Business Pulse() {
   const [todayHours, setTodayHours] = useState(0);
   const [activeTasks, setActiveTasks] = useState(0);
   const [todoList, setTodoList] = useState<any[]>([]);
@@ -50,7 +50,7 @@ export default function Dashboard() {
   return (
     <AuthGuard>
       <div className="p-6 space-y-6">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-white">Business Pulse</h1>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

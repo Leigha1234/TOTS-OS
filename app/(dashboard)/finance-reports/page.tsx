@@ -141,10 +141,10 @@ export default function FinanceReportsPage() {
               <span className="text-[10px] font-black uppercase tracking-[0.2em]">Full Audit</span>
             </button>
             <nav className="flex items-center bg-[#c8d3b9] p-2 rounded-full shadow-inner">
-              {['Dashboard', 'Payments', 'Reports', 'HR', 'Timesheets'].map((path) => (
+              {['Payments', 'Reports', 'HR', 'Timesheets'].map((path) => (
                 <button 
                   key={path}
-                  onClick={() => path !== 'Reports' && router.push(path === 'Dashboard' ? '/' : `/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)}
+                  onClick={() => path !== 'Reports' && router.push(path === 'Business Pulse' ? '/' : `/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)}
                   className={`px-8 py-3.5 text-[10px] font-black uppercase tracking-widest transition-all rounded-full ${
                     path === 'Reports' ? "bg-white text-stone-900 shadow-lg scale-105" : "text-white hover:text-stone-800"
                   }`}

@@ -19,12 +19,12 @@ import AuthGuard from "@/app/components/AuthGuard";
 export default function PortalPage() {
   return (
     <AuthGuard>
-      <PortalDashboard />
+      <PortalBusiness Pulse />
     </AuthGuard>
   );
 }
 
-function PortalDashboard() {
+function PortalBusiness Pulse() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ email?: string; id?: string } | null>(null);
@@ -69,7 +69,7 @@ function PortalDashboard() {
   }
 
   return (
-    <div key="dashboard-content" className="min-h-screen bg-[#faf9f6] p-8 md:p-16 lg:p-24 selection:bg-[#a9b897] selection:text-white">
+    <div key="Business Pulse-content" className="min-h-screen bg-[#faf9f6] p-8 md:p-16 lg:p-24 selection:bg-[#a9b897] selection:text-white">
       <div className="max-w-6xl mx-auto space-y-20">
         
         {/* HEADER SECTION */}

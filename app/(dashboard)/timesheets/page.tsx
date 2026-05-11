@@ -3,13 +3,19 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client";
+import { supabase } from "@/lib/supabase-client"; 
 import { 
   Clock, Trash2, Plus, Database, 
   Calendar, Timer, Check, 
   Download, Briefcase, AlertCircle, Loader2,
-  ChevronRight, Fingerprint, Lock, Unlock, Zap, Send, FileSpreadsheet
+  ChevronRight, Fingerprint, Lock, Unlock, Zap, Send, FileSpreadsheet,
+  Activity, Cpu, Globe
 } from "lucide-react";
+
+/**
+ * TOTS OS v6.2 - TEMPORAL LEDGER NODE
+ * OPERATIONAL THROUGHPUT & RESOURCE ALLOCATION
+ */
 
 interface TimesheetEntry {
   id: string;
@@ -33,8 +39,7 @@ export default function TimesheetsPage() {
   const router = useRouter();
 
   // --- UI STATE ---
-  const [isNotificationVisible, setIsNotificationVisible] = useState(false);
-  const [notificationMsg, setNotificationMsg] = useState("");
+  const [notification, setNotification] = useState({ visible: false, msg: "" });
   const [selectedWeek, setSelectedWeek] = useState("2026-W19");
   const [isExporting, setIsExporting] = useState(false);
 
@@ -62,21 +67,20 @@ export default function TimesheetsPage() {
       if (error) throw error;
       setTimesheetList(data || []);
     } catch (err: any) {
-      setError(err.message);
+      setError("Temporal Sync Failure: Unable to reach the database pulse.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const notify = (msg: string) => {
-    setNotificationMsg(msg);
-    setIsNotificationVisible(true);
-    setTimeout(() => setIsNotificationVisible(false), 3000);
+    setNotification({ visible: true, msg });
+    setTimeout(() => setNotification({ visible: false, msg: "" }), 3000);
   };
 
   const addEntry = async () => {
     if (!formData.client || !formData.task) {
-      notify("Incomplete Data Fields");
+      notify("Incomplete Allocation Fields");
       return;
     }
     
@@ -105,7 +109,7 @@ export default function TimesheetsPage() {
       
       setTimesheetList([data[0], ...timesheetList]);
       setFormData({ client: "", task: "", member: "", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" });
-      notify("Database Entry Established");
+      notify("Temporal Node Established");
     } catch (err: any) {
       setError(err.message);
     }
@@ -116,7 +120,7 @@ export default function TimesheetsPage() {
       const { error } = await supabase.from('timesheets').delete().eq('id', id);
       if (error) throw error;
       setTimesheetList(prev => prev.filter(t => t.id !== id));
-      notify("Node Purged Successfully");
+      notify("Data Node Purged");
     } catch (err: any) {
       setError(err.message);
     }
@@ -130,63 +134,76 @@ export default function TimesheetsPage() {
   if (!isMounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans p-6 md:p-12 selection:bg-[#a9b897] selection:text-white">
+    <div className="min-h-screen bg-[#fcfbf9] text-stone-900 font-sans selection:bg-[#a9b897] selection:text-white overflow-x-hidden">
       
-      {/* --- NOTIFICATION --- */}
+      {/* --- NOTIFICATION HUD --- */}
       <AnimatePresence>
-        {isNotificationVisible && (
+        {notification.visible && (
           <motion.div 
             initial={{ y: 50, opacity: 0 }} 
             animate={{ y: 0, opacity: 1 }} 
             exit={{ y: 50, opacity: 0 }} 
-            className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[200] bg-stone-900 text-white px-10 py-6 rounded-full shadow-2xl flex items-center gap-4 border border-white/10"
+            className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[600] bg-stone-900 text-white px-12 py-6 rounded-full shadow-2xl flex items-center gap-5 border border-white/10"
           >
-            <Zap size={14} className="text-[#a9b897] fill-[#a9b897]" />
-            <p className="text-[10px] font-black uppercase tracking-[0.2em]">{notificationMsg}</p>
+            <Zap size={16} className="text-[#a9b897] fill-[#a9b897]" />
+            <p className="text-[10px] font-black uppercase tracking-[0.3em]">{notification.msg}</p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1600px] mx-auto space-y-12">
+      <div className="max-w-[1700px] mx-auto px-6 py-12 md:p-20 space-y-24">
         
-        {/* --- HEADER BLOCK --- */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3 text-stone-400">
-              <Fingerprint size={14} className="text-[#a9b897]" />
-              <p className="font-black uppercase text-[10px] tracking-[0.4em]">Operations Node v6.1.5</p>
+        {/* --- DYNAMIC HEADER --- */}
+        <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-12 border-b border-stone-100 pb-20">
+          <div className="space-y-6">
+            <div className="flex items-center gap-6">
+              <div className="p-5 bg-stone-900 text-[#a9b897] rounded-[1.5rem] shadow-2xl"><Timer size={28} /></div>
+              <div className="space-y-1">
+                <p className="font-black uppercase text-[10px] tracking-[0.5em] text-stone-400">Temporal Synchronization</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[#a9b897] animate-pulse" />
+                  <p className="text-[9px] font-mono text-stone-400 tracking-widest uppercase">System v6.2.0 • Online</p>
+                </div>
+              </div>
             </div>
-            <h1 className="text-6xl md:text-8xl font-serif italic tracking-tighter">Timesheets</h1>
+            <h1 className="text-8xl md:text-[10rem] font-serif italic tracking-tighter leading-[0.85]">Temporal Ledger</h1>
           </div>
 
-          <nav className="flex items-center bg-[#c8d3b9] p-2 rounded-full shadow-inner">
+          <nav className="flex items-center bg-stone-100 p-2 rounded-[2.5rem]">
             {['Dashboard', 'Payments', 'Reports', 'HR', 'Timesheets'].map((path) => (
               <button 
                 key={path}
-                onClick={() => path !== 'Timesheets' && router.push(path === 'Dashboard' ? '/' : `/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)}
-                className={`px-10 py-4 text-[10px] font-black uppercase tracking-widest transition-all rounded-full ${
-                  path === 'Timesheets' ? "bg-white text-stone-900 shadow-xl scale-105" : "text-white hover:text-stone-800"
+                onClick={() => path !== 'Timesheets' && router.push(`/${path === 'Dashboard' ? '' : (path === 'Reports' ? 'finance-reports' : path.toLowerCase())}`)}
+                className={`px-10 py-5 text-[10px] font-black uppercase tracking-widest transition-all rounded-[2rem] ${
+                  path === 'Timesheets' ? "bg-white text-stone-900 shadow-xl" : "text-stone-400 hover:text-stone-900"
                 }`}
               >
                 {path}
               </button>
             ))}
           </nav>
-        </div>
+        </header>
+
+        {error && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-50 border border-red-100 p-10 rounded-[3rem] flex items-center gap-6 text-red-600">
+            <AlertCircle size={24} />
+            <p className="text-[11px] font-black uppercase tracking-[0.4em]">{error}</p>
+          </motion.div>
+        )}
 
         {/* --- INPUT DIRECTIVE --- */}
-        <section className="bg-white border border-stone-100 rounded-[5rem] p-12 md:p-16 shadow-sm space-y-14 relative overflow-hidden group">
-          <div className="flex flex-col md:flex-row justify-between items-end gap-6 relative z-10">
-            <div className="space-y-2">
-                <p className="text-[11px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Entry Directive</p>
-                <h3 className="text-5xl font-serif italic tracking-tighter">Log Operational Hours</h3>
+        <section className="bg-white border border-stone-100 rounded-[5rem] p-12 md:p-20 shadow-sm space-y-16 relative overflow-hidden group">
+          <div className="flex flex-col md:flex-row justify-between items-end gap-10 relative z-10">
+            <div className="space-y-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897] italic">New Allocation Node</p>
+                <h3 className="text-6xl md:text-7xl font-serif italic tracking-tighter">Log Operational Hours</h3>
             </div>
-            <div className="flex items-center gap-5 bg-stone-50 p-2.5 pl-8 rounded-[2rem] border border-stone-100 shadow-inner">
-              <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Temporal Period:</span>
+            <div className="flex items-center gap-6 bg-stone-50 p-3 pl-10 rounded-[3rem] border border-stone-100 shadow-inner">
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Target Period:</span>
               <select 
                 value={selectedWeek} 
                 onChange={(e) => setSelectedWeek(e.target.value)}
-                className="bg-stone-900 text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] outline-none cursor-pointer hover:bg-[#a9b897] transition-all"
+                className="bg-stone-900 text-white px-10 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.3em] outline-none cursor-pointer hover:bg-stone-800 transition-all shadow-xl"
               >
                 <option value="2026-W19">Week 19 (May 11-17)</option>
                 <option value="2026-W18">Week 18 (May 04-10)</option>
@@ -195,38 +212,38 @@ export default function TimesheetsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 items-end border-t border-stone-50 pt-12 relative z-10">
-            <div className="xl:col-span-3 space-y-4">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-6 flex items-center gap-2">
-                <Briefcase size={12}/> Client Entity
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-12 items-end border-t border-stone-50 pt-16 relative z-10">
+            <div className="xl:col-span-3 space-y-6">
+              <label className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 ml-10 flex items-center gap-3 italic">
+                <Briefcase size={14} className="text-[#a9b897]" /> Client Node
               </label>
               <input 
-                placeholder="Enterprise name..." 
+                placeholder="Enterprise ID..." 
                 value={formData.client} 
                 onChange={(e) => setFormData({...formData, client: e.target.value})}
-                className="w-full bg-stone-50 border border-stone-100 rounded-[2rem] p-8 text-base font-bold outline-none focus:border-stone-900 focus:bg-white transition-all shadow-inner" 
+                className="w-full bg-stone-50 border border-stone-100 rounded-[3rem] p-10 text-xl font-bold outline-none focus:border-stone-900 focus:bg-white transition-all shadow-inner text-stone-800" 
               />
             </div>
-            <div className="xl:col-span-3 space-y-4">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-6 flex items-center gap-2">
-                <Database size={12}/> Task Definition
+            <div className="xl:col-span-3 space-y-6">
+              <label className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 ml-10 flex items-center gap-3 italic">
+                <Cpu size={14} className="text-[#a9b897]" /> Operation Scope
               </label>
               <input 
-                placeholder="Project task description..." 
+                placeholder="Describe throughput..." 
                 value={formData.task} 
                 onChange={(e) => setFormData({...formData, task: e.target.value})}
-                className="w-full bg-stone-50 border border-stone-100 rounded-[2rem] p-8 text-base font-bold outline-none focus:border-stone-900 focus:bg-white transition-all shadow-inner" 
+                className="w-full bg-stone-50 border border-stone-100 rounded-[3rem] p-10 text-xl font-bold outline-none focus:border-stone-900 focus:bg-white transition-all shadow-inner text-stone-800" 
               />
             </div>
-            <div className="xl:col-span-5 space-y-4">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 text-center block">Temporal Allocation (Hours)</label>
-              <div className="grid grid-cols-7 gap-4">
+            <div className="xl:col-span-5 space-y-6">
+              <label className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400 text-center block italic">Chronos Allocation (Hours)</label>
+              <div className="grid grid-cols-7 gap-5">
                 {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => (
-                  <div key={day} className="space-y-3">
+                  <div key={day} className="space-y-4">
                     <input 
                       value={(formData as any)[day]} 
                       onChange={(e) => setFormData({...formData, [day]: e.target.value})} 
-                      className="w-full bg-stone-50 border border-stone-100 p-6 rounded-2xl text-center font-mono font-bold text-sm outline-none focus:border-[#a9b897] focus:bg-white transition-all shadow-sm" 
+                      className="w-full bg-stone-50 border border-stone-100 p-8 rounded-[1.5rem] text-center font-mono font-bold text-lg outline-none focus:border-[#a9b897] focus:bg-white transition-all shadow-sm" 
                       placeholder="0" 
                     />
                     <p className="text-[9px] font-black uppercase text-stone-300 text-center tracking-tighter">{day}</p>
@@ -237,42 +254,42 @@ export default function TimesheetsPage() {
             <div className="xl:col-span-1">
               <button 
                 onClick={addEntry}
-                className="w-full h-[88px] bg-stone-900 text-white rounded-[2rem] flex items-center justify-center hover:bg-[#a9b897] transition-all shadow-2xl active:scale-95 group"
+                className="w-full h-[104px] bg-stone-900 text-[#a9b897] rounded-[3rem] flex items-center justify-center hover:bg-stone-800 transition-all shadow-2xl active:scale-95 group"
               >
-                <Plus size={32} className="group-hover:rotate-90 transition-transform duration-500" />
+                <Plus size={40} className="group-hover:rotate-90 transition-transform duration-700" />
               </button>
             </div>
           </div>
-          <div className="absolute top-0 right-0 p-16 opacity-[0.02] pointer-events-none group-hover:opacity-[0.06] transition-opacity duration-1000">
-            <Timer size={350} />
+          <div className="absolute top-0 right-0 p-24 opacity-[0.02] pointer-events-none group-hover:opacity-[0.05] transition-opacity duration-1000">
+            <Activity size={400} />
           </div>
         </section>
 
-        {/* --- AGGREGATE LEDGER --- */}
-        <section className="space-y-10">
-          <div className="flex flex-col md:flex-row justify-between items-center px-16 gap-8">
-              <div className="flex items-center gap-8">
-                <div className="w-16 h-16 bg-stone-900 rounded-3xl flex items-center justify-center text-[#a9b897] shadow-xl">
-                  <Database size={24} />
+        {/* --- OPERATIONAL VOLUME --- */}
+        <section className="space-y-12">
+          <div className="flex flex-col md:flex-row justify-between items-center px-10 gap-10">
+              <div className="flex items-center gap-10">
+                <div className="w-20 h-20 bg-stone-900 rounded-[2.5rem] flex items-center justify-center text-[#a9b897] shadow-2xl">
+                  <Database size={32} />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-[12px] font-black uppercase tracking-[0.5em] text-stone-900">Aggregate Capacity</h4>
-                  <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.2em] italic">Live Stream • {timesheetList.length} Entries</p>
+                  <h4 className="text-[14px] font-black uppercase tracking-[0.5em] text-stone-900">Operational Volume</h4>
+                  <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.4em] italic">Live Allocation Stream • {timesheetList.length} Active Nodes</p>
                 </div>
               </div>
-              <div className="flex items-center gap-12 bg-white border border-stone-100 px-12 py-8 rounded-[3rem] shadow-sm">
-                 <div className="text-center px-4">
-                   <p className="text-[10px] font-black uppercase text-stone-400 mb-2 tracking-widest">Total Period Volume</p>
-                   <span className="text-5xl font-mono font-bold tracking-tighter text-stone-900">
-                     {totalPeriodHours}.00<span className="text-xs text-[#a9b897] ml-2">HRS</span>
+              <div className="flex items-center gap-16 bg-white border border-stone-100 px-16 py-10 rounded-[4rem] shadow-sm">
+                 <div className="text-center">
+                   <p className="text-[10px] font-black uppercase text-stone-400 mb-3 tracking-[0.5em] italic">Cumulative Throughput</p>
+                   <span className="text-7xl font-mono font-bold tracking-tighter text-stone-900">
+                     {totalPeriodHours}.00<span className="text-xl text-[#a9b897] ml-4 italic">HRS</span>
                    </span>
                  </div>
-                 <div className="w-[1px] h-14 bg-stone-100" />
+                 <div className="w-[1px] h-20 bg-stone-100" />
                  <button 
-                    onClick={() => notify("Approval Workflow Dispatched")} 
-                    className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] bg-stone-900 text-white hover:bg-[#a9b897] px-10 py-5 rounded-2xl transition-all shadow-lg active:scale-95 group/submit"
+                    onClick={() => notify("Ledger Dispatched for Verification")} 
+                    className="flex items-center gap-5 text-[11px] font-black uppercase tracking-[0.5em] bg-stone-900 text-white hover:bg-stone-800 px-12 py-7 rounded-[2.5rem] transition-all shadow-2xl active:scale-95 group/submit"
                   >
-                   <Send size={14} className="text-[#a9b897] group-hover/submit:-translate-y-1 group-hover/submit:translate-x-1 transition-transform" /> Submit Week
+                   <Send size={18} className="text-[#a9b897] group-hover/submit:-translate-y-1 group-hover/submit:translate-x-1 transition-transform" /> Dispatch Ledger
                  </button>
               </div>
           </div>
@@ -286,57 +303,55 @@ export default function TimesheetsPage() {
                   <motion.div 
                     key={t.id}
                     layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, x: -100 }}
-                    className="bg-white border border-stone-100 p-12 md:p-16 rounded-[5rem] flex flex-col xl:flex-row justify-between items-center gap-16 group hover:border-[#a9b897] transition-all shadow-sm hover:shadow-md"
+                    className="bg-white border border-stone-100 p-12 md:p-16 rounded-[5rem] flex flex-col xl:flex-row justify-between items-center gap-20 group hover:border-stone-900 transition-all duration-500 shadow-sm hover:shadow-xl"
                   >
-                    <div className="flex items-center gap-12 w-full xl:w-[35%]">
-                      <div className="w-28 h-28 bg-stone-50 rounded-[2.5rem] flex items-center justify-center text-stone-200 group-hover:bg-stone-900 group-hover:text-[#a9b897] transition-all shadow-inner">
-                        <Briefcase size={40} />
+                    <div className="flex items-center gap-16 w-full xl:w-[40%]">
+                      <div className="w-32 h-32 bg-stone-50 rounded-[3.5rem] flex items-center justify-center text-stone-200 group-hover:bg-stone-900 group-hover:text-[#a9b897] transition-all shadow-inner shrink-0">
+                        <Briefcase size={48} />
                       </div>
-                      <div className="min-w-0 space-y-4">
-                        <div className="flex items-center gap-4">
-                          <p className="text-[12px] font-black uppercase tracking-[0.4em] text-[#a9b897]">{t.client}</p>
-                          <span className="px-4 py-1.5 bg-stone-50 rounded-full text-[8px] font-black uppercase tracking-[0.3em] text-stone-400 border border-stone-100">Draft Status</span>
+                      <div className="min-w-0 space-y-6">
+                        <div className="flex items-center gap-5">
+                          <p className="text-[13px] font-black uppercase tracking-[0.5em] text-[#a9b897] italic">{t.client}</p>
+                          <span className="px-5 py-2 bg-stone-50 rounded-full text-[9px] font-black uppercase tracking-[0.4em] text-stone-400 border border-stone-100">Queued Node</span>
                         </div>
-                        <h4 className="text-5xl font-serif italic text-stone-800 tracking-tighter truncate leading-none">{t.task}</h4>
+                        <h4 className="text-6xl font-serif italic text-stone-800 tracking-tighter truncate leading-none">{t.task}</h4>
                         <div className="flex items-center gap-4">
-                          <Fingerprint size={14} className="text-stone-300" />
-                          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 italic">Logged by: {t.member_name}</p>
+                          <Fingerprint size={16} className="text-[#a9b897]" />
+                          <p className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400 italic">Operator: {t.member_name}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col lg:flex-row items-center gap-16 w-full xl:w-auto justify-between border-t xl:border-none pt-12 xl:pt-0">
-                      <div className="grid grid-cols-7 gap-5">
+                    <div className="flex flex-col lg:flex-row items-center gap-20 w-full xl:w-auto justify-between border-t xl:border-none pt-16 xl:pt-0">
+                      <div className="grid grid-cols-7 gap-6">
                         {[t.mon, t.tue, t.wed, t.thu, t.fri, t.sat, t.sun].map((h, i) => (
-                          <div key={i} className="flex flex-col items-center gap-4">
-                            <span className="text-[9px] font-black uppercase text-stone-300 tracking-widest font-mono">
+                          <div key={i} className="flex flex-col items-center gap-5">
+                            <span className="text-[10px] font-black uppercase text-stone-300 tracking-[0.2em] font-mono">
                               {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]}
                             </span>
-                            <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center text-sm font-mono font-bold border transition-all duration-500 ${Number(h) > 0 ? 'bg-stone-900 text-white border-stone-900 shadow-xl scale-110' : 'bg-stone-50 border-stone-100 text-stone-200 group-hover:border-stone-200'}`}>
+                            <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center text-lg font-mono font-bold border transition-all duration-700 ${Number(h) > 0 ? 'bg-stone-900 text-[#a9b897] border-stone-900 shadow-2xl scale-110' : 'bg-stone-50 border-stone-100 text-stone-200 group-hover:border-stone-200'}`}>
                               {h || '0'}
                             </div>
                           </div>
                         ))}
                       </div>
 
-                      <div className="flex items-center gap-16 xl:border-l xl:border-stone-50 xl:pl-20">
+                      <div className="flex items-center gap-20 xl:border-l xl:border-stone-50 xl:pl-20">
                         <div className="text-right">
-                          <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.4em] mb-3">Logged</p>
-                          <span className="text-6xl md:text-7xl font-serif italic text-stone-900 leading-none flex items-baseline">
-                            {calculateTotal(t)}<span className="text-[13px] font-sans not-italic text-[#a9b897] ml-3 tracking-[0.3em] font-black uppercase">hrs</span>
+                          <p className="text-[11px] font-black uppercase text-stone-400 tracking-[0.5em] mb-4 italic">Allocated</p>
+                          <span className="text-7xl md:text-8xl font-serif italic text-stone-900 leading-none flex items-baseline tracking-tighter">
+                            {calculateTotal(t)}<span className="text-[16px] font-sans not-italic text-[#a9b897] ml-4 tracking-[0.4em] font-black uppercase">hrs</span>
                           </span>
                         </div>
-                        <div className="flex flex-col gap-3">
-                           <button 
-                            onClick={() => deleteEntry(t.id)}
-                            className="p-8 rounded-[1.5rem] bg-stone-50 text-stone-300 hover:text-red-500 hover:bg-red-50 transition-all border border-transparent hover:border-red-100 active:scale-90"
-                          >
-                            <Trash2 size={24} />
-                          </button>
-                        </div>
+                        <button 
+                          onClick={() => deleteEntry(t.id)}
+                          className="p-10 rounded-[2rem] bg-stone-50 text-stone-300 hover:text-red-500 hover:bg-red-50 transition-all border border-transparent hover:border-red-100 active:scale-90"
+                        >
+                          <Trash2 size={28} />
+                        </button>
                       </div>
                     </div>
                   </motion.div>
@@ -344,13 +359,13 @@ export default function TimesheetsPage() {
               </AnimatePresence>
 
               {timesheetList.length === 0 && !isLoading && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-60 bg-white border border-dashed border-stone-200 rounded-[6rem] flex flex-col items-center gap-10">
-                    <div className="w-32 h-32 bg-stone-50 rounded-full flex items-center justify-center text-stone-100">
-                      <Clock size={64} />
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-64 bg-white border border-dashed border-stone-200 rounded-[7rem] flex flex-col items-center gap-12">
+                    <div className="w-40 h-40 bg-stone-50 rounded-full flex items-center justify-center text-stone-100">
+                      <Clock size={80} />
                     </div>
-                    <div className="space-y-4">
-                      <p className="text-4xl font-serif italic text-stone-400">Node contains no temporal data.</p>
-                      <p className="text-[11px] font-black uppercase tracking-[0.5em] text-stone-300">Initiate a new log directive above.</p>
+                    <div className="space-y-6">
+                      <p className="text-5xl font-serif italic text-stone-300 tracking-tighter">Node contains no temporal data.</p>
+                      <p className="text-[12px] font-black uppercase tracking-[0.6em] text-stone-400">Initiate a new log directive above.</p>
                     </div>
                 </motion.div>
               )}
@@ -359,25 +374,45 @@ export default function TimesheetsPage() {
         </section>
 
         {/* --- MASTER ACTIONS --- */}
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-8 pt-16">
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-10 pt-20">
             <button 
               disabled={isExporting}
               onClick={() => {
                 setIsExporting(true);
-                setTimeout(() => { setIsExporting(false); notify("Spreadsheet Compiled & Downloaded"); }, 1500);
+                setTimeout(() => { setIsExporting(false); notify("Manifest Compiled & Downloaded"); }, 1500);
               }}
-              className="flex items-center gap-5 px-16 py-9 bg-white border border-stone-200 rounded-[2.5rem] text-[11px] font-black uppercase tracking-[0.4em] hover:border-stone-900 hover:shadow-lg transition-all shadow-sm group relative overflow-hidden"
+              className="flex items-center gap-6 px-20 py-10 bg-white border border-stone-200 rounded-[3rem] text-[12px] font-black uppercase tracking-[0.5em] hover:border-stone-900 hover:shadow-2xl transition-all shadow-sm group relative overflow-hidden"
             >
-                {isExporting ? <Loader2 className="animate-spin text-[#a9b897]" size={18}/> : <FileSpreadsheet size={18} className="text-[#a9b897]" />}
-                <span>{isExporting ? "Compiling..." : "Export Period XLS"}</span> 
-                <ChevronRight size={16} className="group-hover:translate-x-2 transition-transform" />
+                {isExporting ? <Loader2 className="animate-spin text-[#a9b897]" size={20}/> : <FileSpreadsheet size={20} className="text-[#a9b897]" />}
+                <span>{isExporting ? "Compiling..." : "Compile Manifest"}</span> 
+                <ChevronRight size={18} className="group-hover:translate-x-3 transition-transform" />
             </button>
-            <button className="flex items-center gap-5 px-16 py-9 bg-stone-900 text-white border border-stone-900 rounded-[2.5rem] text-[11px] font-black uppercase tracking-[0.4em] hover:bg-[#a9b897] transition-all shadow-2xl group active:scale-95">
-                <Lock size={18} className="text-[#a9b897] group-hover:rotate-12 transition-transform" /> 
-                <span>Lock Week for Billing</span>
+            <button className="flex items-center gap-6 px-20 py-10 bg-stone-900 text-white border border-stone-900 rounded-[3rem] text-[12px] font-black uppercase tracking-[0.5em] hover:bg-stone-800 transition-all shadow-2xl group active:scale-95">
+                <Lock size={20} className="text-[#a9b897] group-hover:rotate-12 transition-transform" /> 
+                <span>Finalize Node for Billing</span>
             </button>
         </div>
+
+        {/* --- GLOBAL FOOTER --- */}
+        <footer className="pt-24 border-t border-stone-100 flex flex-col md:flex-row justify-between items-center gap-12 text-stone-300 pb-12">
+          <div className="flex items-center gap-8">
+            <p className="text-[11px] font-black uppercase tracking-[0.5em]">TOTS OS v6.2.0 • Temporal Module</p>
+            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
+            <Globe size={14} className="text-stone-200" />
+          </div>
+          <div className="flex gap-12 text-[10px] font-black uppercase tracking-widest">
+            <button className="hover:text-stone-900 transition-all">Audit Protocols</button>
+            <button className="hover:text-stone-900 transition-all">Resource Policy</button>
+            <button className="hover:text-stone-900 transition-all">Encrypted Ledger</button>
+          </div>
+        </footer>
       </div>
+
+      <style jsx global>{`
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e5e5e5; border-radius: 10px; }
+      `}</style>
     </div>
   );
 }

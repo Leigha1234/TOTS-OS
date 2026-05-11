@@ -12,21 +12,20 @@ import {
 } from "lucide-react";
 
 /**
- * TOTS OS v6.2 - HUMAN RESOURCES NODE
+ * TOTS OS v6.2 - PERSONNEL MODULE
  * WORKFORCE IDENTITY & OPERATIONAL ACCESS
  */
 
 export default function HRPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // --- UI STATE ---
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notification, setNotification] = useState({ visible: false, msg: "" });
 
-  // --- DATABASE DATA STATE ---
   const [profile, setProfile] = useState<any>({
     id: null,
     full_name: "",
@@ -48,18 +47,26 @@ export default function HRPage() {
     try {
       setIsLoading(true);
       setError(null);
+
+      // Get the current authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setError("Unauthorized: Session Expired.");
+        return;
+      }
+
       const { data, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
-        .limit(1); 
+        .eq('id', user.id)
+        .single();
 
       if (fetchError) throw fetchError;
-      if (data && data.length > 0) {
-        setProfile(data[0]);
-      } else {
-        notify("Identity not found. Initializing node.");
-      }
+      if (data) setProfile(data);
+      
     } catch (err: any) {
+      console.error(err);
       setError("Network Pulse Failure: Unable to sync identity records.");
     } finally {
       setIsLoading(false);
@@ -67,12 +74,10 @@ export default function HRPage() {
   }
 
   async function handleSave() {
-    if (!profile.id) {
-        setError("Write Denied: Secure ID missing.");
-        return;
-    }
+    if (!profile.id) return;
 
     try {
+      setIsSaving(true);
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -80,7 +85,6 @@ export default function HRPage() {
             role: profile.role,
             phone: profile.phone,
             address: profile.address,
-            company_details: profile.company_details,
             bank_name: profile.bank_name,
             account_number: profile.account_number,
             sort_code: profile.sort_code
@@ -91,6 +95,8 @@ export default function HRPage() {
       notify("Workforce Identity Synchronized");
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -101,7 +107,6 @@ export default function HRPage() {
 
   if (!isMounted) return null;
 
-  // --- TOTS MODAL WRAPPER ---
   const Modal = ({ id, title, subtitle, children }: { id: string, title: string, subtitle: string, children: React.ReactNode }) => (
     <AnimatePresence>
       {activeModal === id && (
@@ -117,12 +122,12 @@ export default function HRPage() {
             animate={{ x: 0 }} 
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 35, stiffness: 250 }}
-            className="bg-white h-full w-full max-w-2xl p-12 md:p-20 shadow-2xl relative overflow-y-auto border-l border-stone-100"
+            className="bg-[#fcfbf9] h-full w-full max-w-2xl p-12 md:p-20 shadow-2xl relative overflow-y-auto border-l border-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             <button 
               onClick={() => setActiveModal(null)} 
-              className="absolute top-12 right-12 p-5 bg-stone-50 rounded-full hover:bg-stone-900 hover:text-white transition-all text-stone-400 group"
+              className="absolute top-12 right-12 p-5 bg-white rounded-full hover:bg-stone-900 hover:text-white transition-all text-stone-400 group shadow-sm"
             >
               <X size={24} className="group-hover:rotate-90 transition-transform" />
             </button>
@@ -138,9 +143,8 @@ export default function HRPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#fcfbf9] text-stone-900 font-sans selection:bg-[#a9b897] selection:text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#fcfbf9] text-stone-900 font-sans selection:bg-[#a9b897] selection:text-white">
       
-      {/* --- NOTIFICATION HUD --- */}
       <AnimatePresence>
         {notification.visible && (
           <motion.div 
@@ -157,7 +161,6 @@ export default function HRPage() {
 
       <div className="max-w-[1600px] mx-auto px-6 py-12 md:p-20 space-y-24">
         
-        {/* --- DYNAMIC HEADER --- */}
         <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-12 border-b border-stone-100 pb-20">
           <div className="space-y-6">
             <div className="flex items-center gap-6">
@@ -165,55 +168,45 @@ export default function HRPage() {
               <div className="space-y-1">
                 <p className="font-black uppercase text-[10px] tracking-[0.5em] text-stone-400">Personnel Directory</p>
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#a9b897] animate-pulse" />
-                  <p className="text-[9px] font-mono text-stone-400 tracking-widest uppercase">Identity Link: Active</p>
+                  <div className={`w-2 h-2 rounded-full bg-[#a9b897] ${isLoading ? 'animate-ping' : 'animate-pulse'}`} />
+                  <p className="text-[9px] font-mono text-stone-400 tracking-widest uppercase">Identity Link: {isLoading ? 'Syncing...' : 'Active'}</p>
                 </div>
               </div>
             </div>
             <h1 className="text-8xl md:text-[10rem] font-serif italic tracking-tighter leading-[0.85]">Human Resources</h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <nav className="flex items-center bg-stone-100 p-2 rounded-[2.5rem]">
-              {['Dashboard', 'Payments', 'Reports', 'HR', 'Network'].map((path) => (
-                <button 
-                  key={path}
-                  onClick={() => path !== 'HR' && router.push(`/${path === 'Dashboard' ? '' : path.toLowerCase()}`)}
-                  className={`px-10 py-5 text-[10px] font-black uppercase tracking-widest transition-all rounded-[2rem] ${
-                    path === 'HR' ? "bg-white text-stone-900 shadow-xl" : "text-stone-400 hover:text-stone-900"
-                  }`}
-                >
-                  {path}
-                </button>
-              ))}
-            </nav>
-          </div>
+          <nav className="flex items-center bg-stone-100 p-2 rounded-[2.5rem] self-start xl:self-end">
+            {['Dashboard', 'Payments', 'Reports', 'HR', 'Network'].map((path) => (
+              <button 
+                key={path}
+                onClick={() => path !== 'HR' && router.push(`/${path === 'Dashboard' ? '' : path.toLowerCase()}`)}
+                className={`px-10 py-5 text-[10px] font-black uppercase tracking-widest transition-all rounded-[2rem] ${
+                  path === 'HR' ? "bg-white text-stone-900 shadow-xl" : "text-stone-400 hover:text-stone-900"
+                }`}
+              >
+                {path}
+              </button>
+            ))}
+          </nav>
         </header>
 
-        {error && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-red-50 border border-red-100 p-10 rounded-[3rem] flex items-center gap-6 text-red-600">
-            <AlertCircle size={24} />
-            <p className="text-[11px] font-black uppercase tracking-[0.4em]">{error}</p>
-          </motion.div>
-        )}
-
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          
-          {/* PRIMARY PROFILE CARD */}
           <section className="lg:col-span-8 bg-white border border-stone-100 p-12 md:p-20 rounded-[5rem] space-y-16 shadow-sm relative overflow-hidden group">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end border-b border-stone-50 pb-16 relative z-10 gap-10">
               <div className="space-y-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897] italic">Verified Entity Node</p>
                 <h4 className="text-7xl md:text-8xl font-serif italic tracking-tighter leading-none">
-                  {profile.full_name || "New Registry"}
+                  {profile.full_name || "Registry Pending"}
                 </h4>
               </div>
               <button 
                 onClick={handleSave}
-                className="flex items-center gap-5 bg-stone-900 text-white px-12 py-7 rounded-[2.5rem] hover:bg-stone-800 transition-all shadow-2xl active:scale-95 group/btn"
+                disabled={isSaving}
+                className="flex items-center gap-5 bg-stone-900 text-white px-12 py-7 rounded-[2.5rem] hover:bg-stone-800 transition-all shadow-2xl active:scale-95 group/btn disabled:opacity-50"
               >
-                <Save size={22} className="group-hover/btn:scale-110 transition-transform duration-300 text-[#a9b897]" />
-                <span className="text-[11px] font-black uppercase tracking-[0.3em]">Sync Records</span>
+                {isSaving ? <Loader2 size={22} className="animate-spin text-[#a9b897]" /> : <Save size={22} className="group-hover/btn:scale-110 transition-transform duration-300 text-[#a9b897]" />}
+                <span className="text-[11px] font-black uppercase tracking-[0.3em]">{isSaving ? 'Syncing...' : 'Sync Records'}</span>
               </button>
             </div>
 
@@ -225,7 +218,7 @@ export default function HRPage() {
                   { label: 'Full Legal Name', key: 'full_name', icon: <Fingerprint size={16}/> },
                   { label: 'Operational Role', key: 'role', icon: <Briefcase size={16}/> },
                   { label: 'Secure Contact', key: 'phone', icon: <Phone size={16}/> },
-                  { label: 'Registered Physical Address', key: 'address', full: true, icon: <MapPin size={16}/> },
+                  { label: 'Physical Address', key: 'address', full: true, icon: <MapPin size={16}/> },
                 ].map((field) => (
                   <div key={field.key} className={`${field.full ? 'md:col-span-2' : ''} space-y-6`}>
                     <div className="flex items-center gap-4 ml-8">
@@ -246,7 +239,6 @@ export default function HRPage() {
             </div>
           </section>
 
-          {/* RIGHT SIDE PANEL: STATS & MODAL TRIGGERS */}
           <div className="lg:col-span-4 space-y-10">
             <div className="bg-stone-900 rounded-[5rem] p-14 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden min-h-[600px] group">
               <div className="relative z-10 space-y-16">
@@ -271,14 +263,14 @@ export default function HRPage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 pt-10">
-                  <button onClick={() => setActiveModal('leave')} className="w-full p-12 bg-white/5 border border-white/10 rounded-[3.5rem] flex items-center justify-between hover:bg-white/10 transition-all group/btn active:scale-95">
+                  <button onClick={() => setActiveModal('leave')} className="w-full p-12 bg-white/5 border border-white/10 rounded-[3.5rem] flex items-center justify-between hover:bg-white/10 transition-all group/btn active:scale-95 text-left">
                     <div className="flex items-center gap-8">
                       <Calendar size={28} className="text-[#a9b897]" />
                       <span className="text-[12px] font-black uppercase tracking-[0.3em]">Deploy Absence</span>
                     </div>
                     <ChevronRight size={20} className="text-stone-700 group-hover/btn:translate-x-2 transition-transform" />
                   </button>
-                  <button onClick={() => setActiveModal('payslip')} className="w-full p-12 bg-white/5 border border-white/10 rounded-[3.5rem] flex items-center justify-between hover:bg-white/10 transition-all group/btn active:scale-95">
+                  <button onClick={() => setActiveModal('payslip')} className="w-full p-12 bg-white/5 border border-white/10 rounded-[3.5rem] flex items-center justify-between hover:bg-white/10 transition-all group/btn active:scale-95 text-left">
                     <div className="flex items-center gap-8">
                       <FileText size={28} className="text-stone-500" />
                       <span className="text-[12px] font-black uppercase tracking-[0.3em]">Document Vault</span>
@@ -292,7 +284,6 @@ export default function HRPage() {
           </div>
         </div>
 
-        {/* SECURE BANKING MODULE */}
         <section className="bg-white rounded-[5rem] p-16 md:p-24 border border-stone-100 shadow-sm grid grid-cols-1 xl:grid-cols-12 gap-20 hover:border-stone-200 transition-all duration-700">
            <div className="xl:col-span-4 xl:border-r border-stone-100 xl:pr-20 space-y-8">
               <div className="w-20 h-20 bg-stone-50 rounded-[2rem] flex items-center justify-center text-[#a9b897] shadow-inner">
@@ -301,16 +292,16 @@ export default function HRPage() {
               <div className="space-y-4">
                 <h5 className="text-[16px] font-black uppercase tracking-[0.4em] text-stone-900">Financial Endpoint</h5>
                 <p className="text-[12px] text-stone-400 font-bold leading-relaxed uppercase tracking-[0.3em] italic">
-                  Secured banking parameters for automated compensation routing nodes.
+                  Secured banking parameters for automated compensation routing.
                 </p>
               </div>
            </div>
            
            <div className="xl:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-8">
               {[
-                  { label: 'Banking Institution', key: 'bank_name' },
-                  { label: 'Account Identifier', key: 'account_number' },
-                  { label: 'Routing Sort Code', key: 'sort_code' }
+                  { label: 'Institution', key: 'bank_name' },
+                  { label: 'Account No.', key: 'account_number' },
+                  { label: 'Sort Code', key: 'sort_code' }
                 ].map((bank) => (
                   <div key={bank.key} className="p-12 bg-stone-50 rounded-[3.5rem] border border-stone-100 space-y-6 shadow-inner group hover:bg-white hover:border-stone-900 transition-all duration-500">
                     <p className="text-[11px] font-black uppercase text-stone-400 group-hover:text-[#a9b897] transition-colors tracking-[0.4em] italic">{bank.label}</p>
@@ -318,14 +309,13 @@ export default function HRPage() {
                       value={profile[bank.key] || ""}
                       onChange={(e) => setProfile({...profile, [bank.key]: e.target.value})}
                       className="w-full bg-transparent font-mono font-bold text-xl outline-none text-stone-900 tracking-tight"
-                      placeholder="UNASSIGNED"
+                      placeholder="XXXXXX"
                     />
                   </div>
               ))}
            </div>
         </section>
 
-        {/* --- GLOBAL FOOTER --- */}
         <footer className="pt-20 border-t border-stone-100 flex flex-col md:flex-row justify-between items-center gap-12 text-stone-300 pb-12">
           <div className="flex items-center gap-8">
             <p className="text-[11px] font-black uppercase tracking-[0.5em]">TOTS OS v6.2.0 • Personnel Module</p>
@@ -340,27 +330,19 @@ export default function HRPage() {
         </footer>
       </div>
 
-      {/* --- POPUP MODALS --- */}
+      {/* --- MODALS --- */}
       <Modal id="leave" title="Absence Directive" subtitle="Operational Capacity Adjustment">
         <div className="space-y-16 py-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="space-y-6">
               <label className="text-[12px] font-black uppercase text-stone-400 ml-10 tracking-[0.4em]">Commencement Date</label>
-              <input type="date" className="w-full p-10 bg-stone-50 rounded-[3rem] border border-stone-100 outline-none focus:border-stone-900 focus:bg-white font-bold transition-all shadow-inner text-stone-700" />
+              <input type="date" className="w-full p-10 bg-white rounded-[3rem] border border-stone-100 outline-none focus:border-stone-900 font-bold transition-all shadow-sm text-stone-700" />
             </div>
             <div className="space-y-6">
               <label className="text-[12px] font-black uppercase text-stone-400 ml-10 tracking-[0.4em]">Reactivation Date</label>
-              <input type="date" className="w-full p-10 bg-stone-50 rounded-[3rem] border border-stone-100 outline-none focus:border-stone-900 focus:bg-white font-bold transition-all shadow-inner text-stone-700" />
+              <input type="date" className="w-full p-10 bg-white rounded-[3rem] border border-stone-100 outline-none focus:border-stone-900 font-bold transition-all shadow-sm text-stone-700" />
             </div>
           </div>
-          
-          <div className="p-10 border border-[#a9b897]/20 bg-[#a9b897]/5 rounded-[3rem] flex items-start gap-8">
-             <AlertCircle size={24} className="text-[#a9b897] mt-1 shrink-0" />
-             <p className="text-[11px] font-black uppercase text-stone-500 tracking-[0.3em] leading-loose">
-               Directive Note: All absence requests are evaluated against real-time operational throughput. Primary node managers are automatically notified of this status update request.
-             </p>
-          </div>
-          
           <button 
             onClick={() => { notify("Absence Protocol Initiated"); setActiveModal(null); }} 
             className="w-full bg-stone-900 text-white py-12 rounded-[4rem] text-[12px] font-black uppercase tracking-[0.5em] shadow-2xl hover:bg-[#a9b897] transition-all flex items-center justify-center gap-6 group"
@@ -376,21 +358,20 @@ export default function HRPage() {
              <motion.div 
                key={month} 
                whileHover={{ x: 10 }}
-               className="flex flex-col lg:flex-row items-center justify-between p-12 bg-stone-50 rounded-[4rem] border border-stone-100 hover:border-stone-900 hover:bg-white transition-all cursor-pointer group shadow-sm"
+               className="flex flex-col lg:flex-row items-center justify-between p-12 bg-white rounded-[4rem] border border-stone-100 hover:border-stone-900 transition-all cursor-pointer group shadow-sm"
              >
                <div className="flex items-center gap-10">
-                 <div className="w-24 h-24 bg-white border border-stone-100 rounded-[2.5rem] flex items-center justify-center text-stone-200 group-hover:text-[#a9b897] transition-all shadow-inner">
+                 <div className="w-24 h-24 bg-stone-50 border border-stone-100 rounded-[2.5rem] flex items-center justify-center text-stone-200 group-hover:text-[#a9b897] transition-all shadow-inner">
                    <ShieldCheck size={40} />
                  </div>
-                 <div className="space-y-3 text-center lg:text-left">
-                    <p className="text-3xl font-bold text-stone-800 tracking-tighter group-hover:text-stone-900 transition-colors">{month} Record</p>
-                    <div className="flex items-center gap-3">
-                      <Lock size={12} className="text-stone-400" />
-                      <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.4em] italic">Verified Ledger Object • PDF</p>
-                    </div>
+                 <div className="space-y-3">
+                    <p className="text-3xl font-bold text-stone-800 tracking-tighter">{month} Record</p>
+                    <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.4em] italic flex items-center gap-2">
+                      <Lock size={12} /> Verified Ledger Object
+                    </p>
                  </div>
                </div>
-               <button className="flex items-center gap-5 text-[11px] font-black uppercase text-[#a9b897] tracking-[0.3em] border border-[#a9b897]/30 px-12 py-6 rounded-full bg-[#a9b897]/5 hover:bg-[#a9b897] hover:text-white transition-all shadow-sm mt-10 lg:mt-0">
+               <button className="flex items-center gap-5 text-[11px] font-black uppercase text-[#a9b897] border border-[#a9b897]/30 px-12 py-6 rounded-full hover:bg-[#a9b897] hover:text-white transition-all mt-10 lg:mt-0">
                  <Download size={18} /> Secure Access
                </button>
              </motion.div>

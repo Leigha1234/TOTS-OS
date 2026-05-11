@@ -6,9 +6,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   Clock, Trash2, Plus, Database, 
-  Calendar, Timer, Check, 
-  Download, Briefcase, AlertCircle, Loader2,
-  ChevronRight, Fingerprint, Lock, Unlock, Zap, Send, FileSpreadsheet,
+  Timer, Download, Briefcase, AlertCircle, Loader2,
+  ChevronRight, Fingerprint, Lock, Zap, Send, FileSpreadsheet,
   Activity, Cpu, Globe
 } from "lucide-react";
 
@@ -111,7 +110,7 @@ export default function TimesheetsPage() {
       setFormData({ client: "", task: "", member: "", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" });
       notify("Temporal Node Established");
     } catch (err: any) {
-      setError(err.message);
+      setError("Write Access Denied: Database lock detected.");
     }
   };
 
@@ -122,7 +121,7 @@ export default function TimesheetsPage() {
       setTimesheetList(prev => prev.filter(t => t.id !== id));
       notify("Data Node Purged");
     } catch (err: any) {
-      setError(err.message);
+      setError("Purge Failure: Operational constraints active.");
     }
   };
 
@@ -221,7 +220,7 @@ export default function TimesheetsPage() {
                 placeholder="Enterprise ID..." 
                 value={formData.client} 
                 onChange={(e) => setFormData({...formData, client: e.target.value})}
-                className="w-full bg-stone-50 border border-stone-100 rounded-[3rem] p-10 text-xl font-bold outline-none focus:border-stone-900 focus:bg-white transition-all shadow-inner text-stone-800" 
+                className="w-full bg-stone-50 border border-stone-100 rounded-[3rem] p-10 text-xl font-bold outline-none focus:border-stone-900 focus:bg-white transition-all shadow-inner text-stone-800 placeholder:text-stone-200" 
               />
             </div>
             <div className="xl:col-span-3 space-y-6">
@@ -232,7 +231,7 @@ export default function TimesheetsPage() {
                 placeholder="Describe throughput..." 
                 value={formData.task} 
                 onChange={(e) => setFormData({...formData, task: e.target.value})}
-                className="w-full bg-stone-50 border border-stone-100 rounded-[3rem] p-10 text-xl font-bold outline-none focus:border-stone-900 focus:bg-white transition-all shadow-inner text-stone-800" 
+                className="w-full bg-stone-50 border border-stone-100 rounded-[3rem] p-10 text-xl font-bold outline-none focus:border-stone-900 focus:bg-white transition-all shadow-inner text-stone-800 placeholder:text-stone-200" 
               />
             </div>
             <div className="xl:col-span-5 space-y-6">
@@ -268,7 +267,7 @@ export default function TimesheetsPage() {
         {/* --- OPERATIONAL VOLUME --- */}
         <section className="space-y-12">
           <div className="flex flex-col md:flex-row justify-between items-center px-10 gap-10">
-              <div className="flex items-center gap-10">
+              <div className="flex items-center gap-10 text-left">
                 <div className="w-20 h-20 bg-stone-900 rounded-[2.5rem] flex items-center justify-center text-[#a9b897] shadow-2xl">
                   <Database size={32} />
                 </div>
@@ -281,7 +280,7 @@ export default function TimesheetsPage() {
                  <div className="text-center">
                    <p className="text-[10px] font-black uppercase text-stone-400 mb-3 tracking-[0.5em] italic">Cumulative Throughput</p>
                    <span className="text-7xl font-mono font-bold tracking-tighter text-stone-900">
-                     {totalPeriodHours}.00<span className="text-xl text-[#a9b897] ml-4 italic">HRS</span>
+                     {totalPeriodHours.toFixed(2)}<span className="text-xl text-[#a9b897] ml-4 italic">HRS</span>
                    </span>
                  </div>
                  <div className="w-[1px] h-20 bg-stone-100" />
@@ -312,15 +311,15 @@ export default function TimesheetsPage() {
                       <div className="w-32 h-32 bg-stone-50 rounded-[3.5rem] flex items-center justify-center text-stone-200 group-hover:bg-stone-900 group-hover:text-[#a9b897] transition-all shadow-inner shrink-0">
                         <Briefcase size={48} />
                       </div>
-                      <div className="min-w-0 space-y-6">
+                      <div className="min-w-0 space-y-6 text-left">
                         <div className="flex items-center gap-5">
                           <p className="text-[13px] font-black uppercase tracking-[0.5em] text-[#a9b897] italic">{t.client}</p>
-                          <span className="px-5 py-2 bg-stone-50 rounded-full text-[9px] font-black uppercase tracking-[0.4em] text-stone-400 border border-stone-100">Queued Node</span>
+                          <span className="px-5 py-2 bg-stone-50 rounded-full text-[9px] font-black uppercase tracking-[0.4em] text-stone-400 border border-stone-100">Verified Node</span>
                         </div>
                         <h4 className="text-6xl font-serif italic text-stone-800 tracking-tighter truncate leading-none">{t.task}</h4>
                         <div className="flex items-center gap-4">
                           <Fingerprint size={16} className="text-[#a9b897]" />
-                          <p className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400 italic">Operator: {t.member_name}</p>
+                          <p className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-400 italic uppercase">Operator: {t.member_name}</p>
                         </div>
                       </div>
                     </div>
@@ -340,7 +339,7 @@ export default function TimesheetsPage() {
                       </div>
 
                       <div className="flex items-center gap-20 xl:border-l xl:border-stone-50 xl:pl-20">
-                        <div className="text-right">
+                        <div className="text-right min-w-[120px]">
                           <p className="text-[11px] font-black uppercase text-stone-400 tracking-[0.5em] mb-4 italic">Allocated</p>
                           <span className="text-7xl md:text-8xl font-serif italic text-stone-900 leading-none flex items-baseline tracking-tighter">
                             {calculateTotal(t)}<span className="text-[16px] font-sans not-italic text-[#a9b897] ml-4 tracking-[0.4em] font-black uppercase">hrs</span>
@@ -363,7 +362,7 @@ export default function TimesheetsPage() {
                     <div className="w-40 h-40 bg-stone-50 rounded-full flex items-center justify-center text-stone-100">
                       <Clock size={80} />
                     </div>
-                    <div className="space-y-6">
+                    <div className="space-y-6 text-center">
                       <p className="text-5xl font-serif italic text-stone-300 tracking-tighter">Node contains no temporal data.</p>
                       <p className="text-[12px] font-black uppercase tracking-[0.6em] text-stone-400">Initiate a new log directive above.</p>
                     </div>
@@ -400,7 +399,7 @@ export default function TimesheetsPage() {
             <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
             <Globe size={14} className="text-stone-200" />
           </div>
-          <div className="flex gap-12 text-[10px] font-black uppercase tracking-widest">
+          <div className="flex gap-12 text-[10px] font-black uppercase tracking-widest text-stone-400">
             <button className="hover:text-stone-900 transition-all">Audit Protocols</button>
             <button className="hover:text-stone-900 transition-all">Resource Policy</button>
             <button className="hover:text-stone-900 transition-all">Encrypted Ledger</button>

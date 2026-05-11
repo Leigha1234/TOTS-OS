@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase-client";
 import { 
   Save, Calendar, Landmark, Fingerprint, 
   X, Check, FileText, Mail, 
-  AlertCircle, Loader2, Activity, Download
+  AlertCircle, Loader2, Activity, Download, ChevronRight
 } from "lucide-react";
 
 export default function HRPage() {
@@ -44,7 +44,6 @@ export default function HRPage() {
       setIsLoading(true);
       setError(null);
 
-      // We use .limit(1) to safely handle the object return from Supabase
       const { data, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
@@ -106,12 +105,12 @@ export default function HRPage() {
       {activeModal === id && (
         <motion.div 
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-[100] flex justify-center items-center p-6"
+          className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-[100] flex justify-center items-center p-4 md:p-6"
           onClick={() => setActiveModal(null)}
         >
           <motion.div 
             initial={{ scale: 0.95, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: 20, opacity: 0 }}
-            className="bg-white w-full max-w-4xl rounded-[3rem] p-10 md:p-14 shadow-2xl relative overflow-y-auto max-h-[90vh] border border-stone-100"
+            className="bg-white w-full max-w-4xl rounded-[3rem] p-8 md:p-14 shadow-2xl relative overflow-y-auto max-h-[90vh] border border-stone-100"
             onClick={(e) => e.stopPropagation()}
           >
             <button onClick={() => setActiveModal(null)} className="absolute top-8 right-8 p-3 hover:bg-stone-50 rounded-full transition-all text-stone-400 hover:text-stone-900">
@@ -119,7 +118,7 @@ export default function HRPage() {
             </button>
             <div className="mb-10">
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897] mb-2">Personnel Module</p>
-              <h3 className="text-4xl md:text-5xl font-serif italic tracking-tighter">{title}</h3>
+              <h3 className="text-4xl md:text-5xl font-serif italic tracking-tighter leading-none">{title}</h3>
             </div>
             {children}
           </motion.div>
@@ -129,7 +128,7 @@ export default function HRPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans p-6 md:p-12 selection:bg-[#a9b897] selection:text-white">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans p-4 md:p-12 selection:bg-[#a9b897] selection:text-white">
       
       <AnimatePresence>
         {isNotificationVisible && (
@@ -140,32 +139,31 @@ export default function HRPage() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1400px] mx-auto space-y-16">
+      <div className="max-w-[1500px] mx-auto space-y-8 md:space-y-16">
         
-        {/* --- NAVIGATION & HEADER --- */}
-        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-10">
-          <div className="space-y-4">
+        {/* --- HEADER --- */}
+        <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 bg-white p-6 md:p-10 rounded-[3rem] border border-stone-200 shadow-sm">
+          <div className="space-y-1">
             <div className="flex items-center gap-3 text-stone-400">
               <Fingerprint size={14} className="text-[#a9b897]" />
               <p className="font-black uppercase text-[10px] tracking-[0.4em]">Workforce Identity v5.2.1</p>
             </div>
-            <h1 className="text-6xl md:text-7xl font-serif italic tracking-tighter leading-tight">Human Resources</h1>
+            <h1 className="text-4xl md:text-6xl font-serif italic tracking-tighter">Human Resources</h1>
           </div>
 
-          <nav className="flex flex-wrap bg-stone-100/50 border border-stone-200 p-1.5 rounded-[2.5rem] shadow-inner">
+          <nav className="flex bg-stone-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
             {['Payments', 'Reports', 'HR', 'Timesheets'].map((path) => (
               <button 
                 key={path}
                 onClick={() => path !== 'HR' && router.push(`/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)}
-                className={`px-8 py-3.5 text-[10px] font-black uppercase tracking-widest transition-all rounded-full ${
-                  path === 'HR' ? "bg-white text-stone-900 shadow-sm border border-stone-200" : "text-stone-400 hover:text-stone-900"
+                className={`px-6 py-2.5 text-[9px] font-black uppercase tracking-widest transition-all rounded-xl whitespace-nowrap ${
+                  path === 'HR' ? "bg-white text-stone-900 shadow-sm" : "text-stone-400 hover:text-stone-600"
                 }`}
               >
                 {path}
               </button>
             ))}
           </nav>
-          
         </header>
 
         {error && (
@@ -175,29 +173,28 @@ export default function HRPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* --- MAIN PROFILE FORM --- */}
-          <section className="lg:col-span-2 bg-white border border-stone-200 p-8 md:p-12 rounded-[3.5rem] space-y-12 shadow-sm">
-            <div className="flex justify-between items-end border-b border-stone-50 pb-8 gap-4">
-              <div className="space-y-2 min-w-0">
-                <h4 className="text-3xl md:text-4xl font-serif italic tracking-tighter truncate">
-                  Personnel Record
+          <section className="lg:col-span-2 bg-white border border-stone-200 p-8 md:p-12 rounded-[4rem] space-y-12 shadow-sm">
+            <div className="flex justify-between items-center border-b border-stone-50 pb-10 gap-4">
+              <div className="space-y-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Personnel Record</p>
+                <h4 className="text-3xl md:text-4xl font-serif italic tracking-tighter truncate leading-none">
+                  {profile.full_name || "New Entity"}
                 </h4>
-                <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 truncate">
-                  {profile.full_name || "Profile Loading..."}
-                </p>
               </div>
               <button 
                 onClick={handleSave}
-                className="p-5 bg-stone-900 text-white rounded-2xl hover:bg-[#a9b897] transition-all active:scale-95 flex-shrink-0 shadow-xl"
+                className="flex items-center gap-3 bg-stone-900 text-white px-8 py-4 rounded-2xl hover:bg-[#a9b897] transition-all shadow-xl group active:scale-95"
               >
-                <Save size={20} />
+                <Save size={18} className="group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Sync Changes</span>
               </button>
             </div>
 
             {isLoading ? (
-              <div className="flex justify-center py-24"><Loader2 className="animate-spin text-[#a9b897]" size={32} /></div>
+              <div className="flex justify-center py-24"><Loader2 className="animate-spin text-[#a9b897]" size={40} /></div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
                 {[
@@ -213,13 +210,13 @@ export default function HRPage() {
                       <textarea 
                         value={profile[field.key] || ""}
                         onChange={(e) => setProfile({...profile, [field.key]: e.target.value})}
-                        className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-900 focus:bg-white transition-all font-bold text-sm min-h-[100px] resize-none"
+                        className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-900 focus:bg-white transition-all font-bold text-sm min-h-[120px] resize-none shadow-inner"
                       />
                     ) : (
                       <input 
                         value={profile[field.key] || ""}
                         onChange={(e) => setProfile({...profile, [field.key]: e.target.value})}
-                        className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-900 focus:bg-white transition-all font-bold text-sm" 
+                        className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-900 focus:bg-white transition-all font-bold text-sm shadow-inner" 
                       />
                     )}
                   </div>
@@ -227,7 +224,7 @@ export default function HRPage() {
               </div>
             )}
 
-            <div className="pt-10 border-t border-stone-50">
+            <div className="pt-10 border-t border-stone-100">
               <h5 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-stone-400 flex items-center gap-3">
                 <Landmark size={14} className="text-[#a9b897]" /> Banking & Disbursements
               </h5>
@@ -237,13 +234,13 @@ export default function HRPage() {
                   { label: 'Account Number', key: 'account_number' },
                   { label: 'Sort Code', key: 'sort_code' }
                 ].map((bank) => (
-                  <div key={bank.key} className="p-6 bg-stone-50 rounded-3xl border border-stone-100 space-y-2 focus-within:border-stone-300 transition-colors">
-                    <p className="text-[8px] font-black uppercase text-stone-400">{bank.label}</p>
+                  <div key={bank.key} className="p-6 bg-stone-50 rounded-3xl border border-stone-100 space-y-2 focus-within:border-stone-400 transition-colors shadow-sm">
+                    <p className="text-[8px] font-black uppercase text-stone-400 tracking-widest">{bank.label}</p>
                     <input 
                       value={profile[bank.key] || ""}
                       onChange={(e) => setProfile({...profile, [bank.key]: e.target.value})}
-                      className="w-full bg-transparent font-mono font-bold text-xs outline-none focus:text-[#a9b897]"
-                      placeholder="SET DATA"
+                      className="w-full bg-transparent font-mono font-bold text-xs outline-none focus:text-stone-900"
+                      placeholder="UNSET"
                     />
                   </div>
                 ))}
@@ -251,17 +248,17 @@ export default function HRPage() {
             </div>
           </section>
 
-          {/* --- SIDEBAR CONTROLS --- */}
+          {/* --- SIDEBAR --- */}
           <div className="space-y-8">
-            <div className="bg-stone-900 rounded-[3.5rem] p-10 text-white space-y-12 shadow-xl relative overflow-hidden">
-              <div className="relative z-10 space-y-10">
+            <div className="bg-stone-900 rounded-[4rem] p-10 md:p-12 text-white flex flex-col justify-between shadow-xl relative overflow-hidden min-h-[450px]">
+              <div className="relative z-10 space-y-12">
                 <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Employment Summary</p>
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-6xl font-mono tracking-tighter text-[#a9b897]">28.0</h2>
-                    <p className="text-[9px] font-black uppercase text-stone-400 mt-2 tracking-widest">Holiday Balance Remaining</p>
+                    <h2 className="text-7xl font-mono tracking-tighter text-[#a9b897] leading-none">28.0</h2>
+                    <p className="text-[10px] font-black uppercase text-stone-400 mt-4 tracking-widest">Holiday Balance Remaining</p>
                   </div>
-                  <div className="w-full bg-stone-800 h-1.5 rounded-full overflow-hidden">
+                  <div className="w-full bg-stone-800 h-2 rounded-full overflow-hidden">
                     <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: '65%' }}
@@ -270,13 +267,13 @@ export default function HRPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <button onClick={() => setActiveModal('leave')} className="p-6 bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center gap-4 hover:bg-white/10 transition-all group">
-                    <Calendar size={20} className="text-[#a9b897] group-hover:scale-110 transition-transform" />
-                    <span className="text-[8px] font-black uppercase tracking-widest">Book Leave</span>
+                  <button onClick={() => setActiveModal('leave')} className="p-6 bg-white/5 border border-white/10 rounded-[2rem] flex flex-col items-center gap-4 hover:bg-white/10 transition-all group">
+                    <Calendar size={22} className="text-[#a9b897] group-hover:scale-110 transition-transform" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Book Leave</span>
                   </button>
-                  <button onClick={() => setActiveModal('payslip')} className="p-6 bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center gap-4 hover:bg-white/10 transition-all group">
-                    <FileText size={20} className="group-hover:scale-110 transition-transform" />
-                    <span className="text-[8px] font-black uppercase tracking-widest">Payslips</span>
+                  <button onClick={() => setActiveModal('payslip')} className="p-6 bg-white/5 border border-white/10 rounded-[2rem] flex flex-col items-center gap-4 hover:bg-white/10 transition-all group">
+                    <FileText size={22} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Archive</span>
                   </button>
                 </div>
               </div>
@@ -288,12 +285,15 @@ export default function HRPage() {
                 <Activity size={14} className="text-[#a9b897]" /> System Directives
               </h6>
               <div className="space-y-3">
-                <button className="w-full flex items-center justify-between p-5 bg-stone-50 rounded-2xl text-[9px] font-black uppercase hover:bg-stone-100 transition-all border border-stone-100 group">
-                  Request P60 <Mail size={16} className="text-stone-300 group-hover:text-stone-900 transition-colors" />
-                </button>
-                <button className="w-full flex items-center justify-between p-5 bg-stone-50 rounded-2xl text-[9px] font-black uppercase hover:bg-stone-100 transition-all border border-stone-100 group">
-                  Staff Handbook <FileText size={16} className="text-stone-300 group-hover:text-stone-900 transition-colors" />
-                </button>
+                {[
+                  { label: 'Request P60 Ledger', icon: Mail },
+                  { label: 'Personnel Handbook', icon: FileText },
+                  { label: 'Contractual Node', icon: ChevronRight }
+                ].map((item, i) => (
+                  <button key={i} className="w-full flex items-center justify-between p-6 bg-stone-50 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-100 transition-all border border-stone-100 group">
+                    {item.label} <item.icon size={16} className="text-stone-300 group-hover:text-stone-900 transition-colors" />
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -306,17 +306,17 @@ export default function HRPage() {
           <p className="text-sm text-stone-500 leading-relaxed font-medium">Absence requests are routed to the department lead and synchronized with the operational ledger automatically.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase text-stone-400 ml-2">Start Date</label>
-              <input type="date" className="w-full p-5 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-[#a9b897] focus:bg-white font-bold transition-all" />
+              <label className="text-[10px] font-black uppercase text-stone-400 ml-2 tracking-widest">Start Date</label>
+              <input type="date" className="w-full p-5 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-stone-900 focus:bg-white font-bold transition-all shadow-inner" />
             </div>
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase text-stone-400 ml-2">End Date</label>
-              <input type="date" className="w-full p-5 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-[#a9b897] focus:bg-white font-bold transition-all" />
+              <label className="text-[10px] font-black uppercase text-stone-400 ml-2 tracking-widest">End Date</label>
+              <input type="date" className="w-full p-5 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-stone-900 focus:bg-white font-bold transition-all shadow-inner" />
             </div>
           </div>
           <button 
             onClick={() => { notify("Leave Request Dispatched"); setActiveModal(null); }} 
-            className="w-full bg-stone-900 text-white py-7 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.4em] shadow-2xl hover:bg-[#a9b897] transition-all"
+            className="w-full bg-stone-900 text-white py-7 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.4em] shadow-2xl hover:bg-[#a9b897] transition-all active:scale-95"
           >
             Submit for Review
           </button>
@@ -327,17 +327,17 @@ export default function HRPage() {
       <Modal id="payslip" title="Compensation Archive">
         <div className="space-y-4 py-6">
            {['May 2026', 'April 2026', 'March 2026', 'February 2026'].map((month) => (
-             <div key={month} className="flex items-center justify-between p-7 bg-stone-50 rounded-[2rem] border border-stone-100 hover:border-[#a9b897]/30 hover:bg-white transition-all cursor-pointer group shadow-sm">
-               <div className="flex items-center gap-5">
-                 <div className="w-12 h-12 bg-white border border-stone-100 rounded-xl flex items-center justify-center text-stone-300 group-hover:text-stone-900 group-hover:border-[#a9b897] transition-all">
+             <div key={month} className="flex items-center justify-between p-7 bg-stone-50 rounded-[2rem] border border-stone-100 hover:border-stone-900 hover:bg-white transition-all cursor-pointer group shadow-sm">
+               <div className="flex items-center gap-6">
+                 <div className="w-12 h-12 bg-white border border-stone-100 rounded-2xl flex items-center justify-center text-stone-300 group-hover:text-stone-900 group-hover:border-stone-900 transition-all">
                    <Download size={20} />
                  </div>
                  <div>
                     <p className="text-sm font-bold text-stone-800">{month} Payslip</p>
-                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mt-1 text-xs">PDF Document • 1.2MB</p>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em] mt-1">PDF Document • 1.2MB</p>
                  </div>
                </div>
-               <span className="text-[9px] font-black uppercase text-[#a9b897] tracking-widest border border-[#a9b897]/20 px-4 py-2 rounded-full bg-[#a9b897]/5">Secure Download</span>
+               <span className="text-[9px] font-black uppercase text-[#a9b897] tracking-widest border border-[#a9b897]/30 px-5 py-2.5 rounded-full bg-[#a9b897]/5 group-hover:bg-[#a9b897] group-hover:text-white transition-all">Download</span>
              </div>
            ))}
         </div>

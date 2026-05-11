@@ -8,7 +8,7 @@ import {
   BarChart3, TrendingUp, Download, 
   FileSpreadsheet, Printer, Share2,
   Check, Activity, Calculator, AlertCircle, Loader2,
-  ChevronRight
+  ChevronRight, ArrowUpRight
 } from "lucide-react";
 
 export default function FinanceReportsPage() {
@@ -71,7 +71,7 @@ export default function FinanceReportsPage() {
   if (!isMounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans p-6 md:p-12 selection:bg-[#a9b897] selection:text-white">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans p-4 md:p-12 selection:bg-[#a9b897] selection:text-white">
       
       <AnimatePresence>
         {isNotificationVisible && (
@@ -82,31 +82,40 @@ export default function FinanceReportsPage() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1400px] mx-auto space-y-16">
+      <div className="max-w-[1500px] mx-auto space-y-8 md:space-y-16">
         
-        {/* --- REFINED HEADER --- */}
-        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-10">
-          <div className="space-y-4">
+        {/* --- DYNAMIC HEADER --- */}
+        <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 bg-white p-6 md:p-10 rounded-[3rem] border border-stone-200 shadow-sm">
+          <div className="space-y-1">
             <div className="flex items-center gap-3 text-stone-400">
               <Activity size={14} className="text-[#a9b897]" />
               <p className="font-black uppercase text-[10px] tracking-[0.4em]">Analytics Engine v5.2.4</p>
             </div>
-            <h1 className="text-6xl md:text-7xl font-serif italic tracking-tighter leading-tight">Finance Reports</h1>
+            <h1 className="text-4xl md:text-6xl font-serif italic tracking-tighter">Finance Reports</h1>
           </div>
 
-          <nav className="flex bg-stone-100/50 border border-stone-200 p-1.5 rounded-[2.5rem] shadow-inner">
-            {['Payments', 'Reports', 'HR', 'Timesheets'].map((item) => (
-              <button 
-                key={item}
-                onClick={() => item !== 'Reports' && router.push(`/${item === 'Reports' ? 'finance-reports' : item.toLowerCase()}`)}
-                className={`px-8 py-3.5 text-[10px] font-black uppercase tracking-widest transition-all rounded-full ${
-                  item === 'Reports' ? "bg-white text-stone-900 shadow-sm border border-stone-200" : "text-stone-400 hover:text-stone-900"
-                }`}
-              >
-                {item}
-              </button>
-            ))}
-          </nav>
+          <div className="flex flex-wrap items-center gap-3">
+             <button onClick={() => notify("Generating Master Ledger...")} className="flex items-center gap-3 bg-stone-900 text-white px-8 py-4 rounded-2xl hover:bg-[#a9b897] transition-all shadow-xl group">
+              <Printer size={18} className="group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Print Audit</span>
+            </button>
+
+            <div className="h-10 w-[1px] bg-stone-100 mx-2 hidden xl:block" />
+
+            <nav className="flex bg-stone-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
+              {['Payments', 'Reports', 'HR', 'Timesheets'].map((item) => (
+                <button 
+                  key={item}
+                  onClick={() => item !== 'Reports' && router.push(`/${item === 'Reports' ? 'finance-reports' : item.toLowerCase()}`)}
+                  className={`px-6 py-2.5 text-[9px] font-black uppercase tracking-widest transition-all rounded-xl whitespace-nowrap ${
+                    item === 'Reports' ? "bg-white text-stone-900 shadow-sm" : "text-stone-400 hover:text-stone-600"
+                  }`}
+                >
+                  {item}
+                </button>
+              ))}
+            </nav>
+          </div>
         </header>
 
         {error && (
@@ -116,57 +125,62 @@ export default function FinanceReportsPage() {
           </div>
         )}
 
-        {/* --- KPI METRICS (FIXED SCALING & CONTAINMENT) --- */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          <div className="bg-stone-900 text-white p-10 rounded-[3.5rem] shadow-2xl flex flex-col justify-between aspect-[4/5] relative overflow-hidden group">
-            <div className="z-10 space-y-2">
-              <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-4">Total Revenue (YTD)</p>
-              <h2 className="text-[clamp(2.5rem,4vw,4.5rem)] font-mono tracking-tighter leading-none text-[#a9b897]">
+        {/* --- KPI METRICS --- */}
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-stone-900 text-white p-10 rounded-[3.5rem] shadow-2xl flex flex-col justify-between min-h-[300px] relative overflow-hidden group">
+            <div className="z-10 space-y-4">
+              <div className="flex justify-between items-start">
+                <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Total Revenue (YTD)</p>
+                <ArrowUpRight size={22} className="text-[#a9b897]" />
+              </div>
+              <h2 className="text-[clamp(2rem,4vw,3.5rem)] font-mono tracking-tighter leading-none text-[#a9b897] truncate">
                 £{(metrics.totalRevenue / 1000).toFixed(1)}k
               </h2>
             </div>
-            <div className="z-10 flex items-center gap-2 text-[#a9b897]">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#a9b897] animate-pulse" />
-              <span className="text-[9px] font-black uppercase tracking-widest">Live DB Feed</span>
+            <div className="z-10 bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between">
+              <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Live DB Feed</span>
+              <div className="w-2 h-2 rounded-full bg-[#a9b897] animate-pulse" />
             </div>
           </div>
 
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] flex flex-col justify-between aspect-[4/5] shadow-sm">
+          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] flex flex-col justify-between min-h-[300px] shadow-sm">
             <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Operating Overhead</p>
-            <h2 className="text-[clamp(2.5rem,4vw,4rem)] font-mono tracking-tighter leading-none text-stone-800">
+            <h2 className="text-[clamp(1.8rem,3.5vw,3rem)] font-mono tracking-tighter leading-none text-stone-800 truncate">
               £{metrics.burnRate.toLocaleString()}
             </h2>
-            <p className="text-[9px] font-black uppercase tracking-widest text-stone-300">Standard monthly burn</p>
+            <div className="pt-4 border-t border-stone-50">
+                <p className="text-[9px] font-black uppercase tracking-widest text-stone-300">Monthly static burn</p>
+            </div>
           </div>
 
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] flex flex-col justify-between aspect-[4/5] shadow-sm overflow-hidden">
+          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] flex flex-col justify-between min-h-[300px] shadow-sm overflow-hidden">
             <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Accounts Receivable</p>
-            <h2 className="text-[clamp(2.5rem,4vw,4rem)] font-mono tracking-tighter leading-none text-stone-800">
+            <h2 className="text-[clamp(1.8rem,3.5vw,3rem)] font-mono tracking-tighter leading-none text-stone-800 truncate">
               £{metrics.receivables.toLocaleString()}
             </h2>
-            <div className="w-full bg-stone-100 h-1.5 rounded-full overflow-hidden">
+            <div className="w-full bg-stone-50 h-2 rounded-full overflow-hidden">
               <motion.div initial={{ width: 0 }} animate={{ width: '65%' }} className="bg-[#a9b897] h-full" />
             </div>
           </div>
 
-          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] flex flex-col justify-between aspect-[4/5] border-b-8 border-b-stone-900 shadow-sm">
+          <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] flex flex-col justify-between min-h-[300px] border-b-8 border-b-stone-900 shadow-sm">
             <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Effective Tax Rate</p>
-            <h2 className="text-[clamp(3.5rem,6vw,6rem)] font-mono tracking-tighter leading-none text-stone-900">{metrics.taxRate}%</h2>
-            <p className="text-[9px] font-black uppercase tracking-widest text-[#a9b897]">Optimized via R&D credits</p>
+            <h2 className="text-[clamp(3rem,5vw,5rem)] font-mono tracking-tighter leading-none text-stone-900">{metrics.taxRate}%</h2>
+            <p className="text-[9px] font-black uppercase tracking-widest text-[#a9b897]">Optimized v4.0</p>
           </div>
         </section>
 
-        {/* --- PERFORMANCE INSIGHTS --- */}
+        {/* --- PERFORMANCE INSIGHTS & DOCUMENT HUB --- */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-white border border-stone-200 rounded-[4rem] p-10 md:p-12 space-y-10 shadow-sm">
+          <div className="lg:col-span-2 bg-white border border-stone-200 rounded-[4rem] p-8 md:p-12 space-y-12 shadow-sm">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
               <div className="space-y-2">
-                <h4 className="text-3xl md:text-4xl font-serif italic tracking-tighter">Revenue Attribution</h4>
-                <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Monthly timesheet conversion</p>
+                <h4 className="text-3xl font-serif italic tracking-tighter">Revenue Attribution</h4>
+                <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Timesheet volume conversion</p>
               </div>
-              <div className="flex bg-stone-50 p-1.5 rounded-full border border-stone-100 shadow-inner">
+              <div className="flex bg-stone-50 p-1.5 rounded-xl border border-stone-100">
                 {['6M', '1Y', 'ALL'].map(t => (
-                  <button key={t} className={`px-6 py-2 rounded-full text-[8px] font-black tracking-widest transition-all ${t === '1Y' ? 'bg-stone-900 text-white' : 'text-stone-400 hover:text-stone-900'}`}>{t}</button>
+                  <button key={t} className={`px-5 py-2 rounded-lg text-[8px] font-black tracking-widest transition-all ${t === '1Y' ? 'bg-stone-900 text-white shadow-lg' : 'text-stone-400 hover:text-stone-900'}`}>{t}</button>
                 ))}
               </div>
             </div>
@@ -177,9 +191,9 @@ export default function FinanceReportsPage() {
                   <motion.div 
                     initial={{ height: 0 }} animate={{ height: `${val}%` }} 
                     transition={{ delay: i * 0.05 }}
-                    className="w-full bg-stone-50 rounded-t-2xl group-hover:bg-[#a9b897] transition-all relative border border-stone-100"
+                    className="w-full bg-stone-50 rounded-t-xl group-hover:bg-[#a9b897] transition-all relative border border-stone-100"
                   >
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-stone-900 text-white text-[8px] px-3 py-1.5 rounded-full shadow-xl whitespace-nowrap">£{val}k</div>
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-stone-900 text-white text-[8px] px-3 py-1.5 rounded-full shadow-xl whitespace-nowrap z-20">£{val}k</div>
                   </motion.div>
                   <span className="text-[8px] font-black text-stone-300 uppercase tracking-tighter">{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]}</span>
                 </div>
@@ -187,44 +201,48 @@ export default function FinanceReportsPage() {
             </div>
           </div>
 
-          <div className="bg-stone-900 rounded-[4rem] p-12 text-white flex flex-col justify-between shadow-xl relative overflow-hidden">
-            <div className="space-y-12 relative z-10">
+          <div className="bg-stone-900 rounded-[4rem] p-10 md:p-12 text-white flex flex-col justify-between shadow-xl relative overflow-hidden">
+            <div className="space-y-10 relative z-10">
               <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">Document Hub</p>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {[
                   { label: 'P&L Statement', icon: FileSpreadsheet },
                   { label: 'Tax Projection', icon: Calculator },
                   { label: 'Share Access', icon: Share2 },
                 ].map((btn, i) => (
-                  <button key={i} onClick={() => notify(`Exporting ${btn.label}...`)} className="w-full flex items-center justify-between p-7 bg-white/5 border border-white/10 rounded-[2.5rem] hover:bg-white/10 transition-all group">
-                    <div className="flex items-center gap-5">
-                      <btn.icon size={20} className="text-stone-500 group-hover:text-[#a9b897] transition-colors" />
+                  <button key={i} onClick={() => notify(`Exporting ${btn.label}...`)} className="w-full flex items-center justify-between p-6 bg-white/5 border border-white/10 rounded-[2rem] hover:bg-white/10 transition-all group">
+                    <div className="flex items-center gap-4">
+                      <btn.icon size={18} className="text-stone-500 group-hover:text-[#a9b897] transition-colors" />
                       <span className="text-[10px] font-black uppercase tracking-widest">{btn.label}</span>
                     </div>
-                    <Download size={16} className="text-stone-700" />
+                    <Download size={14} className="text-stone-700" />
                   </button>
                 ))}
               </div>
             </div>
             <div className="pt-8 border-t border-white/5">
-              <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-600 italic">Financial Node Restricted Access</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-600 italic">Financial Node Restricted</p>
             </div>
+            <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-[#a9b897]/5 rounded-full blur-3xl" />
           </div>
         </section>
 
-        {/* --- AUDIT TRAIL (REFINED TABLE) --- */}
+        {/* --- AUDIT TRAIL --- */}
         <section className="bg-white border border-stone-200 rounded-[4rem] overflow-hidden shadow-sm">
-           <div className="p-10 md:p-12 border-b border-stone-50 flex items-center justify-between">
-              <h4 className="text-3xl font-serif italic tracking-tighter">Audit Trail</h4>
-              <button className="text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-[#a9b897] flex items-center gap-2">View Archive <ChevronRight size={14}/></button>
+           <div className="p-10 border-b border-stone-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <BarChart3 className="text-[#a9b897]" size={24} />
+                <h4 className="text-3xl font-serif italic tracking-tighter">Audit Trail</h4>
+              </div>
+              <button className="text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 flex items-center gap-2 transition-colors">View Full Archive <ChevronRight size={14}/></button>
            </div>
            <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[600px]">
               <thead>
                 <tr className="bg-stone-50/50">
-                  <th className="px-12 py-8 text-[10px] font-black uppercase tracking-widest text-stone-400">Report Reference</th>
-                  <th className="px-12 py-8 text-[10px] font-black uppercase tracking-widest text-stone-400">Period</th>
-                  <th className="px-12 py-8 text-[10px] font-black uppercase tracking-widest text-stone-400 text-right">Status</th>
+                  <th className="px-12 py-6 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">Report Reference</th>
+                  <th className="px-12 py-6 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">Period</th>
+                  <th className="px-12 py-6 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400 text-right pr-16">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -233,13 +251,13 @@ export default function FinanceReportsPage() {
                   { name: 'VAT Reconciliation', period: 'Q1 2026', status: 'Filed' },
                   { name: 'R&D Tax Submission', period: 'FY 2025', status: 'Pending' }
                 ].map((row, i) => (
-                  <tr key={i} className="group hover:bg-stone-50/50 transition-colors">
-                    <td className="px-12 py-10">
+                  <tr key={i} className="group hover:bg-stone-50/30 transition-colors cursor-pointer">
+                    <td className="px-12 py-8">
                       <span className="text-sm font-bold text-stone-800 group-hover:text-[#a9b897] transition-colors">{row.name}</span>
                     </td>
-                    <td className="px-12 py-10 text-[10px] font-black uppercase text-stone-400 tracking-widest">{row.period}</td>
-                    <td className="px-12 py-10 text-right">
-                      <span className={`px-5 py-2 text-[8px] font-black uppercase tracking-widest rounded-full ${row.status === 'Pending' ? 'bg-stone-100 text-stone-400' : 'bg-stone-900 text-white shadow-sm'}`}>{row.status}</span>
+                    <td className="px-12 py-8 text-[10px] font-black uppercase text-stone-400 tracking-widest font-mono">{row.period}</td>
+                    <td className="px-12 py-8 text-right pr-16">
+                      <span className={`px-5 py-2 text-[8px] font-black uppercase tracking-widest rounded-full shadow-sm border ${row.status === 'Pending' ? 'bg-stone-50 text-stone-400 border-stone-100' : 'bg-stone-900 text-white border-stone-900'}`}>{row.status}</span>
                     </td>
                   </tr>
                 ))}

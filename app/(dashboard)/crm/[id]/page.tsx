@@ -5,14 +5,14 @@ import { supabase } from "@/lib/supabase-client";
 import { 
   User, Building2, Mail, ArrowLeft, ShieldCheck, 
   Edit3, Trash2, X, Check, 
-  ListTodo, Plus, Send, Upload, Loader2, Phone, MapPin, Zap, Calendar, Paperclip
+  ListTodo, Plus, Send, Upload, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 
-export default function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default function NodeProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,7 +20,6 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   const [profile, setProfile] = useState<any>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [debugError, setDebugError] = useState<string | null>(null);
   
   const [activeTab, setActiveTab] = useState<'info' | 'tasks' | 'email'>('info');
   
@@ -93,7 +92,6 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
 
     let attachmentUrl = "";
 
-    // 1. Handle File Upload if exists
     if (newTask.attachment) {
       const file = newTask.attachment;
       const fileExt = file.name.split('.').pop();
@@ -102,7 +100,6 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
       if (data) attachmentUrl = data.path;
     }
 
-    // 2. Insert Task
     const { data, error } = await supabase.from("tasks").insert([{
       title: newTask.title,
       description: newTask.description,
@@ -123,7 +120,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   if (loading) return (
     <div className="h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
       <Loader2 className="animate-spin text-[#a9b897]" size={32} />
-      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Accessing Node...</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Accessing Node Context...</p>
     </div>
   );
 
@@ -135,15 +132,15 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <Link href="/crm" className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] group">
             <ArrowLeft size={16} />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em]">Directory</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.4em]">Network Directory</span>
           </Link>
           <div className="flex gap-2">
             {!isEditing ? (
-              <button onClick={() => setIsEditing(true)} className="px-6 py-3 bg-white border border-stone-200 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all">
-                <Edit3 size={14} /> Edit Identity
+              <button onClick={() => setIsEditing(true)} className="px-6 py-3 bg-white border border-stone-200 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all hover:bg-stone-50">
+                <Edit3 size={14} className="mr-2 inline" /> Edit Profile
               </button>
             ) : (
-              <button onClick={handleUpdate} disabled={isSaving} className="px-8 py-3 bg-[#a9b897] text-white rounded-2xl text-[9px] font-black uppercase tracking-widest">
+              <button onClick={handleUpdate} disabled={isSaving} className="px-8 py-3 bg-stone-900 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-colors">
                 {isSaving ? <Loader2 className="animate-spin" size={14} /> : "Commit Changes"}
               </button>
             )}
@@ -153,35 +150,48 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
         {/* IDENTITY DISPLAY */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           <div className="lg:col-span-2 space-y-8">
-            <h1 className="text-6xl font-serif italic tracking-tighter uppercase break-words">
+            <div className="flex items-center gap-3">
+               <div className="w-12 h-[1px] bg-[#a9b897]" />
+               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Node Intelligence</p>
+            </div>
+            <h1 className="text-6xl md:text-8xl font-serif italic tracking-tighter uppercase break-words leading-[0.85]">
               {isEditing ? (
                 <input value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="bg-transparent border-b border-[#a9b897] outline-none w-full" />
               ) : profile.name}
             </h1>
             
             <div className="flex flex-wrap gap-4">
-              <div className="bg-white p-4 px-6 rounded-2xl border border-stone-100 flex items-center gap-3">
+              <div className="bg-white p-4 px-6 rounded-2xl border border-stone-100 flex items-center gap-3 shadow-sm">
                 <Mail size={16} className="text-[#a9b897]" />
                 <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.email}</span>
               </div>
-              <div className="bg-white p-4 px-6 rounded-2xl border border-stone-100 flex items-center gap-3">
+              <div className="bg-white p-4 px-6 rounded-2xl border border-stone-100 flex items-center gap-3 shadow-sm">
                 <Building2 size={16} className="text-[#a9b897]" />
-                <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.company_name || "Individual"}</span>
+                <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.company_name || "Independent Operator"}</span>
               </div>
             </div>
           </div>
           
-          <div className="bg-stone-900 rounded-[3rem] p-8 text-white flex flex-col justify-center gap-4">
-             <p className="text-[10px] font-black uppercase text-stone-500 tracking-[0.3em]">Operational Role</p>
-             <p className="font-serif italic text-4xl text-[#a9b897] capitalize">{profile.role}</p>
+          <div className="bg-stone-900 rounded-[3rem] p-10 text-white flex flex-col justify-center gap-4 shadow-2xl relative overflow-hidden">
+             <Radio className="absolute -right-4 -top-4 w-32 h-32 opacity-10 text-[#a9b897]" />
+             <p className="text-[10px] font-black uppercase text-stone-500 tracking-[0.3em] relative z-10">Operational Access Level</p>
+             <p className="font-serif italic text-5xl text-[#a9b897] capitalize relative z-10">{profile.role === 'user' ? 'Active User' : profile.role}</p>
           </div>
         </div>
 
         {/* TAB NAVIGATION */}
         <div className="flex gap-2 border-b border-stone-200 pb-4">
-          {['info', 'tasks', 'email'].map((t) => (
-            <button key={t} onClick={() => setActiveTab(t as any)} className={`px-8 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === t ? 'bg-[#a9b897] text-white shadow-lg' : 'bg-white text-stone-400'}`}>
-              {t === 'info' ? 'Attributes' : t}
+          {[
+            { id: 'info', label: 'Node Attributes' },
+            { id: 'tasks', label: 'Queued Operations' },
+            { id: 'email', label: 'Communication Flow' }
+          ].map((tab) => (
+            <button 
+              key={tab.id} 
+              onClick={() => setActiveTab(tab.id as any)} 
+              className={`px-8 py-4 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${activeTab === tab.id ? 'bg-[#a9b897] text-white shadow-xl translate-y-[-2px]' : 'bg-white text-stone-400 hover:text-stone-600'}`}
+            >
+              {tab.label}
             </button>
           ))}
         </div>
@@ -189,76 +199,122 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
         {/* TAB CONTENT */}
         <AnimatePresence mode="wait">
           {activeTab === 'info' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid md:grid-cols-2 gap-8">
-              <div className="bg-white p-10 rounded-[3rem] border border-stone-100 space-y-6">
-                <div className="flex items-center gap-3 text-[#a9b897]"><Phone size={18}/><p className="text-xs font-bold uppercase tracking-widest">{profile.phone || "No direct link"}</p></div>
-                <div className="flex items-center gap-3 text-[#a9b897]"><MapPin size={18}/><p className="text-xs font-bold uppercase tracking-widest">{profile.address || "Unlocalized"}</p></div>
-                <div className="pt-6 border-t border-stone-50">
-                  <p className="text-[10px] font-black uppercase text-stone-300 mb-2">Internal Notes</p>
-                  <p className="font-serif italic text-stone-600">{profile.company_details || "No operational intelligence provided."}</p>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid md:grid-cols-2 gap-8">
+              <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 space-y-8 shadow-sm">
+                <div className="space-y-6">
+                    <p className="text-[10px] font-black uppercase text-[#a9b897] tracking-[0.3em]">Connectivity</p>
+                    <div className="flex items-center gap-4 text-stone-600">
+                        <div className="p-3 bg-stone-50 rounded-xl"><Phone size={18} className="text-[#a9b897]"/></div>
+                        <p className="text-xs font-bold uppercase tracking-widest">{profile.phone || "No active integrations connected"}</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-stone-600">
+                        <div className="p-3 bg-stone-50 rounded-xl"><MapPin size={18} className="text-[#a9b897]"/></div>
+                        <p className="text-xs font-bold uppercase tracking-widest">{profile.address || "Location Status: Unassigned"}</p>
+                    </div>
                 </div>
+                
+                <div className="pt-8 border-t border-stone-50">
+                  <p className="text-[10px] font-black uppercase text-stone-300 mb-4 tracking-widest">Internal Intelligence Notes</p>
+                  <p className="font-serif italic text-stone-600 leading-relaxed text-lg">
+                    {profile.company_details || "No strategic context currently attached to this node."}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-stone-50/50 p-12 rounded-[3.5rem] border border-dashed border-stone-200 flex flex-col items-center justify-center text-center">
+                 <ShieldCheck size={40} className="text-stone-200 mb-4" />
+                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Identity Verified</p>
               </div>
             </motion.div>
           )}
 
           {activeTab === 'tasks' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid lg:grid-cols-5 gap-12">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid lg:grid-cols-5 gap-12">
               {/* TASK CREATOR */}
-              <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-stone-100 shadow-sm h-fit">
+              <div className="lg:col-span-2 bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-xl h-fit">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-                  <Plus size={14} className="text-[#a9b897]"/> Assign Operation
+                  <Zap size={14} className="text-[#a9b897]"/> Deploy Operation
                 </h3>
                 <form onSubmit={handleAddTask} className="space-y-4">
-                  <input required placeholder="Task Title" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none focus:ring-1 focus:ring-[#a9b897]" />
-                  <textarea placeholder="Operational Description" value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none h-24 resize-none" />
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Operation Title</label>
+                    <input required placeholder="Brief mission name..." value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none focus:ring-1 focus:ring-[#a9b897]" />
+                  </div>
                   
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="relative">
-                      <Calendar size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
-                      <input type="date" value={newTask.due_date} onChange={e => setNewTask({...newTask, due_date: e.target.value})} className="w-full bg-stone-50 p-4 pl-10 rounded-xl text-[10px] outline-none" />
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Mission Brief / Operational Notes</label>
+                    <textarea placeholder="Describe the strategic intent..." value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none h-32 resize-none" />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Deadline</label>
+                        <div className="relative">
+                        <Calendar size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
+                        <input type="date" value={newTask.due_date} onChange={e => setNewTask({...newTask, due_date: e.target.value})} className="w-full bg-stone-50 p-4 pl-10 rounded-xl text-[10px] outline-none" />
+                        </div>
                     </div>
-                    <div className="relative">
-                      <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
-                      <select value={newTask.assigned_to} onChange={e => setNewTask({...newTask, assigned_to: e.target.value})} className="w-full bg-stone-50 p-4 pl-10 rounded-xl text-[10px] outline-none appearance-none">
-                        <option value="">Assign To...</option>
-                        {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                      </select>
+                    <div className="space-y-1">
+                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Assign Node</label>
+                        <div className="relative">
+                        <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
+                        <select value={newTask.assigned_to} onChange={e => setNewTask({...newTask, assigned_to: e.target.value})} className="w-full bg-stone-50 p-4 pl-10 rounded-xl text-[10px] outline-none appearance-none cursor-pointer">
+                            <option value="">Select Resource...</option>
+                            {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                        </select>
+                        </div>
                     </div>
                   </div>
 
                   <div className="pt-2">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] transition-all">
-                      <Paperclip size={14}/>
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{newTask.attachment ? newTask.attachment.name : "Attach Intelligence"}</span>
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] transition-all group">
+                      <Paperclip size={14} className="group-hover:rotate-12 transition-transform" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">{newTask.attachment ? newTask.attachment.name : "Attach Context Intelligence"}</span>
                     </button>
                     <input type="file" ref={fileInputRef} className="hidden" onChange={e => setNewTask({...newTask, attachment: e.target.files?.[0] || null})} />
                   </div>
 
-                  <button disabled={taskSaving} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#a9b897] transition-all shadow-xl">
-                    {taskSaving ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Instate Task"}
+                  <button disabled={taskSaving} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] hover:bg-[#a9b897] transition-all shadow-xl mt-4 active:scale-95">
+                    {taskSaving ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Deploy Task"}
                   </button>
                 </form>
               </div>
 
               {/* TASK LIST */}
-              <div className="lg:col-span-3 space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6">Queued Actions</h3>
+              <div className="lg:col-span-3 space-y-6">
+                <div className="flex justify-between items-center px-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Queued Operations</h3>
+                    <div className="px-3 py-1 bg-stone-100 rounded-full text-[8px] font-black text-stone-400 uppercase tracking-widest">{tasks.length} Active</div>
+                </div>
+
                 {tasks.length === 0 ? (
-                  <div className="py-20 text-center opacity-30"><ListTodo className="mx-auto mb-4" size={32}/><p className="text-xs font-serif italic">No pending operations.</p></div>
+                  <div className="py-32 text-center border-2 border-dashed border-stone-100 rounded-[3rem]">
+                    <Database className="mx-auto mb-4 text-stone-100" size={48}/>
+                    <p className="text-xs font-serif italic text-stone-300">No operations currently deployed for this node.</p>
+                  </div>
                 ) : (
                   tasks.map((t) => (
-                    <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-stone-100 flex items-center justify-between group hover:shadow-md transition-all">
-                      <div className="space-y-1">
-                        <p className="text-sm font-bold uppercase text-stone-800">{t.title}</p>
-                        <div className="flex items-center gap-3">
-                           {t.due_date && <span className="text-[8px] font-black uppercase text-[#a9b897] tracking-widest">Due: {format(new Date(t.due_date), "MMM d")}</span>}
-                           {t.attachment_url && <Paperclip size={10} className="text-stone-300"/>}
+                    <motion.div 
+                        initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                        key={t.id} 
+                        className="bg-white p-8 rounded-[2.5rem] border border-stone-100 flex items-center justify-between group hover:border-[#a9b897] hover:shadow-2xl hover:shadow-[#a9b897]/5 transition-all duration-500"
+                    >
+                      <div className="space-y-2">
+                        <p className="text-lg font-bold text-stone-800 tracking-tight group-hover:text-[#a9b897] transition-colors">{t.title}</p>
+                        <div className="flex items-center gap-4">
+                           {t.due_date && (
+                                <div className="flex items-center gap-1.5 bg-stone-50 px-3 py-1 rounded-full">
+                                    <Calendar size={10} className="text-[#a9b897]" />
+                                    <span className="text-[8px] font-black uppercase text-stone-400 tracking-widest">Protocol Date: {format(new Date(t.due_date), "MMM d, yyyy")}</span>
+                                </div>
+                            )}
+                           {t.attachment_url && <Paperclip size={12} className="text-[#a9b897] animate-bounce"/>}
                         </div>
                       </div>
-                      <div className="bg-stone-50 px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest text-stone-400">
-                        {t.status}
+                      <div className="bg-stone-900 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-[var(--brand-primary)] shadow-lg">
+                        {t.status === 'todo' ? 'Queued' : t.status}
                       </div>
-                    </div>
+                    </motion.div>
                   ))
                 )}
               </div>

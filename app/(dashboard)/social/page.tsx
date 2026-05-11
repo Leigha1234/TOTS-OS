@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase-client";
 import { motion, AnimatePresence, useScroll, useSpring } from "framer-motion";
 import { 
   Layers, Trash2, Sparkles, Edit2, ChevronLeft, ChevronRight, 
-  Activity, ShieldCheck, Cpu, CloudLightning, Heart, Eye, Target, Workflow 
+  Activity, ShieldCheck, Cpu, CloudLightning, Heart, Eye, Target, Workflow, Zap, Radio
 } from "lucide-react";
 
 /** * PLATFORM ARCHITECTURE
@@ -72,7 +72,7 @@ export default function SocialLabDashboard() {
       setWeeklyCount(count || 0);
       const { data } = await supabase.from("social_posts").select("*").order("scheduled_for", { ascending: true });
       if (data) setHorizonPosts(data);
-    } catch (e) { console.warn("Standalone Mode Active"); }
+    } catch (e) { console.warn("Operational Sync Error: Standalone Mode Active"); }
   };
 
   const synthesizeContent = async () => {
@@ -116,25 +116,29 @@ export default function SocialLabDashboard() {
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-[var(--text-main)] rounded-lg text-[var(--bg)]">
-                <Layers size={18} />
+                <Radio size={18} className="animate-pulse" />
               </div>
-              <p className="text-[10px] font-mono uppercase text-[var(--text-muted)]">Node Sync {systemStatus} // v4.0.2</p>
+              <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Live Signal Feed // v4.0.2</p>
             </div>
             <h1 className="text-5xl md:text-8xl font-serif italic tracking-tighter leading-none text-[var(--brand-primary)]">
-              Social <span className="opacity-20 text-[var(--text-main)]">Lab</span>
+              Social <span className="opacity-20 text-[var(--text-main)]">Strategy</span>
             </h1>
           </div>
 
           <nav className="flex p-1.5 bg-[var(--card-bg)] border border-[var(--border)] rounded-[2rem] shadow-sm">
-            {["lab", "horizon", "analytics"].map((tab) => (
+            {[
+              { id: "lab", label: "Synthesis Lab" },
+              { id: "horizon", label: "Strategic Horizon" },
+              { id: "analytics", label: "Signal Data" }
+            ].map((tab) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab as any)}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
                 className={`px-8 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
-                  activeTab === tab ? "bg-[var(--text-main)] text-[var(--bg)] shadow-xl" : "text-[var(--text-muted)] hover:bg-[var(--bg-soft)]"
+                  activeTab === tab.id ? "bg-[var(--text-main)] text-[var(--bg)] shadow-xl" : "text-[var(--text-muted)] hover:bg-[var(--bg-soft)]"
                 }`}
               >
-                {tab}
+                {tab.label}
               </button>
             ))}
           </nav>
@@ -148,10 +152,10 @@ export default function SocialLabDashboard() {
                 {/* KPI GRID */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { label: "Quota", val: `${weeklyCount}/25`, icon: Activity, color: "text-purple-500" },
-                    { label: "Reach", val: "Elite", icon: CloudLightning, color: "text-amber-500" },
-                    { label: "Stability", val: "99.9%", icon: ShieldCheck, color: "text-green-500" },
-                    { label: "Latency", val: "24ms", icon: Cpu, color: "text-blue-500" },
+                    { label: "Deployment Quota", val: `${weeklyCount}/25`, icon: Activity, color: "text-purple-500" },
+                    { label: "Reach Tier", val: "ELITE", icon: CloudLightning, color: "text-amber-500" },
+                    { label: "System Stability", val: "99.9%", icon: ShieldCheck, color: "text-green-500" },
+                    { label: "Transmission Latency", val: "24ms", icon: Cpu, color: "text-blue-500" },
                   ].map((stat, i) => (
                     <div key={i} className="bg-[var(--card-bg)] p-6 rounded-[2.5rem] border border-[var(--border)]">
                       <stat.icon size={16} className={`${stat.color} mb-4`} />
@@ -168,7 +172,7 @@ export default function SocialLabDashboard() {
                       <button
                         key={type}
                         onClick={() => setContentType(type)}
-                        className={`p-4 rounded-2xl border text-[9px] font-black uppercase transition-all ${
+                        className={`p-4 rounded-2xl border text-[9px] font-black uppercase tracking-[0.2em] transition-all ${
                           contentType === type ? "bg-[var(--text-main)] text-[var(--bg)] border-transparent scale-105" : "bg-transparent text-[var(--text-muted)] border-[var(--border)]"
                         }`}
                       >
@@ -181,16 +185,16 @@ export default function SocialLabDashboard() {
                     <textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
-                      placeholder="Specify the core objective..."
+                      placeholder="Define the primary communication objective..."
                       className="w-full h-72 bg-[var(--bg-soft)] rounded-[3rem] p-10 text-2xl md:text-3xl font-serif outline-none italic text-[var(--text-main)] placeholder-[var(--text-muted)]/30 resize-none border border-transparent focus:border-[var(--border)]"
                     />
                     <div className="absolute bottom-10 right-10">
                        <button
                          onClick={synthesizeContent}
                          disabled={!prompt || isGenerating}
-                         className="bg-[var(--brand-primary)] text-white px-12 py-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest shadow-2xl disabled:opacity-20 transition-all flex items-center gap-4"
+                         className="bg-stone-900 text-white px-12 py-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest shadow-2xl disabled:opacity-20 transition-all flex items-center gap-4"
                        >
-                         {isGenerating ? <LoaderIcon /> : <><Sparkles size={16} /> Synthesis</>}
+                         {isGenerating ? <LoaderIcon /> : <><Sparkles size={16} fill="var(--brand-primary)" className="text-[var(--brand-primary)]" /> Execute Synthesis</>}
                        </button>
                     </div>
                   </div>
@@ -200,8 +204,8 @@ export default function SocialLabDashboard() {
                       <button
                         key={p}
                         onClick={() => setSelectedPlatform(p)}
-                        className={`px-6 py-4 rounded-full text-[10px] font-black uppercase border transition-all ${
-                          selectedPlatform === p ? "bg-[var(--bg-soft)] border-[var(--text-main)] text-[var(--text-main)]" : "bg-white border-[var(--border)] text-[var(--text-muted)]"
+                        className={`px-6 py-4 rounded-full text-[10px] font-black uppercase border tracking-widest transition-all ${
+                          selectedPlatform === p ? "bg-[var(--text-main)] border-[var(--text-main)] text-[var(--bg)]" : "bg-white border-[var(--border)] text-[var(--text-muted)]"
                         }`}
                       >
                         {p}
@@ -216,16 +220,16 @@ export default function SocialLabDashboard() {
                     <motion.div key={draft.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-[var(--card-bg)] border border-[var(--border)] rounded-[3.5rem] p-8 space-y-8 group">
                       <div className="flex justify-between items-center">
                         <Badge className={`${PLATFORM_CONFIG[draft.platform as Platform].accent} ${PLATFORM_CONFIG[draft.platform as Platform].color} px-4 py-1.5`}>
-                          {draft.platform}
+                          {draft.platform} // {draft.id}
                         </Badge>
                         <button onClick={() => setDrafts(drafts.filter(d => d.id !== draft.id))} className="text-[var(--text-muted)] hover:text-red-500"><Trash2 size={14}/></button>
                       </div>
                       <div className="aspect-square bg-[var(--bg-soft)] rounded-[2.5rem] overflow-hidden">
-                        <img src={draft.media_url} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000" />
+                        <img src={draft.media_url} alt="Synthesized Media" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000" />
                       </div>
                       <p className="font-serif italic text-xl text-[var(--text-main)] leading-relaxed">"{draft.caption}"</p>
-                      <button className="w-full bg-[var(--text-main)] text-[var(--bg)] py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest">
-                        Synchronize with Horizon
+                      <button className="w-full bg-stone-900 text-white py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest">
+                        Commit to Strategic Horizon
                       </button>
                     </motion.div>
                   ))}
@@ -235,15 +239,18 @@ export default function SocialLabDashboard() {
               {/* ASIDE */}
               <aside className="lg:col-span-4 space-y-10">
                 <div className="sticky top-12 space-y-10">
-                  <div className="bg-[var(--brand-secondary)] text-white p-12 rounded-[4rem] shadow-2xl relative overflow-hidden">
+                  <div className="bg-stone-900 text-white p-12 rounded-[4rem] shadow-2xl relative overflow-hidden">
                     <Workflow size={300} className="absolute -right-20 -top-20 opacity-5" />
                     <div className="relative z-10 space-y-10">
                       <h3 className="text-3xl font-serif italic tracking-tighter">Resonance Probability</h3>
                       <div className="space-y-8">
                         <div className="flex justify-between items-end border-b border-white/5 pb-6">
-                          <p className="text-[10px] font-black uppercase opacity-30 tracking-widest">Retention</p>
+                          <p className="text-[10px] font-black uppercase opacity-30 tracking-widest">Audience Retention</p>
                           <p className="text-4xl font-serif italic text-[var(--brand-primary)]">94.2%</p>
                         </div>
+                        <p className="text-[9px] uppercase font-black tracking-widest opacity-40 leading-relaxed">
+                          Intelligence engine suggests high momentum for visual-first assets within the next 48-hour cycle.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -256,10 +263,13 @@ export default function SocialLabDashboard() {
           {activeTab === "horizon" && (
             <motion.div key="horizon" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
               <div className="flex justify-between items-center bg-[var(--card-bg)] border border-[var(--border)] p-8 rounded-[3rem]">
-                 <h2 className="text-3xl font-serif italic tracking-tighter">Strategic Horizon</h2>
-                 <div className="flex bg-[var(--bg-soft)] p-1.5 rounded-2xl">
-                    <button onClick={() => setViewMode('stream')} className={`px-8 py-4 rounded-[1.2rem] text-[10px] font-black uppercase transition-all ${viewMode === 'stream' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--text-main)]' : 'text-[var(--text-muted)]'}`}>Stream</button>
-                    <button onClick={() => setViewMode('calendar')} className={`px-8 py-4 rounded-[1.2rem] text-[10px] font-black uppercase transition-all ${viewMode === 'calendar' ? 'bg-[var(--card-bg)] shadow-xl text-[var(--text-main)]' : 'text-[var(--text-muted)]'}`}>Calendar</button>
+                 <div className="space-y-1">
+                    <h2 className="text-3xl font-serif italic tracking-tighter">Strategic Horizon</h2>
+                    <p className="text-[8px] font-black uppercase text-stone-400 tracking-[0.2em]">Visualized Deployment Timeline</p>
+                 </div>
+                 <div className="flex bg-[var(--bg-soft)] p-1.5 rounded-2xl border border-[var(--border)]">
+                    <button onClick={() => setViewMode('stream')} className={`px-8 py-4 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'stream' ? 'bg-white shadow-xl text-stone-900' : 'text-stone-400'}`}>Node Stream</button>
+                    <button onClick={() => setViewMode('calendar')} className={`px-8 py-4 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'calendar' ? 'bg-white shadow-xl text-stone-900' : 'text-stone-400'}`}>Deployment Grid</button>
                  </div>
               </div>
 
@@ -271,13 +281,27 @@ export default function SocialLabDashboard() {
                       ))}
                       {Array.from({ length: calendarDays.firstDay }).map((_, i) => <div key={i} />)}
                       {Array.from({ length: calendarDays.daysInMonth }).map((_, i) => (
-                        <div key={i} className="aspect-square border border-[var(--border)] rounded-3xl p-6 bg-[var(--bg-soft)]/30 hover:bg-[var(--bg-soft)] transition-all cursor-pointer">
-                           <span className="text-lg font-serif italic text-[var(--text-main)]">{i + 1}</span>
+                        <div key={i} className="aspect-square border border-[var(--border)] rounded-3xl p-6 bg-[var(--bg-soft)]/30 hover:bg-stone-900 group transition-all cursor-pointer">
+                           <span className="text-lg font-serif italic text-[var(--text-main)] group-hover:text-white">{i + 1}</span>
                         </div>
                       ))}
                    </div>
                 </div>
               )}
+
+              {viewMode === 'stream' && (
+                <div className="flex flex-col items-center justify-center py-40 border-2 border-dashed border-stone-100 rounded-[4rem] space-y-4">
+                  <Zap size={32} className="text-stone-200" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-300">Synchronizing Future Deployments</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ANALYTICS (Placeholder Logic) */}
+          {activeTab === "analytics" && (
+            <motion.div key="analytics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-40 text-center">
+              <h2 className="text-7xl font-serif italic text-stone-200">Signal Data Pending...</h2>
             </motion.div>
           )}
         </AnimatePresence>

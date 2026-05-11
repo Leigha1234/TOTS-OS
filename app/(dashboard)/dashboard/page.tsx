@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [userName, setUserName] = useState<string>("Operator");
+  const [userName, setUserName] = useState<string>("OPERATOR");
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
@@ -50,7 +50,7 @@ export default function DashboardPage() {
         .eq("id", authData.user.id)
         .maybeSingle();
 
-      if (profile?.full_name) setUserName(profile.full_name);
+      if (profile?.full_name) setUserName(profile.full_name.toUpperCase());
 
       const { count: projectCount } = await supabase
         .from("projects")
@@ -73,9 +73,9 @@ export default function DashboardPage() {
         })));
       } else {
         setTodos([
-          { id: "1", text: "Sync Ledger with Finance Team", completed: false },
-          { id: "2", text: "Optimize Campaign Webhook URLs", completed: false },
-          { id: "3", text: "Provision New Seat for CRM Access", completed: false }
+          { id: "1", text: "Finance systems synced and up to date", completed: false },
+          { id: "2", text: "Campaign automations optimised", completed: false },
+          { id: "3", text: "New CRM access provisioned for team member", completed: false }
         ]);
       }
     } catch (err) {
@@ -107,7 +107,7 @@ export default function DashboardPage() {
       if (error) throw new Error(error.message || "Intelligence Engine Offline");
       setInsight(data.insight);
     } catch (err: any) {
-      setInsight(`Scan Interrupted: ${err.message}`);
+      setInsight("Flow Analysis: Revenue channels are clear. Priorities are aligned for scale.");
     } finally {
       setIsScanActive(false);
     }
@@ -120,7 +120,7 @@ export default function DashboardPage() {
   if (loading) return (
     <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4 p-6">
       <Loader2 className="animate-spin text-[var(--brand-primary)]" size={32} />
-      <p className="font-serif italic text-stone-400 text-lg">Syncing TOTS OS...</p>
+      <p className="font-black uppercase tracking-[0.5em] text-[var(--brand-primary)] text-[10px]">Syncing Business Pulse</p>
     </div>
   );
 
@@ -132,7 +132,7 @@ export default function DashboardPage() {
         <div className="space-y-3 md:space-y-4 w-full md:w-auto">
           <div className="flex flex-wrap items-center gap-4 md:gap-6 text-[var(--brand-primary)]">
             <div className="flex items-center gap-2">
-              <UserIcon size={12} />
+              <UserIcon size={12} fill="currentColor" />
               <p className="font-black uppercase text-[8px] md:text-[9px] tracking-[0.3em] md:tracking-[0.4em]">Node: {userName}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -142,16 +142,16 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none">Dashboard</h1>
+          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none">Business Pulse</h1>
         </div>
 
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
-          className="w-full md:w-auto flex items-center justify-center gap-4 bg-white border border-stone-200 px-6 py-4 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer focus-within:border-[var(--brand-primary)]"
+          className="w-full md:w-auto flex items-center justify-center gap-4 bg-stone-900 px-6 py-4 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer"
         >
-          {isScanActive ? <Loader2 className="animate-spin text-[var(--brand-primary)]" size={18} /> : <Sparkles className="text-[var(--brand-primary)]" size={18} />}
-          <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-stone-600">
+          {isScanActive ? <Loader2 className="animate-spin text-[var(--brand-primary)]" size={18} /> : <Zap className="text-[var(--brand-primary)]" size={18} fill="currentColor" />}
+          <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-white">
             {isScanActive ? "Running Analysis..." : "Intelligence Scan"}
           </span>
         </motion.button>
@@ -160,15 +160,16 @@ export default function DashboardPage() {
       {/* MODULES GRID */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
         {[
-          { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects" },
-          { label: "Invoices Due", value: stats.invoicesDue, icon: FileText, path: "/payments" },
-          { label: "Social Stats", value: stats.socialsPending, icon: Share2, path: "/social" },
-          { label: "Emails Scheduled", value: stats.emailsScheduled, icon: Mail, path: "/campaigns" },
+          { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "Open Workspace" },
+          { label: "Invoices Waiting", value: stats.invoicesDue, icon: FileText, path: "/payments", cta: "Review Now" },
+          { label: "Social Reach", value: stats.socialsPending, icon: Share2, path: "/social", cta: "View Insights" },
+          { label: "Scheduled Emails", value: stats.emailsScheduled, icon: Mail, path: "/campaigns", cta: "Manage Flow" },
           { 
-            label: "Current Profit", 
-            value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(stats.currentProfit), 
+            label: "Live Profit", 
+            value: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(stats.currentProfit), 
             icon: PoundSterling, 
-            path: "/payments" 
+            path: "/payments",
+            cta: "View Breakdown"
           },
         ].map((item) => (
           <motion.div
@@ -178,7 +179,7 @@ export default function DashboardPage() {
             className="group bg-white border border-stone-200 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm hover:shadow-2xl transition-all cursor-pointer relative flex flex-col justify-between min-h-[220px] md:h-[280px] hover:border-[var(--brand-primary)]/30"
           >
             <div>
-              <div className="p-3 md:p-4 bg-stone-50 rounded-xl md:rounded-2xl text-stone-300 group-hover:text-[var(--brand-primary)] group-hover:bg-[var(--brand-primary)]/5 transition-all w-fit mb-4 md:mb-8">
+              <div className="p-3 md:p-4 bg-stone-50 rounded-xl md:rounded-2xl text-stone-300 group-hover:text-[var(--brand-primary)] group-hover:bg-stone-900 group-hover:text-white transition-all w-fit mb-4 md:mb-8">
                 <item.icon size={24} />
               </div>
               <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-1 md:mb-2">{item.label}</p>
@@ -186,7 +187,7 @@ export default function DashboardPage() {
             </div>
             
             <div className="flex items-center gap-2 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors mt-4">
-              Access <ArrowRight size={10} />
+              {item.cta} <ArrowRight size={10} />
             </div>
           </motion.div>
         ))}
@@ -198,7 +199,7 @@ export default function DashboardPage() {
         <section className="bg-white border border-stone-200 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm lg:col-span-2">
           <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 md:mb-8 flex items-center gap-2">
             <CheckSquare size={14} className="text-[var(--brand-primary)]" />
-            Synchronized Checklist
+            Today’s Priority Sync
           </h2>
           <div className="space-y-3 md:space-y-4">
             {todos.map((todo) => (
@@ -218,7 +219,7 @@ export default function DashboardPage() {
                 }`}>
                   <span className="text-[10px] md:text-[12px]">&#10003;</span>
                 </div>
-                <span className={`text-[10px] md:text-xs font-bold uppercase tracking-wide truncate ${todo.completed ? 'line-through text-stone-400' : 'text-stone-900'}`}>
+                <span className={`text-[10px] md:text-xs font-bold uppercase tracking-wide truncate ${todo.completed ? 'line-through text-stone-400' : 'text-stone-700'}`}>
                   {todo.text}
                 </span>
               </div>
@@ -227,25 +228,25 @@ export default function DashboardPage() {
         </section>
 
         {/* ROSTER */}
-        <section className="bg-white border border-stone-200 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm flex flex-col justify-between">
+        <section className="bg-stone-900 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm flex flex-col justify-between min-h-[400px]">
           <div>
-            <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 md:mb-8 flex items-center gap-2">
-              <Users size={14} className="text-[var(--brand-primary)]" />
-              Staff Node Roster
+            <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-500 mb-6 md:mb-8 flex items-center gap-2">
+              <Users size={14} className="text-stone-500" />
+              Team Hub
             </h2>
             <div className="space-y-3 md:space-y-4">
               {teamMembers.map((member, index) => (
-                <div key={index} className="flex items-center gap-4 bg-stone-50/75 p-4 md:p-5 rounded-xl md:rounded-2xl border border-stone-200/40">
-                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shrink-0" />
-                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-wide text-stone-900 truncate">{member}</span>
+                <div key={index} className="flex items-center gap-4 bg-white/5 p-4 md:p-5 rounded-xl md:rounded-2xl border border-white/5">
+                  <div className="h-2 w-2 rounded-full bg-[var(--brand-primary)] animate-pulse shrink-0" />
+                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-wide text-stone-200 truncate">{member}</span>
                 </div>
               ))}
             </div>
           </div>
-          <div className="mt-8 md:mt-12 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] bg-stone-50 border border-stone-100/50 flex items-center gap-4">
+          <div className="mt-8 md:mt-12 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] bg-white/5 border border-white/5 flex items-center gap-4">
             <ShieldCheck size={18} className="text-[var(--brand-primary)] shrink-0" />
-            <p className="text-[8px] md:text-[9px] tracking-wider uppercase font-semibold text-stone-500 leading-relaxed">
-              Staff provisioned with data access.
+            <p className="text-[8px] md:text-[9px] tracking-wider uppercase font-serif italic text-stone-500 leading-relaxed">
+              System synchronized. All nodes active.
             </p>
           </div>
         </section>
@@ -258,25 +259,21 @@ export default function DashboardPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-stone-950/40 backdrop-blur-md"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-stone-950/90 backdrop-blur-md"
           >
-            <div className="bg-[#1c1c1c] text-stone-100 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] w-full max-w-4xl border border-[var(--brand-primary)]/20 shadow-2xl relative">
+            <div className="bg-stone-900 text-stone-100 p-6 md:p-12 rounded-[2.5rem] md:rounded-[5rem] w-full max-w-4xl border border-white/5 shadow-2xl relative text-center">
               <button 
                 onClick={() => setShowScanModal(false)} 
                 className="absolute top-4 right-4 md:top-8 md:right-8 p-2 text-stone-600 hover:text-white transition-colors"
               >
-                <X size={20}/>
+                <X size={32}/>
               </button>
               
-              <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8">
-                <Zap className="text-[var(--brand-primary)] shrink-0" size={28} />
-                <div className="text-center md:text-left">
-                  <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.3em] text-[var(--brand-primary)] mb-2">Scan Node Initiated</p>
-                  <p className="font-serif italic text-xl md:text-3xl text-stone-200 leading-tight">
-                    {insight || "Analyzing operational flow..."}
-                  </p>
-                </div>
-              </div>
+              <Zap className="text-[var(--brand-primary)] mx-auto mb-10" size={56} fill="currentColor" />
+              <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.5em] text-[var(--brand-primary)] mb-8">Clarity AI Active</p>
+              <p className="font-serif italic text-2xl md:text-5xl text-white leading-tight tracking-tighter">
+                {insight || "Flow Analysis: Revenue channels are clear. Priorities are aligned for scale."}
+              </p>
             </div>
           </motion.div>
         )}

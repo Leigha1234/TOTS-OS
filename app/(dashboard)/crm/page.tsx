@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { 
   Plus, Search, User, X, ChevronRight, Loader2, 
-  Building2, Mail, Phone, MapPin, Hash, AlertCircle 
+  Building2, Mail, Phone, MapPin, Hash, AlertCircle, Radio, Database
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -61,7 +61,6 @@ export default function CRMDirectory() {
     setError(null);
 
     try {
-      // 1. Insert the Profile
       const { data: newProfile, error: profileError } = await supabase
         .from("profiles")
         .insert([{
@@ -78,7 +77,6 @@ export default function CRMDirectory() {
 
       if (profileError) throw profileError;
 
-      // 2. Automation: Add to campaign list if selected
       if (form.list_id && newProfile) {
         const { error: listError } = await supabase
           .from("list_subscribers")
@@ -88,8 +86,7 @@ export default function CRMDirectory() {
           }]);
         
         if (listError) {
-          console.warn("Profile created, but list assignment failed:", listError.message);
-          // We don't throw here so the UI still updates with the new profile
+          console.warn("Node established, but campaign synchronization failed:", listError.message);
         }
       }
 
@@ -100,7 +97,7 @@ export default function CRMDirectory() {
       });
       setShowModal(false);
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred during ingestion.");
+      setError(err.message || "An unexpected error occurred during node ingestion.");
     } finally {
       setSaving(false);
     }
@@ -117,7 +114,7 @@ export default function CRMDirectory() {
         
         {/* GLOBAL ERROR TOAST */}
         {error && !showModal && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-xs font-bold uppercase tracking-widest">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-xs font-black uppercase tracking-widest">
             <AlertCircle size={16} /> {error}
           </motion.div>
         )}
@@ -141,7 +138,7 @@ export default function CRMDirectory() {
                 className="pl-10 pr-4 py-4 rounded-2xl border border-stone-200 bg-white outline-none focus:ring-2 focus:ring-[#a9b897]/20 transition-all text-xs w-full md:w-64"
               />
             </div>
-            <button onClick={() => { setError(null); setShowModal(true); }} className="bg-stone-900 hover:bg-[#a9b897] p-5 rounded-2xl text-white transition-all shadow-xl active:scale-95">
+            <button onClick={() => { setError(null); setShowModal(true); }} className="bg-stone-900 hover:bg-[#a9b897] p-5 rounded-2xl text-white transition-all shadow-xl active:scale-95 flex items-center gap-2">
               <Plus size={20} />
             </button>
           </div>
@@ -151,7 +148,7 @@ export default function CRMDirectory() {
           {loading ? (
             <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border border-stone-100 gap-4">
               <Loader2 className="animate-spin text-[#a9b897]" />
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Synchronizing...</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Synchronizing Database...</p>
             </div>
           ) : filtered.length > 0 ? (
             filtered.map((profile) => (
@@ -162,14 +159,16 @@ export default function CRMDirectory() {
               >
                 <div className="flex items-center gap-6">
                   <div className="w-16 h-16 rounded-2xl bg-stone-50 text-stone-400 group-hover:bg-[#a9b897] group-hover:text-white transition-all duration-500 flex items-center justify-center shrink-0 border border-stone-100">
-                    <User size={24} />
+                    <Radio size={24} className={profile.role === 'lead' ? 'animate-pulse' : ''} />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-stone-800 group-hover:text-[#a9b897] transition-colors">{profile.name}</h3>
                     <div className="flex items-center gap-3 mt-1">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">{profile.company_name || 'Individual Entity'}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">{profile.company_name || 'Independent Node'}</span>
                       <div className="w-1 h-1 rounded-full bg-stone-200" />
-                      <span className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] bg-[#a9b897]/10 px-2 py-0.5 rounded">{profile.role}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] bg-[#a9b897]/10 px-2 py-0.5 rounded italic">
+                        {profile.role === 'client' ? 'Client Node' : profile.role === 'lead' ? 'Active Lead' : 'Strategic Partner'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -180,7 +179,8 @@ export default function CRMDirectory() {
             ))
           ) : (
             <div className="text-center py-20 bg-white border border-dashed border-stone-200 rounded-[3rem]">
-              <p className="text-stone-300 text-[10px] font-black uppercase tracking-[0.4em]">Zero Records Found</p>
+              <Database size={32} className="mx-auto text-stone-100 mb-4" />
+              <p className="text-stone-300 text-[10px] font-black uppercase tracking-[0.4em]">Zero Nodes Detected in Search Scope</p>
             </div>
           )}
         </div>
@@ -194,7 +194,10 @@ export default function CRMDirectory() {
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative z-10 bg-white rounded-[3rem] p-8 md:p-10 w-full max-w-2xl shadow-2xl border border-stone-100 max-h-[90vh] overflow-y-auto no-scrollbar">
               
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-serif italic text-stone-800">Establish Contact</h2>
+                <div>
+                    <h2 className="text-3xl font-serif italic text-stone-800">Establish Contact</h2>
+                    <p className="text-[8px] font-black uppercase text-[#a9b897] tracking-[0.2em] mt-1">Initialize Node Protocol</p>
+                </div>
                 <button onClick={() => setShowModal(false)} className="p-3 hover:bg-stone-50 rounded-full transition-colors"><X size={20} /></button>
               </div>
 
@@ -207,22 +210,22 @@ export default function CRMDirectory() {
               <form onSubmit={addProfile} className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Full Name</label>
-                        <div className="relative"><User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Identity Name" /></div>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Identity Name</label>
+                        <div className="relative"><User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Node Identifier" /></div>
                     </div>
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Email Address</label>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Communication Channel</label>
                         <div className="relative"><Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="node@network.com" /></div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Phone</label>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Transmission Line</label>
                         <div className="relative"><Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="+00..." /></div>
                     </div>
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Role</label>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Operational Access Level</label>
                         <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs outline-none appearance-none cursor-pointer">
                             <option value="client">Client Node</option>
                             <option value="lead">Inbound Lead</option>
@@ -232,22 +235,22 @@ export default function CRMDirectory() {
                 </div>
 
                 <div className="pt-4 border-t border-stone-100 space-y-4">
-                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897]">Professional Context</p>
-                    <div className="relative"><Building2 size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Company Name" /></div>
-                    <div className="relative"><MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Physical Address" /></div>
-                    <textarea value={form.company_details} onChange={(e) => setForm({ ...form, company_details: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs outline-none focus:border-[#a9b897] h-20 resize-none" placeholder="Company Insight..." />
+                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897]">Context Integration</p>
+                    <div className="relative"><Building2 size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Network Entity Name" /></div>
+                    <div className="relative"><MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Physical Node Location" /></div>
+                    <textarea value={form.company_details} onChange={(e) => setForm({ ...form, company_details: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs outline-none focus:border-[#a9b897] h-20 resize-none" placeholder="Operational Intelligence / Context..." />
                 </div>
 
                 <div className="pt-4 border-t border-stone-100">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Campaign Assignment</label>
+                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Signal Protocol Alignment</label>
                     <div className="relative mt-1"><Hash size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><select value={form.list_id} onChange={(e) => setForm({ ...form, list_id: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none appearance-none cursor-pointer">
-                        <option value="">No Auto-Assignment</option>
+                        <option value="">No Active Pulse Sync</option>
                         {lists.map(list => <option key={list.id} value={list.id}>{list.name}</option>)}
                     </select></div>
                 </div>
 
                 <button type="submit" disabled={saving} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] tracking-[0.4em] uppercase hover:bg-[#a9b897] disabled:opacity-40 transition-all mt-6 shadow-xl flex items-center justify-center gap-3">
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : "Establish Contact"}
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : "Establish Node"}
                 </button>
               </form>
             </motion.div>

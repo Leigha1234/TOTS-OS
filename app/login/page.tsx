@@ -34,7 +34,7 @@ function LoginForm() {
     // Check if user is already logged in to prevent "System Deviation" loops
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) router.push("/Business Pulse");
+      if (data.session) router.push("/dashboard");
     };
     checkUser();
   }, [inviteId, router, supabase.auth]);
@@ -51,7 +51,7 @@ function LoginForm() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/Business Pulse`,
+            emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: fullName || email.split('@')[0],
               invite_team_id: inviteId, 
@@ -72,7 +72,7 @@ function LoginForm() {
         if (data.session) {
           setIsRedirecting(true);
           // Hard redirect to ensure middleware picks up the new session cookie
-          window.location.href = "/Business Pulse";
+          window.location.href = "/dashboard";
         }
       }
     } catch (err: any) {

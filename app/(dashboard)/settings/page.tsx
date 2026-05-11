@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 const NAV_OPTIONS = [
-  { id: "/Business Pulse", label: "Business Pulse", icon: LayoutDashboard },
+  { id: "/dashboard", label: "dashboard", icon: LayoutDashboard },
   { id: "/clarity", label: "Clarity AI", icon: Sparkles },
   { id: "/calendar", label: "Calendar", icon: Calendar },
   { id: "/crm", label: "CRM", icon: Users },
@@ -77,7 +77,7 @@ function SettingsContent() {
       if (p) {
         setProfile(p);
         setCurrentTier(p.tier?.toUpperCase() || "STANDARD");
-        setMobileNav(p.mobile_nav_config || ["/Business Pulse", "/clarity", "/calendar"]);
+        setMobileNav(p.mobile_nav_config || ["/dashboard", "/clarity", "/calendar"]);
         if (p.brand_color) setBrandColor(p.brand_color);
         if (p.secondary_color) setSecondaryColor(p.secondary_color);
       }

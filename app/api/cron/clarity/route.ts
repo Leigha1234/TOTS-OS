@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       invoices: invoices || [],
       tasks: tasks || [],
       teamId: teamId,
-      context: context // e.g. "finance", "tasks", "Business Pulse"
+      context: context // e.g. "finance", "tasks", "dashboard"
     });
 
     return NextResponse.json(result);

@@ -20,8 +20,8 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 1. Basic Auth Guards
-  if (pathname.startsWith('/Business Pulse') && !session) return NextResponse.redirect(new URL('/login', request.url));
-  if (pathname === '/login' && session) return NextResponse.redirect(new URL('/Business Pulse', request.url));
+  if (pathname.startsWith('/dashboard') && !session) return NextResponse.redirect(new URL('/login', request.url));
+  if (pathname === '/login' && session) return NextResponse.redirect(new URL('/dashboard', request.url));
 
   // 2. Tier Guard Logic
   if (session) {

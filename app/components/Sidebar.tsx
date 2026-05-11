@@ -123,7 +123,7 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <h1 className="text-6xl md:text-8xl font-serif italic tracking-tighter leading-none">Business Pulse</h1>
+            <h1 className="text-6xl md:text-8xl font-serif italic tracking-tighter leading-none">dashboard</h1>
           </div>
 
           <motion.button 

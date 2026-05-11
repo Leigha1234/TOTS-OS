@@ -12,7 +12,7 @@ export async function POST() {
         quantity: 1,
       },
     ],
-    success_url: "http://localhost:3000/Business Pulse",
+    success_url: "http://localhost:3000/dashboard",
     cancel_url: "http://localhost:3000",
   });
 

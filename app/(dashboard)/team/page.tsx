@@ -140,7 +140,7 @@ export default function IdentitySettingsPage() {
             className="group flex items-center gap-3 px-6 py-4 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] hover:bg-[var(--bg-soft)] transition-all shadow-sm w-full md:w-auto"
           >
             <ArrowLeft size={16} className="text-[var(--brand-primary)]" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Return to Business Pulse</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">Return to dashboard</span>
           </button>
 
           <button 

@@ -30,7 +30,7 @@ export default function SetPassword() {
     } else {
       alert("Password set successfully!");
       // Send them into the app now that they are verified
-      router.push('/Business Pulse');
+      router.push('/dashboard');
     }
   };
 

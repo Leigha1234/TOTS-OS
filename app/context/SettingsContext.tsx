@@ -18,7 +18,7 @@ const defaultSettings: SettingsState = {
   secondaryColor: "#1c1917",
   fontFamily: "Inter",
   logoUrl: "",
-  mobileNav: ["/Business Pulse", "/clarity", "/calendar"],
+  mobileNav: ["/dashboard", "/clarity", "/calendar"],
   loading: true,
   refreshSettings: async () => {}
 };

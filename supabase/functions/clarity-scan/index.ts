@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
         team_id,
         project_id: project_id || null,
         insight_text: insight,
-        scan_type: 'Business Pulse_overview'
+        scan_type: 'dashboard_overview'
       });
     } catch (logError) {
       console.error("History logging skipped:", logError);

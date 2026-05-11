@@ -96,7 +96,7 @@ export default function DashboardPage() {
   if (loading) return (
     <div className="h-screen w-full bg-[#faf9f6] flex flex-col items-center justify-center gap-6">
       <Loader2 className="animate-spin text-[#a9b897]" size={40} />
-      <p className="font-black uppercase tracking-[0.5em] text-[#a9b897] text-[10px]">Syncing Business Pulse</p>
+      <p className="font-black uppercase tracking-[0.5em] text-[#a9b897] text-[10px]">Syncing dashboard</p>
     </div>
   );
 
@@ -120,7 +120,7 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif italic tracking-tighter leading-none">Business Pulse</h1>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif italic tracking-tighter leading-none">dashboard</h1>
           </div>
 
           <button 

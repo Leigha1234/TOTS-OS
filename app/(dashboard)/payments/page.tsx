@@ -157,7 +157,7 @@ export default function PaymentsPage() {
             </button>
             <nav className="flex items-center bg-[#c8d3b9] p-2 rounded-full shadow-inner">
               {['Payments', 'Reports', 'HR', 'Timesheets'].map((path) => (
-                <button key={path} onClick={() => path !== 'Payments' && router.push(path === 'Business Pulse' ? '/' : `/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)} className={`px-10 py-4 text-[11px] font-black uppercase tracking-widest transition-all rounded-full ${path === 'Payments' ? "bg-white text-stone-900 shadow-xl scale-105" : "text-white hover:text-stone-800"}`}>
+                <button key={path} onClick={() => path !== 'Payments' && router.push(path === 'dashboard' ? '/' : `/${path === 'Reports' ? 'finance-reports' : path.toLowerCase()}`)} className={`px-10 py-4 text-[11px] font-black uppercase tracking-widest transition-all rounded-full ${path === 'Payments' ? "bg-white text-stone-900 shadow-xl scale-105" : "text-white hover:text-stone-800"}`}>
                   {path}
                 </button>
               ))}

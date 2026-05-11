@@ -22,10 +22,10 @@ export default function DashboardPage() {
 
   const [stats, setStats] = useState({
     activeProjects: 0,
-    invoicesDue: 2, 
-    socialsPending: 5, 
-    emailsScheduled: 3,
-    currentProfit: 18450.00,
+    invoicesWaiting: 2, 
+    socialReach: 5, 
+    scheduledEmails: 3,
+    liveProfit: 18450.00,
   });
 
   const [todos] = useState([
@@ -135,11 +135,11 @@ export default function DashboardPage() {
         {/* STRATEGIC METRICS GRID */}
         <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6">
           {[
-            { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects" },
-            { label: "Invoices Waiting", value: stats.invoicesDue, icon: FileText, path: "/payments" },
-            { label: "Social Reach", value: stats.socialsPending, icon: Share2, path: "/social" },
-            { label: "Scheduled Emails", value: stats.emailsScheduled, icon: Mail, path: "/campaigns" },
-            { label: "Live Profit", value: `£${stats.currentProfit.toLocaleString()}`, icon: PoundSterling, path: "/payments" },
+            { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "Open Workspace" },
+            { label: "Invoices Waiting", value: stats.invoicesWaiting, icon: FileText, path: "/payments", cta: "Review Now" },
+            { label: "Social Reach", value: stats.socialReach, icon: Share2, path: "/social", cta: "View Insights" },
+            { label: "Scheduled Emails", value: stats.scheduledEmails, icon: Mail, path: "/campaigns", cta: "Manage Flow" },
+            { label: "Live Profit", value: `£${stats.liveProfit.toLocaleString()}`, icon: PoundSterling, path: "/payments", cta: "View Breakdown" },
           ].map((item) => (
             <motion.div
               key={item.label}
@@ -157,7 +157,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-stone-300 group-hover:text-[#a9b897] mt-4 transition-colors">
-                Open Workspace <ArrowRight size={12} />
+                {item.cta} <ArrowRight size={12} />
               </div>
             </motion.div>
           ))}
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                 <X size={32}/>
               </button>
               <Zap className="text-[#a9b897] mx-auto mb-10" size={56} fill="currentColor" />
-              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897] mb-8">Neural Insights Active</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897] mb-8">Clarity AI Active</p>
               <p className="font-serif italic text-3xl md:text-5xl text-white leading-tight tracking-tighter">
                 {insight || "Flow Analysis: Revenue channels are clear. Priorities are aligned for scale."}
               </p>

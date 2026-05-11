@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { createBrowserClient } from "@supabase/ssr";
 
 interface SettingsState {
+  settings: any;
   brandColor: string;
   secondaryColor: string;
   fontFamily: string;
@@ -20,7 +21,8 @@ const defaultSettings: SettingsState = {
   logoUrl: "",
   mobileNav: ["/dashboard", "/clarity", "/calendar"],
   loading: true,
-  refreshSettings: async () => {}
+  refreshSettings: async () => { },
+  settings: undefined
 };
 
 const SettingsContext = createContext<SettingsState>(defaultSettings);
@@ -36,6 +38,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [fontFamily, setFontFamily] = useState(defaultSettings.fontFamily);
   const [logoUrl, setLogoUrl] = useState(defaultSettings.logoUrl);
   const [mobileNav, setMobileNav] = useState<string[]>(defaultSettings.mobileNav);
+  const [settings, setSettings] = useState<any>(defaultSettings.settings);
   const [loading, setLoading] = useState(true);
 
   const refreshSettings = useCallback(async () => {
@@ -96,6 +99,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [brandColor, secondaryColor, fontFamily]);
 
   const value = useMemo(() => ({
+    settings,
     brandColor,
     secondaryColor,
     fontFamily,
@@ -103,7 +107,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     mobileNav,
     loading,
     refreshSettings
-  }), [brandColor, secondaryColor, fontFamily, logoUrl, mobileNav, loading, refreshSettings]);
+  }), [settings, brandColor, secondaryColor, fontFamily, logoUrl, mobileNav, loading, refreshSettings]);
 
   return (
     <SettingsContext.Provider value={value}>

@@ -147,7 +147,7 @@ export default function PaymentsPage() {
 
           <div className="flex flex-wrap items-center gap-6">
             <nav className="flex items-center bg-stone-100 p-2 rounded-full shadow-inner">
-              {['Payments', 'HR', 'Finance-Reports'].map((path) => (
+              {['Payments', 'HR', 'Finance-Reports', 'Timesheets'].map((path) => (
                 <button 
                   key={path} 
                   onClick={() => path !== 'Payments' && router.push(`/${path.toLowerCase()}`)} 

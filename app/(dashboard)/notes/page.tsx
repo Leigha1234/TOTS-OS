@@ -3,55 +3,44 @@
 import { useEffect, useState, useCallback, Suspense, useMemo } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
-  Trash2, Search, User, Folder, Loader2, Plus, 
-  Settings, Clock, Share2, Maximize2, Archive, Hash, 
-  ChevronRight, Filter, Download, Zap, Database, Globe,
-  Shield, Lock, MoreVertical, Layers, Calendar
+  Trash2, Search, Loader2, Plus, Settings, 
+  Hash, Lock, Zap, AlertCircle, Tag, Clock
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 /**
- * TOTS OS | THE VAULT
- * VERSION: 6.0.0
- * ARCHITECTURE: MINIMALIST TACTILE LEDGER
+ * TOTS OS | THE VAULT (V7)
+ * FOCUS: CLEAN CAPTURE + PHYSICAL POST-ITS
  */
 
-const VAULT_THEMES = [
-  { bg: "#FFF9E6", tape: "rgba(0,0,0,0.04)", text: "#451a03", rotation: "-1.2deg" },
-  { bg: "#F1F8E9", tape: "rgba(0,0,0,0.04)", text: "#14532d", rotation: "0.8deg" },
-  { bg: "#E3F2FD", tape: "rgba(0,0,0,0.04)", text: "#0c4a6e", rotation: "-0.5deg" },
-  { bg: "#F5F3FF", tape: "rgba(0,0,0,0.04)", text: "#4c1d95", rotation: "1.5deg" }
-];
-
-const VAULT_CATEGORIES = [
-  { id: "intel", label: "Intelligence" },
-  { id: "strat", label: "Strategy" },
-  { id: "creative", label: "Creative" },
-  { id: "personal", label: "Personal" }
+const PAPER_THEMES = [
+  { bg: "#FFF9E6", text: "#451a03", rotation: "-1.2deg" }, // Canary
+  { bg: "#F1F8E9", text: "#14532d", rotation: "0.8deg" },  // Mint
+  { bg: "#E3F2FD", text: "#0c4a6e", rotation: "-0.5deg" }, // Sky
+  { bg: "#F5F3FF", text: "#4c1d95", rotation: "1.1deg" }   // Lavender
 ];
 
 function VaultContent() {
   const [user, setUser] = useState<any>(null);
-  const [entries, setEntries] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Interface States
+  // Capture States
   const [content, setContent] = useState("");
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("intel");
-  const [project, setProject] = useState("");
+  const [tag, setTag] = useState("");
+  const [isUrgent, setIsUrgent] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [search, setSearch] = useState("");
 
-  const fetchVault = useCallback(async (userId: string) => {
+  const fetchNotes = useCallback(async (userId: string) => {
     try {
-      const [nts, proj] = await Promise.all([
-        supabase.from("notes").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
-        supabase.from("projects").select("*").eq("user_id", userId)
-      ]);
-      setEntries(nts.data || []);
-      setProjects(proj.data || []);
+      const { data } = await supabase
+        .from("notes")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      setNotes(data || []);
     } finally {
       setIsLoading(false);
     }
@@ -62,196 +51,171 @@ function VaultContent() {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
       setUser(authUser);
-      await fetchVault(authUser.id);
+      await fetchNotes(authUser.id);
       
       const channel = supabase.channel("vault_live")
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchVault(authUser.id))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchNotes(authUser.id))
         .subscribe();
       return () => { supabase.removeChannel(channel); };
     };
     init();
-  }, [fetchVault]);
+  }, [fetchNotes]);
 
-  const handleCommit = async () => {
+  const handleSave = async () => {
     if (!content.trim() || isSyncing || !user) return;
     setIsSyncing(true);
-    const theme = VAULT_THEMES[Math.floor(Math.random() * VAULT_THEMES.length)];
+    
+    const theme = PAPER_THEMES[Math.floor(Math.random() * PAPER_THEMES.length)];
 
     try {
       await supabase.from("notes").insert([{
         content,
         user_id: user.id,
-        color: theme.bg,
-        category,
-        project_id: project || null
+        color: isUrgent ? "#1C1917" : theme.bg, // Dark if urgent
+        category: tag || "General",
+        is_urgent: isUrgent,
+        metadata: { rotation: theme.rotation }
       }]);
       setContent("");
-      toast.success("Entry encrypted and vaulted.");
+      setTag("");
+      setIsUrgent(false);
+      toast.success("Pinned to Vault");
     } catch (e) {
-      toast.error("Sync interrupted.");
+      toast.error("Failed to sync");
     } finally {
       setIsSyncing(false);
     }
   };
 
-  const filteredEntries = useMemo(() => 
-    entries.filter(e => e.content.toLowerCase().includes(search.toLowerCase())),
-    [entries, search]
+  const filteredNotes = useMemo(() => 
+    notes.filter(n => n.content.toLowerCase().includes(search.toLowerCase())),
+    [notes, search]
   );
 
   if (isLoading) return <div className="h-screen bg-[#FBFBFA] flex items-center justify-center font-serif italic text-stone-200 text-5xl">Opening Vault...</div>;
 
   return (
-    <div className="min-h-screen bg-[#FBFBFA] font-sans text-stone-900 overflow-x-hidden">
-      <div className="max-w-[1800px] mx-auto grid lg:grid-cols-12 min-h-screen">
+    <div className="min-h-screen bg-[#FBFBFA] font-sans text-stone-900 pb-40">
+      
+      {/* HEADER SECTION */}
+      <div className="max-w-6xl mx-auto px-8 pt-20 pb-16 flex justify-between items-end">
+        <div>
+          <div className="flex items-center gap-3 text-stone-300 mb-4">
+            <Lock size={14} />
+            <p className="text-[10px] font-black uppercase tracking-[0.4em]">Secure Ledger</p>
+          </div>
+          <h1 className="text-8xl font-serif italic tracking-tighter leading-none">Vault</h1>
+        </div>
         
-        {/* LEFT COLUMN: THE LEDGER INDEX */}
-        <aside className="lg:col-span-3 border-r border-stone-100 p-12 lg:p-16 space-y-20 bg-white/50 backdrop-blur-sm sticky top-0 h-screen overflow-y-auto no-scrollbar">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 text-stone-300">
-               <Shield size={14} />
-               <p className="text-[10px] font-black uppercase tracking-[0.4em]">Vault // Ledger_04</p>
-            </div>
-            <h1 className="text-7xl font-serif italic tracking-tighter leading-none">The <span className="text-stone-200">Vault</span></h1>
-          </div>
-
-          <div className="space-y-12">
-            <div className="relative group">
-              <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-stone-200 group-focus-within:text-stone-900 transition-colors" size={18} />
-              <input 
-                className="w-full bg-transparent border-b border-stone-100 py-4 pl-8 outline-none font-serif italic text-xl placeholder:text-stone-100 focus:border-stone-900 transition-all"
-                placeholder="Search strings..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-
-            <nav className="space-y-4">
-              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-300 mb-8">Directories</p>
-              {VAULT_CATEGORIES.map(cat => (
-                <div key={cat.id} className="flex justify-between items-center group cursor-pointer">
-                  <span className="font-serif italic text-2xl text-stone-400 group-hover:text-stone-900 transition-colors">{cat.label}</span>
-                  <div className="h-6 w-10 rounded-full bg-stone-50 flex items-center justify-center text-[10px] font-bold group-hover:bg-stone-900 group-hover:text-white transition-all">
-                    {entries.filter(e => e.category === cat.id).length}
-                  </div>
-                </div>
-              ))}
-            </nav>
-          </div>
-
-          <div className="pt-20 border-t border-stone-50">
-             <div className="flex items-center gap-4 text-stone-400">
-                <Database size={16} />
-                <span className="text-[9px] font-black uppercase tracking-widest">End-to-End Encryption Active</span>
-             </div>
-          </div>
-        </aside>
-
-        {/* RIGHT COLUMN: THE WORKSPACE */}
-        <main className="lg:col-span-9 p-12 lg:p-24 space-y-24">
-          
-          <header className="flex justify-between items-start">
-             <div className="flex items-center gap-8 bg-white border border-stone-100 px-8 py-4 rounded-full shadow-sm">
-                <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">System Stable // {entries.length} Nodes</span>
-             </div>
-             <div className="flex gap-4">
-                <div className="h-12 w-12 rounded-full border border-stone-100 flex items-center justify-center text-stone-300 hover:text-stone-900 transition-all cursor-pointer"><Settings size={16}/></div>
-                <div className="h-12 w-12 rounded-full border border-stone-100 flex items-center justify-center text-stone-300 hover:text-stone-900 transition-all cursor-pointer"><Share2 size={16}/></div>
-             </div>
-          </header>
-
-          {/* CAPTURE HUB */}
-          <section className="relative max-w-4xl">
-             <div className="bg-white rounded-[4rem] p-16 shadow-xl border border-stone-50 space-y-12">
-                <textarea 
-                  className="w-full min-h-[220px] text-4xl font-serif italic outline-none resize-none placeholder:text-stone-50 text-stone-900 leading-tight"
-                  placeholder="Record an entry..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                />
-                <div className="flex flex-wrap items-center justify-between gap-8 pt-10 border-t border-stone-50">
-                  <div className="flex gap-4">
-                    <select 
-                      className="bg-stone-50 border border-stone-100 rounded-full px-8 py-3 text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer hover:bg-stone-100 transition-colors"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                    >
-                      {VAULT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                    </select>
-                    <select 
-                      className="bg-stone-50 border border-stone-100 rounded-full px-8 py-3 text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer hover:bg-stone-100 transition-colors"
-                      value={project}
-                      onChange={(e) => setProject(e.target.value)}
-                    >
-                      <option value="">Link Project</option>
-                      {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                  </div>
-                  <button 
-                    onClick={handleCommit}
-                    className="bg-stone-900 text-white px-14 py-5 rounded-full text-[10px] font-black uppercase tracking-[0.4em] shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-4"
-                  >
-                    {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />} Establish Entry
-                  </button>
-                </div>
-             </div>
-          </section>
-
-          {/* THE TACTILE GRID */}
-          <section className="grid md:grid-cols-2 xl:grid-cols-3 gap-16">
-             <AnimatePresence mode="popLayout">
-                {filteredEntries.map((entry, idx) => {
-                  const theme = VAULT_THEMES[idx % VAULT_THEMES.length];
-                  return (
-                    <motion.div 
-                      key={entry.id}
-                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0, rotate: theme.rotation }}
-                      exit={{ opacity: 0, scale: 0.5 }}
-                      whileHover={{ scale: 1.05, rotate: "0deg", zIndex: 10 }}
-                      className="p-12 min-h-[360px] flex flex-col shadow-post-it relative group transition-all duration-300"
-                      style={{ background: entry.color || theme.bg }}
-                    >
-                      {/* TAPE OVERLAY */}
-                      <div className="absolute top-[-18px] left-1/2 -translate-x-1/2 w-32 h-10 bg-white/30 backdrop-blur-sm border border-white/20 rotate-[-2deg] z-20 shadow-sm" />
-                      
-                      <div className="flex-1 space-y-8">
-                        <div className="flex justify-between items-center opacity-10">
-                          <Hash size={12} />
-                          <span className="text-[8px] font-mono tracking-tighter">NODE_{entry.id.slice(0,6)}</span>
-                        </div>
-                        <p className="text-3xl font-serif italic leading-[1.3] text-stone-800">{entry.content}</p>
-                      </div>
-
-                      <div className="mt-12 pt-8 border-t border-black/5 flex justify-between items-end">
-                        <div className="space-y-2">
-                           <p className="text-[9px] font-black uppercase opacity-20">{new Date(entry.created_at).toLocaleDateString('en-GB')}</p>
-                           <div className="px-3 py-1 bg-black/5 rounded text-[8px] font-black uppercase tracking-tighter inline-block">{entry.category}</div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => supabase.from("notes").delete().eq("id", entry.id).then(() => fetchVault(user.id))}
-                            className="h-12 w-12 rounded-full hover:bg-red-500 hover:text-white transition-all flex items-center justify-center text-black/10 group-hover:text-black/30 shadow-inner bg-black/5"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-             </AnimatePresence>
-          </section>
-        </main>
+        <div className="relative group w-72">
+          <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-stone-200" size={18} />
+          <input 
+            className="w-full bg-transparent border-b border-stone-100 py-3 pl-8 outline-none font-serif italic text-xl placeholder:text-stone-100 focus:border-stone-900 transition-all"
+            placeholder="Search notes..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
+
+      {/* CAPTURE HUB */}
+      <section className="max-w-6xl mx-auto px-8 mb-32">
+        <div className="bg-white rounded-[3rem] p-12 shadow-xl border border-stone-50 space-y-10">
+          <textarea 
+            className="w-full min-h-[180px] text-4xl font-serif italic outline-none resize-none placeholder:text-stone-50 text-stone-900 leading-tight bg-transparent"
+            placeholder="What's on your mind?"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+          
+          <div className="flex flex-wrap items-center justify-between gap-6 pt-8 border-t border-stone-50">
+            <div className="flex items-center gap-6">
+              {/* TAG INPUT */}
+              <div className="flex items-center bg-stone-50 rounded-full px-6 py-2 border border-stone-100">
+                <Tag size={14} className="text-stone-300 mr-3" />
+                <input 
+                  className="bg-transparent text-[10px] font-black uppercase outline-none w-24 placeholder:text-stone-200"
+                  placeholder="ADD TAG"
+                  value={tag}
+                  onChange={(e) => setTag(e.target.value)}
+                />
+              </div>
+
+              {/* URGENT TOGGLE */}
+              <button 
+                onClick={() => setIsUrgent(!isUrgent)}
+                className={`flex items-center gap-3 px-6 py-2 rounded-full border transition-all ${
+                  isUrgent ? 'bg-red-50 border-red-100 text-red-600' : 'bg-stone-50 border-stone-100 text-stone-300'
+                }`}
+              >
+                <Zap size={14} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Mark Urgent</span>
+              </button>
+            </div>
+
+            <button 
+              onClick={handleSave}
+              className="bg-stone-900 text-white px-12 py-4 rounded-full text-[10px] font-black uppercase tracking-[0.4em] shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-4"
+            >
+              {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Pin Note
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* DISPLAY GRID */}
+      <section className="max-w-7xl mx-auto px-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12">
+        <AnimatePresence mode="popLayout">
+          {filteredNotes.map((note) => (
+            <motion.div 
+              key={note.id}
+              layout
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1, 
+                rotate: note.metadata?.rotation || "0deg" 
+              }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              whileHover={{ scale: 1.05, rotate: "0deg", zIndex: 10 }}
+              className={`p-10 min-h-[320px] flex flex-col shadow-post-it relative group transition-all duration-300 ${
+                note.is_urgent ? 'text-white' : 'text-stone-800'
+              }`}
+              style={{ background: note.color || "#FFF9E6" }}
+            >
+              {/* TACTILE TAPE */}
+              <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-28 h-8 bg-white/30 backdrop-blur-sm border border-white/20 rotate-[-1deg] z-20" />
+              
+              <div className="flex-1 space-y-6">
+                <div className="flex justify-between items-center opacity-30">
+                  <span className="text-[9px] font-black uppercase tracking-widest">
+                    {note.category || 'General'}
+                  </span>
+                  {note.is_urgent && <AlertCircle size={14} className="text-red-400" />}
+                </div>
+                <p className="text-2xl font-serif italic leading-snug">{note.content}</p>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-black/5 flex justify-between items-end">
+                <div className="flex items-center gap-2 opacity-30">
+                   <Clock size={10} />
+                   <span className="text-[8px] font-black uppercase">{new Date(note.created_at).toLocaleDateString()}</span>
+                </div>
+                <button 
+                  onClick={() => supabase.from("notes").delete().eq("id", note.id).then(() => fetchNotes(user.id))}
+                  className="h-10 w-10 rounded-full hover:bg-red-500 hover:text-white transition-all flex items-center justify-center text-black/10 group-hover:text-black/30 bg-black/5"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </section>
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:italic&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
         .shadow-post-it {
           box-shadow: 
             5px 5px 15px rgba(0,0,0,0.02),

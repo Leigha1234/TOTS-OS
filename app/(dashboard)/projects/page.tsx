@@ -3,28 +3,33 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { getUserTeam } from "@/lib/getUserTeam";
-import { getUserRole, canCreate } from "@/lib/permissions";
+import { getUserRole } from "@/lib/permissions";
 import { 
-  Sparkles, FolderPlus, ArrowRight, 
-  Briefcase, ShieldCheck, Activity,
-  Plus, X, Loader2, Zap, Globe,
-  Calendar as CalendarIcon, Clock, CheckSquare, Layers, Users, BarChart3, MessageSquare, Info, Save, ChevronDown, MoreHorizontal, Search, Eye, FileText, Check, AlertCircle, Sparkle, Tag, Folder, PanelLeftClose, PanelLeft, LayoutGrid, ListTodo, ClipboardCheck, ArrowUpRight, FolderKanban, Star, Settings, User
+  Sparkles, Plus, X, Loader2, Folder, 
+  CheckSquare, BarChart3, Layers, Users, 
+  Star, Tag as TagIcon, StickyNote, Check, AlertCircle, 
+  ArrowRight, Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { toast } from "sonner";
 
 // --- TYPES ---
 interface Task {
   id: string;
   project_id: string;
   name: string;
-  status: "Backlog" | "In Progress" | "Completed";
-  priority: "Low" | "Medium" | "High";
-  dueDate?: string;
-  assignee?: string;
-  subtasks?: string[];
-  comments?: string[];
+  status: string;
+  priority: string;
+}
+
+interface Note {
+  id: string;
+  content: string;
+  category: string;
+  color: string;
+  is_urgent: boolean;
 }
 
 export default function ProjectsPage() {
@@ -34,38 +39,21 @@ export default function ProjectsPage() {
 
   // Application States
   const [projects, setProjects] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
+  const [allNotes, setAllNotes] = useState<Note[]>([]); // New: To link Vault data
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamId, setTeamId] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Flyout & Task Selection
+  // UI States
   const [selectedProject, setSelectedProject] = useState<any>(null);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [newTaskName, setNewTaskName] = useState<{ [key: string]: string }>({});
 
-  // Form States
-  const [form, setForm] = useState({
-    name: "",
-    customer_id: "",
-  });
+  // New Project Form
+  const [projectName, setProjectName] = useState("");
 
-  // Intelligence States
-  const [isScanActive, setIsScanActive] = useState(false);
-  const [insight, setInsight] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
-
-  // Mock OKRs and Workload
-  const [goals] = useState([
-    { id: 1, title: "Double ecosystem deployment speed", progress: 75, target: "Q3 2026" },
-    { id: 2, title: "Achieve 99.9% uptime on all nodes", progress: 90, target: "Q4 2026" }
-  ]);
-
-  const [workload] = useState([
-    { member: "Jane Doe", tasksAssigned: 5, capacity: 85, status: "Active" },
-    { member: "John Smith", tasksAssigned: 3, capacity: 60, status: "Active" },
-  ]);
 
   const supabase = useMemo(() => {
     return createBrowserClient(
@@ -74,67 +62,76 @@ export default function ProjectsPage() {
     );
   }, []);
 
+  // Fetch Projects and linked Vault notes
   const loadData = useCallback(async (team: string) => {
-    const { data, error } = await supabase
+    // 1. Fetch Projects
+    const { data: projData } = await supabase
       .from("projects")
-      .select("*, customers(name)")
+      .select("*")
       .eq("team_id", team)
       .order("created_at", { ascending: false });
 
-    if (!error) setProjects(data || []);
+    // 2. Fetch All Notes (to cross-reference tags)
+    const { data: noteData } = await supabase
+      .from("notes")
+      .select("*");
+
+    setProjects(projData || []);
+    setAllNotes(noteData || []);
+    
+    if (projData && projData.length > 0 && !selectedProject) {
+        setSelectedProject(projData[0]);
+    }
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, selectedProject]);
 
   useEffect(() => {
     setIsMounted(true);
     async function init() {
       const team = await getUserTeam();
-      const r = await getUserRole();
-
       if (!team) {
-        // Mock data initialization
-        setTeamId("team-123");
-        setRole("admin");
-        setCustomers([{ id: "c1", name: "Apex Solutions" }]);
-        setProjects([
-          { id: "p1", name: "Project Zero", customers: { name: "Apex Solutions" } },
-          { id: "p2", name: "Atlas Stream", customers: { name: "Apex Solutions" } }
-        ]);
-        setTasks([
-          { id: "t1", project_id: "p1", name: "Configure Node Network", status: "In Progress", priority: "High", dueDate: "2026-05-15", assignee: "Jane Doe" },
-          { id: "t2", project_id: "p1", name: "Run diagnostic baseline", status: "Backlog", priority: "Medium", dueDate: "2026-05-20", assignee: "John Smith" }
-        ]);
+        setTeamId("mock-team");
         setLoading(false);
         return;
       }
       setTeamId(team);
-      setRole(r);
       loadData(team);
     }
     init();
   }, [loadData]);
 
-  const runClarityScan = () => {
-    setIsScanActive(true);
-    setTimeout(() => {
-      setInsight("Optimal throughput detected.");
-      setIsScanActive(false);
-    }, 2200);
+  // Create Project Function
+  const handleCreateProject = async () => {
+    if (!projectName.trim() || !teamId) return;
+    setIsSyncing(true);
+
+    const { data, error } = await supabase
+      .from("projects")
+      .insert([{ 
+        name: projectName, 
+        team_id: teamId,
+        status: "active" 
+      }])
+      .select();
+
+    if (!error) {
+      toast.success("Project launched.");
+      setProjectName("");
+      setShowCreateModal(false);
+      loadData(teamId);
+    } else {
+      toast.error("Failed to create project.");
+    }
+    setIsSyncing(false);
   };
 
-  const handleAddTask = (projectId: string) => {
-    const taskName = newTaskName[projectId]?.trim();
-    if (!taskName) return;
-    const newTask: Task = {
-      id: Math.random().toString(36).substr(2, 9),
-      project_id: projectId,
-      name: taskName,
-      status: "Backlog",
-      priority: "Medium"
-    };
-    setTasks([...tasks, newTask]);
-    setNewTaskName({ ...newTaskName, [projectId]: "" });
-  };
+  // Filter notes that match the current project's name (Tag)
+  const linkedNotes = useMemo(() => {
+    if (!selectedProject) return [];
+    return allNotes.filter(note => 
+      note.category?.toLowerCase() === selectedProject.name?.toLowerCase()
+    );
+  }, [allNotes, selectedProject]);
 
   const downloadPDF = async () => {
     if (!printRef.current) return;
@@ -145,86 +142,66 @@ export default function ProjectsPage() {
   };
 
   if (!isMounted) return null;
-  if (loading) return (
-    <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center gap-4">
-      <Loader2 className="animate-spin text-[var(--text-muted)]" size={32} />
-      <p className="font-serif italic text-[var(--text-muted)] text-lg">Initializing Ecosystem...</p>
-    </div>
-  );
+  if (loading) return <div className="min-h-screen bg-[#F5F5F3] flex items-center justify-center font-serif italic text-stone-300 text-4xl underline decoration-stone-200">Initializing Ecosystem...</div>;
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] p-8 lg:p-12 max-w-[1700px] mx-auto">
       
-      {/* Workspace Header */}
+      {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[var(--border)] pb-8 gap-8 mb-12">
         <div className="space-y-2">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-2xl bg-[var(--brand-primary)] text-white flex items-center justify-center font-black">T</div>
-            <span className="font-serif italic text-xl font-bold">Workspace</span>
-          </div>
-          <p className="text-[var(--brand-primary)] font-black uppercase text-[9px] tracking-[0.3em]">Mode: {activeMode}</p>
-          <h1 className="text-5xl font-serif italic tracking-tighter leading-none">Projects & Portfolios</h1>
+          <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Projects</h1>
+          <p className="text-[var(--brand-primary)] font-black uppercase text-[9px] tracking-[0.3em]">Operational Strategy / {activeMode}</p>
         </div>
 
         <div className="flex gap-3">
-          <button onClick={runClarityScan} disabled={isScanActive} className="flex items-center gap-3 bg-[var(--card-bg)] border border-[var(--border)] px-6 py-4 rounded-2xl shadow-sm hover:shadow-xl transition-all text-[var(--text-muted)] hover:text-[var(--text-main)]">
-            {isScanActive ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} className="text-[var(--brand-primary)]" />}
-            <span className="text-[10px] font-black uppercase tracking-wider">Scan Space</span>
+          <button 
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-3 bg-stone-900 text-white px-6 py-4 rounded-2xl shadow-xl hover:bg-stone-800 transition-all active:scale-95"
+          >
+            <Plus size={16} />
+            <span className="text-[10px] font-black uppercase tracking-wider">New Project</span>
           </button>
-          <button onClick={downloadPDF} className="flex items-center gap-3 bg-stone-900 text-white px-6 py-4 rounded-2xl shadow-xl hover:bg-stone-700 transition-all">
+          <button onClick={downloadPDF} className="flex items-center gap-3 bg-[var(--card-bg)] border border-[var(--border)] px-6 py-4 rounded-2xl text-[var(--text-muted)] hover:text-black transition-all">
             <Folder size={16} />
-            <span className="text-[10px] font-black uppercase tracking-wider">Export PDF</span>
+            <span className="text-[10px] font-black uppercase tracking-wider">Export</span>
           </button>
         </div>
       </header>
 
-      {/* Mode Navigation */}
-      <div className="flex flex-wrap gap-4 pb-6 border-b border-[var(--border)] mb-12">
-        {[
-          { id: "work", label: "Work", icon: <CheckSquare size={14} /> },
-          { id: "strategy", label: "Strategy", icon: <BarChart3 size={14} /> },
-          { id: "workflows", label: "Workflow", icon: <Layers size={14} /> },
-          { id: "company", label: "Company", icon: <Users size={14} /> }
-        ].map((mode) => (
-          <button 
-            key={mode.id}
-            onClick={() => setActiveMode(mode.id)}
-            className={`flex items-center gap-4 px-6 py-4 rounded-2xl text-xs font-semibold transition-all ${
-              activeMode === mode.id ? "bg-stone-900 text-white" : "bg-[var(--card-bg)] text-[var(--text-muted)] border border-[var(--border)] hover:bg-[var(--bg-soft)]"
-            }`}
-          >
-            {mode.icon} <span>{mode.label}</span>
-          </button>
-        ))}
-      </div>
-
       <div className="flex flex-col lg:flex-row gap-12">
-        {/* Project List Aside */}
-        <aside className="w-full lg:w-72 border-r border-[var(--border)] pr-8">
-          <span className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-[0.2em] mb-4 block">Projects</span>
-          <div className="space-y-2">
-            {projects.map((p) => (
-              <button 
-                key={p.id}
-                onClick={() => setSelectedProject(p)}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-xs text-left text-[var(--text-muted)] hover:bg-[var(--bg-soft)] transition-all ${selectedProject?.id === p.id ? "bg-[var(--bg-soft)] font-bold border-l-2 border-[var(--brand-primary)]" : ""}`}
-              >
-                <span className="truncate">{p.name}</span>
-                <Star size={12} className="text-[var(--text-muted)]" />
-              </button>
-            ))}
+        {/* Project Selector Aside */}
+        <aside className="w-full lg:w-72 space-y-8">
+          <div>
+            <span className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-[0.2em] mb-6 block">Active Portfolios</span>
+            <div className="space-y-1">
+                {projects.map((p) => (
+                <button 
+                    key={p.id}
+                    onClick={() => setSelectedProject(p)}
+                    className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl text-xs text-left transition-all ${
+                        selectedProject?.id === p.id 
+                        ? "bg-stone-900 text-white shadow-lg" 
+                        : "text-[var(--text-muted)] hover:bg-[var(--bg-soft)]"
+                    }`}
+                >
+                    <span className="truncate font-semibold">{p.name}</span>
+                    <ArrowRight size={12} className={selectedProject?.id === p.id ? "opacity-100" : "opacity-0"} />
+                </button>
+                ))}
+            </div>
           </div>
         </aside>
 
         {/* Dynamic Content */}
         <div className="flex-1 space-y-10">
-          <div className="flex flex-wrap gap-4 border-b border-[var(--border)] pb-3">
-            {["Overview", "List", "Board", "Timeline", "Workload", "OKRs"].map((tab) => (
+          <div className="flex flex-wrap gap-8 border-b border-[var(--border)] pb-3">
+            {["Overview", "Board", "Linked Vault"].map((tab) => (
               <button 
                 key={tab}
-                onClick={() => setActiveTab(tab.toLowerCase())}
-                className={`pb-2 text-xs font-bold uppercase transition-all ${
-                  activeTab === tab.toLowerCase() ? "text-[var(--brand-primary)] border-b-2 border-[var(--brand-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                onClick={() => setActiveTab(tab.toLowerCase().replace(" ", "-"))}
+                className={`pb-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
+                  activeTab === tab.toLowerCase().replace(" ", "-") ? "text-black border-b-2 border-black" : "text-[var(--text-muted)] hover:text-black"
                 }`}
               >
                 {tab}
@@ -232,57 +209,125 @@ export default function ProjectsPage() {
             ))}
           </div>
 
-          {activeTab === "overview" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
-              <div className="bg-[var(--card-bg)] border border-[var(--border)] p-8 rounded-[2.5rem] col-span-2">
-                <h2 className="text-2xl font-serif italic text-[var(--text-main)] mb-4">Workspace Summary</h2>
-                <p className="text-xs text-[var(--text-muted)] leading-relaxed mb-6">Portfolio performance metrics.</p>
-                <div className="flex gap-4 border-t border-[var(--border)] pt-6">
-                  <div className="p-5 bg-[var(--bg-soft)] rounded-2xl w-40">
-                    <span className="text-[9px] font-black uppercase text-[var(--text-muted)]">Projects</span>
-                    <p className="text-2xl font-serif italic text-[var(--text-main)] mt-2">{projects.length}</p>
-                  </div>
+          {/* PROJECT OVERVIEW + VAULT NOTES */}
+          {activeTab === "overview" && selectedProject && (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-12 pt-4">
+              
+              {/* Project Main Details */}
+              <div className="xl:col-span-2 space-y-8">
+                <div className="bg-white border border-[var(--border)] p-12 rounded-[3rem] shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8">
+                        <Star size={24} className="text-stone-100" />
+                    </div>
+                    <span className="px-4 py-1.5 bg-stone-50 rounded-full text-[9px] font-black uppercase text-stone-400 tracking-widest border border-stone-100">Project Workspace</span>
+                    <h2 className="text-6xl font-serif italic text-stone-900 mt-6 mb-4">{selectedProject.name}</h2>
+                    <div className="flex gap-6 mt-12">
+                        <div className="flex items-center gap-2 text-stone-400">
+                            <Calendar size={14} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Added {new Date(selectedProject.created_at).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                </div>
+              </div>
+
+              {/* LINKED NOTES SIDEBAR (The magic part) */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                        <StickyNote size={16} className="text-[var(--brand-primary)]" />
+                        Linked Vault
+                    </h3>
+                    <span className="bg-stone-100 text-[10px] font-bold px-2 py-1 rounded-md">{linkedNotes.length}</span>
+                </div>
+                
+                <div className="space-y-4">
+                    {linkedNotes.length > 0 ? (
+                        linkedNotes.map((note) => (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                key={note.id}
+                                className="p-6 rounded-3xl border border-stone-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all"
+                                style={{ backgroundColor: note.color || '#fff' }}
+                            >
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-4 bg-white/20 backdrop-blur-sm border border-white/10" />
+                                <p className="text-sm font-serif italic text-stone-800 leading-tight mb-4">{note.content}</p>
+                                <div className="flex items-center gap-2">
+                                    <TagIcon size={10} className="text-stone-400" />
+                                    <span className="text-[8px] font-black uppercase text-stone-400 tracking-widest">{note.category}</span>
+                                </div>
+                            </motion.div>
+                        ))
+                    ) : (
+                        <div className="p-12 border-2 border-dashed border-stone-100 rounded-[2rem] text-center">
+                            <p className="text-[10px] font-black uppercase text-stone-300 tracking-[0.2em]">No notes tagged "{selectedProject.name}"</p>
+                        </div>
+                    )}
                 </div>
               </div>
             </div>
           )}
-
-          {activeTab === "list" && (
-            <div ref={printRef} className="pt-4 space-y-8">
-              {projects.map((p) => (
-                <div key={p.id} className="bg-[var(--card-bg)] border border-[var(--border)] p-8 rounded-3xl">
-                  <div className="flex justify-between items-center mb-6">
-                    <div>
-                      <span className="text-[var(--brand-primary)] font-black uppercase text-[9px] tracking-widest">{p.customers?.name || "Node"}</span>
-                      <h2 className="text-xl font-serif italic text-[var(--text-main)]">{p.name}</h2>
-                    </div>
-                  </div>
-                  <div className="divide-y divide-[var(--border)] border-t border-[var(--border)]">
-                    {tasks.filter(t => t.project_id === p.id).map(t => (
-                      <div key={t.id} className="flex justify-between items-center py-5 px-4 hover:bg-[var(--bg-soft)] rounded-2xl transition-all">
-                        <div className="flex items-center gap-4 cursor-pointer">
-                          <Check size={12} className="text-[var(--text-muted)]" />
-                          <p className="text-xs font-bold text-[var(--text-main)]">{t.name}</p>
-                        </div>
-                        <span className="text-[9px] font-black uppercase text-[var(--brand-primary)]">{t.priority}</span>
-                      </div>
-                    ))}
-                    <div className="flex items-center gap-4 pt-6 mt-2 border-t border-[var(--border)]">
-                      <input
-                        placeholder="Add task..."
-                        value={newTaskName[p.id] || ""}
-                        onChange={(e) => setNewTaskName({ ...newTaskName, [p.id]: e.target.value })}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddTask(p.id)}
-                        className="flex-1 p-3 text-xs bg-[var(--bg-soft)] border border-[var(--border)] rounded-2xl outline-none text-[var(--text-main)]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
+
+      {/* CREATE PROJECT MODAL */}
+      <AnimatePresence>
+        {showCreateModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowCreateModal(false)}
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-lg rounded-[3rem] p-12 shadow-2xl relative z-10"
+            >
+              <div className="flex justify-between items-center mb-10">
+                <h3 className="text-4xl font-serif italic lowercase">New Project</h3>
+                <button onClick={() => setShowCreateModal(false)} className="text-stone-300 hover:text-stone-900 transition-colors">
+                  <X size={24}/>
+                </button>
+              </div>
+
+              <div className="space-y-8">
+                <div className="space-y-2">
+                    <label className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400 ml-2">Internal Title / Tag</label>
+                    <input 
+                        autoFocus
+                        placeholder="Project Name..."
+                        className="w-full text-3xl font-serif italic outline-none border-b border-stone-100 pb-4 focus:border-stone-900 transition-all"
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                    />
+                </div>
+
+                <button 
+                    onClick={handleCreateProject}
+                    disabled={isSyncing}
+                    className="w-full bg-stone-900 text-white py-6 rounded-full font-black uppercase text-[11px] tracking-[0.5em] shadow-xl hover:bg-stone-800 transition-all flex items-center justify-center gap-4"
+                >
+                    {isSyncing ? <Loader2 size={18} className="animate-spin" /> : "Initiate Workspace"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
+        .font-serif { font-family: 'Instrument Serif', serif; }
+        :root {
+          --bg: #F9F9F7;
+          --card-bg: #FFFFFF;
+          --border: #EFEFEF;
+          --text-main: #1C1917;
+          --text-muted: #A8A29E;
+          --brand-primary: #1C1917;
+          --bg-soft: #F5F5F3;
+        }
+      `}</style>
     </div>
   );
 }

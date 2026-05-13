@@ -1,360 +1,507 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
-  Plus, X, Loader2, MapPin, Clock, Video, Landmark, ExternalLink, Mail, Radio, Zap, Shield, Activity
+  Plus, X, Loader2, MapPin, Clock, Video, Landmark, 
+  ExternalLink, Mail, Radio, Zap, Shield, Activity,
+  Search, Filter, Settings, Bell, Info, Share2, 
+  Trash2, Edit3, CheckCircle2, AlertCircle, RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   format, addMonths, subMonths, startOfMonth, 
   endOfMonth, startOfWeek, endOfWeek, isSameMonth, 
-  isSameDay, eachDayOfInterval 
+  isSameDay, eachDayOfInterval, parseISO, isValid
 } from "date-fns";
+
+/**
+ * TOTS OS | CHRONOS PROTOCOL 
+ * Module: Temporal Infrastructure & Operational Calendar
+ * Version: 2.8.4
+ */
+
+// --- Type Definitions ---
+
+type DisplayType = 'OPERATION' | 'SIGNAL';
+
+interface ProtocolNode {
+  id: string;
+  title?: string;
+  subject?: string;
+  created_at: string;
+  scheduled_for?: string;
+  description?: string;
+  content?: string;
+  status?: string;
+  priority?: number;
+  color?: string;
+  colour?: string;
+  location?: string;
+  vc_link?: string;
+  displayType: DisplayType;
+  dateField: string;
+}
 
 const PRESET_COLOURS = [
   { name: 'Sage', value: '#A3B18A' },
   { name: 'Rose', value: '#E07A5F' },
   { name: 'Amber', value: '#F2CC8F' },
   { name: 'Slate', value: '#3D405B' },
-  { name: 'Terracotta', value: '#81171B' }
+  { name: 'Terracotta', value: '#81171B' },
+  { name: 'Amethyst', value: '#8b5cf6' }
 ];
 
+// --- Sub-Components ---
+
+const SignalStatus = () => (
+  <div className="flex items-center justify-between mb-10 p-6 bg-stone-50 rounded-[2.5rem] border border-stone-100/50 shadow-sm">
+    <div className="flex items-center gap-4">
+      <div className="relative flex items-center justify-center">
+        <Activity size={18} className="text-[#a9b897]" />
+        <span className="absolute w-5 h-5 bg-[#a9b897]/20 rounded-full animate-ping" />
+      </div>
+      <div>
+        <p className="text-[7px] font-black uppercase tracking-[0.3em] text-stone-400">Node Connectivity</p>
+        <p className="text-[10px] font-black uppercase text-stone-900 tracking-tighter">Protocol Secure</p>
+      </div>
+    </div>
+    <div className="flex gap-1.5">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="w-1 h-3.5 bg-[#a9b897] rounded-full" />
+      ))}
+      <div className="w-1 h-3.5 bg-stone-200 rounded-full" />
+    </div>
+  </div>
+);
+
+// --- Main Application ---
+
 export default function ChronosProtocolPage() {
+  // --- Infrastructure State ---
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<ProtocolNode[]>([]);
+  const [campaigns, setCampaigns] = useState<ProtocolNode[]>([]);
   const [selectedDay, setSelectedDay] = useState(new Date());
-  
-  // Modal States
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // --- Modal & Interaction State ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"create" | "view">("create");
-  const [selectedTask, setSelectedTask] = useState<any>(null);
-  
-  // Form States
-  const [newTitle, setNewTitle] = useState("");
-  const [selectedDateString, setSelectedDateString] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [eventTime, setEventTime] = useState("12:00");
-  const [eventLocation, setEventLocation] = useState("");
-  const [eventColour, setEventColour] = useState(PRESET_COLOURS[0].value);
-  const [vcLink, setVcLink] = useState("");
-  const [notes, setNotes] = useState("");
+  const [selectedNode, setSelectedNode] = useState<ProtocolNode | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- Transaction State (Forms) ---
+  const [formTitle, setFormTitle] = useState("");
+  const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [formTime, setFormTime] = useState("09:00");
+  const [formLocation, setFormLocation] = useState("");
+  const [formColor, setFormColor] = useState(PRESET_COLOURS[0].value);
+  const [formVC, setFormVC] = useState("");
+  const [formNotes, setFormNotes] = useState("");
 
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ), []);
 
-  useEffect(() => { fetchAllData(); }, [currentMonth, supabase]);
+  // --- Data Orchestration ---
 
-  async function fetchAllData() {
+  const fetchProtocolData = useCallback(async () => {
+    setIsLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [tasksRes, campaignsRes] = await Promise.all([
-      supabase.from("tasks").select("*").eq("user_id", user.id),
-      supabase.from("campaigns").select("*").eq("user_id", user.id)
-    ]);
+    try {
+      const [tasksRes, campaignsRes] = await Promise.all([
+        supabase.from("tasks").select("*").eq("user_id", user.id),
+        supabase.from("campaigns").select("*").eq("user_id", user.id)
+      ]);
 
-    setTasks(tasksRes.data || []);
-    setCampaigns(campaignsRes.data || []);
-  }
-
-  const getEventsForDay = (day: Date) => {
-    const dayTasks = tasks.filter(t => isSameDay(new Date(t.created_at), day)).map(t => ({
+      const formattedTasks: ProtocolNode[] = (tasksRes.data || []).map(t => ({
         ...t,
         displayType: 'OPERATION',
         dateField: t.created_at
-    }));
+      }));
 
-    const dayCampaigns = campaigns.filter(c => c.scheduled_for && isSameDay(new Date(c.scheduled_for), day)).map(c => ({
+      const formattedCampaigns: ProtocolNode[] = (campaignsRes.data || []).map(c => ({
         ...c,
         displayType: 'SIGNAL',
-        colour: '#8b5cf6', 
-        dateField: c.scheduled_for
-    }));
+        dateField: c.scheduled_for || c.created_at
+      }));
 
-    return [...dayTasks, ...dayCampaigns].sort((a, b) => 
-        new Date(a.dateField).getTime() - new Date(b.dateField).getTime()
-    );
-  };
+      setTasks(formattedTasks);
+      setCampaigns(formattedCampaigns);
+    } catch (error) {
+      console.error("Infrastructure Sync Error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabase]);
 
-  const handleDayClick = (day: Date) => {
-    setSelectedDay(day);
-    setSelectedDateString(format(day, "yyyy-MM-dd"));
+  useEffect(() => {
+    fetchProtocolData();
+  }, [fetchProtocolData, currentMonth]);
+
+  // --- Logic Layers ---
+
+  const daysInPeriod = useMemo(() => {
+    const start = startOfWeek(startOfMonth(currentMonth));
+    const end = endOfWeek(endOfMonth(currentMonth));
+    return eachDayOfInterval({ start, end });
+  }, [currentMonth]);
+
+  const getNodesForDate = useCallback((date: Date) => {
+    const combined = [...tasks, ...campaigns];
+    return combined.filter(node => {
+      const nodeDate = parseISO(node.dateField);
+      return isValid(nodeDate) && isSameDay(nodeDate, date);
+    }).sort((a, b) => new Date(a.dateField).getTime() - new Date(b.dateField).getTime());
+  }, [tasks, campaigns]);
+
+  const activeDayNodes = useMemo(() => getNodesForDate(selectedDay), [selectedDay, getNodesForDate]);
+
+  const handleOpenCreate = (date: Date) => {
+    setSelectedDay(date);
+    setFormDate(format(date, "yyyy-MM-dd"));
     setViewMode("create");
-    setSelectedTask(null);
+    setSelectedNode(null);
     setIsModalOpen(true);
   };
 
-  const handleEventClick = (e: React.MouseEvent, item: any) => {
-    e.preventDefault();
+  const handleViewNode = (e: React.MouseEvent, node: ProtocolNode) => {
     e.stopPropagation();
-    setSelectedTask(item);
+    setSelectedNode(node);
     setViewMode("view");
     setIsModalOpen(true);
   };
 
-  async function handleCreateEntry() {
-    if (!newTitle) return;
+  const commitNewEntry = async () => {
+    if (!formTitle) return;
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Auth Required");
+      if (!user) throw new Error("Auth required");
 
-      const combinedDate = new Date(`${selectedDateString}T${eventTime}:00`);
+      const isoTimestamp = new Date(`${formDate}T${formTime}:00`).toISOString();
+      
       const { error } = await supabase.from("tasks").insert([{
-        title: newTitle, user_id: user.id, created_at: combinedDate.toISOString(),
-        description: notes, status: "todo", priority: 1, color: eventColour,
-        location: eventLocation, vc_link: vcLink
+        title: formTitle,
+        user_id: user.id,
+        created_at: isoTimestamp,
+        description: formNotes,
+        location: formLocation,
+        vc_link: formVC,
+        color: formColor,
+        status: 'todo'
       }]);
 
       if (error) throw error;
+      
       setIsModalOpen(false);
-      setNewTitle(""); setNotes(""); setVcLink(""); setEventLocation("");
-      fetchAllData();
-    } catch (err: any) {
-      console.error(err);
+      setFormTitle(""); setFormNotes(""); setFormVC("");
+      fetchProtocolData();
+    } catch (err) {
+      console.error("Deployment failure:", err);
     } finally {
       setIsSubmitting(false);
     }
-  }
+  };
 
-  const calendarDays = useMemo(() => {
-    const start = startOfMonth(currentMonth);
-    return eachDayOfInterval({ start: startOfWeek(start), end: endOfWeek(endOfMonth(start)) });
-  }, [currentMonth]);
-
-  const selectedDayEvents = useMemo(() => getEventsForDay(selectedDay), [selectedDay, tasks, campaigns]);
+  // --- Render Layer ---
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] p-4 md:p-10 text-stone-900 pb-32">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 selection:bg-[#a9b897]/30">
       
+      {/* MODAL SYSTEM */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 flex items-center justify-center z-[200] p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" />
+          <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 md:p-10">
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} 
-              className="relative w-full md:max-w-md bg-white rounded-[3rem] p-8 md:p-12 shadow-2xl border border-stone-100 max-h-[85vh] flex flex-col"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-xl"
+            />
+            
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 30 }}
+              className="relative w-full max-w-2xl bg-white rounded-[4rem] shadow-3xl overflow-hidden flex flex-col max-h-[90vh]"
             >
-              <div className="flex justify-between items-center mb-8 shrink-0">
+              {/* Modal Header */}
+              <div className="p-10 pb-6 flex justify-between items-start border-b border-stone-50">
                 <div>
-                    <h3 className="text-3xl font-serif italic text-stone-800">
-                    {viewMode === "create" ? "Establish Entry" : "Operation Briefing"}
-                    </h3>
-                    <p className="text-[8px] font-black uppercase text-[#a9b897] tracking-widest mt-1">Protocol Synchronisation</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-4 h-1 bg-[#a9b897] rounded-full" />
+                    <span className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Tots Protocol Sync</span>
+                  </div>
+                  <h2 className="text-4xl font-serif italic text-stone-800 tracking-tighter">
+                    {viewMode === "create" ? "Establish Entry" : "Node Briefing"}
+                  </h2>
                 </div>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 bg-stone-50 rounded-full hover:bg-stone-100"><X size={18} /></button>
+                <button onClick={() => setIsModalOpen(false)} className="p-4 bg-stone-50 rounded-full hover:bg-stone-100 transition-all">
+                  <X size={20} />
+                </button>
               </div>
 
-              <div className="overflow-y-auto pr-1 no-scrollbar flex-1 space-y-6">
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto p-10 space-y-8 no-scrollbar">
                 {viewMode === "create" ? (
-                  <>
-                    <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1 tracking-widest">Operation Identifier</label>
-                        <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Entry Designation..." className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs focus:outline-none focus:border-[#a9b897] transition-colors" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Timeline</label>
-                        <input type="date" value={selectedDateString} onChange={(e) => setSelectedDateString(e.target.value)} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs focus:outline-none" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Dispatch Time</label>
-                        <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs focus:outline-none" />
-                      </div>
-                    </div>
-                    <div className="space-y-3 pt-2">
-                      <div className="relative"><Video size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={vcLink} onChange={(e) => setVcLink(e.target.value)} placeholder="Transmission Link (Visual Comms)" className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-[10px] focus:outline-none" /></div>
-                      <div className="relative"><MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} placeholder="Physical Node Location" className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-[10px] focus:outline-none" /></div>
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Visual Protocol Colour</label>
-                        <div className="flex gap-2 py-1">
-                        {PRESET_COLOURS.map(c => (<button key={c.name} onClick={() => setEventColour(c.value)} className={`w-6 h-6 rounded-full border-2 transition-all ${eventColour === c.value ? 'border-stone-900 scale-110' : 'border-transparent'}`} style={{ backgroundColor: c.value }} />))}
-                        </div>
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Strategic Intent</label>
-                        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Operational Intelligence..." className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs h-28 resize-none focus:outline-none" />
-                    </div>
-                  </>
-                ) : (
                   <div className="space-y-6">
-                    <div>
-                      <span className="text-[8px] font-black uppercase tracking-[0.3em] text-[#a9b897]">{selectedTask?.displayType} ACTIVE</span>
-                      <h4 className="text-3xl font-serif italic text-stone-800 leading-tight mt-1">{selectedTask?.title || selectedTask?.subject}</h4>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-widest">Entry Identifier</label>
+                      <input 
+                        value={formTitle} onChange={(e) => setFormTitle(e.target.value)}
+                        placeholder="Operation Name..."
+                        className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:outline-none focus:border-[#a9b897] transition-all"
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-3 p-4 bg-stone-50 rounded-2xl border border-stone-100">
-                        <Clock size={14} className="text-[#a9b897]"/> 
-                        <span className="text-[10px] font-bold uppercase tracking-widest">{format(new Date(selectedTask?.dateField), "HH:mm")}</span>
+                      <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="bg-stone-50 border border-stone-100 rounded-2xl p-5 text-xs font-bold" />
+                      <input type="time" value={formTime} onChange={(e) => setFormTime(e.target.value)} className="bg-stone-50 border border-stone-100 rounded-2xl p-5 text-xs font-bold" />
+                    </div>
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
+                        <input value={formLocation} onChange={(e) => setFormLocation(e.target.value)} placeholder="Node Location..." className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 pl-14 text-xs" />
                       </div>
-                      <div className="flex items-center gap-3 p-4 bg-stone-50 rounded-2xl border border-stone-100">
-                        <CalendarIcon size={14} className="text-[#a9b897]"/> 
-                        <span className="text-[10px] font-bold uppercase tracking-widest">{format(new Date(selectedTask?.dateField), "MMM do")}</span>
+                      <div className="relative">
+                        <Video className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
+                        <input value={formVC} onChange={(e) => setFormVC(e.target.value)} placeholder="VC Transmission Link..." className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 pl-14 text-xs" />
                       </div>
                     </div>
-                    {selectedTask?.displayType === 'SIGNAL' && (
-                        <div className="flex items-center gap-4 p-5 bg-purple-50 text-purple-700 rounded-[2rem] border border-purple-100">
-                            <Radio size={18} className="animate-pulse"/> <span className="text-[10px] font-black uppercase tracking-widest">Scheduled Signal Dispatch</span>
-                        </div>
-                    )}
-                    {selectedTask?.vc_link && (
-                      <a href={selectedTask.vc_link} target="_blank" className="flex items-center justify-between p-5 bg-stone-900 text-white rounded-[2rem] group transition-all hover:bg-[#a9b897]">
-                        <div className="flex items-center gap-3"><Video size={18}/><span className="text-xs font-bold uppercase tracking-widest">Initialise Link</span></div>
-                        <ExternalLink size={16} className="opacity-50 group-hover:opacity-100"/>
+                    <textarea 
+                      value={formNotes} onChange={(e) => setFormNotes(e.target.value)}
+                      placeholder="Operational Details..."
+                      className="w-full bg-stone-50 border border-stone-100 rounded-[2.5rem] p-8 text-sm h-40 resize-none focus:outline-none"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    <div className="flex items-center gap-5">
+                      <div className="w-16 h-16 rounded-3xl bg-stone-50 border border-stone-100 flex items-center justify-center">
+                        {selectedNode?.displayType === 'SIGNAL' ? <Radio className="text-purple-500" /> : <Zap className="text-[#a9b897]" />}
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-[#a9b897] tracking-[0.3em]">{selectedNode?.displayType}</span>
+                        <h3 className="text-3xl font-serif italic text-stone-800 leading-tight">{selectedNode?.title || selectedNode?.subject}</h3>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-6 bg-stone-50 rounded-3xl border border-stone-100">
+                        <p className="text-[8px] font-black uppercase text-stone-400 mb-1">Timeline Node</p>
+                        <p className="text-sm font-bold text-stone-800">{format(parseISO(selectedNode?.dateField || ""), "eeee, do MMM")}</p>
+                      </div>
+                      <div className="p-6 bg-stone-50 rounded-3xl border border-stone-100">
+                        <p className="text-[8px] font-black uppercase text-stone-400 mb-1">Dispatch Time</p>
+                        <p className="text-sm font-bold text-stone-800">{format(parseISO(selectedNode?.dateField || ""), "HH:mm")}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-10 bg-stone-50 rounded-[3rem] border border-stone-100 min-h-[150px]">
+                      <p className="text-[8px] font-black uppercase text-stone-400 mb-4 tracking-[0.4em]">Intelligence</p>
+                      <p className="text-sm text-stone-600 italic leading-relaxed">{selectedNode?.description || selectedNode?.content || "No intelligence provided."}</p>
+                    </div>
+
+                    {selectedNode?.vc_link && (
+                      <a href={selectedNode.vc_link} target="_blank" className="flex items-center justify-between p-8 bg-stone-900 text-white rounded-[2.5rem] hover:bg-[#a9b897] transition-all">
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Initialize Transmission</span>
+                        <ExternalLink size={18} />
                       </a>
                     )}
-                    {selectedTask?.location && <div className="flex items-center gap-4 text-stone-600 px-2"><MapPin size={18} className="text-[#a9b897]"/> <span className="text-[10px] font-black uppercase tracking-widest">{selectedTask.location}</span></div>}
-                    <div className="p-6 bg-stone-50 rounded-[2.5rem] border border-stone-100 min-h-[120px]">
-                      <p className="text-[8px] font-black uppercase text-stone-300 mb-3 tracking-widest">Intelligence Content</p>
-                      <p className="text-xs text-stone-600 leading-relaxed italic">{selectedTask?.description || selectedTask?.content || "No strategic context currently attached."}</p>
-                    </div>
                   </div>
                 )}
               </div>
 
-              {viewMode === "create" && (
-                <div className="pt-8 shrink-0">
-                  <button onClick={handleCreateEntry} disabled={isSubmitting || !newTitle} className="w-full bg-stone-900 text-white py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-2 hover:bg-[#a9b897] transition-all shadow-xl disabled:opacity-50">
+              {/* Modal Footer */}
+              <div className="p-10 pt-4 border-t border-stone-50 shrink-0">
+                {viewMode === "create" ? (
+                  <button 
+                    onClick={commitNewEntry} disabled={isSubmitting || !formTitle}
+                    className="w-full bg-stone-900 text-white py-6 rounded-3xl text-[10px] font-black uppercase tracking-[0.5em] flex items-center justify-center gap-3 hover:bg-[#a9b897] transition-all disabled:opacity-50"
+                  >
                     {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Establish Entry
                   </button>
-                </div>
-              )}
+                ) : (
+                  <div className="flex gap-4">
+                    <button className="flex-1 py-5 rounded-2xl border border-stone-100 text-[9px] font-black uppercase tracking-widest text-stone-400 hover:text-red-500 hover:bg-red-50 transition-all">Destroy Node</button>
+                    <button className="flex-1 py-5 rounded-2xl bg-stone-50 border border-stone-100 text-[9px] font-black uppercase tracking-widest text-stone-600">Modify Protocol</button>
+                  </div>
+                )}
+              </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1600px] mx-auto grid lg:grid-cols-12 gap-12">
+      <div className="max-w-[1700px] mx-auto p-6 md:p-12 grid lg:grid-cols-12 gap-10 md:gap-20">
         
-        {/* CHRONOS PROTOCOL MAIN INTERFACE */}
-        <div className="lg:col-span-9">
-          <div className="flex justify-between items-center mb-10 px-4">
-             <div>
-               <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-[1px] bg-[#a9b897]" />
-                    <p className="text-[9px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Chronos Infrastructure</p>
-               </div>
-               <h1 className="text-5xl md:text-8xl font-serif italic text-stone-800 lowercase tracking-tighter leading-[0.8]">
-                 {format(currentMonth, "MMMM")} <span className="text-stone-300">{format(currentMonth, "yyyy")}</span>
-               </h1>
-             </div>
-             <div className="flex gap-3">
-                <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-4 bg-white border border-stone-100 rounded-2xl shadow-sm hover:border-[#a9b897] transition-colors"><ChevronLeft size={20}/></button>
-                <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-4 bg-white border border-stone-100 rounded-2xl shadow-sm hover:border-[#a9b897] transition-colors"><ChevronRight size={20}/></button>
-             </div>
-          </div>
-          
-          <div className="bg-white rounded-[4rem] border border-stone-100 shadow-sm overflow-hidden grid grid-cols-7 p-2">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-              <div key={d} className="py-6 text-center text-[9px] font-black uppercase tracking-[0.3em] text-stone-300">{d}</div>
-            ))}
-            {calendarDays.map((day) => {
-              const dayEvents = getEventsForDay(day);
-              return (
-                <div 
-                  key={day.toISOString()}
-                  onClick={() => handleDayClick(day)}
-                  className={`min-h-[150px] p-4 border border-stone-50 rounded-[2.5rem] transition-all cursor-pointer relative group
-                    ${!isSameMonth(day, currentMonth) ? 'bg-stone-50/10 opacity-20' : 'bg-white hover:bg-stone-50/50'}
-                    ${isSameDay(day, selectedDay) ? 'bg-stone-50/80' : ''}
-                  `}
-                >
-                  <span className={`text-xs font-black transition-all ${isSameDay(day, new Date()) ? 'bg-stone-900 text-white px-2 py-1 rounded-lg' : 'text-stone-400 group-hover:text-stone-900'}`}>
-                    {format(day, "d")}
-                  </span>
-                  <div className="mt-3 space-y-1.5 relative z-10">
-                    {dayEvents.slice(0, 3).map((item, i) => (
-                      <div 
-                        key={item.id || i} 
-                        onClick={(e) => handleEventClick(e, item)}
-                        className="text-[8px] font-black uppercase truncate p-2 rounded-xl border-l-2 bg-white shadow-sm hover:translate-x-1 transition-all hover:border-[#a9b897] pointer-events-auto flex items-center gap-2" 
-                        style={{ borderLeftColor: item.colour || '#A3B18A' }}
-                      >
-                        {item.displayType === 'SIGNAL' ? <Mail size={10} className="shrink-0 text-purple-400"/> : <Zap size={10} className="shrink-0 text-stone-300"/>}
-                        <span className="truncate">{item.title || item.subject}</span>
-                      </div>
-                    ))}
-                    {dayEvents.length > 3 && <div className="text-[7px] font-black text-[#a9b897] pl-1 tracking-widest">+{dayEvents.length - 3} ENTRIES</div>}
+        {/* --- LEFT: CALENDAR INFRASTRUCTURE --- */}
+        <div className="lg:col-span-9 space-y-12">
+          <header className="flex flex-col md:flex-row md:items-end justify-between gap-10">
+            <div>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-0.5 bg-[#a9b897]" />
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897]">Chronos Temporal Unit</p>
+              </div>
+              <h1 className="text-6xl md:text-[8rem] font-serif italic text-stone-800 tracking-tighter leading-[0.8] lowercase">
+                {format(currentMonth, "MMMM")} <span className="text-stone-200">{format(currentMonth, "yyyy")}</span>
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-3 p-2 bg-white rounded-3xl border border-stone-100 shadow-sm">
+              <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-4 hover:bg-stone-50 rounded-2xl transition-all"><ChevronLeft size={20}/></button>
+              <div className="h-6 w-px bg-stone-100" />
+              <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-4 hover:bg-stone-50 rounded-2xl transition-all"><ChevronRight size={20}/></button>
+            </div>
+          </header>
+
+          <div className="bg-white rounded-[4rem] border border-stone-100 shadow-2xl overflow-hidden">
+            {/* Weekday Labels */}
+            <div className="grid grid-cols-7 border-b border-stone-50 bg-stone-50/20">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+                <div key={d} className="py-8 text-center text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">{d}</div>
+              ))}
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7">
+              {daysInPeriod.map((day, idx) => {
+                const nodes = getNodesForDate(day);
+                const isSelected = isSameDay(day, selectedDay);
+                const isCurrentMonth = isSameMonth(day, currentMonth);
+                const isToday = isSameDay(day, new Date());
+
+                return (
+                  <div 
+                    key={day.toISOString()}
+                    onClick={() => handleOpenCreate(day)}
+                    className={`min-h-[160px] p-5 border-r border-b border-stone-50 transition-all cursor-pointer relative group
+                      ${!isCurrentMonth ? 'opacity-20 bg-stone-50/50' : 'bg-white hover:bg-stone-50/30'}
+                      ${isSelected ? 'bg-[#a9b897]/5' : ''}
+                      ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''}
+                    `}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <span className={`text-[11px] font-black p-2 rounded-xl transition-all ${isToday ? 'bg-stone-900 text-white shadow-lg' : 'text-stone-300 group-hover:text-stone-900'}`}>
+                        {format(day, "d")}
+                      </span>
+                      {nodes.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-[#a9b897] animate-pulse mt-2 mr-1" />}
+                    </div>
+
+                    <div className="space-y-1.5 relative z-10">
+                      {nodes.slice(0, 3).map((node, i) => (
+                        <div 
+                          key={node.id || i}
+                          onClick={(e) => handleViewNode(e, node)}
+                          className="px-3 py-1.5 rounded-xl bg-white border border-stone-100 text-[8px] font-black uppercase truncate text-stone-600 hover:border-[#a9b897] transition-all flex items-center gap-2"
+                        >
+                          <div className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: node.colour || node.color || '#A3B18A' }} />
+                          <span className="truncate">{node.title || node.subject}</span>
+                        </div>
+                      ))}
+                      {nodes.length > 3 && (
+                        <p className="text-[7px] font-black text-[#a9b897] pl-1 tracking-widest mt-1">+{nodes.length - 3} NODES</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* SIDEBAR: PROTOCOL STATUS & AGENDA */}
-        <aside className="lg:col-span-3 space-y-8">
-          <div className="bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-xl flex flex-col min-h-[600px] sticky top-10">
-             
-             {/* NEW: Signal Health Indicator */}
-             <div className="flex items-center justify-between mb-8 p-4 bg-stone-50 rounded-[2rem] border border-stone-100">
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Activity size={18} className="text-[#a9b897]" />
-                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#a9b897] rounded-full animate-ping" />
-                    </div>
-                    <div>
-                        <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Signal Health</p>
-                        <p className="text-[10px] font-black uppercase text-stone-800">Optimised</p>
-                    </div>
-                </div>
-                <div className="flex gap-0.5">
-                    {[1,2,3,4,5].map(i => <div key={i} className={`w-1 h-3 rounded-full ${i < 5 ? 'bg-[#a9b897]' : 'bg-stone-200'}`} />)}
-                </div>
-             </div>
+        {/* --- RIGHT: PROTOCOL AGGREGATOR --- */}
+        <aside className="lg:col-span-3">
+          <div className="bg-white p-10 rounded-[4.5rem] border border-stone-100 shadow-2xl flex flex-col sticky top-12 h-[calc(100vh-100px)]">
+            
+            <SignalStatus />
 
-             <div className="flex justify-between items-start mb-10 shrink-0">
-                <div>
-                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-2">{format(selectedDay, "EEEE")}</p>
-                   <h2 className="text-4xl font-serif italic text-stone-800 tracking-tighter leading-none">{format(selectedDay, "do MMM")}</h2>
-                </div>
-                <button onClick={() => { setViewMode("create"); setIsModalOpen(true); }} className="p-5 bg-stone-900 text-white rounded-[1.5rem] shadow-xl hover:bg-[#a9b897] transition-all active:scale-95"><Plus size={24}/></button>
-             </div>
+            <div className="mb-10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-6 h-px bg-[#a9b897]" />
+                <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[#a9b897]">{format(selectedDay, "EEEE")}</p>
+              </div>
+              <h2 className="text-5xl font-serif italic text-stone-800 tracking-tighter">{format(selectedDay, "do MMM")}</h2>
+            </div>
 
-             <div className="flex-1 space-y-4 overflow-y-auto max-h-[400px] no-scrollbar pr-1">
-                {selectedDayEvents.length === 0 ? (
-                  <div className="py-20 text-center">
-                    <Shield className="mx-auto mb-4 text-stone-100" size={40}/>
-                    <p className="text-[10px] font-serif italic text-stone-400">Protocol Clear. Zero entries.</p>
-                  </div>
-                ) : (
-                  selectedDayEvents.map((e, i) => (
-                    <div key={e.id || i} onClick={(ev) => handleEventClick(ev, e)} className="p-5 rounded-[2rem] bg-stone-50 border border-stone-100 cursor-pointer hover:bg-white hover:shadow-2xl hover:shadow-[#a9b897]/5 transition-all group">
-                      <div className="flex justify-between items-center mb-2">
-                         <span className="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-white shadow-sm flex items-center gap-2" style={{ color: e.colour }}>
-                            {e.displayType === 'SIGNAL' ? <Radio size={10} className="animate-pulse"/> : <Zap size={10}/>} {e.displayType}
-                         </span>
-                         <span className="text-[9px] font-bold text-stone-400">{format(new Date(e.dateField), "HH:mm")}</span>
-                      </div>
-                      <p className="text-[11px] font-black text-stone-800 uppercase leading-tight group-hover:text-[#a9b897] transition-colors">{e.title || e.subject}</p>
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-1 pb-10">
+              {activeDayNodes.length === 0 ? (
+                <div className="py-20 text-center flex flex-col items-center opacity-30">
+                  <Shield size={48} strokeWidth={1} className="mb-4 text-stone-200" />
+                  <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Temporal Void</p>
+                </div>
+              ) : (
+                activeDayNodes.map((node, i) => (
+                  <motion.div 
+                    key={node.id || i}
+                    initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+                    onClick={(e) => handleViewNode(e, node)}
+                    className="p-6 rounded-[2.5rem] bg-stone-50 border border-stone-100 cursor-pointer hover:bg-white hover:shadow-xl hover:shadow-[#a9b897]/10 transition-all group"
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-[#a9b897] flex items-center gap-1.5">
+                        {node.displayType === 'SIGNAL' ? <Radio size={10} /> : <Zap size={10} />}
+                        {node.displayType}
+                      </span>
+                      <span className="text-[9px] font-bold text-stone-300 group-hover:text-stone-900 transition-colors">
+                        {format(parseISO(node.dateField), "HH:mm")}
+                      </span>
                     </div>
-                  ))
-                )}
-             </div>
+                    <p className="text-[11px] font-black text-stone-800 uppercase leading-tight tracking-tight">{node.title || node.subject}</p>
+                  </motion.div>
+                ))
+              )}
+            </div>
 
-             <div className="mt-10 pt-8 border-t border-stone-50">
-                <div className="bg-stone-900 p-8 rounded-[2.5rem] text-white relative overflow-hidden group shadow-2xl">
-                   <div className="absolute top-0 right-0 p-4 opacity-10">
-                      <Landmark size={80} />
-                   </div>
-                   <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-500 mb-1">Infrastructure Status</p>
-                   <p className="text-lg font-serif italic text-[#a9b897]">Protocol v.2.4.0 Synced</p>
-                </div>
-             </div>
+            <div className="pt-6 space-y-3">
+              <button 
+                onClick={() => handleOpenCreate(selectedDay)}
+                className="w-full bg-stone-900 text-[#a9b897] py-6 rounded-3xl shadow-xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                <Plus size={18} />
+                <span className="text-[10px] font-black uppercase tracking-[0.4em]">Establish Entry</span>
+              </button>
+              
+              <div className="flex gap-2">
+                <button className="flex-1 p-4 bg-stone-50 rounded-2xl text-stone-400 hover:text-stone-900 flex justify-center transition-all"><Settings size={18}/></button>
+                <button className="flex-1 p-4 bg-stone-50 rounded-2xl text-stone-400 hover:text-stone-900 flex justify-center transition-all"><RefreshCw size={18}/></button>
+              </div>
+            </div>
           </div>
         </aside>
-
       </div>
 
+      {/* Global CSS Overrides */}
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .shadow-3xl {
+          box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.15);
+        }
+
+        input[type="date"], input[type="time"] {
+          position: relative;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+          background: transparent;
+          bottom: 0;
+          color: transparent;
+          cursor: pointer;
+          height: auto;
+          left: 0;
+          position: absolute;
+          right: 0;
+          top: 0;
+          width: auto;
+        }
       `}</style>
     </div>
   );

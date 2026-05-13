@@ -3,12 +3,12 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { getUserTeam } from "@/lib/getUserTeam";
-import { getUserRole, canCreate } from "@/lib/permissions";
 import { 
-  Sparkles, FolderPlus, ArrowRight, 
-  Briefcase, ShieldCheck, Activity,
-  Plus, X, Loader2, Zap, Globe, Trash2,
-  Calendar as CalendarIcon, Clock, CheckSquare, Layers, Users, BarChart3, MessageSquare, Info, Save, ChevronDown, MoreHorizontal, Search, Eye, FileText, Check, AlertCircle, Sparkle, Tag, Folder, PanelLeftClose, PanelLeft, LayoutGrid, ListTodo, ClipboardCheck, ArrowUpRight, FolderKanban, Star, Settings, User, StickyNote
+  Plus, X, Loader2, Folder, CheckSquare, BarChart3, 
+  Layers, Users, Star, Tag, StickyNote, Check, 
+  Trash2, Search, Activity, Sparkles, Info, Settings, 
+  User, Calendar, MoreHorizontal, ChevronRight,
+  ArrowUpRight, AlertCircle, Layout, ListTodo, ClipboardCheck, LayoutGrid
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
@@ -20,12 +20,10 @@ interface Task {
   id: string;
   project_id: string;
   name: string;
-  status: "Backlog" | "In Progress" | "Completed";
+  status: "Backlog" | "In Progress" | "Completed" | "On Hold";
   priority: "Low" | "Medium" | "High";
-  dueDate?: string;
-  assignee?: string;
-  subtasks?: string[];
-  comments?: string[];
+  assignee_name?: string;
+  due_date?: string;
 }
 
 interface Note {
@@ -34,46 +32,35 @@ interface Note {
   category: string;
   color: string;
   is_urgent: boolean;
-  metadata?: { rotation: string };
+}
+
+interface Goal {
+  id: string;
+  title: string;
+  progress: number;
+  deadline: string;
 }
 
 export default function ProjectsPage() {
   const [isMounted, setIsMounted] = useState(false);
-  const [activeMode, setActiveMode] = useState("work"); 
   const [activeTab, setActiveTab] = useState("overview"); 
+  const [loading, setLoading] = useState(true);
 
-  // Core Data States
+  // Data States
   const [projects, setProjects] = useState<any[]>([]);
   const [allNotes, setAllNotes] = useState<Note[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamId, setTeamId] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   
-  // UI Interaction States
+  // UI States
   const [selectedProject, setSelectedProject] = useState<any>(null);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [newTaskName, setNewTaskName] = useState<{ [key: string]: string }>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [newTaskName, setNewTaskName] = useState<{ [key: string]: string }>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Intelligence States
-  const [isScanActive, setIsScanActive] = useState(false);
-  const [insight, setInsight] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
-
-  // High-Fidelity Mock Data
-  const [goals] = useState([
-    { id: 1, title: "Double ecosystem deployment speed", progress: 75, target: "Q3 2026" },
-    { id: 2, title: "Achieve 99.9% uptime on all nodes", progress: 90, target: "Q4 2026" }
-  ]);
-
-  const [workload] = useState([
-    { member: "Jane Doe", tasksAssigned: 5, capacity: 85, status: "Active" },
-    { member: "John Smith", tasksAssigned: 3, capacity: 60, status: "Active" },
-  ]);
 
   const supabase = useMemo(() => {
     return createBrowserClient(
@@ -82,90 +69,114 @@ export default function ProjectsPage() {
     );
   }, []);
 
-  // --- DATA ENGINE ---
+  // --- DATABASE ENGINE ---
   const loadData = useCallback(async (team: string) => {
-    const [projRes, noteRes] = await Promise.all([
-      supabase.from("projects").select("*, customers(name)").eq("team_id", team).order("created_at", { ascending: false }),
-      supabase.from("notes").select("*")
-    ]);
+    setLoading(true);
+    try {
+      const [projRes, noteRes, taskRes] = await Promise.all([
+        supabase.from("projects").select("*").eq("team_id", team).order("created_at", { ascending: false }),
+        supabase.from("notes").select("*"),
+        supabase.from("project_tasks").select("*")
+      ]);
 
-    if (!projRes.error) setProjects(projRes.data || []);
-    if (!noteRes.error) setAllNotes(noteRes.data || []);
-    
-    setLoading(false);
-  }, [supabase]);
+      if (projRes.error) throw projRes.error;
+      
+      const projectList = projRes.data || [];
+      setProjects(projectList);
+      setAllNotes(noteRes.data || []);
+      setTasks(taskRes.data || []);
+      
+      // Auto-select first project if none selected
+      if (projectList.length > 0 && !selectedProject) {
+        setSelectedProject(projectList[0]);
+      }
+    } catch (err) {
+      console.error("Critical Sync Error:", err);
+      toast.error("Database connection failed");
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase, selectedProject]);
 
   useEffect(() => {
     setIsMounted(true);
     async function init() {
       const team = await getUserTeam();
-      const r = await getUserRole();
-
       if (!team) {
-        setTeamId("team-123");
-        setRole("admin");
-        setCustomers([{ id: "c1", name: "Apex Solutions" }]);
-        setProjects([
-          { id: "p1", name: "Project Zero", customers: { name: "Apex Solutions" }, created_at: new Date().toISOString() },
-          { id: "p2", name: "Atlas Stream", customers: { name: "Apex Solutions" }, created_at: new Date().toISOString() }
-        ]);
-        setTasks([
-          { id: "t1", project_id: "p1", name: "Configure Node Network", status: "In Progress", priority: "High", dueDate: "2026-05-15", assignee: "Jane Doe" },
-          { id: "t2", project_id: "p1", name: "Run diagnostic baseline", status: "Backlog", priority: "Medium", dueDate: "2026-05-20", assignee: "John Smith" }
-        ]);
+        setTeamId("local-dev-team");
         setLoading(false);
         return;
       }
       setTeamId(team);
-      setRole(r);
       loadData(team);
     }
     init();
   }, [loadData]);
 
-  // --- LOGIC ---
-  const runClarityScan = () => {
-    setIsScanActive(true);
-    setTimeout(() => {
-      setInsight("Optimal throughput detected across all project nodes.");
-      setIsScanActive(false);
-      toast.success("Intelligence scan complete.");
-    }, 2200);
-  };
-
+  // --- ACTIONS ---
   const handleCreateProject = async () => {
-    if (!projectName.trim() || !teamId) return;
-    setIsSyncing(true);
-    const { data, error } = await supabase.from("projects").insert([{ 
-      name: projectName, 
-      team_id: teamId,
-      status: "active" 
-    }]).select();
-
-    if (!error) {
-      toast.success("Project workspace initialized.");
-      setProjectName("");
-      setShowCreateModal(false);
-      loadData(teamId);
+    if (!projectName.trim() || !teamId) {
+        toast.error("A project name is required");
+        return;
     }
-    setIsSyncing(false);
+
+    setIsSyncing(true);
+    try {
+        const { data, error } = await supabase
+            .from("projects")
+            .insert([{ 
+                name: projectName.trim(), 
+                team_id: teamId,
+                status: "active",
+                priority: "Medium"
+            }])
+            .select();
+
+        if (error) throw error;
+
+        toast.success("Project Created");
+        setProjectName("");
+        setShowCreateModal(false);
+        await loadData(teamId); // Full refresh to update UI
+    } catch (err: any) {
+        console.error("Creation Error:", err);
+        toast.error("Failed to save project to database");
+    } finally {
+        setIsSyncing(false);
+    }
   };
 
-  const handleAddTask = (projectId: string) => {
-    const taskName = newTaskName[projectId]?.trim();
-    if (!taskName) return;
-    const newTask: Task = {
-      id: Math.random().toString(36).substr(2, 9),
-      project_id: projectId,
-      name: taskName,
-      status: "Backlog",
-      priority: "Medium"
-    };
-    setTasks([...tasks, newTask]);
-    setNewTaskName({ ...newTaskName, [projectId]: "" });
-    toast.success("Task appended to ledger.");
+  const handleAddTask = async (projectId: string) => {
+    const name = newTaskName[projectId]?.trim();
+    if (!name) return;
+    
+    try {
+      const { data, error } = await supabase.from("project_tasks").insert([{
+        project_id: projectId,
+        name,
+        status: "Backlog",
+        priority: "Medium"
+      }]).select();
+
+      if (error) throw error;
+
+      setTasks([...tasks, ...data]);
+      setNewTaskName({ ...newTaskName, [projectId]: "" });
+      toast.success("Task Added");
+    } catch (err) {
+      toast.error("Failed to add task");
+    }
   };
 
+  const deleteTask = async (taskId: string) => {
+    const { error } = await supabase.from("project_tasks").delete().eq("id", taskId);
+    if (!error) {
+        setTasks(tasks.filter(t => t.id !== taskId));
+        toast.success("Task Removed");
+    }
+  };
+
+  // --- MEMOIZED LOGIC ---
   const linkedNotes = useMemo(() => {
     if (!selectedProject) return [];
     return allNotes.filter(note => 
@@ -173,248 +184,355 @@ export default function ProjectsPage() {
     );
   }, [allNotes, selectedProject]);
 
+  const projectTasks = useMemo(() => {
+    if (!selectedProject) return [];
+    return tasks.filter(t => t.project_id === selectedProject.id);
+  }, [tasks, selectedProject]);
+
+  const filteredProjects = projects.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const stats = useMemo(() => {
+    const total = projectTasks.length;
+    const completed = projectTasks.filter(t => t.status === "Completed").length;
+    return {
+        total,
+        completed,
+        percent: total > 0 ? Math.round((completed / total) * 100) : 0
+    };
+  }, [projectTasks]);
+
   const downloadPDF = async () => {
     if (!printRef.current) return;
     const canvas = await html2canvas(printRef.current);
     const pdf = new jsPDF("p", "mm", "a4");
     pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 210, 297);
-    pdf.save(`workspace_export.pdf`);
+    pdf.save(`Project_${selectedProject?.name || 'Report'}.pdf`);
   };
 
   if (!isMounted) return null;
   if (loading) return (
-    <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center gap-4">
-      <Loader2 className="animate-spin text-[var(--text-muted)]" size={32} />
-      <p className="font-serif italic text-[var(--text-muted)] text-lg">Initializing Ecosystem...</p>
+    <div className="h-screen bg-[#F9F9F7] flex flex-col items-center justify-center gap-6">
+      <Loader2 className="animate-spin text-stone-300" size={40} />
+      <p className="font-serif italic text-stone-400 text-2xl">Syncing Project Data...</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] p-8 lg:p-12 max-w-[1700px] mx-auto overflow-hidden">
+    <div className="min-h-screen bg-[#F9F9F7] text-[#1C1917] p-8 lg:p-12 max-w-[1700px] mx-auto overflow-hidden">
       
-      {/* 1. MASTER HEADER */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[var(--border)] pb-8 gap-8 mb-12">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-2xl bg-[var(--brand-primary)] text-white flex items-center justify-center font-black">T</div>
-            <span className="font-serif italic text-xl font-bold">Workspace</span>
+      {/* HEADER SECTION */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-10 gap-8 mb-12">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-stone-900 text-white flex items-center justify-center font-black text-sm shadow-xl">P</div>
+            <span className="font-serif italic text-2xl font-bold tracking-tight">Ecosystem</span>
           </div>
-          <p className="text-[var(--brand-primary)] font-black uppercase text-[9px] tracking-[0.3em]">Operational Portfolio / {activeMode}</p>
-          <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Projects</h1>
+          <h1 className="text-8xl font-serif italic tracking-tighter leading-none">Projects</h1>
+          <div className="flex items-center gap-4 text-stone-400">
+            <span className="text-[9px] font-black uppercase tracking-[0.4em]">Database: Connected</span>
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          </div>
         </div>
 
-        <div className="flex gap-3">
-          <button onClick={runClarityScan} disabled={isScanActive} className="flex items-center gap-3 bg-[var(--card-bg)] border border-[var(--border)] px-6 py-4 rounded-2xl shadow-sm hover:shadow-xl transition-all text-[var(--text-muted)] hover:text-[var(--text-main)] group">
-            {isScanActive ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} className="text-[var(--brand-primary)] group-hover:scale-125 transition-transform" />}
-            <span className="text-[10px] font-black uppercase tracking-wider">Scan Space</span>
+        <div className="flex flex-wrap gap-4">
+          <button 
+            onClick={() => setShowCreateModal(true)} 
+            className="flex items-center gap-3 bg-stone-900 text-white px-8 py-5 rounded-[2rem] shadow-2xl hover:bg-stone-800 transition-all active:scale-95 group"
+          >
+            <Plus size={20} className="group-hover:rotate-90 transition-transform" />
+            <span className="text-[10px] font-black uppercase tracking-widest">New Project</span>
           </button>
           
-          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-3 bg-stone-900 text-white px-6 py-4 rounded-2xl shadow-xl hover:bg-stone-700 transition-all active:scale-95">
-            <Plus size={16} />
-            <span className="text-[10px] font-black uppercase tracking-wider">New Project</span>
-          </button>
-
-          <button onClick={downloadPDF} className="flex items-center gap-3 bg-white border border-stone-100 px-6 py-4 rounded-2xl text-stone-400 hover:text-stone-900 transition-all">
-            <Folder size={16} />
-            <span className="text-[10px] font-black uppercase tracking-wider">Export PDF</span>
+          <button 
+            onClick={downloadPDF} 
+            className="flex items-center gap-3 bg-white border border-stone-200 px-8 py-5 rounded-[2rem] text-stone-400 hover:text-stone-900 transition-all shadow-sm"
+          >
+            <Folder size={20} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Export Report</span>
           </button>
         </div>
       </header>
 
-      {/* 2. MODE NAVIGATION */}
-      <div className="flex flex-wrap gap-4 pb-6 border-b border-[var(--border)] mb-12">
-        {[
-          { id: "work", label: "Operations", icon: <CheckSquare size={14} /> },
-          { id: "strategy", label: "Strategy", icon: <BarChart3 size={14} /> },
-          { id: "workflows", label: "Workflows", icon: <Layers size={14} /> },
-          { id: "company", label: "Company", icon: <Users size={14} /> }
-        ].map((mode) => (
-          <button 
-            key={mode.id}
-            onClick={() => setActiveMode(mode.id)}
-            className={`flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeMode === mode.id ? "bg-stone-900 text-white" : "bg-[var(--card-bg)] text-[var(--text-muted)] border border-[var(--border)] hover:bg-[var(--bg-soft)]"
-            }`}
-          >
-            {mode.icon} <span>{mode.label}</span>
-          </button>
-        ))}
-      </div>
+      <div className="flex flex-col xl:flex-row gap-16">
+        
+        {/* SIDEBAR NAVIGATION */}
+        <aside className="w-full xl:w-80 space-y-10">
+          <div className="space-y-6">
+            <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
+                <input 
+                    placeholder="Search Projects..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-stone-100 border border-stone-200 rounded-2xl py-4 pl-12 pr-4 text-xs outline-none focus:bg-white focus:ring-2 ring-stone-900/5 transition-all"
+                />
+            </div>
 
-      <div className="flex flex-col lg:flex-row gap-12">
-        {/* 3. SIDEBAR: PROJECT EXPLORER */}
-        <aside className="w-full lg:w-72 border-r border-[var(--border)] pr-8 space-y-8">
-          <div>
-            <span className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-[0.2em] mb-4 block">Active Projects</span>
             <div className="space-y-2">
-              {projects.map((p) => (
-                <button 
-                  key={p.id}
-                  onClick={() => setSelectedProject(p)}
-                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-xs text-left transition-all ${selectedProject?.id === p.id ? "bg-stone-100 font-bold border-l-4 border-stone-900" : "text-[var(--text-muted)] hover:bg-[var(--bg-soft)]"}`}
-                >
-                  <span className="truncate">{p.name}</span>
-                  <Star size={12} className={selectedProject?.id === p.id ? "text-stone-900" : "opacity-0"} />
-                </button>
-              ))}
+              <div className="flex justify-between items-center px-2 mb-2">
+                <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em]">Active Ledger</span>
+                <span className="text-[9px] font-black text-stone-300">{projects.length} Total</span>
+              </div>
+              <div className="max-h-[500px] overflow-y-auto pr-2 space-y-1 custom-scrollbar">
+                {filteredProjects.map((p) => (
+                  <button 
+                    key={p.id}
+                    onClick={() => setSelectedProject(p)}
+                    className={`w-full flex items-center justify-between px-6 py-5 rounded-[2rem] text-xs text-left transition-all group ${
+                      selectedProject?.id === p.id 
+                      ? "bg-white shadow-xl border border-stone-100 font-bold text-stone-900" 
+                      : "text-stone-400 hover:bg-stone-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${selectedProject?.id === p.id ? 'bg-stone-900' : 'bg-stone-200'}`} />
+                        <span className="truncate">{p.name}</span>
+                    </div>
+                    <ChevronRight size={14} className={selectedProject?.id === p.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"} />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-          
-          <div className="p-6 bg-stone-50 rounded-3xl space-y-4">
-             <div className="flex items-center gap-2">
-                <Activity size={14} className="text-stone-400" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">System Insight</span>
+
+          {/* QUICK DASHBOARD WIDGET */}
+          <div className="p-10 bg-stone-900 rounded-[3rem] text-white space-y-8 relative overflow-hidden">
+             <div className="relative z-10 space-y-4">
+                <div className="flex items-center gap-2">
+                    <Activity size={16} className="text-amber-400" />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Global Status</span>
+                </div>
+                <h4 className="text-3xl font-serif italic">Operational</h4>
+                <p className="text-xs text-stone-400 leading-relaxed font-serif italic">Ecosystem performing within normal parameters. Completed {stats.percent}% of current sprint tasks.</p>
              </div>
-             <p className="text-xs font-serif italic leading-relaxed text-stone-500">{insight || "No active scan data."}</p>
+             <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-3xl" />
           </div>
         </aside>
 
-        {/* 4. DYNAMIC WORKSPACE CONTENT */}
-        <div className="flex-1 space-y-10" ref={printRef}>
-          <div className="flex flex-wrap gap-8 border-b border-[var(--border)] pb-3">
-            {["Overview", "Task Ledger", "Board", "Workload", "OKRs", "Linked Vault"].map((tab) => (
+        {/* MAIN WORKSPACE */}
+        <div className="flex-1 space-y-12" ref={printRef}>
+          
+          {/* TAB NAVIGATION */}
+          <div className="flex flex-wrap gap-10 border-b border-stone-200 pb-2">
+            {["Overview", "Tasks", "Board", "Workload", "Linked Notes"].map((tab) => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab.toLowerCase().replace(" ", "-"))}
-                className={`pb-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative ${
-                  activeTab === tab.toLowerCase().replace(" ", "-") ? "text-black border-b-2 border-black" : "text-[var(--text-muted)] hover:text-black"
+                className={`pb-4 text-[10px] font-black uppercase tracking-[0.3em] transition-all relative ${
+                  activeTab === tab.toLowerCase().replace(" ", "-") 
+                  ? "text-stone-900" 
+                  : "text-stone-300 hover:text-stone-500"
                 }`}
               >
                 {tab}
+                {activeTab === tab.toLowerCase().replace(" ", "-") && (
+                  <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-stone-900" />
+                )}
               </button>
             ))}
           </div>
 
-          {/* TAB: OVERVIEW */}
+          {/* VIEW: OVERVIEW */}
           {activeTab === "overview" && selectedProject && (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-12 pt-4">
-              <div className="xl:col-span-2 space-y-8">
-                <div className="bg-white border border-stone-100 p-12 rounded-[3.5rem] shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-5">
-                        <FolderKanban size={120} />
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-16 pt-4">
+              
+              <div className="xl:col-span-2 space-y-12">
+                <div className="bg-white border border-stone-100 p-16 rounded-[4rem] shadow-sm relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-12 opacity-5 scale-150 rotate-12 group-hover:rotate-0 transition-transform duration-1000">
+                    <LayoutGrid size={200} />
+                  </div>
+                  
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-4 mb-10">
+                        <span className="px-5 py-2 bg-stone-50 rounded-full text-[10px] font-black uppercase text-stone-400 tracking-widest border border-stone-100">Live Workspace</span>
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
                     </div>
-                    <span className="px-4 py-1.5 bg-stone-50 rounded-full text-[9px] font-black uppercase text-stone-400 tracking-widest border border-stone-100">Project Profile</span>
-                    <h2 className="text-7xl font-serif italic text-stone-900 mt-8 mb-4 tracking-tighter">{selectedProject.name}</h2>
-                    <div className="flex gap-4 border-t border-stone-50 pt-10 mt-10">
-                        <div className="p-6 bg-stone-50 rounded-[2rem] flex-1">
-                            <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Target Status</span>
-                            <p className="text-3xl font-serif italic text-stone-900 mt-2">Nominal</p>
+                    
+                    <h2 className="text-8xl font-serif italic text-stone-900 mb-8 tracking-tighter leading-none">{selectedProject.name}</h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mt-16 border-t border-stone-50 pt-16">
+                      <div className="bg-stone-50 p-8 rounded-[2rem] space-y-2">
+                        <span className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Total Progress</span>
+                        <div className="flex items-end gap-3">
+                            <p className="text-5xl font-serif italic text-stone-900">{stats.percent}%</p>
                         </div>
-                        <div className="p-6 bg-stone-50 rounded-[2rem] flex-1">
-                            <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Active Tasks</span>
-                            <p className="text-3xl font-serif italic text-stone-900 mt-2">{tasks.filter(t => t.project_id === selectedProject.id).length}</p>
-                        </div>
+                      </div>
+                      <div className="bg-stone-50 p-8 rounded-[2rem] space-y-2">
+                        <span className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Active Ledger</span>
+                        <p className="text-5xl font-serif italic text-stone-900">{projectTasks.length}</p>
+                      </div>
+                      <div className="bg-stone-50 p-8 rounded-[2rem] space-y-2">
+                        <span className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Vault Links</span>
+                        <p className="text-5xl font-serif italic text-stone-900">{linkedNotes.length}</p>
+                      </div>
                     </div>
+                  </div>
                 </div>
 
-                {/* WORKFLOW SUMMARY CARD */}
-                <div className="bg-stone-900 p-12 rounded-[3.5rem] text-white space-y-6">
-                    <h3 className="text-2xl font-serif italic">Operational Metrics</h3>
-                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                        <motion.div initial={{ width: 0 }} animate={{ width: '65%' }} className="h-full bg-white" />
-                    </div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Resources Allocated: 65% Capacity</p>
-                </div>
-              </div>
-
-              {/* LINKED VAULT PREVIEW */}
-              <div className="space-y-6">
-                <div className="flex items-center justify-between px-2">
-                    <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-stone-400">
-                        <StickyNote size={16} /> Linked Ledger
-                    </h3>
-                    <span className="text-[9px] font-black uppercase text-stone-300">Vault 1.0</span>
-                </div>
-                <div className="space-y-4">
-                    {linkedNotes.length > 0 ? (
-                        linkedNotes.map((note) => (
-                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={note.id} className="p-8 rounded-[2.5rem] shadow-sm border border-black/5 relative overflow-hidden group" style={{ backgroundColor: note.color }}>
-                                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-4 bg-white/20 backdrop-blur-md" />
-                                <p className="text-xl font-serif italic text-stone-800 leading-tight mb-4">{note.content}</p>
-                                <div className="flex items-center gap-2">
-                                    <Tag size={10} className="text-stone-400" />
-                                    <span className="text-[8px] font-black uppercase text-stone-400 tracking-widest">{note.category}</span>
-                                </div>
-                            </motion.div>
-                        ))
-                    ) : (
-                        <div className="p-16 border-2 border-dashed border-stone-100 rounded-[3rem] text-center">
-                            <p className="text-[10px] font-black uppercase text-stone-300 tracking-[0.2em]">No shared context in Vault for<br/>"{selectedProject.name}"</p>
-                        </div>
-                    )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: TASK LEDGER */}
-          {activeTab === "task-ledger" && selectedProject && (
-            <div className="bg-white border border-stone-100 p-12 rounded-[3.5rem] shadow-sm">
-                <div className="flex justify-between items-center mb-10">
-                    <h2 className="text-3xl font-serif italic">Task Ledger</h2>
-                    <span className="text-[9px] font-black uppercase text-stone-400 border border-stone-100 px-4 py-2 rounded-full">Archive All</span>
-                </div>
-                <div className="divide-y divide-stone-50 border-t border-stone-50">
-                    {tasks.filter(t => t.project_id === selectedProject.id).map(t => (
-                        <div key={t.id} className="flex justify-between items-center py-6 px-4 hover:bg-stone-50 rounded-2xl transition-all group">
-                            <div className="flex items-center gap-6">
-                                <div className="w-6 h-6 rounded-full border border-stone-200 flex items-center justify-center group-hover:border-stone-900 transition-all">
-                                    <Check size={12} className="text-stone-900 opacity-0 group-hover:opacity-100" />
-                                </div>
-                                <p className="text-lg font-serif italic text-stone-800">{t.name}</p>
-                            </div>
-                            <div className="flex items-center gap-6">
-                                <span className="text-[9px] font-black uppercase text-stone-400 border border-stone-100 px-3 py-1 rounded-lg">{t.priority}</span>
-                                <Trash2 size={14} className="text-stone-200 hover:text-red-400 cursor-pointer transition-all" />
-                            </div>
-                        </div>
-                    ))}
-                    <div className="pt-8 mt-4">
-                        <input
-                            placeholder="Draft new task to ledger..."
-                            value={newTaskName[selectedProject.id] || ""}
-                            onChange={(e) => setNewTaskName({ ...newTaskName, [selectedProject.id]: e.target.value })}
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddTask(selectedProject.id)}
-                            className="w-full p-6 bg-stone-50 border border-stone-100 rounded-[2rem] outline-none text-xl font-serif italic placeholder:text-stone-200 focus:bg-white focus:border-stone-900 transition-all"
-                        />
-                    </div>
-                </div>
-            </div>
-          )}
-
-          {/* TAB: OKRs */}
-          {activeTab === "okrs" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                {goals.map(goal => (
-                    <div key={goal.id} className="bg-white p-12 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-8">
+                {/* ADDITIONAL METRICS GRID */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-8">
                         <div className="flex justify-between items-center">
-                            <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Q3 Target: {goal.target}</span>
-                            <span className="text-2xl font-serif italic">{goal.progress}%</span>
+                            <h4 className="text-2xl font-serif italic">Task Completion</h4>
+                            <span className="text-[10px] font-black uppercase text-stone-400">Monthly Target</span>
                         </div>
-                        <h4 className="text-3xl font-serif italic leading-tight">{goal.title}</h4>
                         <div className="w-full h-1.5 bg-stone-50 rounded-full overflow-hidden">
-                            <motion.div initial={{ width: 0 }} animate={{ width: `${goal.progress}%` }} className="h-full bg-stone-900" />
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${stats.percent}%` }} className="h-full bg-stone-900" />
+                        </div>
+                        <div className="flex justify-between text-[10px] font-black uppercase text-stone-300">
+                            <span>{stats.completed} Completed</span>
+                            <span>{stats.total - stats.completed} Remaining</span>
                         </div>
                     </div>
-                ))}
+
+                    <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 shadow-sm space-y-8">
+                        <div className="flex justify-between items-center">
+                            <h4 className="text-2xl font-serif italic">Project Priority</h4>
+                            <AlertCircle size={20} className="text-amber-500" />
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex-1 h-2 bg-stone-900 rounded-full" />
+                            <div className="flex-1 h-2 bg-stone-900 rounded-full" />
+                            <div className="flex-1 h-2 bg-stone-50 rounded-full" />
+                        </div>
+                        <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.2em]">Priority set to High Efficiency</p>
+                    </div>
+                </div>
+              </div>
+
+              {/* VAULT SIDEBAR */}
+              <div className="space-y-10">
+                <div className="flex items-center justify-between px-4">
+                    <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-3 text-stone-400">
+                        <StickyNote size={18} /> Vault Ledger
+                    </h3>
+                    <button onClick={() => window.location.href='/vault'} className="text-[9px] font-black text-stone-300 hover:text-stone-900 transition-colors">Go to Vault</button>
+                </div>
+                
+                <div className="space-y-8">
+                  {linkedNotes.length > 0 ? (
+                    linkedNotes.map((note) => (
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        key={note.id} 
+                        className="p-10 rounded-[3rem] shadow-sm border border-black/5 relative overflow-hidden group hover:shadow-xl transition-all" 
+                        style={{ backgroundColor: note.color }}
+                      >
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-white/30 backdrop-blur-md border-x border-b border-white/20 z-10" />
+                        <p className="text-2xl font-serif italic text-stone-900 leading-tight mt-6 mb-8">"{note.content}"</p>
+                        <div className="flex items-center justify-between border-t border-black/5 pt-6">
+                            <div className="flex items-center gap-2">
+                                <Tag size={12} className="text-stone-400" />
+                                <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">{note.category}</span>
+                            </div>
+                            {note.is_urgent && <AlertCircle size={14} className="text-red-500" />}
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <div className="p-24 border-2 border-dashed border-stone-200 rounded-[4rem] text-center space-y-4">
+                      <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto">
+                        <Tag size={20} className="text-stone-200" />
+                      </div>
+                      <p className="text-[10px] font-black uppercase text-stone-300 tracking-[0.3em] leading-relaxed">
+                        No context found in Vault for<br/>"{selectedProject.name}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* TAB: WORKLOAD */}
-          {activeTab === "workload" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                {workload.map(user => (
-                    <div key={user.member} className="bg-white p-10 rounded-[3rem] border border-stone-100 shadow-sm flex items-center gap-8">
-                        <div className="w-20 h-20 bg-stone-900 rounded-[2rem] flex items-center justify-center text-white text-3xl font-black">{user.member.charAt(0)}</div>
-                        <div className="flex-1 space-y-2">
-                            <h3 className="text-3xl font-serif italic">{user.member}</h3>
-                            <div className="flex justify-between items-center">
-                                <span className="text-[9px] font-black uppercase text-stone-400">Utilization</span>
-                                <span className="text-[10px] font-black text-stone-900">{user.capacity}%</span>
+          {/* VIEW: TASKS */}
+          {activeTab === "tasks" && selectedProject && (
+            <div className="bg-white border border-stone-100 p-16 rounded-[4.5rem] shadow-sm space-y-12">
+              <div className="flex justify-between items-end">
+                <div className="space-y-2">
+                    <h2 className="text-6xl font-serif italic tracking-tighter">Task Ledger</h2>
+                    <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.3em]">Operational Items for {selectedProject.name}</p>
+                </div>
+                <div className="flex gap-4">
+                    <button className="p-4 bg-stone-50 rounded-2xl text-stone-400 hover:text-stone-900 transition-all"><Settings size={18} /></button>
+                </div>
+              </div>
+
+              <div className="divide-y divide-stone-50 border-t border-stone-50">
+                {projectTasks.length > 0 ? (
+                    projectTasks.map(t => (
+                        <div key={t.id} className="flex justify-between items-center py-8 px-8 hover:bg-stone-50 rounded-[2.5rem] transition-all group">
+                          <div className="flex items-center gap-8">
+                            <div 
+                                onClick={() => deleteTask(t.id)}
+                                className="w-8 h-8 rounded-full border-2 border-stone-100 flex items-center justify-center group-hover:border-stone-900 transition-all cursor-pointer"
+                            >
+                              <Check size={16} className="text-stone-900 opacity-0 group-hover:opacity-100" />
                             </div>
-                            <div className="w-full h-1 bg-stone-50 rounded-full overflow-hidden">
-                                <div className="h-full bg-stone-900" style={{ width: `${user.capacity}%` }} />
+                            <div className="space-y-1">
+                                <p className="text-2xl font-serif italic text-stone-800">{t.name}</p>
+                                <span className="text-[9px] font-black uppercase text-stone-300 tracking-widest">{t.status}</span>
                             </div>
+                          </div>
+                          <div className="flex items-center gap-10">
+                              <div className="flex items-center gap-3">
+                                  <User size={14} className="text-stone-300" />
+                                  <span className="text-[9px] font-bold text-stone-400 uppercase">Unassigned</span>
+                              </div>
+                              <span className="text-[9px] font-black uppercase text-stone-400 border border-stone-100 px-5 py-2 rounded-xl bg-white shadow-sm">{t.priority}</span>
+                          </div>
+                        </div>
+                      ))
+                ) : (
+                    <div className="py-24 text-center">
+                        <p className="text-xl font-serif italic text-stone-300">The ledger is empty. Start adding tasks below.</p>
+                    </div>
+                )}
+              </div>
+
+              <div className="pt-12 border-t border-stone-100">
+                <div className="flex gap-6">
+                    <input
+                        placeholder="Draft a new task..."
+                        value={newTaskName[selectedProject.id] || ""}
+                        onChange={(e) => setNewTaskName({ ...newTaskName, [selectedProject.id]: e.target.value })}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddTask(selectedProject.id)}
+                        className="flex-1 p-10 bg-stone-50 border border-stone-100 rounded-[3rem] outline-none text-3xl font-serif italic focus:bg-white focus:border-stone-900 transition-all placeholder:text-stone-200"
+                    />
+                    <button 
+                        onClick={() => handleAddTask(selectedProject.id)}
+                        className="bg-stone-900 text-white px-12 rounded-[3rem] shadow-2xl hover:bg-stone-800 transition-all active:scale-95"
+                    >
+                        <Plus size={32} />
+                    </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* VIEW: BOARD */}
+          {activeTab === "board" && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4 h-[700px]">
+                {["Backlog", "In Progress", "Completed"].map((column) => (
+                    <div key={column} className="bg-stone-100/50 rounded-[3.5rem] p-10 flex flex-col gap-6">
+                        <div className="flex justify-between items-center px-4">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-stone-900">{column}</h3>
+                            <span className="w-6 h-6 rounded-full bg-white border border-stone-200 flex items-center justify-center text-[10px] font-black">
+                                {projectTasks.filter(t => t.status === column).length}
+                            </span>
+                        </div>
+                        <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
+                            {projectTasks.filter(t => t.status === column).map(task => (
+                                <div key={task.id} className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-stone-100 space-y-4 hover:shadow-md transition-all">
+                                    <p className="text-lg font-serif italic leading-tight">{task.name}</p>
+                                    <div className="flex justify-between items-center">
+                                        <div className="w-6 h-6 rounded-full bg-stone-50 flex items-center justify-center"><User size={10} className="text-stone-300" /></div>
+                                        <span className="text-[8px] font-black uppercase text-stone-400 tracking-tighter">{task.priority}</span>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 ))}
@@ -423,30 +541,62 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* 5. CREATE PROJECT MODAL */}
+      {/* CREATE PROJECT MODAL */}
       <AnimatePresence>
         {showCreateModal && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCreateModal(false)} className="absolute inset-0 bg-stone-900/40 backdrop-blur-md" />
-            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-white w-full max-w-xl rounded-[4rem] p-16 shadow-2xl relative z-10 space-y-12">
-              <div className="flex justify-between items-center">
-                <h3 className="text-5xl font-serif italic tracking-tighter lowercase">Launch Project</h3>
-                <button onClick={() => setShowCreateModal(false)} className="text-stone-300 hover:text-stone-900 transition-colors"><X size={32}/></button>
+            <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }} 
+                onClick={() => setShowCreateModal(false)} 
+                className="absolute inset-0 bg-stone-900/60 backdrop-blur-2xl" 
+            />
+            <motion.div 
+                initial={{ y: 100, opacity: 0, scale: 0.95 }} 
+                animate={{ y: 0, opacity: 1, scale: 1 }} 
+                exit={{ y: 100, opacity: 0, scale: 0.95 }} 
+                className="bg-white w-full max-w-2xl rounded-[6rem] p-24 shadow-2xl relative z-10 space-y-16 overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 p-16">
+                <button onClick={() => setShowCreateModal(false)} className="text-stone-200 hover:text-stone-900 transition-colors">
+                  <X size={48}/>
+                </button>
               </div>
 
-              <div className="space-y-4">
-                <label className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300 ml-2">Internal Title / Vault Tag</label>
-                <input 
-                  autoFocus placeholder="Project Name..."
-                  className="w-full text-4xl font-serif italic outline-none border-b-2 border-stone-50 pb-6 focus:border-stone-900 transition-all placeholder:text-stone-100"
-                  value={projectName} onChange={(e) => setProjectName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
-                />
+              <div className="space-y-6">
+                <span className="px-6 py-2 bg-stone-50 rounded-full text-[10px] font-black uppercase text-stone-400 tracking-widest border border-stone-100">Creation Protocol</span>
+                <h3 className="text-7xl font-serif italic tracking-tighter leading-none">New Project</h3>
               </div>
 
-              <button onClick={handleCreateProject} disabled={isSyncing} className="w-full bg-stone-900 text-white py-8 rounded-[2.5rem] font-black uppercase text-[12px] tracking-[0.5em] shadow-2xl flex items-center justify-center gap-4 transition-all hover:bg-stone-800">
-                {isSyncing ? <Loader2 size={20} className="animate-spin" /> : "Initiate Workspace"}
-              </button>
+              <div className="space-y-12">
+                <div className="space-y-6">
+                  <label className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-300 ml-4">Project Title</label>
+                  <input 
+                    autoFocus 
+                    placeholder="Enter Project Name..."
+                    className="w-full text-5xl font-serif italic outline-none border-b-2 border-stone-50 pb-10 focus:border-stone-900 transition-all placeholder:text-stone-100"
+                    value={projectName} 
+                    onChange={(e) => setProjectName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
+                  />
+                </div>
+
+                <div className="p-10 bg-amber-50 rounded-[3rem] border border-amber-100/50 flex items-start gap-8">
+                    <Info size={28} className="text-amber-500 mt-1 shrink-0" />
+                    <p className="text-base font-serif italic text-amber-700 leading-relaxed">
+                        Tip: If the project name matches a **category tag** in your Vault, all related notes will automatically appear in the project dashboard.
+                    </p>
+                </div>
+
+                <button 
+                    onClick={handleCreateProject} 
+                    disabled={isSyncing || !projectName.trim()} 
+                    className="w-full bg-stone-900 text-white py-12 rounded-full font-black uppercase text-[14px] tracking-[0.6em] shadow-2xl hover:bg-stone-800 transition-all active:scale-95 disabled:bg-stone-50 disabled:text-stone-200 flex items-center justify-center gap-6"
+                >
+                  {isSyncing ? <Loader2 size={24} className="animate-spin" /> : "Create Project"}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
@@ -455,15 +605,13 @@ export default function ProjectsPage() {
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
-        :root {
-          --bg: #F9F9F7;
-          --card-bg: #FFFFFF;
-          --border: #EFEFEF;
-          --text-main: #1C1917;
-          --text-muted: #A8A29E;
-          --brand-primary: #1C1917;
-          --bg-soft: #F5F5F3;
-        }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E7E5E4; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #D6D3D1; }
+
+        input::placeholder { color: #E7E5E4; opacity: 1; }
       `}</style>
     </div>
   );

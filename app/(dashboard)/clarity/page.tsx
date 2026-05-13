@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
   BrainCircuit, ArrowRight, Plus, Rocket, Target, 
-  Globe, Hash, X, Activity, Zap, Cpu, Sparkles, Radio, Shield, Fingerprint
+  Globe, Hash, X, Activity, Zap, Cpu, Sparkles, Radio, Shield, Fingerprint,
+  Command, ChevronRight, LayoutGrid
 } from "lucide-react";
 
 /**
- * TOTS OS v4.2 - LIVE SIGNAL FEED
- * UK SPELLING & DATA DICTIONARY COMPLIANT
+ * TOTS OS v5.0 - GEMINI PROTOCOL
+ * THEMATIC: FLUID INTELLIGENCE & HIGH DENSITY
  */
 
 const AVAILABLE_ICONS = [
@@ -22,7 +23,7 @@ const AVAILABLE_ICONS = [
   { name: 'Hash', icon: Hash }
 ];
 
-const PRESET_COLOURS = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#a8a29e'];
+const PRESET_COLOURS = ['#A9B897', '#3b82f6', '#10b981', '#8b5cf6', '#a8a29e'];
 
 interface Project {
   id: string;
@@ -39,35 +40,26 @@ interface Signal {
 }
 
 export default function LiveSignalFeedPage() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
   const signalEndRef = useRef<HTMLDivElement>(null);
 
-  // --- PERSISTENT INFRASTRUCTURE ---
   const [projects, setProjects] = useState<Project[]>([
-    { id: 'p1', name: 'Social Strategy', iconName: 'Rocket', colour: '#f43f5e', focus: 'Tracking viral Instagram hooks, audience behaviour, and growth momentum.' },
-    { id: 'p2', name: 'Revenue Ops', iconName: 'Target', colour: '#10b981', focus: 'Financial ledger analysis and tax forecasting' }
+    { id: 'p1', name: 'Social Strategy', iconName: 'Rocket', colour: '#A9B897', focus: 'Tracking viral Instagram hooks, audience behaviour, and growth momentum.' },
+    { id: 'p2', name: 'Revenue Ops', iconName: 'Target', colour: '#3b82f6', focus: 'Financial ledger analysis and tax forecasting' }
   ]);
   
   const [activeProjectId, setActiveProjectId] = useState('p1');
   const [query, setQuery] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [showCreator, setShowCreator] = useState(false);
-
-  // --- PROJECT PROVISIONING STATE ---
   const [newProj, setNewProj] = useState<Project>({
-    id: '', name: '', iconName: 'Hash', colour: '#a8a29e', focus: ''
+    id: '', name: '', iconName: 'Hash', colour: '#A9B897', focus: ''
   });
 
   const [allSignals, setAllSignals] = useState<Signal[]>([
-    { projectId: 'p1', role: 'assistant', content: "Social systems synced and listening. Ready to build stronger reach, sharper messaging, and higher engagement." },
+    { projectId: 'p1', role: 'assistant', content: "Social systems synced. I am monitoring engagement nodes and viral patterns. How shall we influence the feed today?" },
     { projectId: 'p2', role: 'assistant', content: "Financial cluster online. Ready for ledger analysis and fiscal projections." }
   ]);
 
-  // --- DERIVED LOGIC ---
   const activeProject = useMemo(() => 
     projects.find(p => p.id === activeProjectId) || projects[0], 
   [activeProjectId, projects]);
@@ -78,7 +70,6 @@ export default function LiveSignalFeedPage() {
 
   const getIcon = (name: string) => AVAILABLE_ICONS.find(i => i.name === name)?.icon || Hash;
 
-  // --- ACTIONS ---
   const handleQuery = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
@@ -88,31 +79,11 @@ export default function LiveSignalFeedPage() {
     setQuery("");
     setIsAiTyping(true);
 
-    // ADAPTIVE CONTEXT ENGINE
     setTimeout(() => {
-      let response = "";
-      const context = activeProject.focus.toLowerCase();
-
-      if (context.includes("social") || context.includes("content")) {
-        response = `[Social Context] Analysing your focus on "${activeProject.focus}": For your query "${query}", I recommend a "Problem/Solution" reel format. Current trends suggest this converts 12% better for your niche. Messaging is now optimised for engagement.`;
-      } else if (context.includes("revenue") || context.includes("ledger") || context.includes("tax")) {
-        response = `[Financial Context] Querying ledger cluster for "${query}": Your current YTD revenue is £142,500. Adjusting for your focus on ${activeProject.focus}, I project a Q3 surplus. Data has been synchronised with your fiscal targets.`;
-      } else {
-        response = `Contextual analysis for ${activeProject.name} complete. Based on your focus: "${activeProject.focus}", I have processed your request. How would you like to refine this operation?`;
-      }
-
+      let response = `Analysing "${query}" within the ${activeProject.name} framework. Based on current parameters, I recommend pivoting toward a high-density content model. Data suggests a 15% increase in retention when using this logic.`;
       setAllSignals(prev => [...prev, { projectId: activeProjectId, role: 'assistant', content: response }]);
       setIsAiTyping(false);
     }, 1500);
-  };
-
-  const commitProject = () => {
-    if (!newProj.name || !newProj.focus) return;
-    const id = `p${Date.now()}`;
-    setProjects([...projects, { ...newProj, id }]);
-    setActiveProjectId(id);
-    setShowCreator(false);
-    setNewProj({ id: '', name: '', iconName: 'Hash', colour: '#a8a29e', focus: '' });
   };
 
   useEffect(() => {
@@ -120,184 +91,153 @@ export default function LiveSignalFeedPage() {
   }, [currentFeed, isAiTyping]);
 
   return (
-    <div className="h-screen bg-[#fcfbf9] text-stone-900 flex flex-col overflow-hidden selection:bg-[#a9b897] selection:text-white font-sans">
+    <div className="h-screen bg-[#FDFDFC] text-stone-900 flex flex-col overflow-hidden selection:bg-[#A9B897]/30 font-sans relative">
       
-      {/* 1. TOP NAVIGATION (Active Projects) */}
-      <nav className="shrink-0 bg-white/80 backdrop-blur-md border-b border-stone-100 px-4 md:px-8 py-5 z-[100]">
-        <div className="max-w-7xl mx-auto flex items-center gap-6">
-          <div className="flex items-center gap-3 pr-6 border-r border-stone-100 shrink-0">
-             <div className="w-10 h-10 bg-stone-900 rounded-2xl flex items-center justify-center text-[#a9b897] shadow-xl"><BrainCircuit size={20} /></div>
-             <div>
-                <span className="font-serif italic font-bold hidden sm:block text-lg leading-none">Live Signal Feed</span>
-                <p className="text-[7px] font-black uppercase tracking-[0.2em] text-stone-400 hidden sm:block mt-1">Operational OS</p>
-             </div>
-          </div>
+      {/* GEMINI GRADIENT OVERLAY */}
+      <div className="absolute inset-0 pointer-events-none opacity-40">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#A9B897]/20 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-100 blur-[120px] rounded-full animate-pulse [animation-delay:2s]" />
+      </div>
 
-          <div className="flex-1 flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
-             {projects.map((proj) => {
-               const Icon = getIcon(proj.iconName);
-               const isActive = activeProjectId === proj.id;
-               return (
-                 <button 
-                   key={proj.id} 
-                   onClick={() => setActiveProjectId(proj.id)}
-                   className={`flex items-center gap-3 px-5 py-3 rounded-2xl whitespace-nowrap transition-all border ${
-                     isActive ? 'bg-stone-900 text-white border-stone-900 shadow-xl scale-105' : 'bg-white text-stone-400 border-stone-100 hover:border-[#a9b897]'
-                   }`}
-                 >
-                    <Icon size={14} style={{ color: isActive ? '#a9b897' : proj.colour }} />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{proj.name}</span>
-                 </button>
-               );
-             })}
-             <button onClick={() => setShowCreator(true)} className="p-3 rounded-2xl border-2 border-dashed border-stone-100 text-stone-300 hover:border-[#a9b897] transition-all shrink-0"><Plus size={18}/></button>
+      {/* TOP BAR */}
+      <nav className="shrink-0 h-20 border-b border-stone-100/60 flex items-center justify-between px-8 bg-white/40 backdrop-blur-xl z-50">
+        <div className="flex items-center gap-4">
+          <div className="w-8 h-8 bg-stone-900 rounded-lg flex items-center justify-center text-[#A9B897]">
+            <Sparkles size={16} fill="currentColor" />
           </div>
+          <div className="h-4 w-[1px] bg-stone-200 mx-2" />
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-[50vw]">
+            {projects.map((proj) => (
+              <button 
+                key={proj.id} 
+                onClick={() => setActiveProjectId(proj.id)}
+                className={`px-4 py-1.5 rounded-full text-[11px] font-bold tracking-tight transition-all whitespace-nowrap ${
+                  activeProjectId === proj.id 
+                  ? 'bg-stone-900 text-white' 
+                  : 'text-stone-400 hover:bg-stone-100'
+                }`}
+              >
+                {proj.name}
+              </button>
+            ))}
+            <button onClick={() => setShowCreator(true)} className="p-1.5 text-stone-300 hover:text-stone-900 transition-colors">
+              <Plus size={16}/>
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-stone-100 rounded-full border border-stone-200/50">
+            <div className="w-1.5 h-1.5 bg-[#A9B897] rounded-full animate-pulse" />
+            <span className="text-[9px] font-black uppercase tracking-widest text-stone-500">Live Pulse</span>
+          </div>
+          <button className="text-stone-400 hover:text-stone-900"><LayoutGrid size={20}/></button>
         </div>
       </nav>
 
-      {/* 2. MAIN FEED AREA */}
-      <main className="flex-1 relative flex flex-col w-full max-w-6xl mx-auto overflow-hidden">
-        
-        {/* Responsive Header */}
-        <header className="p-8 md:p-12 shrink-0">
-           <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-[1px] bg-[#a9b897]" />
-              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Current Project: {activeProject.name}</p>
-           </div>
-           <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none">System Pulse</h1>
-           <div className="flex items-center gap-4 mt-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-stone-50 rounded-full border border-stone-100">
-                <Radio size={12} className="text-[#a9b897] animate-pulse" />
-                <p className="text-[10px] text-stone-500 font-medium">
-                  Current Intelligence Focus: <span className="text-stone-900 italic font-bold">{activeProject.focus}</span>
-                </p>
-              </div>
-           </div>
-        </header>
+      {/* CHAT INTERFACE */}
+      <main className="flex-1 overflow-y-auto no-scrollbar relative z-10 pt-12 pb-40">
+        <div className="max-w-3xl mx-auto px-6 space-y-12">
+          
+          {/* INTRO LOGIC */}
+          {currentFeed.length < 2 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-20 text-center">
+              <h2 className="text-4xl font-serif italic text-stone-400 mb-2">Hello, Leigha.</h2>
+              <p className="text-stone-400 text-sm">Active Node: <span className="text-stone-900 font-bold uppercase tracking-widest text-[10px]">{activeProject.name}</span></p>
+            </motion.div>
+          )}
 
-        {/* Scrollable Signal Area */}
-        <div className="flex-1 overflow-y-auto px-6 md:px-12 space-y-8 pb-48 no-scrollbar">
-           <AnimatePresence mode="popLayout">
-              {currentFeed.map((signal, i) => (
-                <motion.div key={`${activeProjectId}-${i}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`flex ${signal.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                   <div className={`max-w-[80%] p-8 md:p-10 rounded-[3rem] text-sm leading-relaxed shadow-sm border ${
-                     signal.role === 'user' ? 'bg-stone-900 text-white border-stone-800 rounded-tr-none shadow-2xl shadow-stone-200' : 'bg-white border-stone-100 text-stone-800 rounded-tl-none'
-                   }`}>
-                      {signal.role === 'assistant' && (
-                        <div className="flex items-center gap-2 mb-4 opacity-40">
-                            <Fingerprint size={14} />
-                            <span className="text-[8px] font-black uppercase tracking-widest">Verified Intelligence Signal</span>
-                        </div>
-                      )}
-                      <p className={signal.role === 'assistant' ? 'italic font-serif text-base' : 'font-bold uppercase tracking-wide text-xs'}>
-                        {signal.content}
-                      </p>
-                   </div>
-                </motion.div>
-              ))}
-           </AnimatePresence>
-           
-           {isAiTyping && (
-             <div className="flex justify-start">
-                <div className="bg-white border border-stone-100 p-8 rounded-[2.5rem] shadow-sm">
-                   <div className="flex gap-2">
-                      <div className="w-1.5 h-1.5 bg-[#a9b897] rounded-full animate-bounce" />
-                      <div className="w-1.5 h-1.5 bg-[#a9b897] rounded-full animate-bounce [animation-delay:0.2s]" />
-                      <div className="w-1.5 h-1.5 bg-[#a9b897] rounded-full animate-bounce [animation-delay:0.4s]" />
-                   </div>
+          <AnimatePresence mode="popLayout">
+            {currentFeed.map((signal, i) => (
+              <motion.div 
+                key={`${activeProjectId}-${i}`} 
+                initial={{ opacity: 0, y: 20 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                className="group"
+              >
+                <div className={`flex items-start gap-6 ${signal.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
+                    signal.role === 'user' ? 'bg-stone-100 border-stone-200' : 'bg-stone-900 border-stone-900'
+                  }`}>
+                    {signal.role === 'user' ? <UserIcon size={14} className="text-stone-400" /> : <Sparkles size={14} className="text-[#A9B897]" />}
+                  </div>
+                  <div className={`flex-1 pt-1 ${signal.role === 'user' ? 'text-right' : 'text-left'}`}>
+                    <p className={`text-[15px] leading-[1.7] ${
+                      signal.role === 'assistant' 
+                      ? 'font-serif italic text-stone-800 text-lg' 
+                      : 'font-bold uppercase tracking-tight text-stone-900'
+                    }`}>
+                      {signal.content}
+                    </p>
+                    {signal.role === 'assistant' && (
+                      <div className="mt-4 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button className="text-[9px] font-black uppercase tracking-widest text-stone-300 hover:text-[#A9B897]">Copy</button>
+                        <button className="text-[9px] font-black uppercase tracking-widest text-stone-300 hover:text-[#A9B897]">Regenerate</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-             </div>
-           )}
-           <div ref={signalEndRef} />
-        </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
 
-        {/* Fixed Floating Input */}
-        <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12 bg-gradient-to-t from-[#fcfbf9] via-[#fcfbf9]/95 to-transparent">
-           <form onSubmit={handleQuery} className="max-w-4xl mx-auto relative group">
-              <div className="absolute left-8 top-1/2 -translate-y-1/2 text-[#a9b897] opacity-50 group-focus-within:opacity-100 transition-opacity">
-                <Zap size={20} />
+          {isAiTyping && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start gap-6">
+              <div className="w-8 h-8 rounded-full bg-stone-900 flex items-center justify-center animate-pulse">
+                <Sparkles size={14} className="text-[#A9B897]" />
+              </div>
+              <div className="flex gap-1.5 pt-3">
+                <div className="w-1 h-1 bg-[#A9B897] rounded-full animate-bounce" />
+                <div className="w-1 h-1 bg-[#A9B897] rounded-full animate-bounce [animation-delay:0.2s]" />
+                <div className="w-1 h-1 bg-[#A9B897] rounded-full animate-bounce [animation-delay:0.4s]" />
+              </div>
+            </motion.div>
+          )}
+          <div ref={signalEndRef} />
+        </div>
+      </main>
+
+      {/* INPUT BAR */}
+      <div className="shrink-0 pb-10 px-6 z-50">
+        <div className="max-w-3xl mx-auto relative group">
+          <form onSubmit={handleQuery} className="relative bg-white border border-stone-200/60 shadow-2xl shadow-stone-200/40 rounded-[2.5rem] p-2 transition-all focus-within:border-stone-900/20">
+            <div className="flex items-center">
+              <div className="pl-6 pr-4 text-stone-300 group-focus-within:text-[#A9B897] transition-colors">
+                <Command size={18} />
               </div>
               <input 
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="What are we creating today?"
-                className="w-full bg-white border border-stone-200 rounded-full py-8 md:py-10 px-16 md:px-20 text-sm md:text-base outline-none focus:border-stone-900 shadow-2xl transition-all pr-28 font-serif italic"
+                placeholder="Ask TOTS Anything..."
+                className="flex-1 bg-transparent py-5 text-sm outline-none font-medium text-stone-800 placeholder:text-stone-300"
               />
-              <button type="submit" className="absolute right-5 top-1/2 -translate-y-1/2 p-5 md:p-6 bg-stone-900 text-[#a9b897] rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg">
-                 <ArrowRight size={24} />
-              </button>
-           </form>
-           <div className="flex justify-center gap-8 mt-8">
-                <div className="flex items-center gap-2">
-                    <Shield size={10} className="text-[#a9b897]" />
-                    <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">Encrypted Transmission</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Activity size={10} className="text-[#a9b897]" />
-                    <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">Adaptive Context Engine v4.2 — Secure Connection Active</p>
-                </div>
-           </div>
+              <div className="flex items-center gap-2 pr-2">
+                 <button type="button" className="p-3 text-stone-300 hover:text-stone-900 transition-colors"><Zap size={18}/></button>
+                 <button type="submit" className="bg-stone-900 text-[#A9B897] p-3 rounded-full hover:scale-105 active:scale-95 transition-all">
+                   <ArrowRight size={20} />
+                 </button>
+              </div>
+            </div>
+          </form>
+          <p className="mt-4 text-center text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">
+            Synchronized with {activeProject.name} — Encrypted Node
+          </p>
         </div>
-      </main>
+      </div>
 
-      {/* PROJECT CREATOR OVERLAY */}
-      <AnimatePresence>
-        {showCreator && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-6">
-             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white w-full max-w-2xl rounded-[4rem] p-12 md:p-20 shadow-2xl relative border border-stone-100">
-                <button onClick={() => setShowCreator(false)} className="absolute top-12 right-12 text-stone-200 hover:text-stone-900 transition-colors"><X size={32}/></button>
-                
-                <div className="mb-12">
-                   <div className="flex items-center gap-2 mb-3">
-                        <div className="w-6 h-[1px] bg-[#a9b897]" />
-                        <p className="text-[9px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Launch New Workspace</p>
-                   </div>
-                   <h3 className="text-5xl font-serif italic tracking-tighter">Provision Project</h3>
-                   <p className="text-xs text-stone-400 mt-2">Establish a new contextual workspace within the TOTS ecosystem.</p>
-                </div>
-                
-                <div className="space-y-10">
-                   <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-1">Project Designation</label>
-                        <input placeholder="Enter Project Name..." value={newProj.name} onChange={e => setNewProj({...newProj, name: e.target.value})} className="w-full border-b border-stone-100 py-4 text-2xl outline-none focus:border-stone-900 font-serif italic transition-colors" />
-                   </div>
-
-                   <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-400 ml-1">Mission Brief / Strategic Focus</label>
-                        <textarea placeholder="Define intelligence focus (e.g. content hooks, fiscal forecasting...)" value={newProj.focus} onChange={e => setNewProj({...newProj, focus: e.target.value})} className="w-full bg-stone-50 rounded-[2rem] p-8 text-sm outline-none focus:bg-white border border-transparent focus:border-stone-100 h-32 resize-none italic" />
-                   </div>
-                   
-                   <div className="grid md:grid-cols-2 gap-10">
-                      <div className="space-y-4">
-                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-400">Workspace Identifier</label>
-                         <div className="flex gap-3 flex-wrap">
-                            {AVAILABLE_ICONS.map(i => (
-                            <button key={i.name} onClick={() => setNewProj({...newProj, iconName: i.name})} className={`p-4 rounded-2xl border transition-all ${newProj.iconName === i.name ? 'bg-stone-900 text-[#a9b897] border-stone-900 shadow-lg' : 'border-stone-100 text-stone-300 hover:border-stone-200'}`}><i.icon size={20} /></button>
-                            ))}
-                         </div>
-                      </div>
-                      <div className="space-y-4">
-                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-400">Visual Protocol Colour</label>
-                         <div className="flex gap-4 flex-wrap pt-2">
-                            {PRESET_COLOURS.map(c => (
-                            <button key={c} onClick={() => setNewProj({...newProj, colour: c})} className={`w-10 h-10 rounded-full border-4 transition-all ${newProj.colour === c ? 'border-stone-900 scale-110 shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'}`} style={{ backgroundColor: c }} />
-                            ))}
-                         </div>
-                      </div>
-                   </div>
-
-                   <button onClick={commitProject} className="w-full bg-stone-900 text-[#a9b897] py-8 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.5em] shadow-2xl hover:scale-[1.02] active:scale-95 transition-all mt-6">Open Workspace</button>
-                </div>
-             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+      {/* STYLES */}
       <style jsx global>{`
         ::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        body { overflow: hidden; position: fixed; width: 100%; }
       `}</style>
     </div>
+  );
+}
+
+function UserIcon({ size, className }: { size: number, className: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
   );
 }

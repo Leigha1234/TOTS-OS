@@ -1,82 +1,72 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { 
   Search, Download, Folder, ChevronDown, 
   Sparkles, ShieldCheck, Activity, 
-  Terminal, HardDrive, Fingerprint, TrendingUp,
-  ArrowLeft, FileCode, Radio, Database, Timer,
-  Lock, Zap, Cpu, Globe, Share2, Trash2
+  Terminal, HardDrive, Fingerprint, 
+  ArrowLeft, FileCode, Radio, Database, 
+  Lock, Zap, Cpu, Globe, Trash2, 
+  Maximize2, Save, History, Box, 
+  ExternalLink, Layers, MoreVertical
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { toast } from "sonner";
 
-// --- EXPANDED DATA REPOSITORY ---
+// --- DATASET ---
 const VAULT_DATA = [
   { 
     id: "CL-001", 
     title: "Client Intake Protocol", 
     category: "Clients & CRM", 
     content: `CLIENT ONBOARDING SYSTEM\n\n📄 Intake Form\nName: [Client Name]\nBusiness: [Business Name]\nService purchased: [Service Name]\nStart date: [YYYY-MM-DD]\n\n⚙️ Workflow\n[ ] New client created\n[ ] Send welcome email\n[ ] Send contract + invoice\n[ ] Create project board\n[ ] Book kickoff call`,
-    metadata: { lastUpdated: "2026-05-01", version: "2.1.0", author: "Admin", integrityHash: "0x882" }
+    metadata: { lastUpdated: "2026-05-01", version: "2.1.0", author: "Admin", status: "Verified" }
   },
   { 
     id: "SL-441", 
     title: "Sales Conversion Script", 
     category: "Sales & Marketing", 
     content: `SALES PIPELINE SYSTEM\n\n📞 Call Structure\n- Current situation:\n- Problems / bottlenecks:\n- Impact:\n- Desired outcome:\n- Gap:\n- Offer:`,
-    metadata: { lastUpdated: "2026-04-15", version: "1.4.2", author: "Sales Node", integrityHash: "0x441" }
+    metadata: { lastUpdated: "2026-04-15", version: "1.4.2", author: "Sales Node", status: "Draft" }
   },
   {
     id: "OP-112",
     title: "Operational Efficiency Audit",
     category: "Operations",
     content: `BUSINESS AUDIT TEMPLATE\n\n1. Operations\n- Task tracking status\n- Delay points identified\n\n2. Finance Check\n- Revenue targets vs actuals\n- Profit margin clarity`,
-    metadata: { lastUpdated: "2026-05-05", version: "3.0.0", author: "Ops Lead", integrityHash: "0x112" }
+    metadata: { lastUpdated: "2026-05-05", version: "3.0.0", author: "Ops Lead", status: "Verified" }
   },
   {
     id: "LG-990",
     title: "Master Service Agreement",
     category: "Legal & Governance",
-    content: `MSA FRAMEWORK\n\n1. Introduction\nAgreement between [Business] and [Client].\n\n2. Payment Terms\nInvoices are due within 7 days of issue.`,
-    metadata: { lastUpdated: "2026-05-12", version: "4.1.0", author: "Legal Node", integrityHash: "0xLG9" }
+    content: `MSA FRAMEWORK\n\nAgreement between [Business] and [Client].\n\n2. Payment Terms\nInvoices are due within 7 days of issue.`,
+    metadata: { lastUpdated: "2026-05-12", version: "4.1.0", author: "Legal Node", status: "Locked" }
   },
   {
     id: "FN-130",
     title: "Quarterly P&L Forecaster",
     category: "Finance",
     content: `P&L FORECASTER\n\nMonthly Input:\n- Projected Revenue\n- Fixed Costs\n- Variable Costs\n\nFormula:\nMargin = (Revenue - Total Costs) / Revenue`,
-    metadata: { lastUpdated: "2026-05-07", version: "1.2.0", author: "Finance Node", integrityHash: "0xFN1" }
+    metadata: { lastUpdated: "2026-05-07", version: "1.2.0", author: "Finance Node", status: "Verified" }
   }
 ];
 
 export default function VaultPage() {
-  const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<any>(VAULT_DATA[0]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [expandedFolders, setExpandedFolders] = useState<string[]>(["Clients & CRM", "Operations", "Legal & Governance"]);
-  const [commandHistory, setCommandHistory] = useState<any[]>([]);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState<string[]>(["Clients & CRM"]);
   const [systemUptime, setSystemUptime] = useState(0);
-  const [aiStatus, setAiStatus] = useState("Idle");
+  const [isSyncing, setIsSyncing] = useState(false);
   
   const printRef = useRef<HTMLDivElement>(null);
 
-  // --- SYSTEM LOGIC ---
   useEffect(() => {
     const timer = setInterval(() => setSystemUptime(prev => prev + 1), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const logCommand = (cmd: string) => {
-    setCommandHistory(prev => [{
-      id: Math.random().toString(36),
-      timestamp: new Date().toLocaleTimeString(),
-      command: cmd
-    }, ...prev].slice(0, 8));
-  };
 
   const filteredDocs = useMemo(() => {
     return VAULT_DATA.filter(doc => 
@@ -87,271 +77,248 @@ export default function VaultPage() {
 
   const categories = useMemo(() => Array.from(new Set(VAULT_DATA.map(d => d.category))), []);
 
-  const handleSync = async () => {
-    setIsSyncing(true);
-    logCommand("Initializing database handshake...");
-    await new Promise(r => setTimeout(r, 1500));
-    setIsSyncing(false);
-    logCommand("Node architecture synchronized.");
-    toast.success("System Sync Complete");
-  };
-
   const exportPDF = async () => {
     if (!printRef.current || !selectedDoc) return;
-    logCommand(`Compiling node ${selectedDoc.id} to PDF...`);
     const canvas = await html2canvas(printRef.current);
     const pdf = new jsPDF("p", "mm", "a4");
     pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 210, 297);
     pdf.save(`VAULT_${selectedDoc.id}.pdf`);
+    toast.success("Document Exported");
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F9F7] text-[#1C1917] transition-all duration-700">
+    <div className="h-screen bg-[#FDFDFB] text-[#1C1917] flex flex-col overflow-hidden">
       
-      <div className="max-w-[1700px] mx-auto px-8 py-12 md:p-16 lg:p-20 space-y-16 lg:space-y-24">
+      {/* TOP NAVIGATION BAR */}
+      <nav className="h-14 border-b border-stone-200 bg-white flex items-center justify-between px-6 shrink-0 z-50">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <Box size={18} className="text-stone-900" />
+            <span className="text-[11px] font-black uppercase tracking-widest">TOTs Vault</span>
+          </div>
+          <div className="h-4 w-[1px] bg-stone-200" />
+          <div className="flex items-center gap-4 text-stone-400 text-[10px] font-medium">
+            <span className="hover:text-stone-900 cursor-pointer transition-colors">Infrastructure</span>
+            <span className="text-stone-200">/</span>
+            <span className="hover:text-stone-900 cursor-pointer transition-colors">Nodes</span>
+            <span className="text-stone-200">/</span>
+            <span className="text-stone-900">{selectedDoc?.id || "N/A"}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 mr-4 bg-stone-50 px-3 py-1 rounded-full border border-stone-100">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[9px] font-mono text-stone-400 uppercase tracking-tighter">System Live: {Math.floor(systemUptime / 60)}m</span>
+          </div>
+          <button onClick={() => toast.info("System handshaking...")} className="p-2 hover:bg-stone-50 rounded-lg transition-colors text-stone-400 hover:text-stone-900"><History size={16}/></button>
+          <button className="p-2 hover:bg-stone-50 rounded-lg transition-colors text-stone-400 hover:text-stone-900"><Settings size={16}/></button>
+        </div>
+      </nav>
+
+      {/* MAIN CONTENT AREA */}
+      <div className="flex flex-1 overflow-hidden">
         
-        {/* HEADER AREA */}
-        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-12 border-b border-stone-200 pb-16">
-          <div className="space-y-8">
-            <div className="flex items-center gap-6">
-              <div className="w-14 h-14 bg-stone-900 text-white rounded-[1.2rem] flex items-center justify-center shadow-2xl">
-                <Lock size={24} />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Environment Secure</p>
-                </div>
-                <p className="text-[10px] font-mono text-stone-300 uppercase">Uptime: {Math.floor(systemUptime / 60)}m {systemUptime % 60}s</p>
-              </div>
-            </div>
-            <h1 className="text-8xl md:text-9xl font-serif italic tracking-tighter leading-none text-stone-900">
-              The Vault
-            </h1>
-          </div>
-
-          <div className="flex flex-wrap gap-4 w-full xl:w-auto">
-             <button 
-                onClick={handleSync} 
-                disabled={isSyncing}
-                className="px-10 py-6 bg-stone-900 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-stone-800 transition-all flex items-center gap-4 shadow-xl disabled:opacity-50"
-             >
-                <Radio size={16} className={isSyncing ? "animate-spin" : "animate-pulse"} /> 
-                {isSyncing ? "Syncing..." : "Sync Infrastructure"}
-             </button>
-             <button className="px-10 py-6 border border-stone-200 bg-white text-stone-400 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:border-stone-900 hover:text-stone-900 transition-all flex items-center gap-4">
-                <Activity size={16} /> Diagnostic
-             </button>
-          </div>
-        </header>
-
-        {/* METRICS GRID */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-          {[
-            { label: "Active Nodes", val: "542", icon: HardDrive, color: "text-blue-500" },
-            { label: "Integrity Factor", val: "99.9%", icon: ShieldCheck, color: "text-emerald-500" },
-            { label: "Neural Load", val: "12%", icon: Cpu, color: "text-amber-500" },
-            { label: "Global Sync", val: "Active", icon: Globe, color: "text-stone-900" }
-          ].map((stat, i) => (
-            <div key={i} className="bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-sm group hover:shadow-xl transition-all">
-              <div className="flex justify-between items-start mb-6">
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300">{stat.label}</p>
-                <stat.icon size={18} className={`${stat.color} opacity-40 group-hover:opacity-100 transition-opacity`} />
-              </div>
-              <p className="text-5xl font-serif italic text-stone-900">{stat.val}</p>
-            </div>
-          ))}
-        </section>
-
-        {/* MAIN WORKSPACE */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 xl:gap-24">
-          
-          {/* SIDEBAR: NAVIGATION & TERMINAL */}
-          <div className="lg:col-span-4 space-y-12">
-            <div className="relative group">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300" size={20} />
+        {/* SIDEBAR - FILE BROWSER */}
+        <aside className="w-72 border-r border-stone-200 flex flex-col bg-stone-50/30 shrink-0">
+          <div className="p-4 border-b border-stone-200 bg-white/50">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300" />
               <input 
-                className="w-full p-7 pl-16 bg-white border border-stone-100 rounded-[2.5rem] outline-none shadow-sm text-xs font-bold focus:border-stone-900 focus:ring-4 ring-stone-900/5 transition-all" 
-                placeholder="Traverse system nodes..."
+                className="w-full bg-white border border-stone-200 rounded-lg py-2 pl-9 pr-3 text-[11px] outline-none focus:ring-2 ring-stone-900/5 transition-all"
+                placeholder="Find node..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)} 
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-
-            <div className="space-y-6">
-              {categories.map((cat) => (
-                <div key={cat} className="bg-white border border-stone-100 rounded-[3rem] overflow-hidden shadow-sm">
-                  <button 
-                    onClick={() => setExpandedFolders(prev => prev.includes(cat) ? prev.filter(f => f !== cat) : [...prev, cat])}
-                    className="w-full flex justify-between items-center p-8 text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 hover:text-stone-900 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <Folder size={16} className={expandedFolders.includes(cat) ? "text-stone-900" : "text-stone-200"} />
-                      {cat}
-                    </div>
-                    <ChevronDown size={16} className={`transition-transform duration-500 ${expandedFolders.includes(cat) ? "rotate-180 text-stone-900" : ""}`} />
-                  </button>
-                  
-                  <AnimatePresence>
-                    {expandedFolders.includes(cat) && (
-                      <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="bg-stone-50/50 px-4 pb-4 space-y-2 overflow-hidden">
-                        {filteredDocs.filter(d => d.category === cat).map(doc => (
-                          <button 
-                            key={doc.id} 
-                            onClick={() => { setSelectedDoc(doc); logCommand(`Accessing node: ${doc.title}`); }}
-                            className={`w-full text-left p-6 rounded-[2rem] transition-all border ${selectedDoc?.id === doc.id ? "bg-stone-900 text-white border-transparent shadow-2xl scale-[1.02]" : "bg-white border-transparent hover:border-stone-200"}`}
-                          >
-                            <p className="text-[11px] font-bold truncate mb-2">{doc.title}</p>
-                            <div className="flex justify-between items-center opacity-40 text-[7px] font-mono uppercase">
-                               <span>ID: {doc.id}</span>
-                               <span>V.{doc.metadata.version}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ))}
-            </div>
-
-            {/* COMMAND TERMINAL */}
-            <div className="bg-stone-900 rounded-[3.5rem] p-10 text-white space-y-8 shadow-2xl relative overflow-hidden group">
-                <div className="flex items-center justify-between opacity-50 relative z-10">
-                  <div className="flex items-center gap-3">
-                    <Terminal size={16} className="text-amber-400" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em]">Core Stream</span>
-                  </div>
-                  <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                </div>
-                <div className="font-mono text-[10px] h-40 overflow-y-auto space-y-4 scrollbar-hide relative z-10">
-                   {commandHistory.map(log => (
-                     <p key={log.id} className="leading-relaxed border-l border-white/10 pl-4">
-                       <span className="text-stone-500 mr-3">{log.timestamp}</span> 
-                       <span className="text-stone-200">{log.command}</span>
-                     </p>
-                   ))}
-                   {commandHistory.length === 0 && <p className="text-stone-600 italic">Awaiting node selection...</p>}
-                </div>
-                <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-all" />
-            </div>
           </div>
 
-          {/* MAIN DOCUMENT VIEWER */}
-          <main className="lg:col-span-8">
-            <AnimatePresence mode="wait">
-              {selectedDoc ? (
-                <motion.div 
-                  key={selectedDoc.id}
-                  initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} 
-                  className="bg-white rounded-[5rem] border border-stone-100 shadow-2xl overflow-hidden min-h-[900px] flex flex-col" 
-                  ref={printRef}
+          <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+            {categories.map((cat) => (
+              <div key={cat} className="mb-2">
+                <button 
+                  onClick={() => setExpandedFolders(prev => prev.includes(cat) ? prev.filter(f => f !== cat) : [...prev, cat])}
+                  className="w-full flex items-center justify-between px-2 py-1.5 text-[10px] font-bold text-stone-400 uppercase tracking-wider hover:text-stone-900 group"
                 >
-                  <div className="p-12 md:p-20 border-b border-stone-100 space-y-12">
-                    <div className="flex items-center justify-between">
-                       <button onClick={() => setSelectedDoc(null)} className="p-5 bg-stone-50 rounded-[1.5rem] hover:bg-stone-100 transition-all"><ArrowLeft size={20}/></button>
-                       <div className="flex gap-4">
-                          <span className="px-6 py-2.5 bg-stone-50 rounded-full text-[10px] font-black uppercase tracking-widest text-stone-400 border border-stone-100">
-                            {selectedDoc.category}
-                          </span>
-                       </div>
-                    </div>
-                    
-                    <div className="space-y-12">
-                       <h2 className="text-6xl md:text-8xl font-serif italic tracking-tighter leading-none text-stone-900">{selectedDoc.title}</h2>
-                       <div className="flex flex-wrap gap-6">
-                          <button onClick={exportPDF} className="p-7 bg-stone-50 border border-stone-100 rounded-[2rem] hover:bg-stone-900 hover:text-white transition-all group">
-                            <Download size={24} className="group-hover:bounce" />
-                          </button>
-                          <button onClick={() => logCommand(`Committing delta to Node ${selectedDoc.id}...`)} className="flex-1 px-12 py-7 bg-stone-900 text-white rounded-[2.5rem] font-black text-[12px] uppercase tracking-[0.3em] hover:bg-stone-800 transition-all shadow-xl active:scale-95">
-                            Commit Session Changes
-                          </button>
-                          <button className="p-7 border border-stone-100 rounded-[2rem] text-stone-300 hover:text-red-500 hover:border-red-100 transition-all">
-                             <Trash2 size={24} />
-                          </button>
-                       </div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <Folder size={12} className={expandedFolders.includes(cat) ? "text-stone-900" : "text-stone-200"} />
+                    {cat}
                   </div>
+                  <ChevronDown size={12} className={`transition-transform duration-300 ${expandedFolders.includes(cat) ? "rotate-0" : "-rotate-90"}`} />
+                </button>
+                
+                <AnimatePresence initial={false}>
+                  {expandedFolders.includes(cat) && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mt-1 ml-1 border-l border-stone-100">
+                      {filteredDocs.filter(d => d.category === cat).map(doc => (
+                        <button 
+                          key={doc.id}
+                          onClick={() => setSelectedDoc(doc)}
+                          className={`w-full text-left px-4 py-2 rounded-md text-[11px] transition-all flex items-center gap-3 ${
+                            selectedDoc?.id === doc.id 
+                            ? "bg-white text-stone-900 shadow-sm border border-stone-100 font-semibold" 
+                            : "text-stone-500 hover:bg-stone-100/50 hover:text-stone-800"
+                          }`}
+                        >
+                          <div className={`w-1.5 h-1.5 rounded-full ${selectedDoc?.id === doc.id ? "bg-stone-900" : "bg-stone-200"}`} />
+                          <span className="truncate">{doc.title}</span>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
 
-                  {/* NEURAL CONTEXT BAR */}
-                  <div className="bg-stone-50/50 px-12 md:px-20 py-8 border-b border-stone-100 flex flex-col md:flex-row justify-between items-center gap-6">
-                     <div className="flex items-center gap-4 text-stone-900">
-                        <Sparkles size={20} className="text-amber-500 animate-pulse" />
-                        <div className="space-y-0.5">
-                           <p className="text-[10px] font-black uppercase tracking-[0.2em]">Neural Synthesis Engine</p>
-                           <p className="text-[9px] font-mono text-stone-400 italic">Status: {aiStatus}</p>
-                        </div>
-                     </div>
-                     <button 
-                        onClick={() => { 
-                           setAiStatus("Processing...");
-                           setTimeout(() => { setAiStatus("Idle"); logCommand("Draft optimization applied."); toast.success("AI Synthesis Complete"); }, 1500); 
-                        }} 
-                        className="w-full md:w-auto px-8 py-4 bg-white border border-stone-200 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest hover:border-stone-900 transition-all flex items-center gap-3"
-                     >
-                        <Zap size={14} className="text-amber-500" /> Optimize Content
-                     </button>
-                  </div>
+          <div className="p-4 border-t border-stone-200 bg-white">
+            <div className="bg-stone-900 rounded-xl p-4 space-y-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Health</span>
+                <Activity size={12} className="text-emerald-400" />
+              </div>
+              <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-400 w-3/4" />
+              </div>
+              <p className="text-[9px] text-white/60 font-mono tracking-tighter italic">Infra integrity: 98%</p>
+            </div>
+          </div>
+        </aside>
 
-                  {/* TEXT CONTENT AREA */}
-                  <div className="flex-1 p-12 md:p-20 relative">
-                     <textarea 
-                        className="w-full h-full min-h-[600px] bg-transparent text-stone-800 font-mono text-base leading-relaxed outline-none resize-none border-none custom-scrollbar" 
-                        defaultValue={selectedDoc.content} 
-                        spellCheck={false}
-                     />
-                     <div className="absolute top-10 right-10 flex gap-2">
-                         <div className="w-1.5 h-1.5 rounded-full bg-stone-100" />
-                         <div className="w-1.5 h-1.5 rounded-full bg-stone-100" />
-                         <div className="w-1.5 h-1.5 rounded-full bg-stone-100" />
-                     </div>
-                  </div>
+        {/* EDITOR AREA */}
+        <main className="flex-1 flex flex-col min-w-0 bg-white">
+          <header className="h-14 border-b border-stone-200 flex items-center justify-between px-8 shrink-0">
+            <div className="flex items-center gap-4">
+              <h2 className="text-sm font-serif italic text-stone-900 font-semibold">
+                {selectedDoc?.title || "No Selection"}
+              </h2>
+              <span className="px-2 py-0.5 bg-stone-100 rounded text-[9px] font-bold text-stone-400 uppercase tracking-widest">
+                v.{selectedDoc?.metadata.version}
+              </span>
+            </div>
 
-                  {/* DATA FOOTER */}
-                  <div className="bg-stone-900 p-12 md:p-16 text-white grid grid-cols-2 md:grid-cols-4 gap-12 relative overflow-hidden">
-                     <div className="space-y-2 relative z-10">
-                        <p className="text-[9px] font-black uppercase opacity-40 tracking-widest">Protocol Version</p>
-                        <p className="text-sm font-mono text-amber-400">{selectedDoc.metadata.version}</p>
-                     </div>
-                     <div className="space-y-2 relative z-10">
-                        <p className="text-[9px] font-black uppercase opacity-40 tracking-widest">Author Node</p>
-                        <p className="text-sm font-serif italic">{selectedDoc.metadata.author}</p>
-                     </div>
-                     <div className="space-y-2 relative z-10 hidden md:block">
-                        <p className="text-[9px] font-black uppercase opacity-40 tracking-widest">Security Hash</p>
-                        <p className="text-sm font-mono truncate text-stone-500">{selectedDoc.metadata.integrityHash}</p>
-                     </div>
-                     <div className="text-right flex flex-col justify-end items-end relative z-10">
-                        <button onClick={() => setSelectedDoc(null)} className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-500 hover:text-white transition-colors">Terminate Node Session</button>
-                     </div>
-                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-stone-700 to-transparent opacity-20" />
-                  </div>
-                </motion.div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full min-h-[900px] border-4 border-dashed border-stone-100 rounded-[5rem] space-y-10 group bg-white/50">
-                   <div className="p-12 bg-white rounded-full shadow-inner border border-stone-50 group-hover:scale-110 transition-transform duration-700">
-                      <FileCode size={80} className="text-stone-200" />
-                   </div>
-                   <div className="text-center space-y-4">
-                      <p className="text-stone-300 font-serif italic text-4xl">Select a node from the vault ledger</p>
-                      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-200">Awaiting user authorization</p>
-                   </div>
+            <div className="flex items-center gap-2">
+              <button onClick={exportPDF} className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold border border-stone-200 rounded-md hover:bg-stone-50 transition-all">
+                <Download size={14} /> PDF
+              </button>
+              <button className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold bg-stone-900 text-white rounded-md hover:bg-stone-800 transition-all shadow-md">
+                <Save size={14} /> Commit Changes
+              </button>
+            </div>
+          </header>
+
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {/* AI ASSIST BAR */}
+            <div className="px-8 py-3 bg-stone-50 border-b border-stone-100 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-amber-500" />
+                <span className="text-[10px] font-black uppercase text-stone-400 tracking-wider">Neural Assistant</span>
+              </div>
+              <div className="flex gap-2">
+                <button className="px-2 py-1 text-[9px] font-bold bg-white border border-stone-200 rounded hover:border-stone-900 transition-all">Summarize</button>
+                <button className="px-2 py-1 text-[9px] font-bold bg-white border border-stone-200 rounded hover:border-stone-900 transition-all">Check Compliance</button>
+              </div>
+            </div>
+
+            {/* MAIN TEXT AREA */}
+            <div className="flex-1 p-8 overflow-y-auto custom-scrollbar" ref={printRef}>
+              <textarea 
+                className="w-full h-full text-xs font-mono leading-relaxed text-stone-700 outline-none resize-none bg-transparent"
+                defaultValue={selectedDoc?.content}
+                placeholder="Drafting workspace..."
+                spellCheck={false}
+              />
+            </div>
+          </div>
+        </main>
+
+        {/* METADATA INSPECTOR (RIGHT SIDEBAR) */}
+        <aside className="w-64 border-l border-stone-200 flex flex-col shrink-0 bg-stone-50/10">
+          <div className="p-6 space-y-8">
+            <section className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase text-stone-300 tracking-[0.2em]">Properties</h4>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <p className="text-[9px] text-stone-400">Node Identity</p>
+                  <p className="text-[10px] font-mono font-bold text-stone-800">{selectedDoc?.id}</p>
                 </div>
-              )}
-            </AnimatePresence>
-          </main>
-        </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] text-stone-400">Last Modified</p>
+                  <p className="text-[10px] font-bold text-stone-800">{selectedDoc?.metadata.lastUpdated}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] text-stone-400">Authored By</p>
+                  <p className="text-[10px] font-bold text-stone-800 italic">{selectedDoc?.metadata.author}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] text-stone-400">Security Status</p>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={12} className="text-emerald-500" />
+                    <span className="text-[10px] font-black text-emerald-600 uppercase">{selectedDoc?.metadata.status}</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase text-stone-300 tracking-[0.2em]">Quick Actions</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <button className="p-3 bg-white border border-stone-100 rounded-xl hover:shadow-sm transition-all flex flex-col items-center gap-2 group">
+                  <Share2 size={14} className="text-stone-300 group-hover:text-stone-900" />
+                  <span className="text-[8px] font-bold">Share</span>
+                </button>
+                <button className="p-3 bg-white border border-stone-100 rounded-xl hover:shadow-sm transition-all flex flex-col items-center gap-2 group">
+                  <Layers size={14} className="text-stone-300 group-hover:text-stone-900" />
+                  <span className="text-[8px] font-bold">Relate</span>
+                </button>
+                <button className="p-3 bg-white border border-stone-100 rounded-xl hover:shadow-sm transition-all flex flex-col items-center gap-2 group">
+                  <Globe size={14} className="text-stone-300 group-hover:text-stone-900" />
+                  <span className="text-[8px] font-bold">Publish</span>
+                </button>
+                <button className="p-3 bg-white border border-stone-100 rounded-xl hover:shadow-sm transition-all flex flex-col items-center gap-2 group">
+                  <MoreVertical size={14} className="text-stone-300 group-hover:text-stone-900" />
+                  <span className="text-[8px] font-bold">More</span>
+                </button>
+              </div>
+            </section>
+          </div>
+
+          {/* SYSTEM LOG FOOTER */}
+          <div className="mt-auto border-t border-stone-100 bg-[#0F0F0F] p-4 text-white">
+            <div className="flex items-center gap-2 mb-3 opacity-40">
+              <Terminal size={12} />
+              <span className="text-[8px] font-black uppercase tracking-widest">Logs</span>
+            </div>
+            <div className="font-mono text-[8px] space-y-1.5 h-20 overflow-y-auto opacity-70">
+              <p><span className="text-emerald-500">[{selectedDoc?.id}]</span> Session opened</p>
+              <p><span className="text-emerald-500">[AUTH]</span> Node verified</p>
+              <p><span className="text-stone-500">[SYNC]</span> Cloud handshake OK</p>
+            </div>
+          </div>
+        </aside>
       </div>
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E7E5E4; border-radius: 20px; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        textarea::selection { background: #1C1917; color: #F9F9F7; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E7E5E4; border-radius: 10px; }
+        textarea::selection { background: #1C1917; color: #FDFDFB; }
       `}</style>
     </div>
   );
+}
+
+// Sub-components for cleaner structure
+function Settings(props: any) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-settings">
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>
+    </svg>
+  );
+}
+
+function Share2(props: any) {
+    return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-share2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
 }

@@ -46,8 +46,8 @@ function VaultContent() {
       if (error) throw error;
       setNotes(data || []);
     } catch (e) {
-      console.error("Vault Fetch Error:", e);
-      toast.error("Could not load the vault.");
+      console.error("Notes Fetch Error:", e);
+      toast.error("Could not load the notes.");
     } finally {
       setIsLoading(false);
     }
@@ -129,8 +129,8 @@ function VaultContent() {
       {/* HEADER */}
       <header className="max-w-[1400px] mx-auto p-12 flex justify-between items-end">
         <div>
-          <h1 className="text-8xl font-serif italic tracking-tighter lowercase leading-none">Vault</h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400 mt-4 ml-1">Physical Desktop Ledger</p>
+          <h1 className="text-8xl font-serif italic tracking-tighter lowercase leading-none">Notes</h1>
+          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400 mt-4 ml-1">Your Digital Notepad</p>
         </div>
         <div className="relative group w-64">
           <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-stone-200" size={18} />

@@ -148,7 +148,6 @@ export default function DashboardPage() {
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
-          // Production Fix: Replaced bg-stone-900 with var(--brand-primary) for setting-defined color.
           className="w-full md:w-auto flex items-center justify-center gap-4 bg-[var(--brand-primary)] px-6 py-4 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer"
         >
           {isScanActive ? <Loader2 className="animate-spin text-white" size={18} /> : <Zap className="text-white" size={18} fill="currentColor" />}
@@ -161,9 +160,8 @@ export default function DashboardPage() {
       {/* RE-ALIGNED PRIORITY LIST & MODULES GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 md:gap-12 items-start">
         
-        {/* CHECKLIST (Today's Priority List) - Moved to Top */}
-        <section className="bg-white border border-stone-200 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm lg:col-span-2">
-          {/* Label Updated: Priority Sync -> Priority List */}
+        {/* CHECKLIST (Today's Priority List) */}
+        <section className="bg-white border border-stone-200 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm lg:col-span-3">
           <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 md:mb-8 flex items-center gap-2">
             <CheckSquare size={14} className="text-[var(--brand-primary)]" />
             Today’s Priority List
@@ -194,32 +192,32 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* ROSTER - Aligned next to checklist */}
-        <section className="bg-stone-900 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm flex flex-col justify-between min-h-[400px]">
+        {/* TEAM HUB - FIXED: Changed bg-stone-900 to var(--brand-primary) and fixed layout */}
+        <section className="bg-[var(--brand-primary)] p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm flex flex-col justify-between min-h-[400px] lg:col-span-2">
           <div>
-            <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-500 mb-6 md:mb-8 flex items-center gap-2">
-              <Users size={14} className="text-stone-500" />
+            <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-white/60 mb-6 md:mb-8 flex items-center gap-2">
+              <Users size={14} className="text-white/60" />
               Team Hub
             </h2>
             <div className="space-y-3 md:space-y-4">
               {teamMembers.map((member, index) => (
-                <div key={index} className="flex items-center gap-4 bg-white/5 p-4 md:p-5 rounded-xl md:rounded-2xl border border-white/5">
-                  <div className="h-2 w-2 rounded-full bg-[var(--brand-primary)] animate-pulse shrink-0" />
-                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-wide text-stone-200 truncate">{member}</span>
+                <div key={index} className="flex items-center gap-4 bg-white/10 p-4 md:p-5 rounded-xl md:rounded-2xl border border-white/10">
+                  <div className="h-2 w-2 rounded-full bg-white animate-pulse shrink-0" />
+                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-wide text-white truncate">{member}</span>
                 </div>
               ))}
             </div>
           </div>
-          <div className="mt-8 md:mt-12 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] bg-white/5 border border-white/5 flex items-center gap-4">
-            <ShieldCheck size={18} className="text-[var(--brand-primary)] shrink-0" />
-            <p className="text-[8px] md:text-[9px] tracking-wider uppercase font-serif italic text-stone-500 leading-relaxed">
+          <div className="mt-8 md:mt-12 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] bg-white/10 border border-white/10 flex items-center gap-4">
+            <ShieldCheck size={18} className="text-white shrink-0" />
+            <p className="text-[8px] md:text-[9px] tracking-wider uppercase font-serif italic text-white/80 leading-relaxed">
               System synchronized. All nodes active.
             </p>
           </div>
         </section>
       </div>
 
-      {/* MODULES GRID (Moved Below Priority Section) */}
+      {/* MODULES GRID */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
         {[
           { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "Open Workspace" },
@@ -238,11 +236,9 @@ export default function DashboardPage() {
             key={item.label}
             whileHover={{ y: -5 }}
             onClick={() => router.push(item.path)}
-            // Production Fix: bg-white used for core module to differentiate from checklist and roster. Primary color applies on hover.
             className="group bg-white border border-stone-200 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm hover:shadow-2xl transition-all cursor-pointer relative flex flex-col justify-between min-h-[220px] md:h-[280px] hover:border-[var(--brand-primary)]/30"
           >
             <div>
-              {/* Production Fix: Icon Container uses bg-stone-50 -> bg-[var(--brand-primary)] on hover. */}
               <div className="p-3 md:p-4 bg-stone-50 rounded-xl md:rounded-2xl text-stone-300 group-hover:bg-[var(--brand-primary)] group-hover:text-white transition-all w-fit mb-4 md:mb-8">
                 <item.icon size={24} />
               </div>
@@ -266,7 +262,6 @@ export default function DashboardPage() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-stone-950/90 backdrop-blur-md"
           >
-            {/* Production Fix: Modal Accent Color updated via text-white for text/icons on the solid primary bg. */}
             <div className="bg-[var(--brand-primary)] text-white p-6 md:p-12 rounded-[2.5rem] md:rounded-[5rem] w-full max-w-4xl border border-white/5 shadow-2xl relative text-center">
               <button 
                 onClick={() => setShowScanModal(false)} 

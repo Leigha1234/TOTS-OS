@@ -148,58 +148,25 @@ export default function DashboardPage() {
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
-          className="w-full md:w-auto flex items-center justify-center gap-4 bg-stone-900 px-6 py-4 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer"
+          // Production Fix: Replaced bg-stone-900 with var(--brand-primary) for setting-defined color.
+          className="w-full md:w-auto flex items-center justify-center gap-4 bg-[var(--brand-primary)] px-6 py-4 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer"
         >
-          {isScanActive ? <Loader2 className="animate-spin text-[var(--brand-primary)]" size={18} /> : <Zap className="text-[var(--brand-primary)]" size={18} fill="currentColor" />}
+          {isScanActive ? <Loader2 className="animate-spin text-white" size={18} /> : <Zap className="text-white" size={18} fill="currentColor" />}
           <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-white">
             {isScanActive ? "Running Analysis..." : "Intelligence Scan"}
           </span>
         </motion.button>
       </header>
 
-      {/* MODULES GRID */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
-        {[
-          { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "Open Workspace" },
-          { label: "Invoices Waiting", value: stats.invoicesDue, icon: FileText, path: "/payments", cta: "Review Now" },
-          { label: "Social Reach", value: stats.socialsPending, icon: Share2, path: "/social", cta: "View Insights" },
-          { label: "Scheduled Emails", value: stats.emailsScheduled, icon: Mail, path: "/campaigns", cta: "Manage Flow" },
-          { 
-            label: "Live Profit", 
-            value: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(stats.currentProfit), 
-            icon: PoundSterling, 
-            path: "/payments",
-            cta: "View Breakdown"
-          },
-        ].map((item) => (
-          <motion.div
-            key={item.label}
-            whileHover={{ y: -5 }}
-            onClick={() => router.push(item.path)}
-            className="group bg-white border border-stone-200 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm hover:shadow-2xl transition-all cursor-pointer relative flex flex-col justify-between min-h-[220px] md:h-[280px] hover:border-[var(--brand-primary)]/30"
-          >
-            <div>
-              <div className="p-3 md:p-4 bg-stone-50 rounded-xl md:rounded-2xl text-stone-300 group-hover:text-[var(--brand-primary)] group-hover:bg-stone-900 group-hover:text-white transition-all w-fit mb-4 md:mb-8">
-                <item.icon size={24} />
-              </div>
-              <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-1 md:mb-2">{item.label}</p>
-              <p className="text-3xl md:text-4xl font-serif italic text-stone-900 leading-none truncate">{item.value}</p>
-            </div>
-            
-            <div className="flex items-center gap-2 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors mt-4">
-              {item.cta} <ArrowRight size={10} />
-            </div>
-          </motion.div>
-        ))}
-      </section>
-
-      {/* BOTTOM SECTIONS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12 items-start">
-        {/* CHECKLIST */}
+      {/* RE-ALIGNED PRIORITY LIST & MODULES GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 md:gap-12 items-start">
+        
+        {/* CHECKLIST (Today's Priority List) - Moved to Top */}
         <section className="bg-white border border-stone-200 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm lg:col-span-2">
+          {/* Label Updated: Priority Sync -> Priority List */}
           <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 md:mb-8 flex items-center gap-2">
             <CheckSquare size={14} className="text-[var(--brand-primary)]" />
-            Today’s Priority Sync
+            Today’s Priority List
           </h2>
           <div className="space-y-3 md:space-y-4">
             {todos.map((todo) => (
@@ -227,7 +194,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* ROSTER */}
+        {/* ROSTER - Aligned next to checklist */}
         <section className="bg-stone-900 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm flex flex-col justify-between min-h-[400px]">
           <div>
             <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-500 mb-6 md:mb-8 flex items-center gap-2">
@@ -252,6 +219,44 @@ export default function DashboardPage() {
         </section>
       </div>
 
+      {/* MODULES GRID (Moved Below Priority Section) */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+        {[
+          { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "Open Workspace" },
+          { label: "Invoices Waiting", value: stats.invoicesDue, icon: FileText, path: "/payments", cta: "Review Now" },
+          { label: "Social Reach", value: stats.socialsPending, icon: Share2, path: "/social", cta: "View Insights" },
+          { label: "Scheduled Emails", value: stats.emailsScheduled, icon: Mail, path: "/campaigns", cta: "Manage Flow" },
+          { 
+            label: "Live Profit", 
+            value: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(stats.currentProfit), 
+            icon: PoundSterling, 
+            path: "/payments",
+            cta: "View Breakdown"
+          },
+        ].map((item) => (
+          <motion.div
+            key={item.label}
+            whileHover={{ y: -5 }}
+            onClick={() => router.push(item.path)}
+            // Production Fix: bg-white used for core module to differentiate from checklist and roster. Primary color applies on hover.
+            className="group bg-white border border-stone-200 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-sm hover:shadow-2xl transition-all cursor-pointer relative flex flex-col justify-between min-h-[220px] md:h-[280px] hover:border-[var(--brand-primary)]/30"
+          >
+            <div>
+              {/* Production Fix: Icon Container uses bg-stone-50 -> bg-[var(--brand-primary)] on hover. */}
+              <div className="p-3 md:p-4 bg-stone-50 rounded-xl md:rounded-2xl text-stone-300 group-hover:bg-[var(--brand-primary)] group-hover:text-white transition-all w-fit mb-4 md:mb-8">
+                <item.icon size={24} />
+              </div>
+              <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-1 md:mb-2">{item.label}</p>
+              <p className="text-3xl md:text-4xl font-serif italic text-stone-900 leading-none truncate">{item.value}</p>
+            </div>
+            
+            <div className="flex items-center gap-2 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors mt-4">
+              {item.cta} <ArrowRight size={10} />
+            </div>
+          </motion.div>
+        ))}
+      </section>
+
       {/* SCAN MODAL */}
       <AnimatePresence>
         {showScanModal && (
@@ -261,16 +266,17 @@ export default function DashboardPage() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-stone-950/90 backdrop-blur-md"
           >
-            <div className="bg-stone-900 text-stone-100 p-6 md:p-12 rounded-[2.5rem] md:rounded-[5rem] w-full max-w-4xl border border-white/5 shadow-2xl relative text-center">
+            {/* Production Fix: Modal Accent Color updated via text-white for text/icons on the solid primary bg. */}
+            <div className="bg-[var(--brand-primary)] text-white p-6 md:p-12 rounded-[2.5rem] md:rounded-[5rem] w-full max-w-4xl border border-white/5 shadow-2xl relative text-center">
               <button 
                 onClick={() => setShowScanModal(false)} 
-                className="absolute top-4 right-4 md:top-8 md:right-8 p-2 text-stone-600 hover:text-white transition-colors"
+                className="absolute top-4 right-4 md:top-8 md:right-8 p-2 text-white/50 hover:text-white transition-colors"
               >
                 <X size={32}/>
               </button>
               
-              <Zap className="text-[var(--brand-primary)] mx-auto mb-10" size={56} fill="currentColor" />
-              <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.5em] text-[var(--brand-primary)] mb-8">Clarity AI Active</p>
+              <Zap className="text-white mx-auto mb-10" size={56} fill="currentColor" />
+              <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.5em] text-white/70 mb-8">Clarity AI Active</p>
               <p className="font-serif italic text-2xl md:text-5xl text-white leading-tight tracking-tighter">
                 {insight || "Flow Analysis: Revenue channels are clear. Priorities are aligned for scale."}
               </p>

@@ -3,68 +3,55 @@
 import { useEffect, useState, useCallback, Suspense, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
-  Trash2, Zap, Circle, BookOpen, X, Target, Search,
+  Trash2, Circle, BookOpen, X, Search,
   Mic, MicOff, User, Folder, Loader2, Plus, CheckCircle2, 
-  AlertCircle, ChevronRight, Settings, Filter, Layers, 
-  Clock, Share2, MoreHorizontal, Maximize2, Archive,
-  Hash, Shield, Cpu, Activity, Globe, Command // Added missing Hash import
+  Settings, Layers, Clock, Share2, Maximize2, Archive, Hash
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 /**
  * TOTS OS | CLARITY LEDGER ARCHITECTURE
- * VERSION: 4.2.0 (Build: 2026.05)
- * MAINTAINER: TOTS_DEV_UNIT
+ * VERSION: 4.5.0 (Build: 2026.06)
+ * REFINED AESTHETIC | STRIPPED HUB PROTOCOL
  */
 
 // --- CONFIGURATION & THEMES ---
 
 const POST_IT_PALETTE = [
-  { bg: "#fef3c7", border: "#fde68a", accent: "#92400e", rotation: "-1.2deg" }, 
-  { bg: "#e0f2fe", border: "#bae6fd", accent: "#075985", rotation: "0.8deg" },  
-  { bg: "#ecfccb", border: "#d9f99d", accent: "#3f6212", rotation: "-0.5deg" }, 
-  { bg: "#fce7f3", border: "#fbcfe8", accent: "#9d174d", rotation: "1.5deg" },  
-  { bg: "#ede9fe", border: "#ddd6fe", accent: "#5b21b6", rotation: "-1deg" }
+  { bg: "#fef3c7", rotation: "-1.2deg" }, // Amber
+  { bg: "#e0f2fe", rotation: "0.8deg" },  // Sky
+  { bg: "#ecfccb", rotation: "-0.5deg" }, // Lime
+  { bg: "#fce7f3", rotation: "1.5deg" },  // Pink
+  { bg: "#ede9fe", rotation: "-1deg" }   // Violet
 ];
 
 const SYSTEM_CATEGORIES = [
-  { id: "note", label: "General Intelligence", color: "stone" },
-  { id: "task", label: "Action Required", color: "blue" },
-  { id: "brainstorm", label: "Creative Logic", color: "purple" },
-  { id: "urgent", label: "Immediate Priority", color: "red" },
-  { id: "archive", label: "Historical Data", color: "amber" }
+  { id: "note", label: "General Intelligence" },
+  { id: "task", label: "Action Required" },
+  { id: "brainstorm", label: "Creative Logic" },
+  { id: "archive", label: "Historical Data" }
 ];
 
 // --- INTERFACE COMPONENTS ---
 
-function SystemStatus() {
-  return (
-    <div className="flex items-center gap-6 px-8 py-3 bg-stone-900 rounded-full border border-white/5">
-      <div className="flex items-center gap-2">
-        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/40">Core_Online</span>
-      </div>
-      <div className="h-3 w-[1px] bg-white/10" />
-      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/40">Lat: 22ms</span>
-    </div>
-  );
-}
-
 function LedgerHeader({ searchTerm, setSearchTerm }: { searchTerm: string, setSearchTerm: (v: string) => void }) {
   return (
-    <header className="space-y-12 mb-16">
+    <header className="space-y-12 mb-16 px-4">
       <div className="flex justify-between items-start">
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-             <Cpu size={14} className="text-[#A3B18A]" />
-             <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400">Environment // Ledger_04</p>
-          </div>
+        <div className="space-y-2">
           <h1 className="text-9xl font-serif italic text-stone-900 tracking-tighter lowercase leading-[0.8]">
             Clarity <span className="text-stone-300">Hub</span>
           </h1>
         </div>
-        <SystemStatus />
+        <div className="flex gap-4">
+          <div className="h-12 w-12 rounded-full border border-stone-200 flex items-center justify-center text-stone-300 hover:text-stone-800 hover:border-stone-800 transition-all cursor-pointer">
+            <Settings size={18} />
+          </div>
+          <div className="h-12 w-12 rounded-full border border-stone-200 flex items-center justify-center text-stone-300 hover:text-stone-800 hover:border-stone-800 transition-all cursor-pointer">
+            <Share2 size={18} />
+          </div>
+        </div>
       </div>
 
       <div className="relative group max-w-3xl">
@@ -76,7 +63,7 @@ function LedgerHeader({ searchTerm, setSearchTerm }: { searchTerm: string, setSe
           placeholder="Filter ledger strings..." 
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-24 pr-12 py-9 bg-white/60 backdrop-blur-xl border border-stone-100 rounded-[3rem] outline-none shadow-sm font-serif italic text-2xl focus:bg-white focus:ring-8 ring-stone-900/[0.02] transition-all"
+          className="w-full pl-24 pr-12 py-9 bg-white/60 backdrop-blur-xl border border-stone-100 rounded-[3rem] outline-none shadow-sm font-serif italic text-2xl focus:bg-white focus:ring-8 ring-stone-900/[0.02] transition-all placeholder:text-stone-200"
         />
       </div>
     </header>
@@ -127,7 +114,7 @@ function NotesContent() {
       setUser(authUser);
       await fetchPulse(authUser.id);
 
-      const channel = supabase.channel("ledger-v4-realtime")
+      const channel = supabase.channel("ledger-v4.5-realtime")
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchPulse(authUser.id))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchPulse(authUser.id))
         .subscribe();
@@ -149,7 +136,7 @@ function NotesContent() {
         color: style.bg,
         category: selectedCategory,
         project_id: selectedProject || null,
-        metadata: { source: "web_v4", client: "tots_os" }
+        metadata: { client: "web_v4.5" }
       }]);
 
       if (noteErr) throw noteErr;
@@ -165,7 +152,7 @@ function NotesContent() {
       toast.success("Intelligence Logged Successfully.");
       fetchPulse(user.id);
     } catch (e) {
-      toast.error("Internal Logic Error: Check Database.");
+      toast.error("Internal Protocol Error.");
     } finally {
       setIsSubmitting(false);
     }
@@ -183,33 +170,26 @@ function NotesContent() {
 
   if (isLoading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F5F3] gap-10">
-      <div className="w-32 h-1 bg-stone-200 overflow-hidden rounded-full">
-        <motion.div 
-          className="h-full bg-stone-900" 
-          animate={{ x: [-100, 100] }} 
-          transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} 
-        />
+      <div className="relative h-24 w-24">
+        <div className="absolute inset-0 border-4 border-stone-100 rounded-full" />
+        <div className="absolute inset-0 border-4 border-stone-800 border-t-transparent rounded-full animate-spin" />
       </div>
-      <p className="font-serif italic text-stone-400 text-3xl">Calibrating Ledger Views...</p>
+      <p className="font-serif italic text-stone-300 text-3xl">Synchronizing Studio Assets...</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F5F5F3] p-10 md:p-20 font-sans selection:bg-stone-900 selection:text-[#A3B18A]">
+    <div className="min-h-screen bg-[#F5F5F3] p-10 md:p-16 font-sans selection:bg-stone-900 selection:text-[#A3B18A]">
       <div className="max-w-[1800px] mx-auto grid lg:grid-cols-12 gap-16">
         
-        {/* SECTION 01: CAPTURE & STICKY GRID */}
+        {/* SECTION 01: CAPTURE ENGINE & GRID */}
         <div className="lg:col-span-8 space-y-20">
           <LedgerHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
 
           {/* THE CAPTURE DOCK */}
-          <section className="bg-white p-14 rounded-[4.5rem] shadow-3xl border border-stone-50 space-y-12 relative overflow-hidden group">
-            <div className="absolute -top-10 -right-10 p-12 opacity-[0.03] rotate-12">
-              <Command size={280} />
-            </div>
-            
+          <section className="bg-white p-14 rounded-[4rem] shadow-3xl border border-stone-50 space-y-12 relative overflow-hidden group">
             <textarea 
-              className="w-full min-h-[280px] text-4xl outline-none resize-none bg-transparent font-serif italic text-stone-900 placeholder:text-stone-200 leading-[1.4] relative z-10" 
+              className="w-full min-h-[260px] text-4xl outline-none resize-none bg-transparent font-serif italic text-stone-900 placeholder:text-stone-100 leading-[1.4] relative z-10" 
               placeholder="What's the play?" 
               value={newNote} 
               onChange={(e) => setNewNote(e.target.value)} 
@@ -217,7 +197,7 @@ function NotesContent() {
             
             <div className="flex flex-wrap items-center gap-8 pt-12 border-t border-stone-50 justify-between relative z-10">
               <div className="flex flex-wrap gap-5">
-                <div className="flex items-center bg-stone-50 rounded-[2.5rem] px-10 border border-stone-100 transition-colors focus-within:bg-stone-100">
+                <div className="flex items-center bg-stone-50 rounded-[2.5rem] px-10 border border-stone-100 transition-colors focus-within:bg-stone-100 group/select">
                   <Hash size={16} className="text-stone-300 mr-5" />
                   <select 
                     className="bg-transparent text-[11px] font-black uppercase outline-none text-stone-500 py-6 cursor-pointer appearance-none min-w-[160px]" 
@@ -230,7 +210,7 @@ function NotesContent() {
                   </select>
                 </div>
 
-                <div className="flex items-center bg-stone-50 rounded-[2.5rem] px-10 border border-stone-100 transition-colors focus-within:bg-stone-100">
+                <div className="flex items-center bg-stone-50 rounded-[2.5rem] px-10 border border-stone-100 transition-colors focus-within:bg-stone-100 group/select">
                   <Folder size={16} className="text-stone-300 mr-5" />
                   <select 
                     className="bg-transparent text-[11px] font-black uppercase outline-none text-stone-500 py-6 cursor-pointer appearance-none min-w-[160px]" 
@@ -257,7 +237,7 @@ function NotesContent() {
           <section className="grid md:grid-cols-2 gap-16 pt-10">
             <AnimatePresence mode="popLayout">
               {filteredNotes.map((note, idx) => {
-                const rotation = (idx % 3 === 0) ? "-1.8deg" : (idx % 2 === 0) ? "1.4deg" : "-1.1deg";
+                const rotation = POST_IT_PALETTE[idx % POST_IT_PALETTE.length].rotation;
                 return (
                   <motion.div 
                     layout initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8 }}
@@ -268,21 +248,11 @@ function NotesContent() {
                       transform: `rotate(${rotation})`,
                     }}
                   >
-                    {/* The Tape Aesthetic */}
+                    {/* Tape Aesthetic */}
                     <div className="absolute top-[-20px] left-1/2 -translate-x-1/2 w-40 h-12 bg-white/40 backdrop-blur-md border border-white/30 rotate-[-1.5deg] shadow-sm" />
                     
-                    <div className="space-y-10">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-4">
-                           <div className="w-2.5 h-2.5 rounded-full bg-black/10" />
-                           <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 italic font-mono">TOTS_{note.id.slice(0, 6)}</span>
-                        </div>
-                        <div className="flex gap-4 opacity-0 group-hover:opacity-30 transition-opacity">
-                            <Maximize2 size={18} className="cursor-pointer" />
-                            <MoreHorizontal size={18} className="cursor-pointer" />
-                        </div>
-                      </div>
-                      <p className="text-stone-900 font-serif italic text-4xl pr-8 leading-[1.25] tracking-tight">{note.content}</p>
+                    <div className="space-y-10 pr-6">
+                      <p className="text-stone-900 font-serif italic text-4xl leading-[1.25] tracking-tight">{note.content}</p>
                     </div>
 
                     <div className="flex justify-between items-end mt-20 pt-10 border-t border-black/10">
@@ -294,13 +264,13 @@ function NotesContent() {
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                           <Shield size={10} className="text-black/20" />
+                           <Layers size={10} className="text-black/20" />
                            <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">{note.category}</span>
                         </div>
                       </div>
                       <div className="flex gap-3 translate-y-3">
-                        <button className="p-5 bg-black/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/10">
-                          <Archive size={20} className="text-stone-600" />
+                        <button className="p-5 bg-black/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/10 text-stone-600">
+                          <Archive size={20} />
                         </button>
                         <button 
                           onClick={() => deleteNote(note.id)} 
@@ -314,23 +284,21 @@ function NotesContent() {
                 );
               })}
             </AnimatePresence>
+            
+            {filteredNotes.length === 0 && (
+              <div className="col-span-full py-40 text-center space-y-6 opacity-10">
+                <BookOpen size={80} className="mx-auto" />
+                <p className="text-2xl font-serif italic">The ledger is currently silent.</p>
+              </div>
+            )}
           </section>
         </div>
 
         {/* SECTION 02: SYSTEM PIPELINE & TERMINAL */}
         <aside className="lg:col-span-4 space-y-12">
-          <div className="bg-stone-900 rounded-[5rem] p-14 text-[#A3B18A] shadow-5xl sticky top-14 min-h-[88vh] flex flex-col border border-white/5">
-            <div className="mb-16 flex justify-between items-center">
-              <div className="space-y-5">
-                <h2 className="text-6xl font-serif italic leading-none text-white">Action <span className="text-[#A3B18A]">Queue</span></h2>
-                <div className="flex items-center gap-4">
-                  <Activity size={14} className="animate-pulse" />
-                  <p className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40">System_Health // Stable</p>
-                </div>
-              </div>
-              <div className="p-6 bg-white/5 rounded-[2.5rem] border border-white/10 shadow-inner">
-                <Target size={36} />
-              </div>
+          <div className="bg-stone-900 rounded-[5rem] p-12 text-[#A3B18A] shadow-5xl sticky top-14 min-h-[88vh] flex flex-col border border-white/5 selection:bg-white selection:text-stone-900">
+            <div className="mb-16">
+              <h2 className="text-6xl font-serif italic leading-none text-white">Action <span className="text-[#A3B18A]">Queue</span></h2>
             </div>
 
             {/* QUEUE ENGINE */}
@@ -349,21 +317,15 @@ function NotesContent() {
                       <Circle size={32} strokeWidth={1} />
                     </button>
                     <div className="space-y-4 flex-1">
-                      <p className="text-base font-bold text-white/90 leading-relaxed group-hover:text-white transition-colors">{task.title}</p>
-                      <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2">
-                           <div className="w-1.5 h-1.5 rounded-full bg-[#A3B18A]" />
-                           <span className="text-[9px] font-black uppercase tracking-widest text-[#A3B18A]/60">Priority_0{task.priority || 2}</span>
-                        </div>
-                        <Globe size={10} className="opacity-20" />
-                      </div>
+                      <p className="text-base font-bold text-white leading-relaxed group-hover:text-white transition-colors">{task.title}</p>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-[#A3B18A]/60 border border-[#A3B18A]/10 px-3 py-1 bg-[#A3B18A]/5 rounded-full">Pipeline 02</span>
                     </div>
                   </motion.div>
                 ))}
               </AnimatePresence>
 
               {tasks.length === 0 && (
-                <div className="text-center py-40 opacity-10 space-y-10">
+                <div className="text-center py-40 opacity-10 space-y-10 text-white">
                   <CheckCircle2 size={80} className="mx-auto" />
                   <p className="text-[14px] font-black uppercase tracking-[0.8em]">Queue_Clear</p>
                 </div>
@@ -372,44 +334,32 @@ function NotesContent() {
 
             {/* TERMINAL UI */}
             <div className="mt-auto space-y-8">
-               <div className="p-8 bg-black/40 rounded-[2.5rem] border border-white/5 font-mono text-[9px] leading-loose text-white/30">
+               <div className="p-8 bg-black/40 rounded-[2.5rem] border border-white/5 font-mono text-[9px] leading-loose text-white/30 selection:bg-white selection:text-stone-900">
                   <div className="flex justify-between mb-4 border-b border-white/5 pb-2">
-                     <span className="text-[#A3B18A]/40 uppercase tracking-widest">System_Logs</span>
-                     <span>v4.2.0</span>
+                     <span className="text-[#A3B18A]/40 uppercase tracking-widest">TOTS // STUDIO_LEDGER</span>
                   </div>
-                  <p className="flex gap-3"><span className="text-[#A3B18A]">[OK]</span> DB_Handshake established...</p>
-                  <p className="flex gap-3"><span className="text-[#A3B18A]">[OK]</span> Realtime_Channel listening on :public</p>
-                  <p className="flex gap-3"><span className="text-[#A3B18A]">[OK]</span> Asset_Ledger synced ({notes.length} nodes)</p>
+                  <p className="flex gap-3"><span className="text-[#A3B18A]">[OK]</span> Realtime_Sync listening on :notes :tasks</p>
+                  <p className="flex gap-3"><span className="text-[#A3B18A]">[OK]</span> Asset Ledger reconciled ({notes.length} nodes)</p>
+                  <p className="flex gap-3"><span className="text-[#A3B18A]">[OK]</span> DB Handshake Stable // v4.5.0 Live</p>
                </div>
 
                <div className="flex justify-between items-center px-4">
                   <div className="flex -space-x-4">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="w-14 h-14 rounded-full border-4 border-stone-900 bg-stone-800 flex items-center justify-center shadow-2xl">
-                        <User size={16} className="text-white/20" />
+                    {[1, 2].map(i => (
+                      <div key={i} className="w-14 h-14 rounded-full border-4 border-stone-900 bg-stone-800 flex items-center justify-center shadow-2xl text-white/40">
+                        <User size={16} />
                       </div>
                     ))}
+                    <div className="w-14 h-14 rounded-full border-4 border-stone-900 bg-[#A3B18A] flex items-center justify-center text-[14px] font-black text-stone-900 shadow-xl">
+                      <Plus size={16} />
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Sync_Frequency</p>
-                    <p className="text-2xl font-serif italic text-white">Live</p>
+                  <div className="flex items-baseline gap-1 font-serif text-white opacity-40">
+                    <p className="text-[10px] font-sans font-black uppercase tracking-[0.3em] mr-2">Count</p>
+                    <p className="text-2xl italic leading-none">{tasks.length}</p>
                   </div>
                </div>
             </div>
-          </div>
-
-          <div className="p-12 bg-white rounded-[4rem] border border-stone-100 shadow-sm space-y-10 relative overflow-hidden">
-             <div className="flex items-center gap-5 text-stone-900">
-                <AlertCircle size={24} className="text-[#A3B18A]" />
-                <h3 className="text-xl font-serif italic">Ledger Protocol</h3>
-             </div>
-             <p className="text-base font-serif italic text-stone-500 leading-relaxed">
-                Entries are globally unique and indexed for search speed. The Action Queue mirrors the Ledger for zero-lag productivity.
-             </p>
-             <div className="h-[1px] w-full bg-stone-50" />
-             <button className="w-full py-5 rounded-3xl text-[11px] font-black uppercase tracking-[0.4em] text-stone-400 hover:bg-stone-50 hover:text-stone-900 transition-all">
-                Export Data Repository
-             </button>
           </div>
         </aside>
 
@@ -424,15 +374,25 @@ function NotesContent() {
         .shadow-post-it {
           box-shadow: 
             8px 8px 25px rgba(0,0,0,0.02),
-            20px 20px 60px rgba(0,0,0,0.05),
-            inset 0px -15px 40px rgba(0,0,0,0.03);
+            20px 20px 60px rgba(0,0,0,0.04),
+            inset 0px -15px 40px rgba(0,0,0,0.02);
         }
 
-        .shadow-4xl { box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.3); }
-        .shadow-5xl { box-shadow: 0 60px 120px -30px rgba(0, 0, 0, 0.5); }
+        .shadow-3xl {
+          box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.15);
+        }
 
-        textarea::placeholder { opacity: 0.15; }
-        .font-serif { font-family: 'Instrument Serif', serif; }
+        .shadow-5xl {
+          box-shadow: 0 60px 120px -30px rgba(0, 0, 0, 0.35);
+        }
+
+        textarea::placeholder {
+          opacity: 0.15;
+        }
+
+        .font-serif {
+          font-family: 'Instrument Serif', serif;
+        }
       `}</style>
     </div>
   );
@@ -440,7 +400,11 @@ function NotesContent() {
 
 export default function NotesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-serif italic text-stone-300 text-5xl">Initializing Hub...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center font-serif italic text-stone-200 text-6xl">
+        Booting...
+      </div>
+    }>
       <NotesContent />
     </Suspense>
   );

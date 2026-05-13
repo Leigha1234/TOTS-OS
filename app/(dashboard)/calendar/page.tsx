@@ -3,11 +3,11 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
-  ChevronLeft, ChevronRight, Calendar as CalendarIcon, 
-  Plus, X, Loader2, MapPin, Clock, Video, Landmark, 
-  ExternalLink, Mail, Radio, Zap, Shield, Activity,
-  Search, Filter, Settings, Bell, Info, Share2, 
-  Trash2, Edit3, CheckCircle2, AlertCircle, RefreshCw
+  ChevronLeft, ChevronRight, Plus, X, Loader2, MapPin, 
+  Video, Activity, Settings, RefreshCw, Radio, Zap, 
+  ExternalLink, Shield, Bell, Search, Filter, Share2, 
+  Trash2, Edit3, CheckCircle2, AlertCircle, Info,
+  Command, Eye, Lock, Globe, Database, Cpu
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -17,16 +17,14 @@ import {
 } from "date-fns";
 
 /**
- * TOTS OS | CHRONOS PROTOCOL 
- * Module: Temporal Infrastructure & Operational Calendar
- * Version: 2.8.4
+ * TOTS OS | CALENDAR INFRASTRUCTURE
+ * Refined Layout: 500-Line Temporal Management
+ * Focus: Anti-Squash Proportions & Event Logic
  */
 
-// --- Type Definitions ---
+type DisplayType = 'OPERATION' | 'SIGNAL' | 'URGENT';
 
-type DisplayType = 'OPERATION' | 'SIGNAL';
-
-interface ProtocolNode {
+interface CalendarEvent {
   id: string;
   title?: string;
   subject?: string;
@@ -34,212 +32,188 @@ interface ProtocolNode {
   scheduled_for?: string;
   description?: string;
   content?: string;
-  status?: string;
-  priority?: number;
+  status?: 'pending' | 'active' | 'archived';
+  priority?: 1 | 2 | 3;
   color?: string;
-  colour?: string;
   location?: string;
   vc_link?: string;
   displayType: DisplayType;
   dateField: string;
 }
 
-const PRESET_COLOURS = [
-  { name: 'Sage', value: '#A3B18A' },
-  { name: 'Rose', value: '#E07A5F' },
-  { name: 'Amber', value: '#F2CC8F' },
-  { name: 'Slate', value: '#3D405B' },
-  { name: 'Terracotta', value: '#81171B' },
-  { name: 'Amethyst', value: '#8b5cf6' }
-];
+interface SystemNotification {
+  id: string;
+  message: string;
+  type: 'info' | 'alert';
+}
 
-// --- Sub-Components ---
-
-const SignalStatus = () => (
-  <div className="flex items-center justify-between mb-10 p-6 bg-stone-50 rounded-[2.5rem] border border-stone-100/50 shadow-sm">
-    <div className="flex items-center gap-4">
-      <div className="relative flex items-center justify-center">
-        <Activity size={18} className="text-[#a9b897]" />
-        <span className="absolute w-5 h-5 bg-[#a9b897]/20 rounded-full animate-ping" />
-      </div>
-      <div>
-        <p className="text-[7px] font-black uppercase tracking-[0.3em] text-stone-400">Node Connectivity</p>
-        <p className="text-[10px] font-black uppercase text-stone-900 tracking-tighter">Protocol Secure</p>
-      </div>
-    </div>
-    <div className="flex gap-1.5">
-      {[1, 2, 3, 4].map(i => (
-        <div key={i} className="w-1 h-3.5 bg-[#a9b897] rounded-full" />
-      ))}
-      <div className="w-1 h-3.5 bg-stone-200 rounded-full" />
-    </div>
-  </div>
-);
-
-// --- Main Application ---
-
-export default function ChronosProtocolPage() {
-  // --- Infrastructure State ---
+export default function CalendarPage() {
+  // --- Core State ---
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [tasks, setTasks] = useState<ProtocolNode[]>([]);
-  const [campaigns, setCampaigns] = useState<ProtocolNode[]>([]);
   const [selectedDay, setSelectedDay] = useState(new Date());
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // --- Modal & Interaction State ---
+  const [activeFilter, setActiveFilter] = useState<DisplayType | 'ALL'>('ALL');
+  
+  // --- UI State ---
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"create" | "view">("create");
-  const [selectedNode, setSelectedNode] = useState<ProtocolNode | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [viewMode, setViewMode] = useState<'VIEW' | 'CREATE'>('CREATE');
+  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
 
-  // --- Transaction State (Forms) ---
+  // --- Form State ---
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [formTime, setFormTime] = useState("09:00");
-  const [formLocation, setFormLocation] = useState("");
-  const [formColor, setFormColor] = useState(PRESET_COLOURS[0].value);
-  const [formVC, setFormVC] = useState("");
-  const [formNotes, setFormNotes] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ), []);
 
-  // --- Data Orchestration ---
+  // --- Data Logic ---
 
-  const fetchProtocolData = useCallback(async () => {
+  const addNotification = (message: string, type: 'info' | 'alert') => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setNotifications(prev => [{ id, message, type }, ...prev].slice(0, 3));
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4000);
+  };
+
+  const syncCalendar = useCallback(async () => {
     setIsLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const [tasksRes, campaignsRes] = await Promise.all([
         supabase.from("tasks").select("*").eq("user_id", user.id),
         supabase.from("campaigns").select("*").eq("user_id", user.id)
       ]);
 
-      const formattedTasks: ProtocolNode[] = (tasksRes.data || []).map(t => ({
+      const taskEvents: CalendarEvent[] = (tasksRes.data || []).map(t => ({
         ...t,
         displayType: 'OPERATION',
         dateField: t.created_at
       }));
 
-      const formattedCampaigns: ProtocolNode[] = (campaignsRes.data || []).map(c => ({
+      const campaignEvents: CalendarEvent[] = (campaignsRes.data || []).map(c => ({
         ...c,
         displayType: 'SIGNAL',
         dateField: c.scheduled_for || c.created_at
       }));
 
-      setTasks(formattedTasks);
-      setCampaigns(formattedCampaigns);
+      setEvents([...taskEvents, ...campaignEvents]);
+      addNotification("Calendar synced successfully", "info");
     } catch (error) {
-      console.error("Infrastructure Sync Error:", error);
+      addNotification("Sync interruption", "alert");
     } finally {
       setIsLoading(false);
     }
   }, [supabase]);
 
   useEffect(() => {
-    fetchProtocolData();
-  }, [fetchProtocolData, currentMonth]);
+    syncCalendar();
+  }, [syncCalendar]);
 
-  // --- Logic Layers ---
+  // --- Helpers ---
 
-  const daysInPeriod = useMemo(() => {
+  const daysInGrid = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth));
     const end = endOfWeek(endOfMonth(currentMonth));
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
-  const getNodesForDate = useCallback((date: Date) => {
-    const combined = [...tasks, ...campaigns];
-    return combined.filter(node => {
-      const nodeDate = parseISO(node.dateField);
-      return isValid(nodeDate) && isSameDay(nodeDate, date);
-    }).sort((a, b) => new Date(a.dateField).getTime() - new Date(b.dateField).getTime());
-  }, [tasks, campaigns]);
+  const getEventsForDay = useCallback((date: Date) => {
+    return events.filter(e => {
+      const d = parseISO(e.dateField);
+      const matchesDate = isValid(d) && isSameDay(d, date);
+      const matchesFilter = activeFilter === 'ALL' || e.displayType === activeFilter;
+      return matchesDate && matchesFilter;
+    });
+  }, [events, activeFilter]);
 
-  const activeDayNodes = useMemo(() => getNodesForDate(selectedDay), [selectedDay, getNodesForDate]);
-
-  const handleOpenCreate = (date: Date) => {
-    setSelectedDay(date);
-    setFormDate(format(date, "yyyy-MM-dd"));
-    setViewMode("create");
-    setSelectedNode(null);
+  const handleCreateNew = (day: Date) => {
+    setSelectedDay(day);
+    setFormDate(format(day, "yyyy-MM-dd"));
+    setViewMode('CREATE');
     setIsModalOpen(true);
   };
 
-  const handleViewNode = (e: React.MouseEvent, node: ProtocolNode) => {
-    e.stopPropagation();
-    setSelectedNode(node);
-    setViewMode("view");
+  const handleViewEvent = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setViewMode('VIEW');
     setIsModalOpen(true);
   };
 
-  const commitNewEntry = async () => {
-    if (!formTitle) return;
+  const commitEvent = async () => {
+    if (!formTitle || isSubmitting) return;
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Auth required");
+      if (!user) throw new Error();
 
-      const isoTimestamp = new Date(`${formDate}T${formTime}:00`).toISOString();
-      
       const { error } = await supabase.from("tasks").insert([{
         title: formTitle,
-        user_id: user.id,
-        created_at: isoTimestamp,
-        description: formNotes,
-        location: formLocation,
-        vc_link: formVC,
-        color: formColor,
-        status: 'todo'
+        description: formDescription,
+        created_at: new Date(`${formDate}T${formTime}:00`).toISOString(),
+        user_id: user.id
       }]);
 
       if (error) throw error;
-      
       setIsModalOpen(false);
-      setFormTitle(""); setFormNotes(""); setFormVC("");
-      fetchProtocolData();
+      setFormTitle("");
+      setFormDescription("");
+      syncCalendar();
     } catch (err) {
-      console.error("Deployment failure:", err);
+      addNotification("Failed to deploy event", "alert");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- Render Layer ---
-
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 selection:bg-[#a9b897]/30">
+    <div className="min-h-screen bg-[#F9F9F7] text-stone-900 selection:bg-[#A3B18A]/20">
       
-      {/* MODAL SYSTEM */}
+      {/* --- NOTIFICATIONS --- */}
+      <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] space-y-2">
+        <AnimatePresence>
+          {notifications.map(n => (
+            <motion.div 
+              key={n.id} initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="px-6 py-3 bg-white shadow-2xl rounded-full border border-stone-100 flex items-center gap-3"
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${n.type === 'alert' ? 'bg-red-400' : 'bg-[#A3B18A]'}`} />
+              <span className="text-[10px] font-black uppercase tracking-widest">{n.message}</span>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* --- MODAL SYSTEM --- */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 md:p-10">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
             <motion.div 
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-stone-900/40 backdrop-blur-xl"
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-md"
             />
             
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 30 }}
-              className="relative w-full max-w-2xl bg-white rounded-[4rem] shadow-3xl overflow-hidden flex flex-col max-h-[90vh]"
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-xl bg-white rounded-[4rem] shadow-3xl overflow-hidden flex flex-col"
             >
-              {/* Modal Header */}
-              <div className="p-10 pb-6 flex justify-between items-start border-b border-stone-50">
+              <div className="p-10 pb-4 flex justify-between items-start">
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-4 h-1 bg-[#a9b897] rounded-full" />
-                    <span className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Tots Protocol Sync</span>
-                  </div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.4em] text-[#A3B18A] mb-1">Calendar Protocol</p>
                   <h2 className="text-4xl font-serif italic text-stone-800 tracking-tighter">
-                    {viewMode === "create" ? "Establish Entry" : "Node Briefing"}
+                    {viewMode === 'CREATE' ? 'Establish Event' : 'Event Detail'}
                   </h2>
                 </div>
                 <button onClick={() => setIsModalOpen(false)} className="p-4 bg-stone-50 rounded-full hover:bg-stone-100 transition-all">
@@ -247,89 +221,46 @@ export default function ChronosProtocolPage() {
                 </button>
               </div>
 
-              {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-10 space-y-8 no-scrollbar">
-                {viewMode === "create" ? (
-                  <div className="space-y-6">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-stone-400 ml-2 tracking-widest">Entry Identifier</label>
-                      <input 
-                        value={formTitle} onChange={(e) => setFormTitle(e.target.value)}
-                        placeholder="Operation Name..."
-                        className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:outline-none focus:border-[#a9b897] transition-all"
-                      />
-                    </div>
+              <div className="p-10 space-y-6">
+                {viewMode === 'CREATE' ? (
+                  <div className="space-y-4">
+                    <input 
+                      value={formTitle} onChange={e => setFormTitle(e.target.value)}
+                      placeholder="Event Title..."
+                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-6 text-sm"
+                    />
                     <div className="grid grid-cols-2 gap-4">
-                      <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="bg-stone-50 border border-stone-100 rounded-2xl p-5 text-xs font-bold" />
-                      <input type="time" value={formTime} onChange={(e) => setFormTime(e.target.value)} className="bg-stone-50 border border-stone-100 rounded-2xl p-5 text-xs font-bold" />
-                    </div>
-                    <div className="space-y-4">
-                      <div className="relative">
-                        <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
-                        <input value={formLocation} onChange={(e) => setFormLocation(e.target.value)} placeholder="Node Location..." className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 pl-14 text-xs" />
-                      </div>
-                      <div className="relative">
-                        <Video className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
-                        <input value={formVC} onChange={(e) => setFormVC(e.target.value)} placeholder="VC Transmission Link..." className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 pl-14 text-xs" />
-                      </div>
+                      <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-bold" />
+                      <input type="time" value={formTime} onChange={e => setFormTime(e.target.value)} className="bg-stone-50 border border-stone-100 rounded-2xl p-4 text-xs font-bold" />
                     </div>
                     <textarea 
-                      value={formNotes} onChange={(e) => setFormNotes(e.target.value)}
-                      placeholder="Operational Details..."
-                      className="w-full bg-stone-50 border border-stone-100 rounded-[2.5rem] p-8 text-sm h-40 resize-none focus:outline-none"
+                      value={formDescription} onChange={e => setFormDescription(e.target.value)}
+                      placeholder="Intelligence details..."
+                      className="w-full bg-stone-50 border border-stone-100 rounded-[2rem] p-6 text-sm h-32 resize-none"
                     />
+                    <button 
+                      onClick={commitEvent}
+                      className="w-full bg-stone-900 text-white py-6 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#A3B18A] transition-all"
+                    >
+                      Deploy Event
+                    </button>
                   </div>
                 ) : (
-                  <div className="space-y-8">
-                    <div className="flex items-center gap-5">
-                      <div className="w-16 h-16 rounded-3xl bg-stone-50 border border-stone-100 flex items-center justify-center">
-                        {selectedNode?.displayType === 'SIGNAL' ? <Radio className="text-purple-500" /> : <Zap className="text-[#a9b897]" />}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4 p-6 bg-stone-50 rounded-3xl">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-stone-100">
+                        {selectedEvent?.displayType === 'SIGNAL' ? <Radio className="text-[#A3B18A]" /> : <Zap className="text-stone-400" />}
                       </div>
                       <div>
-                        <span className="text-[10px] font-black uppercase text-[#a9b897] tracking-[0.3em]">{selectedNode?.displayType}</span>
-                        <h3 className="text-3xl font-serif italic text-stone-800 leading-tight">{selectedNode?.title || selectedNode?.subject}</h3>
+                        <p className="text-[10px] font-black uppercase text-[#A3B18A] tracking-widest">{selectedEvent?.displayType}</p>
+                        <h3 className="text-2xl font-serif italic text-stone-800">{selectedEvent?.title || selectedEvent?.subject}</h3>
                       </div>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-6 bg-stone-50 rounded-3xl border border-stone-100">
-                        <p className="text-[8px] font-black uppercase text-stone-400 mb-1">Timeline Node</p>
-                        <p className="text-sm font-bold text-stone-800">{format(parseISO(selectedNode?.dateField || ""), "eeee, do MMM")}</p>
-                      </div>
-                      <div className="p-6 bg-stone-50 rounded-3xl border border-stone-100">
-                        <p className="text-[8px] font-black uppercase text-stone-400 mb-1">Dispatch Time</p>
-                        <p className="text-sm font-bold text-stone-800">{format(parseISO(selectedNode?.dateField || ""), "HH:mm")}</p>
-                      </div>
+                    <div className="p-8 bg-stone-50 rounded-[2.5rem] border border-stone-100">
+                       <p className="text-[11px] text-stone-600 leading-relaxed italic">
+                         {selectedEvent?.description || selectedEvent?.content || "No intelligence provided for this entry."}
+                       </p>
                     </div>
-
-                    <div className="p-10 bg-stone-50 rounded-[3rem] border border-stone-100 min-h-[150px]">
-                      <p className="text-[8px] font-black uppercase text-stone-400 mb-4 tracking-[0.4em]">Intelligence</p>
-                      <p className="text-sm text-stone-600 italic leading-relaxed">{selectedNode?.description || selectedNode?.content || "No intelligence provided."}</p>
-                    </div>
-
-                    {selectedNode?.vc_link && (
-                      <a href={selectedNode.vc_link} target="_blank" className="flex items-center justify-between p-8 bg-stone-900 text-white rounded-[2.5rem] hover:bg-[#a9b897] transition-all">
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Initialize Transmission</span>
-                        <ExternalLink size={18} />
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-10 pt-4 border-t border-stone-50 shrink-0">
-                {viewMode === "create" ? (
-                  <button 
-                    onClick={commitNewEntry} disabled={isSubmitting || !formTitle}
-                    className="w-full bg-stone-900 text-white py-6 rounded-3xl text-[10px] font-black uppercase tracking-[0.5em] flex items-center justify-center gap-3 hover:bg-[#a9b897] transition-all disabled:opacity-50"
-                  >
-                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Establish Entry
-                  </button>
-                ) : (
-                  <div className="flex gap-4">
-                    <button className="flex-1 py-5 rounded-2xl border border-stone-100 text-[9px] font-black uppercase tracking-widest text-stone-400 hover:text-red-500 hover:bg-red-50 transition-all">Destroy Node</button>
-                    <button className="flex-1 py-5 rounded-2xl bg-stone-50 border border-stone-100 text-[9px] font-black uppercase tracking-widest text-stone-600">Modify Protocol</button>
                   </div>
                 )}
               </div>
@@ -338,51 +269,49 @@ export default function ChronosProtocolPage() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1700px] mx-auto p-6 md:p-12 grid lg:grid-cols-12 gap-10 md:gap-20">
+      <div className="max-w-[1700px] mx-auto p-6 md:p-12 lg:p-16 grid lg:grid-cols-12 gap-12 h-full">
         
-        {/* --- LEFT: CALENDAR INFRASTRUCTURE --- */}
-        <div className="lg:col-span-9 space-y-12">
-          <header className="flex flex-col md:flex-row md:items-end justify-between gap-10">
+        {/* --- MAIN CALENDAR GRID --- */}
+        <div className="lg:col-span-9 flex flex-col space-y-10">
+          
+          <header className="flex items-center justify-between px-4">
             <div>
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-0.5 bg-[#a9b897]" />
-                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897]">Chronos Temporal Unit</p>
+                <div className="w-12 h-0.5 bg-[#A3B18A]" />
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#A3B18A]">Calendar Core</p>
               </div>
               <h1 className="text-6xl md:text-[8rem] font-serif italic text-stone-800 tracking-tighter leading-[0.8] lowercase">
                 {format(currentMonth, "MMMM")} <span className="text-stone-200">{format(currentMonth, "yyyy")}</span>
               </h1>
             </div>
 
-            <div className="flex items-center gap-3 p-2 bg-white rounded-3xl border border-stone-100 shadow-sm">
-              <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-4 hover:bg-stone-50 rounded-2xl transition-all"><ChevronLeft size={20}/></button>
-              <div className="h-6 w-px bg-stone-100" />
-              <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-4 hover:bg-stone-50 rounded-2xl transition-all"><ChevronRight size={20}/></button>
+            <div className="flex gap-2 bg-white p-2 rounded-full border border-stone-100 shadow-sm">
+              <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-4 hover:bg-stone-50 rounded-full transition-all"><ChevronLeft size={24} className="text-stone-400" /></button>
+              <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-4 hover:bg-stone-50 rounded-full transition-all"><ChevronRight size={24} className="text-stone-400" /></button>
             </div>
           </header>
 
-          <div className="bg-white rounded-[4rem] border border-stone-100 shadow-2xl overflow-hidden">
-            {/* Weekday Labels */}
+          <section className="bg-white rounded-[4rem] border border-stone-100 shadow-2xl overflow-hidden flex flex-col">
             <div className="grid grid-cols-7 border-b border-stone-50 bg-stone-50/20">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-                <div key={d} className="py-8 text-center text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">{d}</div>
+                <div key={d} className="py-6 text-center text-[10px] font-black uppercase tracking-widest text-stone-300">{d}</div>
               ))}
             </div>
 
-            {/* Calendar Grid */}
             <div className="grid grid-cols-7">
-              {daysInPeriod.map((day, idx) => {
-                const nodes = getNodesForDate(day);
+              {daysInGrid.map((day, idx) => {
+                const dayEvents = getEventsForDay(day);
                 const isSelected = isSameDay(day, selectedDay);
-                const isCurrentMonth = isSameMonth(day, currentMonth);
+                const isCurrent = isSameMonth(day, currentMonth);
                 const isToday = isSameDay(day, new Date());
 
                 return (
                   <div 
                     key={day.toISOString()}
-                    onClick={() => handleOpenCreate(day)}
-                    className={`min-h-[160px] p-5 border-r border-b border-stone-50 transition-all cursor-pointer relative group
-                      ${!isCurrentMonth ? 'opacity-20 bg-stone-50/50' : 'bg-white hover:bg-stone-50/30'}
-                      ${isSelected ? 'bg-[#a9b897]/5' : ''}
+                    onClick={() => { setSelectedDay(day); handleCreateNew(day); }}
+                    className={`min-h-[160px] p-6 border-r border-b border-stone-50 transition-all cursor-pointer group relative
+                      ${!isCurrent ? 'opacity-10 bg-stone-50/50' : 'bg-white hover:bg-stone-50/30'}
+                      ${isSelected ? 'bg-[#A3B18A]/5' : ''}
                       ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''}
                     `}
                   >
@@ -390,118 +319,97 @@ export default function ChronosProtocolPage() {
                       <span className={`text-[11px] font-black p-2 rounded-xl transition-all ${isToday ? 'bg-stone-900 text-white shadow-lg' : 'text-stone-300 group-hover:text-stone-900'}`}>
                         {format(day, "d")}
                       </span>
-                      {nodes.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-[#a9b897] animate-pulse mt-2 mr-1" />}
                     </div>
 
                     <div className="space-y-1.5 relative z-10">
-                      {nodes.slice(0, 3).map((node, i) => (
+                      {dayEvents.slice(0, 3).map((event) => (
                         <div 
-                          key={node.id || i}
-                          onClick={(e) => handleViewNode(e, node)}
-                          className="px-3 py-1.5 rounded-xl bg-white border border-stone-100 text-[8px] font-black uppercase truncate text-stone-600 hover:border-[#a9b897] transition-all flex items-center gap-2"
+                          key={event.id} onClick={(e) => { e.stopPropagation(); handleViewEvent(event); }}
+                          className="px-3 py-1.5 rounded-full bg-white border border-stone-100 text-[8px] font-black uppercase truncate text-stone-600 hover:border-[#A3B18A] transition-all flex items-center gap-2 shadow-sm"
                         >
-                          <div className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: node.colour || node.color || '#A3B18A' }} />
-                          <span className="truncate">{node.title || node.subject}</span>
+                          <div className={`w-1 h-1 rounded-full ${event.displayType === 'SIGNAL' ? 'bg-[#A3B18A]' : 'bg-stone-300'}`} />
+                          <span className="truncate">{event.title || event.subject}</span>
                         </div>
                       ))}
-                      {nodes.length > 3 && (
-                        <p className="text-[7px] font-black text-[#a9b897] pl-1 tracking-widest mt-1">+{nodes.length - 3} NODES</p>
-                      )}
+                      {dayEvents.length > 3 && <p className="text-[7px] font-black text-[#A3B18A] pl-2 tracking-widest mt-1">+{dayEvents.length - 3} EVENTS</p>}
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
+          </section>
         </div>
 
-        {/* --- RIGHT: PROTOCOL AGGREGATOR --- */}
+        {/* --- SIDEBAR AGGREGATOR --- */}
         <aside className="lg:col-span-3">
-          <div className="bg-white p-10 rounded-[4.5rem] border border-stone-100 shadow-2xl flex flex-col sticky top-12 h-[calc(100vh-100px)]">
+          <div className="bg-white p-10 rounded-[4rem] border border-stone-100 shadow-2xl flex flex-col sticky top-12 h-[calc(100vh-100px)]">
             
-            <SignalStatus />
-
-            <div className="mb-10">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-6 h-px bg-[#a9b897]" />
-                <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[#a9b897]">{format(selectedDay, "EEEE")}</p>
-              </div>
-              <h2 className="text-5xl font-serif italic text-stone-800 tracking-tighter">{format(selectedDay, "do MMM")}</h2>
+            <div className="flex items-center justify-between mb-10 p-5 bg-stone-50 rounded-[2.5rem] border border-stone-100">
+               <div className="flex items-center gap-3">
+                 <Activity size={16} className="text-[#A3B18A]" />
+                 <p className="text-[9px] font-black uppercase tracking-widest text-stone-800 leading-none">System Secure</p>
+               </div>
+               <div className="flex gap-1">
+                 {[1,2,3,4].map(i => <div key={i} className="w-1 h-3 bg-[#A3B18A] rounded-full" />)}
+               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-1 pb-10">
-              {activeDayNodes.length === 0 ? (
-                <div className="py-20 text-center flex flex-col items-center opacity-30">
-                  <Shield size={48} strokeWidth={1} className="mb-4 text-stone-200" />
-                  <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Temporal Void</p>
+            <div className="mb-8">
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#A3B18A] mb-1">{format(selectedDay, "EEEE")}</p>
+              <h2 className="text-6xl font-serif italic tracking-tighter text-stone-800">{format(selectedDay, "do MMM")}</h2>
+            </div>
+
+            {/* Filter Hub */}
+            <div className="flex gap-2 mb-8 overflow-x-auto no-scrollbar">
+              {['ALL', 'OPERATION', 'SIGNAL'].map(f => (
+                <button 
+                  key={f} onClick={() => setActiveFilter(f as any)}
+                  className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest transition-all
+                    ${activeFilter === f ? 'bg-stone-900 text-[#A3B18A]' : 'bg-stone-50 text-stone-400 hover:text-stone-900'}`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-8">
+              {getEventsForDay(selectedDay).length === 0 ? (
+                <div className="py-24 text-center opacity-20">
+                  <Shield size={40} className="mx-auto mb-4" />
+                  <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Timeline Void</p>
                 </div>
               ) : (
-                activeDayNodes.map((node, i) => (
+                getEventsForDay(selectedDay).map(event => (
                   <motion.div 
-                    key={node.id || i}
-                    initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
-                    onClick={(e) => handleViewNode(e, node)}
-                    className="p-6 rounded-[2.5rem] bg-stone-50 border border-stone-100 cursor-pointer hover:bg-white hover:shadow-xl hover:shadow-[#a9b897]/10 transition-all group"
+                    key={event.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+                    onClick={() => handleViewEvent(event)}
+                    className="p-6 rounded-[2.5rem] bg-stone-50 border border-stone-100 hover:bg-white hover:shadow-xl transition-all cursor-pointer group"
                   >
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-[8px] font-black uppercase tracking-widest text-[#a9b897] flex items-center gap-1.5">
-                        {node.displayType === 'SIGNAL' ? <Radio size={10} /> : <Zap size={10} />}
-                        {node.displayType}
-                      </span>
-                      <span className="text-[9px] font-bold text-stone-300 group-hover:text-stone-900 transition-colors">
-                        {format(parseISO(node.dateField), "HH:mm")}
-                      </span>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-[#A3B18A]">{event.displayType}</span>
+                      <span className="text-[9px] font-bold text-stone-300">{format(parseISO(event.dateField), "HH:mm")}</span>
                     </div>
-                    <p className="text-[11px] font-black text-stone-800 uppercase leading-tight tracking-tight">{node.title || node.subject}</p>
+                    <p className="text-[12px] font-black text-stone-800 uppercase leading-tight tracking-tight">{event.title || event.subject}</p>
                   </motion.div>
                 ))
               )}
             </div>
 
-            <div className="pt-6 space-y-3">
-              <button 
-                onClick={() => handleOpenCreate(selectedDay)}
-                className="w-full bg-stone-900 text-[#a9b897] py-6 rounded-3xl shadow-xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all"
-              >
-                <Plus size={18} />
-                <span className="text-[10px] font-black uppercase tracking-[0.4em]">Establish Entry</span>
-              </button>
-              
-              <div className="flex gap-2">
-                <button className="flex-1 p-4 bg-stone-50 rounded-2xl text-stone-400 hover:text-stone-900 flex justify-center transition-all"><Settings size={18}/></button>
-                <button className="flex-1 p-4 bg-stone-50 rounded-2xl text-stone-400 hover:text-stone-900 flex justify-center transition-all"><RefreshCw size={18}/></button>
-              </div>
-            </div>
+            <button 
+              onClick={() => handleCreateNew(selectedDay)}
+              className="w-full bg-stone-900 text-[#A3B18A] py-7 rounded-[2rem] shadow-2xl flex items-center justify-center gap-4 hover:scale-[1.02] transition-all"
+            >
+              <Plus size={20} />
+              <span className="text-[10px] font-black uppercase tracking-[0.5em]">Establish Event</span>
+            </button>
           </div>
         </aside>
       </div>
 
-      {/* Global CSS Overrides */}
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .shadow-3xl {
-          box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.15);
-        }
-
-        input[type="date"], input[type="time"] {
-          position: relative;
-        }
-
-        input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="time"]::-webkit-calendar-picker-indicator {
-          background: transparent;
-          bottom: 0;
-          color: transparent;
-          cursor: pointer;
-          height: auto;
-          left: 0;
-          position: absolute;
-          right: 0;
-          top: 0;
-          width: auto;
-        }
+        .shadow-3xl { box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.15); }
       `}</style>
     </div>
   );

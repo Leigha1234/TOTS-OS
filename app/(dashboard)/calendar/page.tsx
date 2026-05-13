@@ -15,8 +15,8 @@ import {
 } from "date-fns";
 
 /**
- * TOTS OS | CALENDAR INFRASTRUCTURE V9.0
- * MACBOOK 13" OPTIMIZED | DYNAMIC TAG SYSTEM
+ * TOTS OS | CALENDAR INFRASTRUCTURE V10.0
+ * MACBOOK 13" OPTIMIZED | COLOR-CODED TAG PROTOCOL
  */
 
 interface CalendarEvent {
@@ -27,9 +27,20 @@ interface CalendarEvent {
   location?: string;
   meeting_link?: string;
   guests?: string;
-  tags?: string; // Stored as comma-separated string
+  tags?: string; 
   user_id: string;
 }
+
+// Aesthetic color palette for dynamic tag assignment
+const TAG_PALETTE = [
+  { bg: "bg-[#A3B18A]/10", text: "text-[#A3B18A]" }, // Sage
+  { bg: "bg-stone-900", text: "text-[#A3B18A]" },    // Dark / Accent
+  { bg: "bg-[#D6D6D2]", text: "text-stone-800" },   // Stone
+  { bg: "bg-[#E7E7E4]", text: "text-stone-500" },   // Light Grey
+  { bg: "bg-amber-100", text: "text-amber-700" },   // Warning/Urgent
+  { bg: "bg-blue-50", text: "text-blue-600" },      // Info
+  { bg: "bg-rose-50", text: "text-rose-600" },      // Priority
+];
 
 export default function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -40,19 +51,17 @@ export default function Calendar() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Modal State
+  // Modal & Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [viewMode, setViewMode] = useState<'VIEW' | 'CREATE'>('CREATE');
-
-  // Form State
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [formTime, setFormTime] = useState("09:00");
   const [formLocation, setFormLocation] = useState("");
   const [formLink, setFormLink] = useState("");
   const [formGuests, setFormGuests] = useState("");
-  const [formTags, setFormTags] = useState(""); // Comma separated
+  const [formTags, setFormTags] = useState(""); 
   const [formDescription, setFormDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -72,7 +81,14 @@ export default function Calendar() {
 
   useEffect(() => { syncCalendar(); }, [syncCalendar]);
 
-  // Extract all unique tags from events
+  // COLOR ENGINE: Assigns a consistent color based on string hash
+  const getTagStyle = (tag: string) => {
+    const cleanTag = tag.trim().toUpperCase();
+    if (cleanTag === "URGENT") return TAG_PALETTE[4]; // Special case for Urgent
+    const index = Math.abs(cleanTag.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % TAG_PALETTE.length;
+    return TAG_PALETTE[index];
+  };
+
   const allTags = useMemo(() => {
     const tags = new Set<string>();
     events.forEach(e => {
@@ -96,13 +112,6 @@ export default function Calendar() {
     });
   }, [events, activeTagFilter]);
 
-  const handleDayClick = (day: Date) => {
-    setSelectedDay(day);
-    setFormDate(format(day, "yyyy-MM-dd"));
-    setViewMode('CREATE');
-    setIsModalOpen(true);
-  };
-
   const saveEntry = async () => {
     if (!formTitle || isSubmitting) return;
     setIsSubmitting(true);
@@ -113,48 +122,49 @@ export default function Calendar() {
       created_at: new Date(`${formDate}T${formTime}:00`).toISOString(),
       user_id: user?.id
     }]);
-    if (!error) {
-      setFormTitle(""); setFormTags(""); setIsModalOpen(false); syncCalendar();
-    }
+    if (!error) { setFormTitle(""); setFormTags(""); setIsModalOpen(false); syncCalendar(); }
     setIsSubmitting(false);
   };
+
+  function handleDayClick(selectedDay: Date): void {
+    throw new Error("Function not implemented.");
+  }
 
   return (
     <div className="h-screen bg-[#F9F9F7] text-stone-900 font-sans p-6 lg:p-10 flex flex-col overflow-hidden relative">
       
-      {/* SETTINGS OVERLAY */}
+      {/* SETTINGS HUD */}
       <AnimatePresence>
         {isSettingsOpen && (
-          <motion.div initial={{ opacity: 0, x: 100 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 100 }}
-            className="fixed right-0 top-0 bottom-0 w-80 bg-white shadow-4xl z-[1001] p-10 border-l border-stone-100"
+          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}
+            className="fixed right-6 top-6 bottom-6 w-80 bg-white shadow-4xl z-[1001] rounded-[3rem] p-10 border border-stone-100 flex flex-col"
           >
             <div className="flex justify-between items-center mb-10">
               <h3 className="text-xl font-serif italic">Settings</h3>
-              <button onClick={() => setIsSettingsOpen(false)}><X size={20}/></button>
+              <button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={16}/></button>
             </div>
-            <div className="space-y-6 text-[10px] font-black uppercase tracking-widest text-stone-400">
-              <p className="hover:text-stone-900 cursor-pointer">Profile Configuration</p>
-              <p className="hover:text-stone-900 cursor-pointer">Database Sync Status</p>
-              <p className="hover:text-stone-900 cursor-pointer">System Preferences</p>
-              <div className="pt-6 border-t border-stone-50">
-                <button onClick={() => supabase.auth.signOut()} className="text-red-400">Terminate Session</button>
+            <div className="space-y-6 text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
+              <p className="hover:text-stone-900 cursor-pointer flex justify-between">Database Status <span className="text-[#A3B18A]">Online</span></p>
+              <p className="hover:text-stone-900 cursor-pointer">Export Ledger (PDF)</p>
+              <p className="hover:text-stone-900 cursor-pointer">Interface Scaling</p>
+              <div className="pt-6 border-t border-stone-50 mt-auto">
+                <button onClick={() => supabase.auth.signOut()} className="text-rose-400">Terminate Protocol</button>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* CREATION/VIEW MODAL */}
+      {/* MODAL SYSTEM */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-stone-900/5 backdrop-blur-md" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col">
                <div className="p-8 pb-4 flex justify-between items-center">
                  <h2 className="text-2xl font-serif italic">{viewMode === 'CREATE' ? 'Establish Entry' : 'Entry Intel'}</h2>
                  <button onClick={() => setIsModalOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={18}/></button>
                </div>
-               
                <div className="p-8 pt-2 space-y-4 overflow-y-auto max-h-[70vh] no-scrollbar">
                  {viewMode === 'CREATE' ? (
                    <>
@@ -165,30 +175,23 @@ export default function Calendar() {
                     </div>
                     <div className="relative">
                       <Tag size={14} className="absolute left-4 top-4 text-stone-300" />
-                      <input value={formTags} onChange={e => setFormTags(e.target.value)} placeholder="Tags (Urgent, Uni, Work...)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input value={formLocation} onChange={e => setFormLocation(e.target.value)} placeholder="Location" className="bg-stone-50 rounded-xl p-4 text-xs outline-none border-none" />
-                      <input value={formLink} onChange={e => setFormLink(e.target.value)} placeholder="Meeting Link" className="bg-stone-50 rounded-xl p-4 text-xs outline-none border-none" />
+                      <input value={formTags} onChange={e => setFormTags(e.target.value)} placeholder="Tags (Urgent, Uni, Work...)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
                     </div>
                     <textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Notes..." className="w-full bg-stone-50 rounded-xl p-4 text-xs h-24 outline-none border-none resize-none" />
                     <button onClick={saveEntry} className="w-full bg-stone-900 text-[#A3B18A] py-5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all">
-                      {isSubmitting ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Establish Entry"}
+                      {isSubmitting ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Establish Protocol"}
                     </button>
                    </>
                  ) : (
                    <div className="space-y-4">
                       <div className="flex flex-wrap gap-2">
-                        {selectedEvent?.tags?.split(',').map(t => (
-                          <span key={t} className="px-2 py-1 bg-[#A3B18A]/10 text-[#A3B18A] text-[8px] font-black rounded-md uppercase">{t.trim()}</span>
-                        ))}
+                        {selectedEvent?.tags?.split(',').map(t => {
+                          const style = getTagStyle(t);
+                          return <span key={t} className={`px-2 py-1 ${style.bg} ${style.text} text-[8px] font-black rounded-md uppercase`}>{t.trim()}</span>
+                        })}
                       </div>
-                      <h3 className="text-3xl font-serif italic leading-none">{selectedEvent?.title}</h3>
-                      <div className="p-4 bg-stone-50 rounded-xl space-y-2 text-xs text-stone-500">
-                        {selectedEvent?.location && <p className="flex items-center gap-2"><MapPin size={12}/> {selectedEvent.location}</p>}
-                        {selectedEvent?.meeting_link && <a href={selectedEvent.meeting_link} target="_blank" className="flex items-center gap-2 text-[#A3B18A] font-bold"><Video size={12}/> Join Interface</a>}
-                      </div>
-                      <p className="text-xs text-stone-400 italic">"{selectedEvent?.description || "No description."}"</p>
+                      <h3 className="text-3xl font-serif italic">{selectedEvent?.title}</h3>
+                      <p className="text-xs text-stone-400 italic">"{selectedEvent?.description || "No description provided."}"</p>
                    </div>
                  )}
                </div>
@@ -209,10 +212,8 @@ export default function Calendar() {
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
+      {/* CORE GRID */}
       <div className="grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
-        
-        {/* CALENDAR SECTION */}
         <section className="lg:col-span-8 bg-white rounded-[3rem] border border-stone-100 shadow-3xl flex flex-col overflow-hidden">
           <div className="grid grid-cols-7 border-b border-stone-50 bg-stone-50/5">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
@@ -223,12 +224,10 @@ export default function Calendar() {
             {daysGrid.map((day, idx) => {
               const dayEvents = getDayEvents(day);
               const isToday = isSameDay(day, new Date());
-              const isCurrent = isSameMonth(day, currentMonth);
-
               return (
                 <div key={day.toISOString()} onClick={() => handleDayClick(day)}
                   className={`relative min-h-[100px] p-4 border-r border-b border-stone-50 transition-all cursor-pointer group
-                    ${!isCurrent ? 'bg-stone-50/10 opacity-10' : 'bg-white hover:bg-[#FDFDFB]'}
+                    ${!isSameMonth(day, currentMonth) ? 'opacity-10' : 'bg-white hover:bg-[#FDFDFB]'}
                     ${isSameDay(day, selectedDay) ? 'bg-[#A3B18A]/5' : ''}
                     ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''}
                   `}
@@ -238,13 +237,17 @@ export default function Calendar() {
                     {format(day, "d")}
                   </span>
                   <div className="space-y-1">
-                    {dayEvents.slice(0, 3).map(e => (
-                      <div key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
-                        className="px-2 py-1 rounded-lg bg-stone-50 border border-stone-100 text-[7px] font-black uppercase truncate text-stone-500 hover:border-[#A3B18A] transition-all"
-                      >
-                        {e.title}
-                      </div>
-                    ))}
+                    {dayEvents.slice(0, 3).map(e => {
+                      const primaryTag = e.tags?.split(',')[0] || '';
+                      const style = primaryTag ? getTagStyle(primaryTag) : { bg: 'bg-stone-50', text: 'text-stone-500' };
+                      return (
+                        <div key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
+                          className={`px-2 py-1 rounded-lg border border-stone-100 text-[7px] font-black uppercase truncate transition-all ${style.bg} ${style.text}`}
+                        >
+                          {e.title}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -252,36 +255,38 @@ export default function Calendar() {
           </div>
         </section>
 
-        {/* SIDEBAR SECTION */}
+        {/* SIDEBAR */}
         <aside className="lg:col-span-4 bg-white rounded-[3rem] border border-stone-100 shadow-3xl p-8 flex flex-col overflow-hidden relative">
           <div className="mb-8">
             <p className="text-[10px] font-black uppercase tracking-widest text-[#A3B18A] mb-1">{format(selectedDay, "EEEE")}</p>
             <h2 className="text-5xl font-serif italic text-stone-800 leading-[0.8] lowercase">{format(selectedDay, "do MMM")}</h2>
           </div>
 
-          {/* DYNAMIC TAG DROPDOWN */}
           <div className="relative mb-6 z-[100]">
             <button onClick={() => setIsFilterOpen(!isFilterOpen)} 
-              className="w-full p-4 bg-stone-50 rounded-2xl flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-800 transition-all"
+              className="w-full p-4 bg-stone-50 rounded-2xl flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-800 transition-all shadow-inner"
             >
               <div className="flex items-center gap-3">
                 <Tag size={14} className={activeTagFilter !== 'ALL' ? 'text-[#A3B18A]' : ''} />
                 Filter: {activeTagFilter}
               </div>
-              <ChevronDown size={14} className={isFilterOpen ? 'rotate-180 transition-all' : 'transition-all'} />
+              <ChevronDown size={14} className={isFilterOpen ? 'rotate-180' : ''} />
             </button>
             <AnimatePresence>
               {isFilterOpen && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                   className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-4xl border border-stone-100 overflow-hidden"
                 >
-                  {allTags.map(tag => (
-                    <div key={tag} onClick={() => { setActiveTagFilter(tag); setIsFilterOpen(false); }}
-                      className="p-4 text-[8px] font-black uppercase tracking-widest hover:bg-[#A3B18A] hover:text-white cursor-pointer transition-all border-b border-stone-50 last:border-0"
-                    >
-                      {tag}
-                    </div>
-                  ))}
+                  {allTags.map(tag => {
+                    const style = tag !== 'ALL' ? getTagStyle(tag) : { bg: '', text: '' };
+                    return (
+                      <div key={tag} onClick={() => { setActiveTagFilter(tag); setIsFilterOpen(false); }}
+                        className={`p-4 text-[8px] font-black uppercase tracking-widest hover:bg-stone-50 cursor-pointer transition-all border-b border-stone-50 last:border-0 ${tag === activeTagFilter ? 'text-[#A3B18A]' : 'text-stone-400'}`}
+                      >
+                        {tag}
+                      </div>
+                    );
+                  })}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -290,21 +295,22 @@ export default function Calendar() {
           <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
             {getDayEvents(selectedDay).map(e => (
               <div key={e.id} onClick={() => { setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
-                className="p-5 rounded-3xl bg-stone-50 border border-stone-100 hover:shadow-2xl transition-all cursor-pointer"
+                className="p-5 rounded-3xl bg-stone-50 border border-stone-100 hover:shadow-2xl transition-all cursor-pointer group"
               >
                 <div className="flex justify-between items-center mb-1">
                   <div className="flex gap-1">
-                    {e.tags?.split(',').slice(0, 1).map(t => (
-                      <span key={t} className="text-[7px] font-black text-[#A3B18A] uppercase">{t.trim()}</span>
-                    ))}
+                    {e.tags?.split(',').map(t => {
+                      const style = getTagStyle(t);
+                      return <span key={t} className={`text-[7px] font-black ${style.text} uppercase`}>{t.trim()}</span>
+                    })}
                   </div>
                   <span className="text-[9px] font-bold text-stone-300">{format(parseISO(e.created_at), "HH:mm")}</span>
                 </div>
-                <p className="text-[11px] font-black text-stone-800 uppercase truncate">{e.title}</p>
+                <p className="text-[11px] font-black text-stone-800 uppercase truncate group-hover:text-[#A3B18A] transition-colors">{e.title}</p>
               </div>
             ))}
             {getDayEvents(selectedDay).length === 0 && (
-              <div className="py-20 text-center opacity-10 grayscale">
+              <div className="py-20 text-center opacity-10">
                 <Shield size={40} className="mx-auto mb-2" />
                 <p className="text-[8px] font-black uppercase tracking-widest">Protocol Clear</p>
               </div>
@@ -320,9 +326,8 @@ export default function Calendar() {
         </aside>
       </div>
 
-      {/* FOOTER */}
       <footer className="mt-6 flex justify-between items-center opacity-50 px-2">
-        <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">TOTS OS Infrastructure v9.0.1</p>
+        <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">TOTS OS Infrastructure v10.0</p>
         <div className="flex gap-4 text-stone-300">
           <RefreshCw size={14} onClick={syncCalendar} className={`cursor-pointer ${isLoading ? 'animate-spin' : ''}`} />
           <Settings size={14} onClick={() => setIsSettingsOpen(true)} className="cursor-pointer hover:text-stone-800 transition-all" />

@@ -6,74 +6,84 @@ import {
   Trash2, Zap, Circle, BookOpen, X, Target, Search,
   Mic, MicOff, User, Folder, Loader2, Plus, CheckCircle2, 
   AlertCircle, ChevronRight, Settings, Filter, Layers, 
-  Clock, Share2, MoreHorizontal, Maximize2, Archive
+  Clock, Share2, MoreHorizontal, Maximize2, Archive,
+  Hash, Shield, Cpu, Activity, Globe, Command // Added missing Hash import
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 /**
- * TOTS OS | POST-IT LEDGER & ACTION QUEUE V4.0
- * ARCHITECTURE: MONOLITHIC STUDIO VIEW
- * OPTIMIZED FOR: MACBOOK 13" | 2026 REVISION
+ * TOTS OS | CLARITY LEDGER ARCHITECTURE
+ * VERSION: 4.2.0 (Build: 2026.05)
+ * MAINTAINER: TOTS_DEV_UNIT
  */
 
-// --- CONSTANTS & TYPES ---
+// --- CONFIGURATION & THEMES ---
 
 const POST_IT_PALETTE = [
-  { bg: "#fef3c7", border: "#fde68a", accent: "#92400e", rotation: "-1.2deg" }, // Amber
-  { bg: "#e0f2fe", border: "#bae6fd", accent: "#075985", rotation: "0.8deg" },  // Sky
-  { bg: "#ecfccb", border: "#d9f99d", accent: "#3f6212", rotation: "-0.5deg" }, // Lime
-  { bg: "#fce7f3", border: "#fbcfe8", accent: "#9d174d", rotation: "1.5deg" },  // Pink
-  { bg: "#ede9fe", border: "#ddd6fe", accent: "#5b21b6", rotation: "-1deg" },   // Violet
-  { bg: "#ffedd5", border: "#fed7aa", accent: "#9a3412", rotation: "0.6deg" }   // Orange
+  { bg: "#fef3c7", border: "#fde68a", accent: "#92400e", rotation: "-1.2deg" }, 
+  { bg: "#e0f2fe", border: "#bae6fd", accent: "#075985", rotation: "0.8deg" },  
+  { bg: "#ecfccb", border: "#d9f99d", accent: "#3f6212", rotation: "-0.5deg" }, 
+  { bg: "#fce7f3", border: "#fbcfe8", accent: "#9d174d", rotation: "1.5deg" },  
+  { bg: "#ede9fe", border: "#ddd6fe", accent: "#5b21b6", rotation: "-1deg" }
 ];
 
-const CATEGORIES = [
+const SYSTEM_CATEGORIES = [
   { id: "note", label: "General Intelligence", color: "stone" },
   { id: "task", label: "Action Required", color: "blue" },
   { id: "brainstorm", label: "Creative Logic", color: "purple" },
-  { id: "urgent", label: "Immediate Priority", color: "red" }
+  { id: "urgent", label: "Immediate Priority", color: "red" },
+  { id: "archive", label: "Historical Data", color: "amber" }
 ];
 
-// --- SUB-COMPONENTS ---
+// --- INTERFACE COMPONENTS ---
+
+function SystemStatus() {
+  return (
+    <div className="flex items-center gap-6 px-8 py-3 bg-stone-900 rounded-full border border-white/5">
+      <div className="flex items-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/40">Core_Online</span>
+      </div>
+      <div className="h-3 w-[1px] bg-white/10" />
+      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/40">Lat: 22ms</span>
+    </div>
+  );
+}
 
 function LedgerHeader({ searchTerm, setSearchTerm }: { searchTerm: string, setSearchTerm: (v: string) => void }) {
   return (
-    <header className="space-y-10 mb-16">
-      <div className="flex justify-between items-end">
-        <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.6em] text-stone-400">System Environment</p>
-          <h1 className="text-8xl font-serif italic text-stone-800 tracking-tighter lowercase">
+    <header className="space-y-12 mb-16">
+      <div className="flex justify-between items-start">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+             <Cpu size={14} className="text-[#A3B18A]" />
+             <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400">Environment // Ledger_04</p>
+          </div>
+          <h1 className="text-9xl font-serif italic text-stone-900 tracking-tighter lowercase leading-[0.8]">
             Clarity <span className="text-stone-300">Hub</span>
           </h1>
         </div>
-        <div className="flex gap-4 mb-4">
-          <div className="h-12 w-12 rounded-full border border-stone-200 flex items-center justify-center text-stone-400 hover:bg-stone-50 transition-all cursor-pointer">
-            <Settings size={18} />
-          </div>
-          <div className="h-12 w-12 rounded-full border border-stone-200 flex items-center justify-center text-stone-400 hover:bg-stone-50 transition-all cursor-pointer">
-            <Share2 size={18} />
-          </div>
-        </div>
+        <SystemStatus />
       </div>
 
-      <div className="relative group max-w-2xl">
-        <div className="absolute inset-y-0 left-0 pl-8 flex items-center pointer-events-none">
-          <Search className="text-stone-300 group-focus-within:text-stone-900 transition-colors" size={24} />
+      <div className="relative group max-w-3xl">
+        <div className="absolute inset-y-0 left-0 pl-10 flex items-center pointer-events-none">
+          <Search className="text-stone-200 group-focus-within:text-stone-900 transition-colors" size={26} />
         </div>
         <input 
           type="text" 
-          placeholder="Filter your thoughts..." 
+          placeholder="Filter ledger strings..." 
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-20 pr-10 py-7 bg-white/40 backdrop-blur-md border border-stone-100 rounded-[2.5rem] outline-none shadow-sm font-serif italic text-xl focus:bg-white focus:ring-4 ring-stone-900/5 transition-all"
+          className="w-full pl-24 pr-12 py-9 bg-white/60 backdrop-blur-xl border border-stone-100 rounded-[3rem] outline-none shadow-sm font-serif italic text-2xl focus:bg-white focus:ring-8 ring-stone-900/[0.02] transition-all"
         />
       </div>
     </header>
   );
 }
 
-// --- MAIN ENGINE ---
+// --- PRIMARY APPLICATION LOGIC ---
 
 function NotesContent() {
   const [user, setUser] = useState<any>(null);
@@ -82,7 +92,7 @@ function NotesContent() {
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Form States
+  // Interface States
   const [newNote, setNewNote] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("note");
@@ -92,7 +102,6 @@ function NotesContent() {
   
   const recognitionRef = useRef<any>(null);
 
-  // Sync Logic
   const fetchPulse = useCallback(async (userId: string) => {
     try {
       const [nts, tsk, proj] = await Promise.all([
@@ -105,7 +114,7 @@ function NotesContent() {
       setTasks(tsk.data || []);
       setProjects(proj.data || []);
     } catch (e) {
-      console.error("Critical Sync Failure", e);
+      console.error("Ledger Sync Failure", e);
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +127,7 @@ function NotesContent() {
       setUser(authUser);
       await fetchPulse(authUser.id);
 
-      const channel = supabase.channel("ledger-v4-sync")
+      const channel = supabase.channel("ledger-v4-realtime")
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchPulse(authUser.id))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchPulse(authUser.id))
         .subscribe();
@@ -131,8 +140,6 @@ function NotesContent() {
   const addNote = async () => {
     if (!newNote.trim() || isSubmitting || !user) return;
     setIsSubmitting(true);
-    
-    // Pick random aesthetic
     const style = POST_IT_PALETTE[Math.floor(Math.random() * POST_IT_PALETTE.length)];
 
     try {
@@ -141,23 +148,24 @@ function NotesContent() {
         user_id: user.id,
         color: style.bg,
         category: selectedCategory,
-        project_id: selectedProject || null
+        project_id: selectedProject || null,
+        metadata: { source: "web_v4", client: "tots_os" }
       }]);
 
       if (noteErr) throw noteErr;
 
-      // Parallel insert for Action Queue
       await supabase.from("tasks").insert([{
         title: newNote,
         user_id: user.id,
-        status: "todo"
+        status: "todo",
+        priority: 2
       }]);
 
       setNewNote("");
-      toast.success("Intelligence recorded in Ledgers.");
+      toast.success("Intelligence Logged Successfully.");
       fetchPulse(user.id);
     } catch (e) {
-      toast.error("Database alignment error.");
+      toast.error("Internal Logic Error: Check Database.");
     } finally {
       setIsSubmitting(false);
     }
@@ -174,59 +182,62 @@ function NotesContent() {
   );
 
   if (isLoading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F5F3] gap-8">
-      <div className="relative h-24 w-24">
-        <div className="absolute inset-0 border-4 border-stone-200 rounded-full" />
-        <div className="absolute inset-0 border-4 border-stone-900 border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F5F3] gap-10">
+      <div className="w-32 h-1 bg-stone-200 overflow-hidden rounded-full">
+        <motion.div 
+          className="h-full bg-stone-900" 
+          animate={{ x: [-100, 100] }} 
+          transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} 
+        />
       </div>
-      <p className="font-serif italic text-stone-400 text-2xl">Synchronizing Studio Assets...</p>
+      <p className="font-serif italic text-stone-400 text-3xl">Calibrating Ledger Views...</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F5F5F3] p-8 md:p-14 font-sans selection:bg-stone-900 selection:text-[#A3B18A]">
-      <div className="max-w-[1700px] mx-auto grid lg:grid-cols-12 gap-14">
+    <div className="min-h-screen bg-[#F5F5F3] p-10 md:p-20 font-sans selection:bg-stone-900 selection:text-[#A3B18A]">
+      <div className="max-w-[1800px] mx-auto grid lg:grid-cols-12 gap-16">
         
-        {/* LEFT COLUMN: CAPTURE ENGINE & GRID */}
-        <div className="lg:col-span-8 space-y-16">
+        {/* SECTION 01: CAPTURE & STICKY GRID */}
+        <div className="lg:col-span-8 space-y-20">
           <LedgerHeader searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
 
-          {/* THE CAPTURE TERMINAL */}
-          <section className="bg-white p-12 rounded-[4rem] shadow-2xl border border-stone-50 space-y-10 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8 opacity-5">
-              <Layers size={120} />
+          {/* THE CAPTURE DOCK */}
+          <section className="bg-white p-14 rounded-[4.5rem] shadow-3xl border border-stone-50 space-y-12 relative overflow-hidden group">
+            <div className="absolute -top-10 -right-10 p-12 opacity-[0.03] rotate-12">
+              <Command size={280} />
             </div>
             
             <textarea 
-              className="w-full min-h-[220px] text-3xl outline-none resize-none bg-transparent font-serif italic text-stone-800 placeholder:text-stone-200 leading-relaxed relative z-10" 
-              placeholder="Start an entry..." 
+              className="w-full min-h-[280px] text-4xl outline-none resize-none bg-transparent font-serif italic text-stone-900 placeholder:text-stone-200 leading-[1.4] relative z-10" 
+              placeholder="What's the play?" 
               value={newNote} 
               onChange={(e) => setNewNote(e.target.value)} 
             />
             
-            <div className="flex flex-wrap items-center gap-6 pt-10 border-t border-stone-50 justify-between relative z-10">
-              <div className="flex flex-wrap gap-4">
-                <div className="flex items-center bg-stone-50 rounded-[2rem] px-8 border border-stone-100 group/select">
-                  <Hash size={14} className="text-stone-300 mr-4" />
+            <div className="flex flex-wrap items-center gap-8 pt-12 border-t border-stone-50 justify-between relative z-10">
+              <div className="flex flex-wrap gap-5">
+                <div className="flex items-center bg-stone-50 rounded-[2.5rem] px-10 border border-stone-100 transition-colors focus-within:bg-stone-100">
+                  <Hash size={16} className="text-stone-300 mr-5" />
                   <select 
-                    className="bg-transparent text-[10px] font-black uppercase outline-none text-stone-500 py-5 cursor-pointer appearance-none min-w-[140px]" 
+                    className="bg-transparent text-[11px] font-black uppercase outline-none text-stone-500 py-6 cursor-pointer appearance-none min-w-[160px]" 
                     value={selectedCategory} 
                     onChange={(e) => setSelectedCategory(e.target.value)}
                   >
-                    {CATEGORIES.map(cat => (
+                    {SYSTEM_CATEGORIES.map(cat => (
                       <option key={cat.id} value={cat.id}>{cat.label}</option>
                     ))}
                   </select>
                 </div>
 
-                <div className="flex items-center bg-stone-50 rounded-[2rem] px-8 border border-stone-100">
-                  <Folder size={14} className="text-stone-300 mr-4" />
+                <div className="flex items-center bg-stone-50 rounded-[2.5rem] px-10 border border-stone-100 transition-colors focus-within:bg-stone-100">
+                  <Folder size={16} className="text-stone-300 mr-5" />
                   <select 
-                    className="bg-transparent text-[10px] font-black uppercase outline-none text-stone-500 py-5 cursor-pointer appearance-none min-w-[140px]" 
+                    className="bg-transparent text-[11px] font-black uppercase outline-none text-stone-500 py-6 cursor-pointer appearance-none min-w-[160px]" 
                     value={selectedProject} 
                     onChange={(e) => setSelectedProject(e.target.value)}
                   >
-                    <option value="">Link Project</option>
+                    <option value="">No Project Link</option>
                     {projects.map(p => <option key={p.id} value={p.id}>{p.name || p.title}</option>)}
                   </select>
                 </div>
@@ -235,66 +246,67 @@ function NotesContent() {
               <button 
                 onClick={addNote} 
                 disabled={isSubmitting} 
-                className="bg-stone-900 text-[#A3B18A] px-16 py-6 rounded-[2.5rem] font-black uppercase text-[10px] tracking-[0.4em] shadow-3xl hover:-translate-y-2 hover:shadow-stone-900/20 active:translate-y-0 transition-all flex items-center gap-5"
+                className="bg-stone-900 text-[#A3B18A] px-20 py-7 rounded-[3rem] font-black uppercase text-[11px] tracking-[0.5em] shadow-4xl hover:-translate-y-2 hover:shadow-stone-900/40 active:translate-y-0 transition-all flex items-center gap-6"
               >
-                {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />} Establish Entry
+                {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Plus size={20} />} Establish Entry
               </button>
             </div>
           </section>
 
-          {/* THE STICKY LEDGER GRID */}
-          <section className="grid md:grid-cols-2 gap-12 pt-10">
+          {/* THE STICKY LEDGER MAPPING */}
+          <section className="grid md:grid-cols-2 gap-16 pt-10">
             <AnimatePresence mode="popLayout">
               {filteredNotes.map((note, idx) => {
-                const rotation = (idx % 3 === 0) ? "-1.5deg" : (idx % 2 === 0) ? "1.2deg" : "-0.8deg";
+                const rotation = (idx % 3 === 0) ? "-1.8deg" : (idx % 2 === 0) ? "1.4deg" : "-1.1deg";
                 return (
                   <motion.div 
-                    layout 
-                    initial={{ opacity: 0, y: 30 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    exit={{ opacity: 0, scale: 0.95 }}
+                    layout initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8 }}
                     key={note.id} 
-                    className="p-14 min-h-[380px] flex flex-col justify-between shadow-post-it relative group hover:z-20 transition-all duration-500"
+                    className="p-16 min-h-[420px] flex flex-col justify-between shadow-post-it relative group hover:z-30 transition-all duration-700"
                     style={{ 
                       background: note.color || "#fef3c7", 
                       transform: `rotate(${rotation})`,
                     }}
                   >
-                    {/* Tape Aesthetic */}
-                    <div className="absolute top-[-15px] left-1/2 -translate-x-1/2 w-32 h-10 bg-white/30 backdrop-blur-md border border-white/20 rotate-[-1deg]" />
+                    {/* The Tape Aesthetic */}
+                    <div className="absolute top-[-20px] left-1/2 -translate-x-1/2 w-40 h-12 bg-white/40 backdrop-blur-md border border-white/30 rotate-[-1.5deg] shadow-sm" />
                     
-                    <div className="space-y-8">
+                    <div className="space-y-10">
                       <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                           <div className="w-2 h-2 rounded-full bg-black/10" />
-                           <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-30 italic">Ref_{note.id.slice(0, 5)}</span>
+                        <div className="flex items-center gap-4">
+                           <div className="w-2.5 h-2.5 rounded-full bg-black/10" />
+                           <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 italic font-mono">TOTS_{note.id.slice(0, 6)}</span>
                         </div>
-                        <Maximize2 size={16} className="opacity-0 group-hover:opacity-20 cursor-pointer transition-opacity" />
+                        <div className="flex gap-4 opacity-0 group-hover:opacity-30 transition-opacity">
+                            <Maximize2 size={18} className="cursor-pointer" />
+                            <MoreHorizontal size={18} className="cursor-pointer" />
+                        </div>
                       </div>
-                      <p className="text-stone-800 font-serif italic text-3xl pr-6 leading-[1.3]">{note.content}</p>
+                      <p className="text-stone-900 font-serif italic text-4xl pr-8 leading-[1.25] tracking-tight">{note.content}</p>
                     </div>
 
-                    <div className="flex justify-between items-end mt-16 pt-8 border-t border-black/5">
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3 px-4 py-2 bg-black/5 rounded-full w-fit">
-                          <Clock size={12} className="opacity-40" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">
-                            {new Date(note.created_at).toLocaleDateString()}
+                    <div className="flex justify-between items-end mt-20 pt-10 border-t border-black/10">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-4 px-5 py-2.5 bg-black/5 rounded-full w-fit">
+                          <Clock size={14} className="opacity-40" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-stone-700">
+                            {new Date(note.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                           </span>
                         </div>
-                        {note.category !== 'note' && (
-                          <p className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">{note.category}</p>
-                        )}
+                        <div className="flex items-center gap-3">
+                           <Shield size={10} className="text-black/20" />
+                           <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.3em]">{note.category}</span>
+                        </div>
                       </div>
-                      <div className="flex gap-2 translate-y-2">
-                        <button className="p-4 bg-black/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/10">
-                          <Archive size={18} className="text-stone-600" />
+                      <div className="flex gap-3 translate-y-3">
+                        <button className="p-5 bg-black/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/10">
+                          <Archive size={20} className="text-stone-600" />
                         </button>
                         <button 
                           onClick={() => deleteNote(note.id)} 
-                          className="p-4 bg-black/5 hover:bg-red-500 hover:text-white rounded-2xl transition-all opacity-0 group-hover:opacity-100"
+                          className="p-5 bg-black/5 hover:bg-red-600 hover:text-white rounded-3xl transition-all opacity-0 group-hover:opacity-100 shadow-xl shadow-transparent hover:shadow-red-500/20"
                         >
-                          <Trash2 size={18}/>
+                          <Trash2 size={20}/>
                         </button>
                       </div>
                     </div>
@@ -302,56 +314,48 @@ function NotesContent() {
                 );
               })}
             </AnimatePresence>
-            
-            {filteredNotes.length === 0 && (
-              <div className="col-span-full py-40 text-center space-y-6 opacity-10">
-                <BookOpen size={80} className="mx-auto" />
-                <p className="text-2xl font-serif italic">The ledger is currently silent.</p>
-              </div>
-            )}
           </section>
         </div>
 
-        {/* RIGHT COLUMN: ACTION PIPELINE */}
-        <aside className="lg:col-span-4 space-y-10">
-          <div className="bg-stone-900 rounded-[4rem] p-12 text-[#A3B18A] shadow-4xl sticky top-12 min-h-[85vh] flex flex-col border border-stone-800">
-            <div className="mb-14 flex justify-between items-center">
-              <div className="space-y-4">
-                <h2 className="text-5xl font-serif italic leading-none text-white">Action <span className="text-[#A3B18A]">Queue</span></h2>
-                <div className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">System Pulse Active</p>
+        {/* SECTION 02: SYSTEM PIPELINE & TERMINAL */}
+        <aside className="lg:col-span-4 space-y-12">
+          <div className="bg-stone-900 rounded-[5rem] p-14 text-[#A3B18A] shadow-5xl sticky top-14 min-h-[88vh] flex flex-col border border-white/5">
+            <div className="mb-16 flex justify-between items-center">
+              <div className="space-y-5">
+                <h2 className="text-6xl font-serif italic leading-none text-white">Action <span className="text-[#A3B18A]">Queue</span></h2>
+                <div className="flex items-center gap-4">
+                  <Activity size={14} className="animate-pulse" />
+                  <p className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40">System_Health // Stable</p>
                 </div>
               </div>
-              <div className="p-5 bg-white/5 rounded-[2rem] border border-white/10">
-                <Target size={32} />
+              <div className="p-6 bg-white/5 rounded-[2.5rem] border border-white/10 shadow-inner">
+                <Target size={36} />
               </div>
             </div>
 
-            {/* PIPELINE LIST */}
-            <div className="space-y-6 flex-1 overflow-y-auto no-scrollbar pb-10 pr-2">
+            {/* QUEUE ENGINE */}
+            <div className="space-y-6 flex-1 overflow-y-auto no-scrollbar pb-14 pr-3">
               <AnimatePresence>
                 {tasks.map((task) => (
                   <motion.div 
-                    initial={{ x: 30, opacity: 0 }} 
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: -20, opacity: 0 }}
+                    initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -40, opacity: 0 }}
                     key={task.id} 
-                    className="bg-white/5 p-8 rounded-[3rem] border border-white/10 flex items-start gap-6 hover:bg-white/10 transition-all group relative overflow-hidden"
+                    className="bg-white/5 p-10 rounded-[3.5rem] border border-white/10 flex items-start gap-8 hover:bg-white/10 transition-all group relative overflow-hidden"
                   >
                     <button 
                       onClick={() => supabase.from('tasks').update({status:'done'}).eq('id',task.id).then(()=>fetchPulse(user.id))} 
-                      className="mt-1 text-white/20 hover:text-[#A3B18A] transition-colors relative z-10"
+                      className="mt-1 text-white/10 hover:text-[#A3B18A] transition-all transform hover:scale-125"
                     >
-                      <Circle size={28} strokeWidth={1.5} />
+                      <Circle size={32} strokeWidth={1} />
                     </button>
-                    <div className="space-y-3 flex-1 relative z-10">
-                      <p className="text-sm font-bold text-white leading-snug group-hover:translate-x-1 transition-transform">{task.title}</p>
-                      <div className="flex items-center gap-4">
-                        <span className="text-[8px] font-black uppercase tracking-widest px-3 py-1 bg-[#A3B18A]/20 text-[#A3B18A] rounded-full border border-[#A3B18A]/10">
-                          Priority 02
-                        </span>
-                        <p className="text-[8px] font-black uppercase tracking-widest opacity-20">Sync_v4.0</p>
+                    <div className="space-y-4 flex-1">
+                      <p className="text-base font-bold text-white/90 leading-relaxed group-hover:text-white transition-colors">{task.title}</p>
+                      <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                           <div className="w-1.5 h-1.5 rounded-full bg-[#A3B18A]" />
+                           <span className="text-[9px] font-black uppercase tracking-widest text-[#A3B18A]/60">Priority_0{task.priority || 2}</span>
+                        </div>
+                        <Globe size={10} className="opacity-20" />
                       </div>
                     </div>
                   </motion.div>
@@ -359,47 +363,53 @@ function NotesContent() {
               </AnimatePresence>
 
               {tasks.length === 0 && (
-                <div className="text-center py-32 opacity-10 space-y-6">
-                  <CheckCircle2 size={60} className="mx-auto" />
-                  <p className="text-[12px] font-black uppercase tracking-[0.6em]">Pipeline Clear</p>
+                <div className="text-center py-40 opacity-10 space-y-10">
+                  <CheckCircle2 size={80} className="mx-auto" />
+                  <p className="text-[14px] font-black uppercase tracking-[0.8em]">Queue_Clear</p>
                 </div>
               )}
             </div>
 
-            {/* FOOTER STATS */}
-            <div className="pt-10 border-t border-white/10 mt-auto">
-              <div className="flex justify-between items-center px-4">
-                <div className="flex -space-x-3">
-                  {[1, 2].map(i => (
-                    <div key={i} className="w-12 h-12 rounded-full border-4 border-stone-900 bg-stone-800 flex items-center justify-center text-[11px] font-black shadow-xl">
-                      <User size={14} className="text-white/40" />
-                    </div>
-                  ))}
-                  <div className="w-12 h-12 rounded-full border-4 border-stone-900 bg-[#A3B18A] flex items-center justify-center text-[14px] font-black text-stone-900 shadow-xl">
-                    <Plus size={16} />
+            {/* TERMINAL UI */}
+            <div className="mt-auto space-y-8">
+               <div className="p-8 bg-black/40 rounded-[2.5rem] border border-white/5 font-mono text-[9px] leading-loose text-white/30">
+                  <div className="flex justify-between mb-4 border-b border-white/5 pb-2">
+                     <span className="text-[#A3B18A]/40 uppercase tracking-widest">System_Logs</span>
+                     <span>v4.2.0</span>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Active Nodes</p>
-                  <p className="text-xl font-serif italic text-white">{tasks.length}</p>
-                </div>
-              </div>
+                  <p className="flex gap-3"><span className="text-[#A3B18A]">[OK]</span> DB_Handshake established...</p>
+                  <p className="flex gap-3"><span className="text-[#A3B18A]">[OK]</span> Realtime_Channel listening on :public</p>
+                  <p className="flex gap-3"><span className="text-[#A3B18A]">[OK]</span> Asset_Ledger synced ({notes.length} nodes)</p>
+               </div>
+
+               <div className="flex justify-between items-center px-4">
+                  <div className="flex -space-x-4">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="w-14 h-14 rounded-full border-4 border-stone-900 bg-stone-800 flex items-center justify-center shadow-2xl">
+                        <User size={16} className="text-white/20" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Sync_Frequency</p>
+                    <p className="text-2xl font-serif italic text-white">Live</p>
+                  </div>
+               </div>
             </div>
           </div>
 
-          {/* LOWER HUB INFO */}
-          <div className="p-10 bg-white rounded-[3rem] border border-stone-100 shadow-sm space-y-8">
-            <div className="flex items-center gap-4 text-stone-800">
-               <AlertCircle size={22} className="text-[#A3B18A]" />
-               <h3 className="text-lg font-serif italic">Operational Guard</h3>
-            </div>
-            <p className="text-sm font-serif italic text-stone-500 leading-relaxed">
-              Every entry captured in the Clarity Ledger is automatically processed through the 
-              System Logic engine. Items containing currency symbols (£) are flagged for Treasury Audit.
-            </p>
-            <button className="w-full py-4 border border-stone-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-stone-400 hover:bg-stone-50 transition-all">
-              View Audit Logs
-            </button>
+          <div className="p-12 bg-white rounded-[4rem] border border-stone-100 shadow-sm space-y-10 relative overflow-hidden">
+             <div className="flex items-center gap-5 text-stone-900">
+                <AlertCircle size={24} className="text-[#A3B18A]" />
+                <h3 className="text-xl font-serif italic">Ledger Protocol</h3>
+             </div>
+             <p className="text-base font-serif italic text-stone-500 leading-relaxed">
+                Entries are globally unique and indexed for search speed. The Action Queue mirrors the Ledger for zero-lag productivity.
+             </p>
+             <div className="h-[1px] w-full bg-stone-50" />
+             <button className="w-full py-5 rounded-3xl text-[11px] font-black uppercase tracking-[0.4em] text-stone-400 hover:bg-stone-50 hover:text-stone-900 transition-all">
+                Export Data Repository
+             </button>
           </div>
         </aside>
 
@@ -413,27 +423,16 @@ function NotesContent() {
 
         .shadow-post-it {
           box-shadow: 
-            5px 5px 15px rgba(0,0,0,0.02),
-            15px 15px 45px rgba(0,0,0,0.04),
-            inset 0px -10px 30px rgba(0,0,0,0.02);
+            8px 8px 25px rgba(0,0,0,0.02),
+            20px 20px 60px rgba(0,0,0,0.05),
+            inset 0px -15px 40px rgba(0,0,0,0.03);
         }
 
-        .shadow-3xl {
-          box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.3);
-        }
+        .shadow-4xl { box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.3); }
+        .shadow-5xl { box-shadow: 0 60px 120px -30px rgba(0, 0, 0, 0.5); }
 
-        .shadow-4xl {
-          box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.4);
-        }
-
-        textarea::placeholder {
-          opacity: 0.2;
-        }
-
-        /* Handwritten-ish feel for notes */
-        .font-serif {
-          font-family: 'Instrument Serif', serif;
-        }
+        textarea::placeholder { opacity: 0.15; }
+        .font-serif { font-family: 'Instrument Serif', serif; }
       `}</style>
     </div>
   );
@@ -441,11 +440,7 @@ function NotesContent() {
 
 export default function NotesPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center font-serif italic opacity-20 text-4xl">
-        Booting TOTS Ledger...
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-serif italic text-stone-300 text-5xl">Initializing Hub...</div>}>
       <NotesContent />
     </Suspense>
   );

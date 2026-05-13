@@ -4,14 +4,14 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   Trash2, Search, Loader2, Plus, X, 
-  CheckCircle2, Tag, Clock, AlertCircle, StickyNote
+  CheckCircle2, Tag, AlertCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 /**
- * TOTS OS | THE VAULT V8
- * DESIGN: PHYSICAL STICKY NOTE DESK
+ * TOTS OS | THE VAULT (V8.5)
+ * DESIGN: PHYSICAL STICKY NOTE DESK WITH EMBEDDED ACTIONS
  */
 
 const STICKY_THEMES = [
@@ -60,7 +60,6 @@ function VaultContent() {
       setUser(authUser);
       await fetchNotes(authUser.id);
       
-      // Real-time subscription to keep the desk updated
       const channel = supabase.channel("vault_desk")
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchNotes(authUser.id))
         .subscribe();
@@ -72,7 +71,6 @@ function VaultContent() {
   const handleCreate = async () => {
     if (!content.trim() || !user) return;
     setIsSyncing(true);
-    
     const theme = STICKY_THEMES[Math.floor(Math.random() * STICKY_THEMES.length)];
 
     try {
@@ -101,11 +99,10 @@ function VaultContent() {
   };
 
   const completeNote = async (id: string) => {
-    // We'll delete for 'completion' in this version, or you can update a status column
     const { error } = await supabase.from("notes").delete().eq("id", id);
     if (!error) {
       setNotes(prev => prev.filter(n => n.id !== id));
-      toast.success("Task cleared.");
+      toast.success("Note cleared.");
     }
   };
 
@@ -118,8 +115,18 @@ function VaultContent() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F3] font-sans text-stone-900 pb-40 relative">
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
+        .font-serif { font-family: 'Instrument Serif', serif; }
+        .shadow-sticky {
+          box-shadow: 
+            2px 2px 10px rgba(0,0,0,0.02),
+            10px 10px 25px rgba(0,0,0,0.05),
+            inset 0px -8px 20px rgba(0,0,0,0.01);
+        }
+      `}</style>
       
-      {/* PERSISTENT NAV */}
+      {/* HEADER */}
       <header className="max-w-[1400px] mx-auto p-12 flex justify-between items-end">
         <div>
           <h1 className="text-8xl font-serif italic tracking-tighter lowercase leading-none">Vault</h1>
@@ -143,41 +150,54 @@ function VaultContent() {
             <motion.div 
               key={note.id}
               layout
-              initial={{ opacity: 0, scale: 0.8, rotate: 0 }}
+              initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1, rotate: note.metadata?.rotation || "0deg" }}
               exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
-              whileHover={{ scale: 1.05, rotate: "0deg", zIndex: 50 }}
-              className={`p-10 min-h-[300px] flex flex-col shadow-sticky relative group transition-all duration-300 ${
+              whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
+              className={`p-8 min-h-[320px] flex flex-col shadow-sticky relative group transition-all duration-300 ${
                 note.is_urgent ? 'text-white' : 'text-stone-800'
               }`}
               style={{ background: note.color || "#FFF9E6" }}
             >
               {/* VISUAL TAPE */}
-              <div className="absolute top-[-12px] left-1/2 -translate-x-1/2 w-32 h-8 bg-white/20 backdrop-blur-sm border border-white/10 z-20" />
+              <div className="absolute top-[-10px] left-1/2 -translate-x-1/2 w-24 h-7 bg-white/30 backdrop-blur-sm border border-white/20 z-10" />
               
-              <div className="flex-1 space-y-6">
+              <div className="flex-1 space-y-4">
                 <div className="flex justify-between items-start">
-                  <span className="text-[9px] font-black uppercase tracking-widest opacity-30">
+                  <span className="text-[10px] font-black uppercase tracking-widest opacity-30 italic">
                     {note.category || 'General'}
                   </span>
-                  {note.is_urgent && <AlertCircle size={14} className="text-red-400" />}
+                  {note.is_urgent && <AlertCircle size={16} className="text-red-400 animate-pulse" />}
                 </div>
-                <p className="text-2xl font-serif italic leading-tight">{note.content}</p>
+                <p className="text-3xl font-serif italic leading-tight pr-4">{note.content}</p>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-black/5 flex justify-between items-center">
+              {/* EMBEDDED ACTIONS */}
+              <div className="mt-6 pt-6 border-t border-black/5 flex justify-between items-center">
                 <button 
                   onClick={() => completeNote(note.id)}
-                  className="flex items-center gap-2 group/btn"
+                  className="flex items-center gap-2 group/btn transition-transform active:scale-90"
                 >
-                  <CheckCircle2 size={24} className="text-black/10 group-hover/btn:text-green-500 transition-colors" />
-                  <span className="text-[9px] font-black uppercase tracking-widest opacity-0 group-hover/btn:opacity-40 transition-opacity">Complete</span>
+                  <CheckCircle2 
+                    size={28} 
+                    className={`transition-colors ${
+                      note.is_urgent ? 'text-white/20 group-hover/btn:text-green-400' : 'text-black/10 group-hover/btn:text-green-600'
+                    }`} 
+                  />
+                  <span className="text-[9px] font-black uppercase tracking-tighter opacity-0 group-hover/btn:opacity-40 transition-opacity">Done</span>
                 </button>
-                <div className="flex gap-2">
-                  <button onClick={() => completeNote(note.id)} className="h-10 w-10 rounded-full hover:bg-black/5 flex items-center justify-center opacity-20 hover:opacity-100">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+
+                <button 
+                  onClick={() => completeNote(note.id)} 
+                  className="group/trash p-2 rounded-full hover:bg-black/5 transition-all active:scale-90"
+                >
+                  <Trash2 
+                    size={18} 
+                    className={`transition-colors ${
+                      note.is_urgent ? 'text-white/20 group-hover/trash:text-red-400' : 'text-black/10 group-hover/trash:text-red-600'
+                    }`} 
+                  />
+                </button>
               </div>
             </motion.div>
           ))}
@@ -192,22 +212,18 @@ function VaultContent() {
         <Plus size={32} />
       </button>
 
-      {/* NEW NOTE MODAL */}
+      {/* NEW NOTE POPUP */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
             <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowModal(false)}
               className="absolute inset-0 bg-stone-900/40 backdrop-blur-md"
             />
             <motion.div 
-              initial={{ y: 100, opacity: 0, scale: 0.9 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 100, opacity: 0, scale: 0.9 }}
-              className="bg-white w-full max-w-2xl rounded-[3rem] p-12 shadow-2xl relative z-10 space-y-10"
+              initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }}
+              className="bg-white w-full max-w-xl rounded-[3rem] p-12 shadow-2xl relative z-10 space-y-10"
             >
               <div className="flex justify-between items-center">
                 <h3 className="text-4xl font-serif italic lowercase">New Entry</h3>
@@ -227,7 +243,7 @@ function VaultContent() {
                   <Tag size={14} className="text-stone-300 mr-3" />
                   <input 
                     className="bg-transparent text-[10px] font-black uppercase outline-none w-full"
-                    placeholder="TAG (E.G. PROJECT)"
+                    placeholder="TAG"
                     value={tag}
                     onChange={(e) => setTag(e.target.value)}
                   />
@@ -253,17 +269,6 @@ function VaultContent() {
           </div>
         )}
       </AnimatePresence>
-
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:italic&display=swap');
-        .font-serif { font-family: 'Instrument Serif', serif; }
-        .shadow-sticky {
-          box-shadow: 
-            2px 2px 10px rgba(0,0,0,0.02),
-            10px 10px 25px rgba(0,0,0,0.05),
-            inset 0px -8px 20px rgba(0,0,0,0.01);
-        }
-      `}</style>
     </div>
   );
 }

@@ -13,8 +13,28 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { toast } from "sonner";
 
+// --- TYPES & INTERFACES ---
+interface ProjectFile {
+  name: string;
+  size: string;
+  type: string;
+  date: string;
+}
+
+interface Project {
+  id: string;
+  title: string;
+  category: string;
+  content: string;
+  metadata: {
+    lastUpdated: string;
+    status: string;
+  };
+  files: ProjectFile[];
+}
+
 // --- INITIAL DATASET ---
-const INITIAL_VAULT_DATA = [
+const INITIAL_VAULT_DATA: Project[] = [
   { 
     id: "PRJ-001", 
     title: "Client Intake Protocol", 
@@ -42,8 +62,8 @@ const INITIAL_VAULT_DATA = [
 ];
 
 export default function VaultPage() {
-  const [vaultData, setVaultData] = useState(INITIAL_VAULT_DATA);
-  const [selectedId, setSelectedId] = useState(INITIAL_VAULT_DATA[0].id);
+  const [vaultData, setVaultData] = useState<Project[]>(INITIAL_VAULT_DATA);
+  const [selectedId, setSelectedId] = useState<string>(INITIAL_VAULT_DATA[0].id);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<string[]>(["Clients & CRM"]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -79,25 +99,19 @@ export default function VaultPage() {
     const uploadedFiles = e.target.files;
     if (!uploadedFiles || uploadedFiles.length === 0) return;
 
-    // Create safe array of new entries
-    const newFileEntries = Array.from(uploadedFiles).map(file => ({
+    const newFileEntries: ProjectFile[] = Array.from(uploadedFiles).map(file => ({
       name: file.name,
       size: (file.size / 1024).toFixed(1) + " KB",
       type: file.type,
       date: new Date().toLocaleDateString()
     }));
 
-    // CRITICAL: Safety-first state update
     setVaultData((prevVault) => {
-      if (!Array.isArray(prevVault)) return INITIAL_VAULT_DATA;
-
       return prevVault.map((project) => {
         if (project.id === selectedId) {
-          // Ensure files is an array before spreading
-          const currentFiles = Array.isArray(project.files) ? project.files : [];
           return {
             ...project,
-            files: [...currentFiles, ...newFileEntries]
+            files: [...project.files, ...newFileEntries]
           };
         }
         return project;
@@ -111,7 +125,7 @@ export default function VaultPage() {
   const removeFile = (fileName: string) => {
     setVaultData(prev => prev.map(p => 
       p.id === selectedId 
-        ? { ...p, files: (Array.isArray(p.files) ? p.files : []).filter((f: any) => f.name !== fileName) } 
+        ? { ...p, files: p.files.filter((f: ProjectFile) => f.name !== fileName) } 
         : p
     ));
   };
@@ -170,7 +184,7 @@ export default function VaultPage() {
             <div className="relative">
               <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-300" />
               <input 
-                className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 pl-8 pr-3 text-[10px] outline-none focus:ring-1 ring-stone-200 transition-all"
+                className="w-full bg-stone-50 border border-stone-200 rounded-md py-1.5 pl-8 pr-3 text-[10px] outline-none focus:ring-1 ring-stone-200"
                 placeholder="Find project..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -221,7 +235,7 @@ export default function VaultPage() {
               <button 
                 onClick={saveProject} 
                 disabled={isSaving}
-                className="px-3 py-1.5 bg-stone-900 text-white rounded text-[10px] font-bold flex items-center gap-2 disabled:opacity-50 transition-all active:scale-95"
+                className="px-3 py-1.5 bg-stone-900 text-white rounded text-[10px] font-bold flex items-center gap-2 disabled:opacity-50"
               >
                 {isSaving ? <Clock size={12} className="animate-spin" /> : <Save size={12} />}
                 <span className="hidden sm:inline uppercase tracking-tighter">{isSaving ? "Syncing" : "Save"}</span>
@@ -233,7 +247,7 @@ export default function VaultPage() {
             <div className="px-4 py-2 bg-stone-50/50 border-b border-stone-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Edit3 size={12} className="text-stone-300" />
-                <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Active Draft</span>
+                <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Workspace</span>
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => fileInputRef.current?.click()} className="text-stone-400 hover:text-stone-900 flex items-center gap-1.5 transition-colors">
@@ -254,10 +268,10 @@ export default function VaultPage() {
             </div>
 
             {/* ATTACHMENT TRAY */}
-            {Array.isArray(currentProject.files) && currentProject.files.length > 0 && (
+            {currentProject.files.length > 0 && (
               <div className="border-t border-stone-100 p-3 bg-stone-50/30">
                 <div className="flex flex-wrap gap-2 px-1">
-                  {currentProject.files.map((file: any, i: number) => (
+                  {currentProject.files.map((file, i) => (
                     <div key={i} className="flex items-center gap-2 bg-white border border-stone-200 px-2 py-1 rounded text-[9px] group transition-all hover:border-stone-400">
                       <File size={10} className="text-stone-400" />
                       <span className="font-medium truncate max-w-[120px]">{file.name}</span>
@@ -342,7 +356,7 @@ export default function VaultPage() {
         {/* OVERLAYS */}
         {(isMobileMenuOpen || isInspectorOpen) && (
           <div 
-            className="fixed inset-0 bg-stone-900/10 backdrop-blur-[2px] z-[105] lg:hidden transition-all duration-300" 
+            className="fixed inset-0 bg-stone-900/10 backdrop-blur-[2px] z-[105] lg:hidden" 
             onClick={() => { setIsMobileMenuOpen(false); setIsInspectorOpen(false); }} 
           />
         )}
@@ -352,7 +366,6 @@ export default function VaultPage() {
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #E7E5E4; border-radius: 10px; }
         textarea::selection { background: #1C1917; color: #FDFDFB; }
       `}</style>

@@ -7,8 +7,8 @@ import { supabase } from "@/lib/supabase-client";
 import { 
   X, Landmark, Wallet, TrendingUp, Search, 
   ArrowUpRight, Receipt, Plus, Activity, 
-  Fingerprint, Mail, Send, ShieldCheck, 
-  Trash2, Info, Package, CreditCard, Loader2, Database,
+  Fingerprint, Mail, Send, 
+  Trash2, Info, Package, CreditCard, Database,
   Filter, Terminal, Cpu, Globe
 } from "lucide-react";
 
@@ -184,7 +184,7 @@ export default function PaymentsPage() {
               <h2 className="text-8xl font-mono tracking-tighter leading-none text-[#a9b897]">£{metrics.revYtd.toLocaleString()}</h2>
             </div>
             <div className="z-10 bg-white/5 border border-white/5 p-7 rounded-[2rem] flex items-center justify-between">
-              <span className="text-[9px] font-black uppercase tracking-[0.5em] text-stone-500 italic">Live Ledger Stream</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.5em] text-stone-500 italic uppercase">Live Ledger Stream</span>
               <Activity size={18} className="text-[#a9b897] animate-pulse" />
             </div>
             <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none"><Cpu size={280} /></div>
@@ -200,7 +200,7 @@ export default function PaymentsPage() {
                 <div className="text-stone-200 group-hover:text-stone-900 transition-colors bg-stone-50 p-6 rounded-[1.5rem] shadow-inner">{item.icon}</div>
               </div>
               <h2 className="text-7xl font-mono tracking-tighter leading-none text-stone-900">£{item.value.toLocaleString()}</h2>
-              <div className="pt-10 border-t border-stone-50"><p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897] italic">{item.sub}</p></div>
+              <div className="pt-10 border-t border-stone-50"><p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#a9b897] italic uppercase">{item.sub}</p></div>
             </div>
           ))}
         </section>
@@ -210,7 +210,7 @@ export default function PaymentsPage() {
           <div className="p-16 flex flex-col lg:flex-row justify-between items-center gap-12 border-b border-stone-50">
             <div className="space-y-4">
               <h3 className="text-7xl font-serif italic tracking-tighter">Network Ledger</h3>
-              <p className="text-[11px] font-black uppercase tracking-[0.6em] text-stone-300 italic">Audited Transaction History Stream</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.6em] text-stone-300 italic uppercase">Audited Transaction History Stream</p>
             </div>
             <div className="flex items-center gap-6 w-full lg:w-auto">
               <div className="relative flex-1 lg:w-[500px]">
@@ -246,7 +246,7 @@ export default function PaymentsPage() {
                     </td>
                     <td className="px-16 py-14 text-[11px] font-black uppercase text-stone-400 tracking-widest italic">{inv.type}</td>
                     <td className="px-16 py-14">
-                      <div className={`inline-flex items-center gap-5 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-[0.4em] border ${inv.status === 'paid' ? 'bg-green-50 text-green-600 border-green-100' : inv.status === 'overdue' ? 'bg-red-50 text-red-500 border-red-100' : 'bg-stone-50 text-stone-400 border-stone-200'}`}>
+                      <div className={`inline-flex items-center gap-5 px-8 py-3.5 rounded-full text-[10px] font-black uppercase tracking-[0.4em] border uppercase ${inv.status === 'paid' ? 'bg-green-50 text-green-600 border-green-100' : inv.status === 'overdue' ? 'bg-red-50 text-red-500 border-red-100' : 'bg-stone-50 text-stone-400 border-stone-200'}`}>
                         <div className={`w-3 h-3 rounded-full ${inv.status === 'paid' ? 'bg-green-600 shadow-[0_0_8px_rgba(22,163,74,0.4)]' : inv.status === 'overdue' ? 'bg-red-500 animate-pulse' : 'bg-stone-300'}`} />
                         {inv.status}
                       </div>
@@ -262,9 +262,6 @@ export default function PaymentsPage() {
               </tbody>
             </table>
           </div>
-          <div className="p-14 border-t border-stone-50 bg-stone-50/30 flex justify-center">
-            <button className="text-[11px] font-black uppercase tracking-[0.8em] text-stone-400 hover:text-stone-900 transition-all italic">Expand Complete Archive</button>
-          </div>
         </section>
 
         {/* --- SYSTEM INTELLIGENCE --- */}
@@ -276,7 +273,7 @@ export default function PaymentsPage() {
                 <ArrowUpRight size={32} className="text-stone-200 group-hover:text-stone-900 transition-colors" />
               </div>
               <div className="space-y-5 text-left mt-16">
-                <p className="text-[12px] font-black uppercase text-stone-400 tracking-[0.6em] italic">Reserve Auditing</p>
+                <p className="text-[12px] font-black uppercase text-stone-400 tracking-[0.6em] italic uppercase">Reserve Auditing</p>
                 <h5 className="text-7xl font-serif italic tracking-tighter">Liquid Assets</h5>
               </div>
             </button>
@@ -284,7 +281,7 @@ export default function PaymentsPage() {
               <div className="absolute top-0 right-0 p-16 opacity-5 pointer-events-none"><Mail size={300} /></div>
               <div className="p-8 bg-white/10 rounded-[2.5rem] w-fit group-hover:bg-[#a9b897] group-hover:text-stone-900 transition-all duration-700"><Send size={44} /></div>
               <div className="space-y-5 text-left mt-16 z-10">
-                <p className="text-[12px] font-black uppercase text-white/30 tracking-[0.6em] italic">Network Disbursement</p>
+                <p className="text-[12px] font-black uppercase text-white/30 tracking-[0.6em] italic uppercase">Network Disbursement</p>
                 <h5 className="text-7xl font-serif italic tracking-tighter">Dispatch Directive</h5>
               </div>
             </button>
@@ -294,9 +291,9 @@ export default function PaymentsPage() {
             <div className="space-y-12 relative z-10">
               <div className="flex items-center gap-5 opacity-40">
                 <Terminal size={20} className="text-[#a9b897]" />
-                <span className="text-[11px] font-black uppercase tracking-[0.6em]">Fiscal Pulse Feed</span>
+                <span className="text-[11px] font-black uppercase tracking-[0.6em] uppercase">Fiscal Pulse Feed</span>
               </div>
-              <div className="font-mono text-[12px] h-64 overflow-y-auto space-y-8 scrollbar-hide">
+              <div className="font-mono text-[12px] h-64 overflow-y-auto space-y-8 scrollbar-hide text-left">
                 {commandHistory.map(cmd => (
                   <div key={cmd.id} className="leading-relaxed border-l-2 border-white/5 pl-6">
                     <span className="text-[#a9b897] block text-[10px] mb-1 font-bold">[{cmd.time}]</span> 
@@ -305,13 +302,13 @@ export default function PaymentsPage() {
                 ))}
                 <div className="flex items-center gap-4 opacity-30 italic">
                   <span className="w-2 h-2 rounded-full bg-[#a9b897] animate-pulse" />
-                  Listening for terminal signals...
+                  Listening for signals...
                 </div>
               </div>
             </div>
-            <div className="pt-12 border-t border-white/10 flex justify-between items-center text-[11px] font-black uppercase tracking-[0.6em] text-stone-600 z-10 italic">
+            <div className="pt-12 border-t border-white/10 flex justify-between items-center text-[11px] font-black uppercase tracking-[0.6em] text-stone-600 z-10 italic uppercase">
               <span>Node Identity Secured</span>
-              <div className="flex items-center gap-4 text-green-500/60 font-mono tracking-tighter"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />SYNCED</div>
+              <div className="flex items-center gap-4 text-green-500/60 font-mono tracking-tighter uppercase"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />SYNCED</div>
             </div>
             <div className="absolute bottom-0 right-0 p-10 opacity-5 pointer-events-none rotate-12"><Globe size={180} /></div>
           </div>
@@ -338,20 +335,20 @@ export default function PaymentsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-14">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-14 text-left">
               <div className="space-y-8">
-                <label className="text-[12px] font-black uppercase text-stone-400 ml-12 tracking-[0.6em] italic">Independent Node / Entity</label>
-                <input value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} placeholder="Node identifier..." className="w-full p-12 bg-stone-50 border border-stone-100 rounded-[3rem] outline-none focus:bg-white focus:border-stone-900 transition-all font-bold text-2xl shadow-inner text-stone-800" />
+                <label className="text-[12px] font-black uppercase text-stone-400 ml-12 tracking-[0.6em] italic uppercase">Independent Node / Entity</label>
+                <input value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} placeholder="Node identifier..." className="w-full p-12 bg-stone-50 border border-stone-100 rounded-[3rem] outline-none focus:bg-white focus:border-stone-900 transition-all font-bold text-2xl shadow-inner text-stone-800 placeholder:text-stone-200" />
               </div>
               <div className="space-y-8">
-                <label className="text-[12px] font-black uppercase text-stone-400 ml-12 tracking-[0.6em] italic">Signal Destination (Secure Email)</label>
-                <input value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} placeholder="network@entity.pulse" className="w-full p-12 bg-stone-50 border border-stone-100 rounded-[3rem] outline-none focus:bg-white focus:border-stone-900 transition-all font-bold text-2xl shadow-inner text-stone-800" />
+                <label className="text-[12px] font-black uppercase text-stone-400 ml-12 tracking-[0.6em] italic uppercase">Signal Destination (Secure Email)</label>
+                <input value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} placeholder="network@entity.pulse" className="w-full p-12 bg-stone-50 border border-stone-100 rounded-[3rem] outline-none focus:bg-white focus:border-stone-900 transition-all font-bold text-2xl shadow-inner text-stone-800 placeholder:text-stone-200" />
               </div>
             </div>
 
             <div className="space-y-12">
               <div className="flex justify-between items-center px-12">
-                <p className="text-[12px] font-black uppercase text-stone-300 tracking-[0.8em] italic underline decoration-[#a9b897]/30 underline-offset-8">Directive Composition</p>
+                <p className="text-[12px] font-black uppercase text-stone-300 tracking-[0.8em] italic underline decoration-[#a9b897]/30 underline-offset-8 uppercase">Directive Composition</p>
                 <button 
                   onClick={() => activeTab === 'items' ? setLineItems([...lineItems, { id: Date.now(), desc: "", qty: 1, price: 0, vat: 20 }]) : setExpenses([...expenses, { id: Date.now(), desc: "", amount: 0 }])} 
                   className="flex items-center gap-6 text-[12px] font-black uppercase tracking-[0.5em] text-[#a9b897] hover:text-stone-900 transition-all duration-500 group/add"
@@ -363,10 +360,10 @@ export default function PaymentsPage() {
               <div className="space-y-8 max-h-[500px] overflow-y-auto pr-8 custom-scrollbar">
                 {activeTab === 'items' ? lineItems.map((item, idx) => (
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={item.id} className="grid grid-cols-12 gap-12 items-center bg-stone-50 p-12 rounded-[3.5rem] border border-stone-100 shadow-inner group">
-                    <div className="col-span-5"><input placeholder="Task Description..." value={item.desc} onChange={(e) => { const n = [...lineItems]; n[idx].desc = e.target.value; setLineItems(n); }} className="w-full bg-transparent outline-none font-bold text-2xl text-stone-800 placeholder:text-stone-300" /></div>
-                    <div className="col-span-2 text-center border-l border-stone-200"><p className="text-[9px] font-black uppercase text-stone-400 mb-4 tracking-widest">Units</p><input type="number" value={item.qty} onChange={(e) => { const n = [...lineItems]; n[idx].qty = Number(e.target.value); setLineItems(n); }} className="w-full bg-transparent outline-none font-mono text-3xl text-center font-bold" /></div>
-                    <div className="col-span-2 text-center border-l border-stone-200"><p className="text-[9px] font-black uppercase text-stone-400 mb-4 tracking-widest">Rate £</p><input type="number" value={item.price} onChange={(e) => { const n = [...lineItems]; n[idx].price = Number(e.target.value); setLineItems(n); }} className="w-full bg-transparent outline-none font-mono text-3xl text-center font-bold" /></div>
-                    <div className="col-span-2 text-center border-l border-stone-200"><p className="text-[9px] font-black uppercase text-stone-400 mb-4 tracking-widest">VAT</p>
+                    <div className="col-span-5"><input placeholder="Task Description..." value={item.desc} onChange={(e) => { const n = [...lineItems]; n[idx].desc = e.target.value; setLineItems(n); }} className="w-full bg-transparent outline-none font-bold text-2xl text-stone-800 placeholder:text-stone-300 text-left" /></div>
+                    <div className="col-span-2 text-center border-l border-stone-200"><p className="text-[9px] font-black uppercase text-stone-400 mb-4 tracking-widest uppercase">Units</p><input type="number" value={item.qty} onChange={(e) => { const n = [...lineItems]; n[idx].qty = Number(e.target.value); setLineItems(n); }} className="w-full bg-transparent outline-none font-mono text-3xl text-center font-bold" /></div>
+                    <div className="col-span-2 text-center border-l border-stone-200"><p className="text-[9px] font-black uppercase text-stone-400 mb-4 tracking-widest uppercase">Rate £</p><input type="number" value={item.price} onChange={(e) => { const n = [...lineItems]; n[idx].price = Number(e.target.value); setLineItems(n); }} className="w-full bg-transparent outline-none font-mono text-3xl text-center font-bold" /></div>
+                    <div className="col-span-2 text-center border-l border-stone-200"><p className="text-[9px] font-black uppercase text-stone-400 mb-4 tracking-widest uppercase">VAT</p>
                       <select value={item.vat} onChange={(e) => { const n = [...lineItems]; n[idx].vat = Number(e.target.value); setLineItems(n); }} className="bg-stone-900 text-[#a9b897] px-6 py-2 rounded-full outline-none font-mono font-bold text-sm cursor-pointer shadow-xl">
                         <option value={20}>20%</option><option value={5}>5%</option><option value={0}>0%</option>
                       </select>
@@ -375,8 +372,8 @@ export default function PaymentsPage() {
                   </motion.div>
                 )) : expenses.map((exp, idx) => (
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={exp.id} className="grid grid-cols-12 gap-12 items-center bg-stone-50 p-12 rounded-[3.5rem] border border-stone-100 shadow-inner group">
-                    <div className="col-span-8"><input placeholder="Expense identifier (Transport, Cloud Storage)..." value={exp.desc} onChange={(e) => { const n = [...expenses]; n[idx].desc = e.target.value; setExpenses(n); }} className="w-full bg-transparent outline-none font-bold text-2xl text-stone-800 placeholder:text-stone-300" /></div>
-                    <div className="col-span-3 text-right border-l border-stone-200"><p className="text-[9px] font-black uppercase text-stone-400 mb-4 tracking-widest pr-8 italic">Amount £</p><input type="number" value={exp.amount} onChange={(e) => { const n = [...expenses]; n[idx].amount = Number(e.target.value); setExpenses(n); }} className="w-full bg-transparent outline-none font-mono text-4xl text-right text-[#a9b897] font-bold pr-8" /></div>
+                    <div className="col-span-8"><input placeholder="Expense identifier (Transport, Cloud Storage)..." value={exp.desc} onChange={(e) => { const n = [...expenses]; n[idx].desc = e.target.value; setExpenses(n); }} className="w-full bg-transparent outline-none font-bold text-2xl text-stone-800 placeholder:text-stone-300 text-left" /></div>
+                    <div className="col-span-3 text-right border-l border-stone-200"><p className="text-[9px] font-black uppercase text-stone-400 mb-4 tracking-widest pr-8 italic uppercase">Amount £</p><input type="number" value={exp.amount} onChange={(e) => { const n = [...expenses]; n[idx].amount = Number(e.target.value); setExpenses(n); }} className="w-full bg-transparent outline-none font-mono text-4xl text-right text-[#a9b897] font-bold pr-8" /></div>
                     <div className="col-span-1 text-right"><button onClick={() => setExpenses(expenses.filter(e => e.id !== exp.id))} className="text-stone-300 hover:text-red-500 transition-colors p-4 rounded-full hover:bg-red-50"><Trash2 size={24}/></button></div>
                   </motion.div>
                 ))}
@@ -384,19 +381,19 @@ export default function PaymentsPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-end pt-20 border-t border-stone-100">
-              <div className="bg-stone-50 p-14 rounded-[5rem] space-y-8 border border-stone-100 shadow-inner">
-                <div className="flex items-center gap-5 text-stone-400 mb-6 font-black uppercase text-[11px] tracking-[0.6em] italic"><Info size={22} className="text-[#a9b897]" /> Calculation Ledger</div>
+              <div className="bg-stone-50 p-14 rounded-[5rem] space-y-8 border border-stone-100 shadow-inner text-left">
+                <div className="flex items-center gap-5 text-stone-400 mb-6 font-black uppercase text-[11px] tracking-[0.6em] italic uppercase"><Info size={22} className="text-[#a9b897]" /> Calculation Ledger</div>
                 <div className="flex justify-between text-lg font-bold text-stone-500 tracking-tight"><span>Subtotal (Aggregate)</span><span className="font-mono">£{subtotal.toLocaleString()}</span></div>
                 <div className="flex justify-between text-lg font-bold text-stone-400 tracking-tight"><span>VAT Liability (20% Escrow)</span><span className="font-mono">£{totalVat.toLocaleString()}</span></div>
                 {expenseTotal > 0 && <div className="flex justify-between text-lg font-bold text-[#a9b897] tracking-tight"><span>Operational Disbursements</span><span className="font-mono italic">£{expenseTotal.toLocaleString()}</span></div>}
                 <div className="pt-12 border-t border-stone-200 flex justify-between items-baseline mt-6">
-                   <p className="text-[16px] font-black uppercase tracking-[0.8em] text-stone-900 italic">Final Total</p>
+                   <p className="text-[16px] font-black uppercase tracking-[0.8em] text-stone-900 italic uppercase">Final Total</p>
                    <p className="text-8xl font-mono font-bold tracking-tighter text-stone-900">£{grandTotal.toLocaleString()}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
-                <button onClick={() => handleDocumentDispatch(true)} className="w-full bg-white border-2 border-stone-100 py-12 rounded-[3.5rem] text-[12px] font-black uppercase tracking-[0.6em] hover:border-stone-900 transition-all duration-500 shadow-sm">Save Draft</button>
-                <button onClick={() => handleDocumentDispatch(false)} className="w-full bg-stone-900 text-white py-12 rounded-[3.5rem] text-[12px] font-black uppercase tracking-[0.6em] shadow-2xl hover:bg-stone-800 transition-all flex items-center justify-center gap-6 group">
+                <button onClick={() => handleDocumentDispatch(true)} className="w-full bg-white border-2 border-stone-100 py-12 rounded-[3.5rem] text-[12px] font-black uppercase tracking-[0.6em] hover:border-stone-900 transition-all duration-500 shadow-sm uppercase">Save Draft</button>
+                <button onClick={() => handleDocumentDispatch(false)} className="w-full bg-stone-900 text-white py-12 rounded-[3.5rem] text-[12px] font-black uppercase tracking-[0.6em] shadow-2xl hover:bg-stone-800 transition-all flex items-center justify-center gap-6 group uppercase">
                   Execute Directive <Send size={24} className="group-hover:translate-x-4 transition-transform text-[#a9b897]" />
                 </button>
               </div>
@@ -407,11 +404,11 @@ export default function PaymentsPage() {
         {/* --- GLOBAL FOOTER --- */}
         <footer className="pt-24 border-t border-stone-100 flex flex-col md:flex-row justify-between items-center gap-14 text-stone-300 pb-16">
           <div className="flex items-center gap-10">
-            <p className="text-[12px] font-black uppercase tracking-[0.6em]">TOTS Infrastructure v6.2.0 • Fiscal Node</p>
+            <p className="text-[12px] font-black uppercase tracking-[0.6em] uppercase">TOTS Infrastructure v6.2.0 • Fiscal Node</p>
             <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.6)]" />
-            <p className="text-[11px] font-mono tracking-widest text-stone-400 italic">CLUSTER_STABLE_SIGNAL</p>
+            <p className="text-[11px] font-mono tracking-widest text-stone-400 italic uppercase">CLUSTER_STABLE_SIGNAL</p>
           </div>
-          <div className="flex gap-14 text-[11px] font-black uppercase tracking-[0.5em] italic">
+          <div className="flex gap-14 text-[11px] font-black uppercase tracking-[0.5em] italic uppercase">
             <button className="hover:text-stone-900 transition-all underline decoration-transparent hover:decoration-[#a9b897] decoration-2 underline-offset-8">Audit Trails</button>
             <button className="hover:text-stone-900 transition-all underline decoration-transparent hover:decoration-[#a9b897] decoration-2 underline-offset-8">Privacy Node</button>
             <button className="hover:text-stone-900 transition-all underline decoration-transparent hover:decoration-[#a9b897] decoration-2 underline-offset-8">Security Protocol</button>

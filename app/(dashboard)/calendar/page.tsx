@@ -4,8 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
   ChevronLeft, ChevronRight, Plus, X, Loader2, 
-  MapPin, Video, Users, Clock, Calendar as CalIcon,
-  Link as LinkIcon, Shield, RefreshCw, Settings, Tag, ChevronDown
+  MapPin, Video, Shield, RefreshCw, Settings, Tag, ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -15,7 +14,7 @@ import {
 } from "date-fns";
 
 /**
- * TOTS OS | CALENDAR INFRASTRUCTURE V10.0
+ * TOTS OS | CALENDAR INFRASTRUCTURE V11.0
  * MACBOOK 13" OPTIMIZED | COLOR-CODED TAG PROTOCOL
  */
 
@@ -31,15 +30,13 @@ interface CalendarEvent {
   user_id: string;
 }
 
-// Aesthetic color palette for dynamic tag assignment
 const TAG_PALETTE = [
-  { bg: "bg-[#A3B18A]/10", text: "text-[#A3B18A]" }, // Sage
-  { bg: "bg-stone-900", text: "text-[#A3B18A]" },    // Dark / Accent
-  { bg: "bg-[#D6D6D2]", text: "text-stone-800" },   // Stone
-  { bg: "bg-[#E7E7E4]", text: "text-stone-500" },   // Light Grey
-  { bg: "bg-amber-100", text: "text-amber-700" },   // Warning/Urgent
-  { bg: "bg-blue-50", text: "text-blue-600" },      // Info
-  { bg: "bg-rose-50", text: "text-rose-600" },      // Priority
+  { bg: "bg-[#A3B18A]/15", text: "text-[#6B705C]" }, 
+  { bg: "bg-stone-900", text: "text-[#A3B18A]" },   
+  { bg: "bg-[#D6D6D2]", text: "text-stone-800" },   
+  { bg: "bg-amber-100", text: "text-amber-700" },   
+  { bg: "bg-blue-100", text: "text-blue-700" },     
+  { bg: "bg-rose-100", text: "text-rose-700" },     
 ];
 
 export default function Calendar() {
@@ -55,6 +52,7 @@ export default function Calendar() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [viewMode, setViewMode] = useState<'VIEW' | 'CREATE'>('CREATE');
+  
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [formTime, setFormTime] = useState("09:00");
@@ -81,10 +79,9 @@ export default function Calendar() {
 
   useEffect(() => { syncCalendar(); }, [syncCalendar]);
 
-  // COLOR ENGINE: Assigns a consistent color based on string hash
   const getTagStyle = (tag: string) => {
     const cleanTag = tag.trim().toUpperCase();
-    if (cleanTag === "URGENT") return TAG_PALETTE[4]; // Special case for Urgent
+    if (cleanTag === "URGENT") return TAG_PALETTE[3];
     const index = Math.abs(cleanTag.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % TAG_PALETTE.length;
     return TAG_PALETTE[index];
   };
@@ -112,28 +109,48 @@ export default function Calendar() {
     });
   }, [events, activeTagFilter]);
 
+  // FIXED: Logic to initiate a fresh creation modal
+  const handleDayClick = (day: Date) => {
+    setSelectedDay(day);
+    setFormDate(format(day, "yyyy-MM-dd"));
+    setFormTitle("");
+    setFormDescription("");
+    setFormTags("");
+    setFormLocation("");
+    setFormLink("");
+    setViewMode('CREATE');
+    setIsModalOpen(true);
+  };
+
   const saveEntry = async () => {
     if (!formTitle || isSubmitting) return;
     setIsSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
+    
     const { error } = await supabase.from("tasks").insert([{
-      title: formTitle, description: formDescription, location: formLocation,
-      meeting_link: formLink, guests: formGuests, tags: formTags,
+      title: formTitle,
+      description: formDescription,
+      location: formLocation,
+      meeting_link: formLink,
+      guests: formGuests,
+      tags: formTags,
       created_at: new Date(`${formDate}T${formTime}:00`).toISOString(),
       user_id: user?.id
     }]);
-    if (!error) { setFormTitle(""); setFormTags(""); setIsModalOpen(false); syncCalendar(); }
+
+    if (!error) {
+      setFormTitle("");
+      setFormTags("");
+      setIsModalOpen(false);
+      syncCalendar();
+    }
     setIsSubmitting(false);
   };
-
-  function handleDayClick(selectedDay: Date): void {
-    throw new Error("Function not implemented.");
-  }
 
   return (
     <div className="h-screen bg-[#F9F9F7] text-stone-900 font-sans p-6 lg:p-10 flex flex-col overflow-hidden relative">
       
-      {/* SETTINGS HUD */}
+      {/* SETTINGS OVERLAY */}
       <AnimatePresence>
         {isSettingsOpen && (
           <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}
@@ -145,8 +162,7 @@ export default function Calendar() {
             </div>
             <div className="space-y-6 text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
               <p className="hover:text-stone-900 cursor-pointer flex justify-between">Database Status <span className="text-[#A3B18A]">Online</span></p>
-              <p className="hover:text-stone-900 cursor-pointer">Export Ledger (PDF)</p>
-              <p className="hover:text-stone-900 cursor-pointer">Interface Scaling</p>
+              <p className="hover:text-stone-900 cursor-pointer">Protocol: TOTS-OS v11.0</p>
               <div className="pt-6 border-t border-stone-50 mt-auto">
                 <button onClick={() => supabase.auth.signOut()} className="text-rose-400">Terminate Protocol</button>
               </div>
@@ -170,16 +186,16 @@ export default function Calendar() {
                    <>
                     <input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Entry Title" className="w-full bg-stone-50 rounded-xl p-4 text-sm outline-none border-none ring-1 ring-stone-100" />
                     <div className="flex gap-2">
-                      <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none" />
-                      <input type="time" value={formTime} onChange={e => setFormTime(e.target.value)} className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none" />
+                      <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none ring-1 ring-stone-100" />
+                      <input type="time" value={formTime} onChange={e => setFormTime(e.target.value)} className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none ring-1 ring-stone-100" />
                     </div>
                     <div className="relative">
                       <Tag size={14} className="absolute left-4 top-4 text-stone-300" />
                       <input value={formTags} onChange={e => setFormTags(e.target.value)} placeholder="Tags (Urgent, Uni, Work...)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
                     </div>
-                    <textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Notes..." className="w-full bg-stone-50 rounded-xl p-4 text-xs h-24 outline-none border-none resize-none" />
+                    <textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Notes..." className="w-full bg-stone-50 rounded-xl p-4 text-xs h-24 outline-none border-none resize-none ring-1 ring-stone-100" />
                     <button onClick={saveEntry} className="w-full bg-stone-900 text-[#A3B18A] py-5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all">
-                      {isSubmitting ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Establish Protocol"}
+                      {isSubmitting ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Finalise Protocol"}
                     </button>
                    </>
                  ) : (
@@ -277,16 +293,13 @@ export default function Calendar() {
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                   className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-4xl border border-stone-100 overflow-hidden"
                 >
-                  {allTags.map(tag => {
-                    const style = tag !== 'ALL' ? getTagStyle(tag) : { bg: '', text: '' };
-                    return (
-                      <div key={tag} onClick={() => { setActiveTagFilter(tag); setIsFilterOpen(false); }}
-                        className={`p-4 text-[8px] font-black uppercase tracking-widest hover:bg-stone-50 cursor-pointer transition-all border-b border-stone-50 last:border-0 ${tag === activeTagFilter ? 'text-[#A3B18A]' : 'text-stone-400'}`}
-                      >
-                        {tag}
-                      </div>
-                    );
-                  })}
+                  {allTags.map(tag => (
+                    <div key={tag} onClick={() => { setActiveTagFilter(tag); setIsFilterOpen(false); }}
+                      className={`p-4 text-[8px] font-black uppercase tracking-widest hover:bg-stone-50 cursor-pointer transition-all border-b border-stone-50 last:border-0 ${tag === activeTagFilter ? 'text-[#A3B18A]' : 'text-stone-400'}`}
+                    >
+                      {tag}
+                    </div>
+                  ))}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -327,7 +340,7 @@ export default function Calendar() {
       </div>
 
       <footer className="mt-6 flex justify-between items-center opacity-50 px-2">
-        <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">TOTS OS Infrastructure v10.0</p>
+        <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">TOTS OS Infrastructure v11.0</p>
         <div className="flex gap-4 text-stone-300">
           <RefreshCw size={14} onClick={syncCalendar} className={`cursor-pointer ${isLoading ? 'animate-spin' : ''}`} />
           <Settings size={14} onClick={() => setIsSettingsOpen(true)} className="cursor-pointer hover:text-stone-800 transition-all" />

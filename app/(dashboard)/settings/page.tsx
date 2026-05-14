@@ -1,28 +1,29 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { 
   User, Users, RefreshCcw, Save, 
   Camera, Palette, ShieldCheck, 
   Fingerprint, Key, ChevronRight, 
-  Database, Link, ArrowUpRight, 
-  Zap, Clock, Loader2, X, 
+  Database, ArrowUpRight, 
+  Zap, Clock, Loader2,
   CheckSquare, Smartphone, LogOut,
-  Mail, Lock, Globe, Layers, Plus
+  Globe, Layers, Plus, ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 /**
- * TOTS OS: COMMAND CENTER v5.0
+ * TOTS OS: COMMAND CENTER v5.5
  * Aesthetic: Organic Minimalist (Sage & Stone)
- * Architecture: Top-Nav Centric / Full-Page Scroll
+ * Architecture: Central Router / Unified Settings
  */
 
-export default function SettingsArchitecture() {
-  const [userName, setUserName] = useState<string>("LEIGHA DAY-CLARK");
+export default function CommandCenter() {
+  const router = useRouter();
+  const [userName] = useState<string>("LEIGHA DAY-CLARK");
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"identity" | "team" | "migration">("identity");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -47,7 +48,6 @@ export default function SettingsArchitecture() {
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&family=Inter:wght@300;400;700;900&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
         .font-sans { font-family: 'Inter', sans-serif; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
 
       {/* --- HEADER & NAVIGATION HUB --- */}
@@ -69,24 +69,26 @@ export default function SettingsArchitecture() {
           
           {/* TOP BUTTON NAVIGATION */}
           <nav className="flex items-center gap-4 pt-4">
-            {[
-              { id: "identity", label: "Identity", icon: User },
-              { id: "team", label: "Team Node", icon: Users },
-              { id: "migration", label: "Import Hub", icon: RefreshCcw },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-3 px-6 py-3 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
-                  activeTab === tab.id 
-                  ? "bg-stone-900 text-white shadow-lg" 
-                  : "bg-white border border-stone-100 text-stone-300 hover:text-stone-900"
-                }`}
-              >
-                <tab.icon size={12} />
-                {tab.label}
-              </button>
-            ))}
+            <button
+              onClick={() => setActiveTab("identity")}
+              className={`flex items-center gap-3 px-6 py-3 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+                activeTab === "identity" ? "bg-stone-900 text-white shadow-lg" : "bg-white border border-stone-100 text-stone-300 hover:text-stone-900"
+              }`}
+            >
+              <User size={12} /> Identity
+            </button>
+            <button
+              onClick={() => router.push('/settings/identity')} // Direct link to full page
+              className="flex items-center gap-3 px-6 py-3 rounded-full text-[9px] font-black uppercase tracking-widest bg-white border border-stone-100 text-stone-300 hover:text-[#A3B18A] transition-all"
+            >
+              <Users size={12} /> Team Hub
+            </button>
+            <button
+              onClick={() => router.push('/settings/import')} // Direct link to full page
+              className="flex items-center gap-3 px-6 py-3 rounded-full text-[9px] font-black uppercase tracking-widest bg-white border border-stone-100 text-stone-300 hover:text-[#A3B18A] transition-all"
+            >
+              <RefreshCcw size={12} /> Import Hub
+            </button>
           </nav>
         </div>
 
@@ -106,7 +108,7 @@ export default function SettingsArchitecture() {
       <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 items-start">
         <AnimatePresence mode="wait">
           
-          {/* TAB: IDENTITY CORE */}
+          {/* TAB: IDENTITY QUICK VIEW */}
           {activeTab === "identity" && (
             <motion.div 
               key="identity"
@@ -123,8 +125,8 @@ export default function SettingsArchitecture() {
                     </div>
                   </div>
                   <div className="text-center md:text-left space-y-2">
-                    <h2 className="text-4xl font-serif italic text-stone-900 tracking-tighter">Leigha Day-Clark</h2>
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#A3B18A]">Administrator Node</p>
+                    <h2 className="text-4xl font-serif italic text-stone-900 tracking-tighter leading-tight">Leigha Day-Clark</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#A3B18A]">Root Administrator</p>
                   </div>
                 </div>
 
@@ -138,85 +140,54 @@ export default function SettingsArchitecture() {
                     <input className="w-full bg-[#faf9f6] border border-stone-100 p-5 rounded-2xl text-xs font-bold text-stone-700 outline-none" defaultValue="leigha@theapprenticestore.co.uk" />
                   </div>
                 </div>
+
+                <button 
+                  onClick={() => router.push('/settings/identity')}
+                  className="w-full py-5 bg-[#faf9f6] rounded-2xl border border-stone-100 flex items-center justify-center gap-4 group hover:bg-stone-900 transition-all"
+                >
+                  <Palette size={16} className="text-[#A3B18A] group-hover:text-white" />
+                  <span className="text-[10px] font-black uppercase tracking-widest group-hover:text-white">Configure Brand DNA & Team</span>
+                  <ArrowRight size={14} className="text-stone-200 group-hover:text-[#A3B18A]" />
+                </button>
               </section>
 
-              {/* Aesthetic & Security Sidebars */}
+              {/* Security Sidebars */}
               <div className="lg:col-span-2 space-y-8">
-                <section className="bg-[#A3B18A] p-10 rounded-[3rem] text-white space-y-8">
-                  <div className="flex items-center gap-3">
-                    <Palette size={18} className="text-white" />
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">Brand DNA</h3>
+                <section className="bg-stone-900 p-10 rounded-[3rem] text-white space-y-8 relative overflow-hidden">
+                  <Fingerprint size={120} className="absolute -right-8 -bottom-8 opacity-10" />
+                  <div className="flex items-center gap-3 relative z-10">
+                    <ShieldCheck size={18} className="text-[#A3B18A]" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">Security Token</h3>
                   </div>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-5 bg-white/10 rounded-2xl border border-white/10">
-                      <span className="text-xs font-bold font-serif italic">Sage Accent</span>
-                      <div className="w-6 h-6 rounded-full bg-white border-2 border-white/20 shadow-sm" />
-                    </div>
-                    <div className="flex items-center justify-between p-5 bg-white/10 rounded-2xl border border-white/10">
-                      <span className="text-xs font-bold font-serif italic">Interface Scale</span>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Minimal</span>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm flex flex-col justify-between">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3 text-stone-400">
-                      <Fingerprint size={18} />
-                      <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">Security Token</h3>
-                    </div>
-                    <p className="text-[9px] font-serif italic text-stone-400 leading-relaxed">
-                      Your RSA-4096 encryption key was last rotated 14 hours ago.
+                  <div className="space-y-4 relative z-10">
+                    <p className="text-xs font-serif italic text-stone-400 leading-relaxed">
+                      Your RSA-4096 encryption key was last rotated 14 hours ago in Elgin, Scotland.
                     </p>
+                    <button className="text-[9px] font-black uppercase tracking-widest text-[#A3B18A] hover:text-white transition-colors flex items-center gap-2">
+                      Rotate Key <ArrowUpRight size={12} />
+                    </button>
                   </div>
-                  <button className="mt-8 text-[9px] font-black uppercase tracking-widest text-[#A3B18A] hover:text-stone-900 transition-colors flex items-center gap-2">
-                    Rotate Key <ArrowUpRight size={12} />
-                  </button>
+                </section>
+
+                <section className="bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Layers size={16} className="text-stone-300" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Node Architecture</h3>
+                  </div>
+                  <p className="text-[10px] font-serif italic text-stone-400 leading-relaxed">
+                    System scale is currently set to <span className="text-stone-900 font-bold">Minimalist</span>. Neural processing is active.
+                  </p>
                 </section>
               </div>
             </motion.div>
           )}
 
-          {/* TAB: TEAM HUB */}
-          {activeTab === "team" && (
-            <motion.div 
-              key="team"
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="lg:col-span-12 space-y-12"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[
-                  { name: "David", role: "Manager", initials: "D" },
-                  { name: "Ryan", role: "Developer", initials: "R" },
-                  { name: "System Node", role: "Automation", initials: "S" }
-                ].map((member, i) => (
-                  <div key={i} className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm group hover:border-[#A3B18A] transition-all duration-500">
-                    <div className="w-16 h-16 rounded-[1.5rem] bg-[#faf9f6] flex items-center justify-center text-xl font-serif italic text-stone-300 group-hover:bg-[#A3B18A] group-hover:text-white transition-all mb-8">
-                      {member.initials}
-                    </div>
-                    <h3 className="text-2xl font-serif italic text-stone-900 tracking-tight">{member.name}</h3>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-300 mb-6">{member.role}</p>
-                    <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-[#A3B18A] opacity-0 group-hover:opacity-100 transition-opacity">
-                      Manage Access <ChevronRight size={10} />
-                    </div>
-                  </div>
-                ))}
-                <button className="bg-[#faf9f6] border border-dashed border-stone-200 p-10 rounded-[3.5rem] flex flex-col items-center justify-center gap-4 text-stone-300 hover:text-[#A3B18A] hover:border-[#A3B18A] transition-all">
-                  <div className="w-12 h-12 rounded-full border border-stone-100 flex items-center justify-center">
-                    <Plus size={20} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest">Provision New Node</span>
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* TAB: IMPORT HUB */}
+          {/* TAB: MIGRATION PREVIEW */}
           {activeTab === "migration" && (
             <motion.div 
               key="migration"
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-8"
+              className="lg:col-span-12 grid grid-cols-1 lg:grid-cols-2 gap-8"
             >
               <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] shadow-sm space-y-10">
                 <div className="flex items-center gap-6">
@@ -224,38 +195,37 @@ export default function SettingsArchitecture() {
                     <RefreshCcw size={28} />
                   </div>
                   <div>
-                    <h2 className="text-4xl font-serif italic text-stone-900 tracking-tighter">Migration Hub.</h2>
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-200">System Data Ingest</p>
+                    <h2 className="text-4xl font-serif italic text-stone-900 tracking-tighter leading-none">Import Hub.</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300 mt-2">Data Ingestion Gateway</p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  {[
-                    { label: "External SQL Relay", icon: Database, status: "Connected" },
-                    { label: "Public API Bridge", icon: Link, status: "Active" }
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-6 bg-[#faf9f6] rounded-[2rem] border border-stone-50 group hover:border-[#A3B18A] transition-all">
-                      <div className="flex items-center gap-5">
-                        <item.icon size={18} className="text-stone-300 group-hover:text-stone-900" />
-                        <span className="text-xs font-bold text-stone-700">{item.label}</span>
-                      </div>
-                      <span className="text-[8px] font-black uppercase tracking-widest text-[#A3B18A]">{item.status}</span>
+                  <div className="flex items-center justify-between p-6 bg-[#faf9f6] rounded-[2rem] border border-stone-50">
+                    <div className="flex items-center gap-5">
+                      <Database size={18} className="text-[#A3B18A]" />
+                      <span className="text-xs font-bold text-stone-700">Supabase Profiles</span>
                     </div>
-                  ))}
+                    <span className="text-[8px] font-black uppercase tracking-widest text-[#A3B18A]">Synced</span>
+                  </div>
                 </div>
+
+                <button 
+                  onClick={() => router.push('/settings/import')}
+                  className="w-full py-6 bg-stone-900 text-white rounded-[2rem] flex items-center justify-center gap-4 hover:brightness-110 transition-all shadow-xl"
+                >
+                  <Zap size={16} className="text-[#A3B18A]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Open Import Pipeline</span>
+                </button>
               </section>
 
-              <section className="bg-stone-900 p-12 rounded-[3.5rem] text-white flex flex-col justify-between relative overflow-hidden group">
-                <Layers size={200} className="absolute -right-20 -bottom-20 opacity-5" />
-                <div className="space-y-6 relative z-10">
-                  <h3 className="text-4xl font-serif italic text-[#A3B18A] tracking-tighter">Neural Ingest.</h3>
-                  <p className="text-[10px] font-serif italic text-white/50 leading-relaxed">
-                    Drop your migration manifest here to synchronize existing client data with the TOTS Neural Engine.
-                  </p>
+              <section className="bg-[#faf9f6] border border-dashed border-stone-200 p-12 rounded-[3.5rem] flex flex-col justify-center items-center text-center space-y-6">
+                <div className="w-20 h-20 rounded-full bg-white border border-stone-100 flex items-center justify-center text-stone-200">
+                  <Globe size={32} />
                 </div>
-                <div className="mt-12 p-12 border border-dashed border-white/10 rounded-[2.5rem] flex flex-col items-center gap-4 hover:border-[#A3B18A]/50 transition-all cursor-pointer">
-                  <ArrowUpRight size={24} className="text-[#A3B18A]" />
-                  <span className="text-[9px] font-black uppercase tracking-widest opacity-40">Upload Manifest (.JSON)</span>
+                <div>
+                  <h3 className="text-2xl font-serif italic text-stone-400">External Relays</h3>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-stone-300 mt-2">No active third-party APIs detected</p>
                 </div>
               </section>
             </motion.div>
@@ -267,7 +237,7 @@ export default function SettingsArchitecture() {
       {/* --- UTILITY GRID (BOTTOM) --- */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: "Access Keys", icon: Key, val: "Secure", path: "/vault" },
+          { label: "Access Keys", icon: Key, val: "Secure", path: "#" },
           { label: "Mobile Sync", icon: Smartphone, val: "Active", path: "#" },
           { label: "Operational Logs", icon: CheckSquare, val: "Nominal", path: "#" },
           { label: "Global Status", icon: Globe, val: "Online", path: "#" }

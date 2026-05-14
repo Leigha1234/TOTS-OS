@@ -1,28 +1,47 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client"; 
 import Papa from "papaparse"; 
 import { 
-  UploadCloud, CheckCircle2, Loader2, Database, AlertCircle, Info, ChevronRight, ArrowLeft
+  UploadCloud, CheckCircle2, Loader2, Database, 
+  AlertCircle, ChevronRight, ArrowLeft, Zap, 
+  Clock, Shield, FileText, Layers, ArrowUpRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function DataImportPage() {
+/**
+ * TOTS OS: DATA INGESTION HUB v5.3
+ * Aesthetic: Organic Minimalist / Command Center Parity
+ * Functionality: CSV-to-Supabase Pipeline
+ */
+
+export default function ImportArchitecture() {
   const router = useRouter(); 
-  const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // -- UI State --
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  
+  // -- Data State --
+  const [file, setFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [rowCount, setRowCount] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // -- Logic: File Selection --
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       if (selectedFile.name.endsWith('.rtf')) {
         setStatus('error');
-        setErrorMessage("Format Error: Please save your file as a Plain Text CSV, not RTF.");
+        setErrorMessage("Format Error: RTF detected. Use Plain Text CSV.");
         return;
       }
       setFile(selectedFile);
@@ -31,6 +50,7 @@ export default function DataImportPage() {
     }
   };
 
+  // -- Logic: Ingestion Pipeline --
   const startMigration = async () => {
     if (!file) return;
     setStatus('processing');
@@ -38,7 +58,7 @@ export default function DataImportPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         setStatus('error');
-        setErrorMessage("Clearance required: User session not found.");
+        setErrorMessage("Clearance required: Node session offline.");
         return;
     }
 
@@ -57,30 +77,24 @@ export default function DataImportPage() {
             return actualKey ? row[actualKey] : null;
           };
 
-          // FIXED: Mapping to match your Supabase screenshot columns
           return {
             name: findValue(['Full Name', 'Name', 'name', 'client', 'Entity']) || "Unknown Entity",
-            role: 'user', // Default role for imported profiles
-            // Add other columns below if you add them to Supabase later (e.g., email, phone)
+            role: 'user', 
           };
         });
 
-        // Clean out empty rows
         const validData = formattedData.filter(d => d.name !== "Unknown Entity");
 
         if (validData.length === 0) {
           setStatus('error');
-          setErrorMessage("No valid nodes found. Check CSV headers (Name).");
+          setErrorMessage("Structure Mismatch: No valid 'Name' headers detected.");
           return;
         }
 
-        // Target 'profiles' as seen in your table editor
         const { error } = await supabase.from("profiles").insert(validData);
 
         if (error) {
-          console.error("Supabase Ingestion Error:", error);
           setStatus('error');
-          // This will now show the specific reason if the DB rejects it
           setErrorMessage(error.message);
         } else {
           setRowCount(validData.length);
@@ -89,101 +103,157 @@ export default function DataImportPage() {
       },
       error: () => {
         setStatus('error');
-        setErrorMessage("Parsing failure: The file structure is unreadable.");
+        setErrorMessage("Buffer Error: File structure unreadable.");
       }
     });
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 border-none">
-      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 md:space-y-10 pb-40">
-        
-        {/* BACK BUTTON */}
-        <div className="flex justify-center md:justify-start">
-          <button 
-            onClick={() => router.push('/settings')}
-            className="group flex items-center gap-3 px-6 py-3 rounded-2xl border border-stone-200 bg-white hover:bg-stone-900 hover:text-white transition-all shadow-sm w-full md:w-auto justify-center"
-          >
-            <ArrowLeft size={16} className="text-[#a9b897] group-hover:text-white transition-colors" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Back to Command</span>
-          </button>
-        </div>
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 max-w-[1600px] mx-auto font-sans">
+      
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&family=Inter:wght@300;400;700;900&display=swap');
+        .font-serif { font-family: 'Instrument Serif', serif; }
+        .font-sans { font-family: 'Inter', sans-serif; }
+      `}</style>
 
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-center p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] border border-stone-100 bg-white shadow-sm gap-6 text-center md:text-left">
-          <div className="flex flex-col items-center md:items-start">
-            <div className="flex items-center gap-2 text-[#a9b897] mb-1">
-              <Database size={14} />
-              <p className="text-[9px] font-black uppercase tracking-[0.3em]">Data Pipeline</p>
+      {/* --- HEADER & PIPELINE NAV --- */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-8 md:pb-12 gap-6 md:gap-8">
+        <div className="space-y-4 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-6 text-[#A3B18A]">
+            <div className="flex items-center gap-2">
+              <Database size={12} fill="currentColor" />
+              <p className="font-black uppercase text-[9px] tracking-[0.4em]">Target: Profiles Table</p>
             </div>
-            <h1 className="text-3xl md:text-5xl font-serif italic text-[#a9b897]">Import Hub</h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-2 opacity-50 text-stone-400">Target: Profiles Table</p>
+            <div className="flex items-center gap-2">
+              <Clock size={12} />
+              <p className="font-black uppercase text-[9px] tracking-[0.4em]">
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
           </div>
+          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none text-stone-900">Ingestion Hub</h1>
           
-          {file && status === 'idle' && (
-            <button 
-              onClick={startMigration}
-              className="px-8 py-4 bg-[#a9b897] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:brightness-110 transition-all shadow-lg flex items-center gap-2"
+          <nav className="flex items-center gap-4 pt-4">
+            <button
+              onClick={() => router.push('/settings')}
+              className="flex items-center gap-3 px-8 py-3.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-white border border-stone-100 text-stone-300 hover:text-stone-900 transition-all shadow-sm"
             >
-              Start Ingestion <ChevronRight size={14} />
+              <ArrowLeft size={12} />
+              Command Center
             </button>
-          )}
+          </nav>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
-          <div className="lg:col-span-8">
-            <section className="p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-stone-100 bg-white shadow-sm h-full flex flex-col justify-center items-center">
-              <div 
-                onClick={() => status !== 'processing' && fileInputRef.current?.click()}
-                className={`w-full border-2 border-dashed rounded-[1.5rem] md:rounded-[2rem] p-8 md:p-20 transition-all duration-500 flex flex-col items-center justify-center text-center space-y-6 cursor-pointer ${
-                  file ? 'border-[#a9b897] bg-[#a9b897]/5' : 'border-stone-200 hover:border-[#a9b897]'
-                }`}
+        <motion.button 
+          whileHover={{ scale: 1.02 }}
+          onClick={startMigration}
+          disabled={!file || status === 'processing'}
+          className={`w-full md:w-auto flex items-center justify-center gap-4 px-10 py-5 rounded-[2rem] shadow-sm transition-all cursor-pointer
+            ${!file ? 'bg-stone-100 text-stone-300 cursor-not-allowed' : 'bg-[#A3B18A] text-white hover:shadow-xl'}
+          `}
+        >
+          {status === 'processing' ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
+          <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+            {status === 'processing' ? "Ingesting Nodes..." : "Start Ingestion"}
+          </span>
+        </motion.button>
+      </header>
+
+      {/* --- PIPELINE CANVAS --- */}
+      <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 items-start">
+        
+        {/* Drop Zone */}
+        <section className="bg-white border border-stone-200 p-8 md:p-14 rounded-[3.5rem] shadow-sm lg:col-span-8 flex flex-col items-center justify-center min-h-[500px]">
+          <div 
+            onClick={() => status !== 'processing' && fileInputRef.current?.click()}
+            className={`w-full h-full border-2 border-dashed rounded-[3rem] transition-all duration-700 flex flex-col items-center justify-center text-center p-10 md:p-20 cursor-pointer group
+              ${file ? 'border-[#A3B18A] bg-[#A3B18A]/5' : 'border-stone-100 hover:border-[#A3B18A]'}
+            `}
+          >
+            <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".csv" />
+            
+            <div className={`w-24 h-24 rounded-[2.5rem] flex items-center justify-center transition-all duration-500 mb-8
+              ${status === 'success' ? 'bg-[#A3B18A] text-white' : 'bg-[#faf9f6] text-stone-200 group-hover:text-[#A3B18A]'}
+            `}>
+              {status === 'processing' ? <Loader2 className="animate-spin" size={32} /> : status === 'success' ? <CheckCircle2 size={32} /> : <UploadCloud size={32} />}
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-3xl md:text-4xl font-serif italic text-stone-900 tracking-tight">
+                {status === 'success' ? 'Migration Complete' : file ? file.name : "Select CSV Manifest"}
+              </h3>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">
+                {status === 'success' ? `${rowCount} Nodes Integrated` : file ? "Architecture Validated" : "Drop Data Architecture"}
+              </p>
+            </div>
+
+            {status === 'error' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                className="mt-8 flex items-center gap-3 text-red-500 bg-red-500/5 px-6 py-4 rounded-2xl border border-red-500/10"
               >
-                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".csv" />
-                
-                <div className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center transition-all ${
-                  status === 'success' ? 'bg-green-500 text-white' : 'bg-stone-50 text-[#a9b897]'
-                }`}>
-                  {status === 'processing' ? <Loader2 className="animate-spin" /> : status === 'success' ? <CheckCircle2 size={28} /> : <UploadCloud size={28} />}
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="text-xl md:text-2xl font-serif italic text-stone-900 break-all px-2">
-                    {status === 'success' ? `Migration Successful` : file ? file.name : "Drop CSV Architecture"}
-                  </h3>
-                  {status === 'success' && <p className="text-[10px] font-black uppercase text-[#a9b897] tracking-widest">{rowCount} Profiles Synchronized</p>}
-                </div>
-
-                {status === 'error' && (
-                  <div className="flex items-center gap-2 text-red-500 font-mono text-[10px] uppercase bg-red-500/10 px-4 py-3 rounded-xl max-w-full italic">
-                    <AlertCircle size={14} className="shrink-0" /> {errorMessage}
-                  </div>
-                )}
-              </div>
-            </section>
+                <AlertCircle size={14} />
+                <span className="text-[9px] font-black uppercase tracking-widest">{errorMessage}</span>
+              </motion.div>
+            )}
           </div>
+        </section>
 
-          <div className="lg:col-span-4 space-y-6">
-            <section className="p-8 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-stone-100 bg-white shadow-sm">
-              <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6">Protocols</h2>
-              <ul className="space-y-6">
-                <li className="flex gap-4">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#a9b897] mt-1.5 shrink-0" />
-                  <p className="font-serif italic text-sm text-stone-500 leading-relaxed">
-                    The OS maps the <strong className="text-stone-900">Name</strong> header automatically to your profile schema.
-                  </p>
+        {/* Sidebar Protocols */}
+        <aside className="lg:col-span-4 space-y-8">
+          <section className="bg-stone-900 p-12 rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
+            <Layers size={180} className="absolute -right-16 -top-16 opacity-5 group-hover:rotate-6 transition-transform duration-1000" />
+            <h3 className="text-3xl font-serif italic text-[#A3B18A] mb-8 relative z-10">Ingest Protocols.</h3>
+            
+            <ul className="space-y-8 relative z-10">
+              {[
+                { title: "Schema Mapping", desc: "Headers matching 'Name' or 'Entity' are automatically synchronized." },
+                { title: "Node Security", desc: "All imported profiles inherit default 'user' clearance levels." },
+                { title: "Strict CSV", desc: "RTF and Excel formats are blocked to ensure data integrity." }
+              ].map((p, i) => (
+                <li key={i} className="space-y-2">
+                  <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-[#A3B18A]">{p.title}</h4>
+                  <p className="text-xs font-serif italic text-white/40 leading-relaxed">{p.desc}</p>
                 </li>
-                <li className="flex gap-4">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#a9b897] mt-1.5 shrink-0" />
-                  <p className="font-serif italic text-sm text-stone-500 leading-relaxed">
-                    Ensure your CSV is strictly comma-separated and not an Excel (.xlsx) file.
-                  </p>
-                </li>
-              </ul>
-            </section>
+              ))}
+            </ul>
+          </section>
+
+          <section className="bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm flex flex-col justify-between min-h-[200px]">
+            <div className="flex items-center gap-3">
+              <Shield size={16} className="text-[#A3B18A]" />
+              <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-300">Auth Integrity</h3>
+            </div>
+            <p className="text-[10px] font-serif italic text-stone-400 leading-relaxed mt-4">
+              Data migration requires active administrator clearance. Every node added is timestamped and attributed to your session.
+            </p>
+            <div className="mt-8 pt-6 border-t border-stone-50 flex items-center justify-between">
+              <span className="text-[8px] font-black uppercase tracking-widest text-stone-200">System Ready</span>
+              <ArrowUpRight size={14} className="text-stone-100" />
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      {/* --- FOOTER STATUS --- */}
+      <footer className="pt-12 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-8">
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3">
+             <div className="w-1.5 h-1.5 rounded-full bg-[#A3B18A] animate-pulse" />
+             <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">Data Pipeline Nominal</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <FileText size={14} className="text-stone-200" />
+            <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">CSV Only Protocol</span>
           </div>
         </div>
-      </div>
+        
+        <div className="flex items-center gap-8">
+          <p className="text-[10px] font-serif italic text-stone-300">TOTS Operational Data Hub // 2026</p>
+        </div>
+      </footer>
+
     </div>
   );
 }

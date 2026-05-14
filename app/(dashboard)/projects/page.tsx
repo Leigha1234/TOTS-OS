@@ -5,9 +5,9 @@ import { createBrowserClient } from "@supabase/ssr";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { 
   Plus, Search, Check, List, 
-  LayoutGrid, Settings, MoreVertical, 
-  ChevronRight, Folder, Filter, 
-  Clock, CheckCircle2, Circle
+  Calendar, Users, Clock, FolderPlus,
+  ChevronRight, MoreHorizontal, X,
+  AlertCircle, Layout, ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -24,6 +24,8 @@ interface Project {
   id: string;
   name: string;
   team_id: string;
+  due_date?: string;
+  members?: string;
   created_at: string;
 }
 
@@ -34,8 +36,13 @@ export default function ProjectsPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
+  
+  // Modal & Form State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [projectDue, setProjectDue] = useState("");
+  const [projectMembers, setProjectMembers] = useState("");
+  
   const [newTaskName, setNewTaskName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -44,7 +51,6 @@ export default function ProjectsPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ), []);
 
-  // --- DATA LOADING ---
   const loadData = useCallback(async (team: string) => {
     setLoading(true);
     try {
@@ -63,13 +69,12 @@ export default function ProjectsPage() {
       setProjects(projData || []);
       setTasks(taskData || []);
       
-      // Auto-select first project if none selected
       if (projData?.length && !selectedProject) {
         setSelectedProject(projData[0]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Database Error:", err);
-      toast.error("Failed to sync with database.");
+      toast.error("Table sync error. Make sure 'due_date' and 'members' columns exist.");
     } finally {
       setLoading(false);
     }
@@ -78,27 +83,32 @@ export default function ProjectsPage() {
   useEffect(() => {
     setIsMounted(true);
     getUserTeam().then(team => {
-      const t = team || "internal-org-default";
+      const t = team || "default-team";
       setTeamId(t);
       loadData(t);
     });
   }, [loadData]);
 
-  // --- ACTIONS ---
   const handleCreateProject = async () => {
     if (!projectName.trim() || !teamId) return;
     try {
       const { error } = await supabase.from("projects").insert([{ 
         name: projectName.trim(), 
-        team_id: teamId 
+        team_id: teamId,
+        due_date: projectDue,
+        members: projectMembers
       }]);
+      
       if (error) throw error;
+      
       setProjectName("");
+      setProjectDue("");
+      setProjectMembers("");
       setShowCreateModal(false);
       loadData(teamId);
-      toast.success("Project created successfully");
+      toast.success("Project added successfully");
     } catch (err) {
-      toast.error("Could not create project");
+      toast.error("Save failed. Verify your database columns.");
     }
   };
 
@@ -110,6 +120,7 @@ export default function ProjectsPage() {
         name: newTaskName.trim(), 
         status: "Backlog"
       }]).select();
+      
       if (error) throw error;
       setTasks(prev => [...prev, ...(data || [])]);
       setNewTaskName("");
@@ -118,21 +129,6 @@ export default function ProjectsPage() {
     }
   };
 
-  const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
-    const newStatus = currentStatus === "Completed" ? "Backlog" : "Completed";
-    try {
-      const { error } = await supabase
-        .from("project_tasks")
-        .update({ status: newStatus })
-        .eq("id", taskId);
-      if (error) throw error;
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-    } catch (err) {
-      toast.error("Status update failed");
-    }
-  };
-
-  // --- COMPUTED ---
   const filteredProjects = useMemo(() => 
     projects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())),
     [projects, searchQuery]
@@ -146,146 +142,140 @@ export default function ProjectsPage() {
   if (!isMounted) return null;
 
   return (
-    <div className="flex h-screen bg-[#FDFDFD] text-stone-900 font-sans">
+    <div className="flex h-screen bg-white text-slate-900 font-sans overflow-hidden">
       
-      {/* SIDEBAR: PROJECT LIST */}
-      <aside className="w-80 bg-white border-r border-stone-200 flex flex-col shadow-sm">
-        <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-white/50 backdrop-blur-md sticky top-0 z-10">
-          <div>
-            <h2 className="font-bold text-sm uppercase tracking-widest text-stone-400">Projects</h2>
+      {/* SIDEBAR */}
+      <aside className="w-80 border-r border-slate-100 flex flex-col bg-slate-50/30">
+        <div className="p-8">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white">
+              <Layout size={18} />
+            </div>
+            <span className="font-black text-sm uppercase tracking-tighter">Projects</span>
           </div>
+          
           <button 
             onClick={() => setShowCreateModal(true)}
-            className="p-2 bg-stone-900 text-white rounded-lg hover:scale-105 transition-all shadow-lg shadow-stone-900/10"
+            className="w-full flex items-center justify-between bg-white border border-slate-200 p-4 rounded-2xl font-bold text-sm shadow-sm hover:shadow-md hover:border-slate-300 transition-all group"
           >
-            <Plus size={18} />
+            <span>New Project</span>
+            <Plus size={18} className="group-hover:rotate-90 transition-transform" />
           </button>
         </div>
 
-        <div className="p-4">
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300" size={14} />
+        <div className="px-6 mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
             <input 
-              placeholder="Filter list..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-100 py-2 pl-9 pr-4 text-xs rounded-xl focus:ring-2 focus:ring-stone-900/5 outline-none transition-all"
+              className="w-full bg-white border border-slate-200 py-2.5 pl-9 pr-4 text-xs rounded-xl outline-none focus:ring-4 focus:ring-slate-900/5 transition-all"
             />
           </div>
-
-          <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-200px)] custom-scrollbar">
-            {filteredProjects.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedProject(p)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
-                  selectedProject?.id === p.id 
-                  ? "bg-stone-100 text-stone-900 border border-stone-200 shadow-sm" 
-                  : "hover:bg-stone-50 text-stone-500"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Folder size={16} className={selectedProject?.id === p.id ? "text-stone-900" : "text-stone-300 group-hover:text-stone-400"} />
-                  <span className="truncate font-semibold text-xs tracking-tight">{p.name}</span>
-                </div>
-                {selectedProject?.id === p.id && <ChevronRight size={14} />}
-              </button>
-            ))}
-          </nav>
         </div>
+
+        <nav className="flex-1 overflow-y-auto px-4 pb-10 space-y-1 custom-scrollbar">
+          {filteredProjects.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setSelectedProject(p)}
+              className={`w-full text-left px-5 py-4 rounded-2xl transition-all flex items-center justify-between group ${
+                selectedProject?.id === p.id 
+                ? "bg-white shadow-md border border-slate-100" 
+                : "hover:bg-white/50 text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <div className="flex flex-col gap-1 overflow-hidden">
+                <span className={`text-xs font-bold truncate ${selectedProject?.id === p.id ? "text-slate-900" : ""}`}>
+                  {p.name}
+                </span>
+                {p.due_date && (
+                  <span className="text-[10px] opacity-60 flex items-center gap-1">
+                    <Clock size={10} /> {p.due_date}
+                  </span>
+                )}
+              </div>
+              <ChevronRight size={14} className={selectedProject?.id === p.id ? "text-slate-900" : "opacity-0 group-hover:opacity-100"} />
+            </button>
+          ))}
+        </nav>
       </aside>
 
-      {/* MAIN VIEW: TASK MANAGEMENT */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 flex flex-col min-w-0 bg-white">
         {selectedProject ? (
           <>
-            <header className="h-24 bg-white/80 backdrop-blur-md border-b border-stone-100 px-10 flex items-center justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Project View</span>
+            <header className="p-10 border-b border-slate-50">
+              <div className="max-w-4xl mx-auto flex justify-between items-end">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-slate-100 text-slate-500 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest">Active</span>
+                  </div>
+                  <h1 className="text-4xl font-black tracking-tight text-slate-900">{selectedProject.name}</h1>
+                  <div className="flex gap-6 text-slate-400 text-[11px] font-bold uppercase tracking-widest">
+                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                      <Calendar size={14} className="text-slate-300" />
+                      <span>Due: {selectedProject.due_date || "Not set"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                      <Users size={14} className="text-slate-300" />
+                      <span>Team: {selectedProject.members || "Personal"}</span>
+                    </div>
+                  </div>
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-stone-900">{selectedProject.name}</h1>
-              </div>
-              <div className="flex items-center gap-4">
-                <button className="flex items-center gap-2 px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100 transition-colors">
-                  <Settings size={14} />
-                  Settings
+                <button className="p-3 hover:bg-slate-50 rounded-2xl border border-transparent hover:border-slate-100 transition-all">
+                  <MoreHorizontal size={20} className="text-slate-400" />
                 </button>
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto bg-stone-50/30 p-10 lg:p-16 custom-scrollbar">
-              <div className="max-w-3xl mx-auto space-y-12">
+            <div className="flex-1 overflow-y-auto p-10 bg-slate-50/20">
+              <div className="max-w-4xl mx-auto space-y-10">
                 
                 {/* NEW TASK INPUT */}
                 <div className="relative group">
-                  <div className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-stone-900 transition-colors">
-                    <Plus size={20} />
-                  </div>
                   <input 
                     value={newTaskName}
                     onChange={(e) => setNewTaskName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
-                    placeholder="Create a new task..."
-                    className="w-full h-16 pl-14 pr-6 bg-white border border-stone-200 rounded-[1.25rem] shadow-xl shadow-stone-200/20 outline-none focus:ring-4 focus:ring-stone-900/5 focus:border-stone-900 transition-all font-medium text-stone-800"
+                    placeholder="Add a new task to this project..."
+                    className="w-full bg-white border border-slate-200 py-5 px-8 rounded-2xl shadow-xl shadow-slate-200/20 outline-none focus:ring-4 focus:ring-slate-900/5 transition-all font-medium text-slate-700"
                   />
+                  <button 
+                    onClick={handleAddTask} 
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2.5 bg-slate-900 text-white rounded-xl hover:scale-105 transition-all"
+                  >
+                    <ArrowRight size={18} />
+                  </button>
                 </div>
 
-                {/* TASK LIST SECTION */}
-                <div className="space-y-6">
+                {/* TASKS LIST */}
+                <div className="space-y-4">
                   <div className="flex items-center justify-between px-2">
-                    <div className="flex items-center gap-3">
-                      <List size={16} className="text-stone-400" />
-                      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Current Tasks</h3>
-                    </div>
-                    <div className="flex items-center gap-2 text-stone-400">
-                      <Filter size={14} />
-                      <span className="text-[10px] font-bold">{currentTasks.length} total</span>
-                    </div>
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-300">Project Tasks</h3>
+                    <span className="text-[10px] font-bold text-slate-400">{currentTasks.length} total</span>
                   </div>
-
+                  
                   <div className="grid gap-3">
                     {currentTasks.length > 0 ? currentTasks.map(task => (
-                      <motion.div 
-                        key={task.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="group flex items-center justify-between p-5 bg-white border border-stone-200 rounded-2xl hover:border-stone-900 hover:shadow-lg transition-all duration-300"
-                      >
-                        <div className="flex items-center gap-5">
-                          <button 
-                            onClick={() => toggleTaskStatus(task.id, task.status)}
-                            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                              task.status === "Completed" 
-                              ? "bg-stone-900 border-stone-900" 
-                              : "border-stone-200 group-hover:border-stone-400"
-                            }`}
-                          >
-                            {task.status === "Completed" && <Check size={14} className="text-white" />}
-                          </button>
-                          <span className={`font-semibold tracking-tight ${
-                            task.status === "Completed" ? "text-stone-300 line-through" : "text-stone-700"
-                          }`}>
-                            {task.name}
-                          </span>
-                        </div>
+                      <div key={task.id} className="flex items-center justify-between p-5 bg-white border border-slate-200/60 rounded-2xl hover:border-slate-900 hover:shadow-md transition-all group">
                         <div className="flex items-center gap-4">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {task.status}
-                          </span>
-                          <button className="p-2 hover:bg-stone-50 rounded-lg text-stone-300 hover:text-stone-900 transition-colors">
-                            <MoreVertical size={16} />
+                          <button className="w-6 h-6 rounded-lg border-2 border-slate-100 group-hover:border-slate-900 transition-colors flex items-center justify-center">
+                            <Check size={12} className="text-white" />
                           </button>
+                          <span className="font-bold text-sm text-slate-600">{task.name}</span>
                         </div>
-                      </motion.div>
+                        <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button className="text-slate-300 hover:text-red-500"><X size={16}/></button>
+                        </div>
+                      </div>
                     )) : (
-                      <div className="py-24 text-center border-2 border-dashed border-stone-200 rounded-[2.5rem] bg-white/50">
-                        <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300">
-                          <CheckCircle2 size={32} />
+                      <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[2.5rem] bg-white/50">
+                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <List size={24} className="text-slate-200" />
                         </div>
-                        <h4 className="text-sm font-bold text-stone-900 mb-1">All caught up</h4>
-                        <p className="text-xs text-stone-400">Your task list for this project is empty.</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No tasks yet</p>
                       </div>
                     )}
                   </div>
@@ -294,57 +284,88 @@ export default function ProjectsPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-stone-300 bg-stone-50/20">
-            <LayoutGrid size={64} className="mb-6 opacity-10" />
-            <p className="font-bold text-xs uppercase tracking-[0.3em] opacity-40">Select a project to view tasks</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-200">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+              <AlertCircle size={40} className="opacity-10" />
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Select a project to continue</p>
           </div>
         )}
       </main>
 
-      {/* CREATE MODAL */}
+      {/* CREATE PROJECT MODAL */}
       <AnimatePresence>
         {showCreateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
             <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setShowCreateModal(false)}
-              className="absolute inset-0 bg-stone-900/40 backdrop-blur-md" 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setShowCreateModal(false)} 
+              className="absolute inset-0 bg-slate-900/10 backdrop-blur-md" 
             />
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-white w-full max-w-md rounded-[2rem] p-10 shadow-2xl relative z-10 border border-stone-100"
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.95, opacity: 0, y: 20 }} 
+              className="bg-white w-full max-w-xl rounded-[2.5rem] p-12 shadow-2xl relative z-10 border border-slate-100"
             >
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-stone-900">New Project</h3>
-                <p className="text-xs text-stone-400 font-medium">Define a new workspace environment.</p>
+              <div className="flex justify-between items-center mb-10">
+                <div>
+                  <h3 className="text-3xl font-black tracking-tight text-slate-900">New Project</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Workspace Details</p>
+                </div>
+                <button onClick={() => setShowCreateModal(false)} className="p-3 hover:bg-slate-50 rounded-full transition-colors">
+                  <X size={24} className="text-slate-300" />
+                </button>
               </div>
               
               <div className="space-y-8">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Project Name</label>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Project Name</label>
                   <input 
-                    autoFocus
-                    placeholder="e.g. Website Redesign"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
-                    className="w-full bg-stone-50 border border-stone-200 p-4 rounded-xl outline-none focus:border-stone-900 transition-all font-semibold text-stone-900"
+                    autoFocus 
+                    value={projectName} 
+                    onChange={(e) => setProjectName(e.target.value)} 
+                    className="w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl outline-none focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 transition-all font-bold text-slate-900" 
+                    placeholder="e.g. Q4 e-tron Research" 
                   />
                 </div>
                 
-                <div className="flex gap-4">
-                  <button 
-                    onClick={() => setShowCreateModal(false)}
-                    className="flex-1 py-4 text-stone-400 font-bold text-xs uppercase tracking-widest hover:text-stone-900 transition-all"
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Due Date</label>
+                    <input 
+                      type="date" 
+                      value={projectDue} 
+                      onChange={(e) => setProjectDue(e.target.value)} 
+                      className="w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl outline-none focus:border-slate-900 transition-all font-bold text-slate-900" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Team Members</label>
+                    <input 
+                      placeholder="e.g. Leigha, Dave" 
+                      value={projectMembers} 
+                      onChange={(e) => setProjectMembers(e.target.value)} 
+                      className="w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl outline-none focus:border-slate-900 transition-all font-bold text-slate-900" 
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex gap-4">
+                   <button 
+                    onClick={() => setShowCreateModal(false)} 
+                    className="flex-1 py-5 text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-slate-900 transition-all"
                   >
                     Cancel
                   </button>
                   <button 
-                    onClick={handleCreateProject}
-                    disabled={!projectName.trim()}
-                    className="flex-1 py-4 bg-stone-900 text-white font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-stone-800 transition-all disabled:opacity-30 shadow-xl shadow-stone-900/20"
+                    onClick={handleCreateProject} 
+                    disabled={!projectName.trim()} 
+                    className="flex-[2] bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all disabled:opacity-20 shadow-xl shadow-slate-900/20"
                   >
-                    Create
+                    Initialize Project
                   </button>
                 </div>
               </div>
@@ -354,10 +375,10 @@ export default function ProjectsPage() {
       </AnimatePresence>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E7E5E4; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #D6D3D1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #F1F5F9; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #E2E8F0; }
       `}} />
     </div>
   );

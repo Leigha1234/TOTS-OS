@@ -8,7 +8,8 @@ import {
   Plus, Search, Check, List, Calendar, Users, 
   Clock, FileText, Layout, ChevronRight, 
   MoreHorizontal, X, ArrowRight, CalendarDays,
-  UserPlus, StickyNote, ExternalLink, Settings
+  UserPlus, StickyNote, ExternalLink, Settings,
+  Activity, Zap, ArrowUpRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -44,28 +45,33 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Data States
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  
+  // Selection State
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
   
-  // Modals & Inputs
+  // Form States
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDue, setProjectDue] = useState("");
   const [projectMembers, setProjectMembers] = useState("");
   
+  // Task State
   const [newTaskName, setNewTaskName] = useState("");
   const [assignee, setAssignee] = useState("");
   const [taskDate, setTaskDate] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
 
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ), []);
 
+  // --- DATA SYNC ---
   const loadData = useCallback(async (team: string) => {
     setLoading(true);
     try {
@@ -79,7 +85,7 @@ export default function ProjectsPage() {
       
       if (projData?.length && !selectedProject) setSelectedProject(projData[0]);
     } catch (err) {
-      toast.error("Sync error. Ensure 'project_notes' and 'project_tasks' tables exist.");
+      toast.error("Database connection failed.");
     } finally {
       setLoading(false);
     }
@@ -94,13 +100,18 @@ export default function ProjectsPage() {
     });
   }, [loadData]);
 
+  // --- ACTIONS ---
   const handleCreateProject = async () => {
     if (!projectName.trim() || !teamId) return;
     const { error } = await supabase.from("projects").insert([{ 
-      name: projectName.trim(), team_id: teamId, due_date: projectDue, members: projectMembers 
+      name: projectName.trim(), 
+      team_id: teamId, 
+      due_date: projectDue, 
+      members: projectMembers 
     }]);
     if (!error) {
       setShowCreateModal(false);
+      setProjectName("");
       loadData(teamId);
       toast.success("Project Initialized");
     }
@@ -119,158 +130,222 @@ export default function ProjectsPage() {
     if (!error) {
       setTasks(prev => [...prev, ...(data || [])]);
       setNewTaskName(""); setAssignee(""); setTaskDate("");
-      toast.success("Task scheduled");
+      toast.success("Added to Timeline");
     }
   };
 
-  const currentTasks = tasks.filter(t => t.project_id === selectedProject?.id);
-  const currentNotes = notes.filter(n => n.project_id === selectedProject?.id);
+  const currentTasks = useMemo(() => tasks.filter(t => t.project_id === selectedProject?.id), [tasks, selectedProject]);
+  const currentNotes = useMemo(() => notes.filter(n => n.project_id === selectedProject?.id), [notes, selectedProject]);
 
   if (!isMounted) return null;
 
   return (
-    <div className="flex h-screen bg-[#FAFAFA] text-slate-900 font-sans overflow-hidden">
+    <div className="min-h-screen bg-[#FDFDFB] text-slate-900 font-sans selection:bg-[#D6FF8D] selection:text-black">
       
-      {/* LEFT SIDEBAR */}
-      <aside className="w-80 border-r border-slate-200 flex flex-col bg-white">
-        <div className="p-8">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white shadow-xl shadow-black/10">
+      {/* TOP HEADER: PROJECT SELECTION */}
+      <header className="sticky top-0 z-[100] bg-white border-b border-slate-100 shadow-sm">
+        <div className="max-w-[1600px] mx-auto px-8 py-4 flex items-center justify-between gap-12">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 bg-[#D6FF8D] rounded-xl flex items-center justify-center text-black shadow-lg">
               <Layout size={20} />
             </div>
-            <h2 className="font-black text-lg tracking-tighter">TOTs OS</h2>
+            <span className="font-black text-sm tracking-tighter">TOTS OS</span>
           </div>
-          
-          <button onClick={() => setShowCreateModal(true)} className="w-full bg-slate-100 hover:bg-slate-200 p-4 rounded-2xl flex items-center justify-between transition-all group">
-            <span className="font-bold text-xs uppercase tracking-widest text-slate-600">New Project</span>
-            <Plus size={18} className="text-slate-400 group-hover:text-black" />
-          </button>
-        </div>
 
-        <nav className="flex-1 overflow-y-auto px-4 space-y-1">
-          {projects.map((p) => (
-            <button key={p.id} onClick={() => setSelectedProject(p)} className={`w-full text-left px-5 py-4 rounded-2xl transition-all flex items-center justify-between ${selectedProject?.id === p.id ? "bg-white shadow-lg shadow-slate-200/50 border border-slate-100" : "text-slate-400 hover:text-slate-600"}`}>
-              <div className="flex flex-col gap-1">
-                <span className={`text-sm font-bold ${selectedProject?.id === p.id ? "text-black" : ""}`}>{p.name}</span>
-                <span className="text-[10px] font-medium opacity-60 flex items-center gap-1"><Calendar size={10}/> {p.due_date || "No date"}</span>
-              </div>
-              {selectedProject?.id === p.id && <div className="w-1.5 h-1.5 bg-black rounded-full" />}
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      {/* MAIN DASHBOARD */}
-      <main className="flex-1 overflow-y-auto custom-scrollbar">
-        {selectedProject ? (
-          <div className="max-w-6xl mx-auto p-12">
-            
-            {/* HEADER */}
-            <header className="flex justify-between items-start mb-16">
-              <div className="space-y-4">
-                <h1 className="text-5xl font-black tracking-tighter">{selectedProject.name}</h1>
-                <div className="flex gap-4">
-                  <div className="bg-white border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm">
-                    <Users size={14} className="text-slate-400" />
-                    <span className="text-xs font-bold text-slate-600">{selectedProject.members || "Assignee Needed"}</span>
-                  </div>
-                  <div className="bg-white border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm">
-                    <CalendarDays size={14} className="text-slate-400" />
-                    <span className="text-xs font-bold text-slate-600">{selectedProject.due_date || "No Deadline"}</span>
-                  </div>
-                </div>
-              </div>
-              <button onClick={() => router.push('/notes')} className="bg-black text-white px-6 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 hover:scale-105 transition-all shadow-xl shadow-black/10">
-                <StickyNote size={16} /> New Note
+          {/* HORIZONTAL LEDGER */}
+          <div className="flex-1 overflow-x-auto flex items-center gap-2 no-scrollbar px-4">
+            {projects.map((p) => (
+              <button 
+                key={p.id} 
+                onClick={() => setSelectedProject(p)} 
+                className={`px-6 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-3 border ${
+                  selectedProject?.id === p.id 
+                  ? "bg-[#D6FF8D] border-[#D6FF8D] text-black shadow-md" 
+                  : "bg-white border-slate-100 text-slate-400 hover:border-[#D6FF8D] hover:text-black"
+                }`}
+              >
+                {p.name}
+                {p.due_date && <span className="text-[10px] opacity-40">{p.due_date}</span>}
               </button>
-            </header>
+            ))}
+            <button 
+              onClick={() => setShowCreateModal(true)} 
+              className="px-4 py-2.5 rounded-full border border-dashed border-slate-200 text-slate-300 hover:border-[#D6FF8D] hover:text-black transition-all flex items-center gap-2"
+            >
+              <Plus size={14} /> <span className="text-[10px] font-bold uppercase tracking-widest">New</span>
+            </button>
+          </div>
 
-            <div className="grid grid-cols-12 gap-8">
+          <div className="flex items-center gap-4 shrink-0">
+             <button onClick={() => router.push('/notes')} className="p-3 bg-slate-50 hover:bg-[#D6FF8D] rounded-full transition-all text-slate-400 hover:text-black">
+               <StickyNote size={20} />
+             </button>
+          </div>
+        </div>
+      </header>
+
+      {/* WORKSPACE */}
+      <main className="max-w-[1600px] mx-auto p-8 lg:p-12 space-y-12">
+        {selectedProject ? (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+            
+            {/* PROJECT HERO */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-16 border-b border-slate-100 pb-16">
+              <div className="space-y-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[#D6FF8D]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-300">Active Environment</span>
+                </div>
+                <h1 className="text-[6rem] lg:text-[8rem] font-serif italic tracking-tighter leading-[0.8] text-black">
+                  {selectedProject.name}
+                </h1>
+                <div className="flex flex-wrap gap-4 pt-4">
+                   <div className="bg-white border border-slate-100 px-6 py-3 rounded-2xl flex items-center gap-3 shadow-sm">
+                     <Users size={16} className="text-[#D6FF8D]" />
+                     <span className="text-xs font-bold text-slate-600">{selectedProject.members || "Solo Project"}</span>
+                   </div>
+                   <div className="bg-white border border-slate-100 px-6 py-3 rounded-2xl flex items-center gap-3 shadow-sm">
+                     <Calendar size={16} className="text-[#D6FF8D]" />
+                     <span className="text-xs font-bold text-slate-600">{selectedProject.due_date || "Continuous"}</span>
+                   </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => router.push('/notes')} 
+                  className="bg-[#D6FF8D] text-black px-10 py-5 rounded-[2.5rem] font-black uppercase text-[11px] tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3"
+                >
+                  <StickyNote size={18} /> New Note
+                </button>
+              </div>
+            </div>
+
+            {/* DASHBOARD GRID */}
+            <div className="grid grid-cols-12 gap-8 lg:gap-12">
               
-              {/* LEFT COLUMN: TASKS & TIMELINE */}
-              <div className="col-span-8 space-y-8">
-                
-                {/* TIMELINE INPUT */}
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Schedule Task to Timeline</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input value={newTaskName} onChange={e => setNewTaskName(e.target.value)} placeholder="What needs to be done?" className="col-span-2 bg-slate-50 p-4 rounded-xl outline-none focus:ring-2 ring-black/5 font-bold" />
-                    <div className="relative">
-                      <UserPlus className="absolute left-4 top-4 text-slate-300" size={16} />
-                      <input value={assignee} onChange={e => setAssignee(e.target.value)} placeholder="Assign to..." className="w-full bg-slate-50 p-4 pl-12 rounded-xl outline-none text-sm font-bold" />
-                    </div>
-                    <div className="relative">
-                      <Calendar className="absolute left-4 top-4 text-slate-300" size={16} />
-                      <input type="date" value={taskDate} onChange={e => setTaskDate(e.target.value)} className="w-full bg-slate-50 p-4 pl-12 rounded-xl outline-none text-sm font-bold" />
+              {/* SCHEDULER */}
+              <div className="col-span-12 lg:col-span-8 space-y-8">
+                <div className="bg-white p-10 rounded-[4rem] border border-slate-100 shadow-sm space-y-10">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xs font-black uppercase tracking-[0.4em] text-slate-300">Schedule to Timeline</h3>
+                    <div className="p-2 bg-[#D6FF8D] rounded-lg"><Zap size={14} className="text-black" /></div>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <input 
+                      value={newTaskName} 
+                      onChange={e => setNewTaskName(e.target.value)} 
+                      placeholder="Objective description..." 
+                      className="w-full bg-slate-50 p-6 rounded-3xl outline-none text-2xl font-serif italic border border-transparent focus:border-[#D6FF8D] transition-all" 
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="relative">
+                        <UserPlus className="absolute left-6 top-6 text-slate-300" size={18} />
+                        <input value={assignee} onChange={e => setAssignee(e.target.value)} placeholder="Assignee..." className="w-full bg-slate-50 p-6 pl-16 rounded-3xl outline-none font-bold text-sm" />
+                      </div>
+                      <div className="relative">
+                        <Clock className="absolute left-6 top-6 text-slate-300" size={18} />
+                        <input type="date" value={taskDate} onChange={e => setTaskDate(e.target.value)} className="w-full bg-slate-50 p-6 pl-16 rounded-3xl outline-none font-bold text-sm" />
+                      </div>
                     </div>
                   </div>
-                  <button onClick={handleAddTask} className="w-full bg-slate-900 text-white py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-black transition-all">Add to Project Timeline</button>
+                  <button 
+                    onClick={handleAddTask} 
+                    className="w-full bg-[#D6FF8D] text-black py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] hover:shadow-xl transition-all"
+                  >
+                    Add to Project Timeline
+                  </button>
                 </div>
 
-                {/* TASK LIST / CALENDAR VIEW */}
-                <div className="space-y-4">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-4">Active Timeline</h3>
-                  <div className="space-y-3">
+                {/* TIMELINE LIST */}
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between px-6">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-300">Active Objectives</h3>
+                    <span className="text-[10px] font-bold text-slate-400">{currentTasks.length} Scheduled</span>
+                  </div>
+                  <div className="space-y-4">
                     {currentTasks.map(t => (
-                      <div key={t.id} className="bg-white border border-slate-200 p-6 rounded-3xl flex items-center justify-between group hover:border-black transition-all">
-                        <div className="flex items-center gap-6">
-                          <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 group-hover:bg-black group-hover:text-white transition-all"><Check size={20}/></div>
-                          <div>
-                            <p className="font-bold text-slate-900">{t.name}</p>
-                            <div className="flex gap-4 mt-1">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1"><Users size={12}/> {t.assigned_to || "Unassigned"}</span>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1"><Calendar size={12}/> {t.due_date || "Immediate"}</span>
+                      <motion.div 
+                        layoutId={t.id} 
+                        key={t.id} 
+                        className="bg-white p-8 rounded-[3rem] border border-slate-100 flex items-center justify-between group hover:border-[#D6FF8D] transition-all"
+                      >
+                        <div className="flex items-center gap-8">
+                          <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200 group-hover:bg-[#D6FF8D] group-hover:text-black transition-all">
+                            <Check size={24} />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-3xl font-serif italic text-black leading-none">{t.name}</p>
+                            <div className="flex gap-4">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><Users size={12}/> {t.assigned_to || "Open"}</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><CalendarDays size={12}/> {t.due_date || "Now"}</span>
                             </div>
                           </div>
                         </div>
                         <MoreHorizontal className="text-slate-200 group-hover:text-slate-400 cursor-pointer" />
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: NOTES & MEMBERS */}
-              <div className="col-span-4 space-y-8">
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Project Notes</h3>
-                    <button onClick={() => router.push('/notes')} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-black"><ExternalLink size={14}/></button>
+              {/* SIDEBAR MODULES */}
+              <div className="col-span-12 lg:col-span-4 space-y-8">
+                
+                {/* VAULT LINKS */}
+                <div className="bg-white p-10 rounded-[4rem] border border-slate-100 shadow-sm h-fit">
+                  <div className="flex justify-between items-center mb-8">
+                    <h3 className="text-xs font-black uppercase tracking-[0.4em] text-slate-300">Vault Resources</h3>
+                    <FileText size={18} className="text-[#D6FF8D]" />
                   </div>
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {currentNotes.length > 0 ? currentNotes.map(n => (
-                      <div key={n.id} className="p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 cursor-pointer transition-colors border border-transparent hover:border-slate-200">
-                        <p className="font-black text-xs text-slate-900 mb-1">{n.title}</p>
-                        <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">{n.content}</p>
+                      <div key={n.id} className="p-6 bg-slate-50 rounded-[2.5rem] hover:bg-slate-100 transition-colors cursor-pointer border border-transparent hover:border-[#D6FF8D]/30 group">
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="font-black text-xs text-black">{n.title}</p>
+                          <ArrowUpRight size={14} className="text-slate-300 group-hover:text-[#D6FF8D]" />
+                        </div>
+                        <p className="text-[10px] text-slate-500 line-clamp-3 leading-relaxed">{n.content}</p>
                       </div>
                     )) : (
-                      <div className="py-8 text-center border-2 border-dashed border-slate-100 rounded-2xl">
-                        <FileText size={24} className="mx-auto text-slate-200 mb-2" />
-                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Notes Linked</p>
+                      <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[3rem]">
+                        <FileText size={40} className="mx-auto text-slate-100 mb-4" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No linked research</p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="bg-black p-8 rounded-[2.5rem] text-white shadow-2xl shadow-black/20">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-6">Team Roles</h3>
-                  <div className="space-y-4">
-                    {selectedProject.members?.split(',').map((member, i) => (
-                      <div key={i} className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center text-[10px] font-bold">{member.trim().charAt(0)}</div>
-                        <span className="text-xs font-bold">{member.trim()}</span>
-                      </div>
-                    ))}
+                {/* TEAM STATUS */}
+                <div className="bg-black p-10 rounded-[4rem] text-white space-y-10 shadow-2xl relative overflow-hidden group">
+                  <div className="relative z-10 space-y-6">
+                    <div className="flex items-center gap-3">
+                       <Users size={16} className="text-[#D6FF8D]" />
+                       <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Collaborators</span>
+                    </div>
+                    <div className="space-y-4">
+                      {selectedProject.members?.split(',').map((member, i) => (
+                        <div key={i} className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                             <div className="w-8 h-8 rounded-full border border-slate-800 flex items-center justify-center text-[10px] font-black bg-slate-900">{member.trim().charAt(0)}</div>
+                             <span className="text-xs font-bold">{member.trim()}</span>
+                          </div>
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#D6FF8D] animate-pulse" />
+                        </div>
+                      ))}
+                    </div>
                   </div>
+                  <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-[#D6FF8D]/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
                 </div>
               </div>
 
             </div>
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center">
-            <Layout size={48} className="text-slate-100 mb-4" />
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-300">Select a Workspace</p>
+          <div className="h-[60vh] flex flex-col items-center justify-center space-y-6">
+            <Layout size={80} className="text-slate-100" />
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-300">Select Project Ledger</p>
           </div>
         )}
       </main>
@@ -278,26 +353,29 @@ export default function ProjectsPage() {
       {/* CREATE MODAL */}
       <AnimatePresence>
         {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCreateModal(false)} className="absolute inset-0 bg-black/20 backdrop-blur-xl" />
-            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white w-full max-w-xl rounded-[3rem] p-12 shadow-2xl relative z-10 border border-slate-100">
-              <h3 className="text-3xl font-black mb-10 tracking-tighter">Create Workspace</h3>
-              <div className="space-y-6">
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Project Name</label>
-                  <input autoFocus value={projectName} onChange={e => setProjectName(e.target.value)} className="w-full bg-slate-50 border-none p-5 rounded-2xl outline-none focus:ring-2 ring-black font-bold" />
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCreateModal(false)} className="absolute inset-0 bg-black/40 backdrop-blur-2xl" />
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 30 }} className="bg-white w-full max-w-2xl rounded-[4rem] p-16 shadow-2xl relative z-10 border border-slate-50">
+              <div className="space-y-4 mb-12">
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#D6FF8D]">System Initialization</span>
+                <h3 className="text-6xl font-serif italic tracking-tighter leading-none text-black">New Ledger</h3>
+              </div>
+              <div className="space-y-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Ledger Title</label>
+                  <input autoFocus value={projectName} onChange={e => setProjectName(e.target.value)} className="w-full bg-slate-50 p-6 rounded-3xl outline-none font-serif italic text-3xl focus:ring-4 ring-[#D6FF8D]/20 transition-all" placeholder="Project name..." />
                 </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Deadline</label>
-                    <input type="date" value={projectDue} onChange={e => setProjectDue(e.target.value)} className="w-full bg-slate-50 border-none p-5 rounded-2xl outline-none font-bold" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Hard Deadline</label>
+                    <input type="date" value={projectDue} onChange={e => setProjectDue(e.target.value)} className="w-full bg-slate-50 p-6 rounded-3xl outline-none font-bold" />
                   </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Team (Comma separated)</label>
-                    <input placeholder="Leigha, Dave" value={projectMembers} onChange={e => setProjectMembers(e.target.value)} className="w-full bg-slate-50 border-none p-5 rounded-2xl outline-none font-bold" />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Team List</label>
+                    <input placeholder="Leigha, Dave..." value={projectMembers} onChange={e => setProjectMembers(e.target.value)} className="w-full bg-slate-50 p-6 rounded-3xl outline-none font-bold" />
                   </div>
                 </div>
-                <button onClick={handleCreateProject} disabled={!projectName.trim()} className="w-full bg-black text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-[1.02] transition-all disabled:opacity-20 shadow-xl shadow-black/10">Initialize Project</button>
+                <button onClick={handleCreateProject} disabled={!projectName.trim()} className="w-full bg-[#D6FF8D] text-black py-6 rounded-[2.5rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all disabled:opacity-20">Initialize Workspace</button>
               </div>
             </motion.div>
           </div>
@@ -305,8 +383,11 @@ export default function ProjectsPage() {
       </AnimatePresence>
 
       <style dangerouslySetInnerHTML={{ __html: `
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
+        .font-serif { font-family: 'Instrument Serif', serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
       `}} />
     </div>

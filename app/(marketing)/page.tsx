@@ -3,25 +3,30 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 /**
- * TOTS OS: LUXE REVEAL v5.0
- * CONCEPT: THE "ARCHIVE" OPENING
+ * TOTS OS: CINEMATIC REVEAL v6.0
+ * DESIGN: HIGH-FIDELITY LUXURY / ATMOSPHERIC DEPTH
  */
 
 export default function TeaserPage() {
-  const [hasStarted, setHasStarted] = useState(false);
+  const [phase, setPhase] = useState<"loading" | "hero" | "access">("loading");
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isJoined, setIsJoined] = useState(false);
 
   useEffect(() => {
-    // Stage 1: Initial breath (Logo scale)
-    // Stage 2: The Reveal (Slide up)
-    const timer = setTimeout(() => setHasStarted(true), 3000);
-    return () => clearTimeout(timer);
+    // Phase 1: Logo Entry
+    const t1 = setTimeout(() => setPhase("hero"), 500);
+    // Phase 2: The Grand Transition
+    const t2 = setTimeout(() => setPhase("access"), 3500);
+    
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,46 +35,43 @@ export default function TeaserPage() {
     setTimeout(() => {
       setIsSubmitting(false);
       setIsJoined(true);
-      toast.success("Identity Logged: Welcome to the Waitlist");
+      toast.success("Identity Verified: Welcome to TOTS OS");
     }, 2000);
   };
 
   return (
-    <div className="h-screen w-screen bg-[#faf9f6] selection:bg-[#a9b897] selection:text-white overflow-hidden font-sans relative">
+    <div className="h-screen w-screen bg-[#0a0a0a] selection:bg-[#a9b897] selection:text-white overflow-hidden font-sans relative">
       
-      {/* CINEMATIC LAYERING: LIGHT & TEXTURE */}
-      <div className="absolute inset-0 pointer-events-none z-10">
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
+      {/* ATMOSPHERIC BACKGROUND LAYERS */}
+      <div className="absolute inset-0 pointer-events-none z-0">
         <motion.div 
           animate={{ 
-            opacity: hasStarted ? 0.4 : 0.1,
-            scale: hasStarted ? 1.2 : 1 
+            opacity: phase === "access" ? 0.15 : 0,
+            scale: phase === "access" ? 1.2 : 1 
           }}
           transition={{ duration: 3 }}
-          className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-[#a9b897]/10 blur-[140px] rounded-full" 
+          className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-[#a9b897]/20 blur-[160px] rounded-full" 
         />
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.05] mix-blend-overlay" />
       </div>
 
-      <motion.div 
-        animate={{ y: hasStarted ? "-40vh" : "0vh" }}
-        transition={{ duration: 2, ease: [0.85, 0, 0.15, 1] }}
-        className="h-full w-full flex flex-col items-center justify-center relative z-20"
-      >
-        
-        {/* --- THE LOGO CORE --- */}
+      {/* --- HERO SECTION: THE LOGO REVEAL --- */}
+      <div className="relative h-full w-full flex items-center justify-center z-20">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.8, filter: "blur(10px)" }}
-          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-          transition={{ duration: 2, ease: [0.22, 1, 0.36, 1] }}
-          className="relative group"
+          animate={{ 
+            scale: phase === "access" ? 0.5 : 1,
+            y: phase === "access" ? -280 : 0,
+            opacity: phase === "loading" ? 0 : 1,
+            filter: phase === "access" ? "blur(4px)" : "blur(0px)"
+          }}
+          transition={{ duration: 2, ease: [0.65, 0, 0.35, 1] }}
+          className="text-center"
         >
           <motion.div 
-            animate={{ 
-                boxShadow: hasStarted 
-                    ? "0 20px 50px rgba(0,0,0,0.05)" 
-                    : "0 60px 100px rgba(0,0,0,0.12)"
-            }}
-            className="relative w-64 h-64 md:w-96 md:h-96 rounded-[3rem] overflow-hidden border border-white bg-white shadow-stone-200/50 transition-all duration-1000"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 2.5, ease: [0.22, 1, 0.36, 1] }}
+            className="relative w-72 h-72 md:w-[420px] md:h-[420px] mx-auto rounded-[3.5rem] overflow-hidden border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.5)]"
           >
             <Image 
               src="/images/TOTS-OS.jpeg" 
@@ -80,100 +82,110 @@ export default function TeaserPage() {
             />
           </motion.div>
 
-          {/* TEASER TEXT - ELEGANT REVEAL */}
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1, duration: 1.5 }}
-            className="mt-12 text-center"
+            animate={{ opacity: phase === "access" ? 0 : 1 }}
+            transition={{ delay: 1, duration: 1 }}
+            className="mt-12 space-y-4"
           >
-            <h1 className="text-3xl md:text-5xl font-serif italic tracking-tighter text-stone-900 leading-none">
+            <h1 className="text-3xl md:text-5xl font-serif italic tracking-tighter text-stone-100">
               TOTS OS is <span className="text-[#a9b897]">Coming</span>
             </h1>
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: "60px" }}
-              transition={{ delay: 1.5, duration: 1 }}
-              className="h-[1px] bg-[#a9b897] mx-auto mt-6 opacity-40" 
-            />
+            <p className="text-[8px] font-black uppercase tracking-[0.8em] text-stone-500 animate-pulse">
+              Initializing Digital Estate
+            </p>
           </motion.div>
         </motion.div>
-      </motion.div>
+      </div>
 
-      {/* --- THE ACCESS PANEL: SLIDING FROM BOTTOM --- */}
-      <motion.div
-        initial={{ opacity: 0, y: "100vh" }}
-        animate={{ opacity: hasStarted ? 1 : 0, y: hasStarted ? "50vh" : "100vh" }}
-        transition={{ duration: 2, ease: [0.85, 0, 0.15, 1] }}
-        className="fixed inset-0 h-[50vh] w-full bg-white/40 backdrop-blur-3xl border-t border-white/50 z-30 flex flex-col items-center justify-center px-6"
-      >
-        <div className="max-w-md w-full space-y-10 text-center">
-          <div className="space-y-4">
-            <span className="text-[9px] font-black uppercase tracking-[0.6em] text-[#a9b897]">
-              Priority Release Protocol
-            </span>
-            <p className="text-[11px] uppercase tracking-[0.3em] font-bold text-stone-400 max-w-[280px] mx-auto leading-relaxed">
-              Reserved for high-fidelity efficiency. Secure your place in the first cycle.
-            </p>
-          </div>
-
-          <AnimatePresence mode="wait">
-            {!isJoined ? (
-              <motion.form 
-                key="form"
-                onSubmit={handleSubmit}
-                className="space-y-6"
-              >
-                <div className="relative border-b border-stone-200 focus-within:border-[#a9b897] transition-all duration-500">
-                  <input 
-                    type="email" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="ACCESS ID / EMAIL" 
-                    className="w-full bg-transparent py-4 text-center outline-none text-[10px] font-bold tracking-[0.5em] text-stone-800 placeholder:text-stone-300 uppercase"
-                    required
-                  />
+      {/* --- ACCESS SECTION: THE SLIDE-UP UI --- */}
+      <AnimatePresence>
+        {phase === "access" && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed inset-0 flex items-center justify-center z-30 px-6 pt-[20vh]"
+          >
+            <div className="max-w-md w-full bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-10 md:p-16 shadow-2xl text-center space-y-12">
+              <div className="space-y-4">
+                <div className="flex justify-center mb-6">
+                   <ShieldCheck className="text-[#a9b897] opacity-50" size={20} />
                 </div>
-                
-                <button 
-                  disabled={isSubmitting}
-                  className="w-full bg-stone-900 text-white py-5 rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] hover:bg-[#a9b897] hover:text-stone-950 transition-all duration-700 shadow-xl flex items-center justify-center gap-3 active:scale-[0.98]"
-                >
-                  {isSubmitting ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <>
-                      Request Entry <ArrowRight size={12} />
-                    </>
-                  )}
-                </button>
-              </motion.form>
-            ) : (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center gap-4 py-4"
-              >
-                <CheckCircle2 size={24} className="text-[#a9b897] stroke-[1px]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-900">
-                  Identity Logged: Awaiting Sync
-                </span>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <h2 className="text-3xl md:text-4xl font-serif italic tracking-tighter text-white">
+                  Join the <span className="text-[#a9b897]">Waiting List</span>
+                </h2>
+                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-stone-400 leading-relaxed">
+                  High-fidelity management for the organised few. Secure priority placement.
+                </p>
+              </div>
 
-          {/* FOOTER DETAILS */}
-          <div className="pt-12 flex flex-col items-center gap-6 opacity-20 hover:opacity-50 transition-opacity duration-700">
-            <div className="flex gap-10">
-              <button className="text-[7px] font-black uppercase tracking-widest">Instagram</button>
-              <button className="text-[7px] font-black uppercase tracking-widest">Archive</button>
+              <AnimatePresence mode="wait">
+                {!isJoined ? (
+                  <motion.form 
+                    onSubmit={handleSubmit}
+                    className="space-y-6"
+                  >
+                    <div className="relative border-b border-white/10 focus-within:border-[#a9b897] transition-all duration-700">
+                      <input 
+                        type="email" 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="IDENTIFICATION / EMAIL" 
+                        className="w-full bg-transparent py-4 text-center outline-none text-[10px] font-bold tracking-[0.5em] text-white placeholder:text-stone-600 uppercase"
+                        required
+                      />
+                    </div>
+                    
+                    <button 
+                      disabled={isSubmitting}
+                      className="w-full bg-white text-black py-5 rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] hover:bg-[#a9b897] hover:text-black transition-all duration-500 shadow-xl flex items-center justify-center gap-3 group active:scale-[0.98]"
+                    >
+                      {isSubmitting ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <>
+                          Request Invite <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+                        </>
+                      )}
+                    </button>
+                  </motion.form>
+                ) : (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center gap-4 py-4"
+                  >
+                    <CheckCircle2 size={32} className="text-[#a9b897] stroke-[1px]" />
+                    <div className="space-y-2">
+                       <span className="text-[11px] font-black uppercase tracking-[0.3em] text-white block">
+                        Identity Synchronized
+                      </span>
+                      <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-stone-500 block">
+                        Check your comms for confirmation
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* MINIMAL FOOTER */}
+              <div className="pt-4 flex flex-col items-center gap-6 opacity-30">
+                <div className="flex gap-10">
+                  <button className="text-[7px] font-black uppercase tracking-widest hover:text-[#a9b897]">Instagram</button>
+                  <button className="text-[7px] font-black uppercase tracking-widest hover:text-[#a9b897]">Protocol</button>
+                </div>
+                <p className="text-[7px] font-black uppercase tracking-[1em] text-stone-500">
+                  TOTS OS © 2026
+                </p>
+              </div>
             </div>
-            <p className="text-[7px] font-black uppercase tracking-[1em] text-stone-400">
-              TOTS OS © 2026
-            </p>
-          </div>
-        </div>
-      </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* OVERLAY VIGNETTE */}
+      <div className="absolute inset-0 pointer-events-none z-40 shadow-[inset_0_0_150px_rgba(0,0,0,0.4)]" />
     </div>
   );
 }

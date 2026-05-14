@@ -70,7 +70,6 @@ export default function ProjectsPage() {
   const loadData = useCallback(async (team: string) => {
     setLoading(true);
     try {
-      // Defensive Fetching
       const [projRes, noteRes, taskRes] = await Promise.all([
         supabase.from("projects").select("*").eq("team_id", team).order("created_at", { ascending: false }),
         supabase.from("notes").select("*"),
@@ -81,7 +80,9 @@ export default function ProjectsPage() {
       
       const projectList = projRes.data || [];
       setProjects(projectList);
-      if (projectList.length > 0 && !selectedProject) {
+      
+      // Select first project if none selected or if selected project no longer exists
+      if (projectList.length > 0 && (!selectedProject || !projectList.find(p => p.id === selectedProject.id))) {
         setSelectedProject(projectList[0]);
       }
       
@@ -90,7 +91,7 @@ export default function ProjectsPage() {
       
     } catch (err) {
       console.error("System Sync Error:", err);
-      toast.error("Database mismatch detected. Run SQL fix.");
+      toast.error("Database connection issue. Check your schema.");
     } finally {
       setLoading(false);
     }
@@ -112,32 +113,49 @@ export default function ProjectsPage() {
     if (!projectName.trim() || !teamId) return;
     setIsSyncing(true);
     try {
-        const { data, error } = await supabase.from("projects").insert([{ 
+        const { error } = await supabase.from("projects").insert([{ 
             name: projectName.trim(), 
             team_id: teamId,
             status: "active",
             priority: "Medium"
-        }]).select();
+        }]);
         if (error) throw error;
         toast.success("Project Initialized");
         setProjectName("");
         setShowCreateModal(false);
         await loadData(teamId); 
     } catch (err) {
-        toast.error("Schema Mismatch: Status/Priority columns missing.");
+        toast.error("Initialization failed. Check table constraints.");
     } finally { setIsSyncing(false); }
   };
 
   const handleAddTask = async (projectId: string) => {
     const name = newTaskName[projectId]?.trim();
     if (!name) return;
-    const { data, error } = await supabase.from("project_tasks").insert([{
-      project_id: projectId, name, status: "Backlog", priority: "Medium"
-    }]).select();
-    if (!error && data) {
-      setTasks([...tasks, ...data]);
-      setNewTaskName({ ...newTaskName, [projectId]: "" });
-      toast.success("Task Logged");
+    try {
+      const { data, error } = await supabase.from("project_tasks").insert([{
+        project_id: projectId, name, status: "Backlog", priority: "Medium"
+      }]).select();
+      if (error) throw error;
+      if (data) {
+        setTasks(prev => [...prev, ...data]);
+        setNewTaskName(prev => ({ ...prev, [projectId]: "" }));
+        toast.success("Task Logged");
+      }
+    } catch (err) {
+      toast.error("Could not save task.");
+    }
+  };
+
+  const toggleTaskStatus = async (task: Task) => {
+    const nextStatus = task.status === 'Completed' ? 'In Progress' : 'Completed';
+    const { error } = await supabase
+      .from("project_tasks")
+      .update({ status: nextStatus })
+      .eq("id", task.id);
+    
+    if (!error) {
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: nextStatus } : t));
     }
   };
 
@@ -150,6 +168,10 @@ export default function ProjectsPage() {
     };
   }, [tasks, selectedProject]);
 
+  const filteredProjects = projects.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (!isMounted) return null;
 
   return (
@@ -158,33 +180,31 @@ export default function ProjectsPage() {
       {/* HEADER SECTION */}
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end border-b border-stone-200 pb-20 mb-20 gap-12">
         <div className="space-y-6">
-          <div className="flex items-center gap-4 group cursor-pointer">
+          <div className="flex items-center gap-4 group cursor-default">
             <div className="w-14 h-14 rounded-full bg-stone-900 text-white flex items-center justify-center shadow-xl group-hover:rotate-12 transition-transform">
                <Sparkles size={20} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400">Environment V3.1</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400">Environment V3.2</span>
           </div>
-          <h1 className="text-[12rem] font-serif italic tracking-tighter leading-[0.8] text-stone-900">
+          <h1 className="text-[10rem] lg:text-[12rem] font-serif italic tracking-tighter leading-[0.8] text-stone-900">
             Projects
           </h1>
           <div className="flex items-center gap-6 pt-4">
             <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-full border border-emerald-100">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Database Live</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Live Sync Active</span>
             </div>
             <span className="text-stone-300 font-serif italic text-xl">System Integrity: 100%</span>
           </div>
         </div>
 
-        <div className="flex gap-4">
-          <button 
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-6 bg-stone-900 text-white px-12 py-7 rounded-full shadow-2xl hover:bg-stone-800 hover:-translate-y-1 transition-all active:scale-95 group"
-          >
-            <Plus size={20} className="group-hover:rotate-90 transition-transform" />
-            <span className="text-[11px] font-black uppercase tracking-[0.2em]">New Environment</span>
-          </button>
-        </div>
+        <button 
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-6 bg-stone-900 text-white px-12 py-7 rounded-full shadow-2xl hover:bg-stone-800 hover:-translate-y-1 transition-all active:scale-95 group"
+        >
+          <Plus size={20} className="group-hover:rotate-90 transition-transform" />
+          <span className="text-[11px] font-black uppercase tracking-[0.2em]">New Environment</span>
+        </button>
       </header>
 
       <div className="grid grid-cols-12 gap-24">
@@ -198,14 +218,14 @@ export default function ProjectsPage() {
                     placeholder="Search ledger..." 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-stone-50 border border-stone-100 rounded-full py-6 pl-16 pr-6 text-sm outline-none focus:bg-white focus:ring-4 ring-stone-900/5 transition-all font-serif italic text-lg"
+                    className="w-full bg-stone-50 border border-stone-100 rounded-full py-6 pl-16 pr-6 text-lg outline-none focus:bg-white focus:ring-4 ring-stone-900/5 transition-all font-serif italic text-stone-900"
                 />
             </div>
 
             <div className="space-y-4">
               <p className="text-[9px] font-black uppercase text-stone-300 tracking-[0.4em] px-6">Active Projects</p>
               <nav className="space-y-2 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                {projects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((p) => (
+                {filteredProjects.map((p) => (
                   <button 
                     key={p.id}
                     onClick={() => setSelectedProject(p)}
@@ -226,7 +246,6 @@ export default function ProjectsPage() {
             </div>
           </div>
 
-          {/* SYSTEM CARD */}
           <div className="p-10 bg-[#1C1917] rounded-[3rem] text-white relative overflow-hidden group shadow-2xl">
               <div className="relative z-10 space-y-6">
                 <div className="flex items-center gap-3">
@@ -244,20 +263,23 @@ export default function ProjectsPage() {
           
           {/* NAVIGATION TABS */}
           <div className="flex gap-16 border-b border-stone-100">
-            {["Overview", "Tasks", "Board", "Vault Links"].map((tab) => (
-              <button 
-                key={tab}
-                onClick={() => setActiveTab(tab.toLowerCase().replace(" ", "-"))}
-                className={`pb-8 text-[10px] font-black uppercase tracking-[0.4em] transition-all relative ${
-                  activeTab === tab.toLowerCase().replace(" ", "-") ? "text-stone-900" : "text-stone-300 hover:text-stone-500"
-                }`}
-              >
-                {tab}
-                {activeTab === tab.toLowerCase().replace(" ", "-") && (
-                  <motion.div layoutId="nav-line" className="absolute bottom-0 left-0 right-0 h-0.5 bg-stone-900" />
-                )}
-              </button>
-            ))}
+            {["Overview", "Tasks", "Board", "Vault Links"].map((tab) => {
+              const tabId = tab.toLowerCase().replace(" ", "-");
+              return (
+                <button 
+                  key={tab}
+                  onClick={() => setActiveTab(tabId)}
+                  className={`pb-8 text-[10px] font-black uppercase tracking-[0.4em] transition-all relative ${
+                    activeTab === tabId ? "text-stone-900" : "text-stone-300 hover:text-stone-500"
+                  }`}
+                >
+                  {tab}
+                  {activeTab === tabId && (
+                    <motion.div layoutId="nav-line" className="absolute bottom-0 left-0 right-0 h-0.5 bg-stone-900" />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* TAB: OVERVIEW */}
@@ -269,14 +291,19 @@ export default function ProjectsPage() {
                      Project Focus
                    </div>
                    <button 
-                    onClick={() => supabase.from("projects").delete().eq("id", selectedProject.id).then(() => window.location.reload())}
+                    onClick={async () => {
+                      if(confirm("Destroy this project environment?")) {
+                        await supabase.from("projects").delete().eq("id", selectedProject.id);
+                        window.location.reload();
+                      }
+                    }}
                     className="p-4 rounded-full text-stone-200 hover:text-red-500 hover:bg-red-50 transition-all"
                    >
                      <Trash2 size={20} />
                    </button>
                 </div>
 
-                <h2 className="text-[10rem] font-serif italic tracking-tighter leading-none text-stone-900 mb-16">
+                <h2 className="text-[8rem] lg:text-[10rem] font-serif italic tracking-tighter leading-none text-stone-900 mb-16">
                   {selectedProject.name}
                 </h2>
 
@@ -286,13 +313,13 @@ export default function ProjectsPage() {
                       <p className="text-7xl font-serif italic text-stone-900">{stats.percent}%</p>
                    </div>
                    <div className="space-y-2">
-                      <p className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Metric</p>
-                      <p className="text-7xl font-serif italic text-stone-900">{stats.total} <span className="text-3xl text-stone-300">Tasks</span></p>
+                      <p className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Objective Load</p>
+                      <p className="text-7xl font-serif italic text-stone-900">{stats.total} <span className="text-3xl text-stone-300 italic">Tasks</span></p>
                    </div>
                 </div>
               </div>
 
-              {/* VAULT RESOURCES SIDEBAR */}
+              {/* VAULT SIDEBAR */}
               <div className="col-span-12 lg:col-span-4 space-y-10">
                 <div className="flex items-center gap-4 px-2">
                    <StickyNote size={16} className="text-stone-300" />
@@ -300,7 +327,7 @@ export default function ProjectsPage() {
                 </div>
                 {allNotes.filter(n => n.category?.toLowerCase() === selectedProject.name.toLowerCase()).length > 0 ? (
                   allNotes.filter(n => n.category?.toLowerCase() === selectedProject.name.toLowerCase()).map((note) => (
-                    <div key={note.id} className="p-10 rounded-[2.5rem] shadow-sm border border-stone-100 space-y-8 group transition-all hover:shadow-xl" style={{ backgroundColor: note.color + '10' }}>
+                    <div key={note.id} className="p-10 rounded-[2.5rem] shadow-sm border border-stone-100 space-y-8 group transition-all hover:shadow-xl" style={{ backgroundColor: note.color + '15' }}>
                        <p className="text-2xl font-serif italic leading-snug text-stone-800">"{note.content}"</p>
                        <div className="flex items-center justify-between pt-6 border-t border-stone-100/50">
                          <span className="text-[8px] font-black uppercase tracking-widest text-stone-400">{note.category}</span>
@@ -325,8 +352,8 @@ export default function ProjectsPage() {
                    <div key={task.id} className="group flex items-center justify-between py-10 px-6 hover:bg-stone-50 transition-all rounded-[2rem]">
                       <div className="flex items-center gap-8">
                         <button 
-                          onClick={() => supabase.from("project_tasks").update({ status: task.status === 'Completed' ? 'In Progress' : 'Completed' }).eq("id", task.id).then(() => loadData(teamId!))}
-                          className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${task.status === 'Completed' ? 'bg-stone-900 border-stone-900' : 'border-stone-100'}`}
+                          onClick={() => toggleTaskStatus(task)}
+                          className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${task.status === 'Completed' ? 'bg-stone-900 border-stone-900' : 'border-stone-200'}`}
                         >
                            {task.status === 'Completed' && <Check size={16} className="text-white" />}
                         </button>
@@ -334,7 +361,7 @@ export default function ProjectsPage() {
                           {task.name}
                         </span>
                       </div>
-                      <div className="opacity-0 group-hover:opacity-100 transition-all flex items-center gap-4">
+                      <div className="opacity-0 group-hover:opacity-100 transition-all">
                         <span className="text-[8px] font-black uppercase tracking-widest px-4 py-2 bg-white border border-stone-100 rounded-full text-stone-400">
                           {task.priority}
                         </span>
@@ -343,14 +370,13 @@ export default function ProjectsPage() {
                  ))}
                </div>
 
-               {/* ADD TASK BAR */}
                <div className="pt-10 flex gap-4">
                   <input 
                     placeholder="Capture new task objective..."
                     value={newTaskName[selectedProject.id] || ""}
-                    onChange={(e) => setNewTaskName({ ...newTaskName, [selectedProject.id]: e.target.value })}
+                    onChange={(e) => setNewTaskName(prev => ({ ...prev, [selectedProject.id]: e.target.value }))}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddTask(selectedProject.id)}
-                    className="flex-1 bg-stone-50 border border-stone-100 rounded-full p-10 text-3xl font-serif italic outline-none focus:bg-white focus:ring-4 ring-stone-900/5 transition-all"
+                    className="flex-1 bg-stone-50 border border-stone-100 rounded-full p-10 text-3xl font-serif italic outline-none focus:bg-white focus:ring-4 ring-stone-900/5 transition-all text-stone-900"
                   />
                   <button onClick={() => handleAddTask(selectedProject.id)} className="bg-stone-900 text-white px-10 rounded-full shadow-xl hover:scale-105 transition-all active:scale-95">
                     <ArrowUpRight size={24} />
@@ -388,7 +414,7 @@ export default function ProjectsPage() {
         </main>
       </div>
 
-    {/* INITIALIZATION MODAL */}
+      {/* INITIALIZATION MODAL */}
       <AnimatePresence>
         {showCreateModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
@@ -432,11 +458,11 @@ export default function ProjectsPage() {
         )}
       </AnimatePresence>
 
-      {/* Global Style Replacement */}
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #E7E5E4; border-radius: 10px; }
       `}} />
     </div>

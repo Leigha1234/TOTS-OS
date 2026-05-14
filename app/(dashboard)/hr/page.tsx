@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   Save, Calendar, Landmark, Fingerprint, 
-  X, FileText, Download,
-  AlertCircle, Loader2, Activity, ChevronRight,
+  X, FileText, Download, BarChart3, Clock,
+  Loader2, Activity, ChevronRight,
   ShieldCheck, Briefcase, Phone, MapPin, Zap, Cpu, Lock, Globe
 } from "lucide-react";
 
 /**
- * TOTS OS v6.2.1 - COMPACT PERSONNEL MODULE
- * REVISION: REDUCED SCALE | UPDATED NAV PATHS
+ * TOTS OS v7.1.0 - COMPACT PERSONNEL MODULE
+ * REVISION: SCALE ALIGNMENT | NAV SYNC | DENSITY OPTIMIZATION
  */
 
 export default function HRPage() {
@@ -31,11 +31,10 @@ export default function HRPage() {
     full_name: "",
     role: "",
     address: "",
-    company_details: "",
+    phone: "",
     bank_name: "",
     account_number: "",
-    sort_code: "",
-    phone: ""
+    sort_code: ""
   });
 
   useEffect(() => {
@@ -100,18 +99,18 @@ export default function HRPage() {
     <AnimatePresence>
       {activeModal === id && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-stone-900/60 backdrop-blur-xl z-[500] flex justify-end"
+          className="fixed inset-0 bg-stone-900/60 backdrop-blur-xl z-[9000] flex justify-end"
           onClick={() => setActiveModal(null)}>
           <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 40, stiffness: 300 }}
-            className="bg-[#fcfbf9] h-full w-full max-w-lg p-10 md:p-14 shadow-2xl relative overflow-y-auto border-l border-stone-100"
+            className="bg-[#faf9f6] h-full w-full max-w-md p-10 shadow-2xl relative overflow-y-auto border-l border-stone-100"
             onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setActiveModal(null)} className="absolute top-8 right-8 p-3 bg-white rounded-full hover:bg-stone-900 hover:text-white transition-all text-stone-400 shadow-sm">
-              <X size={18} />
+            <button onClick={() => setActiveModal(null)} className="absolute top-6 right-6 p-3 bg-white rounded-full hover:bg-stone-900 hover:text-white transition-all text-stone-400 shadow-sm border border-stone-100">
+              <X size={16} />
             </button>
-            <div className="mb-10 space-y-2">
-              <p className="text-[8px] font-black uppercase tracking-widest text-[#a9b897]">{subtitle}</p>
-              <h3 className="text-4xl font-serif italic tracking-tighter leading-none">{title}</h3>
+            <div className="mb-8 space-y-1 text-left">
+              <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897]">{subtitle}</p>
+              <h3 className="text-3xl font-serif italic tracking-tighter leading-none">{title}</h3>
             </div>
             {children}
           </motion.div>
@@ -121,188 +120,196 @@ export default function HRPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#fcfbf9] text-stone-900 font-sans selection:bg-[#a9b897] pb-12">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans selection:bg-[#a9b897] pb-12">
       
       <AnimatePresence>
         {notification.visible && (
           <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} 
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[600] bg-stone-900 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 border border-white/5">
-            <Zap size={12} className="text-[#a9b897] fill-[#a9b897]" />
-            <p className="text-[8px] font-black uppercase tracking-widest">{notification.msg}</p>
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-stone-900 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3">
+            <Zap size={12} className="text-[#a9b897]" />
+            <p className="text-[8px] font-black uppercase tracking-[0.3em]">{notification.msg}</p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1400px] mx-auto px-6 py-10 space-y-16">
+      <div className="max-w-[1200px] mx-auto px-6 py-10 space-y-10">
         
-        {/* --- COMPACT HEADER --- */}
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-stone-100 pb-10">
-          <div className="space-y-4">
+        {/* HEADER ARCHITECTURE */}
+        <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 border-b border-stone-100 pb-8">
+          <div className="space-y-4 text-left">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-stone-900 text-[#a9b897] rounded-xl shadow-lg"><Fingerprint size={18} /></div>
               <div className="space-y-0.5">
-                <p className="font-black uppercase text-[8px] tracking-widest text-stone-400">Personnel Directory</p>
-                <p className="text-[7px] font-mono text-stone-400 tracking-widest uppercase">Identity Link: Active</p>
+                <p className="font-black uppercase text-[8px] tracking-[0.4em] text-stone-300">PERSONNEL_NODE_7.1</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-1 bg-[#a9b897] rounded-full animate-pulse" />
+                  <p className="text-[7px] font-mono tracking-widest text-[#a9b897] uppercase">Identity Link: Active</p>
+                </div>
               </div>
             </div>
-            <h1 className="text-5xl md:text-6xl font-serif italic tracking-tighter leading-none">Human Resources</h1>
+            <h1 className="text-6xl font-serif italic tracking-tighter leading-none">HR</h1>
           </div>
 
-          <nav className="flex items-center bg-stone-100 p-1 rounded-full border border-stone-200/50">
-            {['Timesheets', 'Payments', 'Reports', 'HR'].map((path) => (
-              <button key={path} onClick={() => path !== 'HR' && router.push(`/${path.toLowerCase()}`)}
-                className={`px-6 py-2.5 text-[8px] font-black uppercase tracking-widest rounded-full transition-all ${path === 'HR' ? "bg-white text-stone-900 shadow-sm" : "text-stone-400 hover:text-stone-600"}`}>
-                {path}
+          <div className="flex flex-wrap items-center gap-3">
+            <nav className="flex items-center bg-white p-1 rounded-full shadow-sm border border-stone-100">
+              <button onClick={() => router.push('/payments')} className="px-5 py-2.5 text-stone-300 hover:text-stone-900 rounded-full text-[8px] font-black uppercase tracking-[0.1em] transition-all">Payments</button>
+              <button onClick={() => router.push('/finance-reports')} className="px-5 py-2.5 text-stone-300 hover:text-stone-900 rounded-full text-[8px] font-black uppercase tracking-[0.1em] flex items-center gap-2 transition-all">
+                <BarChart3 size={10}/> Finance
               </button>
-            ))}
-          </nav>
+              <button className="px-5 py-2.5 bg-stone-900 text-white rounded-full text-[8px] font-black uppercase tracking-[0.1em] flex items-center gap-2 transition-all">
+                <Globe size={10}/> HR
+              </button>
+              <button onClick={() => router.push('/timesheets')} className="px-5 py-2.5 text-stone-300 hover:text-stone-900 rounded-full text-[8px] font-black uppercase tracking-[0.1em] flex items-center gap-2 transition-all">
+                <Clock size={10}/> Timesheets
+              </button>
+            </nav>
+            <button onClick={handleSave} disabled={isSaving} className="bg-[#a9b897] text-stone-900 px-6 py-2.5 rounded-full flex items-center gap-3 hover:bg-stone-900 hover:text-white transition-all shadow-lg active:scale-95 disabled:opacity-50">
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              <span className="text-[8px] font-black uppercase tracking-widest">{isSaving ? 'Syncing' : 'Sync'}</span>
+            </button>
+          </div>
         </header>
 
-        {/* --- IDENTITY SECTION --- */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <section className="lg:col-span-8 bg-white border border-stone-100 p-8 md:p-12 rounded-[3rem] space-y-12 shadow-sm relative overflow-hidden group">
-            <div className="flex justify-between items-end border-b border-stone-50 pb-10 relative z-10 gap-6">
-              <div className="text-left">
-                <p className="text-[8px] font-black uppercase tracking-widest text-[#a9b897] italic">Verified Entity Node</p>
-                <h4 className="text-5xl font-serif italic tracking-tighter leading-none">
+        {/* IDENTITY SECTION */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <section className="lg:col-span-8 bg-white border border-stone-100 p-8 rounded-[2.5rem] space-y-10 shadow-sm relative overflow-hidden group text-left">
+            <div className="flex justify-between items-end border-b border-stone-50 pb-8 relative z-10">
+              <div>
+                <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897] italic">Verified Registry</p>
+                <h4 className="text-4xl font-serif italic tracking-tighter leading-none mt-1">
                   {profile.full_name || "Registry Pending"}
                 </h4>
               </div>
-              <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-3 bg-stone-900 text-white px-6 py-3 rounded-full hover:bg-stone-800 transition-all shadow-lg active:scale-95 disabled:opacity-50">
-                {isSaving ? <Loader2 size={14} className="animate-spin text-[#a9b897]" /> : <Save size={14} className="text-[#a9b897]" />}
-                <span className="text-[9px] font-black uppercase tracking-widest">{isSaving ? 'Syncing...' : 'Sync Records'}</span>
-              </button>
+              <Activity size={24} className="text-[#a9b897] opacity-20" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 relative z-10 text-left">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
               {[
                 { label: 'Full Legal Name', key: 'full_name', icon: <Fingerprint size={12}/> },
                 { label: 'Operational Role', key: 'role', icon: <Briefcase size={12}/> },
                 { label: 'Secure Contact', key: 'phone', icon: <Phone size={12}/> },
                 { label: 'Physical Address', key: 'address', full: true, icon: <MapPin size={12}/> },
               ].map((field) => (
-                <div key={field.key} className={`${field.full ? 'md:col-span-2' : ''} space-y-3`}>
-                  <div className="flex items-center gap-3 ml-4">
+                <div key={field.key} className={`${field.full ? 'md:col-span-2' : ''} space-y-2`}>
+                  <div className="flex items-center gap-2 ml-2">
                     <span className="text-[#a9b897]">{field.icon}</span>
-                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">{field.label}</label>
+                    <label className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">{field.label}</label>
                   </div>
                   <input value={profile[field.key] || ""} onChange={(e) => setProfile({...profile, [field.key]: e.target.value})}
-                      className="w-full p-6 bg-stone-50 border border-stone-100 rounded-2xl outline-none focus:border-stone-900 focus:bg-white transition-all font-bold text-lg text-stone-800" />
+                      className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:border-stone-900 focus:bg-white transition-all font-bold text-base text-stone-800" />
                 </div>
               ))}
             </div>
-            <Activity size={200} className="absolute top-0 right-0 p-10 opacity-[0.02] pointer-events-none group-hover:opacity-[0.05] transition-all" />
+            <Cpu size={180} className="absolute -right-10 -bottom-10 opacity-[0.02] text-stone-900 pointer-events-none" />
           </section>
 
-          {/* --- RESOURCE LEDGER (RIGHT COLUMN) --- */}
+          {/* RESOURCE LEDGER */}
           <div className="lg:col-span-4">
-            <div className="bg-stone-900 rounded-[3rem] p-10 text-white flex flex-col justify-between shadow-xl relative overflow-hidden min-h-[500px] group">
-              <div className="relative z-10 space-y-12 text-left">
+            <div className="bg-stone-900 rounded-[2.5rem] p-8 text-white flex flex-col justify-between shadow-xl relative overflow-hidden min-h-[440px] group text-left">
+              <div className="relative z-10 space-y-8">
                 <div className="flex items-center gap-3 text-stone-500">
-                  <Cpu size={14} />
-                  <p className="text-[9px] font-black uppercase tracking-widest">Resource Ledger</p>
+                  <Activity size={14} />
+                  <p className="text-[8px] font-black uppercase tracking-[0.4em]">Resource Ledger</p>
                 </div>
                 
-                <div className="space-y-6">
+                <div className="space-y-4">
                   <div>
-                    <h2 className="text-8xl font-mono tracking-tighter text-[#a9b897] leading-none">28.0</h2>
-                    <p className="text-[10px] font-black uppercase text-stone-400 tracking-widest italic ml-2 mt-2">Holiday Credit</p>
+                    <h2 className="text-7xl font-mono tracking-tighter text-[#a9b897] leading-none">28.0</h2>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-[0.4em] italic mt-2">Holiday Credit</p>
                   </div>
-                  <div className="w-full bg-white/5 h-3 rounded-full overflow-hidden p-0.5">
+                  <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
                     <motion.div initial={{ width: 0 }} animate={{ width: '65%' }} transition={{ duration: 1.5 }} 
-                      className="bg-[#a9b897] h-full rounded-full shadow-[0_0_15px_rgba(169,184,151,0.4)]" />
+                      className="bg-[#a9b897] h-full rounded-full" />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 pt-6">
-                  <button onClick={() => setActiveModal('leave')} className="w-full p-6 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-all text-left">
-                    <div className="flex items-center gap-6">
-                      <Calendar size={20} className="text-[#a9b897]" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Deploy Absence</span>
+                <div className="space-y-3 pt-4">
+                  <button onClick={() => setActiveModal('leave')} className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-all">
+                    <div className="flex items-center gap-4">
+                      <Calendar size={18} className="text-[#a9b897]" />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Request Leave</span>
                     </div>
-                    <ChevronRight size={16} className="text-stone-700" />
+                    <ChevronRight size={14} className="text-stone-700" />
                   </button>
-                  <button onClick={() => setActiveModal('payslip')} className="w-full p-6 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-all text-left">
-                    <div className="flex items-center gap-6">
-                      <FileText size={20} className="text-stone-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Document Vault</span>
+                  <button onClick={() => setActiveModal('payslip')} className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-all">
+                    <div className="flex items-center gap-4">
+                      <FileText size={18} className="text-stone-500" />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Document Vault</span>
                     </div>
-                    <ChevronRight size={16} className="text-stone-700" />
+                    <ChevronRight size={14} className="text-stone-700" />
                   </button>
                 </div>
               </div>
+              <Lock size={120} className="absolute -right-8 -bottom-8 opacity-[0.03] text-white" />
             </div>
           </div>
         </div>
 
-        {/* --- BANKING (SHRUNKEN) --- */}
-        <section className="bg-white rounded-[3rem] p-10 border border-stone-100 shadow-sm grid grid-cols-1 xl:grid-cols-12 gap-10 hover:border-stone-900 transition-all text-left">
-           <div className="xl:col-span-4 xl:border-r border-stone-100 xl:pr-10 space-y-4">
-              <div className="w-12 h-12 bg-stone-50 rounded-xl flex items-center justify-center text-[#a9b897] shadow-inner"><Landmark size={24} /></div>
+        {/* BANKING ENDPOINT */}
+        <section className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-sm grid grid-cols-1 xl:grid-cols-12 gap-8 hover:border-stone-900 transition-all text-left">
+           <div className="xl:col-span-4 xl:border-r border-stone-100 xl:pr-8 space-y-3">
+              <div className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center text-[#a9b897] shadow-inner"><Landmark size={20} /></div>
               <div className="space-y-1">
-                <h5 className="text-[12px] font-black uppercase tracking-widest text-stone-900">Financial Endpoint</h5>
-                <p className="text-[9px] text-stone-400 font-bold uppercase tracking-widest italic leading-relaxed">Secured parameters for automated compensation.</p>
+                <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-900">Financial Endpoint</h5>
+                <p className="text-[8px] text-stone-400 font-bold uppercase tracking-widest italic">Secured parameters for compensation.</p>
               </div>
            </div>
            
-           <div className="xl:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+           <div className="xl:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
                   { label: 'Institution', key: 'bank_name' },
                   { label: 'Account No.', key: 'account_number' },
                   { label: 'Sort Code', key: 'sort_code' }
                 ].map((bank) => (
-                  <div key={bank.key} className="p-8 bg-stone-50 rounded-3xl border border-stone-100 space-y-3 group hover:bg-white transition-all">
-                    <p className="text-[8px] font-black uppercase text-stone-400 tracking-widest">{bank.label}</p>
+                  <div key={bank.key} className="p-5 bg-stone-50 rounded-2xl border border-stone-100 space-y-2 group hover:bg-white transition-all">
+                    <p className="text-[8px] font-black uppercase text-stone-300 tracking-[0.4em]">{bank.label}</p>
                     <input value={profile[bank.key] || ""} onChange={(e) => setProfile({...profile, [bank.key]: e.target.value})}
-                      className="w-full bg-transparent font-mono font-bold text-lg outline-none text-stone-900" placeholder="XXXXXX" />
+                      className="w-full bg-transparent font-mono font-bold text-base outline-none text-stone-900" placeholder="XXXXXX" />
                   </div>
               ))}
            </div>
         </section>
 
-        {/* --- COMPACT FOOTER --- */}
-        <footer className="pt-12 border-t border-stone-100 flex justify-between items-center text-stone-300 text-[8px] font-black uppercase tracking-widest">
-          <div className="flex items-center gap-4">
-            <p>TOTS OS v6.2.1 • Personnel Module</p>
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-            <Globe size={12} className="text-stone-200" />
+        <footer className="pt-8 border-t border-stone-100 flex justify-between items-center text-stone-300 text-[8px] font-black uppercase tracking-[0.4em]">
+          <div className="flex items-center gap-3">
+            <p>TOTS OS v7.1.0 • HR NODE</p>
+            <div className="w-1 h-1 rounded-full bg-[#a9b897] animate-pulse" />
           </div>
-          <div className="flex gap-8">
-            <button className="hover:text-stone-900">Identity Protocols</button>
-            <button className="hover:text-stone-900">Network Access</button>
+          <div className="flex gap-6">
+            <button className="hover:text-stone-900">Protocols</button>
+            <button className="hover:text-stone-900">Privacy</button>
           </div>
         </footer>
       </div>
 
-      {/* --- MODALS --- */}
       <Modal id="leave" title="Absence" subtitle="Operational Capacity">
-        <div className="space-y-10 py-6 text-left">
-          <div className="grid grid-cols-1 gap-6">
+        <div className="space-y-6 py-4 text-left">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-4 tracking-widest">Commencement</label>
-              <input type="date" className="w-full p-6 bg-white rounded-2xl border border-stone-100 outline-none font-bold text-stone-700 shadow-sm" />
+              <label className="text-[8px] font-black uppercase text-stone-300 ml-2 tracking-widest">Commencement</label>
+              <input type="date" className="w-full p-4 bg-stone-50 rounded-xl border border-stone-100 outline-none font-bold text-stone-700" />
             </div>
             <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase text-stone-400 ml-4 tracking-widest">Reactivation</label>
-              <input type="date" className="w-full p-6 bg-white rounded-2xl border border-stone-100 outline-none font-bold text-stone-700 shadow-sm" />
+              <label className="text-[8px] font-black uppercase text-stone-300 ml-2 tracking-widest">Reactivation</label>
+              <input type="date" className="w-full p-4 bg-stone-50 rounded-xl border border-stone-100 outline-none font-bold text-stone-700" />
             </div>
           </div>
           <button onClick={() => { notify("Protocol Initiated"); setActiveModal(null); }} 
-            className="w-full bg-stone-900 text-white py-8 rounded-[2.5rem] text-[10px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all">
+            className="w-full bg-stone-900 text-white py-5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all">
             Deploy Directive
           </button>
         </div>
       </Modal>
 
-      <Modal id="payslip" title="Document Vault" subtitle="Encrypted Ledger">
-        <div className="space-y-4 py-6">
+      <Modal id="payslip" title="Vault" subtitle="Encrypted Records">
+        <div className="space-y-3 py-4">
            {['May 2026', 'April 2026', 'March 2026'].map((month) => (
-             <div key={month} className="flex items-center justify-between p-6 bg-white rounded-3xl border border-stone-100 hover:border-stone-900 transition-all cursor-pointer text-left">
-               <div className="flex items-center gap-6">
-                 <div className="w-12 h-12 bg-stone-50 rounded-xl flex items-center justify-center text-stone-200 shadow-inner"><ShieldCheck size={20} /></div>
+             <div key={month} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-stone-100 hover:border-stone-900 transition-all cursor-pointer text-left">
+               <div className="flex items-center gap-4">
+                 <div className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center text-stone-200"><ShieldCheck size={18} /></div>
                  <div>
-                    <p className="text-lg font-bold text-stone-800 tracking-tight">{month}</p>
-                    <p className="text-[8px] font-black uppercase text-stone-400 tracking-widest italic">Verified Record</p>
+                    <p className="text-base font-bold text-stone-800 tracking-tight">{month}</p>
+                    <p className="text-[7px] font-black uppercase text-stone-300 tracking-widest italic">Verified</p>
                  </div>
                </div>
                <Download size={14} className="text-[#a9b897]" />

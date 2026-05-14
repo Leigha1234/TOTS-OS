@@ -9,12 +9,13 @@ import {
   ArrowUpRight, Receipt, Plus, Activity, 
   Fingerprint, Send, Trash2, Database,
   Filter, Cpu, AlertCircle, CheckCircle2, 
-  Download, PieChart, History, Zap, ShieldCheck
+  Download, PieChart, History, Zap, ShieldCheck,
+  BarChart3, Users, Clock
 } from "lucide-react";
 
 /**
  * TOTS OS v7.0.1 - COMPACT FISCAL NODE
- * REVISION: REDUCED SCALE | TIGHTER PADDING | OPTIMIZED VIEWPORT
+ * REVISION: ADDED NAV NODES | TIGHTER PADDING
  */
 
 const MetricCard = ({ label, value, sub, icon, isDark = false }: any) => (
@@ -48,16 +49,8 @@ export default function PaymentsPage() {
   const [notification, setNotification] = useState({ visible: false, msg: "", type: "success" });
   const router = useRouter();
 
-  const [formData, setFormData] = useState({ 
-    client: "", 
-    email: "", 
-    reference: `TX-${Math.floor(1000 + Math.random() * 9000)}`,
-  });
-
-  const [lineItems, setLineItems] = useState([
-    { id: Date.now(), desc: "Neural Architecture Node", qty: 1, price: 12500 }
-  ]);
-
+  const [formData, setFormData] = useState({ client: "", email: "", reference: `TX-${Math.floor(1000 + Math.random() * 9000)}` });
+  const [lineItems, setLineItems] = useState([{ id: Date.now(), desc: "Neural Architecture Node", qty: 1, price: 12500 }]);
   const [metrics, setMetrics] = useState({ revYtd: 0, operatingCosts: 18450, vatPool: 0, taxDue: 0 });
   const [ledger, setLedger] = useState([
     { id: "INV-882", client: "Aperture Labs", amount: 14200, status: "paid", type: "Invoice", date: "2026-05-01" },
@@ -71,12 +64,7 @@ export default function PaymentsPage() {
         const { data } = await supabase.from('timesheets').select('mon, tue, wed, thu, fri');
         const hours = data?.reduce((a, r) => a + (Number(r.mon) + Number(r.tue) + Number(r.wed) + Number(r.thu) + Number(r.fri)), 0) || 450;
         const rev = hours * 125;
-        setMetrics({ 
-          revYtd: rev, 
-          operatingCosts: 18450, 
-          vatPool: rev * 0.2, 
-          taxDue: (rev - 12570) * 0.19 
-        });
+        setMetrics({ revYtd: rev, operatingCosts: 18450, vatPool: rev * 0.2, taxDue: (rev - 12570) * 0.19 });
     };
     syncData();
   }, []);
@@ -90,10 +78,7 @@ export default function PaymentsPage() {
 
   const handleDispatch = () => {
     if (!formData.client) { triggerNotify("Entity Node Missing", "error"); return; }
-    const doc = {
-      id: `INV-${Math.floor(Math.random() * 900) + 100}`,
-      client: formData.client, amount: grandTotal, status: "pending", type: "Invoice", date: new Date().toISOString().split('T')[0]
-    };
+    const doc = { id: `INV-${Math.floor(Math.random() * 900) + 100}`, client: formData.client, amount: grandTotal, status: "pending", type: "Invoice", date: new Date().toISOString().split('T')[0] };
     setLedger([doc, ...ledger]);
     triggerNotify("Directive Dispatched");
     setActiveModal(null);
@@ -115,10 +100,10 @@ export default function PaymentsPage() {
 
       <div className="max-w-[1200px] mx-auto px-6 py-10 space-y-10">
         
-        {/* HEADER ARCHITECTURE - SCALED DOWN */}
+        {/* HEADER ARCHITECTURE */}
         <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 border-b border-stone-100 pb-8">
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 text-left">
               <div className="p-3 bg-stone-900 text-[#a9b897] rounded-xl shadow-lg"><Fingerprint size={18} /></div>
               <div className="space-y-0.5">
                 <p className="font-black uppercase text-[8px] tracking-[0.4em] text-stone-300">FISCAL_PULSE_7.1</p>
@@ -131,11 +116,17 @@ export default function PaymentsPage() {
             <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Payments</h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             <nav className="flex items-center bg-white p-1 rounded-full shadow-sm border border-stone-100">
-              {['Payments', 'Finance', 'Ledger'].map((tab) => (
-                <button key={tab} className={`px-6 py-2.5 text-[8px] font-black uppercase tracking-[0.1em] rounded-full transition-all ${tab === 'Payments' ? 'bg-stone-900 text-white' : 'text-stone-300 hover:text-stone-900'}`}>
-                  {tab}
+              <button className="px-5 py-2.5 bg-stone-900 text-white rounded-full text-[8px] font-black uppercase tracking-[0.1em] transition-all">Payments</button>
+              {[
+                { name: 'Finance', path: '/finance-reports', icon: <BarChart3 size={10}/> },
+                { name: 'HR', path: '/hr', icon: <Users size={10}/> },
+                { name: 'Timesheets', path: '/timesheets', icon: <Clock size={10}/> }
+              ].map((link) => (
+                <button key={link.name} onClick={() => router.push(link.path)}
+                  className="px-5 py-2.5 text-stone-300 hover:text-stone-900 rounded-full text-[8px] font-black uppercase tracking-[0.1em] flex items-center gap-2 transition-all">
+                  {link.icon} {link.name}
                 </button>
               ))}
             </nav>
@@ -146,7 +137,7 @@ export default function PaymentsPage() {
           </div>
         </header>
 
-        {/* METRIC GRID - COMPACT */}
+        {/* METRIC GRID */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard label="Gross Intake" value={metrics.revYtd} sub="Engagement: 114%" icon={<TrendingUp />} isDark />
           <MetricCard label="Operational" value={metrics.revYtd - metrics.operatingCosts} sub="Flow: Clear" icon={<Database />} />
@@ -154,7 +145,7 @@ export default function PaymentsPage() {
           <MetricCard label="Fiscal Prov" value={metrics.taxDue} sub="FY26 Est." icon={<Receipt />} />
         </section>
 
-        {/* DUAL INTERACTIVE NODES - LOWER HEIGHT */}
+        {/* INTERACTIVE NODES */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <button onClick={() => setActiveModal('reserves')} className="p-10 bg-white border border-stone-100 rounded-[2.5rem] flex flex-col justify-between hover:border-stone-900 transition-all shadow-sm group min-h-[300px] relative overflow-hidden text-left">
               <div className="flex justify-between w-full">
@@ -178,7 +169,7 @@ export default function PaymentsPage() {
             </button>
         </div>
 
-        {/* LEDGER ARCHIVE - COMPACT TABLE */}
+        {/* LEDGER ARCHIVE */}
         <section className="bg-white border border-stone-100 rounded-[2.5rem] overflow-hidden shadow-sm">
           <div className="p-8 border-b border-stone-50 flex flex-col xl:flex-row justify-between items-center gap-6">
             <div className="text-left w-full xl:w-auto">
@@ -227,7 +218,6 @@ export default function PaymentsPage() {
         </section>
       </div>
 
-      {/* STYLES */}
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

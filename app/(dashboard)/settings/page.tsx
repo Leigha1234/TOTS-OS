@@ -4,13 +4,24 @@ import { useEffect, useState, Suspense, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client"; 
 import { useSettings } from "@/app/context/SettingsContext";
+
+const toast = {
+  success: (message: string) => {
+    if (typeof window !== "undefined") window.alert(message);
+  },
+  error: (message: string) => {
+    if (typeof window !== "undefined") window.alert(message);
+  },
+};
+
 import { 
   Save, Sun, Loader2, Users, Trash2, Check, Camera, Mail, 
   Palette, UserCircle, Fingerprint, Copy, LogOut, Zap, Sparkles,
   LayoutDashboard, Calendar, Megaphone, DollarSign,
   Briefcase, BarChart3, Globe, Lock, StickyNote, ArrowUpRight,
-  Database, Share2
+  Database, Share2, Moon, ShieldCheck, Cpu, HardDrive, 
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const NAV_OPTIONS = [
   { id: "/dashboard", label: "dashboard", icon: LayoutDashboard },
@@ -26,12 +37,12 @@ const NAV_OPTIONS = [
   { id: "/vault", label: "Vault", icon: Lock },
 ];
 
-export default function SettingsPage() {
+export default function CommandPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#fcfaf7] gap-4">
-        <Loader2 className="animate-spin text-stone-300" size={40} />
-        <p className="font-serif italic text-stone-400">Loading System Protocols...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F9F8F6] gap-4">
+        <div className="w-12 h-12 rounded-full border-2 border-stone-100 border-t-[#A3B18A] animate-spin" />
+        <p className="font-serif italic text-stone-400">Restoring Command Protocols...</p>
       </div>
     }>
       <SettingsContent />
@@ -56,8 +67,8 @@ function SettingsContent() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [mobileNav, setMobileNav] = useState<string[]>([]);
 
-  const [brandColor, setBrandColor] = useState("#a9b897");
-  const [secondaryColor, setSecondaryColor] = useState("#1c1917");
+  const [brandColor, setBrandColor] = useState("#A3B18A"); // Default Sage
+  const [secondaryColor, setSecondaryColor] = useState("#2C2C2C");
   const [selectedFont, setSelectedFont] = useState("Inter");
   const [bankInfo, setBankInfo] = useState({ name: "", acc: "", sort: "" });
   const [logoUrl, setLogoUrl] = useState("");
@@ -92,7 +103,7 @@ function SettingsContent() {
         if (membersRes.data) setTeamMembers(membersRes.data);
         if (settingsRes.data) {
           if (settingsRes.data.brand_color) setBrandColor(settingsRes.data.brand_color);
-          setSecondaryColor(settingsRes.data.secondary_color || "#1c1917");
+          setSecondaryColor(settingsRes.data.secondary_color || "#2C2C2C");
           setBankInfo(settingsRes.data.bank_info || { name: "", acc: "", sort: "" });
         }
       }
@@ -128,141 +139,172 @@ function SettingsContent() {
       }
 
       await refreshSettings();
-      alert("Neural Configuration Synced Successfully.");
-    } catch (err: any) { alert(err.message); } finally { setSaving(false); }
+      toast.success("Identity & Logic Synced");
+    } catch (err: any) { toast.error(err.message); } finally { setSaving(false); }
   };
 
   if (loading) return null;
 
   return (
-    <div className={`min-h-screen transition-colors duration-700 ${isDarkMode ? 'bg-stone-950 text-stone-200' : 'bg-[#fcfaf7] text-stone-900'}`}>
+    <div className={`min-h-screen transition-colors duration-1000 selection:bg-[#A3B18A] selection:text-white ${isDarkMode ? 'bg-[#121212] text-stone-200' : 'bg-[#F9F8F6] text-[#2C2C2C]'}`}>
       
       <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
+        .font-serif { font-family: 'Instrument Serif', serif; }
         :root { --brand-primary: ${brandColor}; --brand-secondary: ${secondaryColor}; }
         body { font-family: '${selectedFont}', sans-serif; }
-        .bg-brand { background-color: var(--brand-primary) !important; }
-        .text-brand { color: var(--brand-primary) !important; }
-        .bg-secondary { background-color: var(--brand-secondary) !important; }
       `}</style>
 
-      <div className="max-w-7xl mx-auto p-6 md:p-12 lg:p-20 space-y-16">
+      <div className="max-w-[1400px] mx-auto p-8 md:p-16 lg:p-24 space-y-24">
         
-        {/* COMMAND HEADER */}
-        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-10 border-b border-stone-200 pb-16">
+        {/* REFINED HEADER */}
+        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-12 border-b border-stone-100 pb-20">
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <Zap size={14} className="text-brand animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40">System Configuration</span>
+            <div className="flex items-center gap-4">
+              <div className="w-2 h-2 rounded-full bg-[#A3B18A] shadow-[0_0_10px_rgba(163,177,138,0.5)]" />
+              <span className="text-[10px] font-black uppercase tracking-[0.6em] text-stone-300">Operational Hub</span>
             </div>
-            <h1 className="text-7xl md:text-8xl font-serif italic tracking-tighter leading-[0.8] text-brand">Command</h1>
+            <h1 className="text-8xl md:text-9xl font-serif italic tracking-tighter leading-none text-stone-900">
+              Command.
+            </h1>
           </div>
           
-          <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
-            {/* ADDED: TEAM BUTTON AT TOP */}
-            <button onClick={() => router.push('/team')} className="flex items-center gap-3 px-8 py-5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 transition-all font-black text-[9px] uppercase tracking-widest text-stone-600">
-              <Users size={16} className="text-brand" /> Team Architecture
+          <div className="flex flex-wrap items-center gap-6 w-full lg:w-auto">
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)} 
+              className="p-5 rounded-3xl border border-stone-100 bg-white/50 backdrop-blur-sm hover:bg-white transition-all shadow-sm group"
+            >
+              {isDarkMode ? <Sun size={20} className="text-amber-400" /> : <Moon size={20} className="text-stone-300 group-hover:text-[#A3B18A]" />}
             </button>
             
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 transition-colors">
-              <Sun size={20} className={isDarkMode ? "text-stone-400" : "text-brand"} />
-            </button>
-            
-            <button onClick={handleGlobalSave} className="flex-1 md:flex-none flex items-center justify-center gap-4 px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] text-white bg-brand shadow-2xl hover:brightness-110 transition-all">
-              {saving ? <Loader2 className="animate-spin" size={16}/> : <Fingerprint size={16} />} Commit Changes
+            <button 
+              onClick={handleGlobalSave} 
+              disabled={saving}
+              className="flex-1 lg:flex-none flex items-center justify-center gap-5 px-14 py-6 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.3em] text-white bg-stone-900 shadow-2xl hover:bg-[#A3B18A] transition-all duration-500 active:scale-95 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="animate-spin" size={18}/> : <Fingerprint size={18} />} 
+              {saving ? "Syncing Logic" : "Commit Changes"}
             </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-24">
           
-          <div className="lg:col-span-4 space-y-10">
-            {/* IDENTITY SECTION */}
-            <section className={`p-10 rounded-[3.5rem] border shadow-sm space-y-10 ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
-              <div className="flex flex-col items-center gap-8">
-                <div className="relative group w-40 h-40 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden transition-all hover:border-brand">
-                  {logoUrl ? <img src={logoUrl} className="w-full h-full object-cover" alt="Profile" /> : <UserCircle size={64} className="opacity-5" />}
-                  <label className="absolute inset-0 bg-stone-900/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer text-[9px] font-black uppercase tracking-widest gap-2">
-                    <Camera size={20} /> Update
-                    <input type="file" className="hidden" />
-                  </label>
-                </div>
-                <input 
-                  value={profile.full_name || ""} 
-                  onChange={e => setProfile({...profile, full_name: e.target.value})} 
-                  className="text-center font-serif italic text-4xl w-full bg-transparent outline-none text-brand" 
-                  placeholder="Identity Name" 
-                />
-              </div>
-
-              <div className="space-y-4 pt-6 border-t border-stone-100">
-                <div className="group space-y-2">
-                  <label className="text-[9px] font-black uppercase tracking-widest opacity-30 ml-4">Communication</label>
-                  <div className="flex items-center gap-4 p-5 bg-stone-50 rounded-3xl border border-stone-100 focus-within:border-brand transition-colors">
-                    <Mail size={16} className="text-stone-300" />
-                    <input value={email} readOnly className="bg-transparent text-xs font-bold outline-none w-full text-stone-400" />
+          {/* LEFT COLUMN: IDENTITY & AESTHETIC */}
+          <div className="lg:col-span-4 space-y-16">
+            
+            {/* PROFILE ARCHIVE */}
+            <section className="space-y-10">
+              <div className="flex flex-col items-center gap-10">
+                <div className="relative group">
+                  <div className="w-48 h-48 rounded-[4rem] bg-white border border-stone-100 flex items-center justify-center overflow-hidden transition-all duration-700 group-hover:rotate-3 shadow-xl shadow-stone-200/50">
+                    {logoUrl ? (
+                      <img src={logoUrl} className="w-full h-full object-cover" alt="Profile" />
+                    ) : (
+                      <div className="w-full h-full bg-[#A3B18A]/5 flex items-center justify-center text-[#A3B18A]/20 italic font-serif text-6xl">L</div>
+                    )}
+                    <label className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col items-center justify-center text-white cursor-pointer backdrop-blur-sm">
+                      <Camera size={24} />
+                      <span className="text-[9px] font-black uppercase tracking-widest mt-2">Update Visual</span>
+                      <input type="file" className="hidden" />
+                    </label>
+                  </div>
+                  <div className="absolute -bottom-2 -right-2 bg-white p-3 rounded-2xl border border-stone-100 shadow-lg">
+                     <ShieldCheck size={16} className="text-[#A3B18A]" />
                   </div>
                 </div>
-                <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="w-full p-5 rounded-3xl border border-red-50/50 text-red-500 hover:bg-red-50 transition-all font-black text-[9px] uppercase tracking-widest">
-                  Terminate Session
+                
+                <div className="text-center space-y-2">
+                  <input 
+                    value={profile.full_name || ""} 
+                    onChange={e => setProfile({...profile, full_name: e.target.value})} 
+                    className="text-center font-serif italic text-5xl w-full bg-transparent outline-none text-stone-900 placeholder-stone-200" 
+                    placeholder="Subject Name" 
+                  />
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#A3B18A]">{currentTier} LICENSE</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-10 border-t border-stone-50">
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Authorized Email</label>
+                  <div className="flex items-center gap-4 p-6 bg-white border border-stone-100 rounded-3xl transition-all hover:shadow-sm">
+                    <Mail size={16} className="text-[#A3B18A]" />
+                    <input value={email} readOnly className="bg-transparent text-[11px] font-bold outline-none w-full text-stone-400 cursor-not-allowed" />
+                  </div>
+                </div>
+                
+                <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="w-full p-6 rounded-3xl border border-stone-100 text-stone-400 hover:text-red-400 hover:bg-red-50 hover:border-red-100 transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3">
+                  <LogOut size={14} /> Terminate Session
                 </button>
               </div>
             </section>
 
-            {/* AESTHETIC ENGINE */}
-            <section className={`p-10 rounded-[3.5rem] border ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100 shadow-sm'} space-y-8`}>
-              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 flex items-center gap-3"><Palette size={16}/> Aesthetic Engine</h2>
-              <div className="grid grid-cols-2 gap-6">
-                 <div className="space-y-3">
-                    <label className="text-[9px] font-black uppercase opacity-40 ml-2">Primary</label>
-                    <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-full h-14 rounded-2xl cursor-pointer bg-transparent border-none" />
+            {/* AESTHETIC DNA */}
+            <section className="bg-white p-10 rounded-[3rem] border border-stone-100 shadow-sm space-y-10">
+              <div className="flex items-center gap-4">
+                <Palette size={18} className="text-[#A3B18A]"/>
+                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-900">Aesthetic DNA</h2>
+              </div>
+              
+              <div className="space-y-8">
+                 <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                       <p className="text-[10px] font-bold text-stone-800">Primary Tone</p>
+                       <p className="text-[9px] font-black text-stone-300 uppercase tracking-widest">{brandColor}</p>
+                    </div>
+                    <input type="color" value={brandColor} onChange={e => setBrandColor(e.target.value)} className="w-14 h-14 rounded-2xl cursor-pointer border-none bg-transparent" />
                  </div>
-                 <div className="space-y-3">
-                    <label className="text-[9px] font-black uppercase opacity-40 ml-2">Secondary</label>
-                    <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-full h-14 rounded-2xl cursor-pointer bg-transparent border-none" />
+                 <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                       <p className="text-[10px] font-bold text-stone-800">Contrast Tone</p>
+                       <p className="text-[9px] font-black text-stone-300 uppercase tracking-widest">{secondaryColor}</p>
+                    </div>
+                    <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-14 h-14 rounded-2xl cursor-pointer border-none bg-transparent" />
                  </div>
               </div>
             </section>
           </div>
 
-          <div className="lg:col-span-8 space-y-12">
+          {/* RIGHT COLUMN: ARCHITECTURE & NETWORK */}
+          <div className="lg:col-span-8 space-y-16">
             
-            {/* IMPORT ACCESS (SIMPLIFIED TO BUTTON) */}
-            <section className={`p-10 lg:p-14 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
-               <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-                  <div className="space-y-2">
-                    <h2 className="text-4xl font-serif italic text-brand">Data Migration</h2>
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Import external nodes</p>
-                  </div>
-                  <button 
-                    onClick={() => router.push('/import')}
-                    className="group flex items-center gap-6 p-8 rounded-[2.5rem] bg-stone-50 border border-stone-100 hover:border-brand transition-all text-left"
-                  >
-                    <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-brand">
-                      <Database size={20} />
-                    </div>
-                    <div className="pr-4">
-                      <h4 className="text-[11px] font-black uppercase tracking-widest text-stone-900 flex items-center gap-2">
-                        Open Import Hub <ArrowUpRight size={14} className="opacity-30 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                      </h4>
-                      <p className="text-[9px] font-bold text-stone-400 mt-1 uppercase">CSV / XLS Migration</p>
-                    </div>
-                  </button>
+            {/* DATA MIGRATION CARD */}
+            <section className="group p-10 lg:p-14 bg-white rounded-[4rem] border border-stone-100 shadow-sm hover:shadow-xl transition-all duration-700 flex flex-col md:flex-row justify-between items-center gap-12">
+               <div className="space-y-4 text-center md:text-left">
+                 <h2 className="text-5xl font-serif italic text-stone-900 tracking-tighter">Migration Hub.</h2>
+                 <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-300">Ingest External Archives</p>
                </div>
+               
+               <button 
+                 onClick={() => router.push('/import')}
+                 className="w-full md:w-auto flex items-center gap-8 p-10 rounded-[3rem] bg-[#F9F8F6] border border-transparent hover:border-[#A3B18A] transition-all group/btn"
+               >
+                 <div className="w-16 h-16 rounded-[1.5rem] bg-white shadow-sm flex items-center justify-center text-[#A3B18A] group-hover/btn:scale-110 transition-transform">
+                   <Database size={24} />
+                 </div>
+                 <div className="pr-8 text-left">
+                   <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-stone-900 flex items-center gap-3">
+                     Open Import <ArrowUpRight size={16} className="text-stone-200 group-hover/btn:text-[#A3B18A] transition-colors" />
+                   </h4>
+                   <p className="text-[9px] font-bold text-stone-400 mt-2 uppercase">CSV / JSON Transfer</p>
+                 </div>
+               </button>
             </section>
 
-            {/* ARCHITECTURE (MOBILE NAV) */}
-            <section className={`p-10 lg:p-14 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
-               <div className="flex justify-between items-start mb-12">
-                  <div className="space-y-2">
-                    <h2 className="text-4xl font-serif italic text-brand">Architecture</h2>
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Neural Hub Config</p>
+            {/* NEURAL NAVIGATION (MOBILE CONFIG) */}
+            <section className="bg-white p-10 lg:p-16 rounded-[4.5rem] border border-stone-100 shadow-sm space-y-16">
+               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                  <div className="space-y-3">
+                    <h2 className="text-5xl font-serif italic text-stone-900 tracking-tighter">Architecture.</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-300">Mobile Hub Priority</p>
                   </div>
-                  <div className="px-5 py-2 rounded-full bg-stone-50 border border-stone-100 text-[10px] font-black text-brand uppercase tracking-widest">
-                    {mobileNav.length} / 3 Active
+                  <div className="px-6 py-2.5 rounded-full bg-stone-50 border border-stone-100 text-[10px] font-black text-[#A3B18A] uppercase tracking-[0.2em]">
+                    {mobileNav.length} / 3 Selected
                   </div>
                </div>
 
-               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   {NAV_OPTIONS.map((option) => {
                     const isSelected = mobileNav.includes(option.id);
                     const isDisabled = !isSelected && mobileNav.length >= 3;
@@ -271,65 +313,113 @@ function SettingsContent() {
                         key={option.id}
                         onClick={() => handleToggleNav(option.id)}
                         disabled={isDisabled}
-                        className={`relative flex flex-col items-center gap-4 p-8 rounded-[2.5rem] border transition-all ${isSelected ? 'bg-brand text-white border-transparent shadow-xl scale-[1.05]' : 'bg-stone-50 border-stone-100 text-stone-400 hover:border-stone-300 hover:text-stone-600'} ${isDisabled ? 'opacity-20 grayscale cursor-not-allowed' : 'opacity-100'}`}
+                        className={`group relative flex flex-col items-center gap-6 p-10 rounded-[3rem] border transition-all duration-500 ${
+                          isSelected 
+                            ? 'bg-stone-900 text-white border-transparent shadow-2xl scale-[1.02]' 
+                            : 'bg-stone-50/50 border-stone-50 text-stone-300 hover:bg-white hover:border-stone-100 hover:text-stone-600'
+                        } ${isDisabled ? 'opacity-20 grayscale cursor-not-allowed' : 'opacity-100'}`}
                       >
-                        <option.icon size={24} strokeWidth={1.5} />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-center leading-tight">{option.label}</span>
-                        {isSelected && <div className="absolute top-3 right-3"><Check size={12}/></div>}
+                        <option.icon size={28} strokeWidth={1.2} className={isSelected ? "text-[#A3B18A]" : "group-hover:text-[#A3B18A] transition-colors"} />
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-center leading-tight">{option.label}</span>
+                        {isSelected && (
+                          <div className="absolute top-4 right-4 text-[#A3B18A]">
+                            <Check size={14}/>
+                          </div>
+                        )}
                       </button>
                     );
                   })}
                </div>
             </section>
 
-            {/* TEAM PREVIEW */}
-            <section className={`p-10 lg:p-14 rounded-[4rem] border shadow-sm ${isDarkMode ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-100'}`}>
-               <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-12">
-                 <div className="space-y-2">
-                   <h2 className="text-4xl font-serif italic text-brand">The Network</h2>
-                   <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-30">Active Collaborators</p>
+            {/* THE NETWORK (TEAM) */}
+            <section className="space-y-12">
+               <div className="flex flex-col md:flex-row justify-between items-end gap-8">
+                 <div className="space-y-3">
+                   <h2 className="text-5xl font-serif italic text-stone-900 tracking-tighter">The Network.</h2>
+                   <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-300">Collaborative Nodes</p>
                  </div>
-                 <button onClick={() => {navigator.clipboard.writeText(inviteLink); alert("Link Copied");}} className="group flex items-center gap-4 bg-stone-900 text-white pl-6 pr-4 py-3 rounded-full hover:bg-brand transition-all shadow-xl">
-                    <span className="text-[10px] font-black uppercase tracking-widest font-black">Invite Link</span>
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20">
-                      <Share2 size={14} />
-                    </div>
-                 </button>
+                 <div className="flex gap-4 w-full md:w-auto">
+                    <button 
+                      onClick={() => router.push('/team')}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 rounded-[2rem] border border-stone-100 bg-white font-black text-[10px] uppercase tracking-widest text-stone-400 hover:text-stone-900 transition-all shadow-sm"
+                    >
+                      <Users size={16} /> Manage All
+                    </button>
+                    <button 
+                      onClick={() => {navigator.clipboard.writeText(inviteLink); toast.success("Invite Link Copied");}} 
+                      className="p-5 bg-white border border-stone-100 rounded-[2rem] shadow-sm hover:text-[#A3B18A] transition-all"
+                    >
+                       <Share2 size={18} />
+                    </button>
+                 </div>
                </div>
 
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                  <div className="space-y-6">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-300 ml-2">Invite Collaborator</label>
-                    <div className="flex gap-2">
-                      <input placeholder="Email Address..." value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="flex-1 p-5 rounded-3xl bg-stone-50 border border-stone-100 text-xs font-bold outline-none focus:border-brand transition-all" />
-                      <button className="px-8 bg-stone-900 text-white rounded-3xl font-black text-[9px] uppercase tracking-widest hover:bg-brand transition-colors">Dispatch</button>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  <div className="bg-white p-10 rounded-[3rem] border border-stone-100 shadow-sm space-y-8">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-300">Invite New Node</p>
+                    <div className="space-y-4">
+                      <input 
+                        placeholder="Email Address..." 
+                        value={inviteEmail} 
+                        onChange={e => setInviteEmail(e.target.value)} 
+                        className="w-full p-6 rounded-2xl bg-[#F9F8F6] border border-transparent text-[11px] font-bold outline-none focus:border-[#A3B18A] transition-all" 
+                      />
+                      <button className="w-full py-5 bg-stone-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-[#A3B18A] transition-colors shadow-lg shadow-stone-200">
+                        Dispatch Invite
+                      </button>
                     </div>
                   </div>
-                  <div className="space-y-3">
-                     {teamMembers.slice(0, 3).map(m => (
-                       <div key={m.id} className="flex justify-between items-center p-5 bg-stone-50 rounded-3xl border border-stone-100">
-                          <span className="text-xs font-bold text-stone-600">{m.email}</span>
-                          <div className="w-2 h-2 rounded-full bg-brand animate-pulse" />
+                  
+                  <div className="space-y-4">
+                     {teamMembers.slice(0, 3).map((m, i) => (
+                       <div key={m.id || i} className="flex justify-between items-center p-6 bg-white rounded-[2rem] border border-stone-50 hover:shadow-md transition-all group">
+                          <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-full bg-stone-50 flex items-center justify-center text-[10px] font-bold text-stone-400 group-hover:bg-[#A3B18A]/10 group-hover:text-[#A3B18A] transition-all uppercase italic">
+                                {m.email?.charAt(0) || "U"}
+                             </div>
+                             <span className="text-[11px] font-bold text-stone-600">{m.email}</span>
+                          </div>
+                          <div className="w-2 h-2 rounded-full bg-[#A3B18A] opacity-30 group-hover:opacity-100 transition-opacity" />
                        </div>
                      ))}
                   </div>
                </div>
             </section>
 
-            {/* LEDGER */}
-            <section className="bg-secondary p-12 lg:p-20 rounded-[4.5rem] text-white shadow-2xl relative overflow-hidden group">
-               <div className="relative z-10 space-y-12">
-                  <div className="flex justify-between items-center">
-                    <div className="space-y-2">
-                      <h2 className="text-4xl font-serif italic text-brand">Ledger Protocol</h2>
-                      <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Secure Payout Data</p>
+            {/* LEDGER PROTOCOL (FINANCE) */}
+            <section className="bg-stone-900 p-12 lg:p-20 rounded-[5rem] text-white shadow-2xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-10 opacity-5">
+                  <Cpu size={300} />
+               </div>
+               
+               <div className="relative z-10 space-y-16">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-3">
+                      <h2 className="text-5xl font-serif italic text-[#A3B18A] tracking-tighter">Ledger.</h2>
+                      <p className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40">Payout Architecture</p>
                     </div>
-                    <Lock size={32} className="text-brand opacity-20" />
+                    <Lock size={32} className="text-[#A3B18A]/30" />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                     <input value={bankInfo.name} onChange={e => setBankInfo({...bankInfo, name: e.target.value})} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-sm font-bold outline-none focus:border-brand transition-all" placeholder="Bank Name" />
-                     <input value={bankInfo.acc} onChange={e => setBankInfo({...bankInfo, acc: e.target.value})} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-sm font-bold outline-none focus:border-brand transition-all" placeholder="Account No." />
-                     <input value={bankInfo.sort} onChange={e => setBankInfo({...bankInfo, sort: e.target.value})} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-sm font-bold outline-none focus:border-brand transition-all" placeholder="Sort Code" />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                     {[
+                       { key: 'name', label: 'Bank Institution', icon: <Globe size={14}/> },
+                       { key: 'acc', label: 'Account Identity', icon: <HardDrive size={14}/> },
+                       { key: 'sort', label: 'Routing Key', icon: <Zap size={14}/> }
+                     ].map((field) => (
+                       <div key={field.key} className="space-y-4">
+                         <div className="flex items-center gap-3 ml-2 opacity-30 uppercase tracking-[0.2em] text-[9px] font-black">
+                           {field.icon} {field.label}
+                         </div>
+                         <input 
+                           value={(bankInfo as any)[field.key]} 
+                           onChange={e => setBankInfo({...bankInfo, [field.key]: e.target.value})} 
+                           className="w-full bg-white/5 border border-white/5 p-6 rounded-3xl text-[11px] font-mono outline-none focus:border-[#A3B18A] focus:bg-white/10 transition-all" 
+                           placeholder="Enter Data..." 
+                         />
+                       </div>
+                     ))}
                   </div>
                </div>
             </section>
@@ -337,6 +427,15 @@ function SettingsContent() {
           </div>
         </div>
       </div>
+      
+      {/* MINIMAL UTILITY FOOTER */}
+      <footer className="max-w-[1400px] mx-auto px-16 pb-16 pt-8 flex flex-col sm:flex-row justify-between items-center border-t border-stone-50 gap-6">
+         <div className="flex items-center gap-8">
+            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-300">TOTS OS v4.2</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-300 hover:text-stone-900 cursor-pointer transition-colors">Privacy Shield</span>
+         </div>
+         <p className="text-[10px] font-serif italic text-stone-400">Leigha D-C. — Neural Command Interface</p>
+      </footer>
     </div>
   );
 }

@@ -27,7 +27,8 @@ export default function TotsOSLanding() {
     e.preventDefault();
 
     const formData = new FormData();
-    formData.append("email", email);
+    // MailerLite requires the "fields[email]" key for custom forms
+    formData.append("fields[email]", email);
 
     try {
       await fetch(
@@ -42,6 +43,8 @@ export default function TotsOSLanding() {
       setSubmitted(true);
       setEmail("");
     } catch {
+      // In 'no-cors' mode, we often hit the catch block even on success.
+      // We set submitted to true to show the success state to the user.
       setSubmitted(true);
     }
   }

@@ -13,7 +13,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// The source of truth for access levels
+/**
+ * TOTS OS SIDEBAR v7.1.5
+ * REVISION: STATIC ASSET MAPPING & SESSION TERMINATION
+ */
+
 const MODULE_PERMISSIONS: Record<string, string[]> = {
   STANDARD: ["Dashboard", "Contacts", "Notes", "Calendar"],
   PREMIUM: ["Dashboard", "Clarity", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects"],
@@ -63,12 +67,12 @@ export default function Sidebar() {
   }, [context?.settings]);
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Logout failed");
-    } else {
-      toast.success("Session Terminated");
+    try {
+      await supabase.auth.signOut();
+      toast.success("Session Terminated Safely");
       router.push("/login");
+    } catch (error) {
+      toast.error("Protocol Breach: Logout Failed");
     }
   };
 
@@ -96,28 +100,32 @@ export default function Sidebar() {
   return (
     <aside className={`
       hidden md:flex flex-col h-screen bg-stone-50 border-r border-stone-200 
-      transition-all duration-500 ease-in-out overflow-y-auto z-50
+      transition-all duration-500 ease-in-out z-50 relative
       ${collapsed ? "w-20" : "w-64"}
     `}>
       
-      {/* BRANDING AREA */}
-      <div className="flex items-center justify-between p-6 h-24 shrink-0">
+      {/* BRANDING AREA - Ensure folder is in /public/images/ */}
+      <div className="flex items-center justify-between p-6 h-24 shrink-0 overflow-hidden">
         {!collapsed ? (
           <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 overflow-hidden rounded-xl shadow-sm border border-stone-100 bg-white">
+            <div className="relative w-10 h-10 overflow-hidden rounded-xl shadow-sm border border-stone-100 bg-white shrink-0">
               <Image 
                 src="/images/TOTS-OS.jpeg" 
                 alt="TOTS OS Logo" 
                 fill
+                priority
                 className="object-cover"
               />
             </div>
-            <h1 className="font-black italic uppercase tracking-widest text-[11px] text-stone-900">
-              TOTS OS <span className="text-[8px] ml-2 opacity-30 italic">v7.1</span>
-            </h1>
+            <div className="flex flex-col">
+              <h1 className="font-black italic uppercase tracking-widest text-[11px] text-stone-900 leading-none">
+                TOTS OS
+              </h1>
+              <span className="text-[7px] opacity-30 font-black tracking-widest mt-1">SYSTEM_v7.1</span>
+            </div>
           </div>
         ) : (
-          <div className="relative w-8 h-8 mx-auto overflow-hidden rounded-lg border border-stone-100 bg-white">
+          <div className="relative w-8 h-8 mx-auto overflow-hidden rounded-lg border border-stone-100 bg-white shrink-0">
             <Image 
               src="/images/TOTS-OS.jpeg" 
               alt="Logo" 
@@ -128,15 +136,16 @@ export default function Sidebar() {
         )}
       </div>
 
+      {/* COLLAPSE TOGGLE */}
       <button 
         onClick={() => setCollapsed(!collapsed)} 
-        className={`mx-auto p-2 hover:bg-stone-200 rounded-xl transition-colors text-stone-400 hover:text-stone-900 mb-2 ${collapsed ? "" : "absolute right-4 top-8"}`}
+        className={`absolute z-10 p-1.5 hover:bg-stone-200 rounded-lg transition-colors text-stone-400 hover:text-stone-900 ${collapsed ? "left-1/2 -translate-x-1/2 top-20" : "right-4 top-8"}`}
       >
-        <Menu size={16} />
+        <Menu size={14} />
       </button>
 
       {/* NAVIGATION */}
-      <nav className="flex-1 space-y-1 px-4 mb-6 mt-4">
+      <nav className="flex-1 space-y-1 px-4 mb-6 mt-4 overflow-y-auto no-scrollbar">
         {!userTier ? (
           <div className="flex flex-col items-center justify-center py-10 gap-3">
             <Loader2 className="animate-spin text-stone-200" size={20} />
@@ -173,7 +182,7 @@ export default function Sidebar() {
       </nav>
 
       {/* FOOTER & LOGOUT */}
-      <div className="p-4 border-t border-stone-200 bg-stone-100/30 space-y-4">
+      <div className="p-4 border-t border-stone-200 bg-stone-100/30 space-y-4 shrink-0">
         <button 
           onClick={handleLogout}
           className={`
@@ -181,21 +190,21 @@ export default function Sidebar() {
             text-stone-400 hover:bg-red-50 hover:text-red-600 group
           `}
         >
-          <LogOut size={18} className="group-hover:rotate-12 transition-transform" />
+          <LogOut size={16} className="group-hover:rotate-12 transition-transform" />
           {!collapsed && (
-            <span className="font-black uppercase text-[9px] tracking-[0.2em]">
-              Terminate
+            <span className="font-black uppercase text-[8px] tracking-[0.2em]">
+             Logout
             </span>
           )}
         </button>
 
-        <div className="pt-2 px-2">
+        <div className="pt-1 px-2">
           {!collapsed ? (
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: activeColor }} />
                  <p className="text-[7px] uppercase tracking-[0.4em] text-stone-400 font-black">
-                   Systems: Stable
+                   Protocol: Stable
                  </p>
               </div>
               <p className="text-[10px] uppercase tracking-widest text-stone-900 font-black italic">
@@ -203,9 +212,9 @@ export default function Sidebar() {
               </p>
             </div>
           ) : (
-            <div className="flex justify-center">
+            <div className="flex justify-center pb-2">
               <div 
-                className="w-2 h-2 rounded-full animate-pulse" 
+                className="w-1.5 h-1.5 rounded-full animate-pulse" 
                 style={{ backgroundColor: activeColor }}
               />
             </div>

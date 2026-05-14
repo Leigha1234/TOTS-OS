@@ -110,7 +110,7 @@ export default function Sidebar() {
           <div className="flex items-center gap-3">
             <div className="relative w-10 h-10 overflow-hidden rounded-xl shadow-sm border border-stone-100 bg-white shrink-0">
               <Image 
-                src="/images/TOTS-OS.jpeg" 
+                src="/images/TOTS-favicon.jpeg" 
                 alt="TOTS OS Logo" 
                 fill
                 priority
@@ -127,7 +127,7 @@ export default function Sidebar() {
         ) : (
           <div className="relative w-8 h-8 mx-auto overflow-hidden rounded-lg border border-stone-100 bg-white shrink-0">
             <Image 
-              src="/images/TOTS-OS.jpeg" 
+              src="/images/TOTS-favicon.jpeg" 
               alt="Logo" 
               fill
               className="object-cover"

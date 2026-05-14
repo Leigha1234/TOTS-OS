@@ -9,7 +9,7 @@ import {
   Clock, FileText, Layout, 
   MoreHorizontal, CalendarDays,
   UserPlus, StickyNote, ArrowUpRight, 
-  Zap, Settings, X, Save
+  Zap, Settings, X, Save, Archive, Flag
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ interface Task {
   status: string;
   assigned_to?: string;
   due_date?: string;
+  priority?: string;
 }
 
 interface Project {
@@ -30,6 +31,7 @@ interface Project {
   team_id: string;
   due_date?: string;
   members?: string;
+  category?: string;
   created_at: string;
 }
 
@@ -51,11 +53,13 @@ export default function ProjectsPage() {
   const [projectName, setProjectName] = useState("");
   const [projectDue, setProjectDue] = useState("");
   const [projectMembers, setProjectMembers] = useState("");
+  const [projectCategory, setProjectCategory] = useState("Development");
   
   // Task Scheduler State
   const [newTaskName, setNewTaskName] = useState("");
   const [assignee, setAssignee] = useState("");
   const [taskDate, setTaskDate] = useState("");
+  const [priority, setPriority] = useState("Medium");
 
   // Edit State
   const [editDue, setEditDue] = useState("");
@@ -99,7 +103,11 @@ export default function ProjectsPage() {
   const handleCreateProject = async () => {
     if (!projectName.trim() || !teamId) return;
     const { error } = await supabase.from("projects").insert([{ 
-      name: projectName.trim(), team_id: teamId, due_date: projectDue, members: projectMembers 
+      name: projectName.trim(), 
+      team_id: teamId, 
+      due_date: projectDue, 
+      members: projectMembers,
+      category: projectCategory
     }]);
     if (!error) {
       setShowCreateModal(false);
@@ -117,7 +125,7 @@ export default function ProjectsPage() {
     }).eq('id', selectedProject.id);
 
     if (!error) {
-      toast.success("Project Parameters Updated");
+      toast.success("Parameters Updated");
       setShowSettings(false);
       if (teamId) loadData(teamId);
     }
@@ -130,6 +138,7 @@ export default function ProjectsPage() {
       name: newTaskName.trim(), 
       assigned_to: assignee,
       due_date: taskDate,
+      priority: priority,
       status: "Backlog"
     }]).select();
     
@@ -141,21 +150,18 @@ export default function ProjectsPage() {
   };
 
   const currentTasks = useMemo(() => tasks.filter(t => t.project_id === selectedProject?.id), [tasks, selectedProject]);
-  
-  const memberList = useMemo(() => {
-    return selectedProject?.members ? selectedProject.members.split(',').map(m => m.trim()) : [];
-  }, [selectedProject]);
+  const memberList = useMemo(() => selectedProject?.members ? selectedProject.members.split(',').map(m => m.trim()) : [], [selectedProject]);
 
   if (!isMounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#FDFDFB] text-slate-900 font-sans selection:bg-[#D6FF8D]">
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#A3B18A] selection:text-white">
       
       {/* HEADER NAVIGATION */}
-      <header className="sticky top-0 z-[100] bg-white/80 backdrop-blur-md border-b border-slate-100">
+      <header className="sticky top-0 z-[100] bg-white border-b border-slate-100">
         <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between gap-8">
           <div className="flex items-center gap-4 shrink-0">
-            <div className="w-9 h-9 bg-[#D6FF8D] rounded-xl flex items-center justify-center text-black">
+            <div className="w-9 h-9 bg-[#A3B18A] rounded-xl flex items-center justify-center text-white">
               <Layout size={18} />
             </div>
             <span className="font-black text-xs tracking-tighter uppercase">TOTS OS</span>
@@ -165,33 +171,24 @@ export default function ProjectsPage() {
             {projects.map((p) => (
               <button 
                 key={p.id} 
-                onClick={() => {
-                    setSelectedProject(p);
-                    setEditDue(p.due_date || "");
-                    setEditMembers(p.members || "");
-                }} 
+                onClick={() => { setSelectedProject(p); setEditDue(p.due_date || ""); setEditMembers(p.members || ""); }} 
                 className={`px-5 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all border ${
                   selectedProject?.id === p.id 
-                  ? "bg-[#D6FF8D] border-[#D6FF8D] text-black shadow-sm" 
+                  ? "bg-[#A3B18A] border-[#A3B18A] text-white shadow-sm" 
                   : "bg-transparent border-transparent text-slate-400 hover:text-black"
                 }`}
               >
                 {p.name}
               </button>
             ))}
-            <button 
-              onClick={() => setShowCreateModal(true)} 
-              className="p-2 rounded-full border border-dashed border-slate-200 text-slate-300 hover:border-[#D6FF8D] hover:text-black transition-all"
-            >
+            <button onClick={() => setShowCreateModal(true)} className="p-2 rounded-full border border-dashed border-slate-200 text-slate-300 hover:border-[#A3B18A] hover:text-black transition-all">
               <Plus size={14} />
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowSettings(true)} className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-full transition-all text-slate-400 hover:text-black">
-                <Settings size={18} />
-            </button>
-          </div>
+          <button onClick={() => setShowSettings(true)} className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-full transition-all text-slate-400 hover:text-black">
+              <Settings size={18} />
+          </button>
         </div>
       </header>
 
@@ -204,8 +201,8 @@ export default function ProjectsPage() {
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8 mb-16">
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#D6FF8D]" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300">Active Workspace</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#A3B18A]" />
+                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300">{selectedProject.category || "General"} Workspace</span>
                 </div>
                 <h1 className="text-7xl lg:text-8xl font-serif italic tracking-tighter leading-none text-black">
                   {selectedProject.name}
@@ -222,24 +219,30 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              <button 
-                onClick={() => router.push('/notes')} 
-                className="bg-black text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#D6FF8D] hover:text-black transition-all flex items-center gap-2 shadow-lg"
-              >
-                <StickyNote size={14} /> View Vault
-              </button>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => router.push('/notes')} 
+                  className="bg-white border border-slate-100 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2"
+                >
+                  <StickyNote size={14} /> Add Note
+                </button>
+                <button 
+                  onClick={() => router.push('/vault')} 
+                  className="bg-black text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#A3B18A] transition-all flex items-center gap-2 shadow-lg"
+                >
+                  <Archive size={14} /> View Vault
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-12 gap-8">
               
               {/* LEFT: TIMELINE & SCHEDULER */}
               <div className="col-span-12 lg:col-span-8 space-y-10">
-                
-                {/* SCHEDULER CARD */}
-                <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
+                <div className="bg-[#F2F2F2]/40 p-10 rounded-[3rem] border border-slate-100 space-y-8">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-300">Schedule Objective</h3>
-                    <Zap size={14} className="text-[#D6FF8D]" />
+                    <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-400">Schedule Objective</h3>
+                    <Zap size={14} className="text-[#A3B18A]" />
                   </div>
                   
                   <div className="space-y-4">
@@ -247,52 +250,49 @@ export default function ProjectsPage() {
                       value={newTaskName} 
                       onChange={e => setNewTaskName(e.target.value)} 
                       placeholder="What needs to be done?" 
-                      className="w-full bg-slate-50/50 p-6 rounded-2xl outline-none text-xl font-serif italic border border-transparent focus:bg-white transition-all placeholder:text-slate-200" 
+                      className="w-full bg-white p-6 rounded-2xl outline-none text-xl font-serif italic border border-slate-100 focus:border-[#A3B18A] transition-all" 
                     />
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* ASSIGNEE DROP DOWN */}
-                      <div className="group relative flex items-center">
-                        <UserPlus className="absolute left-5 text-slate-300 group-focus-within:text-[#D6FF8D] transition-colors pointer-events-none" size={16} />
-                        <select 
-                          value={assignee} 
-                          onChange={e => setAssignee(e.target.value)} 
-                          className="w-full bg-slate-50/50 p-5 pl-14 rounded-2xl outline-none font-bold text-xs border border-transparent focus:bg-white transition-all appearance-none cursor-pointer"
-                        >
-                          <option value="">Select Assignee</option>
-                          {memberList.map((m, i) => (
-                            <option key={i} value={m}>{m}</option>
-                          ))}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="relative flex items-center">
+                        <UserPlus className="absolute left-5 text-slate-300" size={16} />
+                        <select value={assignee} onChange={e => setAssignee(e.target.value)} className="w-full bg-white p-5 pl-14 rounded-2xl outline-none font-bold text-xs border border-slate-100 appearance-none cursor-pointer">
+                          <option value="">Assignee</option>
+                          {memberList.map((m, i) => <option key={i} value={m}>{m}</option>)}
                         </select>
                       </div>
-                      <div className="group relative flex items-center">
-                        <Clock className="absolute left-5 text-slate-300 group-focus-within:text-[#D6FF8D] transition-colors" size={16} />
-                        <input type="date" value={taskDate} onChange={e => setTaskDate(e.target.value)} className="w-full bg-slate-50/50 p-5 pl-14 rounded-2xl outline-none font-bold text-xs border border-transparent focus:bg-white transition-all" />
+                      <div className="relative flex items-center">
+                        <Flag className="absolute left-5 text-slate-300" size={16} />
+                        <select value={priority} onChange={e => setPriority(e.target.value)} className="w-full bg-white p-5 pl-14 rounded-2xl outline-none font-bold text-xs border border-slate-100 appearance-none cursor-pointer">
+                          <option value="Low">Low Priority</option>
+                          <option value="Medium">Medium Priority</option>
+                          <option value="High">High Priority</option>
+                        </select>
+                      </div>
+                      <div className="relative flex items-center">
+                        <Clock className="absolute left-5 text-slate-300" size={16} />
+                        <input type="date" value={taskDate} onChange={e => setTaskDate(e.target.value)} className="w-full bg-white p-5 pl-14 rounded-2xl outline-none font-bold text-xs border border-slate-100" />
                       </div>
                     </div>
                   </div>
-                  <button 
-                    onClick={handleAddTask} 
-                    className="w-full bg-[#D6FF8D] text-black py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:shadow-lg hover:shadow-[#D6FF8D]/20 transition-all active:scale-[0.98]"
-                  >
+                  <button onClick={handleAddTask} className="w-full bg-[#A3B18A] text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-[#8e9d75] transition-all">
                     Add to Project Timeline
                   </button>
                 </div>
 
-                {/* TIMELINE LIST */}
                 <div className="space-y-4">
                   <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-300 px-4">Active Timeline</h3>
                   <div className="space-y-3">
                     {currentTasks.map(t => (
-                      <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 flex items-center justify-between group hover:border-[#D6FF8D]/50 transition-all">
+                      <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 flex items-center justify-between group hover:border-[#A3B18A] transition-all">
                         <div className="flex items-center gap-6">
-                          <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-200 group-hover:bg-[#D6FF8D] group-hover:text-black transition-all">
+                          <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-200 group-hover:bg-[#F2F2F2] group-hover:text-[#A3B18A] transition-all">
                             <Check size={18} />
                           </div>
                           <div className="space-y-0.5">
                             <p className="text-xl font-serif italic text-black leading-none">{t.name}</p>
                             <div className="flex gap-4">
                               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Users size={10}/> {t.assigned_to || "Open"}</span>
-                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><CalendarDays size={10}/> {t.due_date || "TBD"}</span>
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Flag size={10}/> {t.priority || "Medium"}</span>
                             </div>
                           </div>
                         </div>
@@ -303,9 +303,9 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              {/* RIGHT: TEAM & PROJECT INFO */}
+              {/* RIGHT: COLLABORATORS */}
               <div className="col-span-12 lg:col-span-4 space-y-8">
-                <div className="bg-black p-8 rounded-[3rem] text-white space-y-6 shadow-xl shadow-black/10">
+                <div className="bg-black p-8 rounded-[3rem] text-white space-y-6">
                   <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-600">Collaborators</h3>
                   <div className="space-y-4">
                     {memberList.map((member, i) => (
@@ -314,21 +314,13 @@ export default function ProjectsPage() {
                            <div className="w-7 h-7 rounded-lg border border-slate-800 flex items-center justify-center text-[9px] font-black bg-slate-900">{member.charAt(0)}</div>
                            <span className="text-[11px] font-bold">{member}</span>
                         </div>
-                        <div className="w-1 h-1 rounded-full bg-[#D6FF8D]/40" />
+                        <div className="w-1 h-1 rounded-full bg-[#A3B18A]/40" />
                       </div>
                     ))}
                     {memberList.length === 0 && <p className="text-[10px] text-slate-500 italic">No members assigned.</p>}
                   </div>
                 </div>
-
-                <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm text-center py-12">
-                   <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-200">
-                     <FileText size={20} />
-                   </div>
-                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-300">Vault Assets Coming Soon</p>
-                </div>
               </div>
-
             </div>
           </div>
         ) : (
@@ -339,32 +331,36 @@ export default function ProjectsPage() {
         )}
       </main>
 
-      {/* CREATE PROJECT MODAL */}
+      {/* CREATE MODAL */}
       <AnimatePresence>
         {showCreateModal && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCreateModal(false)} className="absolute inset-0 bg-black/10 backdrop-blur-xl" />
-            <motion.div initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.98, opacity: 0 }} className="bg-white w-full max-w-lg rounded-[3rem] p-12 shadow-2xl relative z-10 border border-slate-50">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCreateModal(false)} className="absolute inset-0 bg-black/5 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.98, opacity: 0 }} className="bg-white w-full max-w-lg rounded-[3rem] p-12 shadow-2xl relative z-10 border border-slate-100">
               <h3 className="text-4xl font-serif italic tracking-tighter mb-10 text-black text-center">New Workspace</h3>
               <div className="space-y-6">
-                <input autoFocus value={projectName} onChange={e => setProjectName(e.target.value)} className="w-full bg-slate-50 p-6 rounded-2xl outline-none font-serif italic text-2xl border border-transparent focus:bg-white transition-all" placeholder="Project name..." />
+                <input autoFocus value={projectName} onChange={e => setProjectName(e.target.value)} className="w-full bg-[#F2F2F2] p-6 rounded-2xl outline-none font-serif italic text-2xl border border-transparent focus:bg-white focus:border-[#A3B18A] transition-all" placeholder="Project name..." />
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="date" value={projectDue} onChange={e => setProjectDue(e.target.value)} className="w-full bg-slate-50 p-5 rounded-2xl outline-none font-bold text-xs" />
-                  <input placeholder="Members (e.g. Leigha, David)" value={projectMembers} onChange={e => setProjectMembers(e.target.value)} className="w-full bg-slate-50 p-5 rounded-2xl outline-none font-bold text-xs" />
+                  <input type="date" value={projectDue} onChange={e => setProjectDue(e.target.value)} className="w-full bg-[#F2F2F2] p-5 rounded-2xl outline-none font-bold text-xs" />
+                  <select value={projectCategory} onChange={e => setProjectCategory(e.target.value)} className="w-full bg-[#F2F2F2] p-5 rounded-2xl outline-none font-bold text-xs">
+                    <option value="Development">Development</option>
+                    <option value="Creative">Creative</option>
+                    <option value="Operational">Operational</option>
+                  </select>
                 </div>
-                <button onClick={handleCreateProject} disabled={!projectName.trim()} className="w-full bg-black text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#D6FF8D] hover:text-black transition-all disabled:opacity-20">Initialize Ledger</button>
+                <textarea placeholder="Members (e.g. Leigha, David)" value={projectMembers} onChange={e => setProjectMembers(e.target.value)} className="w-full bg-[#F2F2F2] p-5 rounded-2xl outline-none font-bold text-xs h-24 resize-none" />
+                <button onClick={handleCreateProject} disabled={!projectName.trim()} className="w-full bg-black text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#A3B18A] transition-all disabled:opacity-20">Initialize Ledger</button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* SETTINGS MODAL */}
       <AnimatePresence>
         {showSettings && selectedProject && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowSettings(false)} className="absolute inset-0 bg-black/10 backdrop-blur-xl" />
-            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="bg-white w-full max-w-lg rounded-[3rem] p-12 shadow-2xl relative z-10 border border-slate-50">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowSettings(false)} className="absolute inset-0 bg-black/5 backdrop-blur-md" />
+            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="bg-white w-full max-w-lg rounded-[3rem] p-12 shadow-2xl relative z-10 border border-slate-100">
               <div className="flex justify-between items-start mb-8">
                 <h3 className="text-3xl font-serif italic tracking-tighter text-black">Workspace Params</h3>
                 <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-slate-50 rounded-full transition-all text-slate-300 hover:text-black"><X size={20}/></button>
@@ -372,13 +368,13 @@ export default function ProjectsPage() {
               <div className="space-y-8">
                 <div className="space-y-2">
                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-300 ml-4">Extend Deadline</label>
-                    <input type="date" value={editDue} onChange={e => setEditDue(e.target.value)} className="w-full bg-slate-50 p-5 rounded-2xl outline-none font-bold text-xs" />
+                    <input type="date" value={editDue} onChange={e => setEditDue(e.target.value)} className="w-full bg-[#F2F2F2] p-5 rounded-2xl outline-none font-bold text-xs" />
                 </div>
                 <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-300 ml-4">Sync Team (Comma Separated)</label>
-                    <textarea rows={3} value={editMembers} onChange={e => setEditMembers(e.target.value)} className="w-full bg-slate-50 p-6 rounded-2xl outline-none font-bold text-xs resize-none" placeholder="David, Leigha, etc..." />
+                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-300 ml-4">Sync Team</label>
+                    <textarea rows={3} value={editMembers} onChange={e => setEditMembers(e.target.value)} className="w-full bg-[#F2F2F2] p-6 rounded-2xl outline-none font-bold text-xs resize-none" placeholder="David, Leigha, etc..." />
                 </div>
-                <button onClick={handleUpdateProject} className="w-full bg-black text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#D6FF8D] hover:text-black transition-all flex items-center justify-center gap-2">
+                <button onClick={handleUpdateProject} className="w-full bg-black text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#A3B18A] transition-all flex items-center justify-center gap-2">
                     <Save size={14}/> Save Changes
                 </button>
               </div>

@@ -1,30 +1,31 @@
 "use client";
 
+import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 
-export default function TotsOSPage() {
-  const [stage, setStage] = useState<
-    "boot" | "opened" | "closing" | "signup"
-  >("boot");
+export default function TotsOSLanding() {
+  const [phase, setPhase] = useState<
+    "hidden" | "opening" | "booting" | "closing" | "signup"
+  >("hidden");
 
   const [email, setEmail] = useState("");
 
   useEffect(() => {
-    const timers = [
-      setTimeout(() => setStage("opened"), 1200),
-      setTimeout(() => setStage("closing"), 6500),
-      setTimeout(() => setStage("signup"), 8200),
-    ];
+    const sequence = async () => {
+      setTimeout(() => setPhase("opening"), 500);
+      setTimeout(() => setPhase("booting"), 3000);
+      setTimeout(() => setPhase("closing"), 9000);
+      setTimeout(() => setPhase("signup"), 11500);
+    };
 
-    return () => timers.forEach(clearTimeout);
+    sequence();
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Replace with Supabase / API logic
+    // TODO: Replace with Supabase waitlist logic
     console.log(email);
 
     alert("Welcome to the TOTS-OS waitlist.");
@@ -32,15 +33,36 @@ export default function TotsOSPage() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-black text-white">
+    <main className="relative h-screen overflow-hidden bg-black text-white">
       {/* BACKGROUND */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_35%)]" />
 
-      <div className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/[0.06] blur-[180px]" />
+      {/* FLOATING LIGHT */}
+      <motion.div
+        animate={{
+          opacity: [0.4, 0.8, 0.4],
+          scale: [1, 1.1, 1],
+        }}
+        transition={{
+          duration: 6,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+        className="absolute left-1/2 top-1/2 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/[0.06] blur-[160px]"
+      />
 
-      {/* NOISE */}
-      <div className="absolute inset-0 opacity-[0.03] mix-blend-soft-light">
-        <div className="h-full w-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+      {/* GRID */}
+      <div className="absolute inset-0 opacity-[0.03]">
+        <div
+          className="h-full w-full"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)
+            `,
+            backgroundSize: "80px 80px",
+          }}
+        />
       </div>
 
       {/* LOGO */}
@@ -48,209 +70,295 @@ export default function TotsOSPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 2 }}
-        className="absolute top-10 z-50"
+        className="absolute top-10 left-1/2 z-50 -translate-x-1/2"
       >
-        <h1 className="text-xs uppercase tracking-[0.5em] text-white/40">
+        <h1 className="text-xs uppercase tracking-[0.6em] text-white/40">
           TOTS-OS
         </h1>
       </motion.div>
 
-      <AnimatePresence mode="wait">
-        {stage !== "signup" ? (
-          <motion.div
-            key="laptop"
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{
-              duration: 1.5,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-            className="relative perspective-[2000px]"
-          >
-            {/* LAPTOP */}
-            <div className="relative flex flex-col items-center">
-              {/* SCREEN */}
-              <motion.div
-                animate={{
-                  rotateX:
-                    stage === "boot"
-                      ? -110
-                      : stage === "opened"
-                      ? 0
-                      : -100,
-                }}
-                transition={{
-                  duration: 2,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                style={{
-                  transformStyle: "preserve-3d",
-                  transformOrigin: "bottom",
-                }}
-                className="relative h-[340px] w-[580px] rounded-t-[30px] border border-white/10 bg-gradient-to-b from-zinc-900 to-black shadow-[0_0_120px_rgba(255,255,255,0.08)]"
-              >
-                {/* SCREEN GLOW */}
-                <div className="absolute inset-0 rounded-t-[30px] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_60%)]" />
+      <div className="relative flex h-full items-center justify-center">
+        <AnimatePresence mode="wait">
+          {phase !== "signup" ? (
+            <motion.div
+              key="laptop"
+              initial={{ opacity: 0, y: 120 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                duration: 1.5,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className="relative"
+              style={{
+                perspective: 3000,
+              }}
+            >
+              {/* LAPTOP CONTAINER */}
+              <div className="relative flex flex-col items-center">
+                {/* SCREEN */}
+                <motion.div
+                  animate={{
+                    rotateX:
+                      phase === "opening"
+                        ? 0
+                        : phase === "booting"
+                        ? 0
+                        : phase === "closing"
+                        ? -105
+                        : -110,
+                  }}
+                  initial={{
+                    rotateX: -110,
+                  }}
+                  transition={{
+                    duration: 2.5,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                  style={{
+                    transformStyle: "preserve-3d",
+                    transformOrigin: "bottom center",
+                  }}
+                  className="relative z-20 h-[360px] w-[640px] rounded-t-[34px] border border-white/10 bg-gradient-to-b from-zinc-900 via-black to-black shadow-[0_0_120px_rgba(255,255,255,0.12)]"
+                >
+                  {/* SCREEN SHINE */}
+                  <div className="absolute inset-0 rounded-t-[34px] bg-gradient-to-br from-white/20 via-transparent to-transparent opacity-40" />
 
-                {/* CAMERA */}
-                <div className="absolute left-1/2 top-3 h-2 w-2 -translate-x-1/2 rounded-full bg-white/20" />
+                  {/* CAMERA */}
+                  <div className="absolute left-1/2 top-4 h-2 w-2 -translate-x-1/2 rounded-full bg-white/30" />
 
-                {/* SCREEN CONTENT */}
-                <div className="flex h-full flex-col items-center justify-center">
-                  {/* BOOT TEXT */}
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: stage === "opened" ? 1 : 0 }}
-                    transition={{ delay: 1 }}
-                    className="text-center"
-                  >
-                    <motion.h1
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{
-                        opacity: stage === "opened" ? 1 : 0,
-                        y: stage === "opened" ? 0 : 10,
-                      }}
-                      transition={{
-                        duration: 1.4,
-                        delay: 1.8,
-                      }}
-                      className="bg-gradient-to-r from-white via-zinc-300 to-white bg-clip-text text-6xl font-semibold tracking-tight text-transparent"
-                    >
-                      TOTS-OS
-                    </motion.h1>
-
-                    <motion.p
+                  {/* SCREEN CONTENT */}
+                  <div className="relative flex h-full flex-col items-center justify-center overflow-hidden">
+                    {/* BOOT FLASH */}
+                    <motion.div
                       initial={{ opacity: 0 }}
-                      animate={{ opacity: stage === "opened" ? 1 : 0 }}
-                      transition={{
-                        duration: 1,
-                        delay: 2.8,
+                      animate={{
+                        opacity:
+                          phase === "booting"
+                            ? [0, 1, 0.2, 1, 0]
+                            : 0,
                       }}
-                      className="mt-6 text-xs uppercase tracking-[0.45em] text-white/35"
-                    >
-                      Coming Summer 2026
-                    </motion.p>
-                  </motion.div>
+                      transition={{
+                        duration: 1.5,
+                      }}
+                      className="absolute inset-0 bg-white"
+                    />
 
-                  {/* BOOT LINE */}
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{
-                      width: stage === "opened" ? 180 : 0,
-                    }}
-                    transition={{
-                      delay: 1,
-                      duration: 1.8,
-                    }}
-                    className="absolute bottom-16 h-[1px] bg-white/30"
-                  />
-                </div>
+                    {/* BOOT TEXT */}
+                    {phase === "booting" && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="relative z-20 text-center"
+                      >
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: 220 }}
+                          transition={{
+                            duration: 2,
+                            ease: "easeInOut",
+                          }}
+                          className="mx-auto mb-8 h-[1px] bg-white/40"
+                        />
 
-                {/* REFLECTION */}
-                <div className="absolute inset-0 rounded-t-[30px] bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-30" />
-              </motion.div>
+                        <motion.h1
+                          initial={{
+                            opacity: 0,
+                            y: 20,
+                            filter: "blur(10px)",
+                          }}
+                          animate={{
+                            opacity: 1,
+                            y: 0,
+                            filter: "blur(0px)",
+                          }}
+                          transition={{
+                            duration: 1.5,
+                            delay: 0.8,
+                          }}
+                          className="bg-gradient-to-r from-white via-zinc-300 to-white bg-clip-text text-7xl font-semibold tracking-tight text-transparent"
+                        >
+                          TOTS-OS
+                        </motion.h1>
 
-              {/* KEYBOARD */}
-              <motion.div
-                animate={{
-                  opacity: stage === "closing" ? 0.8 : 1,
-                }}
-                className="relative h-[26px] w-[680px] rounded-b-[50px] bg-gradient-to-b from-zinc-700 to-zinc-900 shadow-2xl"
-              >
-                {/* TRACKPAD */}
-                <div className="absolute left-1/2 top-[6px] h-[6px] w-[140px] -translate-x-1/2 rounded-full bg-black/40" />
-              </motion.div>
+                        <motion.p
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{
+                            delay: 1.8,
+                            duration: 1,
+                          }}
+                          className="mt-6 text-sm uppercase tracking-[0.5em] text-white/40"
+                        >
+                          Coming Summer 2026
+                        </motion.p>
 
-              {/* UNDERGLOW */}
-              <motion.div
-                animate={{
-                  opacity: stage === "opened" ? 1 : 0.5,
-                  scale: stage === "opened" ? 1 : 0.8,
-                }}
-                transition={{ duration: 2 }}
-                className="absolute -bottom-24 h-[140px] w-[500px] rounded-full bg-white/[0.08] blur-[100px]"
-              />
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="signup"
-            initial={{ opacity: 0, y: 80 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              duration: 1.5,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-            className="relative z-20 w-full max-w-3xl px-6"
-          >
-            <div className="rounded-[40px] border border-white/10 bg-white/[0.03] p-12 backdrop-blur-3xl">
-              <motion.h2
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-center text-6xl font-semibold tracking-tight"
-              >
-                Join The Waitlist
-              </motion.h2>
+                        {/* SYSTEM TEXT */}
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{
+                            delay: 2.5,
+                          }}
+                          className="mt-10 space-y-2 text-xs uppercase tracking-[0.3em] text-white/20"
+                        >
+                          <p>INITIALISING SYSTEM</p>
+                          <p>SYNCING LIFE MODULES</p>
+                          <p>TOTS-OS READY</p>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </div>
+                </motion.div>
 
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                className="mx-auto mt-6 max-w-2xl text-center text-lg leading-relaxed text-white/45"
-              >
-                TOTS-OS launches Summer 2026.
-                <br />
-                Secure early access and be the first to experience the future
-                of life management.
-              </motion.p>
+                {/* KEYBOARD BASE */}
+                <motion.div
+                  animate={{
+                    scaleX:
+                      phase === "closing" ? 0.98 : 1,
+                  }}
+                  transition={{
+                    duration: 1.5,
+                  }}
+                  className="relative z-10 h-[30px] w-[760px] rounded-b-[50px] border border-white/5 bg-gradient-to-b from-zinc-700 via-zinc-800 to-black shadow-[0_30px_80px_rgba(0,0,0,0.8)]"
+                >
+                  {/* TRACKPAD */}
+                  <div className="absolute left-1/2 top-[7px] h-[8px] w-[160px] -translate-x-1/2 rounded-full bg-black/50" />
 
-              {/* FORM */}
-              <motion.form
-                onSubmit={handleSubmit}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.9 }}
-                className="mx-auto mt-14 flex max-w-2xl flex-col gap-4 md:flex-row"
-              >
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="h-16 flex-1 rounded-2xl border border-white/10 bg-black/40 px-6 text-lg text-white outline-none transition-all placeholder:text-white/25 focus:border-white/30 focus:bg-black/60"
+                  {/* KEYBOARD LIGHT */}
+                  <div className="absolute inset-x-12 top-2 h-[2px] rounded-full bg-white/10 blur-sm" />
+                </motion.div>
+
+                {/* SHADOW */}
+                <motion.div
+                  animate={{
+                    opacity:
+                      phase === "opening" || phase === "booting"
+                        ? 1
+                        : 0.4,
+                    scale:
+                      phase === "opening" || phase === "booting"
+                        ? 1
+                        : 0.7,
+                  }}
+                  transition={{
+                    duration: 2,
+                  }}
+                  className="absolute -bottom-20 h-[140px] w-[600px] rounded-full bg-white/[0.08] blur-[120px]"
                 />
 
-                <button
-                  type="submit"
-                  className="group flex h-16 items-center justify-center gap-3 rounded-2xl bg-white px-8 text-sm font-medium uppercase tracking-[0.25em] text-black transition-all hover:scale-[1.02]"
+                {/* FLOAT */}
+                <motion.div
+                  animate={{
+                    y: [0, -10, 0],
+                  }}
+                  transition={{
+                    duration: 5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  className="absolute inset-0"
+                />
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="signup"
+              initial={{
+                opacity: 0,
+                y: 100,
+                scale: 0.9,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              transition={{
+                duration: 1.8,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className="relative z-20 w-full max-w-4xl px-6"
+            >
+              {/* GLASS PANEL */}
+              <div className="relative overflow-hidden rounded-[40px] border border-white/10 bg-white/[0.04] p-14 backdrop-blur-3xl">
+                {/* SHINE */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-40" />
+
+                {/* TEXT */}
+                <motion.h2
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="relative z-10 text-center text-7xl font-semibold tracking-tight"
                 >
-                  Request Access
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </button>
-              </motion.form>
+                  Join The Waitlist
+                </motion.h2>
 
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.2 }}
-                className="mt-8 text-center text-xs uppercase tracking-[0.35em] text-white/20"
-              >
-                Private Beta • Early Access • Exclusive Updates
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.7 }}
+                  className="relative z-10 mx-auto mt-8 max-w-2xl text-center text-xl leading-relaxed text-white/45"
+                >
+                  The future of life management arrives Summer 2026.
+                  <br />
+                  Secure early access to TOTS-OS.
+                </motion.p>
 
-      {/* FOOTER */}
+                {/* FORM */}
+                <motion.form
+                  onSubmit={handleSubmit}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{
+                    delay: 1.1,
+                  }}
+                  className="relative z-10 mx-auto mt-14 flex max-w-3xl flex-col gap-5 md:flex-row"
+                >
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="h-20 flex-1 rounded-3xl border border-white/10 bg-black/50 px-8 text-lg text-white outline-none transition-all placeholder:text-white/20 focus:border-white/30 focus:bg-black/70"
+                  />
+
+                  <button
+                    type="submit"
+                    className="group flex h-20 items-center justify-center gap-3 rounded-3xl bg-white px-10 text-sm font-medium uppercase tracking-[0.3em] text-black transition-all hover:scale-[1.03]"
+                  >
+                    Request Access
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </button>
+                </motion.form>
+
+                {/* FOOTER */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{
+                    delay: 1.5,
+                  }}
+                  className="relative z-10 mt-10 text-center text-xs uppercase tracking-[0.4em] text-white/20"
+                >
+                  Private Beta • Early Access • Exclusive Updates
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* BOTTOM TEXT */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 3 }}
-        className="absolute bottom-8 text-xs uppercase tracking-[0.4em] text-white/15"
+        transition={{
+          delay: 4,
+        }}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs uppercase tracking-[0.5em] text-white/15"
       >
         © 2026 TOTS-OS
       </motion.div>

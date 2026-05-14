@@ -1,345 +1,215 @@
 "use client";
 
-import React, { useState, useRef, useMemo, useEffect } from "react";
-import { 
-  Search, Download, Activity, 
-  Plus, File, Database, Layers,
-  ShieldCheck, History, X, Clock,
-  Lock, Fingerprint, Zap, ChevronRight,
-  Monitor, LayoutGrid, Server, BarChart3, Users
-} from "lucide-react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import { toast } from "sonner";
+import { 
+  CloudUpload, File, FileText, Image as ImageIcon, 
+  MoreVertical, Search, Trash2, Download, 
+  Database, Filter, HardDrive, ShieldCheck, 
+  Clock, Zap, LayoutGrid, List, Plus
+} from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 /**
- * TOTS OS: VAULT ARCHIVE v7.1.0 - "SAGE & STONE"
- * REVISION: SCALE ALIGNMENT | NAV SYNC | NEURAL ENGINE
+ * TOTS OS: VAULT STORAGE v7.1.0
+ * REVISION: FILE UPLOAD & RESOURCE MANAGEMENT 
  */
 
-interface Attachment {
+interface VaultFile {
   id: string;
   name: string;
-  size: string;
   type: string;
-  addedAt: string;
-}
-
-interface Revision {
-  id: string;
-  timestamp: string;
-  author: string;
-  summary: string;
-}
-
-interface Project {
-  id: string;
-  title: string;
+  size: string;
+  uploadedAt: string;
   category: string;
-  content: string;
-  metadata: {
-    lastUpdated: string;
-    status: "Verified" | "Draft" | "Archived" | "Permanent";
-    readTime: string;
-    version: string;
-    integrity: string;
-  };
-  attachments: Attachment[];
-  history: Revision[];
+  status: "Secure" | "Pending" | "Public";
 }
 
-const INITIAL_RECORDS: Project[] = [
-  { 
-    id: "VAL-001", 
-    title: "The Client Ethos", 
-    category: "Philosophy", 
-    content: `Precision is the primary directive. \n\nIn every interaction, we aim to eliminate the friction between intent and execution. The Vault acts as the final arbiter of truth for the organization, housing the foundational logic that governs our outreach and operations.\n\n1. Response latency must remain below 4 hours.\n2. All strategic pivots must be logged and audited.\n3. The aesthetic is the brand.`,
-    metadata: { 
-      lastUpdated: "14 May 2026", 
-      status: "Permanent", 
-      readTime: "3m",
-      version: "2.4.1",
-      integrity: "99.98%"
-    },
-    attachments: [
-      { id: "at-1", name: "onboarding_workflow.pdf", size: "2.4MB", type: "PDF", addedAt: "2026-04-12" }
-    ],
-    history: [
-      { id: "rev-1", timestamp: "2026-05-14 10:22", author: "Leigha D.", summary: "Refined section 3 regarding brand aesthetics." }
-    ]
-  },
-  { 
-    id: "VAL-082", 
-    title: "Brand Voice Guidelines", 
-    category: "Identity", 
-    content: `Our voice is reassured, never aggressive. \n\nWe speak with the authority of an expert but the curiosity of a student. Avoid corporate buzzwords. Use full stops. Lean into the white space. The system should feel like a breathing entity—calm, organized, and inevitable.`,
-    metadata: { 
-      lastUpdated: "02 May 2026", 
-      status: "Draft", 
-      readTime: "5m",
-      version: "1.0.8",
-      integrity: "100%"
-    },
-    attachments: [],
-    history: []
-  }
+const INITIAL_FILES: VaultFile[] = [
+  { id: "FL-001", name: "Brand_Ethos_v2.pdf", type: "pdf", size: "2.4 MB", uploadedAt: "2026-05-12", category: "Guidelines", status: "Secure" },
+  { id: "FL-002", name: "Asset_Pack_Alpha.zip", type: "zip", size: "45.8 MB", uploadedAt: "2026-05-10", category: "Assets", status: "Secure" },
+  { id: "FL-003", name: "Client_Feedback_MAY.docx", type: "doc", size: "1.1 MB", uploadedAt: "2026-05-14", category: "Reports", status: "Pending" },
 ];
 
-export default function VaultNeuralEngine() {
-  const [vaultData, setVaultData] = useState<Project[]>(INITIAL_RECORDS);
-  const [selectedId, setSelectedId] = useState<string>(INITIAL_RECORDS[0].id);
+export default function VaultUploadPage() {
+  const [files, setFiles] = useState<VaultFile[]>(INITIAL_FILES);
+  const [isDragging, setIsDragging] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchTerm, setSearchTerm] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const router = useRouter();
-  
-  const printRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const currentProject = useMemo(() => 
-    vaultData.find(p => p.id === selectedId) || vaultData[0],
-  [selectedId, vaultData]);
-
-  const filteredData = useMemo(() => {
-    return vaultData.filter(item => 
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      (!activeCategory || item.category === activeCategory)
-    );
-  }, [searchTerm, vaultData, activeCategory]);
-
-  const categories = useMemo(() => Array.from(new Set(vaultData.map(d => d.category))), [vaultData]);
-
-  const handleContentUpdate = (newContent: string) => {
-    setVaultData(prev => prev.map(p => 
-      p.id === selectedId ? { ...p, content: newContent } : p
-    ));
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
+    setIsDragging(false);
+    toast.success("Neural Sync Initiated: Uploading File...");
+    // Logic for Supabase storage or API would go here
   };
 
-  const syncArchive = async () => {
-    setIsSaving(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setIsSaving(false);
-    toast.success("Archive Integrity Verified");
-  };
-
-  const exportPDF = async () => {
-    if (!printRef.current) return;
-    toast.info("Generating Neural Export...");
-    const canvas = await html2canvas(printRef.current, { scale: 2 });
-    const pdf = new jsPDF("p", "mm", "a4");
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 210, 297);
-    pdf.save(`${currentProject.id}_RECORD.pdf`);
-  };
+  const filteredFiles = files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="h-screen bg-[#faf9f6] text-stone-900 flex overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans selection:bg-[#a9b897] selection:text-white">
       
-      <style jsx global>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-      `}</style>
-
-      {/* --- ARCHIVAL NAVIGATOR --- */}
-      <aside className="w-80 flex flex-col p-8 bg-white border-r border-stone-100 relative z-[100] text-left">
-        <header className="mb-10 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-stone-900 text-[#a9b897] rounded-xl"><Database size={18} /></div>
-            <div className="space-y-0.5">
-              <p className="font-black uppercase text-[8px] tracking-[0.4em] text-stone-300">VAULT_CORE_7.1</p>
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-1 bg-[#a9b897] rounded-full animate-pulse" />
-                <p className="text-[7px] font-mono tracking-widest text-[#a9b897] uppercase">Integrity Locked</p>
+      <div className="max-w-[1400px] mx-auto px-8 py-10 space-y-10">
+        
+        {/* --- HEADER --- */}
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-stone-100 pb-10 text-left">
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-stone-900 text-[#a9b897] rounded-xl shadow-lg"><Database size={20} /></div>
+              <div className="space-y-0.5">
+                <p className="font-black uppercase text-[8px] tracking-[0.4em] text-stone-300">Vault_Archive_7.1</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-1 bg-[#a9b897] rounded-full animate-pulse" />
+                  <p className="text-[7px] font-mono tracking-widest text-[#a9b897] uppercase">Encryption Active</p>
+                </div>
               </div>
             </div>
+            <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Vault Storage</h1>
           </div>
-          <h2 className="text-4xl font-serif italic tracking-tighter">Archives</h2>
-        </header>
-
-        <div className="space-y-4 mb-8">
-          <div className="relative">
-            <Search size={12} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
-            <input 
-              className="w-full bg-[#faf9f6] rounded-xl py-3.5 pl-10 pr-4 text-[9px] font-bold outline-none border border-transparent focus:border-[#a9b897] transition-all"
-              placeholder="Search logic..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            <button onClick={() => setActiveCategory(null)} className={`px-4 py-2 rounded-full text-[7px] font-black uppercase tracking-widest transition-all ${!activeCategory ? 'bg-stone-900 text-white' : 'bg-stone-50 text-stone-300'}`}>All</button>
-            {categories.map(cat => (
-              <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-full text-[7px] font-black uppercase tracking-widest transition-all ${activeCategory === cat ? 'bg-stone-900 text-white' : 'bg-stone-50 text-stone-300'}`}>{cat}</button>
-            ))}
-          </div>
-        </div>
-
-        <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
-          {filteredData.map(p => (
-            <button key={p.id} onClick={() => setSelectedId(p.id)}
-              className={`w-full text-left p-5 rounded-[1.5rem] transition-all duration-300 border ${selectedId === p.id ? "bg-stone-50 border-stone-100 shadow-sm" : "border-transparent hover:bg-stone-50/50"}`}>
-              <div className="flex justify-between items-center mb-1">
-                <span className={`text-[9px] font-black uppercase tracking-widest ${selectedId === p.id ? "text-stone-900" : "text-stone-300"}`}>{p.title}</span>
-                {selectedId === p.id && <div className="w-1 h-1 rounded-full bg-[#a9b897]" />}
-              </div>
-              <div className="flex items-center gap-2 font-mono text-[7px] font-bold tracking-widest text-[#a9b897]">{p.id}</div>
-            </button>
-          ))}
-        </nav>
-
-        <button className="mt-6 w-full py-4 bg-stone-900 text-white rounded-xl flex items-center justify-center gap-3 hover:bg-[#a9b897] transition-all active:scale-95 shadow-lg">
-          <Plus size={14} />
-          <span className="text-[8px] font-black uppercase tracking-widest">Add Record</span>
-        </button>
-      </aside>
-
-      {/* --- NEURAL DESK --- */}
-      <main className="flex-1 flex flex-col relative bg-[#faf9f6] overflow-hidden">
-        
-        <header className="h-20 flex items-center justify-between px-10 border-b border-stone-100 bg-white/50 backdrop-blur-md relative z-10">
-          <nav className="flex items-center bg-white p-1 rounded-full shadow-sm border border-stone-100">
-            <button onClick={() => router.push('/payments')} className="px-4 py-2 text-stone-300 hover:text-stone-900 rounded-full text-[7px] font-black uppercase tracking-widest transition-all">Payments</button>
-            <button onClick={() => router.push('/finance-reports')} className="px-4 py-2 text-stone-300 hover:text-stone-900 rounded-full text-[7px] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
-              <BarChart3 size={10}/> Finance
-            </button>
-            <button onClick={() => router.push('/hr')} className="px-4 py-2 text-stone-300 hover:text-stone-900 rounded-full text-[7px] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
-              <Users size={10}/> HR
-            </button>
-            <button onClick={() => router.push('/timesheets')} className="px-4 py-2 text-stone-300 hover:text-stone-900 rounded-full text-[7px] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
-              <Clock size={10}/> Timesheets
-            </button>
-          </nav>
 
           <div className="flex items-center gap-3">
-            <button onClick={() => setShowHistory(!showHistory)} className={`p-2.5 rounded-xl transition-all ${showHistory ? 'bg-stone-900 text-[#a9b897]' : 'bg-white text-stone-300 border border-stone-100 shadow-sm'}`}><History size={14} /></button>
-            <button onClick={exportPDF} className="p-2.5 bg-white text-stone-300 border border-stone-100 rounded-xl shadow-sm hover:text-stone-900"><Download size={14} /></button>
-            <button onClick={syncArchive} disabled={isSaving} className="px-6 py-2.5 bg-[#a9b897] text-stone-900 rounded-xl text-[8px] font-black uppercase tracking-widest shadow-lg flex items-center gap-3 active:scale-95">
-              {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Fingerprint size={12} />}
-              {isSaving ? "Syncing" : "Sync Archive"}
-            </button>
+             <div className="bg-white border border-stone-100 p-1 rounded-full flex gap-1 shadow-sm">
+                <button onClick={() => setViewMode("grid")} className={`p-2 rounded-full transition-all ${viewMode === "grid" ? "bg-stone-900 text-[#a9b897]" : "text-stone-300 hover:text-stone-500"}`}><LayoutGrid size={14}/></button>
+                <button onClick={() => setViewMode("list")} className={`p-2 rounded-full transition-all ${viewMode === "list" ? "bg-stone-900 text-[#a9b897]" : "text-stone-300 hover:text-stone-500"}`}><List size={14}/></button>
+             </div>
+             <button onClick={() => fileInputRef.current?.click()} className="bg-stone-900 text-white px-8 py-3 rounded-full flex items-center gap-3 hover:bg-[#a9b897] hover:text-stone-900 transition-all shadow-xl active:scale-95">
+                <Plus size={16} />
+                <span className="text-[9px] font-black uppercase tracking-widest">New Upload</span>
+             </button>
+             <input type="file" ref={fileInputRef} onChange={handleUpload} className="hidden" multiple />
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar pb-20 pt-10 px-10">
-          <div className="max-w-3xl mx-auto flex gap-10 items-start">
-            
-            <motion.div key={selectedId} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
-              className="flex-1 bg-white min-h-[850px] shadow-2xl shadow-stone-200/40 rounded-[3rem] p-16 flex flex-col border border-stone-100 relative text-left" ref={printRef}>
-              
-              <div className="absolute top-8 right-8 opacity-[0.02] pointer-events-none text-stone-900"><Layers size={140} /></div>
-
-              <header className="mb-12 space-y-3">
-                <div className="flex items-center gap-3">
-                   <div className="px-3 py-1 bg-[#a9b897]/10 text-[#a9b897] rounded-full text-[7px] font-black uppercase tracking-widest">{currentProject.metadata.status}</div>
-                   <span className="text-[7px] font-black tracking-widest text-stone-200 uppercase">Integrity: {currentProject.metadata.integrity}</span>
+        {/* --- STATS & SEARCH --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1 group">
+              <Search size={14} className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-[#a9b897] transition-colors" />
+              <input 
+                placeholder="Search archive logic..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-white border border-stone-100 rounded-2xl py-4 pl-14 pr-4 text-[10px] font-bold outline-none focus:border-[#a9b897] transition-all shadow-sm"
+              />
+            </div>
+            <button className="px-6 bg-white border border-stone-100 rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 transition-all">
+              <Filter size={14} /> Filter
+            </button>
+          </div>
+          <div className="lg:col-span-4 bg-stone-900 rounded-2xl p-4 flex items-center justify-between text-white shadow-xl">
+             <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-[#a9b897]"><HardDrive size={18}/></div>
+                <div className="text-left">
+                   <p className="text-[7px] font-black uppercase tracking-[0.3em] text-stone-400">Archive Load</p>
+                   <p className="text-xs font-mono font-bold tracking-tighter text-[#a9b897]">1.2 GB / 10 GB</p>
                 </div>
-                <h1 className="text-5xl font-serif italic text-stone-900 tracking-tighter leading-tight">{currentProject.title}</h1>
-              </header>
-
-              <textarea className="flex-1 w-full text-xl font-serif italic leading-relaxed text-stone-600 outline-none resize-none bg-transparent" value={currentProject.content} onChange={(e) => handleContentUpdate(e.target.value)} spellCheck={false} />
-
-              <footer className="mt-16 pt-8 border-t border-stone-50 grid grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">MANIFEST_ATTACHMENTS</p>
-                  <div className="space-y-2">
-                    {currentProject.attachments.map(at => (
-                      <div key={at.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-100">
-                        <div className="flex items-center gap-2">
-                          <File size={10} className="text-[#a9b897]" />
-                          <span className="text-[8px] font-bold text-stone-600">{at.name}</span>
-                        </div>
-                        <span className="text-[7px] font-black text-stone-200 uppercase">{at.size}</span>
-                      </div>
-                    ))}
-                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 p-2 text-stone-300 hover:text-stone-900 transition-colors">
-                      <Plus size={12} />
-                      <span className="text-[8px] font-black uppercase tracking-widest">Attach Resource</span>
-                    </button>
-                    <input type="file" ref={fileInputRef} className="hidden" />
-                  </div>
-                </div>
-                <div className="text-right flex flex-col justify-end gap-1">
-                   <p className="text-[7px] font-black text-stone-200 uppercase tracking-widest">Last Audit</p>
-                   <p className="text-[9px] font-bold text-stone-400 mb-3">{currentProject.metadata.lastUpdated}</p>
-                   <div className="flex items-center justify-end gap-2 text-[#a9b897]">
-                      <ShieldCheck size={12} />
-                      <span className="text-[7px] font-black uppercase tracking-widest">AES-256 Encrypted</span>
-                   </div>
-                </div>
-              </footer>
-            </motion.div>
-
-            <AnimatePresence>
-              {showHistory && (
-                <motion.aside initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 15 }} className="w-72 space-y-4">
-                  <section className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-xl space-y-6 text-left">
-                     <div className="flex justify-between items-center">
-                       <h3 className="text-[9px] font-black uppercase tracking-widest text-stone-900">Neural Log</h3>
-                       <button onClick={() => setShowHistory(false)}><X size={12} className="text-stone-300" /></button>
-                     </div>
-                     <div className="space-y-6">
-                        {currentProject.history.map(rev => (
-                          <div key={rev.id} className="space-y-1.5 pl-3 border-l-2 border-[#a9b897]/20">
-                             <p className="text-[9px] font-bold">{rev.author}</p>
-                             <p className="text-[7px] font-black text-stone-300 uppercase tracking-widest">{rev.timestamp}</p>
-                             <p className="text-[9px] font-serif italic text-stone-400 leading-snug">{rev.summary}</p>
-                          </div>
-                        ))}
-                     </div>
-                  </section>
-                  <section className="bg-stone-900 p-8 rounded-[2rem] text-white relative overflow-hidden group text-left">
-                     <Zap size={60} className="absolute -right-4 -bottom-4 opacity-10 group-hover:rotate-12 transition-transform" />
-                     <h5 className="text-lg font-serif italic text-[#a9b897] mb-1">Neural Scan</h5>
-                     <p className="text-[9px] font-serif italic opacity-40 mb-5 leading-relaxed">94% Brand Alignment detected in logic block.</p>
-                     <button className="w-full py-2.5 bg-white/10 rounded-xl text-[7px] font-black uppercase tracking-widest hover:bg-white/20 transition-all">Refine Clarity</button>
-                  </section>
-                </motion.aside>
-              )}
-            </AnimatePresence>
+             </div>
+             <div className="text-right">
+                <p className="text-[7px] font-black uppercase tracking-[0.3em] text-stone-400">Integrity</p>
+                <p className="text-xs font-mono font-bold tracking-tighter text-[#a9b897]">99.9%</p>
+             </div>
           </div>
         </div>
-      </main>
 
-      {/* --- SYSTEM QUICK NAV --- */}
-      <aside className="w-16 hover:w-56 bg-white border-l border-stone-100 transition-all duration-500 group overflow-hidden z-[150] text-left">
-        <div className="flex flex-col h-full p-4">
-           <div className="mb-12 flex justify-center group-hover:justify-start">
-             <Layers size={18} className="text-[#a9b897]" />
-           </div>
-
-           <div className="flex-1 space-y-10 opacity-0 group-hover:opacity-100 transition-opacity pl-2">
-              <div className="space-y-5">
-                <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">SYSTEM_NODES</p>
-                <div className="grid grid-cols-2 gap-2 pr-4">
-                  <button onClick={() => router.push('/')} className="aspect-square bg-stone-50 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-[#a9b897] hover:text-white transition-all">
-                    <Monitor size={14} /><span className="text-[6px] font-black uppercase tracking-widest">Dash</span>
-                  </button>
-                  <button className="aspect-square bg-stone-50 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-[#a9b897] hover:text-white transition-all">
-                    <LayoutGrid size={14} /><span className="text-[6px] font-black uppercase tracking-widest">Apps</span>
-                  </button>
-                  <button className="aspect-square bg-stone-50 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-[#a9b897] hover:text-white transition-all col-span-2 aspect-auto h-12">
-                    <Server size={14} /><span className="text-[6px] font-black uppercase tracking-widest">Server Status</span>
-                  </button>
-                </div>
-              </div>
-           </div>
-
-           <div className="mt-auto flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-stone-900 flex items-center justify-center text-white text-[9px] font-serif italic shrink-0">L</div>
-              <div className="hidden group-hover:block whitespace-nowrap">
-                 <p className="text-[9px] font-bold">Leigha D.</p>
-                 <p className="text-[7px] font-black text-[#a9b897] uppercase">ROOT ADMIN</p>
-              </div>
-           </div>
+        {/* --- UPLOAD ZONE --- */}
+        <div 
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleUpload}
+          className={`relative border-2 border-dashed rounded-[3rem] p-16 transition-all duration-500 group flex flex-col items-center justify-center gap-6 ${
+            isDragging ? "bg-[#a9b897]/5 border-[#a9b897] scale-[0.99]" : "bg-white border-stone-100 hover:border-[#a9b897]/30"
+          }`}
+        >
+          <div className={`p-6 rounded-full transition-all duration-500 ${isDragging ? "bg-stone-900 text-[#a9b897] scale-110" : "bg-stone-50 text-stone-200"}`}>
+            <CloudUpload size={40} className={isDragging ? "animate-bounce" : ""} />
+          </div>
+          <div className="text-center space-y-2">
+            <h3 className="text-2xl font-serif italic text-stone-800 tracking-tighter">Neural Dropzone</h3>
+            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300 italic">Drag resources to establish nodes</p>
+          </div>
         </div>
-      </aside>
+
+        {/* --- FILE GRID/LIST --- */}
+        <section>
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <AnimatePresence>
+                {filteredFiles.map((file) => (
+                  <motion.div 
+                    layout key={file.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="bg-white border border-stone-100 p-6 rounded-[2rem] hover:border-stone-900 transition-all group shadow-sm text-left relative overflow-hidden"
+                  >
+                    <div className="flex justify-between items-start mb-8 relative z-10">
+                      <div className="w-12 h-12 bg-stone-50 rounded-xl flex items-center justify-center text-stone-300 group-hover:bg-stone-900 group-hover:text-[#a9b897] transition-all">
+                        {file.type === 'pdf' ? <FileText size={20}/> : <File size={20}/>}
+                      </div>
+                      <button className="p-1.5 text-stone-200 hover:text-stone-900"><MoreVertical size={16}/></button>
+                    </div>
+                    <div className="space-y-1 relative z-10">
+                      <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#a9b897] italic">{file.category}</p>
+                      <h4 className="text-lg font-serif italic text-stone-800 tracking-tighter truncate leading-tight group-hover:text-stone-900">{file.name}</h4>
+                      <p className="text-[8px] font-mono font-bold text-stone-300 uppercase tracking-widest">{file.size} • {file.uploadedAt}</p>
+                    </div>
+                    <div className="mt-6 flex items-center justify-between pt-4 border-t border-stone-50 relative z-10">
+                       <div className="flex items-center gap-2">
+                          <ShieldCheck size={10} className="text-[#a9b897]" />
+                          <span className="text-[7px] font-black text-stone-300 uppercase tracking-widest">{file.status}</span>
+                       </div>
+                       <button className="text-stone-200 hover:text-stone-900 transition-colors"><Download size={14}/></button>
+                    </div>
+                    <div className="absolute -right-4 -bottom-4 opacity-[0.02] text-stone-900 pointer-events-none group-hover:opacity-[0.05] transition-opacity">
+                      <File size={80} />
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <div className="space-y-3">
+               {filteredFiles.map((file) => (
+                  <div key={file.id} className="bg-white border border-stone-100 p-4 px-8 rounded-2xl flex items-center justify-between group hover:border-stone-900 transition-all text-left">
+                     <div className="flex items-center gap-6 flex-1">
+                        <FileText size={16} className="text-stone-200 group-hover:text-[#a9b897]" />
+                        <span className="text-[10px] font-bold text-stone-800 min-w-[200px]">{file.name}</span>
+                        <span className="text-[8px] font-black text-stone-300 uppercase tracking-widest">{file.category}</span>
+                     </div>
+                     <div className="flex items-center gap-10">
+                        <span className="text-[8px] font-mono font-bold text-stone-300 uppercase">{file.size}</span>
+                        <span className="text-[8px] font-mono font-bold text-stone-300 uppercase">{file.uploadedAt}</span>
+                        <div className="flex items-center gap-3">
+                           <button className="p-2 text-stone-200 hover:text-stone-900"><Download size={14}/></button>
+                           <button className="p-2 text-stone-200 hover:text-red-500"><Trash2 size={14}/></button>
+                        </div>
+                     </div>
+                  </div>
+               ))}
+            </div>
+          )}
+        </section>
+
+        {/* --- FOOTER ACTIONS --- */}
+        <div className="flex justify-center gap-6 pt-10">
+            <button onClick={() => toast.info("Manifest Sync Initiated")} className="flex items-center gap-4 px-8 py-3 bg-white border border-stone-200 rounded-full text-[9px] font-black uppercase tracking-widest hover:border-stone-900 transition-all shadow-sm">
+                <Clock size={14} className="text-[#a9b897]" />
+                <span>Recent Manifest</span> 
+            </button>
+            <button className="flex items-center gap-4 px-8 py-3 bg-stone-900 text-white rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all shadow-lg">
+                <Zap size={14} className="text-[#a9b897]" /> 
+                <span>Optimize Storage</span>
+            </button>
+        </div>
+
+        <footer className="pt-12 border-t border-stone-100 flex justify-between items-center text-stone-300 text-[8px] font-black uppercase tracking-[0.4em]">
+          <p>TOTS OS v7.1.0 • ARCHIVE_NODE</p>
+          <div className="flex gap-8">
+            <button className="hover:text-stone-900">Protocols</button>
+            <button className="hover:text-stone-900">Root_Audit</button>
+          </div>
+        </footer>
+      </div>
 
     </div>
   );
 }
-
-const Loader2 = ({ size, className }: { size: number, className: string }) => (
-  <Activity size={size} className={className} />
-);

@@ -7,38 +7,62 @@ import {
   Trash2, Zap, ChevronLeft, ChevronRight, 
   RefreshCcw, Layers, Upload, Sparkles, 
   Edit3, Hash, Clock, X, Calendar as CalIcon,
-  ArrowRight, Save, BrainCircuit, TrendingUp, AlertCircle
+  ArrowRight, Save, BrainCircuit, TrendingUp, AlertCircle,
+  BarChart3, Video, Image as ImageIcon, Camera, 
+  Music, Wand2, MonitorPlay, Pin, Instagram, 
+  Twitter, Linkedin, CheckCircle2, Copy, Send
 } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
+// --- Types & Interfaces ---
 interface SocialPost {
   id: string;
   caption: string;
   platform: string;
   hashtags?: string;
   media_url: string;
-  scheduled_for: string; // Matches your actual Supabase column
+  scheduled_for: string;
   status: string;
   format: string;
+  ai_model?: string;
 }
 
-export default function SocialStudio() {
-  const [activeTab, setActiveTab] = useState<"lab" | "scheduler">("lab");
+interface AIConfig {
+  tone: string;
+  goal: string;
+  length: string;
+}
+
+export default function UnifiedSocialStudio() {
+  // --- UI State ---
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [status, setStatus] = useState("Ready");
+  const [activeMediaTab, setActiveMediaTab] = useState<"upload" | "ai-image" | "ai-video">("upload");
   
   // --- Post State ---
   const [caption, setCaption] = useState("");
   const [hashtags, setHashtags] = useState("");
   const [platform, setPlatform] = useState("instagram");
+  const [format, setFormat] = useState("Post");
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [scheduledTime, setScheduledTime] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
   
+  // --- AI State ---
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [aiConfig, setAIConfig] = useState<AIConfig>({ tone: "Minimalist", goal: "Engagement", length: "Short" });
+  const [aiAnalysis, setAiAnalysis] = useState({
+    engagementScore: 88,
+    bestTime: "Tomorrow, 6:00 PM",
+    sentiment: "Inspirational"
+  });
+
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // --- Supabase Setup ---
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -46,26 +70,44 @@ export default function SocialStudio() {
 
   const syncPosts = async () => {
     setStatus("Syncing");
-    const { data, error } = await supabase.from('socials').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('socials').select('*').order('scheduled_for', { ascending: true });
     if (!error) setPosts((data as SocialPost[]) || []);
     setStatus("Ready");
   };
 
   useEffect(() => { syncPosts(); }, [supabase]);
 
-  // --- AI Engines ---
-  const handleAICaption = async () => {
+  // --- AI Logic Engines ---
+  
+  const generateAICaption = async () => {
     setIsGenerating(true);
-    // Simulating Clarity AI analysis
-    await new Promise(r => setTimeout(r, 1200));
-    setCaption("Efficiency isn't just about speed; it's about the clarity of your digital workspace. Experience the next level of organization with TOTs OS.");
+    // Mimicking high-level LLM call
+    await new Promise(r => setTimeout(r, 1500));
+    const variations = [
+      "Architecture is the silent language of efficiency. #TOTsOS #DigitalDesign",
+      "Streamline the chaos. The new Social Studio is here to redefine your workflow. ✨",
+      "Clarity isn't a goal; it's a standard. Experience the OS of the future."
+    ];
+    setCaption(variations[Math.floor(Math.random() * variations.length)]);
     setIsGenerating(false);
-    toast.success("Clarity AI generated a suggested post.");
+    toast.success("Clarity AI: Narrative Optimized");
   };
 
-  const generateAIHashtags = () => {
-    setHashtags("#TheOrganisedTypes #DigitalEfficiency #SaaS #Organization");
-    toast.success("Hashtags generated.");
+  const generateAIMedia = async (type: 'image' | 'video') => {
+    if (!prompt) return toast.error("Enter a prompt for the AI");
+    setIsGenerating(true);
+    setStatus(`Generating ${type}...`);
+    
+    // Simulate DALL-E / Sora Style Generation
+    await new Promise(r => setTimeout(r, 3000));
+    const mockUrl = type === 'image' 
+      ? `https://picsum.photos/seed/${Math.random()}/1080/1350` 
+      : "https://assets.mixkit.co/videos/preview/mixkit-clouds-and-sun-light-102-large.mp4";
+    
+    setMediaPreview(mockUrl);
+    setIsGenerating(false);
+    setStatus("Ready");
+    toast.success(`AI ${type} created successfully.`);
   };
 
   const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -77,12 +119,17 @@ export default function SocialStudio() {
     }
   };
 
-  const handleSavePost = async () => {
-    if (!caption || !scheduledTime) return toast.error("Missing Caption or Time");
-    
+  const handleDateClick = (day: number) => {
+    if (day === 0) return;
+    const selected = new Date(currentDate.getFullYear(), currentDate.getMonth(), day, 18, 0);
+    setScheduledTime(selected.toISOString().slice(0, 16));
+    setShowSaveModal(true);
+  };
+
+  const saveToSupabase = async () => {
+    if (!caption || !scheduledTime) return toast.error("Please fill in post details");
     setStatus("Saving");
     
-    // Mapping exactly to your DB: scheduled_for, status, format
     const { error } = await supabase.from('socials').insert([{
       caption,
       platform,
@@ -90,21 +137,25 @@ export default function SocialStudio() {
       media_url: mediaPreview || `https://picsum.photos/seed/${Math.random()}/800/1200`,
       scheduled_for: new Date(scheduledTime).toISOString(),
       status: 'scheduled',
-      format: 'Image'
+      format: format
     }]);
 
     if (!error) {
-      toast.success("Post saved to schedule.");
-      setCaption(""); setHashtags(""); setScheduledTime(""); setMediaPreview(null);
-      setShowSaveModal(false);
+      toast.success("Scheduled to Grid");
+      resetForm();
       syncPosts();
     } else {
-      console.error("Supabase Error:", error);
-      toast.error("Save failed. Check console for column mismatches.");
+      toast.error("Database connection error");
     }
     setStatus("Ready");
   };
 
+  const resetForm = () => {
+    setCaption(""); setHashtags(""); setMediaPreview(null);
+    setPrompt(""); setShowSaveModal(false);
+  };
+
+  // --- Calendar Logic ---
   const calendar = useMemo(() => {
     const y = currentDate.getFullYear();
     const m = currentDate.getMonth();
@@ -117,218 +168,335 @@ export default function SocialStudio() {
   }, [currentDate]);
 
   return (
-    <div className="min-h-screen bg-[#FBFBFA] text-[#1c1c1c] p-8 font-sans antialiased">
+    <div className="min-h-screen bg-[#F6F6F3] text-[#1c1c1c] p-6 lg:p-10 font-sans antialiased selection:bg-[#a9b897]/30">
       
-      {/* Navigation */}
-      <nav className="max-w-7xl mx-auto flex justify-between items-center mb-16 bg-white/80 p-4 rounded-full border border-stone-100 shadow-sm backdrop-blur-xl sticky top-8 z-40">
-        <div className="flex items-center gap-8 pl-4">
-          <div className="w-8 h-8 bg-[#1c1c1c] rounded-xl flex items-center justify-center text-[#a9b897]"><Layers size={16}/></div>
-          <div className="flex bg-stone-100 p-1 rounded-full">
-            {(["lab", "scheduler"] as const).map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-8 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? "bg-white text-[#1c1c1c] shadow-sm" : "text-stone-400 hover:text-stone-600"}`}>{tab}</button>
-            ))}
+      {/* Navigation Header */}
+      <nav className="max-w-[1600px] mx-auto flex justify-between items-center mb-12 bg-white/90 p-3 rounded-[2rem] border border-stone-200/50 shadow-sm backdrop-blur-2xl sticky top-6 z-50">
+        <div className="flex items-center gap-6 pl-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[#1c1c1c] rounded-2xl flex items-center justify-center text-[#a9b897] shadow-lg shadow-black/10">
+              <Layers size={18}/>
+            </div>
+            <span className="font-serif italic text-xl tracking-tighter">Social.OS</span>
           </div>
+          <div className="h-6 w-px bg-stone-200 mx-2" />
+          <Link href="/reports">
+            <button className="flex items-center gap-2.5 px-6 py-2.5 bg-stone-100 hover:bg-stone-200 rounded-full text-[10px] font-black uppercase tracking-widest transition-all">
+              <BarChart3 size={14} className="text-[#a9b897]"/>
+              See Reports
+            </button>
+          </Link>
         </div>
-        <div className="flex items-center gap-4 mr-1">
-          <div className="px-4 py-2 rounded-full bg-stone-50 border border-stone-100 flex items-center gap-2">
+
+        <div className="flex items-center gap-3 pr-2">
+          <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-stone-50 border border-stone-100">
             <div className={`w-1.5 h-1.5 rounded-full ${status === 'Ready' ? 'bg-[#a9b897]' : 'bg-amber-400'} animate-pulse`}/>
-            <span className="text-[8px] font-black uppercase text-stone-400">{status}</span>
+            <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">{status}</span>
           </div>
-          <button onClick={syncPosts} className="p-3 bg-stone-50 rounded-full hover:bg-stone-100 transition-colors"><RefreshCcw size={14}/></button>
+          <button onClick={syncPosts} className="p-3 hover:bg-stone-100 rounded-full transition-all text-stone-400 hover:text-stone-900"><RefreshCcw size={16}/></button>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto">
-        <AnimatePresence mode="wait">
-          {activeTab === "lab" && (
-            <motion.div key="lab" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-12 gap-12">
-              <div className="col-span-12 lg:col-span-8 space-y-10">
-                <header className="flex justify-between items-end">
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-black uppercase tracking-[0.5em] text-[#a9b897]">Creation Space</p>
-                    <h1 className="text-7xl font-serif italic text-[#1c1c1c]">The Lab.</h1>
-                  </div>
-                  <button 
-                    onClick={handleAICaption}
-                    disabled={isGenerating}
-                    className="flex items-center gap-2 px-6 py-3 bg-stone-100 rounded-2xl text-[9px] font-black uppercase tracking-widest text-[#1c1c1c] hover:bg-stone-200 transition-all shadow-sm"
-                  >
-                    <Sparkles size={14} className={isGenerating ? "animate-spin text-[#a9b897]" : "text-[#a9b897]"}/>
-                    {isGenerating ? "Analyzing..." : "Clarity AI Suggestion"}
-                  </button>
-                </header>
+      <main className="max-w-[1600px] mx-auto space-y-12">
+        
+        {/* SECTION 1: Strategic Overview (Calendar + AI Insights) */}
+        <div className="grid grid-cols-12 gap-8 lg:gap-12">
+          
+          {/* Calendar Grid */}
+          <div className="col-span-12 xl:col-span-8 space-y-6">
+            <div className="flex justify-between items-center px-6">
+              <div className="flex items-baseline gap-4">
+                <h2 className="text-6xl font-serif italic tracking-tighter">{calendar.monthName}</h2>
+                <span className="text-stone-300 font-serif text-2xl">{calendar.year}</span>
+              </div>
+              <div className="flex bg-white rounded-2xl border border-stone-100 p-1 shadow-sm">
+                 <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className="p-3 hover:bg-stone-50 rounded-xl transition-all"><ChevronLeft size={20}/></button>
+                 <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} className="p-3 hover:bg-stone-50 rounded-xl transition-all"><ChevronRight size={20}/></button>
+              </div>
+            </div>
+            
+            <div className="bg-white p-10 lg:p-14 rounded-[4rem] border border-stone-100 shadow-xl shadow-stone-200/40">
+              <div className="grid grid-cols-7 gap-4">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                  <div key={d} className="text-center text-[10px] font-black text-stone-300 uppercase tracking-[0.3em] mb-6">{d}</div>
+                ))}
+                {calendar.days.map((day, i) => {
+                  const dayPosts = posts.filter(p => {
+                    const d = new Date(p.scheduled_for);
+                    return d.getDate() === day.d && d.getMonth() === currentDate.getMonth();
+                  });
+                  return (
+                    <div 
+                      key={i} 
+                      onClick={() => handleDateClick(day.d)}
+                      className={`aspect-[4/3] rounded-[2rem] border border-stone-50 flex flex-col items-center justify-center relative group transition-all duration-500
+                        ${day.current ? 'bg-white hover:bg-[#a9b897]/5 hover:scale-[1.02] hover:border-[#a9b897]/20 cursor-pointer' : 'opacity-10 pointer-events-none'}
+                        ${dayPosts.length > 0 ? 'border-stone-200 shadow-sm' : ''}
+                      `}
+                    >
+                      <span className={`text-2xl font-serif italic ${dayPosts.length > 0 ? 'text-[#1c1c1c]' : 'text-stone-200'}`}>{day.d > 0 ? day.d : ""}</span>
+                      <div className="flex gap-1 mt-2">
+                        {dayPosts.map((_, idx) => (
+                          <div key={idx} className="w-1.5 h-1.5 rounded-full bg-[#a9b897]" />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
 
-                <div className="bg-white rounded-[3.5rem] border border-stone-100 shadow-2xl p-1 overflow-hidden">
-                  <div className="grid grid-cols-1 md:grid-cols-2">
-                    <div className="p-12 space-y-8 flex flex-col justify-between">
-                       <div className="space-y-4">
-                        <label className="text-[10px] font-black uppercase text-stone-300">Draft Caption</label>
-                        <textarea 
-                          value={caption} 
-                          onChange={(e) => setCaption(e.target.value)} 
-                          placeholder="Your narrative..."
-                          className="w-full h-80 bg-transparent text-3xl font-serif italic outline-none resize-none placeholder:text-stone-100 leading-tight"
-                        />
-                       </div>
-                       <button 
-                        onClick={() => setShowSaveModal(true)}
-                        className="w-full bg-[#1c1c1c] text-white py-6 rounded-3xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform shadow-xl shadow-stone-200"
-                       >
-                         Next: Schedule & Save <ArrowRight size={14} className="text-[#a9b897]"/>
-                       </button>
+          {/* Clarity Strategic Analyst Sidebar */}
+          <div className="col-span-12 xl:col-span-4 space-y-8">
+            <section className="bg-[#1c1c1c] rounded-[3.5rem] p-10 text-white min-h-[500px] flex flex-col shadow-2xl relative overflow-hidden group">
+               <div className="absolute -top-10 -right-10 opacity-5 group-hover:opacity-10 transition-opacity duration-1000">
+                 <BrainCircuit size={300}/>
+               </div>
+               
+               <div className="relative z-10 space-y-8 h-full flex flex-col">
+                  <header className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#a9b897]">Clarity Analyst v4</p>
+                      <h3 className="text-3xl font-serif italic">Feed Strategy</h3>
+                    </div>
+                    <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-md">
+                      <Zap size={20} className="text-amber-400 fill-amber-400" />
+                    </div>
+                  </header>
+
+                  <div className="space-y-6 flex-1">
+                    <div className="bg-white/5 rounded-3xl p-6 border border-white/10 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase text-stone-500">Projected Reach</span>
+                        <span className="text-[#a9b897] font-black text-xs">+{aiAnalysis.engagementScore}%</span>
+                      </div>
+                      <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                        <motion.div initial={{ width: 0 }} animate={{ width: '88%' }} className="h-full bg-[#a9b897]" />
+                      </div>
+                      <p className="text-[12px] text-stone-400 italic leading-relaxed">"Content density is high on Thursdays. Shifting your next Reel to Friday at 6pm will likely yield 20% higher initial saves."</p>
                     </div>
 
-                    <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="bg-stone-50 m-2 rounded-[3rem] border-2 border-dashed border-stone-100 flex flex-col items-center justify-center cursor-pointer hover:bg-stone-100 transition-all overflow-hidden relative min-h-[500px]"
-                    >
-                      {mediaPreview ? (
-                        <img src={mediaPreview} className="w-full h-full object-cover" />
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                         <p className="text-[8px] font-black uppercase text-stone-500 mb-2">Dominant Tone</p>
+                         <p className="text-sm font-serif italic">{aiAnalysis.sentiment}</p>
+                       </div>
+                       <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                         <p className="text-[8px] font-black uppercase text-stone-500 mb-2">Peak Window</p>
+                         <p className="text-sm font-serif italic">18:00 - 21:00</p>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-8 border-t border-white/10">
+                    <button className="w-full py-4 bg-[#a9b897] text-[#1c1c1c] rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-transform">
+                      Refresh Deep Analysis
+                    </button>
+                  </div>
+               </div>
+            </section>
+          </div>
+        </div>
+
+        {/* SECTION 2: The Production Lab */}
+        <div className="space-y-8 pb-20">
+          <header className="flex flex-col md:flex-row justify-between items-end gap-6 px-6">
+            <div className="space-y-1">
+              <p className="text-[12px] font-black uppercase tracking-[0.6em] text-[#a9b897]">Workspace</p>
+              <h1 className="text-8xl font-serif italic tracking-tighter leading-none">The Lab.</h1>
+            </div>
+            
+            <div className="flex flex-wrap gap-3">
+              <button 
+                onClick={generateAICaption}
+                disabled={isGenerating}
+                className="px-8 py-4 bg-white border border-stone-200 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:bg-stone-50 shadow-sm transition-all"
+              >
+                <Wand2 size={16} className={isGenerating ? "animate-pulse" : "text-[#a9b897]"} />
+                {isGenerating ? "Synthesizing..." : "Narrative AI"}
+              </button>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-12 gap-8">
+            {/* Left Column: Creative Input */}
+            <div className="col-span-12 lg:col-span-7">
+               <div className="bg-white rounded-[4rem] border border-stone-100 shadow-2xl p-2 min-h-[650px] flex flex-col">
+                  <div className="flex-1 p-12 space-y-10">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[11px] font-black uppercase text-stone-300 tracking-widest">Storytelling</label>
+                        <div className="flex gap-4">
+                           {['Casual', 'Elevated', 'Technical'].map(t => (
+                             <button 
+                                key={t} 
+                                onClick={() => setAIConfig({...aiConfig, tone: t})}
+                                className={`text-[9px] font-black uppercase ${aiConfig.tone === t ? 'text-[#a9b897]' : 'text-stone-300'}`}
+                             >{t}</button>
+                           ))}
+                        </div>
+                      </div>
+                      <textarea 
+                        value={caption} 
+                        onChange={(e) => setCaption(e.target.value)} 
+                        placeholder="Define the vision..."
+                        className="w-full h-48 bg-transparent text-4xl font-serif italic outline-none resize-none placeholder:text-stone-100 leading-[1.1]"
+                      />
+                    </div>
+
+                    <div className="space-y-6 pt-10 border-t border-stone-50">
+                      <div className="flex items-center gap-6">
+                        <button onClick={() => setActiveMediaTab("upload")} className={`text-[10px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ${activeMediaTab === 'upload' ? 'border-[#a9b897] text-[#1c1c1c]' : 'border-transparent text-stone-300'}`}>Static Asset</button>
+                        <button onClick={() => setActiveMediaTab("ai-image")} className={`text-[10px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ${activeMediaTab === 'ai-image' ? 'border-[#a9b897] text-[#1c1c1c]' : 'border-transparent text-stone-300'}`}>Magic Canvas (AI)</button>
+                        <button onClick={() => setActiveMediaTab("ai-video")} className={`text-[10px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ${activeMediaTab === 'ai-video' ? 'border-[#a9b897] text-[#1c1c1c]' : 'border-transparent text-stone-300'}`}>Motion Engine (AI)</button>
+                      </div>
+
+                      {activeMediaTab !== 'upload' ? (
+                        <div className="space-y-4 bg-stone-50 p-6 rounded-3xl border border-stone-100">
+                          <input 
+                            placeholder="Describe the aesthetic (e.g., 'Hyper-minimalist 3D office space, sage green accents')..."
+                            className="w-full bg-transparent border-b border-stone-200 py-3 text-sm outline-none font-medium italic"
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                          />
+                          <button 
+                            onClick={() => generateAIMedia(activeMediaTab === 'ai-image' ? 'image' : 'video')}
+                            className="flex items-center gap-2 text-[10px] font-black uppercase text-[#a9b897] hover:opacity-70"
+                          >
+                            <Sparkles size={14}/> Trigger Generation
+                          </button>
+                        </div>
                       ) : (
-                        <div className="text-center">
-                          <Upload className="mx-auto text-stone-200 mb-4" size={24} />
-                          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300">Drop Visual Asset</p>
+                        <div className="h-24 flex items-center justify-center border-2 border-dashed border-stone-100 rounded-3xl">
+                           <p className="text-[10px] font-black uppercase text-stone-300 tracking-widest">Asset Pipeline Offline - Upload via Sidebar</p>
                         </div>
                       )}
-                      <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Sidebar: Clarity Analyst */}
-              <div className="col-span-12 lg:col-span-4 pt-28 space-y-12">
-                <section className="bg-[#1c1c1c] rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4 opacity-10"><BrainCircuit size={80}/></div>
-                  <div className="space-y-1 relative z-10">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-[#a9b897]">Clarity Analyst</p>
-                    <h3 className="text-2xl font-serif italic">Strategy Insight</h3>
+                  <div className="p-4">
+                    <button 
+                      onClick={() => setShowSaveModal(true)}
+                      className="w-full bg-[#1c1c1c] text-white py-8 rounded-[3.5rem] font-black uppercase text-[12px] tracking-[0.3em] flex items-center justify-center gap-4 hover:bg-stone-800 transition-all shadow-xl shadow-stone-200"
+                    >
+                      Process & Review <ArrowRight size={18} className="text-[#a9b897]"/>
+                    </button>
                   </div>
-                  <div className="space-y-4 relative z-10">
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-2">
-                      <div className="flex items-center gap-2 text-[#a9b897] font-black text-[8px] uppercase tracking-widest">
-                        <TrendingUp size={10}/> Content Balance
-                      </div>
-                      <p className="text-[11px] text-stone-400 leading-relaxed italic">"Your feed is 80% educational. The analyst recommends adding a 'Behind the Scenes' post to increase engagement."</p>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-2">
-                      <div className="flex items-center gap-2 text-amber-400 font-black text-[8px] uppercase tracking-widest">
-                        <AlertCircle size={10}/> Optimization
-                      </div>
-                      <p className="text-[11px] text-stone-400 leading-relaxed italic">"Optimal posting window for LinkedIn detected: tomorrow at 9:00 AM."</p>
-                    </div>
-                  </div>
-                </section>
-
-                <div className="space-y-6">
-                  <h3 className="text-[10px] font-black uppercase text-stone-300 tracking-widest pl-2">Scheduled Flow</h3>
-                  <div className="space-y-4">
-                    {posts.slice(0, 3).map(post => (
-                      <div key={post.id} className="bg-white p-4 rounded-[2rem] border border-stone-100 flex items-center gap-4 shadow-sm group">
-                        <div className="w-14 h-14 bg-stone-50 rounded-2xl overflow-hidden shadow-inner">
-                          <img src={post.media_url} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[8px] font-black uppercase text-[#a9b897]">{post.platform}</p>
-                          <p className="text-sm font-serif italic truncate text-stone-600 leading-none">"{post.caption}"</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === "scheduler" && (
-            <motion.div key="scheduler" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
-               <header className="flex justify-between items-end border-b border-stone-100 pb-12">
-                  <h1 className="text-8xl font-serif italic text-[#1c1c1c] tracking-tighter leading-none">Grid.</h1>
-                  <div className="flex gap-2">
-                     <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className="p-4 bg-white border border-stone-100 rounded-2xl hover:bg-stone-50 transition-all"><ChevronLeft size={20}/></button>
-                     <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} className="p-4 bg-white border border-stone-100 rounded-2xl hover:bg-stone-50 transition-all"><ChevronRight size={20}/></button>
-                  </div>
-               </header>
-               <div className="grid grid-cols-7 gap-6 bg-white p-16 rounded-[4rem] border border-stone-100 shadow-2xl">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="text-center text-[10px] font-black text-stone-200 uppercase tracking-widest pb-8">{d}</div>)}
-                  {calendar.days.map((day, i) => {
-                    const hasPost = posts.some(p => {
-                      const d = new Date(p.scheduled_for);
-                      return d.getDate() === day.d && d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear();
-                    });
-                    return (
-                      <div key={i} className={`aspect-square rounded-[2rem] border border-stone-50 flex items-center justify-center text-4xl font-serif italic relative group ${day.current ? 'text-[#1c1c1c] hover:bg-stone-50 cursor-pointer transition-all' : 'text-stone-50 opacity-10'}`}>
-                        {day.d > 0 ? day.d : ""}
-                        {hasPost && <div className="absolute bottom-6 w-2 h-2 rounded-full bg-[#a9b897] shadow-[0_0_10px_#a9b897]" />}
-                      </div>
-                    );
-                  })}
                </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+
+            {/* Right Column: Visual Preview & Selection */}
+            <div className="col-span-12 lg:col-span-5 space-y-8">
+               <div 
+                 onClick={() => activeMediaTab === 'upload' && fileInputRef.current?.click()}
+                 className={`aspect-[4/5] bg-white rounded-[4rem] border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden relative shadow-inner transition-all duration-700
+                   ${activeMediaTab === 'upload' ? 'cursor-pointer hover:bg-stone-50' : 'border-solid border-stone-100 shadow-2xl'}
+                 `}
+               >
+                 <AnimatePresence mode="wait">
+                   {mediaPreview ? (
+                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full">
+                        {mediaPreview.includes('.mp4') ? (
+                          <video src={mediaPreview} autoPlay loop muted className="w-full h-full object-cover" />
+                        ) : (
+                          <img src={mediaPreview} className="w-full h-full object-cover" />
+                        )}
+                        <button onClick={(e) => { e.stopPropagation(); setMediaPreview(null); }} className="absolute top-8 right-8 p-3 bg-black/20 backdrop-blur-xl text-white rounded-full hover:bg-black/40"><X size={20}/></button>
+                     </motion.div>
+                   ) : (
+                     <div className="text-center space-y-4">
+                       <div className="w-20 h-20 bg-stone-100 rounded-[2.5rem] flex items-center justify-center mx-auto text-stone-300">
+                         {activeMediaTab === 'ai-video' ? <Video size={32}/> : <ImageIcon size={32}/>}
+                       </div>
+                       <p className="text-[10px] font-black uppercase text-stone-300 tracking-[0.2em]">Preview Engine Offline</p>
+                     </div>
+                   )}
+                 </AnimatePresence>
+                 <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
+               </div>
+
+               <div className="grid grid-cols-4 gap-4 px-4">
+                  {[
+                    { id: 'insta', icon: <Instagram size={16}/>, label: 'Insta' },
+                    { id: 'tiktok', icon: <Video size={16}/>, label: 'TikTok' },
+                    { id: 'pin', icon: <Pin size={16}/>, label: 'Pin' },
+                    { id: 'link', icon: <Linkedin size={16}/>, label: 'Link' }
+                  ].map(plat => (
+                    <button 
+                      key={plat.id}
+                      onClick={() => setPlatform(plat.id)}
+                      className={`flex flex-col items-center gap-3 p-5 rounded-[2rem] border transition-all ${platform === plat.id ? 'bg-white border-stone-200 shadow-md scale-105' : 'bg-transparent border-transparent grayscale opacity-40'}`}
+                    >
+                      <div className={platform === plat.id ? 'text-[#a9b897]' : 'text-[#1c1c1c]'}>{plat.icon}</div>
+                      <span className="text-[8px] font-black uppercase tracking-widest">{plat.label}</span>
+                    </button>
+                  ))}
+               </div>
+            </div>
+          </div>
+        </div>
       </main>
 
-      {/* --- SAVE MODAL --- */}
+      {/* --- PRODUCTION MODAL (SAVE) --- */}
       <AnimatePresence>
         {showSaveModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowSaveModal(false)} className="absolute inset-0 bg-[#FBFBFA]/90 backdrop-blur-md" />
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowSaveModal(false)} className="absolute inset-0 bg-[#FBFBFA]/90 backdrop-blur-2xl" />
+            
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+              initial={{ opacity: 0, scale: 0.9, y: 30 }} 
               animate={{ opacity: 1, scale: 1, y: 0 }} 
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-xl bg-white rounded-[3.5rem] shadow-2xl border border-stone-100 overflow-hidden"
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              className="relative w-full max-w-4xl bg-white rounded-[4rem] shadow-2xl border border-stone-100 overflow-hidden grid grid-cols-1 lg:grid-cols-2"
             >
-              <div className="p-12 space-y-10">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-2">Final Step</p>
-                    <h2 className="text-4xl font-serif italic">Save Post.</h2>
-                  </div>
-                  <button onClick={() => setShowSaveModal(false)} className="p-3 bg-stone-50 rounded-full hover:bg-stone-100 transition-colors"><X size={18}/></button>
+              <div className="p-16 space-y-12 bg-stone-50/50">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.4em] text-[#a9b897] mb-2">Final Validation</p>
+                  <h2 className="text-5xl font-serif italic tracking-tighter">Review & Sync.</h2>
                 </div>
 
-                <div className="space-y-8">
+                <div className="space-y-10">
                   <div className="space-y-4">
-                    <label className="text-[10px] font-black uppercase text-stone-300">Platform</label>
-                    <div className="flex gap-2">
-                      {["instagram", "linkedin", "twitter"].map(p => (
-                        <button key={p} onClick={() => setPlatform(p)} className={`px-6 py-2.5 rounded-2xl text-[10px] font-bold border transition-all ${platform === p ? 'bg-[#1c1c1c] text-white shadow-lg' : 'bg-stone-50 text-stone-400 border-stone-100'}`}>{p}</button>
+                    <label className="text-[10px] font-black uppercase text-stone-300">Format Selection</label>
+                    <div className="flex flex-wrap gap-2">
+                      {["Post", "Story", "Reel", "TikTok", "Pin"].map(f => (
+                        <button key={f} onClick={() => setFormat(f)} className={`px-6 py-3 rounded-2xl text-[10px] font-bold border transition-all ${format === f ? 'bg-[#1c1c1c] text-white shadow-lg' : 'bg-white text-stone-400 border-stone-100'}`}>{f}</button>
                       ))}
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <label className="text-[10px] font-black uppercase text-stone-300 flex items-center gap-2"><Clock size={12}/> Choose Time</label>
-                    <input 
-                      type="datetime-local" 
-                      value={scheduledTime} 
-                      onChange={(e) => setScheduledTime(e.target.value)}
-                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm font-medium outline-none focus:ring-2 ring-[#a9b897]/20"
-                    />
+                    <label className="text-[10px] font-black uppercase text-stone-300 flex items-center gap-2"><Clock size={12}/> Production Time</label>
+                    <input type="datetime-local" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="w-full bg-white border border-stone-100 rounded-3xl p-6 text-sm font-medium outline-none focus:ring-4 ring-[#a9b897]/10" />
                   </div>
 
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[10px] font-black uppercase text-stone-300 flex items-center gap-2"><Hash size={12}/> Hashtags</label>
-                      <button onClick={generateAIHashtags} className="text-[9px] font-black uppercase text-[#a9b897] flex items-center gap-2 hover:opacity-70 transition-opacity"><Sparkles size={12}/> AI Suggest</button>
+                    <div className="flex justify-between">
+                      <label className="text-[10px] font-black uppercase text-stone-300 flex items-center gap-2"><Hash size={12}/> Tag Strategy</label>
+                      <button onClick={() => setHashtags("#strategy #design #minimalism #architecture")} className="text-[9px] font-black uppercase text-[#a9b897]">Suggest Tags</button>
                     </div>
-                    <input 
-                      value={hashtags} 
-                      onChange={(e) => setHashtags(e.target.value)} 
-                      placeholder="#strategy #innovation"
-                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm font-medium outline-none"
-                    />
+                    <input value={hashtags} onChange={(e) => setHashtags(e.target.value)} className="w-full bg-white border border-stone-100 rounded-3xl p-6 text-sm font-medium outline-none" />
                   </div>
                 </div>
 
-                <button 
-                  onClick={handleSavePost}
-                  className="w-full bg-[#1c1c1c] text-white py-7 rounded-[2rem] font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-4 hover:scale-[1.01] transition-all shadow-xl shadow-stone-200"
-                >
-                  Save to Schedule <Save size={16} fill="#a9b897" className="text-[#a9b897]"/>
+                <button onClick={saveToSupabase} className="w-full bg-[#1c1c1c] text-white py-8 rounded-3xl font-black uppercase text-[12px] tracking-[0.3em] flex items-center justify-center gap-4 hover:scale-[1.01] transition-all">
+                  Commit to Grid <Save size={18} className="text-[#a9b897]"/>
                 </button>
+              </div>
+
+              <div className="hidden lg:block relative p-12 bg-white">
+                <div className="h-full w-full rounded-[2.5rem] border border-stone-100 overflow-hidden shadow-2xl relative">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10" />
+                  {mediaPreview ? (
+                    mediaPreview.includes('.mp4') ? <video src={mediaPreview} autoPlay loop muted className="w-full h-full object-cover" /> : <img src={mediaPreview} className="w-full h-full object-cover" />
+                  ) : <div className="w-full h-full bg-stone-100" />}
+                  
+                  <div className="absolute bottom-8 left-8 right-8 z-20 text-white space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-[#a9b897]">{platform} {format}</p>
+                    <p className="text-2xl font-serif italic leading-tight truncate">"{caption}"</p>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -338,6 +506,8 @@ export default function SocialStudio() {
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
+        ::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+        ::-webkit-calendar-picker-indicator { opacity: 0.3; cursor: pointer; }
       `}</style>
     </div>
   );

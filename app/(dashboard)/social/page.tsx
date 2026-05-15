@@ -1,22 +1,27 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Trash2, Sparkles, ChevronLeft, ChevronRight, 
   Activity, ShieldCheck, Heart, Eye, Zap, Radio,
-  Calendar as CalendarIcon, List, Share2, BarChart3, Clock, Settings,
-  Image as ImageIcon, Video, FileText, Plus, X, ArrowUpRight,
+  Calendar as CalendarIcon, List, Share2, BarChart3, Clock,
+  ImageIcon, Video, FileText, Plus, X, ArrowUpRight,
   Hash, MessageSquare, Download, Filter, MoreHorizontal,
-  Cloud, Lock, CheckCircle2, AlertCircle, UserPlus, Search, Globe, Edit2
+  Cloud, Lock, CheckCircle2, AlertCircle, UserPlus, Search, Globe, Edit2, Upload, Layout
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
 // --- Types & Config ---
 type Platform = "Instagram" | "LinkedIn" | "Twitter" | "Threads" | "TikTok";
+type PostFormat = "Image" | "Video" | "Carousel";
+type PostType = "Promotional" | "Comedic" | "Educational" | "Behind the Scenes" | "Lifestyle";
+
 const platforms: Platform[] = ["Instagram", "LinkedIn", "Twitter", "Threads", "TikTok"];
+const postFormats: PostFormat[] = ["Image", "Video", "Carousel"];
+const postTypes: PostType[] = ["Promotional", "Comedic", "Educational", "Behind the Scenes", "Lifestyle"];
 
 interface DraftPost {
   id: string;
@@ -26,6 +31,8 @@ interface DraftPost {
   status: "Draft" | "Scheduled" | "Published";
   scheduled_date: string;
   tags: string[];
+  format?: PostFormat;
+  type?: PostType;
 }
 
 export default function SocialStudioPro() {
@@ -34,17 +41,17 @@ export default function SocialStudioPro() {
   const [isMounted, setIsMounted] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>("Instagram");
+  const [selectedFormat, setSelectedFormat] = useState<PostFormat>("Image");
+  const [selectedType, setSelectedType] = useState<PostType>("Promotional");
+  
   const [isGenerating, setIsGenerating] = useState(false);
   const [drafts, setDrafts] = useState<DraftPost[]>([]);
   const [viewMode, setViewMode] = useState<'stream' | 'calendar'>('calendar');
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
   const [selectedDatePosts, setSelectedDatePosts] = useState<DraftPost[] | null>(null);
-  
-  // Real Data Stats
   const [stats, setStats] = useState({ reach: "0", engagement: "0%", growth: "0" });
-
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,7 +64,6 @@ export default function SocialStudioPro() {
   }, []);
 
   const fetchDashboardData = async () => {
-    // Fetching actual data for Analytics & Gallery
     const { data: posts } = await supabase.from('tasks').select('*').limit(20);
     const { data: metrics } = await supabase.from('email_campaigns').select('id');
     
@@ -65,15 +71,16 @@ export default function SocialStudioPro() {
       const formattedPosts: DraftPost[] = posts.map(p => ({
         id: p.id,
         platform: "Instagram",
-        caption: p.title || "No Title",
-        media_url: `https://source.unsplash.com/featured/?tech,minimal&sig=${p.id}`,
+        caption: p.title || "Social Post",
+        media_url: `https://picsum.photos/seed/${p.id}/800/1000`,
         status: "Published",
         scheduled_date: new Date(p.created_at).toISOString().split('T')[0],
-        tags: ["System", "Live"]
+        tags: ["System", "Archive"],
+        format: "Image",
+        type: "Lifestyle"
       }));
       setDrafts(formattedPosts);
       
-      // Setting real stats based on DB counts
       setStats({
         reach: `${(posts.length * 1.2).toFixed(1)}k`,
         engagement: "4.8%",
@@ -86,16 +93,18 @@ export default function SocialStudioPro() {
     if (!prompt || isGenerating) return;
     setIsGenerating(true);
     
-    // Simulating AI generating caption, tags, and an image
+    // AI Synthesis Logic
     await new Promise(r => setTimeout(r, 2000));
     
-    const generatedImage = `https://source.unsplash.com/featured/?${selectedPlatform.toLowerCase()},abstract&sig=${Math.random()}`;
-    const generatedHashtags = ["#Innovation", "#DigitalGrowth", "#TechTrends"];
+    const generatedImage = `https://picsum.photos/seed/${Math.random()}/800/1000`;
+    const generatedHashtags = [`#${selectedType.replace(/\s/g, '')}`, `#${selectedPlatform}`, "#SocialLab"];
     
     const newDraft: DraftPost = {
       id: `NODE-${Math.floor(Math.random() * 999)}`,
       platform: selectedPlatform,
-      caption: `${prompt}\n\n${generatedHashtags.join(" ")}`,
+      format: selectedFormat,
+      type: selectedType,
+      caption: `[AI Generated ${selectedType} Content]: ${prompt}\n\n${generatedHashtags.join(" ")}`,
       media_url: generatedImage,
       status: "Draft",
       scheduled_date: new Date().toISOString().split('T')[0],
@@ -105,22 +114,39 @@ export default function SocialStudioPro() {
     setDrafts(prev => [newDraft, ...prev]);
     setIsGenerating(false);
     setPrompt("");
-    toast.success("Post Created: Image and hashtags generated.");
+    toast.success(`${selectedType} post synthesized successfully.`);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const newDraft: DraftPost = {
+          id: `UPLOAD-${Math.random()}`,
+          platform: selectedPlatform,
+          format: selectedFormat,
+          type: selectedType,
+          caption: `Uploaded Content - ${selectedType} focus.`,
+          media_url: reader.result as string,
+          status: "Draft",
+          scheduled_date: new Date().toISOString().split('T')[0],
+          tags: ["User-Upload", selectedType]
+        };
+        setDrafts(prev => [newDraft, ...prev]);
+        toast.success("Media imported to Lab.");
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleDownloadPDF = () => {
     toast.info("Generating PDF Report...");
-    setTimeout(() => {
-      window.print(); // Browser native print to PDF
-    }, 1000);
+    setTimeout(() => window.print(), 1000);
   };
 
   const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({ title: 'Social Analytics', text: 'Check out our growth data', url: window.location.href });
-    } else {
-      toast.success("Report link copied to clipboard");
-    }
+    toast.success("Share link generated and copied.");
   };
 
   const calendarDays = useMemo(() => {
@@ -136,30 +162,6 @@ export default function SocialStudioPro() {
   return (
     <div className="min-h-screen bg-[#FBFBFA] text-stone-800 pb-12 selection:bg-[#a9b897] selection:text-white">
       
-      {/* Settings Modal */}
-      <AnimatePresence>
-        {showSettings && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/20 backdrop-blur-sm flex items-center justify-center p-6">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border border-stone-100">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-serif italic">Settings</h2>
-                <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-stone-50 rounded-full"><X size={20}/></button>
-              </div>
-              <div className="space-y-6">
-                <div className="flex justify-between items-center py-4 border-b border-stone-50">
-                  <p className="text-[10px] font-black uppercase tracking-widest">Dark Mode</p>
-                  <div className="w-12 h-6 bg-stone-100 rounded-full relative"><div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"/></div>
-                </div>
-                <div className="flex justify-between items-center py-4 border-b border-stone-50">
-                  <p className="text-[10px] font-black uppercase tracking-widest">API Sync</p>
-                  <span className="text-[10px] text-[#a9b897] font-bold">Connected</span>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* --- GLOBAL TOP NAVIGATION --- */}
       <nav className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-stone-100 px-8 py-3 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-6">
@@ -188,59 +190,76 @@ export default function SocialStudioPro() {
         </div>
 
         <div className="flex items-center gap-5">
-          <button onClick={() => setShowSettings(true)} className="p-2.5 hover:bg-stone-100 rounded-full transition-colors">
-            <Settings size={18} className="text-stone-400" />
-          </button>
           <div className="w-10 h-10 rounded-2xl bg-[#a9b897]/20 border border-[#a9b897]/30 flex items-center justify-center font-serif italic font-bold text-[#a9b897]">L</div>
         </div>
       </nav>
 
       <div className="max-w-[1600px] mx-auto px-8 py-12">
-        
         <AnimatePresence mode="wait">
           
-          {/* --- TAB: LAB (Creative Suite) --- */}
+          {/* --- TAB: LAB --- */}
           {activeTab === "lab" && (
             <motion.div key="lab" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="grid grid-cols-12 gap-12">
-              
-              <div className="col-span-12 lg:col-span-7 space-y-10">
-                <header className="space-y-4">
+              <div className="col-span-12 lg:col-span-8 space-y-10">
+                <header className="flex justify-between items-end">
                   <h1 className="text-7xl font-serif italic tracking-tighter text-stone-900 leading-tight">Social Lab</h1>
+                  <div className="pb-4">
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*,video/*" />
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-3 px-6 py-3 bg-white border border-stone-100 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:border-[#a9b897] transition-all"
+                    >
+                      <Upload size={14} /> Upload Media
+                    </button>
+                  </div>
                 </header>
 
-                <div className="bg-white rounded-[3rem] shadow-sm border border-stone-100 overflow-hidden">
-                  <div className="p-10 space-y-8">
-                    <div className="flex flex-wrap gap-2">
-                      {platforms.map(p => (
-                        <button 
-                          key={p} 
-                          onClick={() => setSelectedPlatform(p)}
-                          className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                            selectedPlatform === p 
-                            ? 'bg-stone-900 text-white border-stone-900 shadow-lg shadow-stone-200' 
-                            : 'bg-stone-50 text-stone-400 border-stone-100 hover:border-stone-300'
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      ))}
+                <div className="bg-white rounded-[3.5rem] shadow-sm border border-stone-100 p-10 space-y-10">
+                  <div className="space-y-8">
+                    {/* Multi-Selection row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300">Target Platform</label>
+                        <div className="flex flex-wrap gap-2">
+                          {platforms.map(p => (
+                            <button key={p} onClick={() => setSelectedPlatform(p)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${selectedPlatform === p ? 'bg-stone-900 text-white border-stone-900' : 'bg-stone-50 text-stone-400 border-stone-100'}`}>{p}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300">Post Format</label>
+                        <div className="flex flex-wrap gap-2">
+                          {postFormats.map(f => (
+                            <button key={f} onClick={() => setSelectedFormat(f)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${selectedFormat === f ? 'bg-[#a9b897] text-white border-[#a9b897]' : 'bg-stone-50 text-stone-400 border-stone-100'}`}>{f}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300">Content Angle</label>
+                      <div className="flex flex-wrap gap-2">
+                        {postTypes.map(t => (
+                          <button key={t} onClick={() => setSelectedType(t)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${selectedType === t ? 'bg-stone-900 text-[#a9b897] border-stone-900' : 'bg-stone-50 text-stone-400 border-stone-100'}`}>{t}</button>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="relative group">
                       <textarea
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        placeholder="What are we creating today?"
-                        className="w-full h-56 bg-stone-50/50 rounded-[2rem] p-8 text-2xl font-serif italic outline-none text-stone-800 placeholder-stone-200 resize-none transition-all focus:bg-white focus:ring-1 ring-stone-100"
+                        placeholder="Describe the objective or theme..."
+                        className="w-full h-56 bg-stone-50/50 rounded-[2.5rem] p-8 text-2xl font-serif italic outline-none text-stone-800 placeholder-stone-200 focus:bg-white border border-transparent focus:border-stone-100 transition-all"
                       />
-                      <div className="absolute bottom-6 right-6 flex items-center gap-3">
+                      <div className="absolute bottom-6 right-6">
                         <button
                           onClick={createPost}
                           disabled={!prompt || isGenerating}
-                          className="bg-[#a9b897] text-white px-10 py-5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-[#a9b897]/20 disabled:opacity-20 transition-all flex items-center gap-4 active:scale-95"
+                          className="bg-[#a9b897] text-white px-10 py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-[#a9b897]/20 disabled:opacity-20 transition-all flex items-center gap-4 hover:scale-[1.02] active:scale-95"
                         >
-                          {isGenerating ? "Processing..." : "Create Post"}
-                          <Zap size={14} fill="currentColor" />
+                          {isGenerating ? "Synthesizing..." : "Create Post"}
+                          <Sparkles size={14} />
                         </button>
                       </div>
                     </div>
@@ -248,17 +267,23 @@ export default function SocialStudioPro() {
                 </div>
 
                 <div className="space-y-6">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300 px-2">Active Signal Drafts</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300 px-2">Work-in-Progress</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {drafts.filter(d => d.status === "Draft").map((draft) => (
-                      <motion.div layout key={draft.id} className="bg-white rounded-[2.5rem] p-4 border border-stone-100 group shadow-sm hover:shadow-xl hover:shadow-stone-200/50 transition-all duration-500">
-                        <div className="aspect-[4/5] relative rounded-[2rem] overflow-hidden mb-6">
-                          <img src={draft.media_url} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-110 group-hover:scale-100" />
+                      <motion.div layout key={draft.id} className="bg-white rounded-[2.5rem] p-4 border border-stone-100 group shadow-sm hover:shadow-xl transition-all duration-500">
+                        <div className="aspect-[4/5] relative rounded-[2rem] overflow-hidden mb-6 bg-stone-50">
+                          <img src={draft.media_url} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest">{draft.type}</div>
                         </div>
                         <div className="px-4 pb-4 space-y-4">
                           <p className="text-base font-serif italic text-stone-600 leading-relaxed line-clamp-3">"{draft.caption}"</p>
-                          <div className="flex gap-3">
-                            <button className="flex-1 bg-stone-900 text-white py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest">Queue Post</button>
+                          <div className="flex gap-2 flex-wrap">
+                            {draft.tags.slice(0, 3).map(tag => (
+                              <span key={tag} className="text-[8px] text-stone-400 border border-stone-100 px-2 py-1 rounded-md">{tag}</span>
+                            ))}
+                          </div>
+                          <div className="flex gap-3 pt-2">
+                            <button className="flex-1 bg-stone-900 text-white py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest">Schedule</button>
                             <button onClick={() => setDrafts(drafts.filter(d => d.id !== draft.id))} className="p-4 bg-stone-50 text-stone-300 rounded-2xl hover:text-red-400 transition-colors"><Trash2 size={16}/></button>
                           </div>
                         </div>
@@ -268,7 +293,7 @@ export default function SocialStudioPro() {
                 </div>
               </div>
 
-              <aside className="col-span-12 lg:col-span-5 space-y-8">
+              <aside className="col-span-12 lg:col-span-4 space-y-8">
                 <div className="bg-[#a9b897] text-white p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden">
                   <ShieldCheck size={240} className="absolute -right-16 -top-16 opacity-5 rotate-12" />
                   <div className="relative z-10 space-y-10">
@@ -278,8 +303,8 @@ export default function SocialStudioPro() {
                     </header>
                     <div className="space-y-6 pt-10 border-t border-white/10">
                       {[
-                        { label: "Optimal Flow", val: "High Resonance" },
-                        { label: "Audience Pulse", val: "18:30 PM Peak" }
+                        { label: "Recommended Format", val: selectedFormat },
+                        { label: "Optimal Style", val: selectedType }
                       ].map((item, i) => (
                         <div key={i} className="flex justify-between items-end">
                           <p className="text-[9px] font-black uppercase tracking-widest opacity-40">{item.label}</p>
@@ -290,20 +315,17 @@ export default function SocialStudioPro() {
                   </div>
                 </div>
 
-                {/* Team Collaborative Linked to Team Page */}
                 <Link href="/team" className="block">
                   <div className="bg-white border border-stone-100 p-10 rounded-[3.5rem] space-y-8 shadow-sm hover:border-[#a9b897] transition-all cursor-pointer group">
                     <div className="flex justify-between items-center">
                       <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Team Collaborative</h3>
                       <ArrowUpRight size={16} className="text-stone-300 group-hover:text-[#a9b897]" />
                     </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-2xl bg-stone-50 flex items-center justify-center font-bold text-stone-400 group-hover:bg-stone-900 group-hover:text-[#a9b897] transition-all">D</div>
-                        <div>
-                          <p className="text-[11px] font-bold text-stone-800">David M.</p>
-                          <p className="text-[9px] font-black uppercase tracking-widest text-stone-300">Manager</p>
-                        </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-2xl bg-stone-50 flex items-center justify-center font-bold text-stone-400 group-hover:bg-stone-900 group-hover:text-[#a9b897] transition-all">D</div>
+                      <div>
+                        <p className="text-[11px] font-bold text-stone-800">David M.</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-stone-300">Manager</p>
                       </div>
                     </div>
                   </div>
@@ -316,14 +338,10 @@ export default function SocialStudioPro() {
           {activeTab === "scheduler" && (
             <motion.div key="scheduler" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
               <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 pb-10 border-b border-stone-100">
-                <div className="space-y-4">
-                  <h1 className="text-8xl font-serif italic tracking-tighter text-stone-900 leading-none">Social Scheduler</h1>
-                </div>
-                <div className="flex gap-4">
-                   <div className="flex bg-white p-1.5 rounded-2xl border border-stone-100 shadow-sm">
-                      <button onClick={() => setViewMode('stream')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'stream' ? 'bg-stone-900 text-white' : 'text-stone-400'}`}>Stream</button>
-                      <button onClick={() => setViewMode('calendar')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'calendar' ? 'bg-stone-900 text-white' : 'text-stone-400'}`}>Calendar</button>
-                   </div>
+                <h1 className="text-8xl font-serif italic tracking-tighter text-stone-900 leading-none">Social Scheduler</h1>
+                <div className="flex bg-white p-1.5 rounded-2xl border border-stone-100 shadow-sm">
+                  <button onClick={() => setViewMode('stream')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'stream' ? 'bg-stone-900 text-white' : 'text-stone-400'}`}>Stream</button>
+                  <button onClick={() => setViewMode('calendar')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'calendar' ? 'bg-stone-900 text-white' : 'text-stone-400'}`}>Calendar</button>
                 </div>
               </header>
 
@@ -331,13 +349,11 @@ export default function SocialStudioPro() {
                 <div className="grid grid-cols-12 gap-12">
                   <div className="col-span-8 bg-white border border-stone-100 rounded-[4rem] p-16 shadow-sm overflow-hidden">
                     <div className="flex items-center justify-between mb-16">
-                       <h2 className="text-5xl font-serif italic text-stone-800">
-                          {currentDate.toLocaleString('default', { month: 'long' })}
-                       </h2>
-                       <div className="flex gap-2">
-                          <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-4 bg-stone-50 rounded-2xl hover:bg-stone-100 transition-all"><ChevronLeft size={18}/></button>
-                          <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-4 bg-stone-50 rounded-2xl hover:bg-stone-100 transition-all"><ChevronRight size={18}/></button>
-                       </div>
+                      <h2 className="text-5xl font-serif italic text-stone-800">{currentDate.toLocaleString('default', { month: 'long' })}</h2>
+                      <div className="flex gap-2">
+                        <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-4 bg-stone-50 rounded-2xl hover:bg-stone-100 transition-all"><ChevronLeft size={18}/></button>
+                        <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-4 bg-stone-50 rounded-2xl hover:bg-stone-100 transition-all"><ChevronRight size={18}/></button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-7 gap-4">
                       {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
@@ -347,32 +363,25 @@ export default function SocialStudioPro() {
                         const day = i - calendarDays.firstDay + 1;
                         const isCurrentMonth = day > 0 && day <= calendarDays.daysInMonth;
                         return (
-                          <div 
-                            key={i} 
-                            onClick={() => isCurrentMonth && setSelectedDatePosts(drafts.slice(0, 2))}
-                            className={`aspect-square border border-stone-50 rounded-[2.5rem] p-6 group transition-all cursor-pointer relative ${
-                              !isCurrentMonth ? 'opacity-10' : 'bg-stone-50/30 hover:bg-white hover:shadow-2xl hover:border-[#a9b897]/30'
-                            }`}
-                          >
+                          <div key={i} onClick={() => isCurrentMonth && setSelectedDatePosts(drafts.slice(0, 2))} className={`aspect-square border border-stone-50 rounded-[2.5rem] p-6 group transition-all cursor-pointer relative ${!isCurrentMonth ? 'opacity-10' : 'bg-stone-50/30 hover:bg-white hover:shadow-2xl hover:border-[#a9b897]/30'}`}>
                             <span className="text-lg font-serif italic text-stone-400">{isCurrentMonth ? day : ''}</span>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                  
-                  {/* Calendar Sidebar Post Detail */}
                   <div className="col-span-4 space-y-6">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Daily Manifest</h3>
                     {selectedDatePosts ? selectedDatePosts.map(post => (
-                      <div key={post.id} className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm">
-                        <p className="text-[9px] font-black uppercase text-[#a9b897] mb-2">{post.platform}</p>
+                      <div key={post.id} className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm space-y-2">
+                        <div className="flex justify-between items-center">
+                          <p className="text-[9px] font-black uppercase text-[#a9b897]">{post.platform}</p>
+                          <span className="text-[8px] bg-stone-50 px-2 py-1 rounded text-stone-400">{post.format}</span>
+                        </div>
                         <p className="text-sm font-serif italic line-clamp-2">"{post.caption}"</p>
                       </div>
                     )) : (
-                      <div className="h-full flex items-center justify-center border-2 border-dashed border-stone-100 rounded-[3rem] p-12 text-stone-300 text-center text-[10px] font-black uppercase tracking-widest">
-                        Select a date to view posts
-                      </div>
+                      <div className="h-full flex items-center justify-center border-2 border-dashed border-stone-100 rounded-[3rem] p-12 text-stone-300 text-center text-[10px] font-black uppercase tracking-widest">Select a day</div>
                     )}
                   </div>
                 </div>
@@ -380,12 +389,13 @@ export default function SocialStudioPro() {
                 <div className="space-y-6">
                   {drafts.map(post => (
                     <div key={post.id} className="bg-white p-8 rounded-[3rem] border border-stone-100 flex items-center justify-between group hover:shadow-xl transition-all">
-                       <div className="flex items-center gap-10">
-                          <div className="w-32 h-20 rounded-2xl overflow-hidden grayscale">
-                             <img src={post.media_url} className="w-full h-full object-cover" />
-                          </div>
-                          <h4 className="text-2xl font-serif italic text-stone-800 line-clamp-1">{post.caption}</h4>
-                       </div>
+                      <div className="flex items-center gap-10">
+                        <div className="w-32 h-20 rounded-2xl overflow-hidden grayscale bg-stone-50">
+                          <img src={post.media_url} className="w-full h-full object-cover" />
+                        </div>
+                        <h4 className="text-2xl font-serif italic text-stone-800 line-clamp-1">{post.caption}</h4>
+                      </div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-stone-300">{post.status}</div>
                     </div>
                   ))}
                 </div>
@@ -399,15 +409,18 @@ export default function SocialStudioPro() {
               <header className="pb-10 border-b border-stone-100">
                 <h1 className="text-8xl font-serif italic tracking-tighter text-stone-900 leading-none">Social Gallery</h1>
               </header>
-
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                {drafts.map((post, i) => (
-                  <motion.div key={i} whileHover={{ y: -5 }} className="aspect-square bg-white border border-stone-100 rounded-[2.5rem] p-3 group relative cursor-pointer shadow-sm">
-                    <div className="w-full h-full rounded-[2rem] overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-700">
+                {drafts.length > 0 ? drafts.map((post, i) => (
+                  <motion.div key={post.id} whileHover={{ y: -5 }} className="aspect-square bg-white border border-stone-100 rounded-[2.5rem] p-3 group relative cursor-pointer shadow-sm">
+                    <div className="w-full h-full rounded-[2rem] overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-700 bg-stone-50">
                        <img src={post.media_url} className="w-full h-full object-cover scale-110 group-hover:scale-100" />
                     </div>
                   </motion.div>
-                ))}
+                )) : (
+                  <div className="col-span-full py-32 text-center border-2 border-dashed border-stone-100 rounded-[4rem]">
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">No assets in storage</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -456,9 +469,6 @@ export default function SocialStudioPro() {
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #e2e2e2; border-radius: 10px; }
       `}} />
     </div>
   );

@@ -57,10 +57,7 @@ function DashboardContent() {
       return;
     }
 
-    // If context hasn't loaded the ID yet, we wait, but the 
-    // safety timer in the useEffect below will catch us if it takes too long.
-    if (!organisationId) return;
-
+    // Always attempt to get the user, even if the organisationId isn't ready yet
     try {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData.user) {
@@ -68,19 +65,27 @@ function DashboardContent() {
         return;
       }
 
+      // Fetch User Name from Profiles
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name")
         .eq("id", authData.user.id)
         .maybeSingle();
 
-      if (profile?.full_name) setUserName(profile.full_name.toUpperCase());
+      if (profile?.full_name) {
+        setUserName(profile.full_name.toUpperCase());
+      }
 
+      // If we don't have an organisationId yet, we stop here but check back
+      if (!organisationId) return;
+
+      // Fetch Project Count
       const { count: projectCount } = await supabase
         .from("projects")
         .select("*", { count: 'exact', head: true })
         .eq("organisation_id", organisationId);
 
+      // Fetch Financial Data
       const { data: invoiceData } = await supabase
         .from("invoices")
         .select("amount, status")
@@ -98,6 +103,7 @@ function DashboardContent() {
         invoicesDue: pendingInvoices
       }));
 
+      // Fetch Team
       const { data: members } = await supabase
         .from("profiles")
         .select("full_name, role")
@@ -106,6 +112,7 @@ function DashboardContent() {
 
       setTeamMembers(members || []);
 
+      // Fetch Tasks/Notes
       const { data: notesData } = await supabase
         .from("notes")
         .select("*")
@@ -122,15 +129,18 @@ function DashboardContent() {
     } catch (err) {
       console.error("Dashboard Sync Error:", err);
     } finally {
-      setLoading(false);
+      // If we have at least the organisationId, we consider the critical load finished
+      if (organisationId) {
+        setLoading(false);
+      }
     }
   }, [router, organisationId, error]);
 
   useEffect(() => {
     loadDashboardData();
 
-    // SAFETY TIMER: Force loading to false after 5 seconds no matter what.
-    // This prevents being stuck on the loader if organisationId or Supabase hangs.
+    // SAFETY TIMER: If context/Supabase is still hanging after 5 seconds, 
+    // force the UI to render so the user isn't stuck.
     const safetyTimer = setTimeout(() => {
       setLoading(false);
     }, 5000);
@@ -199,6 +209,7 @@ function DashboardContent() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
+        {/* ACTIVE PRIORITIES */}
         <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-3">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
             <CheckSquare size={14} className="text-[var(--brand-primary, #A3B18A)]" /> Active Priorities
@@ -212,10 +223,10 @@ function DashboardContent() {
                   todo.completed ? "bg-stone-50 opacity-60" : "bg-[#faf9f6] hover:border-[var(--brand-primary, #A3B18A)]"
                 }`}
               >
-                <div className={`w-5 h-5 rounded flex items-center justify-center border ${todo.completed ? "bg-[var(--brand-primary, #A3B18A)] border-[var(--brand-primary, #A3B18A)] text-white" : "border-stone-400"}`}>
-                   {todo.completed && "✓"}
+                <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${todo.completed ? "bg-[var(--brand-primary, #A3B18A)] border-[var(--brand-primary, #A3B18A)] text-white" : "border-stone-400 text-transparent"}`}>
+                   ✓
                 </div>
-                <span className={`text-xs font-bold uppercase tracking-wide ${todo.completed ? 'line-through text-stone-400' : 'text-stone-700'}`}>
+                <span className={`text-xs font-bold uppercase tracking-wide truncate ${todo.completed ? 'line-through text-stone-400' : 'text-stone-700'}`}>
                   {todo.text}
                 </span>
               </div>
@@ -223,6 +234,7 @@ function DashboardContent() {
           </div>
         </section>
 
+        {/* TEAM PANEL */}
         <section className="bg-[var(--brand-primary, #A3B18A)] p-12 rounded-[3.5rem] lg:col-span-2 flex flex-col justify-between min-h-[400px]">
           <div>
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60 mb-8 flex items-center gap-2">
@@ -238,12 +250,15 @@ function DashboardContent() {
             </div>
           </div>
           <div className="mt-12 p-6 rounded-[2rem] bg-white/10 border border-white/10 flex items-center gap-4">
-            <ShieldCheck size={18} className="text-white" />
-            <p className="text-[9px] uppercase font-serif italic text-white/80">Business ID: {organisationId?.slice(0,8)} Verified.</p>
+            <ShieldCheck size={18} className="text-white shrink-0" />
+            <p className="text-[9px] uppercase font-serif italic text-white/80">
+              Business ID: {organisationId ? organisationId.slice(0, 8) : "Pending..."} Verified.
+            </p>
           </div>
         </section>
       </div>
 
+      {/* STATS GRID */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {[
           { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "View Projects" },
@@ -262,7 +277,7 @@ function DashboardContent() {
                 <item.icon size={24} />
               </div>
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-2">{item.label}</p>
-              <p className="text-4xl font-serif italic text-stone-900 leading-none">{item.value}</p>
+              <p className="text-4xl font-serif italic text-stone-900 leading-none truncate">{item.value}</p>
             </div>
             <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors">
               {item.cta} <ArrowRight size={10} />
@@ -271,6 +286,7 @@ function DashboardContent() {
         ))}
       </section>
 
+      {/* INTELLIGENCE MODAL */}
       <AnimatePresence>
         {showScanModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-stone-950/90 backdrop-blur-md">
@@ -288,7 +304,11 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin text-stone-300" size={32} /></div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-stone-300" size={32} />
+      </div>
+    }>
       <DashboardContent />
     </Suspense>
   );

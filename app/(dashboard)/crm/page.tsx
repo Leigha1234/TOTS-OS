@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSettings } from "@/app/context/SettingsContext"; // 1. Access global state
 
 export default function CRMDirectory() {
+  const { organisationId } = useSettings(); // 2. Pull the active Org UUID
   const [profiles, setProfiles] = useState<any[]>([]);
   const [lists, setLists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,17 +31,29 @@ export default function CRMDirectory() {
     list_id: "" 
   });
 
+  // 3. Effect waits for the organisationId to be loaded from SettingsContext
   useEffect(() => {
-    loadData();
-  }, []);
+    if (organisationId) {
+      loadData();
+    }
+  }, [organisationId]);
 
   async function loadData() {
     try {
       setLoading(true);
       setError(null);
+      
+      // Fetch only data belonging to this specific organisation
       const [profileRes, listRes] = await Promise.all([
-        supabase.from("profiles").select("*").order("name", { ascending: true }),
-        supabase.from("subscriber_lists").select("*")
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("organisation_id", organisationId)
+          .order("name", { ascending: true }),
+        supabase
+          .from("subscriber_lists")
+          .select("*")
+          .eq("organisation_id", organisationId)
       ]);
       
       if (profileRes.error) throw profileRes.error;
@@ -48,7 +62,7 @@ export default function CRMDirectory() {
       setProfiles(profileRes.data || []);
       setLists(listRes.data || []);
     } catch (err: any) {
-      setError("Failed to synchronize with directory database.");
+      setError("Failed to synchronise with directory database.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -61,6 +75,7 @@ export default function CRMDirectory() {
     setError(null);
 
     try {
+      // 4. Inject organisation_id into the insertion
       const { data: newProfile, error: profileError } = await supabase
         .from("profiles")
         .insert([{
@@ -70,13 +85,15 @@ export default function CRMDirectory() {
           address: form.address,
           company_name: form.company_name,
           company_details: form.company_details,
-          role: form.role
+          role: form.role,
+          organisation_id: organisationId // Ties the node to TOTS-OS
         }])
         .select()
         .single();
 
       if (profileError) throw profileError;
 
+      // Handle Campaign Synchronisation
       if (form.list_id && newProfile) {
         const { error: listError } = await supabase
           .from("list_subscribers")
@@ -86,7 +103,7 @@ export default function CRMDirectory() {
           }]);
         
         if (listError) {
-          console.warn("Node established, but campaign synchronization failed:", listError.message);
+          console.warn("Node established, but campaign synchronisation failed:", listError.message);
         }
       }
 
@@ -148,7 +165,7 @@ export default function CRMDirectory() {
           {loading ? (
             <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border border-stone-100 gap-4">
               <Loader2 className="animate-spin text-[#a9b897]" />
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Synchronizing Database...</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Synchronising Database...</p>
             </div>
           ) : filtered.length > 0 ? (
             filtered.map((profile) => (

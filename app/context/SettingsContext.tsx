@@ -9,6 +9,7 @@ interface SettingsState {
   fontFamily: string;
   logoUrl: string;
   mobileNav: string[];
+  organisationId: string | null; // Added for Multi-tenancy
   loading: boolean;
   refreshSettings: () => Promise<void>;
 }
@@ -19,6 +20,7 @@ const defaultSettings: SettingsState = {
   fontFamily: "Inter",
   logoUrl: "",
   mobileNav: ["/dashboard", "/clarity", "/calendar"],
+  organisationId: null,
   loading: true,
   refreshSettings: async () => {}
 };
@@ -36,6 +38,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [fontFamily, setFontFamily] = useState(defaultSettings.fontFamily);
   const [logoUrl, setLogoUrl] = useState(defaultSettings.logoUrl);
   const [mobileNav, setMobileNav] = useState<string[]>(defaultSettings.mobileNav);
+  const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refreshSettings = useCallback(async () => {
@@ -48,19 +51,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
       const { data: p, error } = await supabase
         .from("profiles")
-        .select("brand_color, secondary_color, font_family, logo_url, mobile_nav_config")
+        .select("brand_color, secondary_color, font_family, logo_url, mobile_nav_config, organisation_id")
         .eq("id", user.id)
         .maybeSingle();
 
       if (error) throw error;
 
       if (p) {
-        // Only update if values exist in DB, otherwise stay at defaults
         if (p.brand_color) setBrandColor(p.brand_color);
         if (p.secondary_color) setSecondaryColor(p.secondary_color);
         if (p.font_family) setFontFamily(p.font_family);
         if (p.logo_url) setLogoUrl(p.logo_url);
         if (p.mobile_nav_config) setMobileNav(p.mobile_nav_config);
+        if (p.organisation_id) setOrganisationId(p.organisation_id);
       }
     } catch (err) {
       console.error("Error refreshing system settings:", err);
@@ -69,29 +72,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase]);
 
-  // Initial Sync on Mount
   useEffect(() => {
     refreshSettings();
   }, [refreshSettings]);
 
-  // 🚀 GLOBAL STYLE INJECTION HANDSHAKE
   useEffect(() => {
     if (typeof window !== "undefined") {
       const root = document.documentElement;
-      
-      // Inject CSS Variables into :root
       root.style.setProperty("--brand-primary", brandColor);
       root.style.setProperty("--brand-secondary", secondaryColor);
-      
-      // Inject Font Variable
       root.style.setProperty("--font-main", `'${fontFamily}', sans-serif`);
-      
-      // Apply Font and Theme Loaded State
       document.body.style.fontFamily = `var(--font-main)`;
       root.setAttribute("data-theme-loaded", "true");
-
-      // Log for Debugging (Optional: remove in production)
-      // console.log("🎨 Theme Injected:", { brandColor, fontFamily });
     }
   }, [brandColor, secondaryColor, fontFamily]);
 
@@ -101,9 +93,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     fontFamily,
     logoUrl,
     mobileNav,
+    organisationId,
     loading,
     refreshSettings
-  }), [brandColor, secondaryColor, fontFamily, logoUrl, mobileNav, loading, refreshSettings]);
+  }), [brandColor, secondaryColor, fontFamily, logoUrl, mobileNav, organisationId, loading, refreshSettings]);
 
   return (
     <SettingsContext.Provider value={value}>

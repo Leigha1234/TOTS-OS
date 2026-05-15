@@ -2,13 +2,8 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { Mail, Fingerprint, Loader2, UserPlus, LogIn, ShieldCheck } from "lucide-react";
+import { Mail, Fingerprint, Loader2, ShieldCheck } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
-
-/**
- * TOTS-OS AUTHENTICATION NODE
- * Hardened for production build & race-condition prevention
- */
 
 function LoginForm() {
   const router = useRouter();
@@ -27,11 +22,9 @@ function LoginForm() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // 1. Initial State Check
   useEffect(() => {
     if (inviteId) setIsRegister(true);
     
-    // Check if user is already logged in to prevent "System Deviation" loops
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) router.push("/dashboard");
@@ -54,6 +47,9 @@ function LoginForm() {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: fullName || email.split('@')[0],
+              // Logic for Multi-tenancy: if no invite, create new org
+              is_new_org: !inviteId,
+              org_name: fullName ? `${fullName}'s Workspace` : 'New Workspace',
               invite_team_id: inviteId, 
             },
           },
@@ -71,7 +67,6 @@ function LoginForm() {
         
         if (data.session) {
           setIsRedirecting(true);
-          // Hard redirect to ensure middleware picks up the new session cookie
           window.location.href = "/dashboard";
         }
       }

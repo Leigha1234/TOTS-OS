@@ -4,18 +4,20 @@ import { use, useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { 
   User, Building2, Mail, ArrowLeft, ShieldCheck, 
-  Edit3, Trash2, X, Check, 
+  Edit3,Trash2, X, Check, 
   ListTodo, Plus, Send, Upload, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
+import { useSettings } from "@/app/context/SettingsContext"; // 1. Import tenancy context
 
 export default function NodeProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { organisationId } = useSettings(); // 2. Pull global Org ID
   
   const [profile, setProfile] = useState<any>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -41,16 +43,26 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
     attachment: null as File | null
   });
 
+  // 3. Effect waits for both the ID and the Organisation Context
   useEffect(() => {
-    fetchProfile();
-    fetchTeam();
-    fetchTasks();
-  }, [resolvedParams.id]);
+    if (resolvedParams.id && organisationId) {
+      fetchProfile();
+      fetchTeam();
+      fetchTasks();
+    }
+  }, [resolvedParams.id, organisationId]);
 
   async function fetchProfile() {
     setLoading(true);
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", resolvedParams.id).single();
-    if (!error) {
+    // Security: Filter by organisation_id to prevent cross-tenant access
+    const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", resolvedParams.id)
+        .eq("organisation_id", organisationId) 
+        .single();
+
+    if (!error && data) {
       setProfile(data);
       setEditForm({
         name: data.name || "",
@@ -61,23 +73,40 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
         company_name: data.company_name || "",
         company_details: data.company_details || ""
       });
+    } else {
+        // If profile doesn't belong to org, bounce them back
+        router.push("/crm");
     }
     setLoading(false);
   }
 
   async function fetchTeam() {
-    const { data } = await supabase.from("profiles").select("id, name").eq("role", "admin");
+    const { data } = await supabase
+        .from("profiles")
+        .select("id, name")
+        .eq("role", "admin")
+        .eq("organisation_id", organisationId);
     setTeamMembers(data || []);
   }
 
   async function fetchTasks() {
-    const { data } = await supabase.from("tasks").select("*").eq("profile_id", resolvedParams.id).order("created_at", { ascending: false });
+    const { data } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("profile_id", resolvedParams.id)
+        .eq("organisation_id", organisationId) // Added for multi-tenancy
+        .order("created_at", { ascending: false });
     setTasks(data || []);
   }
 
   const handleUpdate = async () => {
     setIsSaving(true);
-    const { error } = await supabase.from("profiles").update(editForm).eq("id", profile.id);
+    const { error } = await supabase
+        .from("profiles")
+        .update(editForm)
+        .eq("id", profile.id)
+        .eq("organisation_id", organisationId); // Extra security layer
+
     if (!error) {
       setProfile({ ...profile, ...editForm });
       setIsEditing(false);
@@ -95,7 +124,7 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
     if (newTask.attachment) {
       const file = newTask.attachment;
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const fileName = `${organisationId}/${Math.random()}.${fileExt}`; // Scoped by Org
       const { data, error } = await supabase.storage.from('task-attachments').upload(fileName, file);
       if (data) attachmentUrl = data.path;
     }
@@ -106,6 +135,7 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
       due_date: newTask.due_date || null,
       assigned_to: newTask.assigned_to || null,
       profile_id: profile.id,
+      organisation_id: organisationId, // Crucial: Link task to organisation
       attachment_url: attachmentUrl,
       status: 'todo'
     }]).select().single();
@@ -311,7 +341,7 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
                            {t.attachment_url && <Paperclip size={12} className="text-[#a9b897] animate-bounce"/>}
                         </div>
                       </div>
-                      <div className="bg-stone-900 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-[var(--brand-primary)] shadow-lg">
+                      <div className="bg-stone-900 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-[#a9b897] shadow-lg">
                         {t.status === 'todo' ? 'Queued' : t.status}
                       </div>
                     </motion.div>

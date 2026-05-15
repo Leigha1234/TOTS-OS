@@ -9,7 +9,7 @@ interface SettingsState {
   fontFamily: string;
   logoUrl: string;
   mobileNav: string[];
-  organisationId: string | null; // Added for Multi-tenancy
+  organisationId: string | null;
   loading: boolean;
   refreshSettings: () => Promise<void>;
 }
@@ -28,10 +28,11 @@ const defaultSettings: SettingsState = {
 const SettingsContext = createContext<SettingsState>(defaultSettings);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createBrowserClient(
+  // Initialize once outside or via useMemo to prevent re-creation
+  const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  ), []);
 
   const [brandColor, setBrandColor] = useState(defaultSettings.brandColor);
   const [secondaryColor, setSecondaryColor] = useState(defaultSettings.secondaryColor);
@@ -42,9 +43,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refreshSettings = useCallback(async () => {
+    setLoading(true); // Ensure loading is true while fetching
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
       if (!user) {
+        // Reset to defaults if no user is found
+        setOrganisationId(null);
         setLoading(false);
         return;
       }
@@ -72,16 +77,34 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase]);
 
+  // Listen for Auth changes (Login/Logout)
   useEffect(() => {
-    refreshSettings();
-  }, [refreshSettings]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        refreshSettings();
+      }
+      if (event === "SIGNED_OUT") {
+        setOrganisationId(null);
+        setLoading(false);
+      }
+    });
 
+    refreshSettings();
+
+    return () => subscription.unsubscribe();
+  }, [supabase, refreshSettings]);
+
+  // Inject CSS Variables
   useEffect(() => {
     if (typeof window !== "undefined") {
       const root = document.documentElement;
       root.style.setProperty("--brand-primary", brandColor);
       root.style.setProperty("--brand-secondary", secondaryColor);
-      root.style.setProperty("--font-main", `'${fontFamily}', sans-serif`);
+      
+      // Clean font name for CSS
+      const cleanFont = fontFamily.replace(/['"]/g, "");
+      root.style.setProperty("--font-main", `'${cleanFont}', sans-serif`);
+      
       document.body.style.fontFamily = `var(--font-main)`;
       root.setAttribute("data-theme-loaded", "true");
     }

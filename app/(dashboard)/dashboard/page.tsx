@@ -20,7 +20,6 @@ function DashboardContent() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
-  // -- Access Guard Params --
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
@@ -65,7 +64,7 @@ function DashboardContent() {
         return;
       }
 
-      // Fetch User Name from Profiles - Guarded against missing ID
+      // Fetch User Name (Works independently of Org ID)
       if (authData.user.id) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -78,11 +77,13 @@ function DashboardContent() {
         }
       }
 
-      // CRITICAL: Defensive check for organisationId to prevent 400 errors
+      // CRITICAL: Prevent 400 errors by waiting for a valid organisationId
       if (!organisationId || organisationId === "undefined") {
-        console.log("Waiting for valid organisationId...");
+        console.log("Dashboard: Waiting for valid organisationId from SettingsContext...");
         return; 
       }
+
+      console.log("Dashboard: Organisation ID verified. Fetching business data...");
 
       // Fetch all organisation-linked data in parallel
       const [projectsRes, invoicesRes, membersRes, notesRes] = await Promise.all([
@@ -92,7 +93,7 @@ function DashboardContent() {
         supabase.from("notes").select("*").eq("organisation_id", organisationId).limit(5)
       ]);
 
-      // Calculate stats from results
+      // Calculate stats
       const totalProfit = invoicesRes.data?.reduce((acc, inv) => 
         inv.status === 'paid' ? acc + (inv.amount || 0) : acc, 0) || 0;
       
@@ -115,26 +116,30 @@ function DashboardContent() {
         })));
       }
 
-      // Success: release the loading state
+      // Everything loaded successfully
       setLoading(false);
 
     } catch (err) {
       console.error("Dashboard Sync Error:", err);
-      // Ensure we don't lock the user out if one fetch fails
+      // Ensure the loader clears even on error
       setLoading(false);
     }
   }, [router, organisationId, error]);
 
   useEffect(() => {
+    // Re-trigger load when the organisationId is populated by context
     loadDashboardData();
 
-    // SAFETY TIMER: Force loading to false after 4 seconds to prevent "Infinite Spinner"
+    // SAFETY TIMER: Force loading to false after 6 seconds to clear the screen
     const safetyTimer = setTimeout(() => {
-      setLoading(false);
-    }, 4000);
+      if (loading) {
+        console.warn("Dashboard: Safety timeout reached. Clearing loader.");
+        setLoading(false);
+      }
+    }, 6000);
 
     return () => clearTimeout(safetyTimer);
-  }, [loadDashboardData]);
+  }, [loadDashboardData, organisationId]);
 
   const runClarityScan = async () => {
     if (!organisationId) return;
@@ -199,7 +204,7 @@ function DashboardContent() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
-        {/* PRIORITIES PANEL */}
+        {/* PRIORITIES */}
         <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-3">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
             <CheckSquare size={14} className="text-[var(--brand-primary, #A3B18A)]" /> Active Priorities
@@ -224,7 +229,7 @@ function DashboardContent() {
           </div>
         </section>
 
-        {/* TEAM PANEL */}
+        {/* TEAM */}
         <section className="bg-[var(--brand-primary, #A3B18A)] p-12 rounded-[3.5rem] lg:col-span-2 flex flex-col justify-between min-h-[400px]">
           <div>
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60 mb-8 flex items-center gap-2">
@@ -248,7 +253,7 @@ function DashboardContent() {
         </section>
       </div>
 
-      {/* STATS GRID */}
+      {/* STATS */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {[
           { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "View Projects" },
@@ -276,12 +281,12 @@ function DashboardContent() {
         ))}
       </section>
 
-      {/* INTELLIGENCE SCAN MODAL */}
+      {/* INTELLIGENCE MODAL */}
       <AnimatePresence>
         {showScanModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-stone-950/90 backdrop-blur-md">
             <div className="bg-[var(--brand-primary, #A3B18A)] text-white p-12 rounded-[5rem] w-full max-w-4xl border border-white/5 shadow-2xl relative text-center">
-              <button onClick={() => setShowScanModal(false)} className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors"><X size={32}/></button>
+              <button onClick={() => setShowScanModal(false)} className="absolute top-8 right-8 text-white/50 hover:text-white"><X size={32}/></button>
               <Zap className="mx-auto mb-10 text-white" size={56} fill="currentColor" />
               <p className="font-serif italic text-5xl leading-tight tracking-tighter">{insight || "Intelligence Scan Complete."}</p>
             </div>
@@ -297,7 +302,7 @@ export default function DashboardPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
         <Loader2 className="animate-spin text-stone-300" size={32} />
-        <p className="font-black uppercase tracking-[0.5em] text-stone-300 text-[10px]">Booting Systems</p>
+        <p className="font-black uppercase tracking-[0.5em] text-stone-300 text-[10px]">Initializing...</p>
       </div>
     }>
       <DashboardContent />

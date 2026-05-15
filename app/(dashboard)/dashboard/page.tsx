@@ -20,7 +20,6 @@ function DashboardContent() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
-  // -- Access Guard Params --
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
@@ -38,14 +37,12 @@ function DashboardContent() {
   const [showScanModal, setShowScanModal] = useState(false);
   const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean }[]>([]);
 
-  // 1. Instant Redirect if Access Denied
   useEffect(() => {
     if (error === "access_denied") {
       router.push(`/access-denied?reason=${encodeURIComponent(errorDescription || "Invitation expired")}`);
     }
   }, [error, errorDescription, router]);
 
-  // 2. Clock Logic
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -57,98 +54,89 @@ function DashboardContent() {
       return;
     }
 
-    // Always attempt to get the user, even if the organisationId isn't ready yet
     try {
+      // 1. Get Auth User first
       const { data: authData } = await supabase.auth.getUser();
       if (!authData.user) {
         router.push("/login");
         return;
       }
 
-      // Fetch User Name from Profiles
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", authData.user.id)
-        .maybeSingle();
+      // 2. Fetch Profile Name (Fixes the 400 error by ensuring ID exists)
+      if (authData.user.id) {
+        const { data: profile, error: profileErr } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", authData.user.id)
+          .maybeSingle();
 
-      if (profile?.full_name) {
-        setUserName(profile.full_name.toUpperCase());
+        if (profile?.full_name) setUserName(profile.full_name.toUpperCase());
       }
 
-      // If we don't have an organisationId yet, we stop here but check back
-      if (!organisationId) return;
+      // 3. ONLY fetch Org data if organisationId is valid (Prevents the other 400 errors)
+      if (organisationId && organisationId !== "undefined") {
+        const { count: projectCount } = await supabase
+          .from("projects")
+          .select("*", { count: 'exact', head: true })
+          .eq("organisation_id", organisationId);
 
-      // Fetch Project Count
-      const { count: projectCount } = await supabase
-        .from("projects")
-        .select("*", { count: 'exact', head: true })
-        .eq("organisation_id", organisationId);
+        const { data: invoiceData } = await supabase
+          .from("invoices")
+          .select("amount, status")
+          .eq("organisation_id", organisationId);
 
-      // Fetch Financial Data
-      const { data: invoiceData } = await supabase
-        .from("invoices")
-        .select("amount, status")
-        .eq("organisation_id", organisationId);
+        const totalProfit = invoiceData?.reduce((acc, inv) => 
+          inv.status === 'paid' ? acc + (inv.amount || 0) : acc, 0) || 0;
+        
+        const pendingInvoices = invoiceData?.filter(inv => inv.status === 'pending').length || 0;
 
-      const totalProfit = invoiceData?.reduce((acc, inv) => 
-        inv.status === 'paid' ? acc + (inv.amount || 0) : acc, 0) || 0;
-      
-      const pendingInvoices = invoiceData?.filter(inv => inv.status === 'pending').length || 0;
+        setStats(prev => ({ 
+          ...prev, 
+          activeProjects: projectCount || 0,
+          currentProfit: totalProfit,
+          invoicesDue: pendingInvoices
+        }));
 
-      setStats(prev => ({ 
-        ...prev, 
-        activeProjects: projectCount || 0,
-        currentProfit: totalProfit,
-        invoicesDue: pendingInvoices
-      }));
+        const { data: members } = await supabase
+          .from("profiles")
+          .select("full_name, role")
+          .eq("organisation_id", organisationId)
+          .limit(4);
 
-      // Fetch Team
-      const { data: members } = await supabase
-        .from("profiles")
-        .select("full_name, role")
-        .eq("organisation_id", organisationId)
-        .limit(4);
+        setTeamMembers(members || []);
 
-      setTeamMembers(members || []);
+        const { data: notesData } = await supabase
+          .from("notes")
+          .select("*")
+          .eq("organisation_id", organisationId)
+          .limit(5);
 
-      // Fetch Tasks/Notes
-      const { data: notesData } = await supabase
-        .from("notes")
-        .select("*")
-        .eq("organisation_id", organisationId)
-        .limit(5);
-
-      if (notesData) {
-        setTodos(notesData.map((n: any) => ({
-          id: n.id,
-          text: n.title || n.content?.substring(0, 40) || "Priority Task",
-          completed: n.completed || false
-        })));
+        if (notesData) {
+          setTodos(notesData.map((n: any) => ({
+            id: n.id,
+            text: n.title || n.content?.substring(0, 40) || "Priority Task",
+            completed: n.completed || false
+          })));
+        }
       }
     } catch (err) {
       console.error("Dashboard Sync Error:", err);
     } finally {
-      // If we have at least the organisationId, we consider the critical load finished
-      if (organisationId) {
-        setLoading(false);
-      }
+      // Release loader if we have a user or if the timeout hits
+      setLoading(false);
     }
   }, [router, organisationId, error]);
 
   useEffect(() => {
     loadDashboardData();
-
-    // SAFETY TIMER: If context/Supabase is still hanging after 5 seconds, 
-    // force the UI to render so the user isn't stuck.
-    const safetyTimer = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
-
-    return () => clearTimeout(safetyTimer);
+    
+    // Safety Net: Force off loader after 4 seconds
+    const timer = setTimeout(() => setLoading(false), 4000);
+    return () => clearTimeout(timer);
   }, [loadDashboardData]);
 
   const runClarityScan = async () => {
+    if (!organisationId) return;
     setIsScanActive(true);
     setShowScanModal(true);
     setInsight(null); 
@@ -181,6 +169,7 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 max-w-[1600px] mx-auto font-sans">
+      
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-8 md:pb-12 gap-6 md:gap-8">
         <div className="space-y-3 md:space-y-4 w-full md:w-auto">
           <div className="flex items-center gap-4 text-[var(--brand-primary, #A3B18A)]">
@@ -201,15 +190,15 @@ function DashboardContent() {
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
-          className="bg-[var(--brand-primary, #A3B18A)] px-8 py-5 rounded-[2rem] shadow-sm flex items-center gap-4"
+          className="bg-[var(--brand-primary, #A3B18A)] px-8 py-5 rounded-[2rem] shadow-sm flex items-center gap-4 text-white"
         >
-          {isScanActive ? <Loader2 className="animate-spin text-white" size={18} /> : <Zap className="text-white" size={18} fill="currentColor" />}
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Intelligence Scan</span>
+          {isScanActive ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} fill="currentColor" />}
+          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Intelligence Scan</span>
         </motion.button>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
-        {/* ACTIVE PRIORITIES */}
+        {/* PRIORITIES */}
         <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-3">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
             <CheckSquare size={14} className="text-[var(--brand-primary, #A3B18A)]" /> Active Priorities
@@ -224,7 +213,7 @@ function DashboardContent() {
                 }`}
               >
                 <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${todo.completed ? "bg-[var(--brand-primary, #A3B18A)] border-[var(--brand-primary, #A3B18A)] text-white" : "border-stone-400 text-transparent"}`}>
-                   ✓
+                  ✓
                 </div>
                 <span className={`text-xs font-bold uppercase tracking-wide truncate ${todo.completed ? 'line-through text-stone-400' : 'text-stone-700'}`}>
                   {todo.text}
@@ -234,7 +223,7 @@ function DashboardContent() {
           </div>
         </section>
 
-        {/* TEAM PANEL */}
+        {/* TEAM */}
         <section className="bg-[var(--brand-primary, #A3B18A)] p-12 rounded-[3.5rem] lg:col-span-2 flex flex-col justify-between min-h-[400px]">
           <div>
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60 mb-8 flex items-center gap-2">
@@ -252,13 +241,13 @@ function DashboardContent() {
           <div className="mt-12 p-6 rounded-[2rem] bg-white/10 border border-white/10 flex items-center gap-4">
             <ShieldCheck size={18} className="text-white shrink-0" />
             <p className="text-[9px] uppercase font-serif italic text-white/80">
-              Business ID: {organisationId ? organisationId.slice(0, 8) : "Pending..."} Verified.
+              Business ID: {organisationId?.slice(0, 8) || "VERIFYING"} Verified.
             </p>
           </div>
         </section>
       </div>
 
-      {/* STATS GRID */}
+      {/* STATS */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {[
           { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "View Projects" },
@@ -286,7 +275,6 @@ function DashboardContent() {
         ))}
       </section>
 
-      {/* INTELLIGENCE MODAL */}
       <AnimatePresence>
         {showScanModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-stone-950/90 backdrop-blur-md">
@@ -304,11 +292,7 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="animate-spin text-stone-300" size={32} />
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center"><Loader2 className="animate-spin" /></div>}>
       <DashboardContent />
     </Suspense>
   );

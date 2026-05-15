@@ -12,12 +12,14 @@ import {
   Wand2, Pin, Instagram, Linkedin, Twitter,
   PlayCircle, FileText, Globe, CheckCircle2,
   Copy, Eye, Search, Filter, Settings, MoreHorizontal,
-  Maximize2, Download, AlertCircle, Info, LucideIcon
+  Maximize2, Download, AlertCircle, Info, LucideIcon,
+  LayoutGrid, MonitorPlay, MousePointer2, Cpu,
+  Command, Moon, Sun, Sliders
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
-// --- Advanced Types ---
+// --- Advanced System Types ---
 interface SocialPost {
   id: string;
   caption: string;
@@ -30,134 +32,115 @@ interface SocialPost {
   ai_score?: number;
 }
 
-interface AIParameter {
-  mood: string;
-  lighting: string;
-  angle: string;
-  style: string;
+interface AIStudioConfig {
+  fidelity: "Standard" | "High" | "Ultra";
+  aspectRatio: "9:16" | "1:1" | "4:5";
+  engine: "Flux.1" | "Stable Video" | "Clarity-Gen";
 }
 
-// --- Sub-Components for Scale ---
-const PlatformIcon = ({ platform, size = 16 }: { platform: string; size?: number }) => {
-  switch (platform.toLowerCase()) {
-    case 'instagram': return <Instagram size={size} />;
-    case 'tiktok': return <Video size={size} />;
-    case 'linkedin': return <Linkedin size={size} />;
-    case 'pinterest': return <Pin size={size} />;
-    default: return <Globe size={size} />;
-  }
+// --- Platform Branding Logic ---
+const PlatformData = {
+  instagram: { color: "#E4405F", label: "Instagram", formats: ["Post", "Story", "Reel"] },
+  tiktok: { color: "#000000", label: "TikTok", formats: ["Video", "Story"] },
+  linkedin: { color: "#0077B5", label: "LinkedIn", formats: ["Post", "Article"] },
+  pinterest: { color: "#BD081C", label: "Pinterest", formats: ["Pin", "Idea Pin"] }
 };
 
-export default function SocialStudioPro() {
-  // --- Core UI State ---
-  const [activeTab, setActiveTab] = useState<"lab" | "planner" | "assets">("lab");
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [status, setStatus] = useState("Ready");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+export default function ImmersionSocialStudio() {
+  // --- Global State ---
+  const [viewMode, setViewMode] = useState<"canvas" | "schedule">("canvas");
+  const [status, setStatus] = useState("System Ready");
+  const [posts, setPosts] = useState<SocialPost[]>([]);
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  // --- Content State ---
+  // --- Production State ---
   const [caption, setCaption] = useState("");
   const [hashtags, setHashtags] = useState("");
-  const [platform, setPlatform] = useState("instagram");
+  const [platform, setPlatform] = useState<keyof typeof PlatformData>("instagram");
   const [format, setFormat] = useState("Post");
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [scheduledTime, setScheduledTime] = useState("");
+  const [assetShelf, setAssetShelf] = useState<{url: string; type: string}[]>([]);
   
-  // --- AI Production State ---
-  const [isGenerating, setIsGenerating] = useState(false);
+  // --- AI Logic State ---
+  const [isProcessing, setIsProcessing] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
-  const [aiParams, setAiParams] = useState<AIParameter>({
-    mood: "Minimalist",
-    lighting: "Soft Natural",
-    angle: "Top-Down",
-    style: "Architectural"
+  const [studioConfig, setStudioConfig] = useState<AIStudioConfig>({
+    fidelity: "High",
+    aspectRatio: "4:5",
+    engine: "Flux.1"
   });
 
-  // --- Data State ---
-  const [posts, setPosts] = useState<SocialPost[]>([]);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [assetLibrary, setAssetLibrary] = useState<{url: string, type: string}[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- Supabase Connection ---
+  // --- Supabase Instance ---
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ), []);
 
-  const syncData = async () => {
-    setStatus("Syncing");
+  const fetchData = async () => {
+    setStatus("Syncing...");
     const { data, error } = await supabase
       .from('socials')
       .select('*')
       .order('scheduled_for', { ascending: true });
     
     if (!error) setPosts((data as SocialPost[]) || []);
-    else toast.error("Database sync failed");
-    setStatus("Ready");
+    else toast.error("Database Connection Interrupted");
+    setStatus("System Ready");
   };
 
-  useEffect(() => { syncData(); }, [supabase]);
+  useEffect(() => { fetchData(); }, [supabase]);
 
-  // --- The Narrative Engine ---
-  const generateNarrative = async () => {
-    setIsGenerating(true);
-    await new Promise(r => setTimeout(r, 1500));
+  // --- Production Logic ---
+  const runAICopywriter = async () => {
+    setIsProcessing(true);
+    await new Promise(r => setTimeout(r, 1000));
     const hooks = [
-      "Clarity is the bridge between chaos and design. Explore TOTs OS.",
-      "Your workflow, refined. The new architectural standard for socials.",
-      "Stop scrolling, start building. The OS for high-intent creators is here."
+      "Digital clarity in a world of noise. Building with TOTs OS.",
+      "The architecture of efficiency. Discover a new workflow standard.",
+      "Less management, more creation. Your brand, synchronized."
     ];
     setCaption(hooks[Math.floor(Math.random() * hooks.length)]);
-    setIsGenerating(false);
-    toast.success("AI: Contextual Narrative Injected");
+    setIsProcessing(false);
+    toast.success("AI Synthesis Complete");
   };
 
-  const optimizeHashtags = () => {
-    const tags = platform === 'tiktok' 
-      ? "#fyp #tech #minimalism #organized #productivity" 
-      : "#design #architecture #SaaS #workflow #aesthetic";
-    setHashtags(tags);
-    toast.success("Strategy: Hashtags optimized for " + platform);
-  };
-
-  // --- The Visual Engine ---
-  const produceAIMedia = async (mediaType: 'Image' | 'Video') => {
-    if (!aiPrompt) return toast.error("Please define a visual prompt.");
-    setIsGenerating(true);
-    setStatus(`Rendering ${mediaType}...`);
+  const runAIVisualizer = async (type: 'Image' | 'Video') => {
+    if (!aiPrompt) return toast.error("Input prompt required for visual synthesis.");
+    setIsProcessing(true);
+    setStatus(`Rendering ${type}...`);
     
-    await new Promise(r => setTimeout(r, 3000));
-    const mockUrl = mediaType === 'Image' 
+    await new Promise(r => setTimeout(r, 2800));
+    const mockUrl = type === 'Image' 
       ? `https://picsum.photos/seed/${Math.random()}/1080/1350` 
       : "https://www.w3schools.com/html/mov_bbb.mp4";
     
     setMediaPreview(mockUrl);
-    setFormat(mediaType === 'Image' ? 'Post' : 'Reel');
-    setAssetLibrary(prev => [{url: mockUrl, type: mediaType}, ...prev]);
-    setIsGenerating(false);
-    setStatus("Ready");
-    toast.success(`AI ${mediaType} synthesized and added to library.`);
+    setAssetShelf(prev => [{url: mockUrl, type}, ...prev]);
+    setIsProcessing(false);
+    setStatus("System Ready");
+    toast.success(`${type} integrated into canvas.`);
   };
 
-  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleManualUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const result = reader.result as string;
-        setMediaPreview(result);
-        setAssetLibrary(prev => [{url: result, type: 'Manual'}, ...prev]);
+        const url = reader.result as string;
+        setMediaPreview(url);
+        setAssetShelf(prev => [{url, type: 'Manual'}, ...prev]);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // --- Database Logic ---
-  const commitPostToCloud = async () => {
-    if (!caption || !scheduledTime) return toast.error("Missing required metadata.");
+  const commitToCloud = async () => {
+    if (!caption || !scheduledTime) return toast.error("Metadata incomplete. Please check caption and schedule.");
     
-    setStatus("Saving");
+    setStatus("Uploading...");
     const { error } = await supabase.from('socials').insert([{
       caption,
       platform,
@@ -169,366 +152,313 @@ export default function SocialStudioPro() {
     }]);
 
     if (!error) {
-      toast.success("Post successfully integrated into the cloud.");
-      resetForm();
-      syncData();
-      setShowSaveModal(false);
+      toast.success("Node successfully committed to production.");
+      setCaption(""); setHashtags(""); setMediaPreview(null);
+      fetchData();
     } else {
-      toast.error("Cloud rejection: Check your database schema.");
+      toast.error("Deployment failed: Schema mismatch.");
     }
-    setStatus("Ready");
+    setStatus("System Ready");
   };
 
-  const resetForm = () => {
-    setCaption("");
-    setHashtags("");
-    setMediaPreview(null);
-    setAiPrompt("");
-  };
-
-  // --- Calendar Logic ---
-  const calendarData = useMemo(() => {
+  // --- UI Helpers ---
+  const calendar = useMemo(() => {
     const y = currentDate.getFullYear();
     const m = currentDate.getMonth();
     const firstDay = new Date(y, m, 1).getDay();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const result = [];
-    for (let i = 0; i < firstDay; i++) result.push({ d: 0, current: false });
-    for (let i = 1; i <= daysInMonth; i++) result.push({ d: i, current: true });
-    return { 
-      days: result, 
-      month: currentDate.toLocaleString('default', { month: 'long' }),
-      year: y 
-    };
+    const days = [];
+    for (let i = 0; i < firstDay; i++) days.push({ d: 0, current: false });
+    for (let i = 1; i <= daysInMonth; i++) days.push({ d: i, current: true });
+    return { days, month: currentDate.toLocaleString('default', { month: 'long' }), year: y };
   }, [currentDate]);
 
   return (
-    <div className="min-h-screen bg-[#FBFBFA] text-[#1c1c1c] flex font-sans antialiased">
+    <div className="min-h-screen bg-[#F6F6F3] text-[#1c1c1c] font-sans antialiased flex flex-col">
       
-      {/* Sidebar Navigation */}
-      <aside className={`bg-white border-r border-stone-100 flex flex-col transition-all duration-500 z-50 ${isSidebarOpen ? 'w-80' : 'w-20'}`}>
-        <div className="p-8 flex items-center gap-4">
-          <div className="w-10 h-10 bg-[#1c1c1c] rounded-2xl flex items-center justify-center text-[#a9b897] shadow-xl shrink-0"><Layers size={20}/></div>
-          {isSidebarOpen && <span className="font-serif italic text-2xl tracking-tighter">Social.OS</span>}
+      {/* 1. TOP GLOBAL NAVIGATION */}
+      <nav className="h-20 bg-white border-b border-stone-100 px-8 flex items-center justify-between sticky top-0 z-[100] backdrop-blur-md bg-white/90">
+        <div className="flex items-center gap-10">
+          <div className="flex items-center gap-3">
+             <div className="w-9 h-9 bg-[#1c1c1c] rounded-xl flex items-center justify-center text-[#a9b897] shadow-lg"><Layers size={18}/></div>
+             <span className="font-serif italic text-xl tracking-tighter">Social.OS</span>
+          </div>
+          <div className="h-8 w-px bg-stone-100" />
+          <div className="flex bg-stone-50 p-1 rounded-xl border border-stone-100">
+             <button onClick={() => setViewMode('canvas')} className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'canvas' ? 'bg-white shadow-sm text-[#1c1c1c]' : 'text-stone-300'}`}>Studio Canvas</button>
+             <button onClick={() => setViewMode('schedule')} className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'schedule' ? 'bg-white shadow-sm text-[#1c1c1c]' : 'text-stone-300'}`}>Grid Planner</button>
+          </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2">
-          {[
-            { id: 'lab', icon: Wand2, label: 'Production Lab' },
-            { id: 'planner', icon: CalIcon, label: 'Strategic Planner' },
-            { id: 'assets', icon: ImageIcon, label: 'Asset Library' }
-          ].map(item => (
-            <button 
-              key={item.id}
-              onClick={() => setActiveTab(item.id as any)}
-              className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${activeTab === item.id ? 'bg-stone-50 text-[#1c1c1c]' : 'text-stone-300 hover:text-stone-500'}`}
-            >
-              <item.icon size={20} />
-              {isSidebarOpen && <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>}
-            </button>
-          ))}
-        </nav>
-
-        <div className="p-8 border-t border-stone-50">
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-3 bg-stone-50 rounded-full hover:bg-stone-100 transition-colors">
-            {isSidebarOpen ? <ChevronLeft size={16}/> : <ChevronRight size={16}/>}
-          </button>
+        <div className="flex items-center gap-6">
+           <div className="hidden lg:flex items-center gap-3 px-4 py-2 rounded-full border border-stone-100 bg-stone-50">
+             <div className={`w-1.5 h-1.5 rounded-full ${status.includes('Ready') ? 'bg-[#a9b897]' : 'bg-amber-400'} animate-pulse`} />
+             <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">{status}</span>
+           </div>
+           <Link href="/reports">
+             <button className="p-3 hover:bg-stone-50 rounded-full text-stone-300 hover:text-[#1c1c1c] transition-all"><BarChart3 size={20}/></button>
+           </Link>
+           <button onClick={fetchData} className="p-3 hover:bg-stone-50 rounded-full text-stone-300 hover:text-[#1c1c1c] transition-all"><RefreshCcw size={20}/></button>
+           <div className="w-10 h-10 bg-stone-100 rounded-full overflow-hidden border border-stone-200">
+             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Leigha" alt="User" />
+           </div>
         </div>
-      </aside>
+      </nav>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 overflow-hidden flex flex-col">
         
-        {/* Header Bar */}
-        <header className="bg-white/80 backdrop-blur-xl border-b border-stone-50 p-6 flex justify-between items-center z-40">
-           <div className="flex items-center gap-4">
-             <div className={`w-2 h-2 rounded-full ${status === 'Ready' ? 'bg-[#a9b897]' : 'bg-amber-400'} animate-pulse`} />
-             <span className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">{status}</span>
-           </div>
-           
-           <div className="flex items-center gap-3">
-              <Link href="/reports">
-                <button className="flex items-center gap-2 px-6 py-2.5 bg-[#1c1c1c] text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all">
-                  <BarChart3 size={14} className="text-[#a9b897]"/>
-                  Analytics
+        <AnimatePresence mode="wait">
+          {viewMode === 'canvas' ? (
+            <motion.div key="canvas" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex overflow-hidden">
+              
+              {/* LEFT COLUMN: Production Controls */}
+              <div className="w-[450px] border-r border-stone-100 bg-white overflow-y-auto p-10 space-y-10 custom-scrollbar">
+                <header className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Core Systems</p>
+                  <h2 className="text-4xl font-serif italic">Production.</h2>
+                </header>
+
+                {/* Narrative Panel */}
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black uppercase text-stone-300">Narrative Draft</label>
+                    <button onClick={runAICopywriter} className="text-[10px] font-black uppercase text-[#a9b897] flex items-center gap-2 hover:opacity-70"><Sparkles size={12}/> AI Script</button>
+                  </div>
+                  <textarea 
+                    value={caption} 
+                    onChange={(e) => setCaption(e.target.value)}
+                    className="w-full h-48 bg-stone-50 rounded-[2rem] p-8 text-lg font-serif italic outline-none resize-none border border-transparent focus:border-stone-100 transition-all shadow-inner"
+                    placeholder="Describe the moment..."
+                  />
+                </div>
+
+                {/* Platform Configuration */}
+                <div className="space-y-6">
+                  <label className="text-[10px] font-black uppercase text-stone-300">Target Network</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.keys(PlatformData).map((p) => (
+                      <button 
+                        key={p} 
+                        onClick={() => setPlatform(p as any)}
+                        className={`p-4 rounded-2xl flex items-center gap-3 border transition-all ${platform === p ? 'bg-[#1c1c1c] text-white border-transparent' : 'bg-white border-stone-100 text-stone-400 hover:border-stone-200'}`}
+                      >
+                         <div className={platform === p ? 'text-[#a9b897]' : 'text-stone-300'}>
+                           {p === 'instagram' && <Instagram size={16}/>}
+                           {p === 'tiktok' && <Video size={16}/>}
+                           {p === 'linkedin' && <Linkedin size={16}/>}
+                           {p === 'pinterest' && <Pin size={16}/>}
+                         </div>
+                         <span className="text-[9px] font-black uppercase tracking-widest">{p}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Schedule System */}
+                <div className="space-y-6 pt-6 border-t border-stone-50">
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black uppercase text-stone-300 flex items-center gap-2"><Clock size={12}/> Release Timestamp</label>
+                    <input 
+                      type="datetime-local" 
+                      value={scheduledTime} 
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-xs font-bold outline-none focus:ring-4 ring-[#a9b897]/5 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black uppercase text-stone-300 flex items-center gap-2"><Hash size={12}/> Tag Strategy</label>
+                    <input 
+                      value={hashtags} 
+                      onChange={(e) => setHashtags(e.target.value)}
+                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-xs font-bold outline-none"
+                      placeholder="#strategy #minimalism"
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  onClick={commitToCloud}
+                  className="w-full bg-[#a9b897] text-[#1c1c1c] py-7 rounded-[2rem] font-black uppercase text-[11px] tracking-[0.3em] flex items-center justify-center gap-4 hover:scale-[1.02] transition-all shadow-xl shadow-[#a9b897]/10"
+                >
+                  Deploy Node <ArrowRight size={18}/>
                 </button>
-              </Link>
-              <button onClick={syncData} className="p-3 hover:bg-stone-50 rounded-full text-stone-300 hover:text-[#1c1c1c]"><RefreshCcw size={18}/></button>
-           </div>
-        </header>
+              </div>
 
-        {/* Scrollable Workspace */}
-        <main className="flex-1 overflow-y-auto p-12">
-          
-          <AnimatePresence mode="wait">
-            
-            {/* TAB 1: PRODUCTION LAB */}
-            {activeTab === 'lab' && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-6xl mx-auto space-y-12">
-                <div className="flex justify-between items-end">
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-black uppercase tracking-[0.5em] text-[#a9b897]">Studio Mode</p>
-                    <h1 className="text-8xl font-serif italic tracking-tighter leading-none">The Lab.</h1>
-                  </div>
-                  <div className="flex gap-4">
-                    <button onClick={generateNarrative} className="px-8 py-4 bg-white border border-stone-100 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:shadow-xl transition-all">
-                      <Sparkles size={16} className="text-[#a9b897]"/> Clarity AI
-                    </button>
-                  </div>
+              {/* CENTER COLUMN: Live Immersive Canvas */}
+              <div className="flex-1 bg-[#FBFBFA] p-12 flex flex-col items-center justify-center relative overflow-hidden">
+                {/* Visual Backdrop */}
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+                  <div className="h-full w-full bg-[radial-gradient(#1c1c1c_1px,transparent_1px)] [background-size:40px_40px]" />
                 </div>
 
-                <div className="grid grid-cols-12 gap-12">
-                   {/* Narrative Section */}
-                   <div className="col-span-12 lg:col-span-7 space-y-8">
-                     <div className="bg-white rounded-[3.5rem] border border-stone-100 shadow-2xl p-12 space-y-10 min-h-[500px] flex flex-col justify-between">
-                       <div className="space-y-4">
-                         <label className="text-[10px] font-black uppercase text-stone-200 tracking-[0.4em]">Brand Narrative</label>
-                         <textarea 
-                           value={caption} 
-                           onChange={(e) => setCaption(e.target.value)}
-                           className="w-full h-64 bg-transparent text-5xl font-serif italic outline-none resize-none placeholder:text-stone-100"
-                           placeholder="Speak your vision..."
-                         />
+                <div className="w-full max-w-2xl aspect-[4/5] bg-white rounded-[4rem] shadow-2xl shadow-stone-200 border border-stone-100 overflow-hidden relative group">
+                   <AnimatePresence mode="wait">
+                     {mediaPreview ? (
+                       <motion.div key={mediaPreview} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full">
+                         {mediaPreview.includes('.mp4') ? (
+                           <video src={mediaPreview} autoPlay loop muted className="w-full h-full object-cover" />
+                         ) : (
+                           <img src={mediaPreview} className="w-full h-full object-cover" />
+                         )}
+                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-12 flex flex-col justify-end">
+                            <p className="text-white text-3xl font-serif italic leading-tight">"{caption || "Preview Narrative"}"</p>
+                            <p className="text-[#a9b897] text-[10px] font-black uppercase mt-4 tracking-widest">{platform} {format}</p>
+                         </div>
+                       </motion.div>
+                     ) : (
+                       <div className="w-full h-full flex flex-col items-center justify-center text-stone-100 space-y-6">
+                         <div className="w-24 h-24 bg-stone-50 rounded-[2.5rem] flex items-center justify-center">
+                           <ImageIcon size={40} />
+                         </div>
+                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-200">Asset Canvas Null</p>
                        </div>
-                       <button 
-                        onClick={() => setShowSaveModal(true)}
-                        className="w-full bg-[#1c1c1c] text-white py-8 rounded-3xl font-black uppercase text-[12px] tracking-[0.3em] flex items-center justify-center gap-4 hover:scale-[1.01] transition-transform"
-                       >
-                         Sync to Cloud <ArrowRight size={20} className="text-[#a9b897]"/>
-                       </button>
-                     </div>
-                     
-                     <div className="bg-white rounded-[3rem] p-10 border border-stone-100 space-y-6">
-                        <div className="flex justify-between items-center">
-                          <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-300">Strategic Parameters</h4>
-                          <Settings size={14} className="text-stone-200"/>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                           {['Mood', 'Lighting', 'Angle', 'Style'].map(param => (
-                             <div key={param} className="space-y-2">
-                               <p className="text-[8px] font-black uppercase text-stone-400">{param}</p>
-                               <select className="w-full bg-stone-50 border-none rounded-xl p-3 text-[10px] font-bold outline-none">
-                                 <option>Minimalist</option>
-                                 <option>Cinematic</option>
-                                 <option>Elevated</option>
-                               </select>
-                             </div>
-                           ))}
-                        </div>
-                     </div>
-                   </div>
-
-                   {/* Production Section */}
-                   <div className="col-span-12 lg:col-span-5 space-y-8">
-                     <div className="aspect-[4/5] bg-stone-100 rounded-[3.5rem] overflow-hidden relative shadow-inner group border-4 border-white">
-                        {mediaPreview ? (
-                           mediaPreview.includes('.mp4') ? (
-                             <video src={mediaPreview} autoPlay loop muted className="w-full h-full object-cover" />
-                           ) : (
-                             <img src={mediaPreview} className="w-full h-full object-cover" />
-                           )
-                        ) : (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center text-stone-300 space-y-4">
-                            <ImageIcon size={40} />
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em]">Asset Preview Null</p>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                           <button onClick={() => fileInputRef.current?.click()} className="p-4 bg-white rounded-full shadow-2xl"><Upload size={20}/></button>
-                        </div>
-                        <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-                     </div>
-
-                     <div className="bg-[#1c1c1c] rounded-[3rem] p-10 text-white space-y-8">
-                        <div className="space-y-4">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-[#a9b897]">Visual Prompt Engine</p>
-                          <input 
-                            value={aiPrompt}
-                            onChange={(e) => setAiPrompt(e.target.value)}
-                            className="w-full bg-white/5 border-b border-white/10 py-3 outline-none text-sm font-serif italic"
-                            placeholder="A serene architecture office..."
-                          />
-                        </div>
-                        <div className="flex gap-4">
-                          <button onClick={() => produceAIMedia('Image')} className="flex-1 py-4 bg-white/10 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-white/20 transition-all">Gen Image</button>
-                          <button onClick={() => produceAIMedia('Video')} className="flex-1 py-4 bg-[#a9b897] text-[#1c1c1c] rounded-2xl text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all">Gen Video</button>
-                        </div>
-                     </div>
+                     )}
+                   </AnimatePresence>
+                   
+                   {/* Format Toggle Overlays */}
+                   <div className="absolute top-8 left-8 flex gap-2">
+                     {['Post', 'Story', 'Reel'].map(f => (
+                       <button key={f} onClick={() => setFormat(f)} className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${format === f ? 'bg-[#1c1c1c] text-white border-transparent' : 'bg-white/80 backdrop-blur-md text-stone-400 border-stone-100 hover:bg-white'}`}>{f}</button>
+                     ))}
                    </div>
                 </div>
-              </motion.div>
-            )}
 
-            {/* TAB 2: PLANNER */}
-            {activeTab === 'planner' && (
-              <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="space-y-12">
-                 <div className="flex justify-between items-center">
-                    <div className="flex items-baseline gap-6">
-                      <h2 className="text-8xl font-serif italic tracking-tighter">{calendarData.month}</h2>
-                      <span className="text-stone-200 text-4xl font-serif italic">{calendarData.year}</span>
-                    </div>
-                    <div className="flex bg-white rounded-3xl p-2 border border-stone-100 shadow-sm">
-                      <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className="p-4 hover:bg-stone-50 rounded-2xl"><ChevronLeft/></button>
-                      <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} className="p-4 hover:bg-stone-50 rounded-2xl"><ChevronRight/></button>
+                {/* BOTTOM FLOATING SHELF: Asset History */}
+                <div className="absolute bottom-10 left-10 right-10 h-32 bg-white/50 backdrop-blur-2xl rounded-[3rem] border border-white p-4 flex items-center gap-4 shadow-2xl">
+                   <button onClick={() => fileInputRef.current?.click()} className="h-full aspect-square bg-white rounded-[2rem] border-2 border-dashed border-stone-100 flex flex-col items-center justify-center text-stone-300 hover:text-[#a9b897] hover:border-[#a9b897] transition-all">
+                     <Upload size={20}/>
+                     <span className="text-[8px] font-black uppercase mt-2">Upload</span>
+                   </button>
+                   <input type="file" ref={fileInputRef} onChange={handleManualUpload} className="hidden" />
+                   <div className="h-10 w-px bg-stone-200/50 mx-2" />
+                   <div className="flex-1 flex gap-4 overflow-x-auto custom-scrollbar-hide h-full items-center">
+                      {assetShelf.map((asset, i) => (
+                        <div key={i} onClick={() => setMediaPreview(asset.url)} className="h-full aspect-square bg-white rounded-2xl border border-stone-100 overflow-hidden cursor-pointer hover:scale-105 transition-all shadow-sm">
+                          <img src={asset.url} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                      {assetShelf.length === 0 && <p className="text-[9px] font-black uppercase text-stone-300 tracking-widest ml-4">No recent assets generated</p>}
+                   </div>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: AI Synthesis & Strategy */}
+              <div className="w-[400px] border-l border-stone-100 bg-white p-10 flex flex-col space-y-12">
+                 <div className="space-y-8">
+                    <header className="flex justify-between items-center">
+                       <h3 className="text-2xl font-serif italic">AI Studio.</h3>
+                       <div className="p-2 bg-stone-50 rounded-xl"><Wand2 size={16} className="text-[#a9b897]"/></div>
+                    </header>
+
+                    <div className="space-y-6">
+                      <div className="space-y-4">
+                        <label className="text-[10px] font-black uppercase text-stone-300">Prompt Engineering</label>
+                        <input 
+                          value={aiPrompt}
+                          onChange={(e) => setAiPrompt(e.target.value)}
+                          placeholder="Cyber-minimalist workspace..."
+                          className="w-full bg-stone-50 border-b border-stone-100 py-3 outline-none text-sm font-serif italic"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                         <button onClick={() => runAIVisualizer('Image')} className="py-4 bg-[#1c1c1c] text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-800">Gen Image</button>
+                         <button onClick={() => runAIVisualizer('Video')} className="py-4 bg-[#a9b897] text-[#1c1c1c] rounded-2xl text-[9px] font-black uppercase tracking-widest hover:opacity-90">Gen Video</button>
+                      </div>
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-7 gap-6 bg-white p-16 rounded-[4rem] border border-stone-100 shadow-2xl">
-                    {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
-                      <div key={day} className="text-center text-[10px] font-black text-stone-200 uppercase tracking-[0.3em] mb-10">{day}</div>
-                    ))}
-                    {calendarData.days.map((day, i) => {
-                      const dayPosts = posts.filter(p => new Date(p.scheduled_for).getDate() === day.d && new Date(p.scheduled_for).getMonth() === currentDate.getMonth());
-                      function handleDateClick(d: number): void {
-                        throw new Error("Function not implemented.");
-                      }
+                 {/* Strategy Analyst Card */}
+                 <section className="bg-[#1c1c1c] rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden group">
+                   <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><BrainCircuit size={100}/></div>
+                   <div className="space-y-1 relative z-10">
+                     <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897]">Clarity Analyst</p>
+                     <h4 className="text-xl font-serif italic">Channel Health</h4>
+                   </div>
+                   <div className="space-y-4 relative z-10">
+                      <div className="flex justify-between items-center text-[9px] font-black uppercase text-stone-500">
+                        <span>Engagement Projection</span>
+                        <span className="text-[#a9b897]">84%</span>
+                      </div>
+                      <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full w-[84%] bg-[#a9b897]" />
+                      </div>
+                      <p className="text-[11px] text-stone-400 italic leading-relaxed">"Based on current trends, a **{platform} Reel** with minimalist architecture will outperform static posts by 1.4x."</p>
+                   </div>
+                 </section>
 
+                 <div className="flex-1 flex flex-col justify-end">
+                    <div className="bg-stone-50 rounded-3xl p-6 border border-stone-100">
+                       <div className="flex items-center gap-3 mb-4">
+                         <Info size={14} className="text-[#a9b897]"/>
+                         <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">System Logs</span>
+                       </div>
+                       <p className="text-[10px] font-medium text-stone-400 leading-relaxed italic">Cloud node 091-88 connected. Ready for deployment to production grid.</p>
+                    </div>
+                 </div>
+              </div>
+            </motion.div>
+          ) : (
+            /* SCHEDULE MODE: Full Screen Grid */
+            <motion.div key="schedule" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1 p-12 overflow-y-auto custom-scrollbar">
+              <div className="max-w-7xl mx-auto space-y-12">
+                 <div className="flex justify-between items-end">
+                   <div className="flex items-baseline gap-6">
+                      <h2 className="text-8xl font-serif italic tracking-tighter">{calendar.month}.</h2>
+                      <span className="text-stone-300 text-4xl font-serif italic">{calendar.year}</span>
+                   </div>
+                   <div className="flex bg-white rounded-[2rem] p-2 border border-stone-100 shadow-sm">
+                      <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className="p-4 hover:bg-stone-50 rounded-xl transition-all"><ChevronLeft/></button>
+                      <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} className="p-4 hover:bg-stone-50 rounded-xl transition-all"><ChevronRight/></button>
+                   </div>
+                 </div>
+
+                 <div className="grid grid-cols-7 gap-6 bg-white p-16 rounded-[4rem] border border-stone-100 shadow-2xl">
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
+                      <div key={d} className="text-center text-[10px] font-black text-stone-200 uppercase tracking-widest mb-10">{d}</div>
+                    ))}
+                    {calendar.days.map((day, i) => {
+                      const dayPosts = posts.filter(p => new Date(p.scheduled_for).getDate() === day.d && new Date(p.scheduled_for).getMonth() === currentDate.getMonth());
                       return (
                         <div 
                           key={i} 
-                          onClick={() => handleDateClick(day.d)}
-                          className={`aspect-[4/5] rounded-[2.5rem] border border-stone-50 p-6 flex flex-col justify-between transition-all relative group
-                            ${day.current ? 'bg-white hover:bg-stone-50 hover:scale-[1.03] cursor-pointer' : 'opacity-10 pointer-events-none'}
-                            ${dayPosts.length > 0 ? 'border-[#a9b897]/20 shadow-lg' : ''}
+                          className={`aspect-[4/5] rounded-[2.5rem] border border-stone-50 p-6 flex flex-col justify-between transition-all group
+                            ${day.current ? 'bg-white hover:bg-stone-50 hover:scale-[1.02] cursor-pointer' : 'opacity-5 pointer-events-none'}
+                            ${dayPosts.length > 0 ? 'border-[#a9b897]/30 shadow-xl shadow-[#a9b897]/5' : ''}
                           `}
                         >
                           <span className={`text-4xl font-serif italic ${dayPosts.length > 0 ? 'text-[#1c1c1c]' : 'text-stone-100'}`}>{day.d > 0 ? day.d : ""}</span>
-                          
-                          <div className="space-y-2">
-                             {dayPosts.map(p => (
-                               <div key={p.id} className="w-full h-1.5 rounded-full bg-[#a9b897]" />
+                          <div className="flex flex-wrap gap-1 mt-4">
+                             {dayPosts.map((p, idx) => (
+                               <div key={p.id} className="w-full h-2 rounded-full bg-[#a9b897] shadow-[0_0_10px_#a9b89744]" />
                              ))}
                           </div>
                         </div>
                       );
                     })}
                  </div>
-              </motion.div>
-            )}
-
-            {/* TAB 3: ASSETS */}
-            {activeTab === 'assets' && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
-                 <div className="space-y-1">
-                    <p className="text-[11px] font-black uppercase tracking-[0.5em] text-[#a9b897]">Asset Management</p>
-                    <h2 className="text-7xl font-serif italic">Archive.</h2>
-                 </div>
-
-                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8">
-                    <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="aspect-square bg-white rounded-[2.5rem] border-2 border-dashed border-stone-100 flex flex-col items-center justify-center text-stone-200 hover:text-[#a9b897] hover:border-[#a9b897] transition-all cursor-pointer"
-                    >
-                      <Upload size={30}/>
-                      <p className="mt-4 text-[9px] font-black uppercase tracking-widest">New Asset</p>
-                    </div>
-                    {assetLibrary.map((asset, i) => (
-                      <div key={i} className="aspect-square bg-white rounded-[2.5rem] border border-stone-50 overflow-hidden relative group shadow-sm">
-                        {asset.type === 'Video' ? <video src={asset.url} className="w-full h-full object-cover" /> : <img src={asset.url} className="w-full h-full object-cover" />}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                           <button onClick={() => setMediaPreview(asset.url)} className="p-3 bg-white rounded-full"><Eye size={16}/></button>
-                           <button className="p-3 bg-white rounded-full text-red-500"><Trash2 size={16}/></button>
-                        </div>
-                      </div>
-                    ))}
-                 </div>
-              </motion.div>
-            )}
-
-          </AnimatePresence>
-        </main>
-      </div>
-
-      {/* --- SAVE & SCHEDULE MODAL --- */}
-      <AnimatePresence>
-        {showSaveModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-8">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowSaveModal(false)} className="absolute inset-0 bg-stone-100/80 backdrop-blur-3xl" />
-            
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 30 }} className="relative w-full max-w-6xl bg-white rounded-[4rem] shadow-2xl border border-stone-100 overflow-hidden grid grid-cols-12">
-              <div className="col-span-12 lg:col-span-7 p-16 space-y-12 bg-stone-50/30">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.4em] text-[#a9b897] mb-2">Final Review</p>
-                  <h2 className="text-6xl font-serif italic tracking-tighter">Sync Configuration.</h2>
-                </div>
-
-                <div className="space-y-10">
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black uppercase text-stone-300 tracking-widest">Target Platform</label>
-                    <div className="grid grid-cols-4 gap-4">
-                       {['instagram', 'tiktok', 'linkedin', 'pinterest'].map(p => (
-                         <button key={p} onClick={() => setPlatform(p)} className={`py-6 rounded-3xl flex flex-col items-center gap-3 border transition-all ${platform === p ? 'bg-[#1c1c1c] text-white shadow-xl' : 'bg-white text-stone-300 border-stone-100'}`}>
-                           <PlatformIcon platform={p} size={20} />
-                           <span className="text-[8px] font-black uppercase tracking-widest">{p}</span>
-                         </button>
-                       ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase text-stone-300 flex items-center gap-2"><Clock size={12}/> Schedule</label>
-                      <input 
-                        type="datetime-local" 
-                        value={scheduledTime} 
-                        onChange={(e) => setScheduledTime(e.target.value)}
-                        className="w-full bg-white border border-stone-100 rounded-3xl p-6 text-sm font-medium outline-none shadow-inner" 
-                      />
-                    </div>
-                    <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase text-stone-300 flex items-center gap-2"><FileText size={12}/> Format</label>
-                      <select value={format} onChange={(e) => setFormat(e.target.value)} className="w-full bg-white border border-stone-100 rounded-3xl p-6 text-sm font-medium outline-none shadow-inner">
-                        <option>Post</option>
-                        <option>Story</option>
-                        <option>Reel</option>
-                        <option>TikTok</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[10px] font-black uppercase text-stone-300 flex items-center gap-2"><Hash size={12}/> SEO Tags</label>
-                      <button onClick={optimizeHashtags} className="text-[9px] font-black uppercase text-[#a9b897]">Optimize for {platform}</button>
-                    </div>
-                    <input value={hashtags} onChange={(e) => setHashtags(e.target.value)} className="w-full bg-white border border-stone-100 rounded-3xl p-6 text-sm font-medium outline-none" />
-                  </div>
-                </div>
-
-                <button onClick={commitPostToCloud} className="w-full bg-[#1c1c1c] text-white py-10 rounded-[2.5rem] font-black uppercase text-[14px] tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-black transition-all shadow-2xl">
-                  Sync to Network <CheckCircle2 size={24} className="text-[#a9b897]"/>
-                </button>
-              </div>
-
-              <div className="hidden lg:block col-span-5 relative bg-white border-l border-stone-50 p-16">
-                 <div className="h-full w-full rounded-[3rem] border border-stone-100 overflow-hidden relative shadow-2xl bg-stone-50">
-                   {mediaPreview ? (
-                      mediaPreview.includes('.mp4') ? <video src={mediaPreview} autoPlay loop muted className="w-full h-full object-cover" /> : <img src={mediaPreview} className="w-full h-full object-cover" />
-                   ) : <div className="w-full h-full flex items-center justify-center text-stone-200 font-serif italic text-2xl">No Visuals</div>}
-                   
-                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-10 space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white"><PlatformIcon platform={platform} size={14}/></div>
-                        <span className="text-[10px] font-black uppercase text-[#a9b897] tracking-widest">{platform} Preview</span>
-                      </div>
-                      <p className="text-white text-2xl font-serif italic leading-tight truncate">"{caption}"</p>
-                      <p className="text-white/40 text-[10px] font-mono">{hashtags}</p>
-                   </div>
-                 </div>
               </div>
             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </main>
 
+      {/* CUSTOM STYLE INJECTIONS */}
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
-        ::-webkit-datetime-edit-fields-wrapper { padding: 0.5rem; }
-        ::-webkit-calendar-picker-indicator { opacity: 0.2; cursor: pointer; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #e5e5e5; border-radius: 10px; }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e5e5; border-radius: 10px; }
+        
+        .custom-scrollbar-hide::-webkit-scrollbar { display: none; }
+        .custom-scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+          opacity: 0.1;
+          cursor: pointer;
+          filter: invert(0);
+        }
       `}</style>
     </div>
   );

@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// 1. Move all the logic into this inner component
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -21,6 +20,7 @@ function DashboardContent() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
+  // -- Access Guard Params --
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
@@ -38,24 +38,37 @@ function DashboardContent() {
   const [showScanModal, setShowScanModal] = useState(false);
   const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean }[]>([]);
 
+  // 1. Instant Redirect if Access Denied
   useEffect(() => {
     if (error === "access_denied") {
       router.push(`/access-denied?reason=${encodeURIComponent(errorDescription || "Invitation expired")}`);
     }
   }, [error, errorDescription, router]);
 
+  // 2. Clock Logic
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
   const loadDashboardData = useCallback(async () => {
-    if (!organisationId || error === "access_denied") return;
+    // If the URL already shows an error, stop loading immediately
+    if (error === "access_denied") {
+      setLoading(false);
+      return;
+    }
+
+    // Wait for the organisationId from context, but don't hang forever
+    if (!organisationId) return;
 
     try {
       const { data: authData } = await supabase.auth.getUser();
-      if (!authData.user) return router.push("/login");
+      if (!authData.user) {
+        router.push("/login");
+        return;
+      }
 
+      // Fetch User Profile
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name")
@@ -64,11 +77,13 @@ function DashboardContent() {
 
       if (profile?.full_name) setUserName(profile.full_name.toUpperCase());
 
+      // Fetch Project Count
       const { count: projectCount } = await supabase
         .from("projects")
         .select("*", { count: 'exact', head: true })
         .eq("organisation_id", organisationId);
 
+      // Fetch Financial Data
       const { data: invoiceData } = await supabase
         .from("invoices")
         .select("amount, status")
@@ -86,6 +101,7 @@ function DashboardContent() {
         invoicesDue: pendingInvoices
       }));
 
+      // Fetch Team
       const { data: members } = await supabase
         .from("profiles")
         .select("full_name, role")
@@ -94,13 +110,14 @@ function DashboardContent() {
 
       setTeamMembers(members || []);
 
+      // Fetch Tasks
       const { data: notesData } = await supabase
         .from("notes")
         .select("*")
         .eq("organisation_id", organisationId)
         .limit(5);
 
-      if (notesData && notesData.length > 0) {
+      if (notesData) {
         setTodos(notesData.map((n: any) => ({
           id: n.id,
           text: n.title || n.content?.substring(0, 40) || "Priority Task",
@@ -110,6 +127,7 @@ function DashboardContent() {
     } catch (err) {
       console.error("Dashboard Sync Error:", err);
     } finally {
+      // THE FIX: Always release the loading state here
       setLoading(false);
     }
   }, [router, organisationId, error]);
@@ -118,16 +136,14 @@ function DashboardContent() {
     loadDashboardData();
   }, [loadDashboardData]);
 
+  // Handle Scan Logic
   const runClarityScan = async () => {
     setIsScanActive(true);
     setShowScanModal(true);
     setInsight(null); 
     try {
       const { data, error: scanErr } = await supabase.functions.invoke('clarity-scan', {
-        body: { 
-            organisation_id: organisationId, 
-            context: { stats, currentTasks: todos } 
-        }
+        body: { organisation_id: organisationId, context: { stats, currentTasks: todos } }
       });
       if (scanErr) throw scanErr;
       setInsight(data.insight);
@@ -143,6 +159,7 @@ function DashboardContent() {
     await supabase.from("notes").update({ completed: !currentStatus }).eq("id", id);
   };
 
+  // Guard: If access denied, don't show anything (router handles it)
   if (error === "access_denied") return null;
 
   if (loading) return (
@@ -154,8 +171,6 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 max-w-[1600px] mx-auto font-sans">
-      
-      {/* HEADER */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-8 md:pb-12 gap-6 md:gap-8">
         <div className="space-y-3 md:space-y-4 w-full md:w-auto">
           <div className="flex flex-wrap items-center gap-4 md:gap-6 text-[var(--brand-primary, #A3B18A)]">
@@ -185,7 +200,6 @@ function DashboardContent() {
         </motion.button>
       </header>
 
-      {/* CORE GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 md:gap-12 items-start">
         <section className="bg-white border border-stone-200 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm lg:col-span-3">
           <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 md:mb-8 flex items-center gap-2">
@@ -243,7 +257,6 @@ function DashboardContent() {
         </section>
       </div>
 
-      {/* MODULES GRID */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
         {[
           { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "View Projects" },
@@ -272,7 +285,6 @@ function DashboardContent() {
         ))}
       </section>
 
-      {/* INTELLIGENCE MODAL */}
       <AnimatePresence>
         {showScanModal && (
           <motion.div 
@@ -296,7 +308,6 @@ function DashboardContent() {
   );
 }
 
-// 2. The Export wraps the logic in a Suspense Boundary
 export default function DashboardPage() {
   return (
     <Suspense fallback={

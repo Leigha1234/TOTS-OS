@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { useSettings } from "@/app/context/SettingsContext";
@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function DashboardPage() {
+// 1. Move all the logic into this inner component
+function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { organisationId } = useSettings();
@@ -20,11 +21,9 @@ export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
-  // -- Access Guard Logic --
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
-  // -- Dynamic State --
   const [stats, setStats] = useState({
     activeProjects: 0,
     invoicesDue: 0, 
@@ -39,14 +38,12 @@ export default function DashboardPage() {
   const [showScanModal, setShowScanModal] = useState(false);
   const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean }[]>([]);
 
-  // 1. Security Check: Handle Access Denied from Auth redirects
   useEffect(() => {
     if (error === "access_denied") {
       router.push(`/access-denied?reason=${encodeURIComponent(errorDescription || "Invitation expired")}`);
     }
   }, [error, errorDescription, router]);
 
-  // 2. Clock Logic
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -146,7 +143,6 @@ export default function DashboardPage() {
     await supabase.from("notes").update({ completed: !currentStatus }).eq("id", id);
   };
 
-  // If there's an error in the URL, render nothing while the useEffect handles the redirect
   if (error === "access_denied") return null;
 
   if (loading) return (
@@ -191,8 +187,6 @@ export default function DashboardPage() {
 
       {/* CORE GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 md:gap-12 items-start">
-        
-        {/* CHECKLIST */}
         <section className="bg-white border border-stone-200 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm lg:col-span-3">
           <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 md:mb-8 flex items-center gap-2">
             <CheckSquare size={14} className="text-[var(--brand-primary, #A3B18A)]" />
@@ -204,15 +198,11 @@ export default function DashboardPage() {
                 key={todo.id} 
                 onClick={() => toggleTodo(todo.id, todo.completed)}
                 className={`flex items-center gap-4 p-4 md:p-5 rounded-xl md:rounded-2xl border transition-all cursor-pointer ${
-                  todo.completed 
-                    ? "bg-stone-50 border-stone-200 opacity-60" 
-                    : "bg-[#faf9f6] border-stone-200 hover:border-[var(--brand-primary, #A3B18A)]"
+                  todo.completed ? "bg-stone-50 border-stone-200 opacity-60" : "bg-[#faf9f6] border-stone-200 hover:border-[var(--brand-primary, #A3B18A)]"
                 }`}
               >
                 <div className={`w-4 h-4 md:w-5 md:h-5 rounded flex items-center justify-center border transition-all shrink-0 ${
-                  todo.completed 
-                    ? "bg-[var(--brand-primary, #A3B18A)] border-[var(--brand-primary, #A3B18A)] text-white" 
-                    : "border-stone-400 text-transparent"
+                  todo.completed ? "bg-[var(--brand-primary, #A3B18A)] border-[var(--brand-primary, #A3B18A)] text-white" : "border-stone-400 text-transparent"
                 }`}>
                   <span className="text-[10px] md:text-[12px] font-bold">✓</span>
                 </div>
@@ -226,7 +216,6 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* TEAM PANEL */}
         <section className="bg-[var(--brand-primary, #A3B18A)] p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm flex flex-col justify-between min-h-[400px] lg:col-span-2">
           <div>
             <h2 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-white/60 mb-6 md:mb-8 flex items-center gap-2">
@@ -261,13 +250,7 @@ export default function DashboardPage() {
           { label: "Pending Invoices", value: stats.invoicesDue, icon: FileText, path: "/payments", cta: "Manage Billing" },
           { label: "Social Media", value: stats.socialsPending, icon: Share2, path: "/social", cta: "Schedule Posts" },
           { label: "Communications", value: stats.emailsScheduled, icon: Mail, path: "/campaigns", cta: "Check Mail" },
-          { 
-            label: "Current Profit", 
-            value: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(stats.currentProfit), 
-            icon: PoundSterling, 
-            path: "/payments",
-            cta: "View Financials"
-          },
+          { label: "Current Profit", value: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(stats.currentProfit), icon: PoundSterling, path: "/payments", cta: "View Financials" },
         ].map((item) => (
           <motion.div
             key={item.label}
@@ -282,7 +265,6 @@ export default function DashboardPage() {
               <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-1 md:mb-2">{item.label}</p>
               <p className="text-3xl md:text-4xl font-serif italic text-stone-900 leading-none truncate">{item.value}</p>
             </div>
-            
             <div className="flex items-center gap-2 text-[8px] md:text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors mt-4">
               {item.cta} <ArrowRight size={10} />
             </div>
@@ -311,5 +293,19 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+// 2. The Export wraps the logic in a Suspense Boundary
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4 p-6">
+        <Loader2 className="animate-spin text-stone-300" size={32} />
+        <p className="font-black uppercase tracking-[0.5em] text-stone-300 text-[10px]">Loading Workspace</p>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }

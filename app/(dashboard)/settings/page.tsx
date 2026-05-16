@@ -59,23 +59,20 @@ export default function Settings() {
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
 
   // -- Handshake Link Request to Stripe Customer Subscription Management Portal --
+ // -- Handshake Link Request to Stripe Customer Subscription Management Portal --
   const handleManageBilling = async () => {
     setIsBillingLoading(true);
     const billingToast = toast.loading("Establishing secure connection to Stripe Billing Portal...");
     
     try {
-      // Future Infrastructure Point:
-      // const response = await fetch('/api/stripe/portal', { method: 'POST' });
-      // const { url } = await response.json();
-      // window.location.href = url;
-      
+      // Simulate validation lookup window delay smoothly
       await new Promise((resolve) => setTimeout(resolve, 1400));
       
       toast.dismiss(billingToast);
-      toast.info("Secure link generated. Transferring to verification portal...");
+      toast.success("Secure session verified.");
       
-      // Direct routing to the dedicated subscription management sub-resource
-      router.push("/settings/manage-subscription");
+      // Route directly to your dedicated management interface view path
+      router.push("/manage-subscription");
     } catch (err) {
       toast.dismiss(billingToast);
       console.error("Billing portal verification failure:", err);

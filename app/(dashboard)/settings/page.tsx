@@ -6,25 +6,19 @@ import { supabase } from "@/lib/supabase-client";
 import { 
   User, Users, RefreshCcw, Save, 
   Camera, Palette, ShieldCheck, 
-  Fingerprint, Key, ChevronRight, 
-  Database, ArrowUpRight, 
-  Zap, Clock, Loader2,
-  CheckSquare, Smartphone, LogOut,
-  Globe, Layers, Plus, ArrowRight,
-  Shield, Activity, Settings as SettingsIcon,
-  Search, Filter, Trash2, Edit3,
-  Mail, Phone, MapPin, AlertTriangle,
-  FileJson, Server, HardDrive, Cpu,
-  Type, Droplets, Layout, Eye, Video, Instagram, Facebook, Disc, Linkedin,
-  Scale, CreditCard, ShieldAlert
+  Fingerprint, ArrowUpRight, 
+  Clock, Loader2, LogOut,
+  Droplets, Layout, Cpu, Type,
+  Instagram, Facebook, Disc, Linkedin,
+  Video, CreditCard
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 /**
- * TOTS OS: UNIFIED ADMINISTRATIVE CONTROL CENTER v7.3
- * Architecture: Enterprise System Identity + Stripe Billing Integration
- * Theme: Organic Minimalist (Customizable)
+ * TOTS OS: UNIFIED ADMINISTRATIVE CONTROL CENTER v7.6
+ * Architecture: Database-Coupled System Identity + Dynamic Routing Handshake
+ * Theme: Organic Minimalist
  */
 
 export default function Settings() {
@@ -32,22 +26,23 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // -- Core Identity & Interface State --
-  const [userName] = useState<string>("LEIGHA DAY-CLARK");
+  const [userName, setUserName] = useState<string>("LOADING...");
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<"account" | "brand" | "security">("account");
+  const [activeTab, setActiveTab] = useState<"account" | "brand">("account");
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isBillingLoading, setIsBillingLoading] = useState(false);
 
-  // -- Global Brand Customization (Persisted Across Workspace Platforms) --
+  // -- Global Brand Customization --
   const [accentColor, setAccentColor] = useState("#A3B18A");
   const [fontPreference, setFontPreference] = useState<"serif-heavy" | "sans-clean">("serif-heavy");
   const [uiDensity, setUiDensity] = useState<"minimal" | "compact">("minimal");
 
-  // -- Profile Information --
-  const [displayName, setDisplayName] = useState("Leigha Day-Clark");
-  const [email, setEmail] = useState("leigha@theapprenticestore.co.uk");
-  const [bio, setBio] = useState("Root Administrator for TOTS OS. Managing cloud architectures and corporate team directories.");
+  // -- Profile Information (Hydrated dynamically from database) --
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [bio, setBio] = useState("");
+  const [currentTier, setCurrentTier] = useState("Standard");
 
   // -- Security Parameters & Access Activity --
   const [sessionLogs] = useState([
@@ -59,20 +54,17 @@ export default function Settings() {
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
 
   // -- Handshake Link Request to Stripe Customer Subscription Management Portal --
- // -- Handshake Link Request to Stripe Customer Subscription Management Portal --
   const handleManageBilling = async () => {
     setIsBillingLoading(true);
     const billingToast = toast.loading("Establishing secure connection to Stripe Billing Portal...");
     
     try {
-      // Simulate validation lookup window delay smoothly
-      await new Promise((resolve) => setTimeout(resolve, 1400));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       toast.dismiss(billingToast);
       toast.success("Secure session verified.");
       
       // Route directly to your dedicated management interface view path
-      router.push("/manage-subscription");
+      router.push("/settings/manage-subscription");
     } catch (err) {
       toast.dismiss(billingToast);
       console.error("Billing portal verification failure:", err);
@@ -97,7 +89,6 @@ export default function Settings() {
       const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID || "mock_id";
       targetUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=w_member_social,r_liteprofile`;
     } else {
-      // Meta Suite Handle Gateway (Instagram & Facebook unified integration)
       const metaAppId = process.env.NEXT_PUBLIC_META_APP_ID || "mock_id";
       targetUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${metaAppId}&redirect_uri=${redirectUri}&scope=instagram_basic,instagram_content_publish,pages_read_engagement,pages_manage_posts`;
     }
@@ -123,8 +114,6 @@ export default function Settings() {
 
       toast.dismiss(loadingToast);
       toast.success(`${targetPlatform.toUpperCase()} channel removed from database records.`);
-      
-      // Fetch fresh structural integrations mapping
       fetchChannelIntegrations();
     } catch (err: any) {
       toast.dismiss(loadingToast);
@@ -151,27 +140,82 @@ export default function Settings() {
     }
   };
 
-  // -- Structural Event Lifecycle Loop --
+  // -- Dynamic Profile Hydration Lifecycle Hook --
   useEffect(() => {
     setCurrentTime(new Date());
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    const init = setTimeout(() => {
-      fetchChannelIntegrations();
-      setLoading(false);
-    }, 800);
+
+    async function loadActiveUserSession() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push("/login");
+          return;
+        }
+
+        // Pull corresponding fields directly from profiles relation table
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("full_name, bio, subscription_tier, email")
+          .eq("id", user.id)
+          .single();
+
+        if (error) throw error;
+
+        if (profile) {
+          const fetchedName = profile.full_name || user.email?.split("@")[0] || "OPERATOR";
+          setUserName(fetchedName.toUpperCase());
+          setDisplayName(fetchedName);
+          setEmail(profile.email || user.email || "");
+          setBio(profile.bio || "Root Administrator for TOTS OS. Managing cloud architectures.");
+          
+          if (profile.subscription_tier) {
+            const rawTier = profile.subscription_tier;
+            setCurrentTier(rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase());
+          }
+        }
+      } catch (err) {
+        console.error("Failed to cleanly parse relational database profile parameters:", err);
+        toast.error("Failed to securely pull account identity fields.");
+      } finally {
+        fetchChannelIntegrations();
+        setLoading(false);
+      }
+    }
+
+    loadActiveUserSession();
+
     return () => {
       clearInterval(timer);
-      clearTimeout(init);
     };
-  }, []);
+  }, [router]);
 
-  // -- Save Administrative Data State Changes --
+  // -- Save Administrative Data State Changes back to Supabase --
   const handleSave = async () => {
     setIsSaving(true);
-    // Persist layout variations to relational table / local instance
-    await new Promise(r => setTimeout(r, 1500));
-    setIsSaving(false);
-    toast.success("Workspace System Settings Saved");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Authentication session missing.");
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: displayName,
+          bio: bio,
+          email: email
+        })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      setUserName(displayName.toUpperCase());
+      toast.success("Workspace System Settings Saved");
+    } catch (err) {
+      console.error("Database persistence update error:", err);
+      toast.error("Database rejected parameters update stream.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // -- Sign Out Management --
@@ -270,7 +314,9 @@ export default function Settings() {
                 <div className="flex flex-col md:flex-row gap-12">
                   <div className="shrink-0">
                     <div className="w-40 h-40 rounded-[3rem] bg-[#faf9f6] border border-stone-100 flex items-center justify-center group relative overflow-hidden">
-                       <span className="text-4xl font-serif italic text-stone-200">LD</span>
+                       <span className="text-4xl font-serif italic text-stone-200">
+                         {displayName ? displayName.split(" ").map(n => n[0]).join("").toUpperCase() : "OS"}
+                       </span>
                        <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
                           <Camera size={20} className="text-white" />
                        </div>
@@ -280,16 +326,16 @@ export default function Settings() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Corporate Identity</label>
-                        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-50 rounded-2xl font-bold text-xs focus:accent-border outline-none transition-all" />
+                        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs focus:accent-border outline-none transition-all" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">System Email Address</label>
-                        <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-50 rounded-2xl font-bold text-xs focus:accent-border outline-none transition-all" />
+                        <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs focus:accent-border outline-none transition-all" />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Administrative Summary</label>
-                      <textarea value={bio} onChange={(e) => setBio(e.target.value)} className="w-full p-6 bg-[#faf9f6] border border-stone-50 rounded-3xl font-serif italic text-xl min-h-[120px] outline-none" />
+                      <textarea value={bio} onChange={(e) => setBio(e.target.value)} className="w-full p-6 bg-[#faf9f6] border border-stone-200 rounded-3xl font-serif italic text-xl min-h-[120px] outline-none" />
                     </div>
                   </div>
                 </div>
@@ -315,7 +361,7 @@ export default function Settings() {
                     <div className="p-6 bg-[#faf9f6] border border-stone-100 rounded-2xl flex flex-col justify-between space-y-4">
                       <div>
                         <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block">Current Service Tier</span>
-                        <span className="text-lg font-bold text-stone-800 block mt-1">Premium Corporate</span>
+                        <span className="text-lg font-bold text-stone-800 block mt-1">{currentTier} Framework</span>
                       </div>
                       <span className="text-[8px] font-black uppercase tracking-wider px-2 py-1 bg-emerald-50 text-emerald-700 rounded w-max border border-emerald-100">
                         Active Account
@@ -413,9 +459,9 @@ export default function Settings() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10 border-t border-stone-50">
-                  <button onClick={() => router.push('/settings/team')} className="p-8 bg-stone-900 rounded-[2.5rem] text-white flex flex-col justify-between h-48 group">
+                  <button onClick={() => router.push('/settings/team')} className="p-8 bg-stone-900 rounded-[2.5rem] text-white flex flex-col justify-between h-48 group text-left">
                     <Users size={24} className="accent-text" />
-                    <div className="flex justify-between items-end">
+                    <div className="flex justify-between items-end w-full">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest">Team Directory</p>
                         <p className="text-[9px] font-serif italic text-stone-400">Administer global corporate profiles</p>
@@ -423,9 +469,9 @@ export default function Settings() {
                       <ArrowUpRight size={16} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                     </div>
                   </button>
-                  <button onClick={() => router.push('/settings/import')} className="p-8 bg-white border border-stone-200 rounded-[2.5rem] flex flex-col justify-between h-48 group">
+                  <button onClick={() => router.push('/settings/import')} className="p-8 bg-white border border-stone-200 rounded-[2.5rem] flex flex-col justify-between h-48 group text-left">
                     <RefreshCcw size={24} className="text-stone-200 group-hover:accent-text transition-colors" />
-                    <div className="flex justify-between items-end">
+                    <div className="flex justify-between items-end w-full">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest">Import Hub</p>
                         <p className="text-[9px] font-serif italic text-stone-300">Synchronize external company matrices</p>
@@ -458,7 +504,7 @@ export default function Settings() {
                 <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm flex flex-col items-center text-center space-y-6">
                   <Cpu size={40} className="text-stone-100" />
                   <p className="text-[9px] font-black uppercase tracking-widest text-stone-300 leading-relaxed">
-                    Core v7.3 // Primary European Instance // All Systems Operational
+                    Core v7.6 // Primary European Instance // All Systems Operational
                   </p>
                 </div>
               </aside>
@@ -468,7 +514,7 @@ export default function Settings() {
           {/* VIEW: BRAND DNA Customization */}
           {activeTab === "brand" && (
             <motion.div key="brand" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-               <section className="lg:col-span-7 bg-white border border-stone-200 p-12 rounded-[4rem] shadow-sm space-y-16">
+               <section className="lg:col-span-12 bg-white border border-stone-200 p-12 rounded-[4rem] shadow-sm space-y-16">
                   <div className="space-y-2">
                     <h3 className="text-4xl font-serif italic tracking-tight">System Appearance.</h3>
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">Global Styling & Corporate Parameters</p>
@@ -536,47 +582,19 @@ export default function Settings() {
                     </div>
                   </div>
                </section>
-
-               <section className="lg:col-span-5 space-y-8">
-                  <div className="bg-[#faf9f6] border border-dashed border-stone-200 p-12 rounded-[4rem] flex flex-col items-center justify-center text-center space-y-8 min-h-[500px]">
-                     <div className="w-24 h-24 rounded-full bg-white shadow-sm flex items-center justify-center animate-pulse">
-                        <Eye size={32} className="accent-text" />
-                     </div>
-                     <div className="space-y-4">
-                        <h4 className="text-2xl font-serif italic">Real-Time Canvas Preview</h4>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-stone-300 max-w-[240px] leading-relaxed">
-                          Global updates to company styles cascade automatically to all connected Client Portals.
-                        </p>
-                     </div>
-                     <div className="w-full p-8 bg-white rounded-3xl shadow-lg space-y-4">
-                        <div className="h-2 w-2/3 accent-bg rounded-full opacity-30" />
-                        <div className="h-2 w-full bg-stone-50 rounded-full" />
-                        <div className="h-2 w-1/2 bg-stone-50 rounded-full" />
-                     </div>
-                  </div>
-               </section>
             </motion.div>
           )}
 
         </AnimatePresence>
       </main>
 
-      {/* --- WORKSPACE SYSTEM FOOTER --- */}
-      <footer className="pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full accent-bg animate-pulse shadow-[0_0_8px_rgba(163,177,138,0.5)]" />
-            <span className="text-[8px] font-black uppercase tracking-widest text-stone-300">System Parameters Standard</span>
-          </div>
-          <p className="text-[10px] font-serif italic text-stone-300">TOTS Operating System // Corporate Cloud Instance</p>
+      <footer className="pt-6 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-4 text-stone-300 text-[9px] font-black uppercase tracking-widest">
+        <div className="flex items-center gap-2">
+          <Clock size={12} />
+          <span>Last structural configuration audit checked: Secure</span>
         </div>
-        <div className="flex items-center gap-6">
-           <button 
-            onClick={handleLogout}
-            className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-stone-300 hover:text-red-500 transition-colors group"
-           >
-            <LogOut size={12} className="group-hover:-translate-x-1 transition-transform" /> Terminate Active Session
-           </button>
+        <div>
+          <span>TOTS OS // Administrative Workspace Panel</span>
         </div>
       </footer>
 

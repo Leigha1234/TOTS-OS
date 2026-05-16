@@ -1,17 +1,23 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
+  // 1. Initialize modern server client with secure cookie forwarding
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) { return request.cookies.get(name)?.value },
-        set(name: string, value: string, options: CookieOptions) { response.cookies.set({ name, value, ...options }); },
-        remove(name: string, options: CookieOptions) { response.cookies.set({ name, value: '', ...options }); },
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet: any[]) {
+          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set({ name, value, ...options }));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set({ name, value, ...options }));
+        },
       },
     }
   );
@@ -19,31 +25,50 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = request.nextUrl;
 
-  // 1. Basic Auth Guards
-  if (pathname.startsWith('/dashboard') && !session) return NextResponse.redirect(new URL('/login', request.url));
-  if (pathname === '/login' && session) return NextResponse.redirect(new URL('/dashboard', request.url));
+  // 2. Core Auth Guards
+  if (pathname.startsWith('/dashboard') && !session) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  if (pathname === '/login' && session) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
 
-  // 2. Tier Guard Logic
+  // 3. Subscription & Tier Guard Logic Matrix
   if (session) {
-    // Fetch tier once
+    // CRITICAL EXEMPTION: Allow all accounts to hit the billing management paths unconditionally
+    if (pathname === '/settings/manage-subscription') {
+      return response;
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
-      .select('tier')
+      .select('subscription_tier')
       .eq('id', session.user.id)
       .single();
 
-    const tier = profile?.tier || 'STANDARD';
+    // Standardize casing strings from database schema lookup gracefully
+    const tier = (profile?.subscription_tier || 'STANDARD').toUpperCase();
 
-    // Protect "ELITE" pages
+    // Protect administrative core /settings paths (Only allow ELITE users past, except billing)
     if (pathname.startsWith('/settings') && tier !== 'ELITE') {
-      return NextResponse.redirect(new URL('/profile', request.url));
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
-    // Protect "PREMIUM" or "ELITE" pages (like Projects)
+    // Protect "PREMIUM" or "ELITE" features (e.g., Projects pipeline)
     if (pathname.startsWith('/projects') && tier === 'STANDARD') {
-      return NextResponse.redirect(new URL('/profile', request.url));
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
   return response;
 }
+
+// 4. Configure match rules to filter overhead execution on static asset arrays
+export const config = {
+  matcher: [
+    '/dashboard/:path*',
+    '/settings/:path*',
+    '/projects/:path*',
+    '/login'
+  ],
+};

@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 /**
- * TOTS OS: UNIFIED ADMINISTRATIVE CONTROL CENTER v7.2
+ * TOTS OS: UNIFIED ADMINISTRATIVE CONTROL CENTER v7.3
  * Architecture: Enterprise System Identity + Stripe Billing Integration
  * Theme: Organic Minimalist (Customizable)
  */
@@ -58,21 +58,6 @@ export default function Settings() {
   // -- Corporate Social Media Channel Integrations State --
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
 
-  // -- 11 Registered Corporate Legal & Compliance Protocols --
-  const legalDocuments = [
-    { slug: "aipolicy", label: "AI Policy" },
-    { slug: "betaterms", label: "Beta Terms" },
-    { slug: "cancellationpolicy", label: "Cancellation Policy" },
-    { slug: "communityguidelines", label: "Community Guidelines" },
-    { slug: "cookies", label: "Cookie Policy" },
-    { slug: "dataterms", label: "Data Terms" },
-    { slug: "privacypolicy", label: "Privacy Policy" },
-    { slug: "propertynotice", label: "Intellectual Property Notice" },
-    { slug: "securitypolicy", label: "Security Policy" },
-    { slug: "servicepolicy", label: "Service Policy" },
-    { slug: "termsconditions", label: "Terms & Conditions" }
-  ];
-
   // -- Handshake Link Request to Stripe Customer Subscription Management Portal --
   const handleManageBilling = async () => {
     setIsBillingLoading(true);
@@ -89,8 +74,8 @@ export default function Settings() {
       toast.dismiss(billingToast);
       toast.info("Secure link generated. Transferring to verification portal...");
       
-      // Verification redirect trace
-      console.log("Redirecting system workspace to protected Stripe subscription management window.");
+      // Direct routing to the dedicated subscription management sub-resource
+      router.push("/settings/manage-subscription");
     } catch (err) {
       toast.dismiss(billingToast);
       console.error("Billing portal verification failure:", err);
@@ -333,7 +318,7 @@ export default function Settings() {
                     <div className="p-6 bg-[#faf9f6] border border-stone-100 rounded-2xl flex flex-col justify-between space-y-4">
                       <div>
                         <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block">Current Service Tier</span>
-                        <span className="text-lg font-bold text-stone-800 block mt-1">Enterprise Core Max</span>
+                        <span className="text-lg font-bold text-stone-800 block mt-1">Premium Corporate</span>
                       </div>
                       <span className="text-[8px] font-black uppercase tracking-wider px-2 py-1 bg-emerald-50 text-emerald-700 rounded w-max border border-emerald-100">
                         Active Account
@@ -342,11 +327,15 @@ export default function Settings() {
 
                     <div className="p-6 bg-[#faf9f6] border border-stone-100 rounded-2xl flex flex-col justify-between space-y-4">
                       <div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block">Billing Periodicity</span>
-                        <span className="text-lg font-bold text-stone-800 block mt-1">Annual Remittance</span>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block">Available Tiers</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          <span className="text-[8px] font-bold px-2 py-0.5 bg-stone-100 text-stone-600 rounded">Standard</span>
+                          <span className="text-[8px] font-bold px-2 py-0.5 bg-stone-900 text-white rounded">Premium</span>
+                          <span className="text-[8px] font-bold px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-100 rounded">Elite</span>
+                        </div>
                       </div>
                       <span className="text-[9px] font-serif italic text-stone-400 block">
-                        Next processing date: February 2, 2027
+                        Tier modifications processed dynamically
                       </span>
                     </div>
 
@@ -472,7 +461,7 @@ export default function Settings() {
                 <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm flex flex-col items-center text-center space-y-6">
                   <Cpu size={40} className="text-stone-100" />
                   <p className="text-[9px] font-black uppercase tracking-widest text-stone-300 leading-relaxed">
-                    Core v7.2 // Primary European Instance // All Systems Operational
+                    Core v7.3 // Primary European Instance // All Systems Operational
                   </p>
                 </div>
               </aside>
@@ -574,59 +563,6 @@ export default function Settings() {
 
         </AnimatePresence>
       </main>
-
-      {/* --- INTEGRATION SYSTEMS GRID --- */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-12 border-t border-stone-200">
-        {[
-          { label: "Security Verification", icon: Key, val: "RSA-4096 Protocol" },
-          { label: "Mobile Authenticator", icon: Smartphone, val: "Active Session" },
-          { label: "Data Pipeline Integrity", icon: CheckSquare, val: "Fully Validated" },
-          { label: "Cloud Synchronization", icon: Globe, val: "Fully Operational" }
-        ].map((u, i) => (
-          <div key={i} className="bg-white border border-stone-200 p-8 rounded-[2.5rem] flex items-center justify-between group hover:border-stone-900 transition-all cursor-pointer">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-stone-50 rounded-xl text-stone-300 group-hover:accent-bg group-hover:text-white transition-all">
-                <u.icon size={16} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[8px] font-black uppercase tracking-widest text-stone-400">{u.label}</span>
-                <span className="text-xs font-bold text-stone-900">{u.val}</span>
-              </div>
-            </div>
-            <ArrowUpRight size={14} className="text-stone-100 group-hover:text-stone-900" />
-          </div>
-        ))}
-      </section>
-
-      {/* --- COMPLIANCE MATRIX AND LEGAL ROADMAP --- */}
-      <section className="bg-white border border-stone-200 rounded-[3rem] p-10 mt-8 space-y-6 shadow-sm">
-        <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
-          <Scale size={16} className="accent-text" />
-          <div>
-            <h5 className="text-sm font-bold tracking-tight text-stone-800">Compliance & Regulatory Archives</h5>
-            <p className="text-[8px] font-black uppercase tracking-widest text-stone-400 mt-0.5">Corporate Governance Matrix & Platform Warranties</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {legalDocuments.map((doc) => (
-            <button
-              key={doc.slug}
-              onClick={() => router.push(`/docs/${doc.slug}`)}
-              className="p-4 bg-[#faf9f6] hover:bg-stone-900 border border-stone-100 rounded-2xl text-left flex flex-col justify-between group transition-all h-20"
-            >
-              <span className="text-[10px] font-bold text-stone-700 group-hover:text-white transition-colors line-clamp-2 leading-tight">
-                {doc.label}
-              </span>
-              <div className="flex justify-between items-center w-full mt-2">
-                <span className="text-[7px] font-black uppercase tracking-wider text-stone-400 group-hover:accent-text transition-colors">
-                  /{doc.slug}
-                </span>
-                <ArrowUpRight size={10} className="text-stone-300 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
 
       {/* --- WORKSPACE SYSTEM FOOTER --- */}
       <footer className="pt-8 flex flex-col md:flex-row justify-between items-center gap-4">

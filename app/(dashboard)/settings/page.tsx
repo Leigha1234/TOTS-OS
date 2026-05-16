@@ -15,7 +15,8 @@ import {
   Search, Filter, Trash2, Edit3,
   Mail, Phone, MapPin, AlertTriangle,
   FileJson, Server, HardDrive, Cpu,
-  Type, Droplets, Layout, Eye, Video, Instagram, Facebook, Disc, Linkedin
+  Type, Droplets, Layout, Eye, Video, Instagram, Facebook, Disc, Linkedin,
+  Scale
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -55,6 +56,21 @@ export default function Settings() {
 
   // -- Tenant Social Connections State --
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+
+  // -- 11 Registered Legal Hub Manifest Documents --
+  const legalDocuments = [
+    { slug: "aipolicy", label: "AI Policy" },
+    { slug: "betaterms", label: "Beta Terms" },
+    { slug: "cancellationpolicy", label: "Cancellation Policy" },
+    { slug: "communityguidelines", label: "Community Guidelines" },
+    { slug: "cookies", label: "Cookie Policy" },
+    { slug: "dataterms", label: "Data Terms" },
+    { slug: "privacypolicy", label: "Privacy Policy" },
+    { slug: "propertynotice", label: "Intellectual Property Notice" },
+    { slug: "securitypolicy", label: "Security Policy" },
+    { slug: "servicepolicy", label: "Service Policy" },
+    { slug: "termsconditions", label: "Terms & Conditions" }
+  ];
 
   // -- Handle Triggering External Multi-Tenant Identity Verification Handshakes --
   const connectSocialPlatform = (targetPlatform: "meta" | "tiktok" | "pinterest" | "linkedin") => {
@@ -374,93 +390,89 @@ export default function Settings() {
           {/* TAB: BRAND DNA (CUSTOMIZATION HUB) */}
           {activeTab === "brand" && (
             <motion.div key="brand" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-               <section className="lg:col-span-7 bg-white border border-stone-200 p-12 rounded-[4rem] shadow-sm space-y-16">
-                  <div className="space-y-2">
-                    <h3 className="text-4xl font-serif italic tracking-tight">System Appearance.</h3>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">Global Styling & Branding</p>
+              <section className="lg:col-span-7 bg-white border border-stone-200 p-12 rounded-[4rem] shadow-sm space-y-16">
+                <div className="space-y-2">
+                  <h3 className="text-4xl font-serif italic tracking-tight">System Appearance.</h3>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">Global Styling & Branding</p>
+              </div>
+
+              <div className="space-y-12">
+                {/* ACCENT COLOR */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <Droplets size={16} className="accent-text" />
+                    <label className="text-[10px] font-black uppercase tracking-widest">Primary Accent</label>
                   </div>
-
-                  <div className="space-y-12">
-                    {/* ACCENT COLOR */}
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-4">
-                        <Droplets size={16} className="accent-text" />
-                        <label className="text-[10px] font-black uppercase tracking-widest">Primary Accent</label>
-                      </div>
-                      <div className="flex flex-wrap gap-4">
-                        {["#A3B18A", "#6B705C", "#8E9AAF", "#9D8189", "#2D2D2D"].map(color => (
-                          <button 
-                            key={color} 
-                            onClick={() => setAccentColor(color)}
-                            className={`w-14 h-14 rounded-2xl transition-all ${accentColor === color ? 'scale-110 shadow-lg ring-2 ring-offset-2 ring-stone-200' : 'opacity-40 hover:opacity-100'}`}
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                        <input 
-                          type="color" 
-                          value={accentColor} 
-                          onChange={(e) => setAccentColor(e.target.value)}
-                          className="w-14 h-14 rounded-2xl bg-transparent border-none cursor-pointer"
-                        />
-                      </div>
-                    </div>
-
-                    {/* TYPOGRAPHY */}
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-4">
-                        <Type size={16} className="accent-text" />
-                        <label className="text-[10px] font-black uppercase tracking-widest">Typography Scale</label>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button 
-                          onClick={() => setFontPreference("serif-heavy")}
-                          className={`p-6 rounded-3xl border text-left transition-all ${fontPreference === 'serif-heavy' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
-                        >
-                          <p className="font-serif italic text-2xl mb-1">Instrument Serif</p>
-                          <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Elegant & High-Contrast</p>
-                        </button>
-                        <button 
-                          onClick={() => setFontPreference("sans-clean")}
-                          className={`p-6 rounded-3xl border text-left transition-all ${fontPreference === 'sans-clean' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
-                        >
-                          <p className="font-sans font-black text-xl mb-1 uppercase tracking-tight">Inter Bold</p>
-                          <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Minimalist & Structural</p>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* DENSITY */}
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-4">
-                        <Layout size={16} className="accent-text" />
-                        <label className="text-[10px] font-black uppercase tracking-widest">Interface Density</label>
-                      </div>
-                      <div className="flex gap-4">
-                         <button onClick={() => setUiDensity("minimal")} className={`flex-1 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all ${uiDensity === 'minimal' ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-100 text-stone-300'}`}>Spacious</button>
-                         <button onClick={() => setUiDensity("compact")} className={`flex-1 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all ${uiDensity === 'compact' ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-100 text-stone-300'}`}>Compact</button>
-                      </div>
-                    </div>
+                  <div className="flex flex-wrap gap-4">
+                    {["#A3B18A", "#6B705C", "#8E9AAF", "#9D8189", "#2D2D2D"].map(color => (
+                      <button
+                        key={color}
+                        onClick={() => setAccentColor(color)}
+                        className={`w-14 h-14 rounded-2xl transition-all ${accentColor === color ? 'scale-110 shadow-lg ring-2 ring-offset-2 ring-stone-200' : 'opacity-40 hover:opacity-100'}`}
+                        style={{ backgroundColor: color }} />
+                    ))}
+                    <input
+                      type="color"
+                      value={accentColor}
+                      onChange={(e) => setAccentColor(e.target.value)}
+                      className="w-14 h-14 rounded-2xl bg-transparent border-none cursor-pointer" />
                   </div>
-               </section>
+                </div>
 
-               <section className="lg:col-span-5 space-y-8">
-                  <div className="bg-[#faf9f6] border border-dashed border-stone-200 p-12 rounded-[4rem] flex flex-col items-center justify-center text-center space-y-8 min-h-[500px]">
-                     <div className="w-24 h-24 rounded-full bg-white shadow-sm flex items-center justify-center animate-pulse">
-                        <Eye size={32} className="accent-text" />
-                     </div>
-                     <div className="space-y-4">
-                        <h4 className="text-2xl font-serif italic">Live Preview</h4>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-stone-300 max-w-[240px] leading-relaxed">
-                          Changes to DNA will affect all modules including TOTs OS Dashboard and Client Portals.
-                        </p>
-                     </div>
-                     <div className="w-full p-8 bg-white rounded-3xl shadow-lg space-y-4">
-                        <div className="h-2 w-2/3 accent-bg rounded-full opacity-30" />
-                        <div className="h-2 w-full bg-stone-50 rounded-full" />
-                        <div className="h-2 w-1/2 bg-stone-50 rounded-full" />
-                     </div>
+                {/* TYPOGRAPHY */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <Type size={16} className="accent-text" />
+                    <label className="text-[10px] font-black uppercase tracking-widest">Typography Scale</label>
                   </div>
-               </section>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                      onClick={() => setFontPreference("serif-heavy")}
+                      className={`p-6 rounded-3xl border text-left transition-all ${fontPreference === 'serif-heavy' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
+                    >
+                      <p className="font-serif italic text-2xl mb-1">Instrument Serif</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Elegant & High-Contrast</p>
+                    </button>
+                    <button
+                      onClick={() => setFontPreference("sans-clean")}
+                      className={`p-6 rounded-3xl border text-left transition-all ${fontPreference === 'sans-clean' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
+                    >
+                      <p className="font-sans font-black text-xl mb-1 uppercase tracking-tight">Inter Bold</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Minimalist & Structural</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* DENSITY */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <Layout size={16} className="accent-text" />
+                    <label className="text-[10px] font-black uppercase tracking-widest">Interface Density</label>
+                  </div>
+                  <div className="flex gap-4">
+                    <button onClick={() => setUiDensity("minimal")} className={`flex-1 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all ${uiDensity === 'minimal' ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-100 text-stone-300'}`}>Spacious</button>
+                    <button onClick={() => setUiDensity("compact")} className={`flex-1 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all ${uiDensity === 'compact' ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-100 text-stone-300'}`}>Compact</button>
+                  </div>
+                </div>
+              </div>
+            </section><section className="lg:col-span-5 space-y-8">
+                <div className="bg-[#faf9f6] border border-dashed border-stone-200 p-12 rounded-[4rem] flex flex-col items-center justify-center text-center space-y-8 min-h-[500px]">
+                  <div className="w-24 h-24 rounded-full bg-white shadow-sm flex items-center justify-center animate-pulse">
+                    <Eye size={32} className="accent-text" />
+                  </div>
+                  <div className="space-y-4">
+                    <h4 className="text-2xl font-serif italic">Live Preview</h4>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-300 max-w-[240px] leading-relaxed">
+                      Changes to DNA will affect all modules including TOTs OS Dashboard and Client Portals.
+                    </p>
+                  </div>
+                  <div className="w-full p-8 bg-white rounded-3xl shadow-lg space-y-4">
+                    <div className="h-2 w-2/3 accent-bg rounded-full opacity-30" />
+                    <div className="h-2 w-full bg-stone-50 rounded-full" />
+                    <div className="h-2 w-1/2 bg-stone-50 rounded-full" />
+                  </div>
+                </div>
+              </section>
             </motion.div>
           )}
 
@@ -488,6 +500,36 @@ export default function Settings() {
             <ArrowUpRight size={14} className="text-stone-100 group-hover:text-stone-900" />
           </div>
         ))}
+      </section>
+
+      {/* --- DYNAMIC LEGAL HUB MATRIX FOOTER (NEW SECT) --- */}
+      <section className="bg-white border border-stone-200 rounded-[3rem] p-10 mt-8 space-y-6 shadow-sm">
+        <div className="flex items-center gap-3 border-b border-stone-100 pb-4">
+          <Scale size={16} className="accent-text" />
+          <div>
+            <h5 className="text-sm font-bold tracking-tight text-stone-800">Legal Hub Nodes</h5>
+            <p className="text-[8px] font-black uppercase tracking-widest text-stone-400 mt-0.5">Unified Governance & Platform Policies</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {legalDocuments.map((doc) => (
+            <button
+              key={doc.slug}
+              onClick={() => router.push(`/docs/${doc.slug}`)}
+              className="p-4 bg-[#faf9f6] hover:bg-stone-900 border border-stone-100 rounded-2xl text-left flex flex-col justify-between group transition-all h-20"
+            >
+              <span className="text-[10px] font-bold text-stone-700 group-hover:text-white transition-colors line-clamp-2 leading-tight">
+                {doc.label}
+              </span>
+              <div className="flex justify-between items-center w-full mt-2">
+                <span className="text-[7px] font-black uppercase tracking-wider text-stone-400 group-hover:accent-text transition-colors">
+                  /{doc.slug}
+                </span>
+                <ArrowUpRight size={10} className="text-stone-300 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+              </div>
+            </button>
+          ))}
+        </div>
       </section>
 
       {/* --- FOOTER --- */}

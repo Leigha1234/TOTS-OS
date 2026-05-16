@@ -12,11 +12,11 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 /**
- * TOTS OS: SUBSCRIPTION & COMMERCIAL TIERS MANAGEMENT PORTAL v1.0
+ * TOTS OS: SUBSCRIPTION & COMMERCIAL TIERS MANAGEMENT PORTAL v1.1
  * Architecture: Isolated Account Sub-Resource
  */
 
-type SubscriptionTier = "standard" | "premium" | "elite";
+type SubscriptionTier = "standard" | "professional" | "elite";
 
 interface TierFeature {
   text: string;
@@ -27,51 +27,53 @@ export default function ManageSubscription() {
   const router = useRouter();
   
   // -- Commercial Account State --
-  const [currentTier, setCurrentTier] = useState<SubscriptionTier>("premium");
-  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>("premium");
+  const [currentTier, setCurrentTier] = useState<SubscriptionTier>("professional");
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>("professional");
   const [isProcessing, setIsProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [billingCycle, setBillingCycle] = useState<"annual" | "monthly">("annual");
 
-  // -- Tier Structure Matrix --
-  const tierMatrix: Record<SubscriptionTier, { name: string; priceAnnual: number; priceMonthly: number; description: string; features: TierFeature[] }> = {
+  // -- Tier Structure Matrix (Updated with Exact Amounts and Operational Details) --
+  const tierMatrix: Record<SubscriptionTier, { name: string; price: number; badge?: string; goal: string; description: string; features: TierFeature[] }> = {
     standard: {
-      name: "Standard Corporate",
-      priceAnnual: 49,
-      priceMonthly: 59,
-      description: "Essential structural features for single workspace operational management.",
+      name: "Standard",
+      price: 29,
+      description: "FOUNDATIONAL SYSTEM ACCESS",
+      goal: "Get out of chaos + into structure",
       features: [
-        { text: "Core Workspace Directory Access", included: true },
-        { text: "2 Active Client Data Platform Channels", included: true },
-        { text: "Standard Import Matrix Integration", included: true },
-        { text: "Advanced Component Access Controls", included: false },
-        { text: "24/7 Priority Architecture Support", included: false },
+        { text: "Core system framework", included: true },
+        { text: "Task management matrix", included: true },
+        { text: "Basic client ecosystem directory", included: true },
+        { text: "Financial performance tracking", included: true },
+        { text: "Standard operational automations", included: true },
+        { text: "Single operator access", included: true },
       ]
     },
-    premium: {
-      name: "Premium Corporate",
-      priceAnnual: 99,
-      priceMonthly: 119,
-      description: "Complete administration capabilities with advanced automated workflows.",
+    professional: {
+      name: "Professional",
+      price: 59,
+      badge: "RECOMMENDED",
+      description: "SCALABLE GROWTH ARCHITECTURE",
+      goal: "Run the business properly day-to-day",
       features: [
-        { text: "Core Workspace Directory Access", included: true },
-        { text: "All 4 Client Data Platform Channels", included: true },
-        { text: "High-Throughput Import Matrix Sync", included: true },
-        { text: "Advanced Component Access Controls", included: true },
-        { text: "24/7 Priority Architecture Support", included: false },
+        { text: "Everything in Standard +", included: true },
+        { text: "Advanced client ecosystem architecture", included: true },
+        { text: "Deeper workflow automation", included: true },
+        { text: "Corporate team directory modules", included: true },
+        { text: "Integrated communication channels", included: true },
+        { text: "Multi-user workspace setup", included: true },
       ]
     },
     elite: {
-      name: "Elite Enterprise",
-      priceAnnual: 199,
-      priceMonthly: 239,
-      description: "Maximum bandwidth architecture for multi-platform corporate dominance.",
+      name: "Elite",
+      price: 149,
+      description: "ENTERPRISE OS DEPLOYMENT",
+      goal: "Business runs as a system",
       features: [
-        { text: "Core Workspace Directory Access", included: true },
-        { text: "All 4 Client Data Platform Channels + Custom APIs", included: true },
-        { text: "Real-time Cascading Import Infrastructure", included: true },
-        { text: "Advanced Component Access Controls", included: true },
-        { text: "24/7 Dedicated Architecture Support", included: true },
+        { text: "Everything in Professional +", included: true },
+        { text: "Full enterprise business system build", included: true },
+        { text: "Hands-off macro automations", included: true },
+        { text: "Custom corporate workflows", included: true },
+        { text: "Priority protocol support network", included: true },
       ]
     }
   };
@@ -93,7 +95,7 @@ export default function ManageSubscription() {
 
     try {
       // Future Integration Point: 
-      // await fetch('/api/stripe/subscription/update', { method: 'POST', body: JSON.stringify({ tier: selectedTier, cycle: billingCycle }) });
+      // await fetch('/api/stripe/subscription/update', { method: 'POST', body: JSON.stringify({ tier: selectedTier }) });
       
       await new Promise((resolve) => setTimeout(resolve, 2000));
       
@@ -135,21 +137,6 @@ export default function ManageSubscription() {
             <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">Commercial Operations & Tier Structuring</p>
           </div>
         </div>
-
-        <div className="flex items-center bg-white p-1.5 rounded-xl border border-stone-100 shadow-sm">
-          <button 
-            onClick={() => setBillingCycle("annual")} 
-            className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${billingCycle === "annual" ? "bg-stone-900 text-white shadow-sm" : "text-stone-400"}`}
-          >
-            Annual Remittance (-20%)
-          </button>
-          <button 
-            onClick={() => setBillingCycle("monthly")} 
-            className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${billingCycle === "monthly" ? "bg-stone-900 text-white shadow-sm" : "text-stone-400"}`}
-          >
-            Monthly Periodicity
-          </button>
-        </div>
       </header>
 
       {/* --- SUBSCRIPTION TIER SELECTION MATRIX --- */}
@@ -159,15 +146,20 @@ export default function ManageSubscription() {
             const tier = tierMatrix[tierKey];
             const isCurrent = currentTier === tierKey;
             const isSelected = selectedTier === tierKey;
-            const price = billingCycle === "annual" ? tier.priceAnnual : tier.priceMonthly;
 
             return (
               <div 
                 key={tierKey}
                 onClick={() => setSelectedTier(tierKey)}
-                className={`bg-white border rounded-[3rem] p-8 space-y-8 flex flex-col justify-between cursor-pointer transition-all relative ${isSelected ? 'border-stone-900 shadow-xl ring-1 ring-stone-900' : 'border-stone-200 shadow-sm hover:border-stone-400'}`}
+                className={`bg-white border rounded-[3rem] p-8 space-y-8 flex flex-col justify-between cursor-pointer transition-all relative ${isSelected ? 'border-[#A3B18A] shadow-xl ring-1 ring-[#A3B18A]' : 'border-stone-200 shadow-sm hover:border-stone-400'}`}
               >
-                {isCurrent && (
+                {tier.badge && (
+                  <span className="absolute top-6 right-8 bg-[#A3B18A]/10 border border-[#A3B18A]/20 text-[#A3B18A] text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                    {tier.badge}
+                  </span>
+                )}
+                
+                {!tier.badge && isCurrent && (
                   <span className="absolute top-6 right-8 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
                     Active Provision
                   </span>
@@ -175,26 +167,25 @@ export default function ManageSubscription() {
 
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <span className="text-[8px] font-black uppercase tracking-[0.3em] text-stone-400 block">Tier Framework</span>
-                    <h3 className="text-2xl font-serif italic text-stone-900">{tier.name}</h3>
-                    <p className="text-xs text-stone-400 leading-relaxed min-h-[40px]">{tier.description}</p>
+                    <h3 className="text-4xl font-serif italic text-stone-900">{tier.name}</h3>
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400 block pt-1">{tier.description}</span>
                   </div>
 
-                  <div className="pt-4 border-t border-stone-50 flex items-baseline gap-1">
-                    <span className="text-4xl font-serif italic text-stone-900">£{price}</span>
+                  <div className="pt-4 flex items-baseline gap-1">
+                    <span className="text-5xl font-serif italic text-stone-900">£{tier.price}</span>
                     <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">
-                      / {billingCycle === "annual" ? "mo billed annually" : "month"}
+                      / mo
                     </span>
                   </div>
 
                   {/* Feature Checklist Mapping */}
-                  <ul className="space-y-3.5 pt-4">
+                  <ul className="space-y-3.5 pt-4 border-t border-stone-50">
                     {tier.features.map((feature, idx) => (
                       <li key={idx} className="flex items-start gap-3 text-xs">
-                        <div className={`mt-0.5 shrink-0 rounded-full p-0.5 ${feature.included ? 'text-stone-900' : 'text-stone-200'}`}>
+                        <div className="mt-0.5 shrink-0 rounded-full p-0.5 text-[#A3B18A]">
                           <Check size={12} strokeWidth={3} />
                         </div>
-                        <span className={feature.included ? 'text-stone-700 font-medium' : 'text-stone-300 line-through'}>
+                        <span className="text-stone-600 font-medium">
                           {feature.text}
                         </span>
                       </li>
@@ -202,7 +193,11 @@ export default function ManageSubscription() {
                   </ul>
                 </div>
 
-                <div className="pt-6">
+                <div className="space-y-4 pt-6 border-t border-stone-50">
+                  <div className="text-center">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-stone-300 block">Operational Goal</span>
+                    <p className="text-xs font-serif italic text-stone-500 mt-1">"{tier.goal}"</p>
+                  </div>
                   <div className={`w-full py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border text-center transition-all ${isSelected ? 'bg-stone-900 text-white border-stone-900 shadow-md' : 'bg-transparent text-stone-400 border-stone-200'}`}>
                     {isCurrent ? "Active Selection" : isSelected ? "Confirm Parameter Setup" : "Select Infrastructure"}
                   </div>
@@ -222,14 +217,14 @@ export default function ManageSubscription() {
             <p className="text-xs text-stone-400 leading-relaxed">
               Modifying commercial parameters dynamically triggers automated data pipeline re-allocation. 
               Any incremental cost balancing is processed instantly via the secure Stripe financial framework. 
-              Account downgrades take physical execution at the expiration of the current verified billing cycle.
+              Account changes take physical execution at the expiration of the current verified billing cycle.
             </p>
           </div>
 
           <div className="flex sm:items-center gap-4 w-full xl:w-auto shrink-0 flex-col sm:flex-row">
             <div className="text-left sm:text-right px-2">
               <span className="text-[8px] font-black uppercase tracking-widest text-stone-300 block">Target Structural Setup</span>
-              <span className="text-base font-bold text-stone-800 block mt-0.5">{tierMatrix[selectedTier].name}</span>
+              <span className="text-base font-bold text-stone-800 block mt-0.5">{tierMatrix[selectedTier].name} Framework</span>
             </div>
             <button
               onClick={handleTierUpdate}

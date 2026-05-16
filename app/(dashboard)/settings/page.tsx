@@ -10,7 +10,7 @@ import {
   Clock, Loader2, LogOut,
   Droplets, Layout, Cpu, Type,
   Instagram, Facebook, Disc, Linkedin,
-  Video, CreditCard
+  Video, CreditCard, ShieldAlert, Scale, FileText, ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -63,7 +63,6 @@ export default function Settings() {
       toast.dismiss(billingToast);
       toast.success("Secure session verified.");
       
-      // Route directly to your dedicated management interface view path
       router.push("/settings/manage-subscription");
     } catch (err) {
       toast.dismiss(billingToast);
@@ -153,7 +152,6 @@ export default function Settings() {
           return;
         }
 
-        // Pull corresponding fields directly from profiles relation table
         const { data: profile, error } = await supabase
           .from("profiles")
           .select("full_name, bio, subscription_tier, email")
@@ -265,6 +263,15 @@ export default function Settings() {
                 {currentTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "--:--"}
               </p>
             </div>
+            {/* INLINE STANDALONE MANAGEMENT BUTTON */}
+            <button
+              onClick={handleManageBilling}
+              disabled={isBillingLoading}
+              className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-stone-200 text-stone-700 text-[9px] font-black uppercase tracking-[0.3em] hover:bg-stone-50 hover:border-stone-400 transition-all shadow-sm disabled:opacity-50"
+            >
+              {isBillingLoading ? <Loader2 size={10} className="animate-spin text-stone-400" /> : <CreditCard size={10} className="text-stone-400" />}
+              Manage Subscription
+            </button>
           </div>
 
           <div className="space-y-2">
@@ -276,7 +283,7 @@ export default function Settings() {
           
           <nav className="flex flex-wrap items-center gap-3 pt-4">
             <button onClick={() => setActiveTab("account")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "account" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-100 text-stone-300"}`}>
-              <User size={14} /> Profile & Billing
+              <User size={14} /> Profile Controls
             </button>
             <button onClick={() => setActiveTab("brand")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "brand" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-100 text-stone-300"}`}>
               <Palette size={14} /> Brand DNA
@@ -305,7 +312,7 @@ export default function Settings() {
       <main className="min-h-[600px]">
         <AnimatePresence mode="wait">
           
-          {/* VIEW: ACCOUNT & SUBSCRIPTION */}
+          {/* VIEW: ACCOUNT DETAILS */}
           {activeTab === "account" && (
             <motion.div key="account" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
               <section className="lg:col-span-8 bg-white border border-stone-200 p-12 rounded-[4rem] shadow-sm space-y-16">
@@ -336,63 +343,6 @@ export default function Settings() {
                     <div className="space-y-2">
                       <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Administrative Summary</label>
                       <textarea value={bio} onChange={(e) => setBio(e.target.value)} className="w-full p-6 bg-[#faf9f6] border border-stone-200 rounded-3xl font-serif italic text-xl min-h-[120px] outline-none" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* --- STRIPE SUBSCRIPTION & BILLING CONFIGURATION PANEL --- */}
-                <div className="pt-10 border-t border-stone-100 space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h4 className="text-2xl font-serif italic tracking-tight">Subscription & Commercial Terms</h4>
-                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300 mt-1">Manage corporate service tiers, payment parameters, and cancellation protocols</p>
-                    </div>
-                    <button 
-                      onClick={handleManageBilling}
-                      disabled={isBillingLoading}
-                      className="shrink-0 flex items-center justify-center gap-2 px-6 py-3.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md disabled:opacity-50"
-                    >
-                      {isBillingLoading ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
-                      Manage Subscription
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-6 bg-[#faf9f6] border border-stone-100 rounded-2xl flex flex-col justify-between space-y-4">
-                      <div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block">Current Service Tier</span>
-                        <span className="text-lg font-bold text-stone-800 block mt-1">{currentTier} Framework</span>
-                      </div>
-                      <span className="text-[8px] font-black uppercase tracking-wider px-2 py-1 bg-emerald-50 text-emerald-700 rounded w-max border border-emerald-100">
-                        Active Account
-                      </span>
-                    </div>
-
-                    <div className="p-6 bg-[#faf9f6] border border-stone-100 rounded-2xl flex flex-col justify-between space-y-4">
-                      <div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block">Available Tiers</span>
-                        <div className="flex flex-wrap gap-1.5 mt-1.5">
-                          <span className="text-[8px] font-bold px-2 py-0.5 bg-stone-100 text-stone-600 rounded">Standard</span>
-                          <span className="text-[8px] font-bold px-2 py-0.5 bg-stone-900 text-white rounded">Premium</span>
-                          <span className="text-[8px] font-bold px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-100 rounded">Elite</span>
-                        </div>
-                      </div>
-                      <span className="text-[9px] font-serif italic text-stone-400 block">
-                        Tier modifications processed dynamically
-                      </span>
-                    </div>
-
-                    <div className="p-6 bg-[#faf9f6] border border-stone-100 rounded-2xl flex flex-col justify-between space-y-4">
-                      <div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block">Verified Credit Vault</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="px-1.5 py-0.5 bg-white border border-stone-200 text-[8px] font-black rounded text-stone-400">VISA</div>
-                          <span className="text-sm font-bold text-stone-800">•••• 4096</span>
-                        </div>
-                      </div>
-                      <span className="text-[9px] font-serif italic text-stone-400 block">
-                        Card parameters modification handled via Stripe
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -501,6 +451,7 @@ export default function Settings() {
                     ))}
                   </div>
                 </section>
+
                 <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm flex flex-col items-center text-center space-y-6">
                   <Cpu size={40} className="text-stone-100" />
                   <p className="text-[9px] font-black uppercase tracking-widest text-stone-300 leading-relaxed">
@@ -573,29 +524,59 @@ export default function Settings() {
                     <div className="space-y-6">
                       <div className="flex items-center gap-4">
                         <Layout size={16} className="accent-text" />
-                        <label className="text-[10px] font-black uppercase tracking-widest">Layout Padding Density</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest">Viewport Density Grid</label>
                       </div>
-                      <div className="flex gap-4">
-                         <button onClick={() => setUiDensity("minimal")} className={`flex-1 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all ${uiDensity === 'minimal' ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-100 text-stone-300'}`}>Spacious Frame</button>
-                         <button onClick={() => setUiDensity("compact")} className={`flex-1 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all ${uiDensity === 'compact' ? 'bg-stone-900 text-white border-stone-900' : 'border-stone-100 text-stone-300'}`}>Compact Matrix</button>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button 
+                          onClick={() => setUiDensity("minimal")}
+                          className={`p-6 rounded-3xl border text-left transition-all ${uiDensity === 'minimal' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
+                        >
+                          <span className="text-xs font-bold text-stone-800 block">Organic Minimal</span>
+                          <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mt-1">Expansive White Space Padding Matrix</span>
+                        </button>
+                        <button 
+                          onClick={() => setUiDensity("compact")}
+                          className={`p-6 rounded-3xl border text-left transition-all ${uiDensity === 'compact' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
+                        >
+                          <span className="text-xs font-bold text-stone-800 block">Data Compact</span>
+                          <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mt-1">High Density Analytical Table Rows</span>
+                        </button>
                       </div>
                     </div>
                   </div>
                </section>
             </motion.div>
           )}
-
         </AnimatePresence>
       </main>
 
-      <footer className="pt-6 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-4 text-stone-300 text-[9px] font-black uppercase tracking-widest">
+      {/* --- INTEGRATED COMPLIANCE & LEGAL NAVIGATION FOOTER --- */}
+      <footer className="pt-12 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-6 text-stone-400">
         <div className="flex items-center gap-2">
-          <Clock size={12} />
-          <span>Last structural configuration audit checked: Secure</span>
+          <Scale size={14} className="accent-text" />
+          <p className="text-[9px] font-black uppercase tracking-[0.3em]">
+            &copy; {new Date().getFullYear()} TOTS OS Ltd. Regulatory Framework Active.
+          </p>
         </div>
-        <div>
-          <span>TOTS OS // Administrative Workspace Panel</span>
-        </div>
+        
+        <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+          {[
+            { label: "Terms of Service", path: "/legal/terms", icon: FileText },
+            { label: "Privacy Blueprint", path: "/legal/privacy", icon: ShieldAlert },
+            { label: "Cookie Parameters", path: "/legal/cookies", icon: Cpu },
+            { label: "Data Processing Addendum (DPA)", path: "/legal/dpa", icon: ShieldCheck }
+          ].map((doc, idx) => (
+            <button 
+              key={idx}
+              onClick={() => router.push(doc.path)}
+              className="group flex items-center gap-2 text-[9px] font-black uppercase tracking-widest hover:text-stone-900 transition-colors"
+            >
+              <doc.icon size={11} className="text-stone-300 group-hover:accent-text transition-colors" />
+              <span>{doc.label}</span>
+              <ExternalLink size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          ))}
+        </nav>
       </footer>
 
     </div>

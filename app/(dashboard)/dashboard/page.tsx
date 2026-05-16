@@ -121,16 +121,13 @@ function DashboardContent() {
 
     } catch (err) {
       console.error("Dashboard Sync Error:", err);
-      // Ensure the loader clears even on error
       setLoading(false);
     }
   }, [router, organisationId, error]);
 
   useEffect(() => {
-    // Re-trigger load when the organisationId is populated by context
     loadDashboardData();
 
-    // SAFETY TIMER: Force loading to false after 6 seconds to clear the screen
     const safetyTimer = setTimeout(() => {
       if (loading) {
         console.warn("Dashboard: Safety timeout reached. Clearing loader.");
@@ -196,7 +193,7 @@ function DashboardContent() {
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
-          className="bg-[var(--brand-primary, #A3B18A)] px-8 py-5 rounded-[2rem] shadow-sm flex items-center gap-4 text-white"
+          className="bg-[var(--brand-primary, #A3B18A)] px-8 py-5 rounded-[2rem] shadow-sm flex items-center gap-4 text-white hover:brightness-105 transition-all"
         >
           {isScanActive ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} fill="currentColor" />}
           <span className="text-[10px] font-black uppercase tracking-[0.2em]">Intelligence Scan</span>
@@ -229,24 +226,24 @@ function DashboardContent() {
           </div>
         </section>
 
-        {/* TEAM */}
-        <section className="bg-[var(--brand-primary, #A3B18A)] p-12 rounded-[3.5rem] lg:col-span-2 flex flex-col justify-between min-h-[400px]">
+        {/* TEAM: Updated styling layout framework for solid light-beige background contrast */}
+        <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-2 flex flex-col justify-between min-h-[400px]">
           <div>
-            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60 mb-8 flex items-center gap-2">
-              <Users size={14} /> Active Members
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+              <Users size={14} className="text-[var(--brand-primary, #A3B18A)]" /> Active Members
             </h2>
             <div className="space-y-4">
               {teamMembers.map((member, index) => (
-                <div key={index} className="flex items-center justify-between bg-white/10 p-5 rounded-2xl border border-white/10">
-                  <span className="text-xs font-bold uppercase tracking-wide text-white">{member.full_name}</span>
-                  <span className="text-[8px] font-black uppercase tracking-widest text-white/40">{member.role}</span>
+                <div key={index} className="flex items-center justify-between bg-[#faf9f6] border border-stone-100 p-5 rounded-2xl shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wide text-stone-800">{member.full_name}</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest text-stone-400">{member.role}</span>
                 </div>
               ))}
             </div>
           </div>
-          <div className="mt-12 p-6 rounded-[2rem] bg-white/10 border border-white/10 flex items-center gap-4">
-            <ShieldCheck size={18} className="text-white shrink-0" />
-            <p className="text-[9px] uppercase font-serif italic text-white/80">
+          <div className="mt-12 p-6 rounded-[2rem] bg-[#faf9f6] border border-stone-100 flex items-center gap-4">
+            <ShieldCheck size={18} className="text-[var(--brand-primary, #A3B18A)] shrink-0" />
+            <p className="text-[9px] uppercase font-serif italic text-stone-500">
               Business ID: {organisationId?.slice(0, 8) || "VERIFYING"} Verified.
             </p>
           </div>

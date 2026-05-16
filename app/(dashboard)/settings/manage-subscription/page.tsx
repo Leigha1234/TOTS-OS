@@ -4,16 +4,13 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, CreditCard, ShieldCheck, 
-  Clock, Check, AlertTriangle, 
-  Loader2, ArrowUpRight, HelpCircle,
-  TrendingUp, Zap, Award
+  Clock, Check, Loader2, Zap 
 } from "lucide-react";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 /**
- * TOTS OS: SUBSCRIPTION & COMMERCIAL TIERS MANAGEMENT PORTAL v1.1
- * Architecture: Isolated Account Sub-Resource
+ * TOTS OS: SUBSCRIPTION & COMMERCIAL TIERS MANAGEMENT PORTAL v1.2
+ * Architecture: Fixed Monthly Remittance Sub-Resource
  */
 
 type SubscriptionTier = "standard" | "professional" | "elite";
@@ -32,7 +29,7 @@ export default function ManageSubscription() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // -- Tier Structure Matrix (Updated with Exact Amounts and Operational Details) --
+  // -- Tier Structure Matrix (Fixed Monthly Subscription Pricing) --
   const tierMatrix: Record<SubscriptionTier, { name: string; price: number; badge?: string; goal: string; description: string; features: TierFeature[] }> = {
     standard: {
       name: "Standard",
@@ -40,12 +37,12 @@ export default function ManageSubscription() {
       description: "FOUNDATIONAL SYSTEM ACCESS",
       goal: "Get out of chaos + into structure",
       features: [
-        { text: "Core system framework", included: true },
-        { text: "Task management matrix", included: true },
-        { text: "Basic client ecosystem directory", included: true },
-        { text: "Financial performance tracking", included: true },
-        { text: "Standard operational automations", included: true },
-        { text: "Single operator access", included: true },
+        { text: "Core system node", included: true },
+        { text: "Task management", included: true },
+        { text: "Basic CRM", included: true },
+        { text: "Financial tracking", included: true },
+        { text: "Standard automations", included: true },
+        { text: "Single operator", included: true },
       ]
     },
     professional: {
@@ -56,11 +53,11 @@ export default function ManageSubscription() {
       goal: "Run the business properly day-to-day",
       features: [
         { text: "Everything in Standard +", included: true },
-        { text: "Advanced client ecosystem architecture", included: true },
-        { text: "Deeper workflow automation", included: true },
-        { text: "Corporate team directory modules", included: true },
-        { text: "Integrated communication channels", included: true },
-        { text: "Multi-user workspace setup", included: true },
+        { text: "Advanced CRM", included: true },
+        { text: "Deeper automation", included: true },
+        { text: "Team features", included: true },
+        { text: "Email integrations", included: true },
+        { text: "Multi-user setup", included: true },
       ]
     },
     elite: {
@@ -70,10 +67,10 @@ export default function ManageSubscription() {
       goal: "Business runs as a system",
       features: [
         { text: "Everything in Professional +", included: true },
-        { text: "Full enterprise business system build", included: true },
-        { text: "Hands-off macro automations", included: true },
-        { text: "Custom corporate workflows", included: true },
-        { text: "Priority protocol support network", included: true },
+        { text: "Full business OS build", included: true },
+        { text: "Hands-off automations", included: true },
+        { text: "Custom workflows", included: true },
+        { text: "Priority protocol support", included: true },
       ]
     }
   };
@@ -245,7 +242,7 @@ export default function ManageSubscription() {
           <span>Last structural configuration audit checked: Secure</span>
         </div>
         <div>
-          <span>TOTS OS // Protected Account Sub-Resource Instance</span>
+          <span>TOTS OS // Manage Subscription</span>
         </div>
       </footer>
 

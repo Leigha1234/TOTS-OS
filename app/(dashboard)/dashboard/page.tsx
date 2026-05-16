@@ -256,7 +256,7 @@ function DashboardContent() {
           { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "View Projects" },
           { label: "Pending Invoices", value: stats.invoicesDue, icon: FileText, path: "/payments", cta: "Manage Billing" },
           { label: "Social Media", value: stats.socialsPending, icon: Share2, path: "/social", cta: "Schedule Posts" },
-          { label: "Communications", value: stats.emailsScheduled, icon: Mail, path: "/campaigns", cta: "Check Mail" },
+          { label: "Contacts", value: stats.emailsScheduled, icon: Mail, path: "/campaigns", cta: "Check Mail" },
           { label: "Current Profit", value: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(stats.currentProfit), icon: PoundSterling, path: "/payments", cta: "View Financials" },
         ].map((item) => (
           <div

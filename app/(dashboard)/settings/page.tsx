@@ -152,9 +152,10 @@ export default function Settings() {
           return;
         }
 
+        // Fixed: Removed missing "email" string slice parameter to eliminate Postgres rest 400 error
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("full_name, bio, subscription_tier, email")
+          .select("full_name, bio, subscription_tier")
           .eq("id", user.id)
           .single();
 
@@ -164,7 +165,10 @@ export default function Settings() {
           const fetchedName = profile.full_name || user.email?.split("@")[0] || "OPERATOR";
           setUserName(fetchedName.toUpperCase());
           setDisplayName(fetchedName);
-          setEmail(profile.email || user.email || "");
+          
+          // Fixed: Pull down email tracking structure accurately directly from verified active session
+          setEmail(user.email || "");
+          
           setBio(profile.bio || "Root Administrator for TOTS OS. Managing cloud architectures.");
           
           if (profile.subscription_tier) {
@@ -199,8 +203,7 @@ export default function Settings() {
         .from("profiles")
         .update({
           full_name: displayName,
-          bio: bio,
-          email: email
+          bio: bio
         })
         .eq("id", user.id);
 
@@ -337,7 +340,7 @@ export default function Settings() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">System Email Address</label>
-                        <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs focus:accent-border outline-none transition-all" />
+                        <input value={email} disabled className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs opacity-60 cursor-not-allowed outline-none" />
                       </div>
                     </div>
                     <div className="space-y-2">

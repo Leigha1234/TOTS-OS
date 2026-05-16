@@ -152,10 +152,10 @@ export default function Settings() {
           return;
         }
 
-        // Fixed: Removed missing "email" string slice parameter to eliminate Postgres rest 400 error
+        // Hydrating the full profiles payload safely now that the column exists natively
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("full_name, bio, subscription_tier")
+          .select("full_name, bio, subscription_tier, email")
           .eq("id", user.id)
           .single();
 
@@ -166,9 +166,8 @@ export default function Settings() {
           setUserName(fetchedName.toUpperCase());
           setDisplayName(fetchedName);
           
-          // Fixed: Pull down email tracking structure accurately directly from verified active session
-          setEmail(user.email || "");
-          
+          // Pulling fallback from core auth session if database cell is empty yet
+          setEmail(profile.email || user.email || "");
           setBio(profile.bio || "Root Administrator for TOTS OS. Managing cloud architectures.");
           
           if (profile.subscription_tier) {
@@ -199,11 +198,13 @@ export default function Settings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Authentication session missing.");
 
+      // Natively saving email variables back to profiles structure smoothly
       const { error } = await supabase
         .from("profiles")
         .update({
           full_name: displayName,
-          bio: bio
+          bio: bio,
+          email: email
         })
         .eq("id", user.id);
 
@@ -340,7 +341,7 @@ export default function Settings() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">System Email Address</label>
-                        <input value={email} disabled className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs opacity-60 cursor-not-allowed outline-none" />
+                        <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs focus:accent-border outline-none transition-all" />
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -554,7 +555,7 @@ export default function Settings() {
       </main>
 
       {/* --- INTEGRATED COMPLIANCE & LEGAL NAVIGATION FOOTER --- */}
-      <footer className="pt-12 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-6 text-stone-400">
+      <footer className="pt-12 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-6 text-stone-400 w-full">
         <div className="flex items-center gap-2">
           <Scale size={14} className="accent-text" />
           <p className="text-[9px] font-black uppercase tracking-[0.3em]">

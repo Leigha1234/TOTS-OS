@@ -77,6 +77,33 @@ export default function Settings() {
     window.location.href = targetUrl;
   };
 
+  // -- Explicit Database Disconnection Purge for Specific Platforms --
+  const disconnectSocialPlatform = async (targetPlatform: string) => {
+    const loadingToast = toast.loading(`Severing integrated data pipeline link for ${targetPlatform}...`);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Unauthorized user footprint");
+
+      const { error } = await supabase
+        .from("social_tokens")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("platform", targetPlatform);
+
+      if (error) throw error;
+
+      toast.dismiss(loadingToast);
+      toast.success(`${targetPlatform.toUpperCase()} interface disconnected successfully.`);
+      
+      // Hot sync UI local arrays instantly
+      fetchChannelIntegrations();
+    } catch (err: any) {
+      toast.dismiss(loadingToast);
+      console.error("Purge transmission fault:", err);
+      toast.error("Database failed to wipe oauth matrix record.");
+    }
+  };
+
   // -- Fetch Connected Accounts Status On Sync Mount --
   const fetchChannelIntegrations = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -254,7 +281,7 @@ export default function Settings() {
                             </div>
                           </div>
                           <button 
-                            onClick={() => connectSocialPlatform(platformObj.key as any)}
+                            onClick={() => isConnected ? disconnectSocialPlatform(platformObj.key) : connectSocialPlatform(platformObj.key as any)}
                             className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-wider border transition-all ${isConnected ? 'bg-white text-stone-400 border-stone-200 hover:text-red-500' : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'}`}
                           >
                             {isConnected ? "Disconnect" : "Connect"}

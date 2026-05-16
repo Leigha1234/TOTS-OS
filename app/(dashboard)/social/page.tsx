@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, ChangeEvent } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Trash2, RefreshCcw, Layers, Sparkles, Hash, Clock, X, 
   ArrowRight, BarChart3, Video, Instagram, Linkedin, 
-  Plus, Film, Music, ChevronLeft, ChevronRight
+  Plus, Film, Music, ChevronLeft, ChevronRight, Upload, Image as ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -56,6 +56,11 @@ export default function SocialStudioUnified() {
   const [scheduledTime, setScheduledTime] = useState("");
   const [metaScript, setMetaScript] = useState("");
   const [metaAudio, setMetaAudio] = useState("");
+  
+  // Media Upload State
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
 
   // System Data
   const [posts, setPosts] = useState<SocialPost[]>([]);
@@ -70,16 +75,32 @@ export default function SocialStudioUnified() {
     setStatus("Syncing");
     const { data, error } = await supabase
       .from('socials')
-      .select('*')
+      .select('id, caption, platform, hashtags, media_url, scheduled_for, status, format')
       .order('scheduled_for', { ascending: true });
     
-    if (!error) setPosts(data || []);
+    if (!error) {
+      setPosts(data || []);
+    } else {
+      console.error("Fetch error:", error);
+      toast.error("Error reading from database check console.");
+    }
     setStatus("Ready");
   };
 
   useEffect(() => { 
     syncPosts(); 
   }, [supabase]);
+
+  // --- Handle Local File Selection ---
+  const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setMediaFile(file);
+      const localUrl = URL.createObjectURL(file);
+      setMediaPreview(localUrl);
+      toast.success(`Loaded file: ${file.name}`);
+    }
+  };
 
   // --- AI Concept Generation Engine ---
   const analyzeBusinessDNA = async () => {
@@ -157,7 +178,6 @@ export default function SocialStudioUnified() {
       setSelectedDayPosts(dayPosts);
       setIsDayViewOpen(true);
     } else {
-      // Empty date selected: Set schedule time to noon on that date and switch to canvas for creation
       const isoString = new Date(clickedDate.setHours(12, 0, 0, 0)).toISOString().slice(0, 16);
       setScheduledTime(isoString);
       setViewMode("lab");
@@ -165,35 +185,59 @@ export default function SocialStudioUnified() {
     }
   };
 
-  // --- Database Save Action (Handles Manual & AI Content) ---
+  // --- Deploy / Save Action ---
   const deployToProductionGrid = async () => {
     if (!caption || !scheduledTime) {
       return toast.error("Please fill in the scheduled time and final caption before publishing.");
     }
     
     setStatus("Saving");
-    const completeCaption = hashtags.trim() ? `${caption}\n\n${hashtags}` : caption;
-    
+    let finalMediaUrl = "https://picsum.photos/seed/system-blueprint/1080/1350"; // Fallback placeholder
+
+    // Visual Upload Routine to Supabase Storage Bucket
+    if (mediaFile) {
+      setIsUploadingMedia(true);
+      const fileExt = mediaFile.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `public/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('social-assets')
+        .upload(filePath, mediaFile);
+
+      if (!uploadError) {
+        const { data } = supabase.storage.from('social-assets').getPublicUrl(filePath);
+        if (data) finalMediaUrl = data.publicUrl;
+      } else {
+        console.error("Storage Error:", uploadError);
+        toast.error("Media failed to route to bucket asset storage. Using placeholder URL instead.");
+      }
+      setIsUploadingMedia(false);
+    }
+
     const { error } = await supabase.from('socials').insert([{
-      caption: completeCaption,
+      caption: caption,
       platform,
       hashtags,
-      media_url: "https://picsum.photos/seed/system-blueprint/1080/1350", 
+      media_url: finalMediaUrl, 
       scheduled_for: new Date(scheduledTime).toISOString(),
       status: 'scheduled',
       format: format
     }]);
 
     if (!error) {
-      toast.success("Content item successfully synchronized to calendar.");
+      toast.success("Content item synchronized! Job queued for API delivery pipeline.");
       setCaption(""); 
       setHashtags(""); 
       setMetaScript(""); 
       setMetaAudio(""); 
       setScheduledTime("");
+      setMediaFile(null);
+      setMediaPreview(null);
       syncPosts();
     } else {
-      toast.error("Save failure: Verify connection parameters.");
+      console.error(error);
+      toast.error("Database Save Failure. Check column names.");
     }
     setStatus("Ready");
   };
@@ -323,26 +367,55 @@ export default function SocialStudioUnified() {
 
               {/* Right Column: Direct Posting / Scheduling Canvas */}
               <div className="col-span-12 lg:col-span-6">
-                <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 shadow-2xl flex flex-col justify-between min-h-[600px] sticky top-28">
-                  <div className="space-y-8">
+                <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 shadow-2xl flex flex-col justify-between min-h-[600px]">
+                  <div className="space-y-6">
                     <div className="flex justify-between items-center border-b border-stone-50 pb-4">
                       <label className="text-[10px] font-black uppercase tracking-widest text-stone-300">Final Post Preview</label>
                       <span className="text-[10px] font-black uppercase tracking-widest text-stone-400 font-mono">{format} Strategy</span>
                     </div>
 
+                    {/* Integrated Media Upload Asset Dock */}
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest flex items-center gap-2">
+                        <ImageIcon size={12}/> Asset Attachment
+                      </label>
+                      <div className="relative border border-dashed border-stone-200 rounded-2xl h-48 bg-stone-50/50 flex flex-col items-center justify-center overflow-hidden transition-all hover:bg-stone-50 group">
+                        {mediaPreview ? (
+                          <>
+                            <img src={mediaPreview} alt="Upload Preview" className="w-full h-full object-cover" />
+                            <button 
+                              onClick={() => { setMediaFile(null); setMediaPreview(null); }}
+                              className="absolute top-3 right-3 p-2 bg-[#1c1c1c] text-white rounded-full opacity-80 hover:opacity-100 transition-opacity"
+                            >
+                              <X size={14} />
+                            </button>
+                          </>
+                        ) : (
+                          <label className="cursor-pointer flex flex-col items-center justify-center space-y-2 p-6 w-full h-full">
+                            <div className="p-3 bg-white rounded-xl shadow-sm border border-stone-100 text-stone-400 group-hover:text-[#a9b897] transition-colors">
+                              <Upload size={16} />
+                            </div>
+                            <span className="text-xs font-semibold text-stone-500">Drop your file or browse</span>
+                            <span className="text-[9px] font-medium text-stone-300 uppercase tracking-wider">Supports images or video formats</span>
+                            <input type="file" accept="image/*,video/*" onChange={handleImageUpload} className="hidden" />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Main Caption Box */}
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Post Caption Copy</label>
                       <textarea 
                         value={caption} 
                         onChange={(e) => setCaption(e.target.value)}
-                        className="w-full h-36 bg-stone-50 rounded-2xl p-6 text-xl font-serif italic outline-none resize-none border border-stone-100 focus:border-[#a9b897] transition-all leading-relaxed"
-                        placeholder="Write a custom post manually from scratch, or choose an AI concept on the left to populate..."
+                        className="w-full h-28 bg-stone-50 rounded-2xl p-5 text-base font-serif italic outline-none resize-none border border-stone-100 focus:border-[#a9b897] transition-all leading-relaxed"
+                        placeholder="Write a custom post manually from scratch..."
                       />
                     </div>
 
                     {/* Search Optimizations */}
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest flex items-center gap-1.5"><Hash size={12}/> Search Optimization Tags</label>
                       <input 
                         value={hashtags} 
@@ -353,14 +426,13 @@ export default function SocialStudioUnified() {
                     </div>
 
                     {/* Targets and Dates */}
-                    <div className="grid grid-cols-2 gap-6 pt-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Target Platform</label>
                         <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100">
                            <option value="instagram">Instagram</option>
                            <option value="tiktok">TikTok</option>
                            <option value="linkedin">LinkedIn</option>
-                           <option value="pinterest">Pinterest</option>
                         </select>
                       </div>
                       <div className="space-y-2">
@@ -371,8 +443,8 @@ export default function SocialStudioUnified() {
                   </div>
 
                   {/* Submission Action */}
-                  <button onClick={deployToProductionGrid} className="w-full py-7 mt-12 bg-[#1c1c1c] text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-stone-800 transition-all shadow-xl shadow-stone-100">
-                    Schedule Content Post <ArrowRight size={16} className="text-[#a9b897]"/>
+                  <button onClick={deployToProductionGrid} disabled={isUploadingMedia} className="w-full py-6 mt-6 bg-[#1c1c1c] text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-stone-800 transition-all shadow-xl shadow-stone-100">
+                    {isUploadingMedia ? "Staging Assets..." : "Schedule Content Post"} <ArrowRight size={14} className="text-[#a9b897]"/>
                   </button>
                 </div>
               </div>
@@ -465,25 +537,12 @@ export default function SocialStudioUnified() {
         )}
       </AnimatePresence>
 
-      {/* FIXED AI CLARITY ENGINE BUTTON */}
-      <Link href="/clarity">
-        <button className="fixed bottom-12 right-12 w-20 h-20 bg-[#1c1c1c] text-[#a9b897] rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all z-[100] group">
-          <div className="absolute -top-14 right-0 bg-[#1c1c1c] text-white text-[9px] font-black uppercase px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity tracking-widest whitespace-nowrap">
-            Enter Clarity 
-          </div>
-          <Sparkles size={30} />
-        </button>
-      </Link>
-
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
-        
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e5e5; border-radius: 10px; }
-        
-        input[type="datetime-local"]::-webkit-calendar-picker-indicator { opacity: 0.1; cursor: pointer; }
       `}</style>
     </div>
   );

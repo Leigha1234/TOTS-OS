@@ -15,7 +15,7 @@ import {
   Search, Filter, Trash2, Edit3,
   Mail, Phone, MapPin, AlertTriangle,
   FileJson, Server, HardDrive, Cpu,
-  Type, Droplets, Layout, Eye, Video, Instagram, Facebook, Disc
+  Type, Droplets, Layout, Eye, Video, Instagram, Facebook, Disc, Linkedin
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -57,7 +57,7 @@ export default function Settings() {
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
 
   // -- Handle Triggering External Multi-Tenant Identity Verification Handshakes --
-  const connectSocialPlatform = (targetPlatform: "facebook" | "instagram" | "tiktok" | "pinterest") => {
+  const connectSocialPlatform = (targetPlatform: "meta" | "tiktok" | "pinterest" | "linkedin") => {
     const redirectUri = encodeURIComponent(`https://tots-os.co.uk/api/auth/callback/${targetPlatform}`);
     let targetUrl = "";
 
@@ -67,8 +67,11 @@ export default function Settings() {
     } else if (targetPlatform === "pinterest") {
       const clientId = process.env.NEXT_PUBLIC_PINTEREST_CLIENT_ID || "mock_id";
       targetUrl = `https://www.pinterest.com/oauth/?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=boards:read,pins:read,pins:write`;
+    } else if (targetPlatform === "linkedin") {
+      const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID || "mock_id";
+      targetUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=w_member_social,r_liteprofile`;
     } else {
-      // Meta Suite Handle Gateway (Instagram & Facebook distribution profiles)
+      // Meta Suite Handle Gateway (Instagram & Facebook unified integration)
       const metaAppId = process.env.NEXT_PUBLIC_META_APP_ID || "mock_id";
       targetUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${metaAppId}&redirect_uri=${redirectUri}&scope=instagram_basic,instagram_content_publish,pages_read_engagement,pages_manage_posts`;
     }
@@ -261,17 +264,39 @@ export default function Settings() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {[
-                      { key: "instagram", name: "Instagram Business", icon: Instagram },
-                      { key: "facebook", name: "Facebook Business Page", icon: Facebook },
-                      { key: "tiktok", name: "TikTok Studio", icon: Video },
-                      { key: "pinterest", name: "Pinterest Board Suite", icon: Disc }
+                      { 
+                        key: "meta", 
+                        name: "Meta Business Suite", 
+                        subtitle: "Instagram & Facebook Pages",
+                        icons: [Instagram, Facebook] 
+                      },
+                      { 
+                        key: "tiktok", 
+                        name: "TikTok Studio", 
+                        subtitle: "Content Pipeline",
+                        icons: [Video] 
+                      },
+                      { 
+                        key: "pinterest", 
+                        name: "Pinterest Board Suite", 
+                        subtitle: "Visual Discovery",
+                        icons: [Disc] 
+                      },
+                      { 
+                        key: "linkedin", 
+                        name: "LinkedIn Professional Node", 
+                        subtitle: "B2B Corporate Network",
+                        icons: [Linkedin] 
+                      }
                     ].map((platformObj) => {
                       const isConnected = connectedPlatforms.includes(platformObj.key);
                       return (
                         <div key={platformObj.key} className="p-5 bg-[#faf9f6] rounded-2xl border border-stone-100 flex items-center justify-between">
                           <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-xl ${isConnected ? 'accent-bg text-white' : 'bg-white text-stone-300 border border-stone-100'}`}>
-                              <platformObj.icon size={16} />
+                            <div className={`p-3 rounded-xl flex gap-1 items-center ${isConnected ? 'accent-bg text-white' : 'bg-white text-stone-300 border border-stone-100'}`}>
+                              {platformObj.icons.map((Icon, idx) => (
+                                <Icon key={idx} size={16} />
+                              ))}
                             </div>
                             <div className="flex flex-col">
                               <span className="text-xs font-bold text-stone-800">{platformObj.name}</span>
@@ -284,7 +309,7 @@ export default function Settings() {
                             onClick={() => isConnected ? disconnectSocialPlatform(platformObj.key) : connectSocialPlatform(platformObj.key as any)}
                             className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-wider border transition-all ${isConnected ? 'bg-white text-stone-400 border-stone-200 hover:text-red-500' : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'}`}
                           >
-                            {isConnected ? "Disconnect" : "Connect"}
+                            {isConnected ? "Connected" : "Connect"}
                           </button>
                         </div>
                       );

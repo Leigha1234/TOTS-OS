@@ -190,14 +190,14 @@ function DashboardContent() {
           <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none">Business Pulse</h1>
         </div>
 
-        {/* MODIFIED: Updated button background colour and text colour for high-contrast visibility */}
+        {/* FIXED: Replaced hidden button components with clean, highly legible white text on dark stone background */}
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
-          className="bg-stone-900 px-8 py-5 rounded-[2rem] shadow-xl flex items-center gap-4 text-[var(--brand-primary, #A3B18A)] hover:brightness-110 transition-all"
+          className="bg-stone-900 px-8 py-5 rounded-[2rem] shadow-xl flex items-center gap-4 text-white hover:brightness-110 transition-all"
         >
-          {isScanActive ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} fill="currentColor" />}
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Intelligence Scan</span>
+          {isScanActive ? <Loader2 className="animate-spin text-white" size={18} /> : <Zap size={18} className="text-[var(--brand-primary,#A3B18A)]" fill="currentColor" />}
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Intelligence Scan</span>
         </motion.button>
       </header>
 

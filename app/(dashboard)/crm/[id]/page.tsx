@@ -4,20 +4,19 @@ import { use, useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { 
   User, Building2, Mail, ArrowLeft, ShieldCheck, 
-  Edit3,Trash2, X, Check, 
-  ListTodo, Plus, Send, Upload, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database
+  Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
-import { useSettings } from "@/app/context/SettingsContext"; // 1. Import tenancy context
+import { useSettings } from "@/app/context/SettingsContext";
 
-export default function NodeProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default function AccountProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { organisationId } = useSettings(); // 2. Pull global Org ID
+  const { organisationId } = useSettings();
   
   const [profile, setProfile] = useState<any>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -32,7 +31,14 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
 
   // Form States
   const [editForm, setEditForm] = useState({ 
-    name: "", role: "", email: "", phone: "", address: "", company_name: "", company_details: "" 
+    name: "", 
+    role: "", 
+    email: "", 
+    phone: "", 
+    address: "", 
+    company_name: "", 
+    company_details: "",
+    email_list: false 
   });
   
   const [newTask, setNewTask] = useState({
@@ -43,7 +49,6 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
     attachment: null as File | null
   });
 
-  // 3. Effect waits for both the ID and the Organisation Context
   useEffect(() => {
     if (resolvedParams.id && organisationId) {
       fetchProfile();
@@ -54,7 +59,6 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
 
   async function fetchProfile() {
     setLoading(true);
-    // Security: Filter by organisation_id to prevent cross-tenant access
     const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -71,10 +75,10 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
         phone: data.phone || "",
         address: data.address || "",
         company_name: data.company_name || "",
-        company_details: data.company_details || ""
+        company_details: data.company_details || "",
+        email_list: data.email_list || false
       });
     } else {
-        // If profile doesn't belong to org, bounce them back
         router.push("/crm");
     }
     setLoading(false);
@@ -94,7 +98,7 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
         .from("tasks")
         .select("*")
         .eq("profile_id", resolvedParams.id)
-        .eq("organisation_id", organisationId) // Added for multi-tenancy
+        .eq("organisation_id", organisationId)
         .order("created_at", { ascending: false });
     setTasks(data || []);
   }
@@ -105,7 +109,7 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
         .from("profiles")
         .update(editForm)
         .eq("id", profile.id)
-        .eq("organisation_id", organisationId); // Extra security layer
+        .eq("organisation_id", organisationId);
 
     if (!error) {
       setProfile({ ...profile, ...editForm });
@@ -124,7 +128,7 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
     if (newTask.attachment) {
       const file = newTask.attachment;
       const fileExt = file.name.split('.').pop();
-      const fileName = `${organisationId}/${Math.random()}.${fileExt}`; // Scoped by Org
+      const fileName = `${organisationId}/${Math.random()}.${fileExt}`;
       const { data, error } = await supabase.storage.from('task-attachments').upload(fileName, file);
       if (data) attachmentUrl = data.path;
     }
@@ -135,7 +139,7 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
       due_date: newTask.due_date || null,
       assigned_to: newTask.assigned_to || null,
       profile_id: profile.id,
-      organisation_id: organisationId, // Crucial: Link task to organisation
+      organisation_id: organisationId,
       attachment_url: attachmentUrl,
       status: 'todo'
     }]).select().single();
@@ -150,7 +154,7 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
   if (loading) return (
     <div className="h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
       <Loader2 className="animate-spin text-[#a9b897]" size={32} />
-      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Accessing Node Context...</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Loading Account Profile...</p>
     </div>
   );
 
@@ -162,7 +166,7 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <Link href="/crm" className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] group">
             <ArrowLeft size={16} />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em]">Network Directory</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.4em]">Client Directory</span>
           </Link>
           <div className="flex gap-2">
             {!isEditing ? (
@@ -171,7 +175,7 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
               </button>
             ) : (
               <button onClick={handleUpdate} disabled={isSaving} className="px-8 py-3 bg-stone-900 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-colors">
-                {isSaving ? <Loader2 className="animate-spin" size={14} /> : "Commit Changes"}
+                {isSaving ? <Loader2 className="animate-spin" size={14} /> : "Save Changes"}
               </button>
             )}
           </div>
@@ -182,39 +186,58 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
           <div className="lg:col-span-2 space-y-8">
             <div className="flex items-center gap-3">
                <div className="w-12 h-[1px] bg-[#a9b897]" />
-               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Node Intelligence</p>
+               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Account Profile</p>
             </div>
-            <h1 className="text-6xl md:text-8xl font-serif italic tracking-tighter uppercase break-words leading-[0.85]">
+            <h1 className="text-4xl md:text-6xl font-serif italic tracking-tighter uppercase break-words leading-none">
               {isEditing ? (
-                <input value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="bg-transparent border-b border-[#a9b897] outline-none w-full" />
-              ) : profile.name}
+                <input value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="bg-transparent border-b border-[#a9b897] outline-none w-full py-2" placeholder="Full Name" />
+              ) : profile.name || "UNNAMED ACCOUNT"}
             </h1>
             
             <div className="flex flex-wrap gap-4">
               <div className="bg-white p-4 px-6 rounded-2xl border border-stone-100 flex items-center gap-3 shadow-sm">
                 <Mail size={16} className="text-[#a9b897]" />
-                <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.email}</span>
+                {isEditing ? (
+                  <input value={editForm.email} onChange={(e) => setEditForm({...editForm, email: e.target.value})} className="bg-transparent text-xs font-bold text-stone-700 outline-none uppercase tracking-widest border-b border-stone-200" placeholder="Email Address" />
+                ) : (
+                  <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.email || "No Email Provided"}</span>
+                )}
               </div>
+              
               <div className="bg-white p-4 px-6 rounded-2xl border border-stone-100 flex items-center gap-3 shadow-sm">
                 <Building2 size={16} className="text-[#a9b897]" />
-                <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.company_name || "Independent Operator"}</span>
+                {isEditing ? (
+                  <input value={editForm.company_name} onChange={(e) => setEditForm({...editForm, company_name: e.target.value})} className="bg-transparent text-xs font-bold text-stone-700 outline-none uppercase tracking-widest border-b border-stone-200" placeholder="Company Name" />
+                ) : (
+                  <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.company_name || "Independent Operator"}</span>
+                )}
               </div>
             </div>
           </div>
           
           <div className="bg-stone-900 rounded-[3rem] p-10 text-white flex flex-col justify-center gap-4 shadow-2xl relative overflow-hidden">
              <Radio className="absolute -right-4 -top-4 w-32 h-32 opacity-10 text-[#a9b897]" />
-             <p className="text-[10px] font-black uppercase text-stone-500 tracking-[0.3em] relative z-10">Operational Access Level</p>
-             <p className="font-serif italic text-5xl text-[#a9b897] capitalize relative z-10">{profile.role === 'user' ? 'Active User' : profile.role}</p>
+             <p className="text-[10px] font-black uppercase text-stone-500 tracking-[0.3em] relative z-10">Account Access Level</p>
+             {isEditing ? (
+               <select value={editForm.role} onChange={(e) => setEditForm({...editForm, role: e.target.value})} className="bg-stone-800 text-white p-3 rounded-xl font-serif italic text-2xl text-[#a9b897] capitalize relative z-10 outline-none border border-stone-700 appearance-none cursor-pointer">
+                 <option value="user">Standard User</option>
+                 <option value="admin">Administrator</option>
+                 <option value="manager">Manager</option>
+               </select>
+             ) : (
+               <p className="font-serif italic text-5xl text-[#a9b897] capitalize relative z-10">
+                 {profile.role === 'user' ? 'Standard User' : profile.role}
+               </p>
+             )}
           </div>
         </div>
 
         {/* TAB NAVIGATION */}
         <div className="flex gap-2 border-b border-stone-200 pb-4">
           {[
-            { id: 'info', label: 'Node Attributes' },
-            { id: 'tasks', label: 'Queued Operations' },
-            { id: 'email', label: 'Communication Flow' }
+            { id: 'info', label: 'Account Overview' },
+            { id: 'tasks', label: 'Project Tasks' },
+            { id: 'email', label: 'Communications' }
           ].map((tab) => (
             <button 
               key={tab.id} 
@@ -232,28 +255,72 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid md:grid-cols-2 gap-8">
               <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 space-y-8 shadow-sm">
                 <div className="space-y-6">
-                    <p className="text-[10px] font-black uppercase text-[#a9b897] tracking-[0.3em]">Connectivity</p>
+                    <p className="text-[10px] font-black uppercase text-[#a9b897] tracking-[0.3em]">Contact Details</p>
+                    
+                    {/* Phone Field */}
                     <div className="flex items-center gap-4 text-stone-600">
                         <div className="p-3 bg-stone-50 rounded-xl"><Phone size={18} className="text-[#a9b897]"/></div>
-                        <p className="text-xs font-bold uppercase tracking-widest">{profile.phone || "No active integrations connected"}</p>
+                        {isEditing ? (
+                          <div className="flex-1 space-y-1">
+                            <label className="text-[7px] font-black uppercase text-stone-400">Phone Number</label>
+                            <input value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="w-full bg-stone-50 p-2 text-xs font-bold uppercase tracking-widest text-stone-800 rounded-lg outline-none focus:ring-1 focus:ring-[#a9b897]" placeholder="Enter number..." />
+                          </div>
+                        ) : (
+                          <p className="text-xs font-bold uppercase tracking-widest">{profile.phone || "No phone number recorded"}</p>
+                        )}
                     </div>
+
+                    {/* Location Address Field */}
                     <div className="flex items-center gap-4 text-stone-600">
                         <div className="p-3 bg-stone-50 rounded-xl"><MapPin size={18} className="text-[#a9b897]"/></div>
-                        <p className="text-xs font-bold uppercase tracking-widest">{profile.address || "Location Status: Unassigned"}</p>
+                        {isEditing ? (
+                          <div className="flex-1 space-y-1">
+                            <label className="text-[7px] font-black uppercase text-stone-400">Business Address</label>
+                            <input value={editForm.address} onChange={(e) => setEditForm({...editForm, address: e.target.value})} className="w-full bg-stone-50 p-2 text-xs font-bold uppercase tracking-widest text-stone-800 rounded-lg outline-none focus:ring-1 focus:ring-[#a9b897]" placeholder="Enter corporate address..." />
+                          </div>
+                        ) : (
+                          <p className="text-xs font-bold uppercase tracking-widest">{profile.address || "Address Location: Unassigned"}</p>
+                        )}
+                    </div>
+
+                    {/* Email List Opt-In Field */}
+                    <div className="flex items-center gap-4 text-stone-600 pt-2">
+                        <div className="p-3 bg-stone-50 rounded-xl"><ListPlus size={18} className="text-[#a9b897]"/></div>
+                        <div className="flex-1 flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-stone-800">Mailing List Registry</p>
+                            <p className="text-[8px] text-stone-400 uppercase tracking-widest">Global Newsletter Distribution</p>
+                          </div>
+                          {isEditing ? (
+                            <input type="checkbox" checked={editForm.email_list} onChange={(e) => setEditForm({...editForm, email_list: e.target.checked})} className="w-5 h-5 rounded accent-[#a9b897] cursor-pointer" />
+                          ) : (
+                            <span className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${profile.email_list ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-stone-100 text-stone-400'}`}>
+                              {profile.email_list ? "Subscribed" : "Unsubscribed"}
+                            </span>
+                          )}
+                        </div>
                     </div>
                 </div>
                 
-                <div className="pt-8 border-t border-stone-50">
-                  <p className="text-[10px] font-black uppercase text-stone-300 mb-4 tracking-widest">Internal Intelligence Notes</p>
-                  <p className="font-serif italic text-stone-600 leading-relaxed text-lg">
-                    {profile.company_details || "No strategic context currently attached to this node."}
-                  </p>
+                {/* Company Details / Corporate background notes */}
+                <div className="pt-8 border-t border-stone-50 space-y-2">
+                  <p className="text-[10px] font-black uppercase text-stone-300 tracking-widest">Corporate Profile Notes</p>
+                  {isEditing ? (
+                    <textarea value={editForm.company_details} onChange={(e) => setEditForm({...editForm, company_details: e.target.value})} className="w-full bg-stone-50 p-4 rounded-2xl text-xs font-serif italic text-stone-700 outline-none h-28 resize-none focus:ring-1 focus:ring-[#a9b897]" placeholder="Enter corporate background information..." />
+                  ) : (
+                    <p className="font-serif italic text-stone-600 leading-relaxed text-lg">
+                      {profile.company_details || "No secondary profile overview details added to this account record."}
+                    </p>
+                  )}
                 </div>
               </div>
               
-              <div className="bg-stone-50/50 p-12 rounded-[3.5rem] border border-dashed border-stone-200 flex flex-col items-center justify-center text-center">
-                 <ShieldCheck size={40} className="text-stone-200 mb-4" />
-                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Identity Verified</p>
+              <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 flex flex-col items-center justify-center text-center space-y-4">
+                 <ShieldCheck size={48} className="text-[#a9b897]" />
+                 <div>
+                   <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Account Verified</p>
+                   <p className="text-[8px] font-mono text-stone-300 mt-1 uppercase tracking-widest">ID: {profile.id}</p>
+                 </div>
               </div>
             </motion.div>
           )}
@@ -263,29 +330,29 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
               {/* TASK CREATOR */}
               <div className="lg:col-span-2 bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-xl h-fit">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-                  <Zap size={14} className="text-[#a9b897]"/> Deploy Operation
+                  <Zap size={14} className="text-[#a9b897]"/> Assign Project Task
                 </h3>
                 <form onSubmit={handleAddTask} className="space-y-4">
                   <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Operation Title</label>
-                    <input required placeholder="Brief mission name..." value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none focus:ring-1 focus:ring-[#a9b897]" />
+                    <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Task Title</label>
+                    <input required placeholder="Brief objective description..." value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none focus:ring-1 focus:ring-[#a9b897]" />
                   </div>
                   
                   <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Mission Brief / Operational Notes</label>
-                    <textarea placeholder="Describe the strategic intent..." value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none h-32 resize-none" />
+                    <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Task Brief / Deliverables</label>
+                    <textarea placeholder="Describe the strategic requirements..." value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none h-32 resize-none" />
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Deadline</label>
+                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Due Date</label>
                         <div className="relative">
                         <Calendar size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
                         <input type="date" value={newTask.due_date} onChange={e => setNewTask({...newTask, due_date: e.target.value})} className="w-full bg-stone-50 p-4 pl-10 rounded-xl text-[10px] outline-none" />
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Assign Node</label>
+                        <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Assignee</label>
                         <div className="relative">
                         <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
                         <select value={newTask.assigned_to} onChange={e => setNewTask({...newTask, assigned_to: e.target.value})} className="w-full bg-stone-50 p-4 pl-10 rounded-xl text-[10px] outline-none appearance-none cursor-pointer">
@@ -299,13 +366,13 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
                   <div className="pt-2">
                     <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] transition-all group">
                       <Paperclip size={14} className="group-hover:rotate-12 transition-transform" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{newTask.attachment ? newTask.attachment.name : "Attach Context Intelligence"}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">{newTask.attachment ? newTask.attachment.name : "Attach Strategic Documentation"}</span>
                     </button>
                     <input type="file" ref={fileInputRef} className="hidden" onChange={e => setNewTask({...newTask, attachment: e.target.files?.[0] || null})} />
                   </div>
 
                   <button disabled={taskSaving} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] hover:bg-[#a9b897] transition-all shadow-xl mt-4 active:scale-95">
-                    {taskSaving ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Deploy Task"}
+                    {taskSaving ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Create Task"}
                   </button>
                 </form>
               </div>
@@ -313,14 +380,14 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
               {/* TASK LIST */}
               <div className="lg:col-span-3 space-y-6">
                 <div className="flex justify-between items-center px-4">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Queued Operations</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Pending Tasks</h3>
                     <div className="px-3 py-1 bg-stone-100 rounded-full text-[8px] font-black text-stone-400 uppercase tracking-widest">{tasks.length} Active</div>
                 </div>
 
                 {tasks.length === 0 ? (
                   <div className="py-32 text-center border-2 border-dashed border-stone-100 rounded-[3rem]">
                     <Database className="mx-auto mb-4 text-stone-100" size={48}/>
-                    <p className="text-xs font-serif italic text-stone-300">No operations currently deployed for this node.</p>
+                    <p className="text-xs font-serif italic text-stone-300">No active tasks currently assigned to this account profile.</p>
                   </div>
                 ) : (
                   tasks.map((t) => (
@@ -335,14 +402,14 @@ export default function NodeProfilePage({ params }: { params: Promise<{ id: stri
                            {t.due_date && (
                                 <div className="flex items-center gap-1.5 bg-stone-50 px-3 py-1 rounded-full">
                                     <Calendar size={10} className="text-[#a9b897]" />
-                                    <span className="text-[8px] font-black uppercase text-stone-400 tracking-widest">Protocol Date: {format(new Date(t.due_date), "MMM d, yyyy")}</span>
+                                    <span className="text-[8px] font-black uppercase text-stone-400 tracking-widest">Target Date: {format(new Date(t.due_date), "MMM d, yyyy")}</span>
                                 </div>
                             )}
                            {t.attachment_url && <Paperclip size={12} className="text-[#a9b897] animate-bounce"/>}
                         </div>
                       </div>
                       <div className="bg-stone-900 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-[#a9b897] shadow-lg">
-                        {t.status === 'todo' ? 'Queued' : t.status}
+                        {t.status === 'todo' ? 'Assigned' : t.status}
                       </div>
                     </motion.div>
                   ))

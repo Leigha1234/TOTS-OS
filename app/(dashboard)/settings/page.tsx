@@ -75,7 +75,7 @@ export default function Settings() {
 
   // -- Initialize Authentication Requests via Catch-All Matrix Router --
   const connectSocialPlatform = (targetPlatform: "meta" | "tiktok" | "pinterest" | "linkedin") => {
-    // 1. Force the redirect URI to route inside your exact catch-all directory pattern using the verified primary canonical domain
+    // Force the redirect URI to route inside your exact catch-all directory pattern using the verified primary canonical domain
     const redirectUri = encodeURIComponent(`https://www.tots-os.co.uk/api/auth/callback?platform=${targetPlatform}`);
     let targetUrl = "";
 
@@ -163,12 +163,15 @@ export default function Settings() {
         if (error) throw error;
 
         if (profile) {
-          const fetchedName = profile.full_name || user.email?.split("@")[0] || "OPERATOR";
+          // Safe navigation check prevents build-time compilation crashes if user object or session email is missing
+          const emailFallback = user && user.email ? user.email.split("@")[0] : "OPERATOR";
+          const fetchedName = profile.full_name || emailFallback;
+          
           setUserName(fetchedName.toUpperCase());
           setDisplayName(fetchedName);
           
           // Pulling fallback from core auth session if database cell is empty yet
-          setEmail(profile.email || user.email || "");
+          setEmail(profile.email || (user && user.email ? user.email : ""));
           setBio(profile.bio || "Root Administrator for TOTS OS. Managing cloud architectures.");
           
           if (profile.subscription_tier) {

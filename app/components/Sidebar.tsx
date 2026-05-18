@@ -9,20 +9,20 @@ import { useSettings } from "@/app/context/SettingsContext";
 import { 
   LayoutDashboard, Users, Menu, Calendar, Megaphone, 
   StickyNote, DollarSign, BarChart3, Globe, Lock,
-  Briefcase, Settings, Sparkles, Loader2, LogOut
+  Briefcase, Settings, Loader2, LogOut
 } from "lucide-react";
 import { toast } from "sonner";
 
 /**
- * TOTS OS SIDEBAR v7.1.5
- * REVISION: STATIC ASSET MAPPING & SESSION TERMINATION
+ * TOTS OS SIDEBAR v7.1.6
+ * REVISION: DEPRECATION OF CLARITY MODULE & UK ENGLISH BUSINESS METADATA
  */
 
 const MODULE_PERMISSIONS: Record<string, string[]> = {
   STANDARD: ["Dashboard", "Contacts", "Notes", "Calendar"],
-  PREMIUM: ["Dashboard", "Clarity", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects"],
+  PREMIUM: ["Dashboard", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects"],
   ELITE: [
-    "Dashboard", "Clarity", "Calendar", "Campaigns", "Contacts", 
+    "Dashboard", "Calendar", "Campaigns", "Contacts", 
     "Notes", "Finance", "Projects", "Reports", "Social", "Vault", "Settings"
   ],
 };
@@ -35,7 +35,7 @@ export default function Sidebar() {
   try {
     context = useSettings();
   } catch (e) {
-    console.warn("Sidebar: SettingsContext not found. Falling back to local fetch.");
+    console.warn("Sidebar: SettingsContext not found. Falling back to local data retrieval.");
   }
 
   const [collapsed, setCollapsed] = useState(false);
@@ -59,7 +59,7 @@ export default function Sidebar() {
           if (profile.brand_color) setLocalColor(profile.brand_color);
         }
       } catch (err) {
-        console.error("Sidebar Sync Error:", err);
+        console.error("Sidebar Synchronisation Error:", err);
         setUserTier("STANDARD");
       }
     }
@@ -72,13 +72,12 @@ export default function Sidebar() {
       toast.success("Session Terminated Safely");
       router.push("/login");
     } catch (error) {
-      toast.error("Protocol Breach: Logout Failed");
+      toast.error("Protocol Breach: Logout Operation Failed");
     }
   };
 
   const allLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/clarity", label: "Clarity", icon: Sparkles },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/campaigns", label: "Campaigns", icon: Megaphone },
     { href: "/crm", label: "Contacts", icon: Users },
@@ -104,7 +103,7 @@ export default function Sidebar() {
       ${collapsed ? "w-20" : "w-64"}
     `}>
       
-      {/* BRANDING AREA - Ensure folder is in /public/images/ */}
+      {/* BRANDING AREA */}
       <div className="flex items-center justify-between p-6 h-24 shrink-0 overflow-hidden">
         {!collapsed ? (
           <div className="flex items-center gap-3">
@@ -203,9 +202,6 @@ export default function Sidebar() {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: activeColor }} />
-                 <p className="text-[7px] uppercase tracking-[0.4em] text-stone-400 font-black">
-                   Protocol: Stable
-                 </p>
               </div>
               <p className="text-[10px] uppercase tracking-widest text-stone-900 font-black italic">
                 {userTier} ACCESS

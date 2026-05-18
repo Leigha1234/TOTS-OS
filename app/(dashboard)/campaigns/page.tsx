@@ -5,7 +5,8 @@ import { createBrowserClient } from "@supabase/ssr";
 import { 
   Plus, X, Clock, Type, Image as ImageIcon, 
   Wand2, Loader2, Check, Sparkles, Calendar as CalendarIcon, 
-  AlignLeft, Bold, Eye, Palette, Menu, Users, Hash, Radio, Zap
+  AlignLeft, Bold, Eye, Palette, Menu, Users, Hash, Radio, Zap,
+  Mail, FileText
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -16,6 +17,10 @@ export default function CampaignsPage() {
   const [showModal, setShowModal] = useState(false);
   const [showListModal, setShowListModal] = useState(false);
   const [newListName, setNewListName] = useState("");
+  
+  // Selected campaign state for viewing specific details
+  const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
   
   const [step, setStep] = useState<'editor' | 'schedule'>('editor');
   const [showClarityPrompt, setShowClarityPrompt] = useState(false);
@@ -51,7 +56,6 @@ export default function CampaignsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     
-    // Updated to pull directly from the "teams" table fields matching your schema
     const { data: team } = await supabase.from("teams").select("company_name, name").single();
     if (team) {
       setCompanyName(team.company_name || team.name || "Your Company");
@@ -90,7 +94,25 @@ export default function CampaignsPage() {
     }]);
     if (!error) {
       setShowModal(false);
+      // Reset form variables
+      setForm({ title: "", subject: "", list_id: "", scheduled_for: "", content: "" });
       loadData();
+    }
+  };
+
+  const formatScheduledDate = (dateString: string) => {
+    if (!dateString) return "Immediate Release";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    } catch (e) {
+      return dateString;
     }
   };
 
@@ -112,7 +134,7 @@ export default function CampaignsPage() {
       </header>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12">
-        {/* FEED */}
+        {/* PIPELINE FEED WITH ENHANCED DETAILS */}
         <div className="lg:col-span-8 space-y-6 order-2 lg:order-1">
           <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300 ml-4">Campaign Status Pipeline</p>
           {campaigns.length === 0 ? (
@@ -121,15 +143,33 @@ export default function CampaignsPage() {
             </div>
           ) : (
             campaigns.map(c => (
-              <div key={c.id} className="bg-white p-8 rounded-[3rem] border border-stone-100 flex justify-between items-center group shadow-sm">
-                <div className="flex items-center gap-8">
-                  <div className="p-5 bg-stone-50 rounded-2xl text-[var(--brand-primary)]"><Radio size={20} className="animate-pulse" /></div>
-                  <div>
-                    <h3 className="font-bold text-xl text-stone-800 uppercase tracking-tight">{c.title}</h3>
-                    <p className="text-[10px] text-stone-400 uppercase tracking-widest mt-1">{c.subscriber_lists?.name || 'Unassigned List'}</p>
+              <div 
+                key={c.id} 
+                onClick={() => { setSelectedCampaign(c); setShowViewModal(true); }}
+                className="bg-white p-8 rounded-[3rem] border border-stone-100 flex flex-col md:flex-row md:items-center justify-between gap-6 group shadow-sm hover:shadow-md hover:border-stone-200 transition-all cursor-pointer"
+              >
+                <div className="flex items-start gap-6 flex-1 min-w-0">
+                  <div className="p-5 bg-stone-50 rounded-2xl text-[var(--brand-primary)] shrink-0">
+                    <Radio size={20} className="animate-pulse" />
+                  </div>
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-black text-xl text-stone-800 uppercase tracking-tight truncate">{c.title}</h3>
+                      <span className="text-[9px] px-3 py-1 bg-stone-100 rounded-full font-black text-stone-500 uppercase tracking-wider">
+                        {c.subscriber_lists?.name || 'Unassigned List'}
+                      </span>
+                    </div>
+                    <p className="text-xs font-serif italic text-stone-500 truncate block">
+                      Subject: {c.subject || "No Subject Specified"}
+                    </p>
+                    <div className="flex items-center gap-4 text-[10px] uppercase font-bold tracking-wider text-stone-400 pt-1">
+                      <span className="flex items-center gap-1"><Clock size={12} /> {formatScheduledDate(c.scheduled_for)}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="text-[9px] font-black uppercase tracking-widest px-6 py-2 bg-stone-50 rounded-full text-stone-400 border border-stone-100">Queued</div>
+                <div className="text-[9px] font-black uppercase tracking-widest px-6 py-2 bg-stone-50 rounded-full text-stone-400 border border-stone-100 self-start md:self-auto text-center">
+                  Queued
+                </div>
               </div>
             ))
           )}
@@ -154,6 +194,77 @@ export default function CampaignsPage() {
           </div>
         </aside>
       </div>
+
+      {/* DETAILED CAMPAIGN VIEW MODAL */}
+      <AnimatePresence>
+        {showViewModal && selectedCampaign && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 md:p-10 bg-stone-900/60 backdrop-blur-xl">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#faf9f6] w-full max-w-3xl rounded-[3.5rem] shadow-2xl overflow-hidden border border-stone-200 flex flex-col max-h-[90vh]"
+            >
+              {/* TOP PROFILE HEADER */}
+              <div className="p-8 md:p-12 border-b border-stone-200 bg-stone-50 flex justify-between items-start gap-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
+                    <span className="text-[9px] font-black uppercase tracking-widest px-4 py-1 bg-stone-900 text-[var(--brand-primary)] rounded-full">
+                      Campaign Profile
+                    </span>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-4 py-1 bg-white border border-stone-200 text-stone-500 rounded-full">
+                      {selectedCampaign.subscriber_lists?.name || 'Unassigned Target'}
+                    </span>
+                  </div>
+                  <h2 className="text-3xl font-black text-stone-800 uppercase tracking-tight">{selectedCampaign.title}</h2>
+                </div>
+                <button 
+                  onClick={() => { setShowViewModal(false); setSelectedCampaign(null); }} 
+                  className="p-3 bg-white hover:bg-stone-100 border border-stone-200 rounded-full transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* DETAILS METADATA BODY */}
+              <div className="p-8 md:p-12 overflow-y-auto no-scrollbar space-y-8 flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-stone-100 pb-6 text-xs">
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Scheduled Dispatch Time</p>
+                    <p className="font-bold text-stone-800 flex items-center gap-2"><Clock size={14} className="text-stone-400" /> {formatScheduledDate(selectedCampaign.scheduled_for)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Author / Organisation Identity</p>
+                    <p className="font-bold text-stone-800 flex items-center gap-2"><Users size={14} className="text-stone-400" /> {companyName}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-2">Subject Line</p>
+                  <div className="p-5 bg-white rounded-2xl border border-stone-100 text-lg font-serif italic text-stone-900 shadow-inner">
+                    {selectedCampaign.subject || "No Subject Specified"}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-2">Email Content Output</p>
+                  <div className="p-8 md:p-10 bg-white rounded-[2.5rem] border border-stone-200 shadow-sm font-serif text-stone-800 leading-relaxed text-base whitespace-pre-wrap min-h-[200px]">
+                    {selectedCampaign.content || "Empty content payload."}
+                  </div>
+                </div>
+              </div>
+
+              {/* VIEW FOOTER */}
+              <div className="p-6 bg-stone-50 border-t border-stone-200 text-center flex justify-end">
+                <button 
+                  onClick={() => { setShowViewModal(false); setSelectedCampaign(null); }}
+                  className="px-8 py-4 bg-stone-900 text-[var(--brand-primary)] rounded-xl font-black text-[10px] uppercase tracking-widest"
+                >
+                  Close Document
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* CREATE LIST MODAL */}
       <AnimatePresence>

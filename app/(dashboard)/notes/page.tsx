@@ -4,15 +4,15 @@ import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { supabase } from "@/lib/supabase-client"; 
 import { 
   Trash2, Search, Loader2, Plus, X, 
-  CheckCircle2, Tag, AlertCircle, Calendar, User, Briefcase, Mic, MicOff, Bell, BellOff
+  CheckCircle2, Tag, AlertCircle, Calendar, User, Briefcase, Mic, MicOff, Bell, BellOff, Clock
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 /**
- * TOTS OS | THE VAULT (V9.0)
- * DESIGN: PHYSICAL STICKY NOTE DESK WITH EMBEDDED ACTIONS, SPEECH, & METADATA
+ * TOTS OS | THE VAULT (V9.5)
+ * DESIGN: PHYSICAL STICKY NOTE DESK WITH CLEAN INNER ACTIONS & REMINDERS
  */
 
 const STICKY_THEMES = [
@@ -37,10 +37,10 @@ function VaultContent() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [search, setSearch] = useState("");
 
-  // New Extended Fields
+  // Extended Fields
   const [project, setProject] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [reminderDateTime, setReminderDateTime] = useState("");
   const [isReminder, setIsReminder] = useState(false);
   const [status, setStatus] = useState("todo");
 
@@ -94,7 +94,7 @@ function VaultContent() {
     init();
   }, [fetchNotes, fetchTeamMembers]);
 
-  // Speech Recognition Setup
+  // Speech Recognition
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -109,8 +109,7 @@ function VaultContent() {
           setContent((prev) => prev + (prev ? " " : "") + transcript);
         };
 
-        recognition.onerror = (event: any) => {
-          console.error("Speech Recognition Error", event.error);
+        recognition.onerror = () => {
           setIsListening(false);
           toast.error("Voice capture ran into an issue.");
         };
@@ -129,7 +128,6 @@ function VaultContent() {
       toast.error("Voice recognition is not supported in this browser.");
       return;
     }
-
     if (isListening) {
       recognitionRef.current.stop();
     } else {
@@ -153,7 +151,7 @@ function VaultContent() {
         is_urgent: isUrgent,
         project: project || null,
         assigned_to: assignedTo || null,
-        due_date: dueDate || null,
+        due_date: isReminder && reminderDateTime ? new Date(reminderDateTime).toISOString() : null,
         is_reminder: isReminder,
         status: status,
         metadata: { rotation: theme.rotation }
@@ -161,13 +159,12 @@ function VaultContent() {
 
       if (error) throw error;
       
-      // Reset Form Fields
       setContent("");
       setTag("");
       setIsUrgent(false);
       setProject("");
       setAssignedTo("");
-      setDueDate("");
+      setReminderDateTime("");
       setIsReminder(false);
       setStatus("todo");
       setShowModal(false);
@@ -208,20 +205,20 @@ function VaultContent() {
   return (
     <div className="min-h-screen bg-[#F5F5F3] font-sans text-stone-900 pb-40 relative">
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght=1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
         .shadow-sticky {
           box-shadow: 
-            2px 2px 10px rgba(0,0,0,0.02),
-            10px 10px 25px rgba(0,0,0,0.05),
-            inset 0px -8px 20px rgba(0,0,0,0.01);
+            2px 2px 8px rgba(0,0,0,0.01),
+            5px 15px 25px rgba(0,0,0,0.04),
+            inset 0px -4px 10px rgba(0,0,0,0.015);
         }
       `}</style>
       
       {/* HEADER */}
       <header className="max-w-[1400px] mx-auto p-12 flex justify-between items-end">
         <div>
-          <h1 className="text-8xl font-serif italic tracking-tighter lowercase leading-none">Notes</h1>
+          <h1 className="text-8xl font-serif italic tracking-tighter capitalize leading-none">Notes</h1>
           <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400 mt-4 ml-1">Your Digital Notepad</p>
         </div>
         <div className="relative group w-64">
@@ -248,88 +245,78 @@ function VaultContent() {
                 animate={{ opacity: 1, scale: 1, rotate: note.metadata?.rotation || "0deg" }}
                 exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
                 whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
-                className={`p-8 min-h-[360px] flex flex-col shadow-sticky relative group transition-all duration-300 ${
+                className={`p-6 min-h-[340px] flex flex-col shadow-sticky relative group transition-all duration-300 rounded-sm ${
                   note.is_urgent ? 'text-white' : 'text-stone-800'
                 }`}
                 style={{ background: note.color || "#FFF9E6" }}
               >
-                {/* VISUAL TAPE */}
-                <div className="absolute top-[-10px] left-1/2 -translate-x-1/2 w-24 h-7 bg-white/30 backdrop-blur-sm border border-white/20 z-10" />
+                {/* STICKY TAPE */}
+                <div className="absolute top-[-8px] left-1/2 -translate-x-1/2 w-20 h-6 bg-white/40 backdrop-blur-sm border border-white/10 z-10" />
                 
-                <div className="flex-1 space-y-4">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 italic">
-                      {note.category || 'General'}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {note.is_reminder && <Bell size={13} className={note.is_urgent ? "text-amber-300 animate-bounce" : "text-stone-400 animate-bounce"} />}
-                      {note.is_urgent && <AlertCircle size={15} className="text-red-400 animate-pulse" />}
-                    </div>
+                {/* NOTE HEADER METADATA */}
+                <div className="flex justify-between items-start mb-4">
+                  <span className="text-[9px] font-black uppercase tracking-widest opacity-40">
+                    {note.category || 'General'}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {note.is_reminder && <Clock size={12} className={note.is_urgent ? "text-amber-300 animate-pulse" : "text-stone-500 animate-pulse"} />}
+                    {note.is_urgent && <AlertCircle size={14} className="text-red-400 animate-pulse" />}
                   </div>
+                </div>
 
-                  <p className="text-3xl font-serif italic leading-tight pr-4">{note.content}</p>
+                {/* CENTRAL CONTENT */}
+                <div className="flex-1 space-y-3">
+                  <p className="text-2xl font-serif italic leading-snug pr-2 break-words">{note.content}</p>
 
-                  {/* NOTE CONTEXT ASSIGNMENTS */}
-                  <div className="space-y-1.5 pt-4 opacity-75">
+                  {/* CONTEXT CHIPS Inside Note */}
+                  <div className="space-y-1 pt-2 border-t border-black/[0.03]">
                     {note.project && (
-                      <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
-                        <Briefcase size={11} className="opacity-50" /> Project: {note.project}
-                      </div>
+                      <p className="text-[8px] font-black uppercase tracking-wider opacity-50 flex items-center gap-1">
+                        <Briefcase size={10} /> {note.project}
+                      </p>
                     )}
                     {assignedTeamMember && (
-                      <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
-                        <User size={11} className="opacity-50" /> Owner: {assignedTeamMember.name}
-                      </div>
+                      <p className="text-[8px] font-black uppercase tracking-wider opacity-50 flex items-center gap-1">
+                        <User size={10} /> {assignedTeamMember.name}
+                      </p>
                     )}
                     {note.due_date && (
-                      <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
-                        <Calendar size={11} className="opacity-50" /> Target: {format(new Date(note.due_date), "MMM d, yyyy")}
-                      </div>
+                      <p className="text-[8px] font-black uppercase tracking-wider opacity-60 flex items-center gap-1 text-amber-800 dark:text-amber-200">
+                        <Calendar size={10} /> {format(new Date(note.due_date), "MMM d, p")}
+                      </p>
                     )}
                   </div>
                 </div>
 
-                {/* BOTTOM CONTROL GRID */}
-                <div className="mt-4 pt-4 border-t border-black/5 space-y-3">
-                  {/* STATUS SWITCHER INLINE */}
-                  <div className="flex justify-between items-center">
-                    <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Pipeline Progress</span>
+                {/* INNER COMPACT ACTION SYSTEM */}
+                <div className="mt-4 pt-3 border-t border-black/[0.05] space-y-3">
+                  <div className="flex items-center justify-between bg-black/[0.02] px-2 py-1.5 rounded-lg">
+                    <span className="text-[8px] font-black uppercase tracking-wider opacity-40">Pipeline</span>
                     <select 
                       value={note.status || "todo"}
                       onChange={(e) => updateNoteStatus(note.id, e.target.value)}
-                      className={`text-[9px] font-black uppercase bg-transparent outline-none border-b border-transparent hover:border-black/20 cursor-pointer ${note.is_urgent ? 'text-stone-300' : 'text-stone-600'}`}
+                      className="text-[9px] font-black uppercase bg-transparent outline-none cursor-pointer text-stone-700 border-none p-0 focus:ring-0 appearance-none"
                     >
-                      <option value="todo" className="text-stone-900">To Do</option>
-                      <option value="in_progress" className="text-stone-900">In Progress</option>
-                      <option value="done" className="text-stone-900">Done</option>
+                      <option value="todo">To Do</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="done">Done</option>
                     </select>
                   </div>
 
-                  {/* EMBEDDED ACTIONS */}
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-center justify-between">
                     <button 
                       onClick={() => completeNote(note.id)}
-                      className="flex items-center gap-2 group/btn transition-transform active:scale-90"
+                      className="flex items-center gap-1.5 py-1 text-stone-400 hover:text-green-600 transition-colors group/btn"
                     >
-                      <CheckCircle2 
-                        size={26} 
-                        className={`transition-colors ${
-                          note.is_urgent ? 'text-white/20 group-hover/btn:text-green-400' : 'text-black/10 group-hover/btn:text-green-600'
-                        }`} 
-                      />
-                      <span className="text-[9px] font-black uppercase tracking-tighter opacity-0 group-hover/btn:opacity-40 transition-opacity">Clear Desk</span>
+                      <CheckCircle2 size={18} className="group-hover/btn:scale-110 transition-transform" />
+                      <span className="text-[8px] font-black uppercase tracking-widest opacity-0 group-hover/btn:opacity-100 transition-all">Complete</span>
                     </button>
 
                     <button 
                       onClick={() => completeNote(note.id)} 
-                      className="group/trash p-1.5 rounded-full hover:bg-black/5 transition-all active:scale-90"
+                      className="p-1 text-stone-300 hover:text-red-500 transition-colors"
                     >
-                      <Trash2 
-                        size={16} 
-                        className={`transition-colors ${
-                          note.is_urgent ? 'text-white/20 group-hover/trash:text-red-400' : 'text-black/10 group-hover/trash:text-red-600'
-                        }`} 
-                      />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
@@ -347,7 +334,7 @@ function VaultContent() {
         <Plus size={32} />
       </button>
 
-      {/* NEW NOTE POPUP */}
+      {/* NEW NOTE DIALOG POPUP */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 overflow-y-auto">
@@ -357,60 +344,60 @@ function VaultContent() {
               className="absolute inset-0 bg-stone-900/40 backdrop-blur-md"
             />
             <motion.div 
-              initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }}
-              className="bg-white w-full max-w-2xl rounded-[3rem] p-10 shadow-2xl relative z-10 space-y-6"
+              initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }}
+              className="bg-white w-full max-w-xl rounded-[2.5rem] p-8 shadow-2xl relative z-10 space-y-5"
             >
               <div className="flex justify-between items-center">
-                <h3 className="text-4xl font-serif italic lowercase">New Desk Entry</h3>
-                <button onClick={() => setShowModal(false)} className="text-stone-300 hover:text-stone-900"><X size={24}/></button>
+                <h3 className="text-3xl font-serif italic lowercase">New Desk Entry</h3>
+                <button onClick={() => setShowModal(false)} className="text-stone-300 hover:text-stone-900"><X size={20}/></button>
               </div>
 
-              {/* SPEAK / TEXT AREA CONTROLLER */}
-              <div className="relative bg-stone-50 rounded-2xl p-4">
+              {/* RECORD & DICTATION CAPTURE BOX */}
+              <div className="relative bg-stone-50 rounded-xl p-4">
                 <textarea 
                   autoFocus
-                  className="w-full min-h-[120px] bg-transparent text-2xl font-serif italic outline-none resize-none placeholder:text-stone-200 text-stone-800 pr-12"
-                  placeholder="Type your notes here or tap the microphone to dictate..."
+                  className="w-full min-h-[100px] bg-transparent text-xl font-serif italic outline-none resize-none placeholder:text-stone-200 text-stone-800 pr-10"
+                  placeholder="Type architectural notes or tap the mic to speak..."
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                 />
                 <button 
                   type="button"
                   onClick={toggleListening}
-                  className={`absolute bottom-4 right-4 p-3 rounded-full shadow-md transition-all ${
-                    isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-stone-600 hover:text-stone-900'
+                  className={`absolute bottom-3 right-3 p-2.5 rounded-full shadow-sm transition-all ${
+                    isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-stone-500 hover:text-stone-900'
                   }`}
                 >
-                  {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                  {isListening ? <MicOff size={15} /> : <Mic size={15} />}
                 </button>
               </div>
 
-              {/* EXTENDED SPECIFICATIONS MATRIX */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center bg-stone-50 rounded-xl px-4 py-2.5 border border-stone-100">
-                  <Tag size={14} className="text-stone-400 mr-2" />
+              {/* INPUT FIELDS MATRIX */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2 border border-stone-100">
+                  <Tag size={12} className="text-stone-400 mr-2" />
                   <input 
-                    className="bg-transparent text-[10px] font-black uppercase outline-none w-full text-stone-700 placeholder:text-stone-300"
+                    className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 placeholder:text-stone-300"
                     placeholder="CATEGORY TAG"
                     value={tag}
                     onChange={(e) => setTag(e.target.value)}
                   />
                 </div>
 
-                <div className="flex items-center bg-stone-50 rounded-xl px-4 py-2.5 border border-stone-100">
-                  <Briefcase size={14} className="text-stone-400 mr-2" />
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2 border border-stone-100">
+                  <Briefcase size={12} className="text-stone-400 mr-2" />
                   <input 
-                    className="bg-transparent text-[10px] font-black uppercase outline-none w-full text-stone-700 placeholder:text-stone-300"
+                    className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 placeholder:text-stone-300"
                     placeholder="ASSIGN PROJECT"
                     value={project}
                     onChange={(e) => setProject(e.target.value)}
                   />
                 </div>
 
-                <div className="flex items-center bg-stone-50 rounded-xl px-4 py-2.5 border border-stone-100">
-                  <User size={14} className="text-stone-400 mr-2" />
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2 border border-stone-100 col-span-2">
+                  <User size={12} className="text-stone-400 mr-2" />
                   <select
-                    className="bg-transparent text-[10px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer"
+                    className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer"
                     value={assignedTo}
                     onChange={(e) => setAssignedTo(e.target.value)}
                   >
@@ -420,62 +407,71 @@ function VaultContent() {
                     ))}
                   </select>
                 </div>
-
-                <div className="flex items-center bg-stone-50 rounded-xl px-4 py-2.5 border border-stone-100">
-                  <Calendar size={14} className="text-stone-400 mr-2" />
-                  <input 
-                    type="date"
-                    className="bg-transparent text-[10px] font-black uppercase outline-none w-full text-stone-700"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                  />
-                </div>
               </div>
 
-              {/* ACTION METADATA TOGGLES */}
-              <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-stone-100">
-                <div className="flex items-center gap-3">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Initial Status:</span>
-                  <select 
-                    value={status} 
-                    onChange={e => setStatus(e.target.value)}
-                    className="bg-stone-50 text-[10px] font-black uppercase tracking-wider p-2 px-3 rounded-lg border border-stone-100 text-stone-700 outline-none cursor-pointer"
-                  >
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="done">Done</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-2">
+              {/* SCHEDULER EXPANSION BLOCK FOR TIME REMINDERS */}
+              <div className="space-y-2 border-t border-stone-100 pt-3">
+                <div className="flex justify-between items-center">
                   <button 
                     type="button"
                     onClick={() => setIsReminder(!isReminder)}
-                    className={`flex items-center gap-2 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                      isReminder ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-stone-50 border-stone-100 text-stone-300'
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all ${
+                      isReminder ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-stone-50 border-stone-100 text-stone-400'
                     }`}
                   >
-                    {isReminder ? <Bell size={12} /> : <BellOff size={12} />} Set Reminder
+                    {isReminder ? <Bell size={12} /> : <BellOff size={12} />} Schedule Notification
                   </button>
 
                   <button 
                     type="button"
                     onClick={() => setIsUrgent(!isUrgent)}
-                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                      isUrgent ? 'bg-red-50 border-red-100 text-red-600' : 'bg-stone-50 border-stone-100 text-stone-300'
+                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all ${
+                      isUrgent ? 'bg-red-50 border-red-100 text-red-600' : 'bg-stone-50 border-stone-100 text-stone-400'
                     }`}
                   >
                     Urgent
                   </button>
                 </div>
+
+                {/* Precise Datetime Picker Field */}
+                {isReminder && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -5 }} 
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center bg-amber-50/50 rounded-lg px-3 py-2 border border-amber-100/50"
+                  >
+                    <Calendar size={12} className="text-amber-600 mr-2" />
+                    <input 
+                      type="datetime-local"
+                      required
+                      className="bg-transparent text-[10px] font-black uppercase outline-none w-full text-stone-700"
+                      value={reminderDateTime}
+                      onChange={(e) => setReminderDateTime(e.target.value)}
+                    />
+                  </motion.div>
+                )}
+              </div>
+
+              {/* PIPELINE DISPATCH OVERVIEW */}
+              <div className="flex items-center justify-between gap-4 pt-2">
+                <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Initial Pipeline Placement:</span>
+                <select 
+                  value={status} 
+                  onChange={e => setStatus(e.target.value)}
+                  className="bg-stone-50 text-[9px] font-black uppercase tracking-wider p-2 rounded-lg border border-stone-100 text-stone-700 outline-none cursor-pointer"
+                >
+                  <option value="todo">To Do</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="done">Done</option>
+                </select>
               </div>
 
               <button 
                 onClick={handleCreate}
                 disabled={isSyncing}
-                className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.5em] shadow-xl hover:bg-stone-800 transition-all flex items-center justify-center gap-4"
+                className="w-full bg-stone-900 text-white py-4 rounded-xl font-black uppercase text-[10px] tracking-[0.4em] shadow-xl hover:bg-stone-800 transition-all flex items-center justify-center gap-4"
               >
-                {isSyncing ? <Loader2 size={18} className="animate-spin" /> : "Pin to Desk"}
+                {isSyncing ? <Loader2 size={16} className="animate-spin" /> : "Pin to Desk"}
               </button>
             </motion.div>
           </div>

@@ -3,7 +3,7 @@
 import { use, useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { 
-  User, Building2, Mail, ArrowLeft, ShieldCheck, 
+  User, Building2, Mail, ArrowLeft,
   Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus, Send
 } from "lucide-react";
 import Link from "next/link";
@@ -303,8 +303,8 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
         {/* TAB CONTENT */}
         <AnimatePresence mode="wait">
           {activeTab === 'info' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid md:grid-cols-2 gap-8">
-              <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 space-y-8 shadow-sm">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full">
+              <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 space-y-8 shadow-sm max-w-4xl">
                 <div className="space-y-6">
                     <p className="text-[10px] font-black uppercase text-[#a9b897] tracking-[0.3em]">Contact Details</p>
                     
@@ -364,14 +364,6 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
                     </p>
                   )}
                 </div>
-              </div>
-              
-              <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 flex flex-col items-center justify-center text-center space-y-4">
-                 <ShieldCheck size={48} className="text-[#a9b897]" />
-                 <div>
-                   <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Account Verified</p>
-                   <p className="text-[8px] font-mono text-stone-300 mt-1 uppercase tracking-widest">ID: {profile.id}</p>
-                 </div>
               </div>
             </motion.div>
           )}
@@ -511,7 +503,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
                 {emails.length === 0 ? (
                   <div className="py-32 text-center border-2 border-dashed border-stone-100 rounded-[3rem]">
                     <Mail className="mx-auto mb-4 text-stone-100" size={48}/>
-                    <p className="text-xs font-serif italic text-stone-300">No written communication history recorded for this account profile.</p>
+                    <p className="text-xs font-serif italic text-stone-300">No written written communication history recorded for this account profile.</p>
                   </div>
                 ) : (
                   emails.map((m) => (

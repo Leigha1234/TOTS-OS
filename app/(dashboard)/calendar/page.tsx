@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
   ChevronLeft, ChevronRight, Plus, X, Loader2, 
-  MapPin, Video, Shield, RefreshCw, Settings, Tag, ChevronDown
+  MapPin, Video, Shield, RefreshCw, Settings, Tag, ChevronDown, Paperclip, Link, Users, Mail
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -59,9 +59,13 @@ export default function Calendar() {
   const [formLocation, setFormLocation] = useState("");
   const [formLink, setFormLink] = useState("");
   const [formGuests, setFormGuests] = useState("");
+  const [formInternalTeam, setFormInternalTeam] = useState("");
   const [formTags, setFormTags] = useState(""); 
   const [formDescription, setFormDescription] = useState("");
+  const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -109,7 +113,7 @@ export default function Calendar() {
     });
   }, [events, activeTagFilter]);
 
-  // FIXED: Logic to initiate a fresh creation modal
+  // Logic to initiate a fresh creation modal
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
     setFormDate(format(day, "yyyy-MM-dd"));
@@ -118,8 +122,17 @@ export default function Calendar() {
     setFormTags("");
     setFormLocation("");
     setFormLink("");
+    setFormGuests("");
+    setFormInternalTeam("");
+    setAttachedFileName(null);
     setViewMode('CREATE');
     setIsModalOpen(true);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setAttachedFileName(e.target.files[0].name);
+    }
   };
 
   const saveEntry = async () => {
@@ -127,9 +140,12 @@ export default function Calendar() {
     setIsSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
     
+    // Combining parameters smoothly into description array space for relational fields if schemas haven't updated
+    const combinedDescription = `${formDescription}${formInternalTeam ? `\n\n[Internal Team: ${formInternalTeam}]` : ''}${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ''}`;
+
     const { error } = await supabase.from("tasks").insert([{
       title: formTitle,
-      description: formDescription,
+      description: combinedDescription,
       location: formLocation,
       meeting_link: formLink,
       guests: formGuests,
@@ -141,6 +157,9 @@ export default function Calendar() {
     if (!error) {
       setFormTitle("");
       setFormTags("");
+      setFormGuests("");
+      setFormInternalTeam("");
+      setAttachedFileName(null);
       setIsModalOpen(false);
       syncCalendar();
     }
@@ -178,7 +197,7 @@ export default function Calendar() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-stone-900/5 backdrop-blur-md" />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col">
                <div className="p-8 pb-4 flex justify-between items-center">
-                 <h2 className="text-2xl font-serif italic">{viewMode === 'CREATE' ? 'New' : 'Entry Intel'}</h2>
+                 <h2 className="text-2xl font-serif italic">{viewMode === 'CREATE' ? 'New Entry' : 'Entry Intel'}</h2>
                  <button onClick={() => setIsModalOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={18}/></button>
                </div>
                <div className="p-8 pt-2 space-y-4 overflow-y-auto max-h-[70vh] no-scrollbar">
@@ -189,10 +208,39 @@ export default function Calendar() {
                       <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none ring-1 ring-stone-100" />
                       <input type="time" value={formTime} onChange={e => setFormTime(e.target.value)} className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none ring-1 ring-stone-100" />
                     </div>
+                    
+                    {/* MEETING LINK FIELD */}
+                    <div className="relative">
+                      <Link size={14} className="absolute left-4 top-4 text-stone-300" />
+                      <input value={formLink} onChange={e => setFormLink(e.target.value)} placeholder="Virtual Meeting Link (Zoom, Teams...)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
+                    </div>
+
+                    {/* EXTERNAL INVITEE MAILING FIELD */}
+                    <div className="relative">
+                      <Mail size={14} className="absolute left-4 top-4 text-stone-300" />
+                      <input value={formGuests} onChange={e => setFormGuests(e.target.value)} placeholder="External Invitees (comma separated emails)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
+                    </div>
+
+                    {/* INTERNAL TEAM MEMBERS COORDINATOR */}
+                    <div className="relative">
+                      <Users size={14} className="absolute left-4 top-4 text-stone-300" />
+                      <input value={formInternalTeam} onChange={e => setFormInternalTeam(e.target.value)} placeholder="Internal Team Members (@alex, @sam...)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
+                    </div>
+
                     <div className="relative">
                       <Tag size={14} className="absolute left-4 top-4 text-stone-300" />
                       <input value={formTags} onChange={e => setFormTags(e.target.value)} placeholder="Tags (Urgent, Uni, Work...)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
                     </div>
+                    
+                    {/* FILE ATTACHMENT PIPELINE */}
+                    <div className="w-full">
+                      <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full bg-stone-50 hover:bg-stone-100 text-stone-500 rounded-xl p-4 text-xs font-bold transition-all border border-dashed border-stone-200 flex items-center justify-center gap-2">
+                        <Paperclip size={14} />
+                        {attachedFileName ? `Attached: ${attachedFileName}` : "Add Attachment"}
+                      </button>
+                    </div>
+
                     <textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Notes..." className="w-full bg-stone-50 rounded-xl p-4 text-xs h-24 outline-none border-none resize-none ring-1 ring-stone-100" />
                     <button onClick={saveEntry} className="w-full bg-stone-900 text-[#A3B18A] py-5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all">
                       {isSubmitting ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Add"}
@@ -207,7 +255,12 @@ export default function Calendar() {
                         })}
                       </div>
                       <h3 className="text-3xl font-serif italic">{selectedEvent?.title}</h3>
-                      <p className="text-xs text-stone-400 italic">"{selectedEvent?.description || "No description provided."}"</p>
+                      <p className="text-xs text-stone-400 italic whitespace-pre-wrap">"{selectedEvent?.description || "No description provided."}"</p>
+                      {selectedEvent?.meeting_link && (
+                        <a href={selectedEvent.meeting_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
+                          <Video size={14} /> Join Meeting Route
+                        </a>
+                      )}
                    </div>
                  )}
                </div>
@@ -216,10 +269,10 @@ export default function Calendar() {
         )}
       </AnimatePresence>
 
-      {/* HEADER */}
+      {/* HEADER (FIXED: Darker Year text variant applied) */}
       <header className="flex items-end justify-between mb-8">
-        <h1 className="text-[clamp(4rem,8vw,7.5rem)] font-serif italic text-stone-800 leading-[0.8] lowercase tracking-tighter">
-          {format(currentMonth, "MMMM")} <span className="text-stone-100">{format(currentMonth, "yyyy")}</span>
+        <h1 className="text-[clamp(4rem,8vw,7.5rem)] font-serif italic text-stone-800 leading-[0.8] tracking-tighter capitalize">
+          {format(currentMonth, "MMMM")} <span className="text-stone-300 ml-2">{format(currentMonth, "yyyy")}</span>
         </h1>
         <div className="flex items-center gap-2 bg-white p-2 rounded-full border border-stone-100 shadow-sm mb-2">
           <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-3 hover:bg-stone-50 rounded-full transition-all"><ChevronLeft size={20} className="text-stone-400"/></button>

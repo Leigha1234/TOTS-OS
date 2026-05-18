@@ -170,8 +170,7 @@ export default function ComprehensiveTeamHub() {
           <nav className="flex flex-wrap items-center gap-3 pt-6">
             <button onClick={() => setActiveTab("team")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "team" ? "bg-stone-900 text-white shadow-2xl" : "bg-white border border-stone-100 text-stone-300"}`}><Users size={14} /> Members</button>
             <button onClick={() => setActiveTab("brand")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "brand" ? "bg-stone-900 text-white shadow-2xl" : "bg-white border border-stone-100 text-stone-300"}`}><Palette size={14} /> Brand Identity</button>
-            <button onClick={() => setActiveTab("security")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "security" ? "bg-stone-900 text-white shadow-2xl" : "bg-white border border-stone-100 text-stone-300"}`}><ShieldCheck size={14} /> Security</button>
-          </nav>
+         </nav>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
           <button onClick={() => router.push('/dashboard')} className="group w-full sm:w-auto px-10 py-5 rounded-[2rem] border border-stone-100 bg-white text-stone-400 hover:text-stone-900 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3"><ArrowLeft size={14} /> Dashboard</button>

@@ -6,19 +6,17 @@ import { supabase } from "@/lib/supabase-client";
 import { 
   User, Users, RefreshCcw, Save, 
   Camera, Palette, ShieldCheck, 
-  Fingerprint, ArrowUpRight, 
   Clock, Loader2, LogOut,
-  Droplets, Layout, Cpu, Type,
+  Droplets, Layout, Type, KeyRound,
   Instagram, Facebook, Disc, Linkedin,
-  Video, CreditCard, ShieldAlert, Scale, FileText, ExternalLink
+  Video, CreditCard, Scale, FileText, ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 /**
- * TOTS OS: UNIFIED ADMINISTRATIVE CONTROL CENTER v7.6
- * Architecture: Database-Coupled System Identity + Dynamic Routing Handshake
- * Theme: Organic Minimalist
+ * TOTS OS: UNIFIED ADMINISTRATIVE CONTROL CENTER v8.0.0
+ * Architecture: Clean Desk Profile Setup & Expanded Legal Hub Compliance Engine
  */
 
 export default function Settings() {
@@ -28,7 +26,7 @@ export default function Settings() {
   // -- Core Identity & Interface State --
   const [userName, setUserName] = useState<string>("LOADING...");
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<"account" | "brand">("account");
+  const [activeTab, setActiveTab] = useState<"account" | "brand" | "security">("account");
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isBillingLoading, setIsBillingLoading] = useState(false);
@@ -38,22 +36,22 @@ export default function Settings() {
   const [fontPreference, setFontPreference] = useState<"serif-heavy" | "sans-clean">("serif-heavy");
   const [uiDensity, setUiDensity] = useState<"minimal" | "compact">("minimal");
 
-  // -- Profile Information (Hydrated dynamically from database) --
+  // -- Profile Information --
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
   const [currentTier, setCurrentTier] = useState("Standard");
 
-  // -- Security Parameters & Access Activity --
-  const [sessionLogs] = useState([
-    { id: 1, device: "MacBook Pro M3", location: "Elgin, UK", time: "Active Now", status: "Active" },
-    { id: 2, device: "iPhone 15 Pro", location: "Elgin, UK", time: "2 hours ago", status: "Idle" }
-  ]);
+  // -- Security States --
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   // -- Corporate Social Media Channel Integrations State --
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
 
-  // -- Handshake Link Request to Stripe Customer Subscription Management Portal --
+  // -- Stripe Customer Subscription Portal Redirection --
   const handleManageBilling = async () => {
     setIsBillingLoading(true);
     const billingToast = toast.loading("Establishing secure connection to Stripe Billing Portal...");
@@ -62,7 +60,6 @@ export default function Settings() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       toast.dismiss(billingToast);
       toast.success("Secure session verified.");
-      
       router.push("/settings/manage-subscription");
     } catch (err) {
       toast.dismiss(billingToast);
@@ -73,7 +70,7 @@ export default function Settings() {
     }
   };
 
-  // -- Initialize Authentication Requests via Catch-All Matrix Router --
+  // -- Initialize Oauth Authentication Request In New Browser Tab --
   const connectSocialPlatform = (targetPlatform: "meta" | "tiktok" | "pinterest" | "linkedin") => {
     const redirectUri = encodeURIComponent(`https://www.tots-os.co.uk/api/auth/callback?platform=${targetPlatform}`);
     let targetUrl = "";
@@ -92,11 +89,11 @@ export default function Settings() {
       targetUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${metaAppId}&redirect_uri=${redirectUri}&scope=instagram_basic,instagram_content_publish,pages_read_engagement,pages_manage_posts`;
     }
 
-    toast.loading(`Redirecting session to authenticated ${targetPlatform} server page...`);
-    window.location.href = targetUrl;
+    toast.success(`Opening authenticated ${targetPlatform} portal page inside safe sandbox context...`);
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
   };
 
-  // -- Disconnect Server Token Records and Revoke Access Permutations --
+  // -- Disconnect Server Token Records --
   const disconnectSocialPlatform = async (targetPlatform: string) => {
     const loadingToast = toast.loading(`Deauthorizing active sync credentials for ${targetPlatform}...`);
     try {
@@ -121,7 +118,6 @@ export default function Settings() {
     }
   };
 
-  // -- Map Synchronized Platform Connections From Cloud Repository --
   const fetchChannelIntegrations = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -139,6 +135,35 @@ export default function Settings() {
     }
   };
 
+  // -- Password Management Stream --
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("Mismatch: Validation password parameters must align precisely.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast.error("Security constraint: Password array must exceed 8 character definitions.");
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      
+      toast.success("Security Credentials Overhauled Automatically");
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      console.error("Password modification rejection:", err);
+      toast.error(err.message || "Security stack refused input credentials.");
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
   // -- Dynamic Profile Hydration Lifecycle Hook --
   useEffect(() => {
     setCurrentTime(new Date());
@@ -152,7 +177,6 @@ export default function Settings() {
           return;
         }
 
-        // REMOVED 'email' from query payload to prevent database schema mismatch errors
         const { data: profile, error } = await supabase
           .from("profiles")
           .select("full_name, bio, subscription_tier")
@@ -161,7 +185,6 @@ export default function Settings() {
 
         if (error) throw error;
 
-        // Flatten fallback variables completely to guarantee compilation safety
         let emailFallback = "OPERATOR";
         let coreEmail = "";
 
@@ -183,7 +206,6 @@ export default function Settings() {
             setCurrentTier(rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase());
           }
         } else {
-          // Fallback if profile row is entirely blank
           setUserName(emailFallback.toUpperCase());
           setDisplayName(emailFallback);
           setEmail(coreEmail);
@@ -193,7 +215,6 @@ export default function Settings() {
         console.error("Failed to cleanly parse relational database profile parameters:", err);
         toast.error("Failed to securely pull account identity fields.");
       } finally {
-        // Enforce loader clearing first before completing background network checks
         setLoading(false);
         try {
           await fetchChannelIntegrations();
@@ -204,13 +225,10 @@ export default function Settings() {
     }
 
     loadActiveUserSession();
-
-    return () => {
-      clearInterval(timer);
-    };
+    return () => clearInterval(timer);
   }, [router]);
 
-  // -- Save Administrative Data State Changes back to Supabase --
+  // -- Save Profile Changes --
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -237,7 +255,6 @@ export default function Settings() {
     }
   };
 
-  // -- Sign Out Management --
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -256,7 +273,7 @@ export default function Settings() {
   );
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 max-w-[1700px] mx-auto font-sans">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 max-w-[1400px] mx-auto font-sans">
       
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&family=Inter:wght@300;400;700;900&display=swap');
@@ -284,7 +301,6 @@ export default function Settings() {
                 {currentTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "--:--"}
               </p>
             </div>
-            {/* INLINE STANDALONE MANAGEMENT BUTTON */}
             <button
               onClick={handleManageBilling}
               disabled={isBillingLoading}
@@ -330,17 +346,17 @@ export default function Settings() {
       </header>
 
       {/* --- CONTENT WORKSPACE PANELS --- */}
-      <main className="min-h-[600px]">
+      <main className="min-h-[500px]">
         <AnimatePresence mode="wait">
           
           {/* VIEW: ACCOUNT DETAILS */}
           {activeTab === "account" && (
-            <motion.div key="account" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-              <section className="lg:col-span-8 bg-white border border-stone-200 p-12 rounded-[4rem] shadow-sm space-y-16">
+            <motion.div key="account" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-12">
+              <section className="bg-white border border-stone-200 p-8 md:p-12 rounded-[4rem] shadow-sm space-y-16">
                 
                 {/* ADMINISTRATIVE DETAILS */}
                 <div className="flex flex-col md:flex-row gap-12">
-                  <div className="shrink-0">
+                  <div className="shrink-0 mx-auto md:mx-0">
                     <div className="w-40 h-40 rounded-[3rem] bg-[#faf9f6] border border-stone-100 flex items-center justify-center group relative overflow-hidden">
                        <span className="text-4xl font-serif italic text-stone-200">
                          {displayName ? displayName.split(" ").map(n => n[0]).join("").toUpperCase() : "OS"}
@@ -368,58 +384,36 @@ export default function Settings() {
                   </div>
                 </div>
 
-                {/* --- CLIENT SOCIAL SUITE CHANNEL MANAGEMENT PANEL --- */}
+                {/* --- CONNECT SOCIALS COMPONENT ROW --- */}
                 <div className="pt-10 border-t border-stone-100 space-y-6">
                   <div>
-                    <h4 className="text-2xl font-serif italic tracking-tight">Client Data Platform Sync</h4>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300 mt-1">Authenticate corporate client distribution pipelines dynamically</p>
+                    <h4 className="text-2xl font-serif italic tracking-tight">Connect Socials</h4>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300 mt-1">Authenticate corporate client distribution pipelines dynamically into target external sandbox contexts</p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
-                      { 
-                        key: "meta", 
-                        name: "Meta Business Suite", 
-                        subtitle: "Instagram & Facebook Pages",
-                        icons: [Instagram, Facebook] 
-                      },
-                      { 
-                        key: "tiktok", 
-                        name: "TikTok Studio Portal", 
-                        subtitle: "Corporate Content Pipeline",
-                        icons: [Video] 
-                      },
-                      { 
-                        key: "pinterest", 
-                        name: "Pinterest Board Suite", 
-                        subtitle: "Visual Commercial Vault",
-                        icons: [Disc] 
-                      },
-                      { 
-                        key: "linkedin", 
-                        name: "LinkedIn Corporate Network", 
-                        subtitle: "B2B Professional Integration",
-                        icons: [Linkedin] 
-                      }
+                      { key: "meta", name: "Meta Business Suite", subtitle: "Instagram & Facebook Pages", icons: [Instagram, Facebook] },
+                      { key: "tiktok", name: "TikTok Studio Portal", subtitle: "Corporate Content Pipeline", icons: [Video] },
+                      { key: "pinterest", name: "Pinterest Board Suite", subtitle: "Visual Commercial Vault", icons: [Disc] },
+                      { key: "linkedin", name: "LinkedIn Corporate Network", subtitle: "B2B Professional Integration", icons: [Linkedin] }
                     ].map((platformObj) => {
                       const isConnected = connectedPlatforms.includes(platformObj.key);
                       return (
-                        <div key={platformObj.key} className="p-5 bg-[#faf9f6] rounded-2xl border border-stone-100 flex items-center justify-between">
+                        <div key={platformObj.key} className="p-5 bg-[#faf9f6] rounded-2xl border border-stone-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-xl flex gap-1 items-center ${isConnected ? 'accent-bg text-white' : 'bg-white text-stone-300 border border-stone-100'}`}>
+                            <div className={`p-3 rounded-xl flex gap-1 items-center shrink-0 ${isConnected ? 'accent-bg text-white' : 'bg-white text-stone-300 border border-stone-100'}`}>
                               {platformObj.icons.map((Icon, idx) => (
-                                <Icon key={idx} size={16} />
+                                <Icon key={idx} size={16} fill="currentColor" className="stroke-none" />
                               ))}
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-stone-800">{platformObj.name}</span>
-                              <span className="text-[8px] font-black uppercase tracking-widest mt-0.5 text-stone-300">
-                                {isConnected ? "Verification Active" : "Unlinked Configuration"}
-                              </span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-bold text-stone-800 truncate">{platformObj.name}</span>
+                              <span className="text-[8px] font-black uppercase tracking-widest mt-0.5 text-stone-300 truncate">{platformObj.subtitle}</span>
                             </div>
                           </div>
                           <button 
                             onClick={() => isConnected ? disconnectSocialPlatform(platformObj.key) : connectSocialPlatform(platformObj.key as any)}
-                            className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-wider border transition-all ${isConnected ? 'bg-white text-stone-400 border-stone-200 hover:text-red-500' : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'}`}
+                            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-wider border transition-all text-center shrink-0 ${isConnected ? 'bg-white text-stone-400 border-stone-200 hover:text-red-500' : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'}`}
                           >
                             {isConnected ? "Disconnect" : "Connect"}
                           </button>
@@ -428,7 +422,39 @@ export default function Settings() {
                     })}
                   </div>
                 </div>
+
+                {/* --- SECURE PASSWORD ALTERATION MATRICES --- */}
+                <div className="pt-10 border-t border-stone-100 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <KeyRound size={18} className="text-stone-400 accent-text" />
+                    <div>
+                      <h4 className="text-2xl font-serif italic tracking-tight">Security Access Protocol</h4>
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300 mt-1">Alter active user password configuration fields securely</p>
+                    </div>
+                  </div>
+                  <form onSubmit={handlePasswordUpdate} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-[#faf9f6] p-6 rounded-3xl border border-stone-100">
+                    <div className="space-y-2">
+                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">Old Key Configuration</label>
+                      <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">New Target Key</label>
+                      <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">Confirm Authorization Key</label>
+                      <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
+                    </div>
+                    <div className="md:col-span-3 flex justify-end pt-2">
+                      <button type="submit" disabled={isUpdatingPassword} className="w-full md:w-auto px-8 py-3 bg-stone-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all flex items-center justify-center gap-2">
+                        {isUpdatingPassword && <Loader2 size={12} className="animate-spin" />}
+                        Update Security Key
+                      </button>
+                    </div>
+                  </form>
+                </div>
                 
+                {/* --- NAVIGATION LINKS --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10 border-t border-stone-50">
                   <button onClick={() => router.push('/settings/team')} className="p-8 bg-stone-900 rounded-[2.5rem] text-white flex flex-col justify-between h-48 group text-left">
                     <Users size={24} className="accent-text" />
@@ -437,7 +463,7 @@ export default function Settings() {
                         <p className="text-[10px] font-black uppercase tracking-widest">Team Directory</p>
                         <p className="text-[9px] font-serif italic text-stone-400">Administer global corporate profiles</p>
                       </div>
-                      <ArrowUpRight size={16} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                      <Users size={16} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform text-[#A3B18A]" />
                     </div>
                   </button>
                   <button onClick={() => router.push('/settings/import')} className="p-8 bg-white border border-stone-200 rounded-[2.5rem] flex flex-col justify-between h-48 group text-left">
@@ -447,39 +473,11 @@ export default function Settings() {
                         <p className="text-[10px] font-black uppercase tracking-widest">Import Hub</p>
                         <p className="text-[9px] font-serif italic text-stone-300">Synchronize external company matrices</p>
                       </div>
-                      <ArrowUpRight size={16} className="text-stone-200 group-hover:text-stone-900" />
+                      <RefreshCcw size={16} className="text-stone-200 group-hover:text-stone-900 transition-transform" />
                     </div>
                   </button>
                 </div>
               </section>
-
-              <aside className="lg:col-span-4 space-y-8">
-                <section className="bg-stone-900 p-10 rounded-[3.5rem] text-white space-y-8 relative overflow-hidden">
-                  <Fingerprint size={120} className="absolute -right-8 -bottom-8 opacity-5" />
-                  <div className="flex items-center gap-3">
-                    <ShieldCheck size={18} className="accent-text" />
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">Access Verification Matrix</h3>
-                  </div>
-                  <div className="space-y-6 relative z-10">
-                    {sessionLogs.map(log => (
-                      <div key={log.id} className="flex items-center justify-between opacity-80 hover:opacity-100 transition-opacity">
-                        <div className="flex items-center gap-4">
-                           <div className="w-1.5 h-1.5 rounded-full accent-bg" />
-                           <span className="text-[10px] font-bold">{log.device}</span>
-                        </div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-stone-500">{log.time}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm flex flex-col items-center text-center space-y-6">
-                  <Cpu size={40} className="text-stone-100" />
-                  <p className="text-[9px] font-black uppercase tracking-widest text-stone-300 leading-relaxed">
-                    Core v7.6 // Primary European Instance // All Systems Operational
-                  </p>
-                </div>
-              </aside>
             </motion.div>
           )}
 
@@ -571,34 +569,52 @@ export default function Settings() {
         </AnimatePresence>
       </main>
 
-      {/* --- INTEGRATED COMPLIANCE & LEGAL NAVIGATION FOOTER --- */}
-      <footer className="pt-12 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-6 text-stone-400 w-full">
-        <div className="flex items-center gap-2">
-          <Scale size={14} className="accent-text" />
-          <p suppressHydrationWarning className="text-[9px] font-black uppercase tracking-[0.3em]">
-            &copy; {new Date().getFullYear()} TOTS OS Ltd. Regulatory Framework Active.
-          </p>
+      {/* --- INTEGRATED COMPLIANCE & LEGAL HUB MATRICES --- */}
+      <section className="pt-8 border-t border-stone-200 space-y-6">
+        <div className="flex items-center gap-3">
+          <Scale size={18} className="text-stone-900 accent-text" />
+          <div>
+            <h3 className="text-3xl font-serif italic tracking-tight">Legal Hub</h3>
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300 mt-0.5">TOTS OS Governance parameters, licensing records and legal framework specifications</p>
+          </div>
         </div>
-        
-        <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Terms of Service", path: "/legal/terms", icon: FileText },
-            { label: "Privacy Blueprint", path: "/legal/privacy", icon: ShieldAlert },
-            { label: "Cookie Parameters", path: "/legal/cookies", icon: Cpu },
-            { label: "Data Processing Addendum (DPA)", path: "/legal/dpa", icon: ShieldCheck }
+            { title: "Terms & Conditions", href: "/docs/termsconditions" },
+            { title: "Privacy Policy", href: "/docs/privacypolicy" },
+            { title: "AI Policy", href: "/docs/aipolicy" },
+            { title: "Beta Terms", href: "/docs/betaterms" },
+            { title: "Cancellation Policy", href: "/docs/cancellationpolicy" },
+            { title: "Community Guidelines", href: "/docs/communityguidelines" },
+            { title: "Cookies Policy", href: "/docs/cookies" },
+            { title: "Data Terms", href: "/docs/dataterms" },
+            { title: "Property Notice", href: "/docs/propertynotice" },
+            { title: "Security Policy", href: "/docs/securitypolicy" },
+            { title: "Service Policy", href: "/docs/servicepolicy" }
+         
           ].map((doc, idx) => (
-            <button 
-              key={idx}
-              onClick={() => router.push(doc.path)}
-              className="group flex items-center gap-2 text-[9px] font-black uppercase tracking-widest hover:text-stone-900 transition-colors"
+            <div 
+              key={idx} 
+              onClick={() => window.open(doc.href, "_blank")}
+              className="p-6 bg-white border border-stone-200/80 rounded-[2rem] hover:border-stone-900 transition-all cursor-pointer group shadow-sm flex flex-col justify-between min-h-[160px]"
             >
-              <doc.icon size={11} className="text-stone-300 group-hover:accent-text transition-colors" />
-              <span>{doc.label}</span>
-              <ExternalLink size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
+              <div className="space-y-2">
+                <div className="flex justify-between items-start">
+                  <div className="p-2 bg-stone-50 rounded-xl text-stone-400 group-hover:bg-stone-900 group-hover:text-[#a9b897] transition-all">
+                    <FileText size={16} />
+                  </div>
+                  <ExternalLink size={12} className="text-stone-300 group-hover:text-stone-900 transition-colors" />
+                </div>
+                <h4 className="text-sm font-bold text-stone-800 pt-1 group-hover:text-stone-950">{doc.title}</h4>
+              </div>
+              <div className="pt-3 border-t border-stone-50 flex items-center justify-between">
+                <span className="text-[7px] font-black uppercase tracking-wider text-stone-300 group-hover:text-stone-900 transition-colors">Review Doc</span>
+              </div>
+            </div>
           ))}
-        </nav>
-      </footer>
+        </div>
+      </section>
 
     </div>
   );

@@ -204,12 +204,12 @@ export default function ImportArchitecture() {
         <aside className="lg:col-span-4 space-y-8">
           <section className="bg-stone-900 p-12 rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
             <Layers size={180} className="absolute -right-16 -top-16 opacity-5 group-hover:rotate-6 transition-transform duration-1000" />
-            <h3 className="text-3xl font-serif italic text-[#A3B18A] mb-8 relative z-10">Ingest Protocols.</h3>
+            <h3 className="text-3xl font-serif italic text-[#A3B18A] mb-8 relative z-10">Connection Types</h3>
             
             <ul className="space-y-8 relative z-10">
               {[
                 { title: "Schema Mapping", desc: "Headers matching 'Name' or 'Entity' are automatically synchronized." },
-                { title: "Node Security", desc: "All imported profiles inherit default 'user' clearance levels." },
+                { title: "Data Security", desc: "All imported profiles inherit default 'user' clearance levels." },
                 { title: "Strict CSV", desc: "RTF and Excel formats are blocked to ensure data integrity." }
               ].map((p, i) => (
                 <li key={i} className="space-y-2">
@@ -226,7 +226,7 @@ export default function ImportArchitecture() {
               <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-300">Auth Integrity</h3>
             </div>
             <p className="text-[10px] font-serif italic text-stone-400 leading-relaxed mt-4">
-              Data migration requires active administrator clearance. Every node added is timestamped and attributed to your session.
+              Data migration requires active administrator clearance. Everything added is timestamped and attributed to your session.
             </p>
             <div className="mt-8 pt-6 border-t border-stone-50 flex items-center justify-between">
               <span className="text-[8px] font-black uppercase tracking-widest text-stone-200">System Ready</span>
@@ -245,12 +245,11 @@ export default function ImportArchitecture() {
           </div>
           <div className="flex items-center gap-3">
             <FileText size={14} className="text-stone-200" />
-            <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">CSV Only Protocol</span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">CSV Only Import Hub</span>
           </div>
         </div>
         
         <div className="flex items-center gap-8">
-          <p className="text-[10px] font-serif italic text-stone-300">TOTS Operational Data Hub // 2026</p>
         </div>
       </footer>
 

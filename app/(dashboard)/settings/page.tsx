@@ -272,7 +272,8 @@ export default function Settings() {
             </div>
             <div className="flex items-center gap-2 px-2 text-stone-400">
               <Clock size={12} />
-              <p className="font-black uppercase text-[9px] tracking-[0.4em]">
+              {/* Added suppressHydrationWarning here to handle client vs server times safely */}
+              <p suppressHydrationWarning className="font-black uppercase text-[9px] tracking-[0.4em]">
                 {currentTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "--:--"}
               </p>
             </div>
@@ -567,7 +568,8 @@ export default function Settings() {
       <footer className="pt-12 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-6 text-stone-400 w-full">
         <div className="flex items-center gap-2">
           <Scale size={14} className="accent-text" />
-          <p className="text-[9px] font-black uppercase tracking-[0.3em]">
+          {/* Added suppressHydrationWarning here to handle client vs build server years cleanly */}
+          <p suppressHydrationWarning className="text-[9px] font-black uppercase tracking-[0.3em]">
             &copy; {new Date().getFullYear()} TOTS OS Ltd. Regulatory Framework Active.
           </p>
         </div>

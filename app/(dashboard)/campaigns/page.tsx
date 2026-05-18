@@ -270,7 +270,15 @@ export default function CampaignsPage() {
       <AnimatePresence>
         {showListModal && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-stone-900/40 backdrop-blur-sm">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white p-10 rounded-[3rem] w-full max-w-md shadow-2xl border border-stone-200">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white p-10 rounded-[3rem] w-full max-w-md shadow-2xl border border-stone-200 relative">
+                {/* Close Button Top Right */}
+                <button 
+                  onClick={() => setShowListModal(false)}
+                  className="absolute top-8 right-8 p-2 text-stone-400 hover:text-stone-900 rounded-full transition-colors"
+                >
+                  <X size={16} />
+                </button>
+
                 <h3 className="text-2xl font-serif italic mb-6">Create Subscriber Segment</h3>
                 <input 
                     value={newListName} onChange={e => setNewListName(e.target.value)}
@@ -278,8 +286,7 @@ export default function CampaignsPage() {
                     className="w-full p-4 bg-stone-50 rounded-2xl border border-stone-100 mb-6 outline-none focus:border-stone-900"
                 />
                 <div className="flex gap-3">
-                    <button onClick={() => setShowListModal(false)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-stone-400">Cancel</button>
-                    <button onClick={handleCreateList} className="flex-1 py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Create</button>
+                    <button onClick={handleCreateList} className="w-full py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Create Segment</button>
                 </div>
             </motion.div>
           </div>
@@ -292,8 +299,16 @@ export default function CampaignsPage() {
           <div className="fixed inset-0 z-[100] flex items-center justify-center md:p-10 bg-stone-900/60 backdrop-blur-xl">
             <motion.div 
               initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }}
-              className="bg-[#faf9f6] w-full md:max-w-[1400px] h-full md:h-[85vh] md:rounded-[4rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-stone-200"
+              className="bg-[#faf9f6] w-full md:max-w-[1400px] h-full md:h-[85vh] md:rounded-[4rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-stone-200 relative"
             >
+              {/* Close Button Top Right */}
+              <button 
+                onClick={() => setShowModal(false)}
+                className="absolute top-6 right-6 md:top-10 md:right-10 z-[110] p-3 bg-white hover:bg-stone-100 border border-stone-200 rounded-full text-stone-700 transition-colors shadow-sm"
+              >
+                <X size={18} />
+              </button>
+
               {/* ACTIONS SIDEBAR */}
               <div className="w-full md:w-80 bg-stone-50 border-r border-stone-200 p-12 flex flex-col shrink-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mb-8">Campaign Control</p>
@@ -301,14 +316,13 @@ export default function CampaignsPage() {
                   <p className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-1">Acting Identity</p>
                   <p className="text-xs font-bold text-stone-800 uppercase tracking-tight truncate">{companyName}</p>
                 </div>
-                <button onClick={() => setShowModal(false)} className="mt-auto w-full bg-stone-200/50 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-200 transition-colors">Cancel Draft</button>
               </div>
 
               {/* EDITOR */}
               <div className="flex-1 bg-stone-100/30 p-8 md:p-16 overflow-y-auto no-scrollbar">
                 {step === 'editor' && (
                   <div className="w-full max-w-3xl mx-auto pb-20">
-                    <div className="flex justify-between items-center mb-10">
+                    <div className="flex justify-between items-center mb-10 pr-14 md:pr-0">
                       <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Campaign Content Draft</span>
                       <button onClick={() => setShowClarityPrompt(true)} className="px-6 py-3 rounded-full shadow-md text-[10px] font-black uppercase tracking-widest flex items-center gap-2 bg-stone-900 text-[var(--brand-primary)]">
                         <Zap size={14} fill="var(--brand-primary)" /> AI Content Assistant
@@ -377,7 +391,7 @@ export default function CampaignsPage() {
                 )}
 
                 {step === 'schedule' && (
-                  <div className="w-full max-w-2xl mx-auto bg-white p-16 rounded-[4rem] border border-stone-200 shadow-2xl text-center">
+                  <div className="w-full max-w-2xl mx-auto bg-white p-16 rounded-[4rem] border border-stone-200 shadow-2xl text-center mt-10 md:mt-0">
                      <Users size={32} className="mx-auto mb-6 text-stone-200" />
                      <h2 className="text-4xl font-serif italic text-stone-800 mb-8">Scheduling & Logistics</h2>
                      <div className="space-y-8 text-left mb-12">
@@ -410,6 +424,7 @@ export default function CampaignsPage() {
         )}
       </AnimatePresence>
 
+      {/* GLOBAL SCROLLBAR REMOVAL */}
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

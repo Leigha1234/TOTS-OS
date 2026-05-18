@@ -190,10 +190,11 @@ function DashboardContent() {
           <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none">Business Pulse</h1>
         </div>
 
+        {/* MODIFIED: Updated button background colour and text colour for high-contrast visibility */}
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
-          className="bg-[var(--brand-primary, #A3B18A)] px-8 py-5 rounded-[2rem] shadow-sm flex items-center gap-4 text-white hover:brightness-105 transition-all"
+          className="bg-stone-900 px-8 py-5 rounded-[2rem] shadow-xl flex items-center gap-4 text-[var(--brand-primary, #A3B18A)] hover:brightness-110 transition-all"
         >
           {isScanActive ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} fill="currentColor" />}
           <span className="text-[10px] font-black uppercase tracking-[0.2em]">Intelligence Scan</span>
@@ -226,7 +227,7 @@ function DashboardContent() {
           </div>
         </section>
 
-        {/* TEAM: Updated styling layout framework for solid light-beige background contrast */}
+        {/* TEAM */}
         <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-2 flex flex-col justify-between min-h-[400px]">
           <div>
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
@@ -299,7 +300,7 @@ export default function DashboardPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
         <Loader2 className="animate-spin text-stone-300" size={32} />
-        <p className="font-black uppercase tracking-[0.5em] text-stone-300 text-[10px]">Initializing...</p>
+        <p className="font-black uppercase tracking-[0.5em] text-stone-300 text-[10px]">Initialising...</p>
       </div>
     }>
       <DashboardContent />

@@ -11,8 +11,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 /**
- * TOTS OS | THE VAULT (V10.0)
- * DESIGN: EXPANDED PHYSICAL STICKY NOTE DESK WITH EMBEDDED CONTEXT HOOKS
+ * TOTS OS | THE VAULT (V12.0)
+ * DESIGN: EXPANDED FAT PARCHMENT CARDS WITH STABLE FOOTER ALIGNMENT
  */
 
 const STICKY_THEMES = [
@@ -38,7 +38,7 @@ function VaultContent() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [search, setSearch] = useState("");
 
-  // Extended Fields
+  // Custom Metadata Fields
   const [project, setProject] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
   const [reminderDateTime, setReminderDateTime] = useState("");
@@ -60,7 +60,6 @@ function VaultContent() {
       if (error) throw error;
       setNotes(data || []);
 
-      // Pull unique project names from current notes to keep select lists populated
       if (data) {
         const uniqueProjects = Array.from(
           new Set(data.map((n: any) => n.project).filter(Boolean))
@@ -88,6 +87,7 @@ function VaultContent() {
   }, []);
 
   useEffect(() => {
+    let channel: any;
     const init = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
@@ -95,15 +95,17 @@ function VaultContent() {
       await fetchNotes(authUser.id);
       await fetchTeamMembers();
       
-      const channel = supabase.channel("vault_desk")
+      channel = supabase.channel("vault_desk")
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchNotes(authUser.id))
-        .subscribe();
-      return () => { supabase.removeChannel(channel); };
+        .subscribe((status) => {
+          if (status === "CLOSED") console.warn("Supabase Realtime socket dropped gracefully.");
+        });
     };
     init();
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, [fetchNotes, fetchTeamMembers]);
 
-  // Speech Recognition
+  // Speech Recognition Initializer
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -120,7 +122,6 @@ function VaultContent() {
 
         recognition.onerror = () => {
           setIsListening(false);
-          toast.error("Voice capture ran into an issue.");
         };
 
         recognition.onend = () => {
@@ -134,7 +135,7 @@ function VaultContent() {
 
   const toggleListening = () => {
     if (!recognitionRef.current) {
-      toast.error("Voice recognition is not supported in this browser.");
+      toast.error("Voice framework unsupported on this web engine.");
       return;
     }
     if (isListening) {
@@ -142,20 +143,20 @@ function VaultContent() {
     } else {
       setIsListening(true);
       recognitionRef.current.start();
-      toast.success("Listening... Speak clearly.");
+      toast.success("System mic open...");
     }
   };
 
   const handleCreate = async () => {
     if (!content.trim() || !user) return;
     setIsSyncing(true);
-    const theme = STICKY_THEMES[Math.floor(Math.random() * STICKY_THEMES.length)];
+    const theme = STICKY_THEMES[notes.length % STICKY_THEMES.length];
 
     try {
       const { error } = await supabase.from("notes").insert([{
         content,
         user_id: user.id,
-        color: isUrgent ? "#1C1917" : theme.bg,
+        color: isUrgent ? "#4f4a46" : theme.bg, 
         category: tag || "General",
         is_urgent: isUrgent,
         project: project || null,
@@ -191,7 +192,7 @@ function VaultContent() {
     const { error } = await supabase.from("notes").update({ status: nextStatus }).eq("id", id);
     if (!error) {
       setNotes(prev => prev.map(n => n.id === id ? { ...n, status: nextStatus } : n));
-      toast.success(`Moved to ${nextStatus.replace('_', ' ').toUpperCase()}`);
+      toast.success(`Pipeline updated.`);
     }
   };
 
@@ -214,26 +215,26 @@ function VaultContent() {
   return (
     <div className="min-h-screen bg-[#F5F5F3] font-sans text-stone-900 pb-40 relative">
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght=1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
         .shadow-sticky {
           box-shadow: 
-            3px 3px 12px rgba(0,0,0,0.02),
-            8px 20px 35px rgba(0,0,0,0.06),
-            inset 0px -5px 12px rgba(0,0,0,0.02);
+            0px 4px 6px rgba(0, 0, 0, 0.01),
+            0px 16px 32px rgba(79, 74, 70, 0.06),
+            inset 0px -6px 12px rgba(0, 0, 0, 0.01);
         }
       `}</style>
       
       {/* HEADER */}
       <header className="max-w-[1400px] mx-auto p-12 flex justify-between items-end">
         <div>
-          <h1 className="text-8xl font-serif italic tracking-tighter capitalize leading-none">Notes</h1>
+          <h1 className="text-8xl font-serif italic tracking-tighter capitalize leading-none text-[#4f4a46]">Notes</h1>
           <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400 mt-4 ml-1">Your Digital Notepad</p>
         </div>
         <div className="relative group w-64">
-          <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-stone-200" size={18} />
+          <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
           <input 
-            className="w-full bg-transparent border-b border-stone-200 py-2 pl-8 outline-none font-serif italic text-xl focus:border-stone-900 transition-all"
+            className="w-full bg-transparent border-b border-stone-200 py-2 pl-7 outline-none font-serif italic text-xl focus:border-stone-900 transition-all text-stone-800 placeholder:text-stone-300"
             placeholder="Search the desk..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -241,8 +242,8 @@ function VaultContent() {
         </div>
       </header>
 
-      {/* THE DESK GRID */}
-      <main className="max-w-[1600px] mx-auto px-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12">
+      {/* THE DESK GRID - RESPONSIVE AUTO-FIT WITH LARGER BASE CARDS */}
+      <main className="max-w-[1600px] mx-auto px-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-12 justify-items-start">
         <AnimatePresence mode="popLayout">
           {filteredNotes.map((note) => {
             const assignedTeamMember = teamMembers.find(m => m.id === note.assigned_to);
@@ -254,80 +255,97 @@ function VaultContent() {
                 animate={{ opacity: 1, scale: 1, rotate: note.metadata?.rotation || "0deg" }}
                 exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
                 whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
-                // HEIGHT AND BOX SIZE INCREASED HERE FOR CLEAN SPACING
-                className={`p-7 min-h-[420px] w-full flex flex-col shadow-sticky relative group transition-all duration-300 rounded-sm ${
+                // NOTE CONTAINER EXPANDED WIDER ("FATTER") TO ACCLAIM ALL METADATA DROPDOWNS
+                className={`p-8 min-h-[460px] w-full min-w-[340px] md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${
                   note.is_urgent ? 'text-white' : 'text-stone-800'
                 }`}
                 style={{ background: note.color || "#FFF9E6" }}
               >
-                {/* STICKY TAPE */}
-                <div className="absolute top-[-8px] left-1/2 -translate-x-1/2 w-24 h-6 bg-white/40 backdrop-blur-sm border border-white/10 z-10" />
+                {/* PARCHMENT TAPE ACCENT */}
+                <div className="absolute top-[-9px] left-1/2 -translate-x-1/2 w-28 h-6 bg-white/45 backdrop-blur-sm border border-white/20 z-10 rounded-sm" />
                 
-                {/* NOTE HEADER METADATA */}
-                <div className="flex justify-between items-start mb-4">
-                  <span className="text-[9px] font-black uppercase tracking-widest opacity-40">
-                    {note.category || 'General'}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {note.is_reminder && <Clock size={12} className={note.is_urgent ? "text-amber-300 animate-pulse" : "text-stone-500 animate-pulse"} />}
-                    {note.is_urgent && <AlertCircle size={14} className="text-red-400 animate-pulse" />}
+                {/* UPPER CONTENT AREA */}
+                <div>
+                  <div className="flex justify-between items-center mb-5">
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-40">
+                      {note.category || 'General'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {note.is_reminder && <Clock size={11} className={note.is_urgent ? "text-amber-300" : "text-stone-400 animate-pulse"} />}
+                      {note.is_urgent && <AlertCircle size={13} className="text-red-400 animate-pulse" />}
+                    </div>
                   </div>
+
+                  <p className="text-3xl font-serif italic leading-snug tracking-tight mb-6 line-clamp-[6] break-words whitespace-pre-wrap">
+                    {note.content}
+                  </p>
                 </div>
 
-                {/* CENTRAL CONTENT */}
-                <div className="flex-1 space-y-4">
-                  <p className="text-3xl font-serif italic leading-snug pr-2 break-words">{note.content}</p>
+                {/* BOTTOM METADATA PINNED CONTAINER */}
+                <div className="space-y-4 mt-auto">
+                  {/* CONTEXT DATA HOOKS */}
+                  {(note.project || assignedTeamMember || note.due_date) && (
+                    <div className="space-y-2 pt-3 border-t border-black/[0.05] opacity-80">
+                      {note.project && (
+                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
+                          <Briefcase size={11} className="opacity-40" /> 
+                          <span className="truncate">Project: {note.project}</span>
+                        </div>
+                      )}
+                      {assignedTeamMember && (
+                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
+                          <User size={11} className="opacity-40" /> 
+                          <span className="truncate">Lead: {assignedTeamMember.name}</span>
+                        </div>
+                      )}
+                      {note.due_date && (
+                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-amber-900/80">
+                          <Calendar size={11} className="opacity-50" /> 
+                          <span>Alert: {format(new Date(note.due_date), "MMM d, p")}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                  {/* CONTEXT CHIPS */}
-                  <div className="space-y-1.5 pt-3 border-t border-black/[0.04]">
-                    {note.project && (
-                      <p className="text-[9px] font-black uppercase tracking-wider opacity-50 flex items-center gap-1.5">
-                        <Briefcase size={11} /> {note.project}
-                      </p>
-                    )}
-                    {assignedTeamMember && (
-                      <p className="text-[9px] font-black uppercase tracking-wider opacity-50 flex items-center gap-1.5">
-                        <User size={11} /> {assignedTeamMember.name}
-                      </p>
-                    )}
-                    {note.due_date && (
-                      <p className="text-[9px] font-black uppercase tracking-wider opacity-70 flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
-                        <Calendar size={11} /> {format(new Date(note.due_date), "MMM d, p")}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                  {/* CONTROL GRID LAYER */}
+                  <div className="pt-3 border-t border-black/[0.05] space-y-3">
+                    <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
+                      <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Pipeline Progress</span>
+                      <select 
+                        value={note.status || "todo"}
+                        onChange={(e) => updateNoteStatus(note.id, e.target.value)}
+                        className={`text-[9px] font-black uppercase bg-transparent outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none text-right pr-1 ${
+                          note.is_urgent ? 'text-white font-bold' : 'text-stone-700'
+                        }`}
+                      >
+                        <option value="todo">To Do</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="done">Done</option>
+                      </select>
+                    </div>
 
-                {/* RELIABLE COMPACT FOOTER - FIXED INNER ALIGNMENT */}
-                <div className="mt-6 pt-4 border-t border-black/[0.06] space-y-4">
-                  <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
-                    <span className="text-[9px] font-black uppercase tracking-wider opacity-40">Pipeline</span>
-                    <select 
-                      value={note.status || "todo"}
-                      onChange={(e) => updateNoteStatus(note.id, e.target.value)}
-                      className="text-[10px] font-black uppercase bg-transparent outline-none cursor-pointer text-stone-700 border-none p-0 focus:ring-0 appearance-none pr-2"
-                    >
-                      <option value="todo">To Do</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="done">Done</option>
-                    </select>
-                  </div>
+                    <div className="flex items-center justify-between">
+                      <button 
+                        onClick={() => completeNote(note.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
+                          note.is_urgent 
+                            ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white' 
+                            : 'bg-white/60 border-black/[0.03] hover:bg-white text-stone-700 hover:text-green-700'
+                        }`}
+                      >
+                        <CheckCircle2 size={13} />
+                        <span>Clear</span>
+                      </button>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <button 
-                      onClick={() => completeNote(note.id)}
-                      className="flex items-center gap-2 px-3 py-2 bg-black/[0.04] hover:bg-black/[0.08] rounded-xl text-stone-500 hover:text-green-700 transition-all group/btn"
-                    >
-                      <CheckCircle2 size={16} className="group-hover/btn:scale-110 transition-transform" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Complete</span>
-                    </button>
-
-                    <button 
-                      onClick={() => completeNote(note.id)} 
-                      className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                      <button 
+                        onClick={() => completeNote(note.id)} 
+                        className={`p-2 rounded-lg transition-colors ${
+                          note.is_urgent ? 'hover:bg-white/10 text-white/60 hover:text-white' : 'hover:bg-red-50 text-stone-400 hover:text-red-500'
+                        }`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -358,7 +376,7 @@ function VaultContent() {
               className="bg-white w-full max-w-xl rounded-[2.5rem] p-8 shadow-2xl relative z-10 space-y-5"
             >
               <div className="flex justify-between items-center">
-                <h3 className="text-3xl font-serif italic lowercase">New Desk Entry</h3>
+                <h3 className="text-3xl font-serif italic lowercase text-[#4f4a46]">New Desk Entry</h3>
                 <button onClick={() => setShowModal(false)} className="text-stone-300 hover:text-stone-900"><X size={20}/></button>
               </div>
 
@@ -366,8 +384,8 @@ function VaultContent() {
               <div className="relative bg-stone-50 rounded-xl p-4">
                 <textarea 
                   autoFocus
-                  className="w-full min-h-[100px] bg-transparent text-xl font-serif italic outline-none resize-none placeholder:text-stone-200 text-stone-800 pr-10"
-                  placeholder="Type notes or tap the mic to speak..."
+                  className="w-full min-h-[110px] bg-transparent text-xl font-serif italic outline-none resize-none placeholder:text-stone-200 text-stone-800 pr-10"
+                  placeholder="Type notes or tap mic to dictate architecture..."
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                 />
@@ -382,9 +400,9 @@ function VaultContent() {
                 </button>
               </div>
 
-              {/* INPUT FIELDS MATRIX WITH PROJECT DROPDOWN ACCORD */}
+              {/* DYNAMIC DROPDOWN MATRIX OVERLAY */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2 border border-stone-100">
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100">
                   <Tag size={12} className="text-stone-400 mr-2" />
                   <input 
                     className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 placeholder:text-stone-300"
@@ -394,11 +412,11 @@ function VaultContent() {
                   />
                 </div>
 
-                {/* REPLACED WITH VALID SELECT DROP DOWN INTERFACE */}
-                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2 border border-stone-100">
+                {/* PROJECT SELECTION DROP DOWN */}
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100">
                   <Briefcase size={12} className="text-stone-400 mr-2" />
                   <select
-                    className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer appearance-none"
+                    className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer appearance-none bg-[none]"
                     value={project}
                     onChange={(e) => setProject(e.target.value)}
                   >
@@ -406,13 +424,13 @@ function VaultContent() {
                     {projectsList.map((pName, idx) => (
                       <option key={idx} value={pName}>{pName}</option>
                     ))}
-                    <option value="Internal Development">Internal Development</option>
-                    <option value="Client System Management">Client System Management</option>
-                    <option value="Infrastructure Audit">Infrastructure Audit</option>
+                    <option value="TOTs OS Dashboard">TOTs OS Dashboard</option>
+                    <option value="Server Migration Brief">Server Migration Brief</option>
+                    <option value="General Architecture">General Architecture</option>
                   </select>
                 </div>
 
-                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2 border border-stone-100 col-span-2">
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100 col-span-2">
                   <User size={12} className="text-stone-400 mr-2" />
                   <select
                     className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer"
@@ -427,8 +445,8 @@ function VaultContent() {
                 </div>
               </div>
 
-              {/* SCHEDULER EXPANSION BLOCK FOR TIME REMINDERS */}
-              <div className="space-y-2 border-t border-stone-100 pt-3">
+              {/* TIMED REMINDER SCHEDULER */}
+              <div className="space-y-2.5 border-t border-stone-100 pt-4">
                 <div className="flex justify-between items-center">
                   <button 
                     type="button"
@@ -437,7 +455,7 @@ function VaultContent() {
                       isReminder ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-stone-50 border-stone-100 text-stone-400'
                     }`}
                   >
-                    {isReminder ? <Bell size={12} /> : <BellOff size={12} />} Schedule Notification
+                    {isReminder ? <Bell size={12} /> : <BellOff size={12} />} Set Reminder Alert
                   </button>
 
                   <button 
@@ -451,10 +469,9 @@ function VaultContent() {
                   </button>
                 </div>
 
-                {/* Precise Datetime Picker Field */}
                 {isReminder && (
                   <motion.div 
-                    initial={{ opacity: 0, y: -5 }} 
+                    initial={{ opacity: 0, y: -4 }} 
                     animate={{ opacity: 1, y: 0 }}
                     className="flex items-center bg-amber-50/50 rounded-lg px-3 py-2 border border-amber-100/50"
                   >

@@ -119,12 +119,12 @@ export default function ProjectEngine() {
                     <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Visual Timeline</h3>
                     <div className="mt-8 flex items-center gap-4 relative">
                         <div className="absolute top-1/2 left-0 w-full h-[1px] bg-stone-100 -z-10" />
-                        {[project.start_date, "Active Deployment", project.due_date].map((point, i) => (
+                        {[project.start_date, "Active Deployment", project.due_date].map((point, i) => ( point && (
                            <div key={i} className="bg-white px-4 py-2 border border-stone-100 rounded-full flex items-center gap-2 shadow-sm">
                               <div className={`w-2 h-2 rounded-full ${i === 1 ? 'bg-[#a9b897]' : 'bg-stone-200'}`} />
                               <span className="text-[8px] font-black uppercase tracking-widest text-stone-500">{point || "TBD"}</span>
                            </div>
-                        ))}
+                        )))}
                     </div>
                   </div>
 
@@ -187,18 +187,19 @@ export default function ProjectEngine() {
             {activeTab === "administration" && (
               <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
                  <div className="bg-white border border-stone-100 rounded-[3rem] p-10 space-y-12 shadow-sm">
-                    {/* SETTINGS SECTION */}
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                        {/* PARAMETERS SECTION */}
                         <div className="space-y-6">
                             <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">System Params</h3>
                             <div className="space-y-4">
                                 <div className="space-y-1">
                                     <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">Termination Date</label>
-                                    <input type="date" defaultValue={project.due_date} onChange={(e) => updateProject({ due_date: e.target.value })} className="w-full bg-stone-50 p-4 rounded-xl text-[10px] font-bold outline-none" />
+                                    <input type="date" defaultValue={project.due_date} onChange={(e) => updateProject({ due_date: e.target.value })} className="w-full bg-stone-50 p-4 rounded-xl text-[10px] font-bold outline-none border border-transparent focus:border-stone-200" />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">Workspace Health</label>
-                                    <select onChange={(e) => updateProject({ health: e.target.value })} className="w-full bg-stone-50 p-4 rounded-xl text-[10px] font-bold outline-none">
+                                    <select onChange={(e) => updateProject({ health: e.target.value })} className="w-full bg-stone-50 p-4 rounded-xl text-[10px] font-bold outline-none border border-transparent focus:border-stone-200">
                                         <option value="Stable">Stable</option>
                                         <option value="Critical">Critical</option>
                                         <option value="Stalled">Stalled</option>
@@ -207,22 +208,29 @@ export default function ProjectEngine() {
                             </div>
                         </div>
 
-                        {/* TEAM SECTION */}
+                        {/* STACKED AND CONTROLLED PERSONNEL ACCESS BOX */}
                         <div className="space-y-6">
                             <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Personnel Access</h3>
                             <div className="space-y-4">
-                                <div className="flex gap-2">
-                                    <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="Email address..." className="flex-1 bg-stone-50 p-4 rounded-xl text-xs outline-none" />
-                                    <button className="bg-stone-900 text-white px-4 rounded-xl text-[9px] font-black uppercase tracking-widest">Invite</button>
+                                <div className="space-y-2.5">
+                                    <input 
+                                      value={inviteEmail} 
+                                      onChange={(e) => setInviteEmail(e.target.value)} 
+                                      placeholder="Email address..." 
+                                      className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none border border-stone-100 focus:bg-stone-50/40 focus:border-stone-200 transition-all text-stone-800" 
+                                    />
+                                    <button className="w-full bg-stone-900 text-white py-3.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-stone-800 active:scale-[0.99] transition-all shadow-sm">
+                                      Invite Resource
+                                    </button>
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-2 pt-2">
                                     {project.members?.split(',').map((m: string, i: number) => (
-                                        <div key={i} className="flex items-center justify-between p-3 border border-stone-50 rounded-xl">
+                                        <div key={i} className="flex items-center justify-between p-3 border border-stone-50 rounded-xl bg-stone-50/30">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-6 h-6 rounded bg-[#a9b897]/20 flex items-center justify-center text-[8px] font-black text-[#a9b897]">{m.trim().charAt(0)}</div>
                                                 <span className="text-[10px] font-bold text-stone-600">{m.trim()}</span>
                                             </div>
-                                            <span className="text-[8px] font-black uppercase text-stone-300">Revoke</span>
+                                            <button className="text-[8px] font-black uppercase text-stone-300 hover:text-red-500 transition-colors">Revoke</button>
                                         </div>
                                     ))}
                                 </div>
@@ -288,8 +296,9 @@ export default function ProjectEngine() {
         </aside>
       </main>
 
+      {/* RE-CONSTRUCTED SANITIZED STRINGS FOR THE FONTS LAYER */}
       <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
       `}} />

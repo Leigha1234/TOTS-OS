@@ -152,44 +152,54 @@ export default function Settings() {
           return;
         }
 
-        // Hydrating the full profiles payload safely now that the column exists natively
+        // REMOVED 'email' from query payload to prevent database schema mismatch errors
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("full_name, bio, subscription_tier, email")
+          .select("full_name, bio, subscription_tier")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
 
+        // Flatten fallback variables completely to guarantee compilation safety
+        let emailFallback = "OPERATOR";
+        let coreEmail = "";
+
+        if (user && user.email) {
+          coreEmail = user.email;
+          emailFallback = user.email.split("@")[0];
+        }
+
         if (profile) {
-          // Flatten fallback variables completely to guarantee compilation safety
-          let emailFallback = "OPERATOR";
-          let coreEmail = "";
-
-          if (user && user.email) {
-            coreEmail = user.email;
-            emailFallback = user.email.split("@")[0];
-          }
-
           const fetchedName = profile.full_name || emailFallback;
           
           setUserName(fetchedName.toUpperCase());
           setDisplayName(fetchedName);
-          
-          setEmail(profile.email || coreEmail);
+          setEmail(coreEmail);
           setBio(profile.bio || "Root Administrator for TOTS OS. Managing cloud architectures.");
           
           if (profile.subscription_tier) {
             const rawTier = profile.subscription_tier;
             setCurrentTier(rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase());
           }
+        } else {
+          // Fallback if profile row is entirely blank
+          setUserName(emailFallback.toUpperCase());
+          setDisplayName(emailFallback);
+          setEmail(coreEmail);
+          setBio("Root Administrator for TOTS OS.");
         }
       } catch (err) {
         console.error("Failed to cleanly parse relational database profile parameters:", err);
         toast.error("Failed to securely pull account identity fields.");
       } finally {
-        fetchChannelIntegrations();
+        // Enforce loader clearing first before completing background network checks
         setLoading(false);
+        try {
+          await fetchChannelIntegrations();
+        } catch (e) {
+          console.error("Social token channels unreadable:", e);
+        }
       }
     }
 
@@ -207,13 +217,11 @@ export default function Settings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Authentication session missing.");
 
-      // Natively saving email variables back to profiles structure smoothly
       const { error } = await supabase
         .from("profiles")
         .update({
           full_name: displayName,
-          bio: bio,
-          email: email
+          bio: bio
         })
         .eq("id", user.id);
 
@@ -272,7 +280,6 @@ export default function Settings() {
             </div>
             <div className="flex items-center gap-2 px-2 text-stone-400">
               <Clock size={12} />
-              {/* Added suppressHydrationWarning here to handle client vs server times safely */}
               <p suppressHydrationWarning className="font-black uppercase text-[9px] tracking-[0.4em]">
                 {currentTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "--:--"}
               </p>
@@ -351,7 +358,7 @@ export default function Settings() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">System Email Address</label>
-                        <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs focus:accent-border outline-none transition-all" />
+                        <input value={email} disabled className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs opacity-60 cursor-not-allowed outline-none select-none" />
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -568,7 +575,6 @@ export default function Settings() {
       <footer className="pt-12 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-6 text-stone-400 w-full">
         <div className="flex items-center gap-2">
           <Scale size={14} className="accent-text" />
-          {/* Added suppressHydrationWarning here to handle client vs build server years cleanly */}
           <p suppressHydrationWarning className="text-[9px] font-black uppercase tracking-[0.3em]">
             &copy; {new Date().getFullYear()} TOTS OS Ltd. Regulatory Framework Active.
           </p>

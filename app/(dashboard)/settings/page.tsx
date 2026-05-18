@@ -73,9 +73,10 @@ export default function Settings() {
     }
   };
 
-  // -- Initialize Authentication Requests for Dynamic Client Integrations --
+  // -- Initialize Authentication Requests via Catch-All Matrix Router --
   const connectSocialPlatform = (targetPlatform: "meta" | "tiktok" | "pinterest" | "linkedin") => {
-    const redirectUri = encodeURIComponent(`https://tots-os.co.uk/api/auth/callback/${targetPlatform}`);
+    // 1. Force the redirect URI to route inside your exact catch-all directory pattern using the verified primary canonical domain
+    const redirectUri = encodeURIComponent(`https://www.tots-os.co.uk/api/auth/callback?platform=${targetPlatform}`);
     let targetUrl = "";
 
     if (targetPlatform === "tiktok") {

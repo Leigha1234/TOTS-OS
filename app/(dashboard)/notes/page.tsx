@@ -11,8 +11,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 /**
- * TOTS OS | THE VAULT (V9.5)
- * DESIGN: PHYSICAL STICKY NOTE DESK WITH CLEAN INNER ACTIONS & REMINDERS
+ * TOTS OS | THE VAULT (V10.0)
+ * DESIGN: EXPANDED PHYSICAL STICKY NOTE DESK WITH EMBEDDED CONTEXT HOOKS
  */
 
 const STICKY_THEMES = [
@@ -27,6 +27,7 @@ function VaultContent() {
   const [user, setUser] = useState<any>(null);
   const [notes, setNotes] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [projectsList, setProjectsList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   // Modal & Input States
@@ -58,6 +59,14 @@ function VaultContent() {
       
       if (error) throw error;
       setNotes(data || []);
+
+      // Pull unique project names from current notes to keep select lists populated
+      if (data) {
+        const uniqueProjects = Array.from(
+          new Set(data.map((n: any) => n.project).filter(Boolean))
+        ) as string[];
+        setProjectsList(uniqueProjects);
+      }
     } catch (e) {
       console.error("Notes Fetch Error:", e);
       toast.error("Could not load the notes.");
@@ -209,9 +218,9 @@ function VaultContent() {
         .font-serif { font-family: 'Instrument Serif', serif; }
         .shadow-sticky {
           box-shadow: 
-            2px 2px 8px rgba(0,0,0,0.01),
-            5px 15px 25px rgba(0,0,0,0.04),
-            inset 0px -4px 10px rgba(0,0,0,0.015);
+            3px 3px 12px rgba(0,0,0,0.02),
+            8px 20px 35px rgba(0,0,0,0.06),
+            inset 0px -5px 12px rgba(0,0,0,0.02);
         }
       `}</style>
       
@@ -245,13 +254,14 @@ function VaultContent() {
                 animate={{ opacity: 1, scale: 1, rotate: note.metadata?.rotation || "0deg" }}
                 exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
                 whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
-                className={`p-6 min-h-[340px] flex flex-col shadow-sticky relative group transition-all duration-300 rounded-sm ${
+                // HEIGHT AND BOX SIZE INCREASED HERE FOR CLEAN SPACING
+                className={`p-7 min-h-[420px] w-full flex flex-col shadow-sticky relative group transition-all duration-300 rounded-sm ${
                   note.is_urgent ? 'text-white' : 'text-stone-800'
                 }`}
                 style={{ background: note.color || "#FFF9E6" }}
               >
                 {/* STICKY TAPE */}
-                <div className="absolute top-[-8px] left-1/2 -translate-x-1/2 w-20 h-6 bg-white/40 backdrop-blur-sm border border-white/10 z-10" />
+                <div className="absolute top-[-8px] left-1/2 -translate-x-1/2 w-24 h-6 bg-white/40 backdrop-blur-sm border border-white/10 z-10" />
                 
                 {/* NOTE HEADER METADATA */}
                 <div className="flex justify-between items-start mb-4">
@@ -265,37 +275,37 @@ function VaultContent() {
                 </div>
 
                 {/* CENTRAL CONTENT */}
-                <div className="flex-1 space-y-3">
-                  <p className="text-2xl font-serif italic leading-snug pr-2 break-words">{note.content}</p>
+                <div className="flex-1 space-y-4">
+                  <p className="text-3xl font-serif italic leading-snug pr-2 break-words">{note.content}</p>
 
-                  {/* CONTEXT CHIPS Inside Note */}
-                  <div className="space-y-1 pt-2 border-t border-black/[0.03]">
+                  {/* CONTEXT CHIPS */}
+                  <div className="space-y-1.5 pt-3 border-t border-black/[0.04]">
                     {note.project && (
-                      <p className="text-[8px] font-black uppercase tracking-wider opacity-50 flex items-center gap-1">
-                        <Briefcase size={10} /> {note.project}
+                      <p className="text-[9px] font-black uppercase tracking-wider opacity-50 flex items-center gap-1.5">
+                        <Briefcase size={11} /> {note.project}
                       </p>
                     )}
                     {assignedTeamMember && (
-                      <p className="text-[8px] font-black uppercase tracking-wider opacity-50 flex items-center gap-1">
-                        <User size={10} /> {assignedTeamMember.name}
+                      <p className="text-[9px] font-black uppercase tracking-wider opacity-50 flex items-center gap-1.5">
+                        <User size={11} /> {assignedTeamMember.name}
                       </p>
                     )}
                     {note.due_date && (
-                      <p className="text-[8px] font-black uppercase tracking-wider opacity-60 flex items-center gap-1 text-amber-800 dark:text-amber-200">
-                        <Calendar size={10} /> {format(new Date(note.due_date), "MMM d, p")}
+                      <p className="text-[9px] font-black uppercase tracking-wider opacity-70 flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
+                        <Calendar size={11} /> {format(new Date(note.due_date), "MMM d, p")}
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* INNER COMPACT ACTION SYSTEM */}
-                <div className="mt-4 pt-3 border-t border-black/[0.05] space-y-3">
-                  <div className="flex items-center justify-between bg-black/[0.02] px-2 py-1.5 rounded-lg">
-                    <span className="text-[8px] font-black uppercase tracking-wider opacity-40">Pipeline</span>
+                {/* RELIABLE COMPACT FOOTER - FIXED INNER ALIGNMENT */}
+                <div className="mt-6 pt-4 border-t border-black/[0.06] space-y-4">
+                  <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
+                    <span className="text-[9px] font-black uppercase tracking-wider opacity-40">Pipeline</span>
                     <select 
                       value={note.status || "todo"}
                       onChange={(e) => updateNoteStatus(note.id, e.target.value)}
-                      className="text-[9px] font-black uppercase bg-transparent outline-none cursor-pointer text-stone-700 border-none p-0 focus:ring-0 appearance-none"
+                      className="text-[10px] font-black uppercase bg-transparent outline-none cursor-pointer text-stone-700 border-none p-0 focus:ring-0 appearance-none pr-2"
                     >
                       <option value="todo">To Do</option>
                       <option value="in_progress">In Progress</option>
@@ -303,18 +313,18 @@ function VaultContent() {
                     </select>
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between pt-1">
                     <button 
                       onClick={() => completeNote(note.id)}
-                      className="flex items-center gap-1.5 py-1 text-stone-400 hover:text-green-600 transition-colors group/btn"
+                      className="flex items-center gap-2 px-3 py-2 bg-black/[0.04] hover:bg-black/[0.08] rounded-xl text-stone-500 hover:text-green-700 transition-all group/btn"
                     >
-                      <CheckCircle2 size={18} className="group-hover/btn:scale-110 transition-transform" />
-                      <span className="text-[8px] font-black uppercase tracking-widest opacity-0 group-hover/btn:opacity-100 transition-all">Complete</span>
+                      <CheckCircle2 size={16} className="group-hover/btn:scale-110 transition-transform" />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Complete</span>
                     </button>
 
                     <button 
                       onClick={() => completeNote(note.id)} 
-                      className="p-1 text-stone-300 hover:text-red-500 transition-colors"
+                      className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -357,7 +367,7 @@ function VaultContent() {
                 <textarea 
                   autoFocus
                   className="w-full min-h-[100px] bg-transparent text-xl font-serif italic outline-none resize-none placeholder:text-stone-200 text-stone-800 pr-10"
-                  placeholder="Type architectural notes or tap the mic to speak..."
+                  placeholder="Type notes or tap the mic to speak..."
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                 />
@@ -372,7 +382,7 @@ function VaultContent() {
                 </button>
               </div>
 
-              {/* INPUT FIELDS MATRIX */}
+              {/* INPUT FIELDS MATRIX WITH PROJECT DROPDOWN ACCORD */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2 border border-stone-100">
                   <Tag size={12} className="text-stone-400 mr-2" />
@@ -384,14 +394,22 @@ function VaultContent() {
                   />
                 </div>
 
+                {/* REPLACED WITH VALID SELECT DROP DOWN INTERFACE */}
                 <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2 border border-stone-100">
                   <Briefcase size={12} className="text-stone-400 mr-2" />
-                  <input 
-                    className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 placeholder:text-stone-300"
-                    placeholder="ASSIGN PROJECT"
+                  <select
+                    className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer appearance-none"
                     value={project}
                     onChange={(e) => setProject(e.target.value)}
-                  />
+                  >
+                    <option value="">Assign Project...</option>
+                    {projectsList.map((pName, idx) => (
+                      <option key={idx} value={pName}>{pName}</option>
+                    ))}
+                    <option value="Internal Development">Internal Development</option>
+                    <option value="Client System Management">Client System Management</option>
+                    <option value="Infrastructure Audit">Infrastructure Audit</option>
+                  </select>
                 </div>
 
                 <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2 border border-stone-100 col-span-2">

@@ -4,7 +4,7 @@ import { use, useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { 
   User, Building2, Mail, ArrowLeft, ShieldCheck, 
-  Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus
+  Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus, Send
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
   const resolvedParams = use(params);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const emailFileInputRef = useRef<HTMLInputElement>(null);
   const { organisationId } = useSettings();
   
   const [profile, setProfile] = useState<any>(null);
@@ -25,9 +26,11 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
   const [activeTab, setActiveTab] = useState<'info' | 'tasks' | 'email'>('info');
   
   const [tasks, setTasks] = useState<any[]>([]);
+  const [emails, setEmails] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [taskSaving, setTaskSaving] = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
 
   // Form States
   const [editForm, setEditForm] = useState({ 
@@ -49,11 +52,18 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
     attachment: null as File | null
   });
 
+  const [newEmail, setNewEmail] = useState({
+    subject: "",
+    body: "",
+    attachment: null as File | null
+  });
+
   useEffect(() => {
     if (resolvedParams.id && organisationId) {
       fetchProfile();
       fetchTeam();
       fetchTasks();
+      fetchEmails();
     }
   }, [resolvedParams.id, organisationId]);
 
@@ -103,6 +113,16 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
     setTasks(data || []);
   }
 
+  async function fetchEmails() {
+    const { data } = await supabase
+        .from("emails")
+        .select("*")
+        .eq("profile_id", resolvedParams.id)
+        .eq("organisation_id", organisationId)
+        .order("created_at", { ascending: false });
+    setEmails(data || []);
+  }
+
   const handleUpdate = async () => {
     setIsSaving(true);
     const { error } = await supabase
@@ -149,6 +169,37 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
       setNewTask({ title: "", description: "", due_date: "", assigned_to: "", attachment: null });
     }
     setTaskSaving(false);
+  };
+
+  const handleSendEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail.subject || !newEmail.body) return;
+    setEmailSaving(true);
+
+    let attachmentUrl = "";
+
+    if (newEmail.attachment) {
+      const file = newEmail.attachment;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${organisationId}/${Math.random()}.${fileExt}`;
+      const { data, error } = await supabase.storage.from('email-attachments').upload(fileName, file);
+      if (data) attachmentUrl = data.path;
+    }
+
+    const { data, error } = await supabase.from("emails").insert([{
+      subject: newEmail.subject,
+      body: newEmail.body,
+      profile_id: profile.id,
+      organisation_id: organisationId,
+      attachment_url: attachmentUrl,
+      status: 'sent'
+    }]).select().single();
+
+    if (!error) {
+      setEmails([data, ...emails]);
+      setNewEmail({ subject: "", body: "", attachment: null });
+    }
+    setEmailSaving(false);
   };
 
   if (loading) return (
@@ -410,6 +461,80 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
                       </div>
                       <div className="bg-stone-900 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-[#a9b897] shadow-lg">
                         {t.status === 'todo' ? 'Assigned' : t.status}
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'email' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid lg:grid-cols-5 gap-12">
+              {/* EMAIL CREATOR */}
+              <div className="lg:col-span-2 bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-xl h-fit">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+                  <Send size={14} className="text-[#a9b897]"/> Send New Email
+                </h3>
+                <form onSubmit={handleSendEmail} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Email Subject</label>
+                    <input required placeholder="Brief communication objective..." value={newEmail.subject} onChange={e => setNewEmail({...newEmail, subject: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none focus:ring-1 focus:ring-[#a9b897]" />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Message Body</label>
+                    <textarea required placeholder="Describe the core content or follow-up details..." value={newEmail.body} onChange={e => setNewEmail({...newEmail, body: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none h-32 resize-none focus:ring-1 focus:ring-[#a9b897]" />
+                  </div>
+
+                  <div className="pt-2">
+                    <button type="button" onClick={() => emailFileInputRef.current?.click()} className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] transition-all group">
+                      <Paperclip size={14} className="group-hover:rotate-12 transition-transform" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">{newEmail.attachment ? newEmail.attachment.name : "Attach Documentation Files"}</span>
+                    </button>
+                    <input type="file" ref={emailFileInputRef} className="hidden" onChange={e => setNewEmail({...newEmail, attachment: e.target.files?.[0] || null})} />
+                  </div>
+
+                  <button disabled={emailSaving} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] hover:bg-[#a9b897] transition-all shadow-xl mt-4 active:scale-95">
+                    {emailSaving ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Dispatch Email"}
+                  </button>
+                </form>
+              </div>
+
+              {/* EMAIL LOG HISTORY */}
+              <div className="lg:col-span-3 space-y-6">
+                <div className="flex justify-between items-center px-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Communication History</h3>
+                    <div className="px-3 py-1 bg-stone-100 rounded-full text-[8px] font-black text-stone-400 uppercase tracking-widest">{emails.length} Dispatched</div>
+                </div>
+
+                {emails.length === 0 ? (
+                  <div className="py-32 text-center border-2 border-dashed border-stone-100 rounded-[3rem]">
+                    <Mail className="mx-auto mb-4 text-stone-100" size={48}/>
+                    <p className="text-xs font-serif italic text-stone-300">No written communication history recorded for this account profile.</p>
+                  </div>
+                ) : (
+                  emails.map((m) => (
+                    <motion.div 
+                        initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                        key={m.id} 
+                        className="bg-white p-8 rounded-[2.5rem] border border-stone-100 flex items-center justify-between group hover:border-[#a9b897] hover:shadow-2xl hover:shadow-[#a9b897]/5 transition-all duration-500"
+                    >
+                      <div className="space-y-2">
+                        <p className="text-lg font-bold text-stone-800 tracking-tight group-hover:text-[#a9b897] transition-colors">{m.subject}</p>
+                        <p className="text-xs text-stone-400 line-clamp-1 max-w-md">{m.body}</p>
+                        <div className="flex items-center gap-4">
+                           {m.created_at && (
+                                <div className="flex items-center gap-1.5 bg-stone-50 px-3 py-1 rounded-full">
+                                    <Calendar size={10} className="text-[#a9b897]" />
+                                    <span className="text-[8px] font-black uppercase text-stone-400 tracking-widest">Sent: {format(new Date(m.created_at), "MMM d, yyyy h:mm a")}</span>
+                                </div>
+                            )}
+                           {m.attachment_url && <Paperclip size={12} className="text-[#a9b897] animate-bounce"/>}
+                        </div>
+                      </div>
+                      <div className="bg-stone-100 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-stone-500">
+                        {m.status}
                       </div>
                     </motion.div>
                   ))

@@ -4,7 +4,7 @@ import { use, useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { 
   User, Building2, Mail, ArrowLeft,
-  Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus, Send
+  Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus, Send, CheckCircle2, XCircle
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -31,6 +31,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
   const [isSaving, setIsSaving] = useState(false);
   const [taskSaving, setTaskSaving] = useState(false);
   const [emailSaving, setEmailSaving] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   // Form States
   const [editForm, setEditForm] = useState({ 
@@ -136,6 +137,22 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
       setIsEditing(false);
     }
     setIsSaving(false);
+  };
+
+  // Dedicated instant toggle handler for the Communications panel
+  const toggleMailingListInline = async (newValue: boolean) => {
+    setStatusUpdating(true);
+    const { error } = await supabase
+        .from("profiles")
+        .update({ email_list: newValue })
+        .eq("id", profile.id)
+        .eq("organisation_id", organisationId);
+
+    if (!error) {
+      setProfile({ ...profile, email_list: newValue });
+      setEditForm({ ...editForm, email_list: newValue });
+    }
+    setStatusUpdating(false);
   };
 
   const handleAddTask = async (e: React.FormEvent) => {
@@ -345,9 +362,13 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
                           {isEditing ? (
                             <input type="checkbox" checked={editForm.email_list} onChange={(e) => setEditForm({...editForm, email_list: e.target.checked})} className="w-5 h-5 rounded accent-[#a9b897] cursor-pointer" />
                           ) : (
-                            <span className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${profile.email_list ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-stone-100 text-stone-400'}`}>
-                              {profile.email_list ? "Subscribed" : "Unsubscribed"}
-                            </span>
+                            <button 
+                              onClick={() => toggleMailingListInline(!profile.email_list)} 
+                              disabled={statusUpdating}
+                              className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm transition-transform active:scale-95 ${profile.email_list ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-stone-100 text-stone-400 hover:bg-stone-200 hover:text-stone-600'}`}
+                            >
+                              {statusUpdating ? "Updating..." : profile.email_list ? "Subscribed" : "Unsubscribed"}
+                            </button>
                           )}
                         </div>
                     </div>
@@ -463,34 +484,70 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
 
           {activeTab === 'email' && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid lg:grid-cols-5 gap-12">
-              {/* EMAIL CREATOR */}
-              <div className="lg:col-span-2 bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-xl h-fit">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-                  <Send size={14} className="text-[#a9b897]"/> Send New Email
-                </h3>
-                <form onSubmit={handleSendEmail} className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Email Subject</label>
-                    <input required placeholder="Brief communication objective..." value={newEmail.subject} onChange={e => setNewEmail({...newEmail, subject: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none focus:ring-1 focus:ring-[#a9b897]" />
+              {/* EMAIL & MARKETING REGISTRY SIDE PANEL */}
+              <div className="lg:col-span-2 space-y-6">
+                
+                {/* INLINE MAILING LIST TOGGLE CARD */}
+                <div className="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-md flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <ListPlus size={18} className="text-[#a9b897]" />
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-wider text-stone-800">Mailing List Registry</p>
+                      <p className="text-[8px] text-stone-400 uppercase tracking-widest">Global Marketing Sync</p>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Message Body</label>
-                    <textarea required placeholder="Describe the core content or follow-up details..." value={newEmail.body} onChange={e => setNewEmail({...newEmail, body: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none h-32 resize-none focus:ring-1 focus:ring-[#a9b897]" />
-                  </div>
-
-                  <div className="pt-2">
-                    <button type="button" onClick={() => emailFileInputRef.current?.click()} className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] transition-all group">
-                      <Paperclip size={14} className="group-hover:rotate-12 transition-transform" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{newEmail.attachment ? newEmail.attachment.name : "Attach Documentation Files"}</span>
-                    </button>
-                    <input type="file" ref={emailFileInputRef} className="hidden" onChange={e => setNewEmail({...newEmail, attachment: e.target.files?.[0] || null})} />
-                  </div>
-
-                  <button disabled={emailSaving} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] hover:bg-[#a9b897] transition-all shadow-xl mt-4 active:scale-95">
-                    {emailSaving ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Dispatch Email"}
+                  <button
+                    onClick={() => toggleMailingListInline(!profile.email_list)}
+                    disabled={statusUpdating}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 ${
+                      profile.email_list 
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                        : 'bg-stone-900 text-white hover:bg-[#a9b897]'
+                    }`}
+                  >
+                    {statusUpdating ? (
+                      <Loader2 className="animate-spin" size={12} />
+                    ) : profile.email_list ? (
+                      <>
+                        <CheckCircle2 size={12} className="text-emerald-600" /> Subscribed
+                      </>
+                    ) : (
+                      <>
+                        <XCircle size={12} className="text-stone-400" /> Add to List
+                      </>
+                    )}
                   </button>
-                </form>
+                </div>
+
+                {/* EMAIL CREATOR */}
+                <div className="bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-xl h-fit">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+                    <Send size={14} className="text-[#a9b897]"/> Send New Email
+                  </h3>
+                  <form onSubmit={handleSendEmail} className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Email Subject</label>
+                      <input required placeholder="Brief communication objective..." value={newEmail.subject} onChange={e => setNewEmail({...newEmail, subject: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none focus:ring-1 focus:ring-[#a9b897]" />
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Message Body</label>
+                      <textarea required placeholder="Describe the core content or follow-up details..." value={newEmail.body} onChange={e => setNewEmail({...newEmail, body: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none h-32 resize-none focus:ring-1 focus:ring-[#a9b897]" />
+                    </div>
+
+                    <div className="pt-2">
+                      <button type="button" onClick={() => emailFileInputRef.current?.click()} className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] transition-all group">
+                        <Paperclip size={14} className="group-hover:rotate-12 transition-transform" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{newEmail.attachment ? newEmail.attachment.name : "Attach Documentation Files"}</span>
+                      </button>
+                      <input type="file" ref={emailFileInputRef} className="hidden" onChange={e => setNewEmail({...newEmail, attachment: e.target.files?.[0] || null})} />
+                    </div>
+
+                    <button disabled={emailSaving} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] hover:bg-[#a9b897] transition-all shadow-xl mt-4 active:scale-95">
+                      {emailSaving ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Dispatch Email"}
+                    </button>
+                  </form>
+                </div>
               </div>
 
               {/* EMAIL LOG HISTORY */}
@@ -503,7 +560,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
                 {emails.length === 0 ? (
                   <div className="py-32 text-center border-2 border-dashed border-stone-100 rounded-[3rem]">
                     <Mail className="mx-auto mb-4 text-stone-100" size={48}/>
-                    <p className="text-xs font-serif italic text-stone-300">No written written communication history recorded for this account profile.</p>
+                    <p className="text-xs font-serif italic text-stone-300">No written communication history recorded for this account profile.</p>
                   </div>
                 ) : (
                   emails.map((m) => (

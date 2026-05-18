@@ -113,7 +113,6 @@ export default function Calendar() {
     });
   }, [events, activeTagFilter]);
 
-  // Logic to initiate a fresh creation modal
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
     setFormDate(format(day, "yyyy-MM-dd"));
@@ -140,7 +139,6 @@ export default function Calendar() {
     setIsSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
     
-    // Combining parameters smoothly into description array space for relational fields if schemas haven't updated
     const combinedDescription = `${formDescription}${formInternalTeam ? `\n\n[Internal Team: ${formInternalTeam}]` : ''}${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ''}`;
 
     const { error } = await supabase.from("tasks").insert([{
@@ -209,19 +207,16 @@ export default function Calendar() {
                       <input type="time" value={formTime} onChange={e => setFormTime(e.target.value)} className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none ring-1 ring-stone-100" />
                     </div>
                     
-                    {/* MEETING LINK FIELD */}
                     <div className="relative">
                       <Link size={14} className="absolute left-4 top-4 text-stone-300" />
                       <input value={formLink} onChange={e => setFormLink(e.target.value)} placeholder="Virtual Meeting Link (Zoom, Teams...)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
                     </div>
 
-                    {/* EXTERNAL INVITEE MAILING FIELD */}
                     <div className="relative">
                       <Mail size={14} className="absolute left-4 top-4 text-stone-300" />
                       <input value={formGuests} onChange={e => setFormGuests(e.target.value)} placeholder="External Invitees (comma separated emails)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
                     </div>
 
-                    {/* INTERNAL TEAM MEMBERS COORDINATOR */}
                     <div className="relative">
                       <Users size={14} className="absolute left-4 top-4 text-stone-300" />
                       <input value={formInternalTeam} onChange={e => setFormInternalTeam(e.target.value)} placeholder="Internal Team Members (@alex, @sam...)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
@@ -232,7 +227,6 @@ export default function Calendar() {
                       <input value={formTags} onChange={e => setFormTags(e.target.value)} placeholder="Tags (Urgent, Uni, Work...)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
                     </div>
                     
-                    {/* FILE ATTACHMENT PIPELINE */}
                     <div className="w-full">
                       <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                       <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full bg-stone-50 hover:bg-stone-100 text-stone-500 rounded-xl p-4 text-xs font-bold transition-all border border-dashed border-stone-200 flex items-center justify-center gap-2">
@@ -269,7 +263,7 @@ export default function Calendar() {
         )}
       </AnimatePresence>
 
-      {/* HEADER (FIXED: Darker Year text variant applied) */}
+      {/* HEADER */}
       <header className="flex items-end justify-between mb-8">
         <h1 className="text-[clamp(4rem,8vw,7.5rem)] font-serif italic text-stone-800 leading-[0.8] tracking-tighter capitalize">
           {format(currentMonth, "MMMM")} <span className="text-stone-300 ml-2">{format(currentMonth, "yyyy")}</span>
@@ -324,11 +318,11 @@ export default function Calendar() {
           </div>
         </section>
 
-        {/* SIDEBAR */}
+        {/* SIDEBAR (FIXED: Added capitalize filter rule variant to header layout) */}
         <aside className="lg:col-span-4 bg-white rounded-[3rem] border border-stone-100 shadow-3xl p-8 flex flex-col overflow-hidden relative">
           <div className="mb-8">
             <p className="text-[10px] font-black uppercase tracking-widest text-[#A3B18A] mb-1">{format(selectedDay, "EEEE")}</p>
-            <h2 className="text-5xl font-serif italic text-stone-800 leading-[0.8] lowercase">{format(selectedDay, "do MMM")}</h2>
+            <h2 className="text-5xl font-serif italic text-stone-800 leading-[0.8] capitalize">{format(selectedDay, "do MMM")}</h2>
           </div>
 
           <div className="relative mb-6 z-[100]">

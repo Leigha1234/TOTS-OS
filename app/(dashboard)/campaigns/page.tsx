@@ -179,7 +179,7 @@ export default function CampaignsPage() {
         <aside className="lg:col-span-4 order-1 lg:order-2">
           <div className="bg-stone-50 border border-stone-200 rounded-[3.5rem] p-12 shadow-sm">
             <div className="flex justify-between items-center mb-10">
-                <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[var(--brand-primary)]">Subscriber Segments</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[var(--brand-primary)]">Campaign Lists</p>
                 <button onClick={() => setShowListModal(true)} className="p-2 bg-white rounded-full border border-stone-200 hover:bg-stone-100 transition-colors"><Plus size={14}/></button>
             </div>
             <div className="space-y-6">
@@ -228,11 +228,11 @@ export default function CampaignsPage() {
               <div className="p-8 md:p-12 overflow-y-auto no-scrollbar space-y-8 flex-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-stone-100 pb-6 text-xs">
                   <div>
-                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Scheduled Dispatch Time</p>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Scheduled Time</p>
                     <p className="font-bold text-stone-800 flex items-center gap-2"><Clock size={14} className="text-stone-400" /> {formatScheduledDate(selectedCampaign.scheduled_for)}</p>
                   </div>
                   <div>
-                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Author / Organisation Identity</p>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Company Name</p>
                     <p className="font-bold text-stone-800 flex items-center gap-2"><Users size={14} className="text-stone-400" /> {companyName}</p>
                   </div>
                 </div>
@@ -279,14 +279,14 @@ export default function CampaignsPage() {
                   <X size={16} />
                 </button>
 
-                <h3 className="text-2xl font-serif italic mb-6">Create Subscriber Segment</h3>
+                <h3 className="text-2xl font-serif italic mb-6">Create Campaign List</h3>
                 <input 
                     value={newListName} onChange={e => setNewListName(e.target.value)}
                     placeholder="Segment Name (e.g. Investors)" 
                     className="w-full p-4 bg-stone-50 rounded-2xl border border-stone-100 mb-6 outline-none focus:border-stone-900"
                 />
                 <div className="flex gap-3">
-                    <button onClick={handleCreateList} className="w-full py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Create Segment</button>
+                    <button onClick={handleCreateList} className="w-full py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Create List</button>
                 </div>
             </motion.div>
           </div>
@@ -313,7 +313,7 @@ export default function CampaignsPage() {
               <div className="w-full md:w-80 bg-stone-50 border-r border-stone-200 p-12 flex flex-col shrink-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mb-8">Campaign Control</p>
                 <div className="mb-4 p-4 bg-white border border-stone-100 rounded-2xl">
-                  <p className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-1">Acting Identity</p>
+                  <p className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-1">Company Name</p>
                   <p className="text-xs font-bold text-stone-800 uppercase tracking-tight truncate">{companyName}</p>
                 </div>
               </div>
@@ -375,7 +375,7 @@ export default function CampaignsPage() {
                       {/* DYNAMIC FOOTER */}
                       <footer className="mt-16 pt-12 border-t border-stone-900/10 text-center">
                          <p className="text-[11px] font-black uppercase tracking-[0.5em] mb-3 text-stone-900">{companyName}</p>
-                         <p className="text-[8px] text-stone-400 uppercase tracking-[0.3em] font-medium italic">Powered by TOTS-OS operational Architecture</p>
+                         <p className="text-[8px] text-stone-400 uppercase tracking-[0.3em] font-medium italic">Powered by TOTS-OS</p>
                       </footer>
                     </div>
 
@@ -393,17 +393,17 @@ export default function CampaignsPage() {
                 {step === 'schedule' && (
                   <div className="w-full max-w-2xl mx-auto bg-white p-16 rounded-[4rem] border border-stone-200 shadow-2xl text-center mt-10 md:mt-0">
                      <Users size={32} className="mx-auto mb-6 text-stone-200" />
-                     <h2 className="text-4xl font-serif italic text-stone-800 mb-8">Scheduling & Logistics</h2>
+                     <h2 className="text-4xl font-serif italic text-stone-800 mb-8">Scheduling </h2>
                      <div className="space-y-8 text-left mb-12">
                        <div>
-                         <label className="text-[9px] font-black uppercase text-stone-400 mb-3 block ml-1">Target Subscriber List</label>
+                         <label className="text-[9px] font-black uppercase text-stone-400 mb-3 block ml-1">Target Campaign List</label>
                          <select value={form.list_id} onChange={e => setForm({...form, list_id: e.target.value})} className="w-full p-5 bg-stone-50 border border-stone-200 rounded-2xl text-xs outline-none focus:border-stone-900">
-                           <option value="">Select target audience segment...</option>
+                           <option value="">Select target audience list...</option>
                            {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                          </select>
                        </div>
                        <div>
-                         <label className="text-[9px] font-black uppercase text-stone-400 mb-3 block ml-1">Scheduled Deployment Time</label>
+                         <label className="text-[9px] font-black uppercase text-stone-400 mb-3 block ml-1">Scheduled Time</label>
                          <input type="datetime-local" value={form.scheduled_for} onChange={e => setForm({...form, scheduled_for: e.target.value})} className="w-full p-5 bg-stone-50 border border-stone-200 rounded-2xl text-xs outline-none focus:border-stone-900" />
                        </div>
                      </div>

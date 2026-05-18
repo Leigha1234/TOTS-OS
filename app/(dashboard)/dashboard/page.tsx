@@ -16,7 +16,7 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const { organisationId } = useSettings();
   
-  const [userName, setUserName] = useState<string>("OPERATOR");
+  const [userName, setUserName] = useState<string>("Username");
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
@@ -187,7 +187,7 @@ function DashboardContent() {
               </p>
             </div>
           </div>
-          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none">Business Pulse</h1>
+          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none">Dashboard</h1>
         </div>
 
         {/* FIXED: Replaced hidden button components with clean, highly legible white text on dark stone background */}
@@ -197,7 +197,7 @@ function DashboardContent() {
           className="bg-stone-900 px-8 py-5 rounded-[2rem] shadow-xl flex items-center gap-4 text-white hover:brightness-110 transition-all"
         >
           {isScanActive ? <Loader2 className="animate-spin text-white" size={18} /> : <Zap size={18} className="text-[var(--brand-primary,#A3B18A)]" fill="currentColor" />}
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Intelligence Scan</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">AI Scan</span>
         </motion.button>
       </header>
 
@@ -231,7 +231,7 @@ function DashboardContent() {
         <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-2 flex flex-col justify-between min-h-[400px]">
           <div>
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-              <Users size={14} className="text-[var(--brand-primary, #A3B18A)]" /> Active Members
+              <Users size={14} className="text-[var(--brand-primary, #A3B18A)]" />Members
             </h2>
             <div className="space-y-4">
               {teamMembers.map((member, index) => (
@@ -300,7 +300,7 @@ export default function DashboardPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
         <Loader2 className="animate-spin text-stone-300" size={32} />
-        <p className="font-black uppercase tracking-[0.5em] text-stone-300 text-[10px]">Initialising...</p>
+        <p className="font-black uppercase tracking-[0.5em] text-stone-300 text-[10px]">Loading...</p>
       </div>
     }>
       <DashboardContent />

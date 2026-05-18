@@ -268,7 +268,7 @@ export default function Settings() {
   if (loading) return (
     <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-6">
       <Loader2 className="animate-spin text-[#A3B18A]" size={40} />
-      <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[#A3B18A]">Verifying Account Workspace</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[#A3B18A]">Loading settings...</p>
     </div>
   );
 
@@ -315,12 +315,11 @@ export default function Settings() {
             <h1 className="text-6xl md:text-8xl font-serif italic tracking-tighter leading-none text-stone-900">
               Settings
             </h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-300 ml-2">Global System Infrastructure</p>
           </div>
           
           <nav className="flex flex-wrap items-center gap-3 pt-4">
             <button onClick={() => setActiveTab("account")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "account" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-100 text-stone-300"}`}>
-              <User size={14} /> Profile Controls
+              <User size={14} /> Profile
             </button>
             <button onClick={() => setActiveTab("brand")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "brand" ? "bg-stone-900 text-white shadow-xl" : "bg-white border border-stone-100 text-stone-300"}`}>
               <Palette size={14} /> Brand DNA
@@ -369,11 +368,11 @@ export default function Settings() {
                   <div className="flex-grow space-y-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Corporate Identity</label>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Full Name</label>
                         <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs focus:accent-border outline-none transition-all" />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">System Email Address</label>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Email Address</label>
                         <input value={email} disabled className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs opacity-60 cursor-not-allowed outline-none select-none" />
                       </div>
                     </div>
@@ -388,7 +387,6 @@ export default function Settings() {
                 <div className="pt-10 border-t border-stone-100 space-y-6">
                   <div>
                     <h4 className="text-2xl font-serif italic tracking-tight">Connect Socials</h4>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300 mt-1">Authenticate corporate client distribution pipelines dynamically into target external sandbox contexts</p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
@@ -428,21 +426,20 @@ export default function Settings() {
                   <div className="flex items-center gap-3">
                     <KeyRound size={18} className="text-stone-400 accent-text" />
                     <div>
-                      <h4 className="text-2xl font-serif italic tracking-tight">Security Access Protocol</h4>
-                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300 mt-1">Alter active user password configuration fields securely</p>
+                      <h4 className="text-2xl font-serif italic tracking-tight">Password</h4>
                     </div>
                   </div>
                   <form onSubmit={handlePasswordUpdate} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-[#faf9f6] p-6 rounded-3xl border border-stone-100">
                     <div className="space-y-2">
-                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">Old Key Configuration</label>
+                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">Old Password</label>
                       <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">New Target Key</label>
+                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">New Password</label>
                       <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">Confirm Authorization Key</label>
+                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">Confirm New Password</label>
                       <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
                     </div>
                     <div className="md:col-span-3 flex justify-end pt-2">
@@ -460,8 +457,7 @@ export default function Settings() {
                     <Users size={24} className="accent-text" />
                     <div className="flex justify-between items-end w-full">
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest">Team Directory</p>
-                        <p className="text-[9px] font-serif italic text-stone-400">Administer global corporate profiles</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest">Team Hub</p>
                       </div>
                       <Users size={16} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform text-[#A3B18A]" />
                     </div>
@@ -471,7 +467,6 @@ export default function Settings() {
                     <div className="flex justify-between items-end w-full">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest">Import Hub</p>
-                        <p className="text-[9px] font-serif italic text-stone-300">Synchronize external company matrices</p>
                       </div>
                       <RefreshCcw size={16} className="text-stone-200 group-hover:text-stone-900 transition-transform" />
                     </div>
@@ -486,17 +481,13 @@ export default function Settings() {
             <motion.div key="brand" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                <section className="lg:col-span-12 bg-white border border-stone-200 p-12 rounded-[4rem] shadow-sm space-y-16">
                   <div className="space-y-2">
-                    <h3 className="text-4xl font-serif italic tracking-tight">System Appearance.</h3>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">Global Styling & Corporate Parameters</p>
+                    <h3 className="text-4xl font-serif italic tracking-tight">System Appearance</h3>
                   </div>
 
                   <div className="space-y-12">
                     {/* ACCENT SELECTION */}
                     <div className="space-y-6">
-                      <div className="flex items-center gap-4">
-                        <Droplets size={16} className="accent-text" />
-                        <label className="text-[10px] font-black uppercase tracking-widest">Primary Accent Variant</label>
-                      </div>
+                      
                       <div className="flex flex-wrap gap-4">
                         {["#A3B18A", "#6B705C", "#8E9AAF", "#9D8189", "#2D2D2D"].map(color => (
                           <button 
@@ -539,29 +530,6 @@ export default function Settings() {
                       </div>
                     </div>
 
-                    {/* VIEWPORT DENSITY */}
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-4">
-                        <Layout size={16} className="accent-text" />
-                        <label className="text-[10px] font-black uppercase tracking-widest">Viewport Density Grid</label>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button 
-                          onClick={() => setUiDensity("minimal")}
-                          className={`p-6 rounded-3xl border text-left transition-all ${uiDensity === 'minimal' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
-                        >
-                          <span className="text-xs font-bold text-stone-800 block">Organic Minimal</span>
-                          <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mt-1">Expansive White Space Padding Matrix</span>
-                        </button>
-                        <button 
-                          onClick={() => setUiDensity("compact")}
-                          className={`p-6 rounded-3xl border text-left transition-all ${uiDensity === 'compact' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
-                        >
-                          <span className="text-xs font-bold text-stone-800 block">Data Compact</span>
-                          <span className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mt-1">High Density Analytical Table Rows</span>
-                        </button>
-                      </div>
-                    </div>
                   </div>
                </section>
             </motion.div>
@@ -575,8 +543,7 @@ export default function Settings() {
           <Scale size={18} className="text-stone-900 accent-text" />
           <div>
             <h3 className="text-3xl font-serif italic tracking-tight">Legal Hub</h3>
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-300 mt-0.5">TOTS OS Governance parameters, licensing records and legal framework specifications</p>
-          </div>
+              </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -173,7 +173,7 @@ export default function ComprehensiveTeamHub() {
          </nav>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
-          <button onClick={() => router.push('/dashboard')} className="group w-full sm:w-auto px-10 py-5 rounded-[2rem] border border-stone-100 bg-white text-stone-400 hover:text-stone-900 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3"><ArrowLeft size={14} /> Dashboard</button>
+          <button onClick={() => router.push('/settings')} className="group w-full sm:w-auto px-10 py-5 rounded-[2rem] border border-stone-100 bg-white text-stone-400 hover:text-stone-900 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3"><ArrowLeft size={14} /> Settings</button>
           <motion.button whileHover={{ scale: 1.02 }} onClick={handleSave} disabled={saving} className="w-full sm:w-auto flex items-center justify-center gap-4 bg-stone-900 px-12 py-5 rounded-[2rem] shadow-xl hover:bg-[#A3B18A] transition-all disabled:opacity-50 group">
             {saving ? <Loader2 className="animate-spin text-white" size={18} /> : <Database className="text-[#A3B18A] group-hover:text-white" size={18} />}
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Save Changes</span>
@@ -197,7 +197,14 @@ export default function ComprehensiveTeamHub() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
                 {teamMembers.filter(m => m.full_name?.toLowerCase().includes(searchQuery.toLowerCase())).map((member, i) => (
-                  <motion.div key={member.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }} className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm group hover:border-[#A3B18A] transition-all duration-500">
+                  <motion.div 
+                    key={member.id} 
+                    initial={{ opacity: 0, scale: 0.95 }} 
+                    animate={{ opacity: 1, scale: 1 }} 
+                    transition={{ delay: i * 0.05 }} 
+                    onClick={() => router.push(`/settings/team/${member.id}`)}
+                    className="bg-white border border-stone-200 p-10 rounded-[3.5rem] shadow-sm group hover:border-[#A3B18A] transition-all duration-500 cursor-pointer"
+                  >
                     <div className="flex justify-between items-start mb-12">
                        <div className="w-16 h-16 rounded-[2rem] bg-[#faf9f6] flex items-center justify-center text-2xl font-serif italic text-stone-200 group-hover:bg-stone-900 group-hover:text-[#A3B18A] transition-all">
                          {member.full_name?.charAt(0) || "U"}
@@ -213,7 +220,7 @@ export default function ComprehensiveTeamHub() {
                       </div>
                       <div className="pt-6 border-t border-stone-50 flex items-center justify-between text-stone-300">
                         <span className="text-[8px] font-black uppercase tracking-widest">{member.role === 'admin' ? 'Owner Access' : 'Staff Access'}</span>
-                        <ChevronRight size={14} />
+                        <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform group-hover:text-stone-900" />
                       </div>
                     </div>
                   </motion.div>

@@ -63,7 +63,7 @@ export default function ProjectDirectory() {
         category: "Strategic", members: "", start_date: "", 
         due_date: "", budget: "", health: "Stable" 
       });
-      toast.success("Project Ledger Established");
+      toast.success("Project Established");
     } finally {
       setSaving(false);
     }
@@ -81,7 +81,7 @@ export default function ProjectDirectory() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-[#a9b897]">
               <div className="w-8 h-[1px] bg-[#a9b897]" />
-              <p className="text-[10px] uppercase tracking-[0.4em] font-black">Strategic Assets</p>
+              <p className="text-[10px] uppercase tracking-[0.4em] font-black">Assets</p>
             </div>
             <h1 className="text-6xl md:text-8xl font-serif italic text-stone-800 tracking-tighter">Projects</h1>
           </div>
@@ -106,7 +106,7 @@ export default function ProjectDirectory() {
           {loading ? (
             <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border border-stone-100 gap-4 opacity-50">
               <Loader2 className="animate-spin text-[#a9b897]" />
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Synchronizing Archive...</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300"> Sync Archive...</p>
             </div>
           ) : filtered.length > 0 ? (
             filtered.map((project) => (
@@ -130,7 +130,7 @@ export default function ProjectDirectory() {
           ) : (
             <div className="text-center py-24 bg-white border border-dashed border-stone-200 rounded-[3rem]">
               <Database size={32} className="mx-auto text-stone-100 mb-4" />
-              <p className="text-stone-300 text-[10px] font-black uppercase tracking-[0.4em]">Zero Active Projects in Directory</p>
+              <p className="text-stone-300 text-[10px] font-black uppercase tracking-[0.4em]">No Active Projects</p>
             </div>
           )}
         </div>
@@ -144,8 +144,7 @@ export default function ProjectDirectory() {
               
               <div className="flex justify-between items-start mb-10">
                 <div>
-                    <h2 className="text-4xl font-serif italic text-stone-800">Initialize Project</h2>
-                    <p className="text-[9px] font-black uppercase text-[#a9b897] tracking-[0.3em] mt-1">Operational Node Ingestion</p>
+                    <h2 className="text-4xl font-serif italic text-stone-800">New Project</h2>
                 </div>
                 <button onClick={() => setShowModal(false)} className="p-3 hover:bg-stone-50 rounded-full transition-colors"><X size={20} /></button>
               </div>
@@ -154,7 +153,7 @@ export default function ProjectDirectory() {
                 {/* IDENTITY & CATEGORY */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Project Identifier</label>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Project</label>
                         <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm font-serif italic outline-none focus:border-[#a9b897]" placeholder="Project Name" />
                     </div>
                     <div className="space-y-1">
@@ -189,14 +188,14 @@ export default function ProjectDirectory() {
                 {/* DATES */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Inception Date</label>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Start Date</label>
                         <div className="relative">
                             <Calendar size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
                             <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-[10px] font-bold outline-none" />
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Terminal Deadline</label>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Deadline</label>
                         <div className="relative">
                             <Calendar size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
                             <input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-[10px] font-bold outline-none" />
@@ -206,12 +205,12 @@ export default function ProjectDirectory() {
 
                 {/* CONTENT */}
                 <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Strategic Objective (Brief)</label>
+                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Objective (Brief)</label>
                     <input value={form.objective_summary} onChange={(e) => setForm({ ...form, objective_summary: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs font-serif italic outline-none focus:border-[#a9b897]" placeholder="One sentence intent..." />
                 </div>
 
                 <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Operational Description</label>
+                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Description</label>
                     <div className="relative">
                         <AlignLeft size={14} className="absolute left-4 top-5 text-stone-300" />
                         <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897] h-32 resize-none leading-relaxed" placeholder="Detailed scope and documentation requirements..." />

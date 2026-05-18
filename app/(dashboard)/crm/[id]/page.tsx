@@ -222,7 +222,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
   if (loading) return (
     <div className="h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
       <Loader2 className="animate-spin text-[#a9b897]" size={32} />
-      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Loading Account Profile...</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Loading Profile...</p>
     </div>
   );
 
@@ -234,7 +234,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <Link href="/crm" className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] group">
             <ArrowLeft size={16} />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em]">Client Directory</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.4em]">Client Profile</span>
           </Link>
           <div className="flex gap-2">
             {!isEditing ? (
@@ -277,7 +277,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
                 {isEditing ? (
                   <input value={editForm.company_name} onChange={(e) => setEditForm({...editForm, company_name: e.target.value})} className="bg-transparent text-xs font-bold text-stone-700 outline-none uppercase tracking-widest border-b border-stone-200" placeholder="Company Name" />
                 ) : (
-                  <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.company_name || "Independent Operator"}</span>
+                  <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.company_name || "No Company Provided"}</span>
                 )}
               </div>
             </div>
@@ -288,7 +288,8 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
              <p className="text-[10px] font-black uppercase text-stone-500 tracking-[0.3em] relative z-10">Account Access Level</p>
              {isEditing ? (
                <select value={editForm.role} onChange={(e) => setEditForm({...editForm, role: e.target.value})} className="bg-stone-800 text-white p-3 rounded-xl font-serif italic text-2xl text-[#a9b897] capitalize relative z-10 outline-none border border-stone-700 appearance-none cursor-pointer">
-                 <option value="user">Standard User</option>
+                 <option value="client">Client</option>
+                 <option value="lead">Lead</option>
                  <option value="admin">Administrator</option>
                  <option value="manager">Manager</option>
                </select>
@@ -356,8 +357,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
                         <div className="p-3 bg-stone-50 rounded-xl"><ListPlus size={18} className="text-[#a9b897]"/></div>
                         <div className="flex-1 flex items-center justify-between">
                           <div>
-                            <p className="text-[10px] font-black uppercase tracking-wider text-stone-800">Mailing List Registry</p>
-                            <p className="text-[8px] text-stone-400 uppercase tracking-widest">Global Newsletter Distribution</p>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-stone-800">Mailing List</p>
                           </div>
                           {isEditing ? (
                             <input type="checkbox" checked={editForm.email_list} onChange={(e) => setEditForm({...editForm, email_list: e.target.checked})} className="w-5 h-5 rounded accent-[#a9b897] cursor-pointer" />
@@ -376,7 +376,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
                 
                 {/* Company Details / Corporate background notes */}
                 <div className="pt-8 border-t border-stone-50 space-y-2">
-                  <p className="text-[10px] font-black uppercase text-stone-300 tracking-widest">Corporate Profile Notes</p>
+                  <p className="text-[10px] font-black uppercase text-stone-300 tracking-widest">Company Notes</p>
                   {isEditing ? (
                     <textarea value={editForm.company_details} onChange={(e) => setEditForm({...editForm, company_details: e.target.value})} className="w-full bg-stone-50 p-4 rounded-2xl text-xs font-serif italic text-stone-700 outline-none h-28 resize-none focus:ring-1 focus:ring-[#a9b897]" placeholder="Enter corporate background information..." />
                   ) : (
@@ -492,8 +492,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
                   <div className="flex items-center gap-3">
                     <ListPlus size={18} className="text-[#a9b897]" />
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-wider text-stone-800">Mailing List Registry</p>
-                      <p className="text-[8px] text-stone-400 uppercase tracking-widest">Global Marketing Sync</p>
+                      <p className="text-[9px] font-black uppercase tracking-wider text-stone-800">Mailing List</p>
                     </div>
                   </div>
                   <button

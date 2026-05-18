@@ -413,7 +413,7 @@ export default function CampaignsPage() {
                         onClick={handleSchedule} 
                         className="px-12 py-5 rounded-2xl bg-stone-900 text-[var(--brand-primary)] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-3 hover:brightness-110"
                        >
-                         <CalendarIcon size={16}/> Finalize Schedule
+                         <CalendarIcon size={16}/>Schedule
                        </button>
                      </div>
                   </div>

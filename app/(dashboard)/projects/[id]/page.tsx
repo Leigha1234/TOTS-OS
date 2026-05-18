@@ -69,7 +69,7 @@ export default function ProjectEngine() {
             <div className="p-2 bg-stone-50 rounded-lg group-hover:bg-stone-900 group-hover:text-white transition-all">
               <ChevronLeft size={14} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">Archive Index</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">Project Overview</span>
           </Link>
           
           <div className="hidden md:flex items-center gap-1 bg-stone-100 p-1 rounded-xl">
@@ -116,7 +116,7 @@ export default function ProjectEngine() {
                 {/* TIMELINE VISUAL */}
                 <div className="bg-white border border-stone-100 rounded-[3rem] p-10 shadow-sm space-y-10">
                   <div>
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Visual Timeline</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Timeline</h3>
                     <div className="mt-8 flex items-center gap-4 relative">
                         <div className="absolute top-1/2 left-0 w-full h-[1px] bg-stone-100 -z-10" />
                         {[project.start_date, "Active Deployment", project.due_date].map((point, i) => ( point && (
@@ -137,7 +137,7 @@ export default function ProjectEngine() {
                         placeholder="Define next objective..."
                         className="flex-1 bg-stone-50 p-5 rounded-2xl text-xs font-serif italic outline-none focus:ring-1 ring-[#a9b897]/30 transition-all"
                       />
-                      <button onClick={addTask} className="bg-stone-900 text-white px-10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all">Append</button>
+                      <button onClick={addTask} className="bg-stone-900 text-white px-10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all">Add</button>
                     </div>
                     <div className="space-y-3">
                       {tasks.map(t => (
@@ -163,13 +163,13 @@ export default function ProjectEngine() {
                   {/* UPLOAD ZONE */}
                   <div className="border-2 border-dashed border-stone-200 rounded-[3rem] p-12 text-center bg-white hover:border-[#a9b897] transition-all cursor-pointer group">
                     <Cloud size={40} className="mx-auto text-stone-200 group-hover:text-[#a9b897] transition-all mb-4" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Ingest New Assets</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Add New Assets</p>
                     <p className="text-[9px] text-stone-300 mt-2 font-serif italic">PDF, PNG, MP4, .SQL</p>
                   </div>
 
                   {/* RECENT FILES */}
                   <div className="bg-white border border-stone-100 rounded-[3rem] p-8 space-y-4">
-                     <h3 className="text-[9px] font-black uppercase tracking-widest text-stone-300">Synchronized Assets</h3>
+                     <h3 className="text-[9px] font-black uppercase tracking-widest text-stone-300">Sync Assets</h3>
                      {[1,2].map(i => (
                         <div key={i} className="flex items-center justify-between p-4 bg-stone-50 rounded-2xl">
                            <div className="flex items-center gap-3">
@@ -191,26 +191,19 @@ export default function ProjectEngine() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                         {/* PARAMETERS SECTION */}
                         <div className="space-y-6">
-                            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">System Params</h3>
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Administrative Details</h3>
                             <div className="space-y-4">
                                 <div className="space-y-1">
-                                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">Termination Date</label>
+                                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">Start Date</label>
                                     <input type="date" defaultValue={project.due_date} onChange={(e) => updateProject({ due_date: e.target.value })} className="w-full bg-stone-50 p-4 rounded-xl text-[10px] font-bold outline-none border border-transparent focus:border-stone-200" />
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">Workspace Health</label>
-                                    <select onChange={(e) => updateProject({ health: e.target.value })} className="w-full bg-stone-50 p-4 rounded-xl text-[10px] font-bold outline-none border border-transparent focus:border-stone-200">
-                                        <option value="Stable">Stable</option>
-                                        <option value="Critical">Critical</option>
-                                        <option value="Stalled">Stalled</option>
-                                    </select>
-                                </div>
+                               
                             </div>
                         </div>
 
                         {/* STACKED AND CONTROLLED PERSONNEL ACCESS BOX */}
                         <div className="space-y-6">
-                            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Personnel Access</h3>
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Team Members</h3>
                             <div className="space-y-4">
                                 <div className="space-y-2.5">
                                     <input 
@@ -220,7 +213,7 @@ export default function ProjectEngine() {
                                       className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none border border-stone-100 focus:bg-stone-50/40 focus:border-stone-200 transition-all text-stone-800" 
                                     />
                                     <button className="w-full bg-stone-900 text-white py-3.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-stone-800 active:scale-[0.99] transition-all shadow-sm">
-                                      Invite Resource
+                                      Invite Member
                                     </button>
                                 </div>
                                 <div className="space-y-2 pt-2">
@@ -240,7 +233,7 @@ export default function ProjectEngine() {
 
                     <div className="pt-10 border-t border-stone-50">
                         <button className="flex items-center gap-2 text-red-400 text-[10px] font-black uppercase tracking-[0.2em] hover:text-red-600 transition-colors">
-                            <Trash2 size={14} /> Decommission Project
+                            <Trash2 size={14} /> Delete Project
                         </button>
                     </div>
                  </div>
@@ -256,9 +249,8 @@ export default function ProjectEngine() {
           <div className="bg-stone-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
             <Shield size={180} className="absolute -right-12 -top-12 opacity-5 rotate-12" />
             <div className="relative z-10 space-y-6">
-              <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Encryption Node</h3>
+              <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Vault</h3>
               <div className="bg-white/5 p-6 rounded-2xl border border-white/5 space-y-4">
-                 <p className="text-[11px] font-serif italic text-stone-400">All strategic docs are end-to-end encrypted within this workspace.</p>
                  <button onClick={() => setActiveTab("assets")} className="w-full py-3 bg-[#a9b897] text-white rounded-xl text-[9px] font-black uppercase tracking-widest">Access Vault</button>
               </div>
             </div>
@@ -267,7 +259,7 @@ export default function ProjectEngine() {
           {/* TEAM CARD */}
           <div className="bg-white border border-stone-100 p-8 rounded-[3rem] shadow-sm space-y-6">
             <div className="flex justify-between items-center">
-              <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">Invite Personnel</h3>
+              <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">Invite Team Members</h3>
               <Share2 size={14} className="text-stone-300" />
             </div>
             <div className="flex -space-x-3">
@@ -276,21 +268,7 @@ export default function ProjectEngine() {
                     <Plus size={14} />
                 </button>
             </div>
-            <p className="text-[10px] font-serif italic text-stone-400 leading-relaxed">Collaborate with internal nodes on this deployment.</p>
-          </div>
-
-          {/* SCRATCHPAD */}
-          <div className="bg-[#a9b897] p-10 rounded-[3rem] text-white space-y-6">
-             <div className="flex justify-between items-center">
-                <Zap size={16} />
-                <h3 className="text-[9px] font-black uppercase tracking-widest opacity-60 italic">Pulse Sync</h3>
-             </div>
-             <textarea 
-               className="w-full h-32 bg-transparent text-white placeholder-white/40 text-sm font-serif italic outline-none resize-none leading-relaxed"
-               placeholder="Stream quick thoughts..."
-               defaultValue={project.notes}
-             />
-             <button className="w-full py-3 bg-white/10 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/10">Synchronize</button>
+            <p className="text-[10px] font-serif italic text-stone-400 leading-relaxed">Collaborate with team members on this project.</p>
           </div>
 
         </aside>

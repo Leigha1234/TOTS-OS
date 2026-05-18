@@ -58,7 +58,7 @@ export default function ImportArchitecture() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         setStatus('error');
-        setErrorMessage("Clearance required: Node session offline.");
+        setErrorMessage("Clearance required: session offline.");
         return;
     }
 
@@ -103,7 +103,7 @@ export default function ImportArchitecture() {
       },
       error: () => {
         setStatus('error');
-        setErrorMessage("Buffer Error: File structure unreadable.");
+        setErrorMessage("File structure unreadable.");
       }
     });
   };
@@ -123,7 +123,6 @@ export default function ImportArchitecture() {
           <div className="flex flex-wrap items-center gap-6 text-[#A3B18A]">
             <div className="flex items-center gap-2">
               <Database size={12} fill="currentColor" />
-              <p className="font-black uppercase text-[9px] tracking-[0.4em]">Target: Profiles Table</p>
             </div>
             <div className="flex items-center gap-2">
               <Clock size={12} />
@@ -132,7 +131,7 @@ export default function ImportArchitecture() {
               </p>
             </div>
           </div>
-          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none text-stone-900">Ingestion Hub</h1>
+          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none text-stone-900">Import Hub</h1>
           
           <nav className="flex items-center gap-4 pt-4">
             <button
@@ -140,11 +139,11 @@ export default function ImportArchitecture() {
               className="flex items-center gap-3 px-8 py-3.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-white border border-stone-100 text-stone-300 hover:text-stone-900 transition-all shadow-sm"
             >
               <ArrowLeft size={12} />
-              Command Center
+              Settings
             </button>
           </nav>
         </div>
-
+        
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={startMigration}
@@ -155,7 +154,7 @@ export default function ImportArchitecture() {
         >
           {status === 'processing' ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
           <span className="text-[10px] font-black uppercase tracking-[0.2em]">
-            {status === 'processing' ? "Ingesting Nodes..." : "Start Ingestion"}
+            {status === 'processing' ? "Importing Data..." : "Start Import"}
           </span>
         </motion.button>
       </header>
@@ -200,58 +199,7 @@ export default function ImportArchitecture() {
           </div>
         </section>
 
-        {/* Sidebar Protocols */}
-        <aside className="lg:col-span-4 space-y-8">
-          <section className="bg-stone-900 p-12 rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
-            <Layers size={180} className="absolute -right-16 -top-16 opacity-5 group-hover:rotate-6 transition-transform duration-1000" />
-            <h3 className="text-3xl font-serif italic text-[#A3B18A] mb-8 relative z-10">Connection Types</h3>
-            
-            <ul className="space-y-8 relative z-10">
-              {[
-                { title: "Schema Mapping", desc: "Headers matching 'Name' or 'Entity' are automatically synchronized." },
-                { title: "Data Security", desc: "All imported profiles inherit default 'user' clearance levels." },
-                { title: "Strict CSV", desc: "RTF and Excel formats are blocked to ensure data integrity." }
-              ].map((p, i) => (
-                <li key={i} className="space-y-2">
-                  <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-[#A3B18A]">{p.title}</h4>
-                  <p className="text-xs font-serif italic text-white/40 leading-relaxed">{p.desc}</p>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm flex flex-col justify-between min-h-[200px]">
-            <div className="flex items-center gap-3">
-              <Shield size={16} className="text-[#A3B18A]" />
-              <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-300">Auth Integrity</h3>
-            </div>
-            <p className="text-[10px] font-serif italic text-stone-400 leading-relaxed mt-4">
-              Data migration requires active administrator clearance. Everything added is timestamped and attributed to your session.
-            </p>
-            <div className="mt-8 pt-6 border-t border-stone-50 flex items-center justify-between">
-              <span className="text-[8px] font-black uppercase tracking-widest text-stone-200">System Ready</span>
-              <ArrowUpRight size={14} className="text-stone-100" />
-            </div>
-          </section>
-        </aside>
       </main>
-
-      {/* --- FOOTER STATUS --- */}
-      <footer className="pt-12 border-t border-stone-200 flex flex-col md:flex-row justify-between items-center gap-8">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-3">
-             <div className="w-1.5 h-1.5 rounded-full bg-[#A3B18A] animate-pulse" />
-             <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">Data Pipeline Nominal</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <FileText size={14} className="text-stone-200" />
-            <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">CSV Only Import Hub</span>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-8">
-        </div>
-      </footer>
 
     </div>
   );

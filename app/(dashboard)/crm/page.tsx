@@ -62,7 +62,7 @@ export default function CRMDirectory() {
       setProfiles(profileRes.data || []);
       setLists(listRes.data || []);
     } catch (err: any) {
-      setError("Failed to synchronise with directory database.");
+      setError("Failed to sync");
       console.error(err);
     } finally {
       setLoading(false);
@@ -140,9 +140,9 @@ export default function CRMDirectory() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-[#a9b897]">
               <div className="w-8 h-[1px] bg-[#a9b897]" />
-              <p className="text-[10px] uppercase tracking-[0.4em] font-black">Infrastructure</p>
+              <p className="text-[10px] uppercase tracking-[0.4em] font-black">CRM</p>
             </div>
-            <h1 className="text-5xl md:text-7xl font-serif italic text-stone-800 tracking-tighter">Directory</h1>
+            <h1 className="text-5xl md:text-7xl font-serif italic text-stone-800 tracking-tighter">Contacts</h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -165,7 +165,7 @@ export default function CRMDirectory() {
           {loading ? (
             <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border border-stone-100 gap-4">
               <Loader2 className="animate-spin text-[#a9b897]" />
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Synchronising Database...</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Loading Database...</p>
             </div>
           ) : filtered.length > 0 ? (
             filtered.map((profile) => (
@@ -212,8 +212,7 @@ export default function CRMDirectory() {
               
               <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h2 className="text-3xl font-serif italic text-stone-800">Establish Contact</h2>
-                    <p className="text-[8px] font-black uppercase text-[#a9b897] tracking-[0.2em] mt-1">Initialize Node Protocol</p>
+                    <h2 className="text-3xl font-serif italic text-stone-800">New Contact</h2>
                 </div>
                 <button onClick={() => setShowModal(false)} className="p-3 hover:bg-stone-50 rounded-full transition-colors"><X size={20} /></button>
               </div>
@@ -227,47 +226,48 @@ export default function CRMDirectory() {
               <form onSubmit={addProfile} className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Identity Name</label>
-                        <div className="relative"><User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Node Identifier" /></div>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Full Name</label>
+                        <div className="relative"><User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="John Doe" /></div>
                     </div>
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Communication Channel</label>
-                        <div className="relative"><Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="node@network.com" /></div>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Email Address</label>
+                        <div className="relative"><Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="johndoe@email.com" /></div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Transmission Line</label>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Phone Number</label>
                         <div className="relative"><Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="+00..." /></div>
                     </div>
                     <div className="space-y-1">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Operational Access Level</label>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Type of Contact</label>
                         <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs outline-none appearance-none cursor-pointer">
-                            <option value="client">Client Node</option>
-                            <option value="lead">Inbound Lead</option>
-                            <option value="partner">Strategic Partner</option>
+                            <option value="client">Client</option>
+                            <option value="lead">Lead</option>
+                            <option value="partner">Partner</option>
+                            <option value="member">Team Member</option>
                         </select>
                     </div>
                 </div>
 
                 <div className="pt-4 border-t border-stone-100 space-y-4">
-                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897]">Context Integration</p>
-                    <div className="relative"><Building2 size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Network Entity Name" /></div>
-                    <div className="relative"><MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Physical Node Location" /></div>
-                    <textarea value={form.company_details} onChange={(e) => setForm({ ...form, company_details: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs outline-none focus:border-[#a9b897] h-20 resize-none" placeholder="Operational Intelligence / Context..." />
+                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#a9b897]">Company Details</p>
+                    <div className="relative"><Building2 size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Company Name" /></div>
+                    <div className="relative"><MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Company Address" /></div>
+                    <textarea value={form.company_details} onChange={(e) => setForm({ ...form, company_details: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs outline-none focus:border-[#a9b897] h-20 resize-none" placeholder="Company Overview" />
                 </div>
 
                 <div className="pt-4 border-t border-stone-100">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Signal Protocol Alignment</label>
+                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Campaign List</label>
                     <div className="relative mt-1"><Hash size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><select value={form.list_id} onChange={(e) => setForm({ ...form, list_id: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none appearance-none cursor-pointer">
-                        <option value="">No Active Pulse Sync</option>
+                        <option value="">No Active Campaigns</option>
                         {lists.map(list => <option key={list.id} value={list.id}>{list.name}</option>)}
                     </select></div>
                 </div>
 
                 <button type="submit" disabled={saving} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] tracking-[0.4em] uppercase hover:bg-[#a9b897] disabled:opacity-40 transition-all mt-6 shadow-xl flex items-center justify-center gap-3">
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : "Establish Node"}
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : "Add Contact"}
                 </button>
               </form>
             </motion.div>

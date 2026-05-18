@@ -192,7 +192,7 @@ function VaultContent() {
     const { error } = await supabase.from("notes").update({ status: nextStatus }).eq("id", id);
     if (!error) {
       setNotes(prev => prev.map(n => n.id === id ? { ...n, status: nextStatus } : n));
-      toast.success(`Pipeline updated.`);
+      toast.success(`Note updated.`);
     }
   };
 
@@ -310,7 +310,7 @@ function VaultContent() {
                   {/* CONTROL GRID LAYER */}
                   <div className="pt-3 border-t border-black/[0.05] space-y-3">
                     <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
-                      <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Pipeline Progress</span>
+                      <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Progress</span>
                       <select 
                         value={note.status || "todo"}
                         onChange={(e) => updateNoteStatus(note.id, e.target.value)}
@@ -376,7 +376,7 @@ function VaultContent() {
               className="bg-white w-full max-w-xl rounded-[2.5rem] p-8 shadow-2xl relative z-10 space-y-5"
             >
               <div className="flex justify-between items-center">
-                <h3 className="text-3xl font-serif italic lowercase text-[#4f4a46]">New Desk Entry</h3>
+                <h3 className="text-3xl font-serif italic lowercase text-[#4f4a46]">New Note</h3>
                 <button onClick={() => setShowModal(false)} className="text-stone-300 hover:text-stone-900"><X size={20}/></button>
               </div>
 
@@ -424,9 +424,7 @@ function VaultContent() {
                     {projectsList.map((pName, idx) => (
                       <option key={idx} value={pName}>{pName}</option>
                     ))}
-                    <option value="TOTs OS Dashboard">TOTs OS Dashboard</option>
-                    <option value="Server Migration Brief">Server Migration Brief</option>
-                    <option value="General Architecture">General Architecture</option>
+                    <option value="project">Project</option>
                   </select>
                 </div>
 
@@ -437,7 +435,7 @@ function VaultContent() {
                     value={assignedTo}
                     onChange={(e) => setAssignedTo(e.target.value)}
                   >
-                    <option value="">Assign Team Resource...</option>
+                    <option value="">Assign Team Member...</option>
                     {teamMembers.map(member => (
                       <option key={member.id} value={member.id}>{member.name}</option>
                     ))}
@@ -489,7 +487,7 @@ function VaultContent() {
 
               {/* PIPELINE DISPATCH OVERVIEW */}
               <div className="flex items-center justify-between gap-4 pt-2">
-                <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Initial Pipeline Placement:</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Initial Note Placement:</span>
                 <select 
                   value={status} 
                   onChange={e => setStatus(e.target.value)}

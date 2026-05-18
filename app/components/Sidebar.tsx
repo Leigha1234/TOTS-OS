@@ -118,15 +118,14 @@ export default function Sidebar() {
             </div>
             <div className="flex flex-col">
               <h1 className="font-black italic uppercase tracking-widest text-[11px] text-stone-900 leading-none">
-                TOTS OS
+                TOTS-OS
               </h1>
-              <span className="text-[7px] opacity-30 font-black tracking-widest mt-1">SYSTEM_v7.1</span>
             </div>
           </div>
         ) : (
           <div className="relative w-8 h-8 mx-auto overflow-hidden rounded-lg border border-stone-100 bg-white shrink-0">
             <Image 
-              src="/images/TOTS-favicon.jpeg" 
+              src="/images/TOTS-OS.jpeg" 
               alt="Logo" 
               fill
               className="object-cover"

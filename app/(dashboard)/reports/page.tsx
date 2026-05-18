@@ -98,7 +98,7 @@ export default function ReportsPage() {
     <div className="min-h-screen flex items-center justify-center bg-stone-50">
       <div className="text-center space-y-6">
         <Loader2 className="text-[#a9b897] animate-spin mx-auto" size={40} />
-        <p className="text-[#a9b897] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">Synchronizing Intelligence...</p>
+        <p className="text-[#a9b897] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">Loading Reports...</p>
       </div>
     </div>
   );
@@ -109,22 +109,16 @@ export default function ReportsPage() {
       {/* MINIMAL HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-200 pb-12">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-[#a9b897]">
-            <Hash size={14} />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em]">System Ledger 2026</span>
-          </div>
-          <h1 className="text-7xl md:text-8xl font-serif italic tracking-tighter leading-none">Intelligence</h1>
+     
+          <h1 className="text-7xl md:text-8xl font-serif italic tracking-tighter leading-none">Reports</h1>
         </div>
         
         <div className="flex gap-3">
           <button onClick={downloadFinanceReport} className="bg-stone-900 text-white hover:bg-[#a9b897] transition-all px-8 py-4 rounded-2xl flex items-center gap-3 active:scale-95">
             <Download size={16} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Export Archive</span>
+            <span className="text-[9px] font-black uppercase tracking-widest">Export reports</span>
           </button>
-          <div className="bg-white border border-stone-200 px-6 py-4 rounded-2xl flex items-center gap-3">
-            <ShieldCheck className="text-[#a9b897]" size={16} />
-            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Node Secure</span>
-          </div>
+         
         </div>
       </div>
 
@@ -168,7 +162,7 @@ export default function ReportsPage() {
               <div className="p-3 bg-white/10 rounded-xl text-[#a9b897]"><Mail size={20} /></div>
               <div>
                 <h2 className="text-[10px] font-black uppercase tracking-[0.4em]">Inbound Analytics</h2>
-                <p className="text-[9px] font-serif italic text-white/30">Email campaign distribution</p>
+                <p className="text-[9px] font-serif italic text-white/30">Email campaign performance</p>
               </div>
             </div>
             

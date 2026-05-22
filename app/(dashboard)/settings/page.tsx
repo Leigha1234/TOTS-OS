@@ -171,60 +171,58 @@ export default function Settings() {
     setCurrentTime(new Date());
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
 
-    async function loadActiveUserSession() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          router.push("/login");
-          return;
-        }
+   async function loadActiveUserSession() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push("/login");
+      return;
+    }
 
-        // 1. Fetch Profile
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("full_name, bio, subscription_tier, organisation_id")
-          .eq("id", user.id)
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("full_name, bio, subscription_tier, organisation_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+
+    if (profile) {
+      setUserName((profile.full_name || "OPERATOR").toUpperCase());
+      setDisplayName(profile.full_name || "");
+      setEmail(user.email || "");
+      setBio(profile.bio || "");
+      
+      if (profile.organisation_id) {
+        setUserOrgId(profile.organisation_id);
+        
+        // FIXED: Only fetching columns that actually exist in your database
+        const { data: tenantSettings, error: settingsError } = await supabase
+          .from("settings")
+          .select("brand_color, secondary_color")
+          .eq("organisation_id", profile.organisation_id)
           .maybeSingle();
 
-        if (profileError) throw profileError;
-
-        if (profile) {
-          setUserName((profile.full_name || "OPERATOR").toUpperCase());
-          setDisplayName(profile.full_name || "");
-          setEmail(user.email || "");
-          setBio(profile.bio || "");
-          
-          // 2. Fetch Settings ONLY if organisation_id exists
-          if (profile.organisation_id) {
-            setUserOrgId(profile.organisation_id);
-            
-            // USE THIS CLEAN FETCH TO AVOID 400 ERRORS
-            const { data: tenantSettings, error: settingsError } = await supabase
-              .from("settings")
-              .select("brand_color, secondary_color")
-              .eq("organisation_id", profile.organisation_id)
-              .maybeSingle();
-
-            // If there's an error here, don't crash the app, just log it
-            if (settingsError) {
-              console.warn("Settings fetch skipped or failed:", settingsError.message);
-            } else if (tenantSettings) {
-              setAccentColor(tenantSettings.brand_color || "#A3B18A");
-              setSecondaryColor(tenantSettings.secondary_color || "#D4C8B4"); 
-            }
-          }
+        if (settingsError) {
+          console.warn("Settings fetch failed:", settingsError.message);
+        } else if (tenantSettings) {
+          setAccentColor(tenantSettings.brand_color || "#A3B18A");
+          setSecondaryColor(tenantSettings.secondary_color || "#D4C8B4"); 
         }
-      } catch (err) {
-        console.error("Critical Auth/Data error:", err);
-      } finally {
-        setLoading(false);
-        fetchChannelIntegrations().catch(console.error);
       }
     }
+  } catch (err) {
+    console.error("Critical Auth/Data error:", err);
+  } finally {
+    setLoading(false);
+    fetchChannelIntegrations().catch(console.error);
+  }
+}
     loadActiveUserSession();
     return () => clearInterval(timer);
   }, [router]);
 
+  // -- Save Profile & Brand Changes --
   // -- Save Profile & Brand Changes --
   const handleSave = async () => {
     setIsSaving(true);
@@ -245,13 +243,14 @@ export default function Settings() {
 
       // 2. Persist multi-tenant brand configuration parameters if organisation exists
       if (userOrgId) {
+        // FIXED: Removed font_preference and ui_density since those columns 
+        // don't exist in your table. Now it only saves columns that exist.
         const { error: settingsError } = await supabase
           .from("settings")
           .upsert({
             organisation_id: userOrgId,
             brand_color: accentColor,
-            font_preference: fontPreference,
-            ui_density: uiDensity,
+            secondary_color: secondaryColor,
             updated_at: new Date().toISOString()
           }, { onConflict: 'organisation_id' });
 

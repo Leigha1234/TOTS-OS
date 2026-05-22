@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
-  // 1. Initialize modern server client with secure cookie forwarding
+  // 1. Initialize modern server client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -35,6 +35,11 @@ export async function middleware(request: NextRequest) {
 
   // 3. Subscription & Tier Guard Logic Matrix
   if (session) {
+    // ADMIN BYPASS: Always allow your primary developer email access to everything
+    if (session.user.email === 'YOUR_EMAIL@EXAMPLE.COM') {
+      return response;
+    }
+
     // CRITICAL EXEMPTION: Allow all accounts to hit the billing management paths unconditionally
     if (pathname === '/settings/manage-subscription') {
       return response;
@@ -46,12 +51,13 @@ export async function middleware(request: NextRequest) {
       .eq('id', session.user.id)
       .single();
 
-    // Standardize casing strings from database schema lookup gracefully
     const tier = (profile?.subscription_tier || 'STANDARD').toUpperCase();
 
-    // Protect administrative core /settings paths (Only allow ELITE users past, except billing)
-    if (pathname.startsWith('/settings') && tier !== 'ELITE') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+    // UPDATED: Allow STANDARD users to access main /settings, 
+    // but keep specific restriction if you intended to lock parts of it.
+    // If you want everyone to access settings, remove this block:
+    if (pathname.startsWith('/settings') && tier === 'LOCKED_TIER') { 
+       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
     // Protect "PREMIUM" or "ELITE" features (e.g., Projects pipeline)
@@ -63,7 +69,6 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-// 4. Configure match rules to filter overhead execution on static asset arrays
 export const config = {
   matcher: [
     '/dashboard/:path*',

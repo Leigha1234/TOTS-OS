@@ -33,6 +33,7 @@ export default function Settings() {
 
   // -- Global Brand Customization --
   const [accentColor, setAccentColor] = useState("#A3B18A");
+  const [secondaryColor, setSecondaryColor] = useState("#D4C8B4");
   const [fontPreference, setFontPreference] = useState<"serif-heavy" | "sans-clean">("serif-heavy");
   const [uiDensity, setUiDensity] = useState<"minimal" | "compact">("minimal");
   const [userOrgId, setUserOrgId] = useState<string | null>(null);
@@ -200,7 +201,7 @@ export default function Settings() {
             // USE THIS CLEAN FETCH TO AVOID 400 ERRORS
             const { data: tenantSettings, error: settingsError } = await supabase
               .from("settings")
-              .select("brand_color, font_preference, ui_density")
+              .select("brand_color, secondary_color")
               .eq("organisation_id", profile.organisation_id)
               .maybeSingle();
 
@@ -209,8 +210,7 @@ export default function Settings() {
               console.warn("Settings fetch skipped or failed:", settingsError.message);
             } else if (tenantSettings) {
               setAccentColor(tenantSettings.brand_color || "#A3B18A");
-              setFontPreference(tenantSettings.font_preference || "serif-heavy");
-              setUiDensity(tenantSettings.ui_density || "minimal");
+              setSecondaryColor(tenantSettings.secondary_color || "#D4C8B4"); 
             }
           }
         }

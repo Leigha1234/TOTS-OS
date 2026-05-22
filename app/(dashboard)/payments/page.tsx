@@ -63,8 +63,9 @@ export default function PaymentsPage() {
     setIsMounted(true);
     const syncData = async () => {
         const { data } = await supabase.from('timesheets').select('mon, tue, wed, thu, fri');
-        const hours = data?.reduce((a, r) => a + (Number(r.mon) + Number(r.tue) + Number(r.wed) + Number(r.thu) + Number(r.fri)), 0) || 450;
-        const rev = hours * 125;
+       // Add :number to 'a' and :any to 'r'
+const hours = data?.reduce((a: number, r: any) => a + (Number(r.mon) + Number(r.tue) + Number(r.wed) + Number(r.thu) + Number(r.fri)), 0) ?? 0;
+ const rev = hours * 125;
         setMetrics({ revYtd: rev, operatingCosts: 18450, vatPool: rev * 0.2, taxDue: (rev - 12570) * 0.19 });
     };
     syncData();

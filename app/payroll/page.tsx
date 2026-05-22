@@ -38,9 +38,11 @@ export default function PayrollPage() {
   useEffect(() => {
     async function init() {
       const team = await getUserTeam();
-      if (!team) return;
-      setTeamId(team);
-      load(team);
+      // FIXED: Pass only the user ID string to the state setter
+      if (team?.user?.id) {
+        setTeamId(team.user.id);
+        load(team.user.id);
+      }
     }
     init();
   }, [load]);
@@ -70,7 +72,8 @@ export default function PayrollPage() {
     if (teamId) load(teamId);
   }
 
-  const totalPayroll = rows.reduce((acc, r) => acc + (r.salary + r.bonus), 0);
+  // FIXED: Explicitly typed the accumulator 'acc' and row 'r'
+  const totalPayroll = rows.reduce((acc: number, r: any) => acc + (Number(r.salary) + Number(r.bonus)), 0);
 
   return (
     <div className="min-h-screen bg-[#faf9f6] p-8 md:p-12 lg:p-16">
@@ -165,7 +168,7 @@ export default function PayrollPage() {
                     </p>
                     <div className="flex items-center gap-3 mt-1">
                        <span className="text-[10px] font-mono font-bold text-stone-400 tracking-tighter">
-                        £{(r.salary + r.bonus).toLocaleString()}
+                        £{(Number(r.salary) + Number(r.bonus)).toLocaleString()}
                       </span>
                       <span className="w-1 h-1 rounded-full bg-stone-200" />
                       <span className="flex items-center gap-1 text-[9px] font-black uppercase text-stone-400 tracking-widest">

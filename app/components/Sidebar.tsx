@@ -204,7 +204,7 @@ export default function Sidebar() {
                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: activeColor }} />
               </div>
               <p className="text-[10px] uppercase tracking-widest text-stone-900 font-black italic">
-                {userTier} ACCESS
+                {userTier || "LOADING..."} ACCESS
               </p>
             </div>
           ) : (
@@ -212,11 +212,13 @@ export default function Sidebar() {
               <div 
                 className="w-1.5 h-1.5 rounded-full animate-pulse" 
                 style={{ backgroundColor: activeColor }}
+                title={`${userTier || "Loading"} Access`}
               />
             </div>
           )}
         </div>
-      </div>
+        </div>
+      
     </aside>
   );
 }

@@ -178,71 +178,49 @@ export default function Settings() {
           return;
         }
 
-        // Fetch user profile info along with organisation_id
-        const { data: profile, error } = await supabase
+        // 1. Fetch Profile
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("full_name, bio, subscription_tier, organisation_id")
           .eq("id", user.id)
           .maybeSingle();
 
-        if (error) throw error;
-
-        let emailFallback = "OPERATOR";
-        let coreEmail = "";
-
-        if (user && user.email) {
-          coreEmail = user.email;
-          emailFallback = user.email.split("@")[0];
-        }
+        if (profileError) throw profileError;
 
         if (profile) {
-          const fetchedName = profile.full_name || emailFallback;
+          setUserName((profile.full_name || "OPERATOR").toUpperCase());
+          setDisplayName(profile.full_name || "");
+          setEmail(user.email || "");
+          setBio(profile.bio || "");
           
-          setUserName(fetchedName.toUpperCase());
-          setDisplayName(fetchedName);
-          setEmail(coreEmail);
-          setBio(profile.bio || "Root Administrator for TOTS OS. Managing cloud architectures.");
-          
+          // 2. Fetch Settings ONLY if organisation_id exists
           if (profile.organisation_id) {
             setUserOrgId(profile.organisation_id);
             
-            // Hydrate multi-tenant brand settings dynamically from settings table
+            // USE THIS CLEAN FETCH TO AVOID 400 ERRORS
             const { data: tenantSettings, error: settingsError } = await supabase
               .from("settings")
               .select("brand_color, font_preference, ui_density")
               .eq("organisation_id", profile.organisation_id)
               .maybeSingle();
 
-            if (!settingsError && tenantSettings) {
-              if (tenantSettings.brand_color) setAccentColor(tenantSettings.brand_color);
-              if (tenantSettings.font_preference) setFontPreference(tenantSettings.font_preference as any);
-              if (tenantSettings.ui_density) setUiDensity(tenantSettings.ui_density as any);
+            // If there's an error here, don't crash the app, just log it
+            if (settingsError) {
+              console.warn("Settings fetch skipped or failed:", settingsError.message);
+            } else if (tenantSettings) {
+              setAccentColor(tenantSettings.brand_color || "#A3B18A");
+              setFontPreference(tenantSettings.font_preference || "serif-heavy");
+              setUiDensity(tenantSettings.ui_density || "minimal");
             }
           }
-          
-          if (profile.subscription_tier) {
-            const rawTier = profile.subscription_tier;
-            setCurrentTier(rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase());
-          }
-        } else {
-          setUserName(emailFallback.toUpperCase());
-          setDisplayName(emailFallback);
-          setEmail(coreEmail);
-          setBio("Root Administrator for TOTS OS.");
         }
       } catch (err) {
-        console.error("Failed to cleanly parse relational database profile parameters:", err);
-        toast.error("Failed to securely pull account identity fields.");
+        console.error("Critical Auth/Data error:", err);
       } finally {
         setLoading(false);
-        try {
-          await fetchChannelIntegrations();
-        } catch (e) {
-          console.error("Social token channels unreadable:", e);
-        }
+        fetchChannelIntegrations().catch(console.error);
       }
     }
-
     loadActiveUserSession();
     return () => clearInterval(timer);
   }, [router]);

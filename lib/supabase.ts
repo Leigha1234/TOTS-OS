@@ -1,15 +1,20 @@
 import { createBrowserClient, createServerClient } from "@supabase/ssr";
 
-export async function createClient() {
-  // ✅ Browser side
-  if (typeof window !== "undefined") {
-    return createBrowserClient(
+// Browser Client: Singleton pattern
+let browserClient: any = null;
+
+export function getBrowserClient() {
+  if (!browserClient) {
+    browserClient = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
   }
+  return browserClient;
+}
 
-  // ✅ Server side
+// Server Client: Use this in Server Components/Actions
+export async function createClient() {
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
 

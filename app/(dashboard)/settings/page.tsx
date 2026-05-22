@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client";
+import { getBrowserClient } from "@/lib/supabase";
+const supabase = getBrowserClient();
 import { 
   User, Users, RefreshCcw, Save, 
   Camera, Palette, ShieldCheck, 
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+// Replace your old import with this:
 
 /**
  * TOTS OS: UNIFIED ADMINISTRATIVE CONTROL CENTER v8.0.0
@@ -121,21 +123,26 @@ export default function Settings() {
   };
 
   const fetchChannelIntegrations = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data, error } = await supabase
-          .from("social_tokens")
-          .select("platform")
-          .eq("user_id", user.id);
-          
-        if (error) throw error;
-        if (data) setConnectedPlatforms(data.map(item => item.platform));
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      // Explicitly define the expected structure of the returned rows
+      const { data, error } = await supabase
+        .from("social_tokens")
+        .select("platform")
+        .eq("user_id", user.id);
+        
+      if (error) throw error;
+      
+      // Use a typed map function to resolve the implicit 'any' error
+      if (data) {
+        setConnectedPlatforms(data.map((item: { platform: string }) => item.platform));
       }
-    } catch (err) {
-      console.error("System configuration parsing issue:", err);
     }
-  };
+  } catch (err) {
+    console.error("System configuration parsing issue:", err);
+  }
+};
 
   // -- Password Management Stream --
   const handlePasswordUpdate = async (e: React.FormEvent) => {

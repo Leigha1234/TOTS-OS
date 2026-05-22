@@ -1,84 +1,65 @@
-import { stripe } from "@/lib/stripe";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 
-// CRITICAL: Initialize Service Role client to bypass RLS for webhook updates
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Ensure this is in your .env
+// Initialize Supabase admin client using the service role key for backend operations
+const supabase = createClient(
+  process.env.SUPABASE_URL!, 
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function POST(req: Request) {
   const body = await req.text();
-  const headerPayload = await headers();
-  const sig = headerPayload.get("stripe-signature");
+  const signature = req.headers.get("stripe-signature");
 
-  if (!sig) {
+  if (!signature) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
 
   let event;
 
   try {
+    // Verify the webhook event comes from Stripe
     event = stripe.webhooks.constructEvent(
-      body,
-      sig,
+      body, 
+      signature, 
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err: any) {
-    console.error(`❌ Webhook signature verification failed: ${err.message}`);
-    return NextResponse.json({ error: "Webhook signature verification failed" }, { status: 400 });
+    console.error(`Webhook signature verification failed: ${err.message}`);
+    return NextResponse.json({ error: "Webhook Error" }, { status: 400 });
   }
 
-  // ✅ Process verified webhooks from Stripe
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object as any;
-      
-      const userId = session.metadata?.supabase_user_id;
-      const tierPaid = session.metadata?.tier_allocated;
-      const seatsAllocated = session.metadata?.additional_seats;
+  // Handle the event
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as any;
+    
+    // Extract metadata defined in your checkout session
+    const userId = session.metadata?.supabase_user_id;
+    const tier = session.metadata?.tier;
 
-      if (userId && tierPaid) {
-        // Use the admin client to write to the database
-        const { error } = await supabaseAdmin
-          .from("profiles")
-          .update({ 
-            subscription_tier: tierPaid,
-            team_seats_allocated: parseInt(seatsAllocated || "0", 10),
-            stripe_customer_id: session.customer as string
-          })
-          .eq("id", userId);
-        
-        if (error) {
-          console.error("❌ Failed to update profile system credentials:", error);
-          return NextResponse.json({ error: "Database update failed" }, { status: 500 });
-        }
-        console.log(`✅ System Escalation Complete: ${userId} provisioned to ${tierPaid.toUpperCase()}`);
-      }
-      break;
+    if (!userId || !tier) {
+      console.error("Missing metadata in checkout session:", session.id);
+      return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
     }
 
-    case "customer.subscription.deleted": {
-      // Logic for handling subscription cancellations
-      const subscription = event.data.object as any;
-      const customerId = subscription.customer as string;
+    // Update the profile tier in Supabase
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ 
+        subscription_tier: tier.toLowerCase(),
+        status: 'active' // Ensure this column matches your DB schema
+      })
+      .eq("id", userId);
 
-      await supabaseAdmin
-        .from("profiles")
-        .update({ subscription_tier: "STANDARD" })
-        .eq("stripe_customer_id", customerId);
-      break;
+    if (updateError) {
+      console.error("Supabase Update Error:", updateError);
+      return NextResponse.json({ error: "Database update failed" }, { status: 500 });
     }
     
-    default:
-      console.log(`Unhandled event type ${event.type}`);
+    console.log(`Successfully upgraded user ${userId} to ${tier}`);
   }
 
+  // Return a 200 to acknowledge receipt of the event
   return NextResponse.json({ received: true });
-}
-
-export async function GET() {
-  return new Response("Webhook endpoint is active. Use POST to send events.", { status: 200 });
 }

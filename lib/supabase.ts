@@ -1,4 +1,5 @@
-import { createBrowserClient, createServerClient } from "@supabase/ssr";
+import { createBrowserClient, createServerClient, type CookieOptions } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 // 1. Browser Singleton (Use this in all client components)
 let browserClient: any = null;
@@ -14,9 +15,8 @@ export function getBrowserClient() {
   return browserClient;
 }
 
-// 2. Server Client (Use this in Middleware or Server Actions)
-export async function createServerSideClient() {
-  const { cookies } = await import("next/headers");
+// 2. Server Client (Use this in Server Components, Middleware, or Server Actions)
+export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -24,9 +24,18 @@ export async function createServerSideClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name: string) => cookieStore.get(name)?.value,
-        set: (name: string, value: string, options: any) => { cookieStore.set(name, value, options); },
-        remove: (name: string, options: any) => { cookieStore.set(name, "", { ...options, maxAge: 0 }); },
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => 
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // The server action/route handler handles its own cookie response
+          }
+        },
       },
     }
   );

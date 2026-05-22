@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client"; 
+import { getBrowserClient } from "@/lib/supabase";
+const supabase = getBrowserClient(); 
 import { 
   Save, Calendar, Landmark, Fingerprint, 
   X, FileText, Download, BarChart3, Clock,

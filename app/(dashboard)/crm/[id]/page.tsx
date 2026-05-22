@@ -1,7 +1,8 @@
 "use client";
 
 import { use, useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase-client";
+import { getBrowserClient } from "@/lib/supabase";
+const supabase = getBrowserClient();
 import { 
   User, Building2, Mail, ArrowLeft,
   Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus, Send, CheckCircle2, XCircle

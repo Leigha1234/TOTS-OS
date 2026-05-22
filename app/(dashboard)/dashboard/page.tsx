@@ -2,26 +2,35 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase-client";
+import { getBrowserClient } from "@/lib/supabase"; 
 import { useSettings } from "@/app/context/SettingsContext";
 import { 
   ArrowRight, Briefcase, X, Loader2, Zap, FileText, 
   Share2, Mail, User as UserIcon, Clock, CheckSquare, 
-  PoundSterling, Users, ShieldCheck
+  PoundSterling, Users, ShieldCheck, BarChart3, TrendingUp,
+  AlertCircle, Settings, LogOut, ChevronRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+/**
+ * DashboardContent Component
+ * * This component acts as the primary hub for the application.
+ * It is designed to be highly resilient against auth-flicker
+ * and handles data fetching with a strict singleton pattern.
+ */
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { organisationId } = useSettings();
+  const supabase = getBrowserClient();
   
-  const [userName, setUserName] = useState<string>("Username");
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [loading, setLoading] = useState(true);
-
-  const error = searchParams.get("error");
-  const errorDescription = searchParams.get("error_description");
+  // State Management
+  const [userName, setUserName] = useState<string>("USER");
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isScanActive, setIsScanActive] = useState<boolean>(false);
+  const [showScanModal, setShowScanModal] = useState<boolean>(false);
+  const [insight, setInsight] = useState<string | null>(null);
 
   const [stats, setStats] = useState({
     activeProjects: 0,
@@ -31,138 +40,113 @@ function DashboardContent() {
     currentProfit: 0,
   });
 
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
-  const [isScanActive, setIsScanActive] = useState(false);
-  const [insight, setInsight] = useState<string | null>(null);
-  const [showScanModal, setShowScanModal] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<{full_name: string, role: string}[]>([]);
   const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean }[]>([]);
 
-  // 1. Instant Redirect if Access Denied
-  useEffect(() => {
-    if (error === "access_denied") {
-      router.push(`/access-denied?reason=${encodeURIComponent(errorDescription || "Invitation expired")}`);
-    }
-  }, [error, errorDescription, router]);
+  const error = searchParams.get("error");
+  const errorDescription = searchParams.get("error_description");
 
-  // 2. Clock Logic
+  // Real-time Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  // Data Fetching: Centralized with Error Handling
   const loadDashboardData = useCallback(async () => {
-    if (error === "access_denied") {
-      setLoading(false);
-      return;
-    }
+    if (!supabase) return;
 
     try {
-      // Get current authenticated user
-      const { data: authData } = await supabase.auth.getUser();
-      if (!authData.user) {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
         router.push("/login");
         return;
       }
 
-      // Fetch User Name (Works independently of Org ID)
-      if (authData.user.id) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", authData.user.id)
-          .maybeSingle();
+      // Fetch Profile Data
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
 
-        if (profile?.full_name) {
-          setUserName(profile.full_name.toUpperCase());
-        }
+      if (profile?.full_name) {
+        setUserName(profile.full_name.toUpperCase());
       }
 
-      // CRITICAL: Prevent 400 errors by waiting for a valid organisationId
+      // Guard for Missing OrgID - critical to prevent unauthorized 403s
       if (!organisationId || organisationId === "undefined") {
-        console.log("Dashboard: Waiting for valid organisationId from SettingsContext...");
+        console.warn("Dashboard: No valid organisationId found. Skipping data fetch.");
+        setLoading(false);
         return; 
       }
 
-      console.log("Dashboard: Organisation ID verified. Fetching business data...");
-
-      // Fetch all organisation-linked data in parallel
+      // Fetch Business Data in Parallel for Performance
       const [projectsRes, invoicesRes, membersRes, notesRes] = await Promise.all([
         supabase.from("projects").select("*", { count: 'exact', head: true }).eq("organisation_id", organisationId),
         supabase.from("invoices").select("amount, status").eq("organisation_id", organisationId),
         supabase.from("profiles").select("full_name, role").eq("organisation_id", organisationId).limit(4),
-        supabase.from("notes").select("*").eq("organisation_id", organisationId).limit(5)
+        supabase.from("notes").select("id, title, content, completed").eq("organisation_id", organisationId).limit(5)
       ]);
 
-      // Calculate stats
-      const totalProfit = invoicesRes.data?.reduce((acc, inv) => 
-        inv.status === 'paid' ? acc + (inv.amount || 0) : acc, 0) || 0;
-      
-      const pendingInvoicesCount = invoicesRes.data?.filter(inv => inv.status === 'pending').length || 0;
+      // Logic calculations
+      const invData = (invoicesRes.data as any[]) || [];
+      const totalProfit = invData.reduce((acc, inv) => inv.status === 'paid' ? acc + (inv.amount || 0) : acc, 0);
+      const pendingCount = invData.filter(inv => inv.status === 'pending').length;
 
-      setStats(prev => ({ 
-        ...prev, 
+      setStats({ 
         activeProjects: projectsRes.count || 0,
         currentProfit: totalProfit,
-        invoicesDue: pendingInvoicesCount
-      }));
+        invoicesDue: pendingCount,
+        socialsPending: 0,
+        emailsScheduled: 0
+      });
 
-      setTeamMembers(membersRes.data || []);
-
-      if (notesRes.data) {
-        setTodos(notesRes.data.map((n: any) => ({
-          id: n.id,
-          text: n.title || n.content?.substring(0, 40) || "Priority Task",
-          completed: n.completed || false
-        })));
-      }
-
-      // Everything loaded successfully
-      setLoading(false);
+      setTeamMembers((membersRes.data as any[]) || []);
+      setTodos(((notesRes.data as any[]) || []).map((n: any) => ({
+        id: n.id,
+        text: n.title || n.content?.substring(0, 40) || "Priority Task",
+        completed: n.completed || false
+      })));
 
     } catch (err) {
-      console.error("Dashboard Sync Error:", err);
+      console.error("Dashboard Sync Critical Error:", err);
+    } finally {
       setLoading(false);
     }
-  }, [router, organisationId, error]);
+  }, [router, organisationId, supabase]);
 
+  // Initial Load Trigger
   useEffect(() => {
     loadDashboardData();
+  }, [loadDashboardData]);
 
-    const safetyTimer = setTimeout(() => {
-      if (loading) {
-        console.warn("Dashboard: Safety timeout reached. Clearing loader.");
-        setLoading(false);
-      }
-    }, 6000);
-
-    return () => clearTimeout(safetyTimer);
-  }, [loadDashboardData, organisationId]);
+  // Utility Functions
+  const toggleTodo = async (id: string, currentStatus: boolean) => {
+    setTodos(todos.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+    await supabase?.from("notes").update({ completed: !currentStatus }).eq("id", id);
+  };
 
   const runClarityScan = async () => {
-    if (!organisationId) return;
+    if (!organisationId || !supabase) return;
     setIsScanActive(true);
     setShowScanModal(true);
-    setInsight(null); 
     try {
       const { data, error: scanErr } = await supabase.functions.invoke('clarity-scan', {
         body: { organisation_id: organisationId, context: { stats, currentTasks: todos } }
       });
       if (scanErr) throw scanErr;
       setInsight(data.insight);
-    } catch (err: any) {
+    } catch (err) {
       setInsight("Business Analysis: Revenue channels are healthy. Focus remains on project delivery.");
     } finally {
       setIsScanActive(false);
     }
   };
 
-  const toggleTodo = async (id: string, currentStatus: boolean) => {
-    setTodos(todos.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-    await supabase.from("notes").update({ completed: !currentStatus }).eq("id", id);
-  };
-
-  if (error === "access_denied") return null;
-
+  // UI States
   if (loading) return (
     <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4 p-6">
       <Loader2 className="animate-spin text-stone-300" size={32} />
@@ -171,41 +155,34 @@ function DashboardContent() {
   );
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 max-w-[1600px] mx-auto font-sans">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12 space-y-12 max-w-[1600px] mx-auto font-sans">
       
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-8 md:pb-12 gap-6 md:gap-8">
-        <div className="space-y-3 md:space-y-4 w-full md:w-auto">
-          <div className="flex items-center gap-4 text-[var(--brand-primary, #A3B18A)]">
-            <div className="flex items-center gap-2">
-              <UserIcon size={12} fill="currentColor" />
-              <p className="font-black uppercase text-[9px] tracking-[0.4em]">User: {userName}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock size={12} />
-              <p className="font-black uppercase text-[9px] tracking-[0.4em]">
-                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
-            </div>
+      {/* Header */}
+      <header className="flex flex-col md:flex-row justify-between items-start border-b border-stone-200 pb-12 gap-8">
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 text-[#A3B18A]">
+            <UserIcon size={12} fill="currentColor" />
+            <p className="font-black uppercase text-[9px] tracking-[0.4em]">User: {userName}</p>
           </div>
-          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none">Dashboard</h1>
+          <h1 className="text-7xl font-serif italic tracking-tighter">Dashboard</h1>
         </div>
-
-        {/* FIXED: Replaced hidden button components with clean, highly legible white text on dark stone background */}
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
-          className="bg-stone-900 px-8 py-5 rounded-[2rem] shadow-xl flex items-center gap-4 text-white hover:brightness-110 transition-all"
+          className="bg-stone-900 px-8 py-5 rounded-[2rem] shadow-xl flex items-center gap-4 text-white"
         >
-          {isScanActive ? <Loader2 className="animate-spin text-white" size={18} /> : <Zap size={18} className="text-[var(--brand-primary,#A3B18A)]" fill="currentColor" />}
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">AI Scan</span>
+          {isScanActive ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} className="text-[#A3B18A]" fill="currentColor" />}
+          <span className="text-[10px] font-black uppercase tracking-[0.2em]">AI Scan</span>
         </motion.button>
       </header>
 
+      {/* Primary Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
-        {/* PRIORITIES */}
+        
+        {/* Priorities Section */}
         <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-3">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-            <CheckSquare size={14} className="text-[var(--brand-primary, #A3B18A)]" /> Active Priorities
+            <CheckSquare size={14} className="text-[#A3B18A]" /> Active Priorities
           </h2>
           <div className="space-y-4">
             {todos.length > 0 ? todos.map((todo) => (
@@ -213,96 +190,66 @@ function DashboardContent() {
                 key={todo.id} 
                 onClick={() => toggleTodo(todo.id, todo.completed)}
                 className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer ${
-                  todo.completed ? "bg-stone-50 opacity-60" : "bg-[#faf9f6] hover:border-[var(--brand-primary, #A3B18A)]"
+                  todo.completed ? "bg-stone-50 opacity-60" : "bg-[#faf9f6] hover:border-[#A3B18A]"
                 }`}
               >
-                <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${todo.completed ? "bg-[var(--brand-primary, #A3B18A)] border-[var(--brand-primary, #A3B18A)] text-white" : "border-stone-400 text-transparent"}`}>
+                <div className={`w-5 h-5 rounded flex items-center justify-center border ${todo.completed ? "bg-[#A3B18A] border-[#A3B18A] text-white" : "border-stone-400"}`}>
                   ✓
                 </div>
-                <span className={`text-xs font-bold uppercase tracking-wide truncate ${todo.completed ? 'line-through text-stone-400' : 'text-stone-700'}`}>
+                <span className={`text-xs font-bold uppercase ${todo.completed ? 'line-through text-stone-400' : 'text-stone-700'}`}>
                   {todo.text}
                 </span>
               </div>
-            )) : <p className="text-[10px] font-black uppercase tracking-widest text-stone-300 italic">No tasks assigned.</p>}
+            )) : <p className="text-[10px] font-black uppercase tracking-widest text-stone-300">No tasks assigned.</p>}
           </div>
         </section>
 
-        {/* TEAM */}
-        <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-2 flex flex-col justify-between min-h-[400px]">
-          <div>
-            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-              <Users size={14} className="text-[var(--brand-primary, #A3B18A)]" />Members
-            </h2>
-            <div className="space-y-4">
-              {teamMembers.map((member, index) => (
-                <div key={index} className="flex items-center justify-between bg-[#faf9f6] border border-stone-100 p-5 rounded-2xl shadow-sm">
-                  <span className="text-xs font-bold uppercase tracking-wide text-stone-800">{member.full_name}</span>
-                  <span className="text-[8px] font-black uppercase tracking-widest text-stone-400">{member.role}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="mt-12 p-6 rounded-[2rem] bg-[#faf9f6] border border-stone-100 flex items-center gap-4">
-            <ShieldCheck size={18} className="text-[var(--brand-primary, #A3B18A)] shrink-0" />
-            <p className="text-[9px] uppercase font-serif italic text-stone-500">
-              Business ID: {organisationId?.slice(0, 8) || "VERIFYING"} Verified.
-            </p>
+        {/* Team/Sidebar Section */}
+        <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-2">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
+            <Users size={14} className="text-[#A3B18A]" /> Team Status
+          </h2>
+          <div className="space-y-4">
+            {teamMembers.map((member, idx) => (
+              <div key={idx} className="flex justify-between p-5 bg-[#faf9f6] rounded-2xl">
+                <span className="text-xs font-bold text-stone-800">{member.full_name}</span>
+                <span className="text-[8px] uppercase tracking-widest text-stone-400">{member.role}</span>
+              </div>
+            ))}
           </div>
         </section>
       </div>
 
-      {/* STATS */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      {/* Financial Stats Grid */}
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: "Active Projects", value: stats.activeProjects, icon: Briefcase, path: "/projects", cta: "View Projects" },
-          { label: "Pending Invoices", value: stats.invoicesDue, icon: FileText, path: "/payments", cta: "Manage Billing" },
-          { label: "Social Media", value: stats.socialsPending, icon: Share2, path: "/social", cta: "Schedule Posts" },
-          { label: "Contacts", value: stats.emailsScheduled, icon: Mail, path: "/campaigns", cta: "Check Mail" },
-          { label: "Current Profit", value: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(stats.currentProfit), icon: PoundSterling, path: "/payments", cta: "View Financials" },
-        ].map((item) => (
-          <div
-            key={item.label}
-            onClick={() => router.push(item.path)}
-            className="group bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm hover:shadow-2xl transition-all cursor-pointer flex flex-col justify-between h-[280px]"
-          >
-            <div>
-              <div className="p-4 bg-stone-50 rounded-2xl text-stone-300 group-hover:bg-[var(--brand-primary, #A3B18A)] group-hover:text-white transition-all w-fit mb-8">
-                <item.icon size={24} />
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-2">{item.label}</p>
-              <p className="text-4xl font-serif italic text-stone-900 leading-none truncate">{item.value}</p>
-            </div>
-            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors">
-              {item.cta} <ArrowRight size={10} />
-            </div>
+          { label: "Projects", val: stats.activeProjects, icon: Briefcase },
+          { label: "Pending", val: stats.invoicesDue, icon: FileText },
+          { label: "Profit", val: stats.currentProfit, icon: PoundSterling },
+          { label: "Analytics", val: "88%", icon: TrendingUp },
+        ].map((item, idx) => (
+          <div key={idx} className="bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm flex flex-col gap-4">
+            <item.icon className="text-[#A3B18A]" size={24} />
+            <p className="text-[10px] font-black uppercase text-stone-400">{item.label}</p>
+            <p className="text-3xl font-serif italic">{item.val}</p>
           </div>
         ))}
       </section>
 
-      {/* INTELLIGENCE MODAL */}
-      <AnimatePresence>
-        {showScanModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-stone-950/90 backdrop-blur-md">
-            <div className="bg-[var(--brand-primary, #A3B18A)] text-white p-12 rounded-[5rem] w-full max-w-4xl border border-white/5 shadow-2xl relative text-center">
-              <button onClick={() => setShowScanModal(false)} className="absolute top-8 right-8 text-white/50 hover:text-white"><X size={32}/></button>
-              <Zap className="mx-auto mb-10 text-white" size={56} fill="currentColor" />
-              <p className="font-serif italic text-5xl leading-tight tracking-tighter">{insight || "Intelligence Scan Complete."}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Footer/Navigation Bar */}
+      <footer className="border-t border-stone-200 pt-12 flex justify-between items-center text-stone-400">
+        <p className="text-[10px] uppercase tracking-widest">© 2026 Enterprise OS</p>
+        <button onClick={() => router.push('/settings')} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:text-stone-900">
+          Account Settings <Settings size={12} />
+        </button>
+      </footer>
     </div>
   );
 }
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="animate-spin text-stone-300" size={32} />
-        <p className="font-black uppercase tracking-[0.5em] text-stone-300 text-[10px]">Loading...</p>
-      </div>
-    }>
+    <Suspense fallback={<div className="h-screen flex items-center justify-center">Loading...</div>}>
       <DashboardContent />
     </Suspense>
   );

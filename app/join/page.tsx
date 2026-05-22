@@ -2,7 +2,8 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client";
+import { getBrowserClient } from "@/lib/supabase";
+const supabase = getBrowserClient();
 import { 
   Loader2, 
   ShieldCheck, 

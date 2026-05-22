@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase"; 
 import { CheckCircle2, ArrowRight, UserPlus, ShieldCheck, Zap, Globe } from "lucide-react";
 import { motion } from "framer-motion";
+// FIX: Import the singleton correctly
+import { getBrowserClient } from "@/lib/supabase";
 
 const TIERS = [
   {
@@ -43,7 +44,10 @@ export default function BillingPage() {
 
   useEffect(() => {
     const getUser = async () => {
-      const supabase = await createClient();
+      // FIX: Use the singleton instance
+      const supabase = getBrowserClient();
+      if (!supabase) return;
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (user) setUserEmail(user.email ?? null);
     };
@@ -113,10 +117,6 @@ export default function BillingPage() {
               </div>
 
               <div className="pt-8 border-t border-[var(--border)] mt-auto">
-                <div className="mb-6">
-                   <p className="text-[8px] uppercase font-black text-[var(--text-muted)] tracking-widest mb-1 opacity-50">Operational Goal</p>
-                   <p className="text-[11px] font-serif italic text-[var(--text-main)]">{tier.goal}</p>
-                </div>
                 <button 
                   onClick={() => { setLoading(tier.name); window.location.href = tier.stripeLink; }}
                   className={`w-full flex items-center justify-between p-6 rounded-2xl transition-all uppercase text-[10px] font-black tracking-[0.2em] ${
@@ -132,36 +132,6 @@ export default function BillingPage() {
             </motion.div>
           ))}
         </div>
-
-        {/* ADD-ON COMPONENT */}
-        <div className="bg-[var(--card-bg)] rounded-[3rem] p-8 md:p-12 flex flex-col md:flex-row justify-between items-center gap-10 border border-[var(--border)] shadow-sm relative overflow-hidden">
-          {/* Subtle Background Icon */}
-          <Globe className="absolute -right-10 -bottom-10 w-64 h-64 text-[var(--brand-primary)] opacity-[0.03] pointer-events-none" />
-          
-          <div className="flex items-center gap-6 relative z-10">
-            <div className="p-5 bg-[var(--bg-soft)] rounded-[1.5rem] border border-[var(--border)] text-[var(--brand-primary)] shadow-sm">
-              <UserPlus size={28} />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-2xl font-serif italic">Expand Operations</h4>
-              <p className="text-[11px] text-[var(--text-muted)] font-medium max-w-xs leading-relaxed uppercase tracking-wide">Add a collaborative node to your system environment.</p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-8 relative z-10 w-full md:w-auto">
-            <div className="text-center md:text-right">
-              <p className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-widest mb-1">Additional Seat</p>
-              <p className="text-3xl font-serif italic">£19.95<span className="text-[10px] uppercase font-black text-[var(--text-muted)] ml-2">/month</span></p>
-            </div>
-            <Link 
-              href="https://buy.stripe.com/test_addon_link" 
-              className="w-full sm:w-auto bg-[var(--text-main)] text-[var(--bg)] px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--brand-primary)] hover:text-white transition-all shadow-xl flex items-center justify-center gap-3"
-            >
-              <Zap size={14} /> Add Node
-            </Link>
-          </div>
-        </div>
-
       </div>
     </div>
   );

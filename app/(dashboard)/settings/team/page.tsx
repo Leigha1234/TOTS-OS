@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client"; 
+import { getBrowserClient } from "@/lib/supabase";
+const supabase = getBrowserClient();
 import { useSettings } from "@/app/context/SettingsContext";
 import { 
   ArrowLeft, Check, Loader2, Palette, Database, 

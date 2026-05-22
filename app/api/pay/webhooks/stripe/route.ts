@@ -1,12 +1,16 @@
 import { stripe } from "@/lib/stripe";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase"; // Ensure this matches your service-role / admin client path
+import { createClient } from "@supabase/supabase-js";
+
+// CRITICAL: Initialize Service Role client to bypass RLS for webhook updates
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY! // Ensure this is in your .env
+);
 
 export async function POST(req: Request) {
   const body = await req.text();
-  const supabase = await createClient(); // Use your admin/service client to bypass RLS write restrictions
-  
   const headerPayload = await headers();
   const sig = headerPayload.get("stripe-signature");
 
@@ -32,14 +36,13 @@ export async function POST(req: Request) {
     case "checkout.session.completed": {
       const session = event.data.object as any;
       
-      // Matched exactly to the metadata keys in your checkout file:
       const userId = session.metadata?.supabase_user_id;
       const tierPaid = session.metadata?.tier_allocated;
       const seatsAllocated = session.metadata?.additional_seats;
 
       if (userId && tierPaid) {
-        // Core database write updating the tester's workspace clearance
-        const { error } = await supabase
+        // Use the admin client to write to the database
+        const { error } = await supabaseAdmin
           .from("profiles")
           .update({ 
             subscription_tier: tierPaid,
@@ -49,11 +52,23 @@ export async function POST(req: Request) {
           .eq("id", userId);
         
         if (error) {
-          console.error("❌ Failed to update profile system credentials in Supabase:", error);
-        } else {
-          console.log(`✅ System Escalation Complete: ${userId} provisioned to ${tierPaid.toUpperCase()}`);
+          console.error("❌ Failed to update profile system credentials:", error);
+          return NextResponse.json({ error: "Database update failed" }, { status: 500 });
         }
+        console.log(`✅ System Escalation Complete: ${userId} provisioned to ${tierPaid.toUpperCase()}`);
       }
+      break;
+    }
+
+    case "customer.subscription.deleted": {
+      // Logic for handling subscription cancellations
+      const subscription = event.data.object as any;
+      const customerId = subscription.customer as string;
+
+      await supabaseAdmin
+        .from("profiles")
+        .update({ subscription_tier: "STANDARD" })
+        .eq("stripe_customer_id", customerId);
       break;
     }
     

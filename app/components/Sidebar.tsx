@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client"; 
+import { getBrowserClient } from "@/lib/supabase";
+const supabase = getBrowserClient(); 
 import { useSettings } from "@/app/context/SettingsContext"; 
 import { 
   LayoutDashboard, Users, Menu, Calendar, Megaphone, 

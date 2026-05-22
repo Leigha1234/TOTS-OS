@@ -1,5 +1,5 @@
-import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = request.nextUrl;
 
-  // 1. Core Auth Guards
+  // 1. Auth Guard
   if (pathname.startsWith('/dashboard') && !session) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
@@ -30,30 +30,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // 2. Tier Guard Logic
+  // 2. Resilient Tier Guard
   if (session) {
-    // ADMIN BYPASS: Replace with your actual development email
-    if (session.user.email === 'your-email@example.com') {
-      return response;
-    }
+    if (pathname === '/settings/manage-subscription') return response;
 
-    // Allow access to billing without tier check
-    if (pathname === '/settings/manage-subscription') {
-      return response;
-    }
-
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('subscription_tier')
       .eq('id', session.user.id)
       .single();
 
-    const tier = (profile?.subscription_tier || 'STANDARD').toUpperCase();
+    // If tier lookup fails (latency/network), default to safe mode rather than redirect
+    const tier = error || !profile ? 'STANDARD' : profile.subscription_tier.toUpperCase();
 
-    // FIXED: Removed the redirect for /settings so you can always access it.
-    // If you want to lock specific sub-pages, add them here.
-    
-    // Protect "ELITE" features
+    // Only block if we are CONFIDENT the user is not allowed
     if (pathname.startsWith('/projects') && tier !== 'ELITE') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }

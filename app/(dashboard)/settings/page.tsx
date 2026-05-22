@@ -284,7 +284,7 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
                     <div className="md:col-span-3 flex justify-end pt-2">
                       <button type="submit" disabled={isUpdatingPassword} className="w-full md:w-auto px-8 py-3 bg-stone-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all flex items-center justify-center gap-2">
                         {isUpdatingPassword && <Loader2 size={12} className="animate-spin" />}
-                        Update Security Key
+                        Update Password
                       </button>
                     </div>
                   </form>

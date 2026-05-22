@@ -7,22 +7,26 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16" as any, 
 });
 
-const PRICE_IDS: Record<string, string> = {
-  standard: process.env.NEXT_PUBLIC_STRIPE_PRICE_STANDARD!,
-  premium: process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM!,
-  elite: process.env.NEXT_PUBLIC_STRIPE_PRICE_ELITE!,
+const PRICE_IDS: Record<string, string | undefined> = {
+  standard: process.env.STRIPE_PRICE_STANDARD || process.env.NEXT_PUBLIC_STRIPE_PRICE_STANDARD,
+  premium: process.env.STRIPE_PRICE_PREMIUM || process.env.NEXT_PUBLIC_STRIPE_PRICE_PREMIUM,
+  elite: process.env.STRIPE_PRICE_ELITE || process.env.NEXT_PUBLIC_STRIPE_PRICE_ELITE,
 };
 
 // Matched to your exact variable name preference
-const TEAM_SEAT_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_TEAM_MEMBER;
+const TEAM_SEAT_PRICE_ID = process.env.STRIPE_PRICE_TEAM_MEMBER || process.env.NEXT_PUBLIC_STRIPE_PRICE_TEAM_MEMBER;
 
 export async function POST(req: Request) {
   try {
     const { tier, additionalSeats, couponCode } = await req.json();
     const priceId = PRICE_IDS[tier];
+    console.log("Stripe tier requested:", tier);
+    console.log("Resolved Stripe price ID:", priceId);
+    console.log("Team seat price ID:", TEAM_SEAT_PRICE_ID);
 
     if (!priceId) {
-      return NextResponse.json({ error: "Invalid tier specified." }, { status: 400 });
+      console.error("Missing Stripe price mapping for tier:", tier);
+      return NextResponse.json({ error: `Missing Stripe price mapping for ${tier}` }, { status: 400 });
     }
 
     const cookieStore = await cookies();

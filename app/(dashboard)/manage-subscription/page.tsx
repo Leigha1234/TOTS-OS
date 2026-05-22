@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  ArrowLeft, ShieldCheck, Clock, Check, 
+  ArrowLeft, Clock, Check, 
   Loader2, Zap, AlertTriangle, Plus, Minus, Users, Tag
 } from "lucide-react";
 import { toast } from "sonner";
@@ -158,7 +158,7 @@ export default function ManageSubscription() {
 
       toast.dismiss(updateToast);
       toast.success("Redirecting safely to Stripe secure billing portal...");
-      
+      setIsProcessing(false);
       window.location.href = data.url;
     } catch (err: any) {
       toast.dismiss(updateToast);
@@ -178,6 +178,7 @@ export default function ManageSubscription() {
       
       toast.dismiss(cancelToast);
       toast.success("Subscription termination scheduled successfully.");
+      setCurrentTier(null);
       setShowCancelConfirmation(false);
     } catch (err: any) {
       toast.dismiss(cancelToast);
@@ -189,7 +190,7 @@ export default function ManageSubscription() {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-6">
+    <div className="min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] flex flex-col items-center justify-center gap-6">
       <Loader2 className="animate-spin text-[#A3B18A]" size={40} />
       <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[#A3B18A]">Parsing Commercial Parameters</p>
     </div>
@@ -199,10 +200,10 @@ export default function ManageSubscription() {
   const addonPrice = teamMembersCount * TEAM_MEMBER_PRICE;
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 max-w-[1700px] mx-auto font-sans">
+    <div className="min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 max-w-[1700px] mx-auto font-sans">
       
       {/* --- HEADER --- */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-stone-200 pb-8 gap-4">
+      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-stone-200 pb-8 gap-6">
         <div className="space-y-3">
           <button 
             onClick={() => router.push("/settings")} 
@@ -241,7 +242,7 @@ export default function ManageSubscription() {
               <div 
                 key={tierKey}
                 onClick={() => setSelectedTier(tierKey)}
-                className={`bg-white border rounded-[3rem] p-8 space-y-8 flex flex-col justify-between cursor-pointer transition-all relative ${isSelected ? 'border-[#A3B18A] shadow-xl ring-1 ring-[#A3B18A]' : 'border-stone-200 shadow-sm hover:border-stone-400'}`}
+                className={`bg-white/90 backdrop-blur border rounded-[3rem] p-8 space-y-8 flex flex-col justify-between cursor-pointer transition-all duration-300 relative ${isSelected ? 'border-[#A3B18A] shadow-[0_12px_40px_rgba(0,0,0,0.08)] ring-1 ring-[#A3B18A] -translate-y-1' : 'border-stone-200 shadow-sm hover:border-stone-400 hover:-translate-y-1 hover:shadow-lg'}`}
               >
                 {tier.badge && (
                   <span className="absolute top-6 right-8 bg-[#A3B18A]/10 border border-[#A3B18A]/20 text-[#A3B18A] text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
@@ -299,7 +300,7 @@ export default function ManageSubscription() {
         {/* --- ADDONS / PROMOS --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
           
-          <div className="bg-white border border-stone-200 rounded-[2.5rem] p-8 shadow-sm flex flex-col justify-between space-y-6 text-center">
+          <div className="bg-white/90 backdrop-blur border border-stone-200 rounded-[2.5rem] p-8 shadow-[0_10px_35px_rgba(0,0,0,0.04)] flex flex-col justify-between space-y-6 text-center">
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-full bg-[#faf9f6] flex items-center justify-center mx-auto text-[#A3B18A]">
                 <Users size={20} />
@@ -335,7 +336,7 @@ export default function ManageSubscription() {
             </div>
           </div>
 
-          <div className="bg-white border border-stone-200 rounded-[2.5rem] p-8 shadow-sm flex flex-col justify-between space-y-6 text-center">
+          <div className="bg-white/90 backdrop-blur border border-stone-200 rounded-[2.5rem] p-8 shadow-[0_10px_35px_rgba(0,0,0,0.04)] flex flex-col justify-between space-y-6 text-center">
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-full bg-[#faf9f6] flex items-center justify-center mx-auto text-stone-400">
                 <Tag size={18} />
@@ -377,7 +378,7 @@ export default function ManageSubscription() {
               Cancel Corporate Subscription
             </button>
           ) : (
-            <div className="w-full max-w-md bg-white border border-red-100 rounded-3xl p-6 space-y-4 shadow-sm text-center">
+            <div className="w-full max-w-md bg-white/95 backdrop-blur border border-red-100 rounded-3xl p-6 space-y-4 shadow-[0_10px_35px_rgba(0,0,0,0.05)] text-center">
               <div className="w-10 h-10 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto">
                 <AlertTriangle size={18} />
               </div>

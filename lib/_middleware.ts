@@ -4,15 +4,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
-  // 1. Initialize modern server client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
+        getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet: any[]) {
           cookiesToSet.forEach(({ name, value, options }) => request.cookies.set({ name, value, ...options }));
           response = NextResponse.next({ request });
@@ -25,7 +22,7 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = request.nextUrl;
 
-  // 2. Core Auth Guards
+  // 1. Core Auth Guards
   if (pathname.startsWith('/dashboard') && !session) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
@@ -33,14 +30,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // 3. Subscription & Tier Guard Logic Matrix
+  // 2. Tier Guard Logic
   if (session) {
-    // ADMIN BYPASS: Always allow your primary developer email access to everything
-    if (session.user.email === 'YOUR_EMAIL@EXAMPLE.COM') {
+    // ADMIN BYPASS: Replace with your actual development email
+    if (session.user.email === 'your-email@example.com') {
       return response;
     }
 
-    // CRITICAL EXEMPTION: Allow all accounts to hit the billing management paths unconditionally
+    // Allow access to billing without tier check
     if (pathname === '/settings/manage-subscription') {
       return response;
     }
@@ -53,15 +50,11 @@ export async function middleware(request: NextRequest) {
 
     const tier = (profile?.subscription_tier || 'STANDARD').toUpperCase();
 
-    // UPDATED: Allow STANDARD users to access main /settings, 
-    // but keep specific restriction if you intended to lock parts of it.
-    // If you want everyone to access settings, remove this block:
-    if (pathname.startsWith('/settings') && tier === 'LOCKED_TIER') { 
-       return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    // Protect "PREMIUM" or "ELITE" features (e.g., Projects pipeline)
-    if (pathname.startsWith('/projects') && tier === 'STANDARD') {
+    // FIXED: Removed the redirect for /settings so you can always access it.
+    // If you want to lock specific sub-pages, add them here.
+    
+    // Protect "ELITE" features
+    if (pathname.startsWith('/projects') && tier !== 'ELITE') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
@@ -70,10 +63,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/settings/:path*',
-    '/projects/:path*',
-    '/login'
-  ],
+  matcher: ['/dashboard/:path*', '/settings/:path*', '/projects/:path*', '/login'],
 };

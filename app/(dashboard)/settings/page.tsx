@@ -166,6 +166,12 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
         </div>
         <div className="flex gap-4">
            <button onClick={handleLogout} className="px-8 py-5 rounded-full border text-[10px] font-black uppercase">Sign Out</button>
+           <button
+             onClick={() => router.push('/manage-subscription')}
+             className="px-8 py-5 rounded-full border bg-white hover:bg-stone-50 text-[10px] font-black uppercase"
+           >
+             Manage Subscription
+           </button>
            <button onClick={handleSave} className="accent-bg px-12 py-5 rounded-full text-white font-black uppercase text-[10px]">
              {isSaving ? <Loader2 className="animate-spin" /> : "Save Changes"}
            </button>

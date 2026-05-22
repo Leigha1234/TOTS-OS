@@ -23,9 +23,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Invalid tier` }, { status: 400 });
     }
 
-    // Direct Stripe session creation without Supabase auth sync
+    // Direct Stripe session creation with promotion codes enabled
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
+      allow_promotion_codes: true, // This brings back the discount code field
       line_items: [
         { price: priceId, quantity: 1 },
         ...(additionalSeats > 0 ? [{ price: TEAM_SEAT_PRICE_ID, quantity: additionalSeats }] : [])

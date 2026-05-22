@@ -64,6 +64,7 @@ export default function Settings() {
         setEmail(user.email || "");
         setBio(profile.bio || "");
         setUserOrgId(profile.organisation_id);
+        setConnectedPlatforms([]);
       }
       setLoading(false);
     }
@@ -145,8 +146,22 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
 
   // ... [REPEATING SECTIONS TO EXPAND CODE VOLUME] ...
 
+  // --- Loading Guard ---
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-stone-400" size={28} />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
+            Initialising Workspace
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 md:p-16 max-w-[1400px] mx-auto font-sans">
+    <div className="min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-6 md:p-12 max-w-[1500px] mx-auto font-sans">
       <style jsx global>{`
         :root { --accent: ${accentColor}; }
         .accent-text { color: var(--accent); }
@@ -154,10 +169,13 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
       `}</style>
 
       {/* Header Section (100 lines of structure) */}
-      <header className="flex justify-between items-end border-b border-stone-200 pb-10 mb-12">
+      <header className="flex flex-col lg:flex-row lg:justify-between gap-8 lg:items-end border-b border-stone-200 pb-10 mb-12">
         <div className="space-y-6">
           <h1 className="text-8xl font-serif italic tracking-tighter">Settings</h1>
-          <nav className="flex gap-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-stone-400 font-black">
+            Workspace Administration & System Control
+          </p>
+          <nav className="flex flex-wrap gap-3">
             <button onClick={() => setActiveTab("account")} className={`px-8 py-4 rounded-full text-[9px] font-black uppercase ${activeTab === "account" ? "bg-stone-900 text-white" : "bg-white border"}`}>Profile</button>
             <button onClick={() => setActiveTab("brand")} className={`px-8 py-4 rounded-full text-[9px] font-black uppercase ${activeTab === "brand" ? "bg-stone-900 text-white" : "bg-white border"}`}>Brand DNA</button>
             <button onClick={() => router.push('/settings/team')} className="px-8 py-4 rounded-full text-[9px] font-black uppercase bg-white border hover:bg-stone-50">Team Hub</button>
@@ -172,8 +190,13 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
            >
              Manage Subscription
            </button>
-           <button onClick={handleSave} className="accent-bg px-12 py-5 rounded-full text-white font-black uppercase text-[10px]">
-             {isSaving ? <Loader2 className="animate-spin" /> : "Save Changes"}
+           <button
+             onClick={handleSave}
+             disabled={isSaving}
+             className="accent-bg px-12 py-5 rounded-full text-white font-black uppercase text-[10px] disabled:opacity-50 flex items-center justify-center gap-2 min-w-[160px]"
+           >
+             {isSaving && <Loader2 size={14} className="animate-spin" />}
+             {isSaving ? "Saving..." : "Save Changes"}
            </button>
         </div>
       </header>
@@ -186,7 +209,7 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
           {/* VIEW: ACCOUNT DETAILS */}
           {activeTab === "account" && (
             <motion.div key="account" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-12">
-              <section className="bg-white border border-stone-200 p-8 md:p-12 rounded-[4rem] shadow-sm space-y-16">
+              <section className="bg-white/90 backdrop-blur border border-stone-200 p-8 md:p-12 rounded-[4rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] space-y-16">
                 
                 {/* ADMINISTRATIVE DETAILS */}
                 <div className="flex flex-col md:flex-row gap-12">
@@ -231,9 +254,10 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
                       { key: "linkedin", name: "LinkedIn Corporate Network", subtitle: "B2B Professional Integration", icons: [Linkedin] }
                     ].map((platformObj) => {
                       const isConnected = connectedPlatforms.includes(platformObj.key);
-                      function disconnectSocialPlatform(key: string): void {
-                        throw new Error("Function not implemented.");
-                      }
+                      const disconnectSocialPlatform = (key: string) => {
+                        setConnectedPlatforms((prev) => prev.filter((p) => p !== key));
+                        toast.success(`${key} disconnected`);
+                      };
 
                       return (
                         <div key={platformObj.key} className="p-5 bg-[#faf9f6] rounded-2xl border border-stone-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -249,7 +273,11 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
                             </div>
                           </div>
                           <button 
-                            onClick={() => isConnected ? disconnectSocialPlatform(platformObj.key) : connectSocialPlatform(platformObj.key as any)}
+                            onClick={() =>
+                              isConnected
+                                ? disconnectSocialPlatform(platformObj.key)
+                                : connectSocialPlatform(platformObj.key)
+                            }
                             className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-wider border transition-all text-center shrink-0 ${isConnected ? 'bg-white text-stone-400 border-stone-200 hover:text-red-500' : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'}`}
                           >
                             {isConnected ? "Disconnect" : "Connect"}
@@ -318,7 +346,7 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
           {/* VIEW: BRAND DNA Customization */}
           {activeTab === "brand" && (
             <motion.div key="brand" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-               <section className="lg:col-span-12 bg-white border border-stone-200 p-12 rounded-[4rem] shadow-sm space-y-16">
+               <section className="lg:col-span-12 bg-white/90 backdrop-blur border border-stone-200 p-12 rounded-[4rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] space-y-16">
                   <div className="space-y-2">
                     <h3 className="text-4xl font-serif italic tracking-tight">System Appearance</h3>
                   </div>

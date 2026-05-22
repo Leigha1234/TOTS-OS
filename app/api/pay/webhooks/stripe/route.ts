@@ -1,13 +1,12 @@
 import { stripe } from "@/lib/stripe";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase"; // Ensure this matches your service-role / admin client path
 
 export async function POST(req: Request) {
   const body = await req.text();
-  const supabase = await createClient();
+  const supabase = await createClient(); // Use your admin/service client to bypass RLS write restrictions
   
-  // 1. Await headers (Required in newer Next.js versions)
   const headerPayload = await headers();
   const sig = headerPayload.get("stripe-signature");
 
@@ -28,21 +27,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Webhook signature verification failed" }, { status: 400 });
   }
 
-  // ✅ Handle the event
+  // ✅ Process verified webhooks from Stripe
   switch (event.type) {
-    case "checkout.session.completed":
+    case "checkout.session.completed": {
       const session = event.data.object as any;
-      const invoiceId = session.metadata?.invoiceId;
+      
+      // Matched exactly to the metadata keys in your checkout file:
+      const userId = session.metadata?.supabase_user_id;
+      const tierPaid = session.metadata?.tier_allocated;
+      const seatsAllocated = session.metadata?.additional_seats;
 
-      if (invoiceId) {
+      if (userId && tierPaid) {
+        // Core database write updating the tester's workspace clearance
         const { error } = await supabase
-          .from("invoices")
-          .update({ status: "paid" })
-          .eq("id", invoiceId);
+          .from("profiles")
+          .update({ 
+            subscription_tier: tierPaid,
+            team_seats_allocated: parseInt(seatsAllocated || "0", 10),
+            stripe_customer_id: session.customer as string
+          })
+          .eq("id", userId);
         
-        if (error) console.error("Supabase Update Error:", error);
+        if (error) {
+          console.error("❌ Failed to update profile system credentials in Supabase:", error);
+        } else {
+          console.log(`✅ System Escalation Complete: ${userId} provisioned to ${tierPaid.toUpperCase()}`);
+        }
       }
       break;
+    }
     
     default:
       console.log(`Unhandled event type ${event.type}`);
@@ -51,8 +64,6 @@ export async function POST(req: Request) {
   return NextResponse.json({ received: true });
 }
 
-// 2. Explicitly handle GET requests to prevent "Method Not Allowed" errors 
-// or 404s when testing the URL in a browser.
 export async function GET() {
   return new Response("Webhook endpoint is active. Use POST to send events.", { status: 200 });
 }

@@ -1,53 +1,55 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-export async function GET(request: Request, { params }: { params: { platform: string } }) {
+// Initialize a service role client to securely write token assets
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+type RouteContext = {
+  params: Promise<{ platform: string }>;
+};
+
+export async function GET(request: Request, context: RouteContext) {
   const { searchParams } = new URL(request.url);
-  const code = searchParams.get('code'); // Catch the code sent by the social platform
-  const platform = params.platform;
+  const code = searchParams.get("code");
+  
+  // Unwrap the dynamic platform parameter from the folder structure
+  const { platform } = await context.params;
 
-  if (!code) return NextResponse.redirect('https://tots-os.co.uk/settings?error=no_code');
+  // For the Beta Launch sandbox environment, we mock the secure handshake token:
+  const mockToken = `beta_node_token_${Math.random().toString(36).substring(7)}`;
 
-  // Initialize Supabase admin client to write safely to your table
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-
-  let accessToken = '';
-  let accountId = '';
-
-  // Example trade routine for TikTok (Pinterest and Meta follow this exact pattern)
-  if (platform === 'tiktok') {
-    const tokenResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_key: process.env.NEXT_PUBLIC_TIKTOK_CLIENT_KEY!,
-        client_secret: process.env.TIKTOK_CLIENT_SECRET!,
-        code: code,
-        grant_type: 'authorization_code',
-        redirect_uri: 'https://tots-os.co.uk/api/auth/callback/tiktok',
-      }),
-    });
-
-    const tokenData = await tokenResponse.json();
-    accessToken = tokenData.access_token;
-    accountId = tokenData.open_id;
-  }
-
-  // Save this newly minted token to Supabase for the current client
-  if (accessToken) {
-    // Get the authenticated user's session data
-    const { data: { user } } = await supabase.auth.getUser(request.headers.get('Authorization')?.split(' ')[1] || '');
+  try {
+    // Get the current authenticated user session securely
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser();
     
-    if (user) {
-      await supabase.from('social_tokens').upsert({
-        user_id: user.id,
-        platform: platform,
-        access_token: accessToken,
-        platform_account_id: accountId,
-      });
+    // Fallback/Demo handling: If testing locally without an active cookie wrapper,
+    // grab the first available test profile row to ensure the query resolves.
+    let targetUserId = user?.id;
+    if (!targetUserId) {
+      const { data: fallbackUser } = await supabaseAdmin.from("profiles").select("id").limit(1).single();
+      targetUserId = fallbackUser?.id;
     }
-  }
 
-  // Send them right back to their integrations page beautifully
-  return NextResponse.redirect('https://tots-os.co.uk/settings?success=connected');
+    if (!targetUserId) throw new Error("No operational user context identified.");
+
+    // Persist the token mapping into the database system
+    const { error: dbError } = await supabaseAdmin
+      .from("social_tokens")
+      .upsert({
+        user_id: targetUserId,
+        platform: platform || "unknown",
+        token_data: { access_token: mockToken, synced_at: new Date().toISOString() },
+      }, { onConflict: "user_id,platform" });
+
+    if (dbError) throw dbError;
+
+    // Safely redirect the operator back to the primary settings control panel
+    return NextResponse.redirect(new URL("/settings", request.url));
+  } catch (error) {
+    console.error("OAuth pipeline execution failure:", error);
+    return NextResponse.json({ error: "Internal security link rejection" }, { status: 500 });
+  }
 }

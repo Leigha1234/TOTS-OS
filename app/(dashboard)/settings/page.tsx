@@ -35,6 +35,7 @@ export default function Settings() {
   const [accentColor, setAccentColor] = useState("#A3B18A");
   const [fontPreference, setFontPreference] = useState<"serif-heavy" | "sans-clean">("serif-heavy");
   const [uiDensity, setUiDensity] = useState<"minimal" | "compact">("minimal");
+  const [userOrgId, setUserOrgId] = useState<string | null>(null);
 
   // -- Profile Information --
   const [displayName, setDisplayName] = useState("");
@@ -177,9 +178,10 @@ export default function Settings() {
           return;
         }
 
+        // Fetch user profile info along with organisation_id
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("full_name, bio, subscription_tier")
+          .select("full_name, bio, subscription_tier, organisation_id")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -200,6 +202,23 @@ export default function Settings() {
           setDisplayName(fetchedName);
           setEmail(coreEmail);
           setBio(profile.bio || "Root Administrator for TOTS OS. Managing cloud architectures.");
+          
+          if (profile.organisation_id) {
+            setUserOrgId(profile.organisation_id);
+            
+            // Hydrate multi-tenant brand settings dynamically from settings table
+            const { data: tenantSettings, error: settingsError } = await supabase
+              .from("settings")
+              .select("brand_color, font_preference, ui_density")
+              .eq("organisation_id", profile.organisation_id)
+              .maybeSingle();
+
+            if (!settingsError && tenantSettings) {
+              if (tenantSettings.brand_color) setAccentColor(tenantSettings.brand_color);
+              if (tenantSettings.font_preference) setFontPreference(tenantSettings.font_preference as any);
+              if (tenantSettings.ui_density) setUiDensity(tenantSettings.ui_density as any);
+            }
+          }
           
           if (profile.subscription_tier) {
             const rawTier = profile.subscription_tier;
@@ -228,14 +247,15 @@ export default function Settings() {
     return () => clearInterval(timer);
   }, [router]);
 
-  // -- Save Profile Changes --
+  // -- Save Profile & Brand Changes --
   const handleSave = async () => {
     setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Authentication session missing.");
 
-      const { error } = await supabase
+      // 1. Update personal profile information
+      const { error: profileError } = await supabase
         .from("profiles")
         .update({
           full_name: displayName,
@@ -243,7 +263,22 @@ export default function Settings() {
         })
         .eq("id", user.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // 2. Persist multi-tenant brand configuration parameters if organisation exists
+      if (userOrgId) {
+        const { error: settingsError } = await supabase
+          .from("settings")
+          .upsert({
+            organisation_id: userOrgId,
+            brand_color: accentColor,
+            font_preference: fontPreference,
+            ui_density: uiDensity,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'organisation_id' });
+
+        if (settingsError) throw settingsError;
+      }
 
       setUserName(displayName.toUpperCase());
       toast.success("Workspace System Settings Saved");

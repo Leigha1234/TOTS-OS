@@ -205,9 +205,11 @@ export default function Settings() {
 
         if (settingsError) {
           console.warn("Settings fetch failed:", settingsError.message);
+          console.log("Session Check:", { user, organisation_id: profile?.organisation_id });
         } else if (tenantSettings) {
           setAccentColor(tenantSettings.brand_color || "#A3B18A");
           setSecondaryColor(tenantSettings.secondary_color || "#D4C8B4"); 
+          console.log("Session Check:", { user, organisation_id: profile?.organisation_id });
         }
       }
     }

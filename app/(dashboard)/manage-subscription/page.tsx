@@ -4,15 +4,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase"; 
 import { 
-  ArrowLeft, Clock, Check, 
-  Loader2, Zap, AlertTriangle, Plus, Minus, Users, Tag
+  ArrowLeft, Check, Loader2, Plus, Minus
 } from "lucide-react";
 import { toast } from "sonner";
-
-/**
- * TOTS OS: SUBSCRIPTION & COMMERCIAL TIERS MANAGEMENT PORTAL v1.5
- * Architecture: Singleton Client + Stripe Checkout Integration
- */
 
 type SubscriptionTier = "standard" | "premium" | "elite";
 
@@ -22,34 +16,31 @@ interface TierFeature {
 }
 
 export default function ManageSubscription() {
-  // Use useMemo to ensure Supabase client is a stable instance
   const supabase = useMemo(() => getBrowserClient(), []);
   const router = useRouter();
   
   const [currentTier, setCurrentTier] = useState<SubscriptionTier | null>(null);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>("premium");
   const [teamMembersCount, setTeamMembersCount] = useState<number>(0);
-  const [promoCode, setPromoCode] = useState<string>("");
+  const [promoCode] = useState<string>("");
   
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
 
   const TEAM_MEMBER_PRICE = 10; 
 
-  const tierMatrix: Record<SubscriptionTier, { name: string; price: number; badge?: string; goal: string; description: string; features: TierFeature[] }> = {
+  const tierMatrix: Record<SubscriptionTier, { name: string; price: number; description: string; features: TierFeature[] }> = {
     standard: {
-      name: "Standard", price: 29, description: "FOUNDATIONAL SYSTEM ACCESS", goal: "Get out of chaos + into structure",
-      features: [{ text: "Core system node", included: true }, { text: "Task management", included: true }, { text: "Basic CRM", included: true }, { text: "Financial tracking", included: true }, { text: "Standard automations", included: true }, { text: "Single operator base allocation", included: true }]
+      name: "Standard", price: 29, description: "FOUNDATIONAL SYSTEM ACCESS",
+      features: [{ text: "Core system node", included: true }, { text: "Task management", included: true }, { text: "Basic CRM", included: true }]
     },
     premium: {
-      name: "Premium", price: 59, badge: "RECOMMENDED", description: "SCALABLE GROWTH ARCHITECTURE", goal: "Run the business properly day-to-day",
-      features: [{ text: "Everything in Standard +", included: true }, { text: "Advanced CRM matrix configuration", included: true }, { text: "Deeper customized automation sequences", included: true }, { text: "Team structure dynamic routing modules", included: true }, { text: "Integrated distribution communication channels", included: true }, { text: "Multi-user expandable setup framework", included: true }]
+      name: "Premium", price: 59, description: "SCALABLE GROWTH ARCHITECTURE",
+      features: [{ text: "Everything in Standard +", included: true }, { text: "Advanced CRM matrix", included: true }, { text: "Deeper automation", included: true }]
     },
     elite: {
-      name: "Elite", price: 149, description: "ENTERPRISE OS DEPLOYMENT", goal: "Business runs cleanly as a system",
-      features: [{ text: "Everything in Premium +", included: true }, { text: "Full custom enterprise business system build", included: true }, { text: "Hands-off macro system-wide automations", included: true }, { text: "Custom workflows and pipeline architectures", included: true }, { text: "Priority protocol support network access", included: true }]
+      name: "Elite", price: 149, description: "ENTERPRISE OS DEPLOYMENT",
+      features: [{ text: "Everything in Premium +", included: true }, { text: "Full custom build", included: true }, { text: "Priority support", included: true }]
     }
   };
 
@@ -68,7 +59,8 @@ export default function ManageSubscription() {
         if (error) throw error;
         if (data?.subscription_tier) {
           const t = data.subscription_tier.toLowerCase() as SubscriptionTier;
-          setCurrentTier(t); setSelectedTier(t);
+          setCurrentTier(t); 
+          setSelectedTier(t);
           setTeamMembersCount(data.team_seats_allocated || 0);
         }
       } catch (err) {
@@ -97,6 +89,9 @@ export default function ManageSubscription() {
     }
   };
 
+  const isCurrentTier = selectedTier === currentTier;
+  const isButtonDisabled = isProcessing || isCurrentTier;
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#A3B18A]" size={40} /></div>
   );
@@ -105,18 +100,37 @@ export default function ManageSubscription() {
     <div className="min-h-screen bg-stone-50 p-12 max-w-[1400px] mx-auto">
       <header className="flex justify-between items-center border-b pb-8 mb-12">
         <button onClick={() => router.push("/settings")} className="flex items-center gap-2 text-stone-400 text-[10px] uppercase font-black"><ArrowLeft size={12} /> Back</button>
-        <button onClick={handleTierUpdate} className="bg-stone-900 text-white px-10 py-4 rounded-full text-[10px] font-black uppercase tracking-widest">
-           {isProcessing ? "Processing..." : `Switch to ${tierMatrix[selectedTier].name}`}
+        <button 
+          onClick={handleTierUpdate} 
+          disabled={isButtonDisabled}
+          className={`px-10 py-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+            isButtonDisabled ? "bg-stone-200 text-stone-500 cursor-not-allowed" : "bg-stone-900 text-white hover:bg-stone-700"
+          }`}
+        >
+           {isCurrentTier ? "Current Plan" : (isProcessing ? "Processing..." : `Switch to ${tierMatrix[selectedTier].name}`)}
         </button>
       </header>
 
       <main className="grid grid-cols-3 gap-8">
         {(Object.keys(tierMatrix) as SubscriptionTier[]).map((key) => (
-          <div key={key} onClick={() => setSelectedTier(key)} className={`p-8 border rounded-[2rem] cursor-pointer ${selectedTier === key ? "border-[#A3B18A] ring-1 ring-[#A3B18A]" : "border-stone-200"}`}>
+          <div 
+            key={key} 
+            onClick={() => setSelectedTier(key)} 
+            className={`p-8 border rounded-[2rem] cursor-pointer relative transition-all ${
+              selectedTier === key ? "border-[#A3B18A] ring-1 ring-[#A3B18A]" : "border-stone-200"
+            } ${currentTier === key ? "bg-[#F8F9F5]" : ""}`}
+          >
+            {currentTier === key && (
+              <span className="absolute top-4 right-4 bg-[#A3B18A] text-white text-[9px] px-3 py-1 rounded-full uppercase font-bold">Active</span>
+            )}
             <h3 className="text-3xl font-serif italic mb-4">{tierMatrix[key].name}</h3>
             <p className="text-5xl font-serif mb-6">£{tierMatrix[key].price}</p>
             <ul className="space-y-4">
-              {tierMatrix[key].features.map((f, i) => <li key={i} className="text-xs text-stone-600 flex gap-2"><Check size={14} className="text-[#A3B18A]"/> {f.text}</li>)}
+              {tierMatrix[key].features.map((f, i) => (
+                <li key={i} className="text-xs text-stone-600 flex gap-2">
+                  <Check size={14} className={currentTier === key ? "text-[#A3B18A]" : "text-stone-300"}/> {f.text}
+                </li>
+              ))}
             </ul>
           </div>
         ))}

@@ -98,14 +98,15 @@ function VaultContent() {
       
       channel = supabase.channel("vault_desk")
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchNotes(authUser.id))
-        .subscribe((status) => {
+        // FIXED: Explicitly typed 'status' as a string to resolve the type error
+        .subscribe((status: string) => {
           if (status === "CLOSED") console.warn("Supabase Realtime socket dropped gracefully.");
         });
     };
     init();
     return () => { if (channel) supabase.removeChannel(channel); };
   }, [fetchNotes, fetchTeamMembers]);
-
+  
   // Speech Recognition Initializer
   useEffect(() => {
     if (typeof window !== "undefined") {

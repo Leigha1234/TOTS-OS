@@ -22,29 +22,35 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = request.nextUrl;
 
-  // 1. Auth Guard
+  // 1. Auth Guard: Prevent unauthenticated access
   if (pathname.startsWith('/dashboard') && !session) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
+  
   if (pathname === '/login' && session) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // 2. Resilient Tier Guard
+  // 2. Pay-First Gate
   if (session) {
-    if (pathname === '/settings/manage-subscription') return response;
+    // Always allow access to billing/subscription pages
+    if (pathname.startsWith('/settings/manage-subscription')) return response;
 
-    const { data: profile, error } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
       .select('subscription_tier')
       .eq('id', session.user.id)
       .single();
 
-    // If tier lookup fails (latency/network), default to safe mode rather than redirect
-    const tier = error || !profile ? 'STANDARD' : profile.subscription_tier.toUpperCase();
+    const tier = profile?.subscription_tier?.toLowerCase() || 'unpaid';
 
-    // Only block if we are CONFIDENT the user is not allowed
-    if (pathname.startsWith('/projects') && tier !== 'ELITE') {
+    // GATEKEEPER: If they haven't paid, they can't access core features
+    if (tier === 'unpaid' && pathname !== '/pricing') {
+      return NextResponse.redirect(new URL('/pricing', request.url));
+    }
+
+    // Role-based gate
+    if (pathname.startsWith('/projects') && tier !== 'elite') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
@@ -53,5 +59,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/settings/:path*', '/projects/:path*', '/login'],
+  matcher: ['/dashboard/:path*', '/settings/:path*', '/projects/:path*', '/login', '/pricing'],
 };

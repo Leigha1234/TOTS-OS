@@ -108,14 +108,12 @@ const hours = data?.reduce((a: number, r: any) => a + (Number(r.mon) + Number(r.
             <div className="flex items-center gap-4 text-left">
               <div className="p-3 bg-stone-900 text-[#a9b897] rounded-xl shadow-lg"><Fingerprint size={18} /></div>
               <div className="space-y-0.5">
-                <p className="font-black uppercase text-[8px] tracking-[0.4em] text-stone-300">FISCAL_PULSE_7.1</p>
                 <div className="flex items-center gap-2">
                   <div className="w-1 h-1 bg-[#a9b897] rounded-full animate-pulse" />
-                  <p className="text-[7px] font-mono tracking-widest text-[#a9b897] uppercase">Optimized</p>
                 </div>
               </div>
             </div>
-            <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Payments</h1>
+            <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Finance</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -147,36 +145,12 @@ const hours = data?.reduce((a: number, r: any) => a + (Number(r.mon) + Number(r.
           <MetricCard label="Fiscal Prov" value={metrics.taxDue} sub="FY26 Est." icon={<Receipt />} />
         </section>
 
-        {/* INTERACTIVE NODES */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <button onClick={() => setActiveModal('reserves')} className="p-10 bg-white border border-stone-100 rounded-[2.5rem] flex flex-col justify-between hover:border-stone-900 transition-all shadow-sm group min-h-[300px] relative overflow-hidden text-left">
-              <div className="flex justify-between w-full">
-                <div className="p-5 bg-[#faf9f6] rounded-2xl group-hover:bg-stone-900 group-hover:text-[#a9b897] transition-all duration-500"><Wallet size={32} /></div>
-                <div className="p-4 border border-stone-100 rounded-full text-stone-200 group-hover:text-stone-900 transition-all"><ArrowUpRight size={18}/></div>
-              </div>
-              <div className="mt-6">
-                <p className="text-[9px] font-black uppercase text-stone-300 tracking-[0.4em] italic mb-1">Audit Stream</p>
-                <h5 className="text-5xl font-serif italic tracking-tighter">Reserves</h5>
-              </div>
-              <Landmark size={180} className="absolute -left-10 -bottom-10 opacity-[0.02] text-stone-900" />
-            </button>
-
-            <button onClick={() => setActiveModal('dispatch')} className="p-10 bg-stone-900 text-white rounded-[2.5rem] flex flex-col justify-between hover:bg-stone-800 transition-all shadow-xl group min-h-[300px] relative overflow-hidden text-left">
-                <div className="p-5 bg-white/10 rounded-2xl w-fit group-hover:bg-[#a9b897] group-hover:text-stone-900 transition-all duration-500"><Send size={32} /></div>
-                <div className="mt-6 relative z-10">
-                    <p className="text-[9px] font-black uppercase text-white/30 tracking-[0.4em] mb-1">Outbound Signal</p>
-                    <h5 className="text-5xl font-serif italic tracking-tighter">Dispatch Node</h5>
-                </div>
-                <Zap size={180} className="absolute -right-10 -bottom-10 opacity-[0.03] group-hover:rotate-12 transition-transform" />
-            </button>
-        </div>
-
+        
         {/* LEDGER ARCHIVE */}
         <section className="bg-white border border-stone-100 rounded-[2.5rem] overflow-hidden shadow-sm">
           <div className="p-8 border-b border-stone-50 flex flex-col xl:flex-row justify-between items-center gap-6">
             <div className="text-left w-full xl:w-auto">
-                <h3 className="text-4xl font-serif italic tracking-tighter">Ledger Archive</h3>
-                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">Operational Stream</p>
+                <h3 className="text-4xl font-serif italic tracking-tighter">Transaction Logs</h3>
             </div>
             <div className="flex items-center gap-3 w-full xl:w-auto">
               <div className="relative flex-1 xl:w-72">

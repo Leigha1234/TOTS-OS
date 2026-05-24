@@ -37,35 +37,36 @@ function JoinInterface() {
     }
   }, [token]);
 
-  async function verifyInvite() {
-    try {
-      // Fetch invite and join with the settings table to show the Business Name
-      const { data, error } = await supabase
-        .from('invites')
-        .select(`
-          *,
-          settings:organisation_id (
-            business_name,
-            brand_color
-          )
-        `)
-        .eq('token', token)
-        .single();
+async function verifyInvite() {
+  try {
+    const { data, error } = await supabase
+      .from('invites')
+      .select('*, settings:organisation_id(business_name, brand_color)')
+      .eq('token', token)
+      .single();
 
-      if (error || !data) {
-        toast.error("Invitation expired or invalid.");
-        router.push("/login");
-        return;
-      }
-
-      setInviteData(data);
-    } catch (err) {
-      console.error("Verification error:", err);
-    } finally {
-      setLoading(false);
+    if (error || !data) {
+      router.push("/login");
+      return;
     }
-  }
 
+    // World-Class Handling: If pending, redirect to Stripe
+    if (data.status === 'pending' && data.stripe_session_id) {
+      toast.info("Payment verification pending. Redirecting...");
+      
+      // We can use a simple Stripe client-side redirect
+      // Or just provide a link to finish payment
+      window.location.href = `https://checkout.stripe.com/pay/${data.stripe_session_id}`;
+      return;
+    }
+
+    setInviteData(data);
+  } catch (err) {
+    console.error("Verification error:", err);
+  } finally {
+    setLoading(false);
+  }
+}
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     

@@ -86,30 +86,82 @@ export default function ComprehensiveTeamHub() {
     }
   }
 
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const { data, error } = await supabase
+ const handleInvite = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setSaving(true);
+  
+  try {
+    // 1. Query the Org for available seats
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .select('available_seats')
+      .eq('id', organisationId)
+      .single();
+
+    if (orgError) throw orgError;
+
+    // 2. Logic Check: Credit Pool vs. Direct Pay
+    if (org.available_seats > 0) {
+      // A: USE CREDIT
+      await supabase
+        .from('organizations')
+        .update({ available_seats: org.available_seats - 1 })
+        .eq('id', organisationId);
+
+      const { data: invite, error: inviteError } = await supabase
         .from('invites')
         .insert([{ 
           email: inviteEmail, 
           organisation_id: organisationId, 
-          role: inviteRole 
+          role: inviteRole, 
+          status: 'paid' 
         }])
         .select()
         .single();
 
-      if (error) throw error;
-      const link = `${window.location.origin}/join?token=${data.token}`;
-      setGeneratedLink(link);
-      toast.success("Invitation generated.");
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setSaving(false);
+      if (inviteError) throw inviteError;
+      setGeneratedLink(`${window.location.origin}/join?token=${invite.token}`);
+      toast.success("Seat consumed from credits.");
+    } else {
+      // B: PAY FOR SEAT (Redirect to Stripe)
+      const { data: invite, error: inviteError } = await supabase
+        .from('invites')
+        .insert([{ 
+          email: inviteEmail, 
+          organisation_id: organisationId, 
+          role: inviteRole, 
+          status: 'pending' 
+        }])
+        .select()
+        .single();
+
+      if (inviteError) throw inviteError;
+      
+      // Trigger Stripe Checkout
+      const response = await fetch('/api/checkout/create-seat-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteId: invite.id, email: inviteEmail })
+      });
+      
+      const { url, sessionId } = await response.json(); // Ensure your API returns sessionId
+      if (!url) throw new Error("Payment session creation failed.");
+
+      // Save the session ID to the invite record for "world-class" recovery
+      await supabase
+        .from('invites')
+        .update({ stripe_session_id: sessionId })
+        .eq('id', invite.id);
+
+      window.location.href = url; // Redirect to Stripe
     }
-  };
+  } catch (err: any) {
+    console.error(err);
+    toast.error(err.message || "Payment setup failed");
+  } finally {
+    setSaving(false);
+  }
+};
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedLink);

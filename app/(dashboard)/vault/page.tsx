@@ -65,12 +65,12 @@ export default function VaultUploadPage() {
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    toast.success("Neural Sync Initiated: Node Established");
+    toast.success("File(s) uploaded successfully!");
   };
 
   // PDF Download Engine Simulation
   const downloadAsPDF = (file: VaultFile) => {
-    toast.info(`Converting ${file.name} to Document Blueprint Format...`);
+    toast.info(`Converting ${file.name} to Document Blueprint...`);
     
     setTimeout(() => {
       const boundaryMarker = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 48 >>\nstream\nBT /F1 24 Tf 50 700 Td (${file.name} Archive Node Document Extract) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000056 00000 n \n0000000111 00000 n \n0000000203 00000 n \ntrailer\n<< /Size 5 >>\nstartxref\n302\n%%EOF";
@@ -97,7 +97,7 @@ export default function VaultUploadPage() {
   const saveFileModifications = (id: string) => {
     setFiles(prev => prev.map(f => f.id === id ? { ...f, name: editName, category: editCategory } : f));
     setEditingFileId(null);
-    toast.success("Asset Manifest Node Re-Mapped Successfully");
+    toast.success("File metadata updated successfully.");
   };
 
   const triggerPreviewFlow = (file: VaultFile) => {
@@ -119,15 +119,9 @@ export default function VaultUploadPage() {
               <div className="p-3 bg-stone-900 text-[#a9b897] rounded-xl shadow-lg cursor-pointer hover:rotate-12 transition-transform">
                 <Database size={20} />
               </div>
-              <div className="space-y-0.5">
-                <p className="font-black uppercase text-[8px] tracking-[0.4em] text-stone-300">Vault_Archive_8.0</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-1 h-1 bg-[#a9b897] rounded-full animate-pulse" />
-                  <p className="text-[7px] font-mono tracking-widest text-[#a9b897] uppercase">System Ledger Open</p>
-                </div>
-              </div>
+              
             </div>
-            <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Vault Storage</h1>
+            <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Vault</h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -155,19 +149,7 @@ export default function VaultUploadPage() {
               <Filter size={14} /> Filter
             </button>
           </div>
-          <div className="lg:col-span-4 bg-stone-900 rounded-2xl p-4 flex items-center justify-between text-white shadow-xl">
-             <div className="flex items-center gap-4 text-left">
-                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-[#a9b897]"><HardDrive size={18}/></div>
-                <div className="text-left">
-                   <p className="text-[7px] font-black uppercase tracking-[0.3em] text-stone-400">Total Workspace Payload</p>
-                   <p className="text-xs font-mono font-bold tracking-tighter text-[#a9b897]">{files.length} Live Artifact Nodes</p>
-                </div>
-             </div>
-             <div className="text-right">
-                <p className="text-[7px] font-black uppercase tracking-[0.3em] text-stone-400">Integrity Matrix</p>
-                <p className="text-xs font-mono font-bold tracking-tighter text-[#a9b897]">99.9% Stable</p>
-             </div>
-          </div>
+        
         </div>
 
         {/* --- UPLOAD ZONE --- */}
@@ -177,8 +159,8 @@ export default function VaultUploadPage() {
             <CloudUpload size={40} className={isDragging ? "animate-bounce" : ""} />
           </div>
           <div className="text-center space-y-2">
-            <h3 className="text-2xl font-serif italic text-stone-800 tracking-tighter">Neural Dropzone</h3>
-            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300 italic">Drag resources to establish nodes</p>
+            <h3 className="text-2xl font-serif italic text-stone-800 tracking-tighter">Dropzone</h3>
+            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300 italic">Drag and drop files here</p>
           </div>
         </div>
 
@@ -227,7 +209,7 @@ export default function VaultUploadPage() {
                         <div className="space-y-2 relative z-30 bg-stone-50 p-3 rounded-xl border border-stone-200">
                           <input className="w-full bg-white text-xs p-2 rounded border border-stone-200 font-mono" value={editName} onChange={(e) => setEditName(e.target.value)} />
                           <input className="w-full bg-white text-[9px] font-black uppercase tracking-wider p-2 rounded border border-stone-200" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} />
-                          <button onClick={() => saveFileModifications(file.id)} className="w-full bg-stone-900 text-[#a9b897] text-[8px] font-black uppercase tracking-widest py-1.5 rounded flex items-center justify-center gap-1.5"><Check size={10}/> Commit</button>
+                          <button onClick={() => saveFileModifications(file.id)} className="w-full bg-stone-900 text-[#a9b897] text-[8px] font-black uppercase tracking-widest py-1.5 rounded flex items-center justify-center gap-1.5"><Check size={10}/> Save</button>
                         </div>
                       ) : (
                         <div className="space-y-1 cursor-pointer relative z-10" onClick={() => triggerPreviewFlow(file)}>
@@ -295,7 +277,7 @@ export default function VaultUploadPage() {
                 <div className="flex justify-between items-center mb-8">
                   <div className="flex items-center gap-3 text-stone-900">
                     <Clock size={20} />
-                    <h3 className="text-xl font-serif italic tracking-tighter uppercase">Recent Manifest Ledger</h3>
+                    <h3 className="text-xl font-serif italic tracking-tighter uppercase">Recents</h3>
                   </div>
                   <button onClick={() => setActiveModal(null)} className="p-2 text-stone-300 hover:text-stone-900 transition-colors"><X size={20} /></button>
                 </div>
@@ -311,7 +293,6 @@ export default function VaultUploadPage() {
                           <FileText size={14} className="text-stone-400 group-hover:text-[#a9b897]" />
                           <span className="text-[10px] font-bold text-stone-700 group-hover:text-stone-900">{f.name}</span>
                         </div>
-                        <span className="text-[7px] font-mono text-[#a9b897] bg-white border border-stone-100 px-2 py-1 rounded-md">VIEW_NODE</span>
                      </div>
                    ))}
                 </div>
@@ -340,7 +321,6 @@ export default function VaultUploadPage() {
                 <div className="bg-stone-50 rounded-2xl p-6 border border-stone-100 space-y-4">
                   <div className="grid grid-cols-2 gap-4 border-b border-stone-200/60 pb-4">
                     <div>
-                      <p className="text-[7px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1"><HardDrive size={10}/> Node ID</p>
                       <p className="text-[10px] font-mono font-bold text-stone-700 mt-0.5">{previewFile.id}</p>
                     </div>
                     <div>
@@ -350,10 +330,6 @@ export default function VaultUploadPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <p className="text-[7px] font-black uppercase tracking-wider text-stone-400">Payload Overview & Context</p>
-                    <p className="text-xs font-serif italic text-stone-600 leading-relaxed">
-                      {previewFile.metadata || "No supplemental manifest structural definitions cataloged for this node block artifact allocation data package."}
-                    </p>
                   </div>
                 </div>
 

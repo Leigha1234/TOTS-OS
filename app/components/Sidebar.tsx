@@ -5,8 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase";
-const supabase = getBrowserClient(); 
-import { useSettings } from "@/app/context/SettingsContext"; 
+import { useSettings } from "@/app/context/SettingsContext";
 import { 
   LayoutDashboard, Users, Menu, Calendar, Megaphone, 
   StickyNote, DollarSign, BarChart3, Globe, Lock,
@@ -14,19 +13,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+const supabase = getBrowserClient();
+
 /**
  * TOTS OS SIDEBAR v7.1.6
  * REVISION: DEPRECATION OF CLARITY MODULE & UK ENGLISH BUSINESS METADATA
  */
-
-const MODULE_PERMISSIONS: Record<string, string[]> = {
-  STANDARD: ["Dashboard", "Contacts", "Notes", "Calendar"],
-  PREMIUM: ["Dashboard", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects"],
-  ELITE: [
-    "Dashboard", "Calendar", "Campaigns", "Contacts", 
-    "Notes", "Finance", "Projects", "Reports", "Social", "Vault", "Settings"
-  ],
-};
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -40,40 +32,74 @@ export default function Sidebar() {
   }
 
   const [collapsed, setCollapsed] = useState(false);
-  const [userTier, setUserTier] = useState<string | null>(null);
+  const [allowedSlugs, setAllowedSlugs] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [localColor, setLocalColor] = useState("#a9b897");
 
   useEffect(() => {
-    async function syncSidebar() {
+    async function syncPermissions() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("tier, brand_color")
-          .eq("id", user.id)
-          .single();
-        
+        const [{ data: profile }, { data: perms }] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("role, brand_color")
+            .eq("id", user.id)
+            .single(),
+          supabase
+            .from("permissions")
+            .select("page_slug")
+            .eq("user_id", user.id)
+            .eq("can_access", true)
+        ]);
+
         if (profile) {
-          setUserTier(profile.tier?.toUpperCase() || "STANDARD");
-          if (profile.brand_color) setLocalColor(profile.brand_color);
+          setUserRole(profile.role || null);
+
+          if (profile.role === "admin") {
+            setAllowedSlugs([
+              "/dashboard",
+              "/calendar",
+              "/campaigns",
+              "/crm",
+              "/notes",
+              "/payments",
+              "/projects",
+              "/reports",
+              "/social",
+              "/vault",
+              "/settings"
+            ]);
+          } else {
+            setAllowedSlugs(
+              perms?.map((p: { page_slug: string }) => p.page_slug) || []
+            );
+          }
+
+          if (profile.brand_color) {
+            setLocalColor(profile.brand_color);
+          }
         }
       } catch (err) {
-        console.error("Sidebar Synchronisation Error:", err);
-        setUserTier("STANDARD");
+        console.error("Sidebar Permission Sync Error:", err);
+      } finally {
+        setLoading(false);
       }
     }
-    syncSidebar();
+
+    syncPermissions();
   }, [context?.settings]);
 
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      toast.success("Session Terminated Safely");
+      toast.success("Logged out successfully");
       router.push("/login");
     } catch (error) {
-      toast.error("Protocol Breach: Logout Operation Failed");
+      toast.error("Unable to log out");
     }
   };
 
@@ -93,9 +119,9 @@ export default function Sidebar() {
 
   const activeColor = context?.settings?.brandColor || context?.settings?.brand_color || localColor;
 
-  const visibleLinks = userTier 
-    ? allLinks.filter(link => MODULE_PERMISSIONS[userTier]?.includes(link.label))
-    : [];
+  const visibleLinks = allLinks.filter((link) =>
+    allowedSlugs.includes(link.href)
+  );
 
   return (
     <aside className={`
@@ -145,7 +171,7 @@ export default function Sidebar() {
 
       {/* NAVIGATION */}
       <nav className="flex-1 space-y-1 px-4 mb-6 mt-4 overflow-y-auto no-scrollbar">
-        {!userTier ? (
+        {loading ? (
           <div className="flex flex-col items-center justify-center py-10 gap-3">
             <Loader2 className="animate-spin text-stone-200" size={20} />
           </div>
@@ -204,7 +230,7 @@ export default function Sidebar() {
                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: activeColor }} />
               </div>
               <p className="text-[10px] uppercase tracking-widest text-stone-900 font-black italic">
-                {userTier || "LOADING..."} ACCESS
+                {(userRole || "Loading").toUpperCase()} ACCESS
               </p>
             </div>
           ) : (
@@ -212,7 +238,7 @@ export default function Sidebar() {
               <div 
                 className="w-1.5 h-1.5 rounded-full animate-pulse" 
                 style={{ backgroundColor: activeColor }}
-                title={`${userTier || "Loading"} Access`}
+                title={`${userRole || "Loading"} Access`}
               />
             </div>
           )}

@@ -9,7 +9,8 @@ import {
   Save, Calendar, Landmark, Fingerprint, 
   X, FileText, Download, BarChart3, Clock,
   Loader2, Activity, ChevronRight,
-  ShieldCheck, Briefcase, Phone, MapPin, Zap, Cpu, Lock, Globe
+  ShieldCheck, Briefcase, Phone, MapPin, Zap, Cpu, Lock, Globe,
+  Wallet, Receipt, ClipboardCheck, Umbrella, HeartPulse
 } from "lucide-react";
 
 /**
@@ -141,24 +142,22 @@ export default function HRPage() {
             <div className="flex items-center gap-4">
               <div className="p-3 bg-stone-900 text-[#a9b897] rounded-xl shadow-lg"><Fingerprint size={18} /></div>
               <div className="space-y-0.5">
-                <p className="font-black uppercase text-[8px] tracking-[0.4em] text-stone-300">PERSONNEL_NODE_7.1</p>
                 <div className="flex items-center gap-2">
                   <div className="w-1 h-1 bg-[#a9b897] rounded-full animate-pulse" />
-                  <p className="text-[7px] font-mono tracking-widest text-[#a9b897] uppercase">Identity Link: Active</p>
                 </div>
               </div>
             </div>
-            <h1 className="text-6xl font-serif italic tracking-tighter leading-none">HR</h1>
+            <h1 className="text-6xl font-serif italic tracking-tighter leading-none">HR & Payroll</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <nav className="flex items-center bg-white p-1 rounded-full shadow-sm border border-stone-100">
               <button onClick={() => router.push('/payments')} className="px-5 py-2.5 text-stone-300 hover:text-stone-900 rounded-full text-[8px] font-black uppercase tracking-[0.1em] transition-all">Payments</button>
               <button onClick={() => router.push('/finance-reports')} className="px-5 py-2.5 text-stone-300 hover:text-stone-900 rounded-full text-[8px] font-black uppercase tracking-[0.1em] flex items-center gap-2 transition-all">
-                <BarChart3 size={10}/> Finance
+                <BarChart3 size={10}/> Financial Reports
               </button>
               <button className="px-5 py-2.5 bg-stone-900 text-white rounded-full text-[8px] font-black uppercase tracking-[0.1em] flex items-center gap-2 transition-all">
-                <Globe size={10}/> HR
+                <Globe size={10}/> HR & Payroll
               </button>
               <button onClick={() => router.push('/timesheets')} className="px-5 py-2.5 text-stone-300 hover:text-stone-900 rounded-full text-[8px] font-black uppercase tracking-[0.1em] flex items-center gap-2 transition-all">
                 <Clock size={10}/> Timesheets
@@ -246,6 +245,45 @@ export default function HRPage() {
           </div>
         </div>
 
+        {/* HR & PAYROLL MODULES */}
+        <section className="space-y-5 text-left">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897] italic">Operations Hub</p>
+              <h3 className="text-3xl font-serif italic tracking-tighter">HR & Payroll Modules</h3>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
+            {[
+              { title: 'Payroll', icon: <Wallet size={18} /> },
+              { title: 'Payslips', icon: <Receipt size={18} /> },
+              { title: 'Appraisals', icon: <ClipboardCheck size={18} /> },
+              { title: 'Holiday Requests', icon: <Umbrella size={18} /> },
+              { title: 'Sick Pay', icon: <HeartPulse size={18} /> }
+            ].map((card) => (
+              <motion.button
+                key={card.title}
+                whileHover={{ y: -4 }}
+                whileTap={{ scale: 0.98 }}
+                className="bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm hover:border-stone-900 hover:shadow-lg transition-all text-left group flex flex-col justify-between min-h-[170px]"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center text-[#a9b897] group-hover:bg-stone-900 group-hover:text-white transition-all">
+                  {card.icon}
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-lg font-bold tracking-tight text-stone-900">{card.title}</h4>
+                  <div className="flex items-center gap-2 text-stone-300 group-hover:text-stone-900 transition-all">
+                    <span className="text-[8px] font-black uppercase tracking-[0.3em]">Open Module</span>
+                    <ChevronRight size={12} />
+                  </div>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        </section>
+
         {/* BANKING ENDPOINT */}
         <section className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-sm grid grid-cols-1 xl:grid-cols-12 gap-8 hover:border-stone-900 transition-all text-left">
            <div className="xl:col-span-4 xl:border-r border-stone-100 xl:pr-8 space-y-3">
@@ -273,7 +311,7 @@ export default function HRPage() {
 
         <footer className="pt-8 border-t border-stone-100 flex justify-between items-center text-stone-300 text-[8px] font-black uppercase tracking-[0.4em]">
           <div className="flex items-center gap-3">
-            <p>TOTS OS v7.1.0 • HR NODE</p>
+            <p>TOTS OS v7.1.0 • HR & PAYROLL</p>
             <div className="w-1 h-1 rounded-full bg-[#a9b897] animate-pulse" />
           </div>
           <div className="flex gap-6">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase";
 const supabase = getBrowserClient();
 import { useSettings } from "@/app/context/SettingsContext";
+import AdminPermissionToggle from "../../../components/AdminPermissionToggle";
 import { 
   ArrowLeft, Check, Loader2, Palette, Database, 
   Users, Plus, ChevronRight, Camera, Shield, Clock,
@@ -218,6 +219,17 @@ export default function ComprehensiveTeamHub() {
                       <div>
                         <h3 className="text-2xl font-serif italic text-stone-900">{member.full_name}</h3>
                         <p className="text-[9px] font-black uppercase tracking-widest text-[#A3B18A] mt-1 capitalize">{member.role}</p>
+                      </div>
+                      <div className="bg-[#faf9f6] border border-stone-100 rounded-2xl p-4 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[7px] font-black uppercase tracking-widest text-stone-300 mb-1">Payments Access</p>
+                          <p className="text-[10px] text-stone-500 truncate">{member.email}</p>
+                        </div>
+                        <AdminPermissionToggle
+                          memberId={member.id}
+                          pageSlug="/payments"
+                          initialAccess={false}
+                        />
                       </div>
                       <div className="pt-6 border-t border-stone-50 flex items-center justify-between text-stone-300">
                         <span className="text-[8px] font-black uppercase tracking-widest">{member.role === 'admin' ? 'Owner Access' : 'Staff Access'}</span>

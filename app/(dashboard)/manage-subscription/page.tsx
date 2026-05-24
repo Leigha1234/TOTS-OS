@@ -27,7 +27,7 @@ export default function ManageSubscription() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const TEAM_MEMBER_PRICE = 10; 
+  const TEAM_MEMBER_PRICE = 19.95; 
 
   const tierMatrix: Record<SubscriptionTier, { name: string; price: number; description: string; features: TierFeature[] }> = {
     standard: {

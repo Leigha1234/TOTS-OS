@@ -122,8 +122,8 @@ const hours = data?.reduce((a: number, r: any) => a + (Number(r.mon) + Number(r.
             <nav className="flex items-center bg-white p-1 rounded-full shadow-sm border border-stone-100">
               <button className="px-5 py-2.5 bg-stone-900 text-white rounded-full text-[8px] font-black uppercase tracking-[0.1em] transition-all">Payments</button>
               {[
-                { name: 'Finance', path: '/finance-reports', icon: <BarChart3 size={10}/> },
-                { name: 'HR', path: '/hr', icon: <Users size={10}/> },
+                { name: 'Financial Reports', path: '/finance-reports', icon: <BarChart3 size={10}/> },
+                { name: 'HR & Payroll', path: '/hr', icon: <Users size={10}/> },
                 { name: 'Timesheets', path: '/timesheets', icon: <Clock size={10}/> }
               ].map((link) => (
                 <button key={link.name} onClick={() => router.push(link.path)}

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 /**
- * TOTS OS v7.1.0 - FISCAL ANALYTICS NODE
+ * TOTS OS v7.1.0 - FINANCIAL REPORTS
  */
 
 export default function FinanceReportsPage() {
@@ -100,17 +100,17 @@ export default function FinanceReportsPage() {
                 </div>
               </div>
             </div>
-            <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Reports</h1>
+            <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Financial Reports</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <nav className="flex items-center bg-white p-1 rounded-full shadow-sm border border-stone-100">
               <button onClick={() => router.push('/payments')} className="px-5 py-2.5 text-stone-300 hover:text-stone-900 rounded-full text-[8px] font-black uppercase tracking-[0.1em] transition-all">Payments</button>
               <button className="px-5 py-2.5 bg-stone-900 text-white rounded-full text-[8px] font-black uppercase tracking-[0.1em] flex items-center gap-2 transition-all">
-                <BarChart3 size={10}/> Finance
+                <BarChart3 size={10}/> Financial Reports
               </button>
               {[
-                { name: 'HR', path: '/hr', icon: <Users size={10}/> },
+                { name: 'HR & Payroll', path: '/hr', icon: <Users size={10}/> },
                 { name: 'Timesheets', path: '/timesheets', icon: <Clock size={10}/> }
               ].map((link) => (
                 <button key={link.name} onClick={() => router.push(link.path)}
@@ -206,6 +206,16 @@ export default function FinanceReportsPage() {
             </div>
           </div>
         </div>
+        <footer className="pt-8 border-t border-stone-100 flex justify-between items-center text-stone-300 text-[8px] font-black uppercase tracking-[0.4em]">
+          <div className="flex items-center gap-3">
+            <p>TOTS OS v7.1.0 • FINANCIAL REPORTS</p>
+            <div className="w-1 h-1 rounded-full bg-[#a9b897] animate-pulse" />
+          </div>
+          <div className="flex gap-6">
+            <button className="hover:text-stone-900">Protocols</button>
+            <button className="hover:text-stone-900">Privacy</button>
+          </div>
+        </footer>
       </div>
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }

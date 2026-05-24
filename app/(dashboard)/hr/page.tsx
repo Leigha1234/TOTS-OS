@@ -44,51 +44,53 @@ export default function HRPage() {
     fetchProfile();
   }, []);
 
-  async function fetchProfile() {
-    try {
-      setIsLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setError("Unauthorized"); return; }
-
-      const { data, error: fetchError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (fetchError) throw fetchError;
-      if (data) setProfile(data);
-    } catch (err: any) {
-      setError("Sync Failure.");
-    } finally {
-      setIsLoading(false);
-    }
+  // Replace your existing functions with these:
+async function fetchProfile() {
+  setIsLoading(true);
+  const supabase = getBrowserClient(); // Use local client
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    if (data) setProfile(data);
   }
+  setIsLoading(false);
+}
 
-  async function handleSave() {
-    if (!profile.id) return;
-    try {
-      setIsSaving(true);
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-            full_name: profile.full_name,
-            role: profile.role,
-            phone: profile.phone,
-            address: profile.address,
-            bank_name: profile.bank_name,
-            account_number: profile.account_number,
-            sort_code: profile.sort_code
-        })
-        .eq('id', profile.id);
-      if (updateError) throw updateError;
-      notify("Identity Synchronized");
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsSaving(false);
-    }
+async function handleSave() {
+  // Defensive Check
+  if (!profile.full_name || profile.full_name.trim() === "") {
+    notify("Error: Name Required");
+    return;
   }
+  
+  setIsSaving(true);
+  const supabase = getBrowserClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: profile.full_name,
+        role: profile.role,
+        address: profile.address,
+        phone: profile.phone,
+        bank_name: profile.bank_name,
+        account_number: profile.account_number,
+        sort_code: profile.sort_code
+      })
+      .eq('id', user.id);
+      
+    if (!error) notify("Identity Synchronized");
+    else notify("Sync Failure: Database Denied");
+  }
+  setIsSaving(false);
+}
 
   const notify = (msg: string) => {
     setNotification({ visible: true, msg });

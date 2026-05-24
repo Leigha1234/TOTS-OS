@@ -30,6 +30,15 @@ export default function ImportArchitecture() {
   const [file, setFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [rowCount, setRowCount] = useState(0);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [invalidRows, setInvalidRows] = useState<any[]>([]);
+  const [isValidated, setIsValidated] = useState(false);
+
+  // -- Business Data Schema (Import Contract) --
+  const REQUIRED_SCHEMA = [
+    { field: "Full Name", required: true, description: "Primary entity identifier (required)" },
+    { field: "Role", required: false, description: "Defaults to 'user' if not provided" }
+  ];
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -51,10 +60,22 @@ export default function ImportArchitecture() {
     }
   };
 
+  // -- Business-Grade Helper: Chunk Insert --
+  const chunkArray = (arr: any[], size: number) => {
+    const chunks = [];
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+  };
+
   // -- Logic: Ingestion Pipeline --
   const startMigration = async () => {
     if (!file) return;
     setStatus('processing');
+    setPreviewData([]);
+    setInvalidRows([]);
+    setIsValidated(false);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -68,38 +89,87 @@ export default function ImportArchitecture() {
       skipEmptyLines: true,
       complete: async (results) => {
         const rawData = results.data;
-        
-        const formattedData = rawData.map((row: any) => {
-          const findValue = (possibleKeys: string[]) => {
-            const actualKey = Object.keys(row).find(k => 
-              possibleKeys.includes(k.trim()) || 
-              possibleKeys.includes(k.trim().toLowerCase())
-            );
-            return actualKey ? row[actualKey] : null;
-          };
 
-          return {
-            name: findValue(['Full Name', 'Name', 'name', 'client', 'Entity']) || "Unknown Entity",
-            role: 'user', 
-          };
-        });
-
-        const validData = formattedData.filter(d => d.name !== "Unknown Entity");
-
-        if (validData.length === 0) {
+        if (!rawData || rawData.length === 0) {
           setStatus('error');
-          setErrorMessage("Structure Mismatch: No valid 'Name' headers detected.");
+          setErrorMessage("Empty dataset: no records found in file.");
           return;
         }
 
-        const { error } = await supabase.from("profiles").insert(validData);
+        const headers = Object.keys(rawData[0] || {});
+        const requiredHeaders = ["Full Name"];
 
-        if (error) {
+        const missingHeaders = requiredHeaders.filter(h =>
+          !headers.map(x => x.trim().toLowerCase()).includes(h.toLowerCase())
+        );
+
+        if (missingHeaders.length > 0) {
           setStatus('error');
-          setErrorMessage(error.message);
+          setErrorMessage(
+            `Schema Mismatch: Missing required column(s): ${missingHeaders.join(", ")}`
+          );
+          return;
+        }
+
+        const formattedData = rawData.map((row: any) => {
+          const findValue = (possibleKeys: string[]) => {
+            const normalise = (v: string) => v.trim().toLowerCase();
+            const rowKeys = Object.keys(row);
+
+            const actualKey = rowKeys.find(k =>
+              possibleKeys.map(normalise).includes(normalise(k))
+            );
+
+            return actualKey ? row[actualKey] : null;
+          };
+
+          const mapped = {
+            name: findValue(['Full Name', 'Name', 'Client Name', 'Entity']) || null,
+            role: findValue(['Role', 'role']) || 'user',
+          };
+
+          return {
+            ...mapped,
+            _isValid: !!mapped.name
+          };
+        });
+
+        const validData = formattedData.filter(d => d._isValid);
+        const invalidData = formattedData.filter(d => !d._isValid);
+
+        setPreviewData(validData.slice(0, 5));
+        setInvalidRows(invalidData);
+        setIsValidated(true);
+
+        if (validData.length === 0) {
+          setStatus('error');
+          setErrorMessage("Data Validation Failed: No compliant records detected. Please align CSV to import schema.");
+          return;
+        }
+
+        const batches = chunkArray(validData, 500);
+
+        let insertError = null;
+
+        for (const batch of batches) {
+          const { error } = await supabase
+            .from("profiles")
+            .insert(batch)
+            .select();
+
+          if (error) {
+            insertError = error;
+            break;
+          }
+        }
+
+        if (insertError) {
+          setStatus('error');
+          setErrorMessage(insertError.message);
         } else {
           setRowCount(validData.length);
           setStatus('success');
+          setIsValidated(false);
         }
       },
       error: () => {
@@ -132,7 +202,7 @@ export default function ImportArchitecture() {
               </p>
             </div>
           </div>
-          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none text-stone-900">Import Hub</h1>
+          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none text-stone-900">Data Import Command Center</h1>
           
           <nav className="flex items-center gap-4 pt-4">
             <button
@@ -184,9 +254,30 @@ export default function ImportArchitecture() {
                 {status === 'success' ? 'Migration Complete' : file ? file.name : "Select CSV Manifest"}
               </h3>
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">
-                {status === 'success' ? `${rowCount} Nodes Integrated` : file ? "Architecture Validated" : "Drop Data Architecture"}
+                {status === 'success'
+                  ? `${rowCount} Nodes Integrated`
+                  : file && isValidated
+                    ? `${previewData.length} Valid / ${invalidRows.length} Invalid`
+                    : "Drop Data Architecture"}
               </p>
             </div>
+
+            {isValidated && previewData.length > 0 && (
+              <div className="mt-8 w-full border border-stone-100 rounded-2xl p-6 bg-white/60">
+                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400 mb-4">
+                  Preview (Top 5 Valid Records)
+                </p>
+
+                <div className="space-y-2">
+                  {previewData.map((row, idx) => (
+                    <div key={idx} className="flex justify-between text-xs text-stone-600 border-b border-stone-100 pb-2">
+                      <span>{row.name}</span>
+                      <span className="text-stone-400">{row.role}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {status === 'error' && (
               <motion.div 
@@ -199,6 +290,32 @@ export default function ImportArchitecture() {
             )}
           </div>
         </section>
+
+        {/* Schema Key Sidebar */}
+        <aside className="bg-white border border-stone-200 p-8 md:p-10 rounded-[3.5rem] shadow-sm lg:col-span-4 flex flex-col gap-6">
+          <div className="space-y-2">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">
+              Import Schema Key
+            </h2>
+            <p className="text-stone-500 text-xs">
+              All inbound CSV files must align with the approved data contract below.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {REQUIRED_SCHEMA.map((item) => (
+              <div key={item.field} className="border border-stone-100 rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-stone-900">{item.field}</p>
+                  <span className={`text-[9px] font-black uppercase tracking-widest ${item.required ? 'text-red-400' : 'text-stone-400'}`}>
+                    {item.required ? 'required' : 'optional'}
+                  </span>
+                </div>
+                <p className="text-xs text-stone-400 mt-1">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </aside>
 
       </main>
 

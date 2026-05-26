@@ -29,7 +29,7 @@ function LoginForm() {
     
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) router.push("/manage-subscription");
+      if (data.session) router.push("/billing");
     };
     checkUser();
   }, [inviteId, router, supabase.auth]);

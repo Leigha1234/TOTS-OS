@@ -258,14 +258,15 @@ async function handleSave() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
             {[
-              { title: 'Payroll', icon: <Wallet size={18} /> },
-              { title: 'Payslips', icon: <Receipt size={18} /> },
-              { title: 'Appraisals', icon: <ClipboardCheck size={18} /> },
-              { title: 'Holiday Requests', icon: <Umbrella size={18} /> },
-              { title: 'Sick Pay', icon: <HeartPulse size={18} /> }
+              { title: 'Payroll', id: 'payroll', icon: <Wallet size={18} /> },
+              { title: 'Payslips', id: 'payslips', icon: <Receipt size={18} /> },
+              { title: 'Appraisals', id: 'appraisals', icon: <ClipboardCheck size={18} /> },
+              { title: 'Holiday Requests', id: 'holiday-requests', icon: <Umbrella size={18} /> },
+              { title: 'Sick Pay', id: 'sick-pay', icon: <HeartPulse size={18} /> }
             ].map((card) => (
               <motion.button
                 key={card.title}
+                onClick={() => setActiveModal(card.id)}
                 whileHover={{ y: -4 }}
                 whileTap={{ scale: 0.98 }}
                 className="bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm hover:border-stone-900 hover:shadow-lg transition-all text-left group flex flex-col justify-between min-h-[170px]"
@@ -356,6 +357,86 @@ async function handleSave() {
                <Download size={14} className="text-[#a9b897]" />
              </div>
            ))}
+        </div>
+      </Modal>
+
+      <Modal id="payroll" title="Payroll" subtitle="Compensation Centre">
+        <div className="space-y-4 py-4 text-left">
+          <div className="p-5 rounded-2xl bg-stone-50 border border-stone-100">
+            <p className="text-sm font-bold text-stone-900">Payroll Overview</p>
+            <p className="text-[8px] uppercase tracking-widest text-stone-400 mt-2">Next payroll processing cycle pending.</p>
+          </div>
+          <button
+            onClick={() => notify('Payroll Module Opened')}
+            className="w-full bg-stone-900 text-white py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all"
+          >
+            Process Payroll
+          </button>
+        </div>
+      </Modal>
+
+      <Modal id="payslips" title="Payslips" subtitle="Employee Records">
+        <div className="space-y-3 py-4 text-left">
+          {['May 2026', 'April 2026', 'March 2026'].map((month) => (
+            <div
+              key={month}
+              className="flex items-center justify-between p-4 bg-white rounded-2xl border border-stone-100 hover:border-stone-900 transition-all"
+            >
+              <div>
+                <p className="font-bold text-stone-900">{month}</p>
+                <p className="text-[8px] uppercase tracking-widest text-stone-300">Payslip Available</p>
+              </div>
+              <Download size={16} className="text-[#a9b897]" />
+            </div>
+          ))}
+        </div>
+      </Modal>
+
+      <Modal id="appraisals" title="Appraisals" subtitle="Performance Review">
+        <div className="space-y-4 py-4 text-left">
+          <div className="p-5 rounded-2xl bg-stone-50 border border-stone-100">
+            <p className="font-bold text-stone-900">Annual Review</p>
+            <p className="text-[8px] uppercase tracking-widest text-stone-400 mt-2">No active appraisal scheduled.</p>
+          </div>
+          <button
+            onClick={() => notify('Appraisal Scheduled')}
+            className="w-full bg-stone-900 text-white py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all"
+          >
+            Schedule Appraisal
+          </button>
+        </div>
+      </Modal>
+
+      <Modal id="holiday-requests" title="Holiday Requests" subtitle="Leave Management">
+        <div className="space-y-4 py-4 text-left">
+          <div className="space-y-2">
+            <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 ml-2">Leave Dates</label>
+            <input
+              type="date"
+              className="w-full p-4 bg-stone-50 rounded-xl border border-stone-100 outline-none font-bold text-stone-700"
+            />
+          </div>
+          <button
+            onClick={() => { notify('Holiday Request Submitted'); setActiveModal(null); }}
+            className="w-full bg-stone-900 text-white py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all"
+          >
+            Submit Request
+          </button>
+        </div>
+      </Modal>
+
+      <Modal id="sick-pay" title="Sick Pay" subtitle="Support & Recovery">
+        <div className="space-y-4 py-4 text-left">
+          <div className="p-5 rounded-2xl bg-stone-50 border border-stone-100">
+            <p className="font-bold text-stone-900">Sick Pay Status</p>
+            <p className="text-[8px] uppercase tracking-widest text-stone-400 mt-2">No active sick leave recorded.</p>
+          </div>
+          <button
+            onClick={() => notify('Sick Pay Record Updated')}
+            className="w-full bg-stone-900 text-white py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all"
+          >
+            Update Record
+          </button>
         </div>
       </Modal>
 

@@ -14,6 +14,8 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
@@ -47,16 +49,17 @@ function LoginForm() {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: fullName || email.split('@')[0],
-              // Logic for Multi-tenancy: if no invite, create new org
+              company_name: companyName,
+              job_title: jobTitle,
               is_new_org: !inviteId,
-              org_name: fullName ? `${fullName}'s Workspace` : 'New Workspace',
-              invite_team_id: inviteId, 
+              org_name: companyName || 'New Organisation',
+              invite_team_id: inviteId,
             },
           },
         });
 
         if (error) throw error;
-        alert("Registration link sent! Confirm your email to initialize your node.");
+        alert("Registration successful. Please check your email to verify your account and complete setup.");
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -81,7 +84,7 @@ function LoginForm() {
     return (
       <div className="flex flex-col items-center gap-4 text-[#a9b897]">
         <Loader2 className="animate-spin" size={40} />
-        <p className="text-[10px] font-black uppercase tracking-[0.4em]">Redirecting to Grid...</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.4em]">Redirecting to Workspace...</p>
       </div>
     );
   }
@@ -89,42 +92,72 @@ function LoginForm() {
   return (
     <form
       onSubmit={handleAction}
-      className="bg-white p-12 rounded-[3.5rem] border border-stone-100 shadow-2xl w-full max-w-md space-y-8 animate-in fade-in zoom-in duration-500"
+      className="bg-white p-10 rounded-[3rem] border border-stone-100 shadow-2xl w-full max-w-lg space-y-8 animate-in fade-in zoom-in duration-500"
     >
-      <div className="space-y-2 text-center">
-        <h1 className="text-4xl font-serif italic tracking-tighter text-stone-800">
-          {isRegister ? "Onboarding" : "Sign In"}
+      <div className="space-y-3 text-center">
+        <h1 className="text-4xl font-serif tracking-tight text-stone-800">
+          {isRegister ? "Create Your Account" : "Welcome Back"}
         </h1>
+        <p className="text-sm text-stone-500 leading-relaxed">
+          {isRegister
+            ? "Set up your workspace and access TOTS-OS."
+            : "Sign in to access your TOTS-OS workspace."}
+        </p>
         <div className="flex items-center justify-center gap-2">
-           <ShieldCheck size={12} className="text-[#a9b897]" />
-           <p className="text-[9px] uppercase tracking-[0.2em] text-stone-400 font-black">
-             {inviteId ? "Joining Authorized Team" : "Secure Node Protocol"}
-           </p>
+          <ShieldCheck size={12} className="text-[#a9b897]" />
+          <p className="text-[9px] uppercase tracking-[0.2em] text-stone-400 font-black">
+            {inviteId ? "Joining Team Workspace" : "Secure Business Login"}
+          </p>
         </div>
       </div>
 
       <div className="space-y-4">
         {isRegister && (
-          <div className="space-y-2">
-            <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Identity Name</label>
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus:border-[#a9b897] outline-none text-xs font-bold transition-all"
-              required
-            />
-          </div>
+          <>
+            <div className="space-y-2">
+              <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Full Name</label>
+              <input
+                type="text"
+                placeholder="Your full name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus:border-[#a9b897] outline-none text-xs font-bold transition-all"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Company Name</label>
+              <input
+                type="text"
+                placeholder="Your business or organisation"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                className="w-full p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus:border-[#a9b897] outline-none text-xs font-bold transition-all"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Job Title (Optional)</label>
+              <input
+                type="text"
+                placeholder="Founder, Manager, Director..."
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                className="w-full p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus:border-[#a9b897] outline-none text-xs font-bold transition-all"
+              />
+            </div>
+          </>
         )}
 
         <div className="space-y-2">
-          <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Email Address</label>
+          <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Business Email</label>
           <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#a9b897] transition-all">
             <Mail size={16} className="text-stone-300" />
             <input
               type="email"
-              placeholder="name@tots-os.com"
+              placeholder="you@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="bg-transparent text-xs outline-none w-full font-bold"
@@ -134,7 +167,7 @@ function LoginForm() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Passcode</label>
+          <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Password</label>
           <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#a9b897] transition-all">
             <Fingerprint size={16} className="text-stone-300" />
             <input
@@ -157,9 +190,9 @@ function LoginForm() {
         {authLoading ? (
           <Loader2 className="animate-spin" size={18} />
         ) : isRegister ? (
-          <>Initialize Node</>
+          <>Create Workspace</>
         ) : (
-          <>Sync Session</>
+          <>Sign In</>
         )}
       </button>
 
@@ -168,7 +201,7 @@ function LoginForm() {
         onClick={() => setIsRegister(!isRegister)}
         className="w-full text-center text-[9px] font-black uppercase tracking-widest text-stone-300 hover:text-stone-800 transition-colors"
       >
-        {isRegister ? "Switch to Secure Login" : "Initialize New Node"}
+        {isRegister ? "Already have an account? Sign In" : "Create a new account"}
       </button>
     </form>
   );
@@ -176,11 +209,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#fcfaf7] p-6">
+    <div className="min-h-screen flex items-center justify-center bg-[#fcfaf7] p-6 bg-gradient-to-br from-[#fcfaf7] via-[#f8f5ef] to-[#f2eee7]">
       <Suspense fallback={
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-stone-200" size={48} />
-          <p className="text-[9px] font-black uppercase tracking-widest text-stone-300">Loading Auth Module...</p>
+          <p className="text-[9px] font-black uppercase tracking-widest text-stone-300">Loading Workspace...</p>
         </div>
       }>
         <LoginForm />

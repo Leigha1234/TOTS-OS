@@ -24,7 +24,24 @@ import { motion, AnimatePresence } from "framer-motion";
 function DashboardContent() {
   
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // Inside your DashboardPage component
+const searchParams = useSearchParams();
+const error = searchParams.get("error");
+
+if (error) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+      <h1 className="text-xl font-black uppercase tracking-[0.2em]">Authentication Required</h1>
+      <p className="text-xs text-stone-500 mt-2">The verification link has expired or is invalid.</p>
+      <button 
+        onClick={() => window.location.href = '/login'}
+        className="mt-6 px-6 py-3 bg-stone-900 text-white rounded-xl text-[10px] font-black uppercase"
+      >
+        Return to Login
+      </button>
+    </div>
+  );
+}
   const { organisationId } = useSettings();
   const supabase = getBrowserClient();
   
@@ -47,8 +64,6 @@ function DashboardContent() {
   const [teamMembers, setTeamMembers] = useState<{full_name: string, role: string}[]>([]);
   const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean }[]>([]);
 
-  const error = searchParams.get("error");
-  const errorDescription = searchParams.get("error_description");
 
   // Real-time Clock
   useEffect(() => {

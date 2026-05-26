@@ -1,5 +1,6 @@
 "use client";
 
+
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase"; 
@@ -12,6 +13,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+
+
 /**
  * DashboardContent Component
  * * This component acts as the primary hub for the application.
@@ -19,6 +22,7 @@ import { motion, AnimatePresence } from "framer-motion";
  * and handles data fetching with a strict singleton pattern.
  */
 function DashboardContent() {
+  
   const router = useRouter();
   const searchParams = useSearchParams();
   const { organisationId } = useSettings();
@@ -144,6 +148,7 @@ function DashboardContent() {
     } finally {
       setIsScanActive(false);
     }
+    
   };
 
   // UI States
@@ -246,8 +251,44 @@ function DashboardContent() {
     </div>
   );
 }
-
 export default function DashboardPage() {
+  const [isInitializing, setIsInitializing] = useState(true);
+  const supabase = getBrowserClient();
+
+  useEffect(() => {
+    async function checkInit() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Poll the DB for the profile. 
+      // If organisation_id is null, it's still initializing via the SQL trigger.
+      let retries = 0;
+      while (retries < 10) { // Increased retries slightly for safety
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organisation_id')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.organisation_id) {
+          setIsInitializing(false);
+          break;
+        }
+        await new Promise(r => setTimeout(r, 1000)); // Wait 1s
+        retries++;
+      }
+      setIsInitializing(false); // Stop waiting even if null after retries
+    }
+    checkInit();
+  }, [supabase]);
+
+  if (isInitializing) return (
+    <div className="h-screen flex flex-col items-center justify-center gap-4 bg-[#faf9f6]">
+      <Loader2 className="animate-spin text-[#A3B18A]" size={32} />
+      <p className="font-black uppercase tracking-[0.4em] text-[10px] text-stone-400">Initializing Workspace Nodes...</p>
+    </div>
+  );
+
   return (
     <Suspense fallback={<div className="h-screen flex items-center justify-center">Loading...</div>}>
       <DashboardContent />

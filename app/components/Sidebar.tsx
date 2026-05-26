@@ -35,53 +35,90 @@ export default function Sidebar() {
   const [allowedSlugs, setAllowedSlugs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [subscriptionTier, setSubscriptionTier] = useState<string | null>(null);
+
+  const tierLinks: Record<string, string[]> = {
+    unpaid: [],
+    starter: [
+      "/dashboard",
+      "/calendar",
+      "/crm",
+      "/notes",
+      "/settings"
+    ],
+    professional: [
+      "/dashboard",
+      "/calendar",
+      "/campaigns",
+      "/crm",
+      "/notes",
+      "/payments",
+      "/projects",
+      "/settings"
+    ],
+    elite: [
+      "/dashboard",
+      "/calendar",
+      "/campaigns",
+      "/crm",
+      "/notes",
+      "/payments",
+      "/projects",
+      "/reports",
+      "/social",
+      "/vault",
+      "/settings"
+    ]
+  };
+
   const [localColor, setLocalColor] = useState("#a9b897");
 
   useEffect(() => {
     async function syncPermissions() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          setLoading(false);
+          return;
+        }
 
-        const [{ data: profile }, { data: perms }] = await Promise.all([
+        const [{ data: profile }, { data: perms }, { data: membership }] = await Promise.all([
           supabase
             .from("profiles")
-            .select("role, brand_color")
+            .select("role, brand_color, subscription_tier")
             .eq("id", user.id)
             .single(),
           supabase
             .from("permissions")
             .select("page_slug")
             .eq("user_id", user.id)
-            .eq("can_access", true)
+            .eq("can_access", true),
+          supabase
+            .from("team_members")
+            .select("role")
+            .eq("user_id", user.id)
+            .maybeSingle()
         ]);
 
-        if (profile) {
-          setUserRole(profile.role || null);
+        const resolvedRole = profile?.role || membership?.role || "user";
+        setUserRole(resolvedRole);
 
-          if (profile.role === "admin") {
-            setAllowedSlugs([
-              "/dashboard",
-              "/calendar",
-              "/campaigns",
-              "/crm",
-              "/notes",
-              "/payments",
-              "/projects",
-              "/reports",
-              "/social",
-              "/vault",
-              "/settings"
-            ]);
-          } else {
-            setAllowedSlugs(
-              perms?.map((p: { page_slug: string }) => p.page_slug) || []
-            );
-          }
+        const tier = (profile?.subscription_tier || "unpaid").toLowerCase();
+        setSubscriptionTier(tier);
 
-          if (profile.brand_color) {
-            setLocalColor(profile.brand_color);
-          }
+        const permissionSlugs = perms?.map((p: { page_slug: string }) => p.page_slug) || [];
+        const tierAccess = tierLinks[tier] || tierLinks.unpaid;
+
+        if (resolvedRole === "admin" || resolvedRole === "owner") {
+          setAllowedSlugs(tierAccess);
+        } else if (permissionSlugs.length > 0) {
+          setAllowedSlugs(permissionSlugs);
+        } else {
+          setAllowedSlugs(tierAccess);
+        }
+
+        if (profile?.brand_color) {
+          setLocalColor(profile.brand_color);
         }
       } catch (err) {
         console.error("Sidebar Permission Sync Error:", err);
@@ -230,7 +267,7 @@ export default function Sidebar() {
                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: activeColor }} />
               </div>
               <p className="text-[10px] uppercase tracking-widest text-stone-900 font-black italic">
-                {(userRole || "Loading").toUpperCase()} ACCESS
+                {(userRole || "Business").toUpperCase()} ACCESS
               </p>
             </div>
           ) : (
@@ -238,7 +275,7 @@ export default function Sidebar() {
               <div 
                 className="w-1.5 h-1.5 rounded-full animate-pulse" 
                 style={{ backgroundColor: activeColor }}
-                title={`${userRole || "Loading"} Access`}
+                title={`${(subscriptionTier || "unpaid").toUpperCase()} • ${userRole || "User"} Access`}
               />
             </div>
           )}

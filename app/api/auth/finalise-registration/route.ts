@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       // Update their tier
       await supabaseAdmin
         .from("profiles")
-        .update({ subscription_tier: "standard" })
+        .update({ subscription_tier: "unpaid" })
         .eq("id", userId);
     } else {
       // 3. Create the user in Supabase Auth if they don't exist
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       // 4. Update the profile with the paid tier
       const { error: updateError } = await supabaseAdmin
         .from("profiles")
-        .update({ subscription_tier: "standard" })
+        .update({ subscription_tier: "unpaid" })
         .eq("id", userId);
 
       if (updateError) throw updateError;

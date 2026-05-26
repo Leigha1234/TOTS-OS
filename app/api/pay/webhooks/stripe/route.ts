@@ -14,7 +14,6 @@ export async function POST(req: Request) {
   
   let event;
 
-  // 1. Verify the event came from Stripe
   try {
     event = stripe.webhooks.constructEvent(
       body, 
@@ -22,39 +21,53 @@ export async function POST(req: Request) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err: any) {
-    console.error(`Webhook signature verification failed: ${err.message}`);
     return NextResponse.json({ error: "Webhook signature verification failed" }, { status: 400 });
   }
 
-  // 2. Handle successful checkout sessions
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as any;
     const metadata = session.metadata;
 
     try {
-      // SCENARIO 1: Existing User Subscription Upgrade
-      if (metadata.supabase_user_id) {
-        const { error } = await supabase
+      // SCENARIO 1: New User First-Time Registration & Subscription
+      if (metadata.supabase_user_id && metadata.is_new_org === "true") {
+        
+        // 1. Create the Organisation record
+        const { data: org, error: orgError } = await supabase
+          .from("organisations")
+          .insert({ name: metadata.company_name })
+          .select()
+          .single();
+          
+        if (orgError) throw orgError;
+
+        // 2. Link user to the new org and activate subscription
+        const { error: profileError } = await supabase
           .from("profiles")
-          .update({ subscription_tier: metadata.tier })
+          .update({ 
+            organisation_id: org.id,
+            subscription_tier: metadata.tier,
+            is_subscribed: true 
+          })
           .eq("id", metadata.supabase_user_id);
           
-        if (error) throw error;
+        if (profileError) throw profileError;
+
+        // 3. Update JWT Metadata so middleware sees changes instantly
+        await supabase.auth.admin.updateUserById(metadata.supabase_user_id, {
+          user_metadata: { subscription_tier: metadata.tier, organisation_id: org.id }
+        });
       }
 
-      // SCENARIO 2: New Team Member Seat Payment
-      if (metadata.inviteId) {
-        const { error } = await supabase
-          .from("invites")
-          .update({ status: "paid" })
-          .eq("id", metadata.inviteId);
-          
-        if (error) throw error;
-        console.log(`Successfully unlocked invite: ${metadata.inviteId}`);
+      // SCENARIO 2: Existing User Subscription Upgrade
+      else if (metadata.supabase_user_id) {
+        await supabase
+          .from("profiles")
+          .update({ subscription_tier: metadata.tier, is_subscribed: true })
+          .eq("id", metadata.supabase_user_id);
       }
     } catch (err: any) {
-      console.error("Database update failed during webhook:", err.message);
-      // Return 500 so Stripe retries the webhook
+      console.error("Webhook Provisioning Failed:", err.message);
       return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
   }

@@ -29,7 +29,7 @@ function LoginForm() {
     
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) router.push("/dashboard");
+      if (data.session) router.push("/manage-subscription");
     };
     checkUser();
   }, [inviteId, router, supabase.auth]);
@@ -190,7 +190,7 @@ function LoginForm() {
         {authLoading ? (
           <Loader2 className="animate-spin" size={18} />
         ) : isRegister ? (
-          <>Create Workspace</>
+          <>Continue to Payment</>
         ) : (
           <>Sign In</>
         )}

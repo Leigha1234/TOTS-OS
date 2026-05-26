@@ -44,33 +44,38 @@ export default function ManageSubscription() {
     }
   };
 
-  useEffect(() => {
-    async function loadSession() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { router.push("/login"); return; }
+    // Inside ManageSubscription.tsx
+useEffect(() => {
+  async function loadSession() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
 
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("subscription_tier, team_seats_allocated")
-          .eq("id", user.id)
-          .single();
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("subscription_tier, team_seats_allocated")
+        .eq("id", user.id)
+        .single();
 
-        if (error) throw error;
-        if (data?.subscription_tier) {
-          const t = data.subscription_tier.toLowerCase() as SubscriptionTier;
-          setCurrentTier(t); 
-          setSelectedTier(t);
-          setTeamMembersCount(data.team_seats_allocated || 0);
-        }
-      } catch (err) {
-        console.error("Session load error:", err);
-      } finally {
-        setLoading(false);
+      if (profile) {
+        // Correctly handle existing profile data
+        const t = profile.subscription_tier?.toLowerCase() as SubscriptionTier;
+        setCurrentTier(t);
+        setSelectedTier(t || "standard");
+        setTeamMembersCount(profile.team_seats_allocated || 0);
+      } else {
+        // New signup (no profile yet) - defaults
+        setCurrentTier(null); 
+        setSelectedTier("standard");
       }
+    } catch (err) {
+      console.error("Session load error:", err);
+    } finally {
+      setLoading(false);
     }
-    loadSession();
-  }, [router, supabase]);
+  }
+  loadSession();
+}, [router, supabase]);
 
   const handleTierUpdate = async () => {
     setIsProcessing(true);

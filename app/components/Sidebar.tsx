@@ -166,7 +166,12 @@ export default function Sidebar() {
       transition-all duration-500 ease-in-out z-50 relative
       ${collapsed ? "w-20" : "w-64"}
     `}>
-      
+
+      {/* NEW: COMING SOON BANNER */}
+  <div className="bg-amber-100 text-amber-800 text-[8px] font-black uppercase tracking-widest text-center py-1.5 border-b border-amber-200">
+    {!collapsed ? "Finance Pages Coming Soon" : "⚠️"}
+  </div>
+  
       {/* BRANDING AREA */}
       <div className="flex items-center justify-between p-6 h-24 shrink-0 overflow-hidden">
         {!collapsed ? (

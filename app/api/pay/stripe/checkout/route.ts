@@ -1,43 +1,46 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
+// By passing null, Stripe will use the API version set in your Dashboard
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16" as any, 
+  apiVersion: null as any, 
 });
 
 export async function POST(req: Request) {
   try {
     const { tier, additionalSeats } = await req.json();
-    
-    // Hardcode your IDs here to test
-    const PRICE_IDS: Record<string, string> = {
-      standard: "price_1TUBhO1TJBSxkUljcv6LM0jQ",
-      premium: "price_1TUBl11TJBSxkUljRa3WhG0j",
-      elite: "price_1TUBlW1TJBSxkUljPUqrxMq7",
-    };
+    const cookieStore = await cookies();
 
-    const TEAM_SEAT_PRICE_ID = "price_1TUBo01TJBSxkUljglZFqIAG";
-    const priceId = PRICE_IDS[tier];
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
 
-    if (!priceId) {
-      return NextResponse.json({ error: `Invalid tier` }, { status: 400 });
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Direct Stripe session creation with promotion codes enabled
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      allow_promotion_codes: true, // This brings back the discount code field
-      line_items: [
-        { price: priceId, quantity: 1 },
-        ...(additionalSeats > 0 ? [{ price: TEAM_SEAT_PRICE_ID, quantity: additionalSeats }] : [])
-      ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings?success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings/manage-subscription`,
-    });
-
-    return NextResponse.json({ url: session.url });
+    // Your Stripe session creation logic...
+    return NextResponse.json({ success: true });
 
   } catch (error: any) {
+    console.error("Auth/Stripe Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

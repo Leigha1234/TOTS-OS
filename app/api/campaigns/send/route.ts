@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +12,24 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: Request) {
   try {
+    const resendKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.RESEND_FROM_EMAIL;
+
+    if (!resendKey) {
+      return NextResponse.json(
+        { error: 'RESEND_API_KEY missing from environment variables.' },
+        { status: 500 }
+      );
+    }
+
+    if (!fromEmail) {
+      return NextResponse.json(
+        { error: 'RESEND_FROM_EMAIL missing from environment variables.' },
+        { status: 500 }
+      );
+    }
+
+    const resend = new Resend(resendKey);
     const { campaignId } = await req.json();
 
     if (!campaignId) {
@@ -62,7 +79,7 @@ export async function POST(req: Request) {
     for (const subscriber of subscribers) {
       try {
         await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL!,
+          from: fromEmail,
           to: subscriber.email,
           subject: campaign.subject,
           html: `

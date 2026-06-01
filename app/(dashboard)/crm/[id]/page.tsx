@@ -253,10 +253,6 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
         {/* IDENTITY DISPLAY */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           <div className="lg:col-span-2 space-y-8">
-            <div className="flex items-center gap-3">
-               <div className="w-12 h-[1px] bg-[#a9b897]" />
-               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Account Profile</p>
-            </div>
             <h1 className="text-4xl md:text-6xl font-serif italic tracking-tighter uppercase break-words leading-none">
               {isEditing ? (
                 <input value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="bg-transparent border-b border-[#a9b897] outline-none w-full py-2" placeholder="Full Name" />

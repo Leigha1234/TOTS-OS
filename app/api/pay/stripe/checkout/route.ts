@@ -3,24 +3,15 @@ import Stripe from "stripe";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-// Stripe initialization using the API version from your Dashboard
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: null as any, 
+  apiVersion: null as any, // Bypasses the version mismatch warning
 });
-
-// Map your tier names to your actual Stripe Price IDs
-const PRICE_IDS: Record<string, string> = {
-  standard: "price_1TUBhO1TJBSxkUljcv6LM0jQ",
-  professional: "price_1TUBl11TJBSxkUljRa3WhG0j",
-  elite: "price_1TUBlW1TJBSxkUljPUqrxMq7",
-};
 
 export async function POST(req: Request) {
   try {
     const { tier } = await req.json();
     const cookieStore = await cookies();
 
-    // Initialize Supabase Client
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -38,26 +29,27 @@ export async function POST(req: Request) {
       }
     );
 
-    // Verify Authentication
     const { data: { user } } = await supabase.auth.getUser();
+
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Validate tier
-    const priceId = PRICE_IDS[tier?.toLowerCase()];
-    if (!priceId) {
-      return NextResponse.json({ error: "Invalid tier selected" }, { status: 400 });
-    }
+    // Replace with your actual Stripe Price IDs
+    const PRICE_IDS: Record<string, string> = {
+      standard: "price_1TUBhO1TJBSxkUljcv6LM0jQ",
+      professional: "price_1TUBl11TJBSxkUljRa3WhG0j",
+      elite: "price_1TUBlW1TJBSxkUljPUqrxMq7",
+    };
 
-    // Create Stripe Checkout Session
+    const priceId = PRICE_IDS[tier?.toLowerCase()];
+    if (!priceId) return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: user.email,
       line_items: [{ price: priceId, quantity: 1 }],
-      metadata: { 
-        supabase_user_id: user.id 
-      },
+      metadata: { supabase_user_id: user.id },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?status=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing`,
     });

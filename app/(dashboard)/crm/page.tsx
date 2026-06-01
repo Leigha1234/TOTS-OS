@@ -104,7 +104,7 @@ export default function CRMDirectory() {
           }]);
         
         if (listError) {
-          console.warn("Node established, but campaign synchronisation failed:", listError.message);
+          console.warn("Page established, but campaign synchronisation failed:", listError.message);
         }
       }
 
@@ -115,7 +115,7 @@ export default function CRMDirectory() {
       });
       setShowModal(false);
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred during node ingestion.");
+      setError(err.message || "An unexpected error occurred during page loading.");
     } finally {
       setSaving(false);
     }
@@ -139,10 +139,7 @@ export default function CRMDirectory() {
 
         <div className="flex flex-col md:flex-row md:justify-between md:items-end mb-12 gap-6">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-[#a9b897]">
-              <div className="w-8 h-[1px] bg-[#a9b897]" />
-              <p className="text-[10px] uppercase tracking-[0.4em] font-black">CRM</p>
-            </div>
+            
             <h1 className="text-5xl md:text-7xl font-serif italic text-stone-800 tracking-tighter">Contacts</h1>
           </div>
 
@@ -150,7 +147,7 @@ export default function CRMDirectory() {
             <div className="relative">
               <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
-                placeholder="Search nodes..."
+                placeholder="Search ..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-4 py-4 rounded-2xl border border-stone-200 bg-white outline-none focus:ring-2 focus:ring-[#a9b897]/20 transition-all text-xs w-full md:w-64"
@@ -182,10 +179,10 @@ export default function CRMDirectory() {
                   <div>
                     <h3 className="text-xl font-bold text-stone-800 group-hover:text-[#a9b897] transition-colors">{profile.name}</h3>
                     <div className="flex items-center gap-3 mt-1">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">{profile.company_name || 'Independent Node'}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">{profile.company_name }</span>
                       <div className="w-1 h-1 rounded-full bg-stone-200" />
                       <span className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] bg-[#a9b897]/10 px-2 py-0.5 rounded italic">
-                        {profile.role === 'client' ? 'Client Node' : profile.role === 'lead' ? 'Active Lead' : 'Strategic Partner'}
+                        {profile.role === 'client' ? 'Client' : profile.role === 'lead' ? 'Active Lead' : 'Strategic Partner'}
                       </span>
                     </div>
                   </div>
@@ -198,7 +195,7 @@ export default function CRMDirectory() {
           ) : (
             <div className="text-center py-20 bg-white border border-dashed border-stone-200 rounded-[3rem]">
               <Database size={32} className="mx-auto text-stone-100 mb-4" />
-              <p className="text-stone-300 text-[10px] font-black uppercase tracking-[0.4em]">Zero Nodes Detected in Search Scope</p>
+              <p className="text-stone-300 text-[10px] font-black uppercase tracking-[0.4em]">No Contacts Found</p>
             </div>
           )}
         </div>

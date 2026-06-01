@@ -36,8 +36,11 @@ export default function ImportArchitecture() {
 
   // -- Business Data Schema (Import Contract) --
   const REQUIRED_SCHEMA = [
-    { field: "Full Name", required: true, description: "Primary entity identifier (required)" },
-    { field: "Role", required: false, description: "Defaults to 'user' if not provided" }
+    { field: "Contacts", required: false, description: "Names, emails, phones, companies and CRM records" },
+    { field: "Finance", required: false, description: "Invoices, payments, revenue, costs and finance records" },
+    { field: "Projects", required: false, description: "Tasks, jobs, projects and workflow records" },
+    { field: "Notes & Files", required: false, description: "Documents, notes and uploaded information" },
+    { field: "HR & Team", required: false, description: "Employees, payroll, holiday, sick pay and HR records" },
   ];
 
   useEffect(() => {
@@ -69,6 +72,55 @@ export default function ImportArchitecture() {
     return chunks;
   };
 
+  const normaliseKey = (value: string) =>
+    value?.toString().trim().toLowerCase().replace(/[_-]/g, ' ');
+
+  const FIELD_MAP: Record<string, string[]> = {
+    full_name: [
+      'full name', 'name', 'client name', 'customer name', 'contact name',
+      'employee name', 'staff name', 'entity', 'person', 'first name', 'lastname',
+      'last name', 'surname'
+    ],
+    first_name: ['first name', 'firstname', 'given name'],
+    last_name: ['last name', 'lastname', 'surname', 'family name'],
+    email: ['email', 'email address', 'mail'],
+    phone: ['phone', 'phone number', 'mobile', 'telephone'],
+    company: ['company', 'business', 'organisation', 'organization'],
+    role: ['role', 'job role', 'position', 'title'],
+    amount: ['amount', 'total', 'value', 'revenue', 'payment', 'price', 'cost'],
+    invoice_number: ['invoice', 'invoice number', 'invoice id'],
+    status: ['status', 'stage', 'state'],
+    date: ['date', 'created', 'due date', 'invoice date'],
+    notes: ['notes', 'description', 'comment', 'details']
+  };
+
+  const detectMappedValue = (row: any, aliases: string[]) => {
+    const keys = Object.keys(row || {});
+    const actualKey = keys.find((k) =>
+      aliases.some((a) => normaliseKey(a) === normaliseKey(k))
+    );
+
+    return actualKey ? row[actualKey] : null;
+  };
+
+  const inferRecordType = (row: any) => {
+    const keys = Object.keys(row).map(normaliseKey);
+
+    if (keys.some(k => ['invoice', 'payment', 'amount', 'revenue', 'cost'].includes(k))) {
+      return 'finance';
+    }
+
+    if (keys.some(k => ['employee', 'staff', 'payroll', 'holiday', 'sick pay'].includes(k))) {
+      return 'hr';
+    }
+
+    if (keys.some(k => ['task', 'project', 'job'].includes(k))) {
+      return 'project';
+    }
+
+    return 'contact';
+  };
+
   // -- Logic: Ingestion Pipeline --
   const startMigration = async () => {
     if (!file) return;
@@ -96,41 +148,35 @@ export default function ImportArchitecture() {
           return;
         }
 
-        const headers = Object.keys(rawData[0] || {});
-        const requiredHeaders = ["Full Name"];
-
-        const missingHeaders = requiredHeaders.filter(h =>
-          !headers.map(x => x.trim().toLowerCase()).includes(h.toLowerCase())
-        );
-
-        if (missingHeaders.length > 0) {
-          setStatus('error');
-          setErrorMessage(
-            `Schema Mismatch: Missing required column(s): ${missingHeaders.join(", ")}`
-          );
-          return;
-        }
-
         const formattedData = rawData.map((row: any) => {
-          const findValue = (possibleKeys: string[]) => {
-            const normalise = (v: string) => v.trim().toLowerCase();
-            const rowKeys = Object.keys(row);
+          const firstName = detectMappedValue(row, FIELD_MAP.first_name);
+          const lastName = detectMappedValue(row, FIELD_MAP.last_name);
 
-            const actualKey = rowKeys.find(k =>
-              possibleKeys.map(normalise).includes(normalise(k))
-            );
-
-            return actualKey ? row[actualKey] : null;
-          };
+          const fullName =
+            detectMappedValue(row, FIELD_MAP.full_name) ||
+            [firstName, lastName].filter(Boolean).join(' ') ||
+            null;
 
           const mapped = {
-            name: findValue(['Full Name', 'Name', 'Client Name', 'Entity']) || null,
-            role: findValue(['Role', 'role']) || 'user',
+            full_name: fullName,
+            first_name: firstName || null,
+            last_name: lastName || null,
+            email: detectMappedValue(row, FIELD_MAP.email),
+            phone: detectMappedValue(row, FIELD_MAP.phone),
+            company: detectMappedValue(row, FIELD_MAP.company),
+            role: detectMappedValue(row, FIELD_MAP.role) || 'user',
+            amount: detectMappedValue(row, FIELD_MAP.amount),
+            invoice_number: detectMappedValue(row, FIELD_MAP.invoice_number),
+            status: detectMappedValue(row, FIELD_MAP.status),
+            date: detectMappedValue(row, FIELD_MAP.date),
+            notes: detectMappedValue(row, FIELD_MAP.notes),
+            raw_data: row,
+            record_type: inferRecordType(row),
           };
 
           return {
             ...mapped,
-            _isValid: !!mapped.name
+            _isValid: Object.values(mapped).some(v => v !== null && v !== '')
           };
         });
 
@@ -143,7 +189,7 @@ export default function ImportArchitecture() {
 
         if (validData.length === 0) {
           setStatus('error');
-          setErrorMessage("Data Validation Failed: No compliant records detected. Please align CSV to import schema.");
+          setErrorMessage("No usable data detected in file.");
           return;
         }
 
@@ -153,9 +199,8 @@ export default function ImportArchitecture() {
 
         for (const batch of batches) {
           const { error } = await supabase
-            .from("profiles")
-            .insert(batch)
-            .select();
+            .from("imports")
+            .insert(batch);
 
           if (error) {
             insertError = error;
@@ -271,8 +316,12 @@ export default function ImportArchitecture() {
                 <div className="space-y-2">
                   {previewData.map((row, idx) => (
                     <div key={idx} className="flex justify-between text-xs text-stone-600 border-b border-stone-100 pb-2">
-                      <span>{row.name}</span>
-                      <span className="text-stone-400">{row.role}</span>
+                      <span>
+                        {row.full_name || row.company || row.invoice_number || 'Imported Record'}
+                      </span>
+                      <span className="text-stone-400 uppercase">
+                        {row.record_type}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -298,7 +347,7 @@ export default function ImportArchitecture() {
               Import Schema Key
             </h2>
             <p className="text-stone-500 text-xs">
-              All inbound CSV files must align with the approved data contract below.
+              Upload contacts, finance, CRM, HR, projects or mixed datasets. TOTS‑OS will automatically map recognised fields.
             </p>
           </div>
 

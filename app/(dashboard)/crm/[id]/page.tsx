@@ -140,21 +140,59 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
     setIsSaving(false);
   };
 
-  // Dedicated instant toggle handler for the Communications panel
   const toggleMailingListInline = async (newValue: boolean) => {
-    setStatusUpdating(true);
-    const { error } = await supabase
-        .from("profiles")
-        .update({ email_list: newValue })
-        .eq("id", profile.id)
-        .eq("organisation_id", organisationId);
+  if (!profile?.email) return;
 
-    if (!error) {
-      setProfile({ ...profile, email_list: newValue });
-      setEditForm({ ...editForm, email_list: newValue });
+  setStatusUpdating(true);
+
+  // update profile toggle
+  const { error } = await supabase
+    .from("profiles")
+    .update({ email_list: newValue })
+    .eq("id", profile.id);
+
+  if (!error) {
+    // get first mailing list
+    const { data: list } = await supabase
+      .from("subscriber_lists")
+      .select("id")
+      .limit(1)
+      .single();
+
+    if (list?.id) {
+      if (newValue) {
+        // add subscriber
+        await supabase
+          .from("subscribers")
+          .upsert({
+            list_id: list.id,
+            email: profile.email,
+            first_name: profile.name || "",
+            status: "subscribed"
+          });
+      } else {
+        // remove subscriber
+        await supabase
+          .from("subscribers")
+          .delete()
+          .eq("email", profile.email);
+      }
     }
-    setStatusUpdating(false);
-  };
+
+    setProfile({
+      ...profile,
+      email_list: newValue
+    });
+
+    setEditForm({
+      ...editForm,
+      email_list: newValue
+    });
+  }
+
+  setStatusUpdating(false);
+};
+
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();

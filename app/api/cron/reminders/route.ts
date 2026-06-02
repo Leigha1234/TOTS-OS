@@ -1,8 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
-
 type Invoice = {
   id: string;
   created_at: string;
@@ -12,10 +10,20 @@ type Invoice = {
 };
 
 export async function GET() {
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const resendKey = process.env.RESEND_API_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!resendKey || !supabaseUrl || !serviceRoleKey) {
+    return Response.json(
+      { error: "Missing required environment variables" },
+      { status: 500 }
+    );
+  }
+
+  const resend = new Resend(resendKey);
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
     // Only fetch unpaid invoices (limit to avoid large cron runs)
@@ -78,7 +86,11 @@ export async function GET() {
           if (!updateError) {
             overdueCount++;
           } else {
-            console.error("Failed to mark overdue invoice:", inv.id, updateError);
+            console.error(
+              "Failed to mark overdue invoice:",
+              inv.id,
+              updateError
+            );
           }
         }
       } catch (err) {

@@ -105,10 +105,27 @@ function DashboardContent() {
 
       // Fetch Business Data in Parallel for Performance
       const [projectsRes, invoicesRes, membersRes, notesRes] = await Promise.all([
-        supabase.from("projects").select("*", { count: 'exact', head: true }).eq("organisation_id", organisationId),
-        supabase.from("invoices").select("amount, status").eq("organisation_id", organisationId),
-        supabase.from("profiles").select("full_name, role").eq("organisation_id", organisationId).limit(4),
-        supabase.from("notes").select("id, title, content, completed").eq("organisation_id", organisationId).limit(5)
+        supabase
+          .from("projects")
+          .select("*", { count: 'exact', head: true })
+          .eq("organisation_id", organisationId),
+
+        supabase
+          .from("invoices")
+          .select("amount, status")
+          .eq("organisation_id", organisationId),
+
+        supabase
+          .from("profiles")
+          .select("full_name, role")
+          .eq("organisation_id", organisationId)
+          .limit(4),
+
+        supabase
+          .from("notes")
+          .select("id, title, content, completed")
+          .eq("organisation_id", organisationId)
+          .limit(5)
       ]);
 
       // Logic calculations

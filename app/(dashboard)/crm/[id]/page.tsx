@@ -107,12 +107,12 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
 
   async function fetchProfile() {
     setLoading(true);
+
     const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", profileId)
-        .eq("organisation_id", organisationId) 
-        .single();
+      .from("profiles")
+      .select("*")
+      .eq("id", profileId)
+      .single();
 
     if (!error && data) {
       setProfile(data);
@@ -127,27 +127,28 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
         email_list: data.email_list || false
       });
     } else {
-        router.push("/crm");
+      router.push("/crm");
     }
+
     setLoading(false);
   }
 
   async function fetchTeam() {
     const { data } = await supabase
-        .from("profiles")
-        .select("id, name")
-        .eq("role", "admin")
-        .eq("organisation_id", organisationId);
+      .from("profiles")
+      .select("id, name")
+      .eq("role", "admin");
+
     setTeamMembers(data || []);
   }
 
   async function fetchTasks() {
     const { data } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("profile_id", profileId)
-        .eq("organisation_id", organisationId)
-        .order("created_at", { ascending: false });
+      .from("tasks")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("created_at", { ascending: false });
+
     setTasks(data || []);
   }
 
@@ -156,7 +157,6 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
       .from("email_threads")
       .select("*")
       .eq("profile_id", profileId)
-      .eq("organisation_id", organisationId)
       .order("last_message_at", { ascending: false });
 
     setThreads(data || []);
@@ -176,7 +176,6 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
     const { data, error } = await supabase
       .from("subscriber_lists")
       .select("id, name")
-      .eq("organisation_id", organisationId)
       .order("created_at", { ascending: true });
 
     if (!error && data) {
@@ -239,16 +238,17 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
 
   const handleUpdate = async () => {
     setIsSaving(true);
+
     const { error } = await supabase
-        .from("profiles")
-        .update(editForm)
-        .eq("id", profile.id)
-        .eq("organisation_id", organisationId);
+      .from("profiles")
+      .update(editForm)
+      .eq("id", profile.id);
 
     if (!error) {
       setProfile({ ...profile, ...editForm });
       setIsEditing(false);
     }
+
     setIsSaving(false);
   };
 
@@ -260,8 +260,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
   const { error: profileError } = await supabase
     .from("profiles")
     .update({ email_list: newValue })
-    .eq("id", profile.id)
-    .eq("organisation_id", organisationId);
+    .eq("id", profile.id);
 
   if (profileError) {
     console.error("Profile update error:", profileError);

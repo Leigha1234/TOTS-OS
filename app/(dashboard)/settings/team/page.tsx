@@ -56,34 +56,43 @@ export default function ComprehensiveTeamHub() {
 
   async function init() {
     try {
+      if (!organisationId) return;
+
       setLoading(true);
-      const { data: members, error: mErr } = await supabase
+
+      // Fetch team members
+      const { data: members, error: membersError } = await supabase
         .from("profiles")
         .select("*")
         .eq("organisation_id", organisationId)
         .order("full_name", { ascending: true });
 
-      if (mErr) throw mErr;
+      if (membersError) throw membersError;
       setTeamMembers(members || []);
 
-      const { data: s } = await supabase
+      // Fetch settings
+      const { data: settingsData, error: settingsError } = await supabase
         .from("settings")
         .select("*")
         .eq("organisation_id", organisationId)
         .maybeSingle();
 
-      if (s) {
-        setLogo(s.logo_url || "");
-        setBusinessName(s.business_name || "");
-        setAddress(s.address || "");
-        setWebsite(s.social_links?.website || "");
-        setContactEmail(s.contact_email || "");
-        setPrimaryColor(s.brand_color || "#A3B18A");
-        setHandles(s.social_links || { instagram: "", linkedin: "" });
-        setToneOfVoice(s.tone_of_voice || "");
-        setNextOfKinPhone(s.next_of_kin_phone || "");
+      if (settingsError) throw settingsError;
+
+      if (settingsData) {
+        setLogo(settingsData.logo_url || "");
+        setBusinessName(settingsData.business_name || "");
+        setAddress(settingsData.address || "");
+        setWebsite(settingsData.social_links?.website || "");
+        setContactEmail(settingsData.contact_email || "");
+        setPrimaryColor(settingsData.brand_color || "#A3B18A");
+        setHandles(settingsData.social_links || { instagram: "", linkedin: "" });
+        setToneOfVoice(settingsData.tone_of_voice || "");
+        setNextOfKinPhone(settingsData.next_of_kin_phone || "");
       }
+
     } catch (err: any) {
+      console.error(err);
       toast.error("Failed to sync team data.");
     } finally {
       setLoading(false);

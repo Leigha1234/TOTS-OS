@@ -47,7 +47,7 @@ export default function CRMDirectory() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Fetch only data belonging to this specific organisation
       const [profileRes, listRes] = await Promise.all([
         supabase
@@ -55,12 +55,13 @@ export default function CRMDirectory() {
           .select("*")
           .eq("organisation_id", organisationId)
           .order("name", { ascending: true }),
+
         supabase
           .from("subscriber_lists")
           .select("*")
           .eq("organisation_id", organisationId)
       ]);
-      
+
       if (profileRes.error) throw profileRes.error;
       if (listRes.error) throw listRes.error;
 

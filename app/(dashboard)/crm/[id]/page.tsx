@@ -103,14 +103,21 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
   async function fetchProfile() {
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", profileId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", profileId)
+        .single();
 
-    if (!error && data) {
+      if (error || !data) {
+        console.error("Profile fetch error:", error);
+        router.push("/crm");
+        return;
+      }
+
       setProfile(data);
+
       setEditForm({
         name: data.name || "",
         role: data.role || "user",
@@ -121,40 +128,54 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
         company_details: data.company_details || "",
         email_list: data.email_list || false
       });
-    } else {
-      router.push("/crm");
-    }
 
-    setLoading(false);
+    } catch (err) {
+      console.error("Unexpected profile error:", err);
+      router.push("/crm");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function fetchTeam() {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, name")
-      .eq("role", "admin");
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, name")
+        .eq("role", "admin");
 
-    setTeamMembers(data || []);
+      setTeamMembers(data || []);
+    } catch (err) {
+      console.error("fetchTeam error:", err);
+    }
   }
 
   async function fetchTasks() {
-    const { data } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("profile_id", profileId)
-      .order("created_at", { ascending: false });
+    try {
+      const { data } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("profile_id", profileId)
+        .order("created_at", { ascending: false });
 
-    setTasks(data || []);
+      setTasks(data || []);
+    } catch (err) {
+      console.error("fetchTasks error:", err);
+    }
   }
 
   async function fetchThreads() {
-    const { data } = await supabase
-      .from("email_threads")
-      .select("*")
-      .eq("profile_id", profileId)
-      .order("last_message_at", { ascending: false });
+    try {
+      const { data } = await supabase
+        .from("email_threads")
+        .select("*")
+        .eq("profile_id", profileId)
+        .order("last_message_at", { ascending: false });
 
-    setThreads(data || []);
+      setThreads(data || []);
+    } catch (err) {
+      console.error("fetchThreads error:", err);
+    }
   }
 
   async function fetchMessages(threadId: string) {
@@ -168,21 +189,26 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
   }
 
   async function fetchSubscriberLists() {
-    const { data, error } = await supabase
-      .from("subscriber_lists")
-      .select("id, name")
-      .order("created_at", { ascending: true });
+    try {
+      const { data } = await supabase
+        .from("subscriber_lists")
+        .select("id, name")
+        .order("created_at", { ascending: true });
 
-    if (!error && data) {
-      setSubscriberLists(data);
-      if (data.length > 0) {
-        setSelectedListId(data[0].id);
+      if (data) {
+        setSubscriberLists(data);
+        if (data.length > 0) {
+          setSelectedListId(data[0].id);
+        }
       }
+    } catch (err) {
+      console.error("fetchSubscriberLists error:", err);
     }
   }
 
   // AI Triage function
   const runAiTriage = async (threadId: string) => {
+    if (!activeThread?.id) return;
     if (!threadId) return;
 
     setTriageLoading(true);
@@ -220,7 +246,7 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          profileId: profile.id,
+          profileId: profile?.id,
           organisationId,
         }),
       });

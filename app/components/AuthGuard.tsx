@@ -10,53 +10,64 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const init = async () => {
+    let mounted = true;
 
-      // 1. If we are on the login page, no need to guard
-      if (pathname === "/login") {
-        setLoading(false);
+    const isPublicRoute = pathname === "/login";
+
+    const initAuth = async () => {
+      // Skip auth guard on login page
+      if (isPublicRoute) {
+        if (mounted) setLoading(false);
         return;
       }
 
-      let mounted = true;
+      try {
+        // Use getUser (more reliable than getSession for SSR/client sync)
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      const initAuth = async () => {
-        // 2. Initial check for existing session
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session && mounted) {
-          setLoading(false);
-        } else if (!session && mounted) {
-          router.push("/login");
-        }
-      };
-
-      // 3. Listen for auth changes (Magic links, sign-outs, etc.)
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (!mounted) return;
 
-        if (session) {
+        if (!user) {
+          router.replace("/login");
           setLoading(false);
-        } else if (event === "SIGNED_OUT" || (event === "INITIAL_SESSION" && !session)) {
-          // Only redirect if we aren't already going to login
-          if (pathname !== "/login") {
-            router.push("/login");
-          }
+          return;
         }
-      });
 
-      initAuth();
-
-      return () => {
-        mounted = false;
-        subscription.unsubscribe();
-      };
+        setLoading(false);
+      } catch (err) {
+        console.error("Auth check failed:", err);
+        if (mounted) {
+          router.replace("/login");
+          setLoading(false);
+        }
+      }
     };
 
-    init();
+    initAuth();
+
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+
+      if (session) {
+        setLoading(false);
+      } else {
+        router.replace("/login");
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [pathname, router]);
 
-  // Loading state (Splash screen)
+  // Loading state (prevents CRM blank page hang)
   if (loading && pathname !== "/login") {
     return (
       <div className="flex h-screen items-center justify-center bg-stone-50">

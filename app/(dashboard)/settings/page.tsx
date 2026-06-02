@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import { 
@@ -49,7 +49,7 @@ export default function Settings() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
-      
+      setEmail(user.email || "");
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name, bio, organisation_id")
@@ -59,7 +59,6 @@ export default function Settings() {
       if (profile) {
         setUserName((profile.full_name || "OPERATOR").toUpperCase());
         setDisplayName(profile.full_name || "");
-        setEmail(user.email || "");
         setBio(profile.bio || "");
         setUserOrgId(profile.organisation_id);
         // Fetch connected platforms from Supabase
@@ -81,10 +80,31 @@ export default function Settings() {
   // -- 5. HANDLERS --
   const handleSave = async () => {
     setIsSaving(true);
-    // Logic for saving profiles and settings...
-    await new Promise(r => setTimeout(r, 800)); // Simulating API
-    toast.success("Workspace System Settings Saved");
-    setIsSaving(false);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: displayName,
+          bio,
+        })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      toast.success("Workspace System Settings Saved");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save settings");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -101,7 +121,8 @@ const connectSocialPlatform = async (platform: string) => {
 
   toast.info(`Redirecting to ${platform} authorization...`);
 
-  const state = encodeURIComponent(user.id);
+  const state = crypto.randomUUID();
+  sessionStorage.setItem("oauth_state", state);
 
   const metaAuth =
     `https://www.facebook.com/v19.0/dialog/oauth` +
@@ -301,7 +322,25 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
                       { key: "linkedin", name: "LinkedIn Corporate Network", subtitle: "B2B Professional Integration", icons: [Linkedin] }
                     ].map((platformObj) => {
                       const isConnected = connectedPlatforms.includes(platformObj.key);
-                      const disconnectSocialPlatform = (key: string) => {
+                      const disconnectSocialPlatform = async (key: string) => {
+                        const { data: { user } } = await supabase.auth.getUser();
+
+                        if (!user) {
+                          toast.error("Not authenticated");
+                          return;
+                        }
+
+                        const { error } = await supabase
+                          .from("social_accounts")
+                          .delete()
+                          .eq("user_id", user.id)
+                          .eq("platform", key);
+
+                        if (error) {
+                          toast.error(error.message);
+                          return;
+                        }
+
                         setConnectedPlatforms((prev) => prev.filter((p) => p !== key));
                         toast.success(`${key} disconnected`);
                       };

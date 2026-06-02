@@ -53,7 +53,7 @@ function VaultContent() {
     try {
       const { data, error, status, statusText } = await supabase
         .from("notes")
-        .select("id, content, user_id, color, category, is_urgent, project, assigned_to, due_date, is_reminder, status, metadata, created_at")
+        .select("id, content, user_id, created_at, color, category")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       
@@ -64,7 +64,16 @@ function VaultContent() {
           statusText,
           userId,
         });
-        throw new Error(error.message || `Notes fetch failed (${status})`);
+        throw new Error(
+          JSON.stringify({
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+            status,
+            statusText,
+          })
+        );
       }
       setNotes(data || []);
 
@@ -76,7 +85,8 @@ function VaultContent() {
       }
     } catch (e) {
       console.error("Notes Fetch Error:", e);
-      toast.error((e as any)?.message || "Could not load the notes.");
+      console.error("RAW NOTES ERROR:", (e as any)?.message);
+      toast.error("Notes load failed - see console.");
     } finally {
       setIsLoading(false);
     }
@@ -164,19 +174,16 @@ function VaultContent() {
     const theme = STICKY_THEMES[notes.length % STICKY_THEMES.length];
 
     try {
-      const { error, status: responseStatus, statusText } = await supabase.from("notes").insert([{
-        content,
-        user_id: user.id,
-        color: isUrgent ? "#4f4a46" : theme.bg, 
-        category: tag || "General",
-        is_urgent: isUrgent,
-        project: project || null,
-        assigned_to: assignedTo || null,
-        due_date: isReminder && reminderDateTime ? new Date(reminderDateTime).toISOString() : null,
-        is_reminder: isReminder,
-        status,
-        metadata: { rotation: theme.rotation }
-      }]);
+      const { error, status: responseStatus, statusText } = await supabase
+        .from("notes")
+        .insert([
+          {
+            content,
+            user_id: user.id,
+            color: isUrgent ? "#4f4a46" : theme.bg,
+            category: tag || "General",
+          },
+        ]);
 
       if (error) {
         console.error("Supabase note insert error:", {

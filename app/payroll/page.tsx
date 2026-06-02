@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { supabase } from "../../lib/supabase-client";
 import { getUserTeam } from "@/lib/getUserTeam";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -23,7 +23,6 @@ export default function PayrollPage() {
   });
 
   const load = useCallback(async (team: string) => {
-    const supabase = createClient();
     setLoading(true);
     const { data } = await supabase
       .from("payroll")
@@ -49,7 +48,6 @@ export default function PayrollPage() {
 
   async function add() {
     if (!teamId || !form.employee) return;
-    const supabase = createClient();
 
     const { error } = await supabase.from("payroll").insert({
       employee: form.employee,
@@ -67,7 +65,6 @@ export default function PayrollPage() {
   }
 
   async function markPaid(id: string) {
-    const supabase = createClient();
     await supabase.from("payroll").update({ status: "paid" }).eq("id", id);
     if (teamId) load(teamId);
   }

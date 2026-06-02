@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { CheckCircle2, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { createServerSupabaseClient } from "@/lib/supabase";
+// Removed direct supabase client import to avoid build-time module resolution errors.
+// We'll fetch the authenticated user from an auth endpoint at runtime instead.
 import { toast } from "sonner";
 
 const TIERS = [
@@ -34,15 +35,23 @@ const TIERS = [
 export default function BillingPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
-  const supabase = createServerSupabaseClient();
 
   useEffect(() => {
+    // Try to retrieve the authenticated user's email from a runtime endpoint.
+    // This avoids importing a supabase client at build time in this client component.
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserEmail(user.email ?? null);
+      try {
+        const res = await fetch('/api/auth/user');
+        if (!res.ok) return;
+        const data = await res.json();
+        const email = data?.user?.email ?? null;
+        if (email) setUserEmail(email);
+      } catch (e) {
+        // ignore
+      }
     };
     getUser();
-  }, [supabase]);
+  }, []);
 
   const handleCheckout = async (tier: string) => {
     setLoading(tier);

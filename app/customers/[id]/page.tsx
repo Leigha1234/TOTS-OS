@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { supabase } from "../../../lib/supabase-client";
 import { 
   Plus, X, Clock, Type, Image as ImageIcon, 
   FileText, User, ShieldCheck, Zap, Activity,
@@ -295,4 +295,8 @@ export default function CampaignsPage() {
       </AnimatePresence>
     </main>
   );
+}
+
+function createClient() {
+  return supabase;
 }

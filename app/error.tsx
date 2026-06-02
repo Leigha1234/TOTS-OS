@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from 'react';
-import { createClient } from '@/lib/supabase';
+import { supabase } from "../lib/supabase-client";
 
 export default function GlobalError({
   error,
@@ -12,8 +12,6 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     const reportBug = async () => {
-      // Initialize the client locally for the error report
-      const supabase = createClient();
 
       // 🕵️‍♂️ THE SNITCH LOGIC
       await supabase.functions.invoke('report-bug', {

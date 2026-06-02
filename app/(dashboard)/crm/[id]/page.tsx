@@ -15,7 +15,8 @@ import { useSettings } from "@/app/context/SettingsContext";
 
 export default function AccountProfilePage() {
   const params = useParams();
-  const profileId = params?.id as string;
+  // Fix profileId extraction (handles array/undefined)
+  const profileId = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const router = useRouter();
   const { organisationId } = useSettings();
 
@@ -23,6 +24,8 @@ export default function AccountProfilePage() {
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  // Optional stability improvement
+  const [initialised, setInitialised] = useState(false);
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [threads, setThreads] = useState<any[]>([]);
@@ -53,11 +56,17 @@ export default function AccountProfilePage() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
+      // Fix profile fetch (use organisation filter + maybeSingle)
+      const query = supabase
         .from("profiles")
         .select("*")
-        .eq("id", profileId)
-        .single();
+        .eq("id", profileId);
+
+      if (organisationId) {
+        query.eq("organisation_id", organisationId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error("Profile error:", error);
@@ -68,6 +77,7 @@ export default function AccountProfilePage() {
       setProfile(data || null);
     } finally {
       setLoading(false);
+      setInitialised(true);
     }
   };
 
@@ -75,12 +85,15 @@ export default function AccountProfilePage() {
      LOAD TASKS
   --------------------------*/
   const fetchTasks = async () => {
+    // Fix tasks fetch (add organisation guard + safer query)
     if (!profileId) return;
+    if (!organisationId) return;
 
     const { data } = await supabase
       .from("tasks")
       .select("*")
-      .eq("profile_id", profileId);
+      .eq("profile_id", profileId)
+      .eq("organisation_id", organisationId);
 
     setTasks(data || []);
   };
@@ -89,12 +102,15 @@ export default function AccountProfilePage() {
      LOAD THREADS
   --------------------------*/
   const fetchThreads = async () => {
+    // Fix threads fetch similarly
     if (!profileId) return;
+    if (!organisationId) return;
 
     const { data } = await supabase
       .from("email_threads")
       .select("*")
-      .eq("profile_id", profileId);
+      .eq("profile_id", profileId)
+      .eq("organisation_id", organisationId);
 
     setThreads(data || []);
   };
@@ -119,10 +135,11 @@ export default function AccountProfilePage() {
     safeFetch(async () => {
       await fetchProfile();
 
-      // Only fetch org-dependent data if organisationId exists
       if (organisationId) {
-        await fetchTasks();
-        await fetchThreads();
+        await Promise.all([
+          fetchTasks(),
+          fetchThreads()
+        ]);
       }
     });
   }, [profileId, organisationId]);
@@ -130,24 +147,26 @@ export default function AccountProfilePage() {
   useEffect(() => {
     if (!threads?.length) return;
 
-    if (!activeThread) {
+    if (!activeThread && threads[0]?.id) {
       setActiveThread(threads[0]);
       fetchMessages(threads[0].id);
     }
-  }, [threads]);
+  }, [threads, activeThread]);
 
   /* -------------------------
      GUARDS
   --------------------------*/
+  // Add early safe guard for missing profileId
   if (!profileId) {
     return (
       <div className="h-screen flex items-center justify-center text-stone-400">
-        Missing profile ID
+        Loading profile...
       </div>
     );
   }
 
-  if (loading || !profileId) {
+  // Use initialised for stability improvement
+  if (!initialised || loading) {
     return (
       <div className="h-screen flex items-center justify-center">
         <Loader2 className="animate-spin" />
@@ -155,10 +174,11 @@ export default function AccountProfilePage() {
     );
   }
 
-  if (!profile) {
+  // Improve error resilience in profile guard render
+  if (!profile && !loading) {
     return (
       <div className="h-screen flex items-center justify-center text-stone-400">
-        Profile not found
+        Profile not found or access denied
       </div>
     );
   }

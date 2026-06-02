@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -185,50 +184,59 @@ export default function AccountProfilePage() {
 
   /* UI (MINIMAL SAFE RENDER) */
   return (
-    <div className="min-h-screen bg-[#faf9f6] p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12">
+      <div className="max-w-6xl mx-auto space-y-10">
 
         {/* BACK BUTTON */}
-        <Link href="/crm" className="flex items-center gap-2 text-stone-500">
+        <Link
+          href="/crm"
+          className="text-[10px] uppercase tracking-[0.3em] font-black text-stone-400 hover:text-stone-900 flex items-center gap-2"
+        >
           <ArrowLeft size={14} />
           Back to CRM
         </Link>
 
         {/* PROFILE HEADER */}
-        <div className="bg-white border rounded-2xl p-6 space-y-2 shadow-sm">
-          <div className="flex items-center justify-between">
+        <div className="bg-white border border-stone-200 rounded-[3.5rem] p-10 shadow-sm space-y-6">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
             <div>
-              <h1 className="text-3xl font-bold">
+              <h1 className="text-4xl md:text-5xl font-serif italic tracking-tight">
                 {profile.name || "Unnamed Profile"}
               </h1>
-              <p className="text-sm text-stone-500">
+              <p className="text-sm text-stone-500 mt-2">
                 {profile.role || "Contact"} • {profile.email}
               </p>
             </div>
 
-            <div className="text-right text-xs text-stone-400">
+            <div className="text-right text-[10px] uppercase tracking-[0.2em] text-stone-400 space-y-1">
               <p>ID: {profile.id}</p>
               <p>Org: {profile.organisation_id}</p>
             </div>
           </div>
 
-          <div className="flex gap-4 text-sm text-stone-600 mt-3">
-            <span><Mail size={14} className="inline mr-1" /> {profile.email || "No email"}</span>
-            <span><Phone size={14} className="inline mr-1" /> {profile.phone || "No phone"}</span>
-            <span><Building2 size={14} className="inline mr-1" /> {profile.company_name || "No company"}</span>
+          <div className="flex flex-wrap gap-6 text-sm text-stone-600">
+            <span className="flex items-center gap-2">
+              <Mail size={14} /> {profile.email || "No email"}
+            </span>
+            <span className="flex items-center gap-2">
+              <Phone size={14} /> {profile.phone || "No phone"}
+            </span>
+            <span className="flex items-center gap-2">
+              <Building2 size={14} /> {profile.company_name || "No company"}
+            </span>
           </div>
         </div>
 
         {/* TABS */}
-        <div className="flex gap-2 border-b">
+        <div className="flex gap-8 border-b border-stone-200 text-[10px] uppercase tracking-[0.3em] font-black">
           {["info", "tasks", "email"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
-              className={`px-4 py-2 text-sm font-medium capitalize ${
+              className={`pb-4 transition-all ${
                 activeTab === tab
                   ? "border-b-2 border-stone-900 text-stone-900"
-                  : "text-stone-400"
+                  : "text-stone-400 hover:text-stone-700"
               }`}
             >
               {tab}
@@ -236,25 +244,36 @@ export default function AccountProfilePage() {
           ))}
         </div>
 
-        {/* TAB CONTENT */}
-        <div className="space-y-6">
+        {/* CONTENT */}
+        <div className="space-y-10">
 
-          {/* INFO TAB */}
+          {/* INFO */}
           {activeTab === "info" && (
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-white p-4 rounded-xl border space-y-2">
-                <h2 className="font-bold">Profile Details</h2>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white border border-stone-200 rounded-[3rem] p-10 space-y-3">
+                <h2 className="text-[10px] uppercase tracking-[0.3em] font-black text-stone-400">
+                  Profile Details
+                </h2>
                 <p className="text-sm">Role: {profile.role || "N/A"}</p>
                 <p className="text-sm">Company: {profile.company_name || "N/A"}</p>
                 <p className="text-sm">Phone: {profile.phone || "N/A"}</p>
-                <p className="text-sm">Created: {profile.created_at ? format(new Date(profile.created_at), "PPP") : "N/A"}</p>
+                <p className="text-sm">
+                  Created:{" "}
+                  {profile.created_at
+                    ? format(new Date(profile.created_at), "PPP")
+                    : "N/A"}
+                </p>
               </div>
 
-              <div className="bg-white p-4 rounded-xl border space-y-2">
-                <h2 className="font-bold">Organisation</h2>
+              <div className="bg-white border border-stone-200 rounded-[3rem] p-10 space-y-3">
+                <h2 className="text-[10px] uppercase tracking-[0.3em] font-black text-stone-400">
+                  Organisation
+                </h2>
                 <p className="text-sm">{profile.organisation_id || "N/A"}</p>
 
-                <h2 className="font-bold mt-4">Brand Settings</h2>
+                <h2 className="text-[10px] uppercase tracking-[0.3em] font-black text-stone-400 mt-6">
+                  Brand Settings
+                </h2>
                 <p className="text-sm">Primary: {profile.brand_color || "N/A"}</p>
                 <p className="text-sm">Secondary: {profile.secondary_color || "N/A"}</p>
                 <p className="text-sm">Font: {profile.font_family || "Default"}</p>
@@ -262,31 +281,37 @@ export default function AccountProfilePage() {
             </div>
           )}
 
-          {/* TASKS TAB */}
+          {/* TASKS */}
           {activeTab === "tasks" && (
-            <div className="bg-white p-4 rounded-xl border space-y-2">
-              <h2 className="font-bold">Tasks</h2>
+            <div className="bg-white border border-stone-200 rounded-[3rem] p-10 space-y-4">
+              <h2 className="text-[10px] uppercase tracking-[0.3em] font-black text-stone-400">
+                Tasks
+              </h2>
+
               {tasks.length === 0 ? (
-                <p className="text-stone-400">No tasks found</p>
+                <p className="text-stone-400 text-sm">No tasks found</p>
               ) : (
                 tasks.map((t) => (
-                  <div key={t.id} className="border-b py-2 text-sm">
-                    <div className="font-medium">{t.title}</div>
-                    <div className="text-xs text-stone-400">{t.status || "pending"}</div>
+                  <div key={t.id} className="flex justify-between border-b border-stone-100 py-3 text-sm">
+                    <span className="font-medium">{t.title}</span>
+                    <span className="text-stone-400 text-xs uppercase">{t.status || "pending"}</span>
                   </div>
                 ))
               )}
             </div>
           )}
 
-          {/* EMAIL TAB */}
+          {/* EMAIL */}
           {activeTab === "email" && (
-            <div className="grid md:grid-cols-2 gap-4">
-              {/* THREADS */}
-              <div className="bg-white p-4 rounded-xl border">
-                <h2 className="font-bold mb-2">Threads</h2>
+            <div className="grid md:grid-cols-2 gap-6">
+
+              <div className="bg-white border border-stone-200 rounded-[3rem] p-10 space-y-4">
+                <h2 className="text-[10px] uppercase tracking-[0.3em] font-black text-stone-400">
+                  Threads
+                </h2>
+
                 {threads.length === 0 ? (
-                  <p className="text-stone-400">No threads</p>
+                  <p className="text-stone-400 text-sm">No threads</p>
                 ) : (
                   threads.map((t) => (
                     <button
@@ -295,7 +320,7 @@ export default function AccountProfilePage() {
                         setActiveThread(t);
                         fetchMessages(t.id);
                       }}
-                      className="block w-full text-left py-2 border-b text-sm"
+                      className="w-full text-left py-3 border-b border-stone-100 text-sm hover:text-stone-900"
                     >
                       {t.subject}
                     </button>
@@ -303,14 +328,16 @@ export default function AccountProfilePage() {
                 )}
               </div>
 
-              {/* MESSAGES */}
-              <div className="bg-white p-4 rounded-xl border">
-                <h2 className="font-bold mb-2">Messages</h2>
+              <div className="bg-white border border-stone-200 rounded-[3rem] p-10 space-y-4">
+                <h2 className="text-[10px] uppercase tracking-[0.3em] font-black text-stone-400">
+                  Messages
+                </h2>
+
                 {!messages.length ? (
-                  <p className="text-stone-400">Select a thread</p>
+                  <p className="text-stone-400 text-sm">Select a thread</p>
                 ) : (
                   messages.map((m) => (
-                    <div key={m.id} className="border-b py-2 text-sm">
+                    <div key={m.id} className="border-b border-stone-100 py-3 text-sm">
                       {m.content}
                     </div>
                   ))

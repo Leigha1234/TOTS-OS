@@ -75,9 +75,8 @@ export default function Sidebar() {
   useEffect(() => {
     async function syncPermissions() {
       try {
-        const { data: userData } = await supabase.auth.getUser();
-        const user = userData?.user;
-
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         if (!user?.id) {
           setUserRole("guest");
           setSubscriptionTier("unpaid");
@@ -110,10 +109,11 @@ export default function Sidebar() {
         const tier = (profile?.subscription_tier || "unpaid").toLowerCase();
         setSubscriptionTier(tier);
 
-        const permissionSlugs = (perms || [])
-          .filter((p: any) => p?.page_slug)
-          .map((p: any) => p.page_slug);
-
+        const permissionSlugs = Array.isArray(perms)
+          ? (perms as any[])
+              .filter((p) => p?.page_slug)
+              .map((p) => p.page_slug)
+          : [];
         const tierAccess = tierLinks[tier] || tierLinks.unpaid;
 
         if (resolvedRole === "admin" || resolvedRole === "owner") {
@@ -135,7 +135,7 @@ export default function Sidebar() {
     }
 
     syncPermissions();
-  }, []);
+  }, [context?.settings]);
 
   const handleLogout = async () => {
     try {

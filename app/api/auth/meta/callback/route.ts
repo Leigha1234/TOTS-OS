@@ -1,44 +1,58 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
+
   const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state"); // user.id
+  const error = url.searchParams.get("error");
 
-  if (!code) return NextResponse.json({ error: "No code" });
+  if (error || !code || !state) {
+    return Response.json({ error: "OAuth failed" }, { status: 400 });
+  }
 
-  // 1. Exchange code for access token
+  const userId = state;
+
+  const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // 1. Exchange code for token (META example)
   const tokenRes = await fetch(
     `https://graph.facebook.com/v19.0/oauth/access_token?` +
-      `client_id=${process.env.META_CLIENT_ID}` +
-      `&redirect_uri=${process.env.META_REDIRECT}` +
-      `&client_secret=${process.env.META_CLIENT_SECRET}` +
-      `&code=${code}`
+      new URLSearchParams({
+        client_id: process.env.META_CLIENT_ID!,
+        client_secret: process.env.META_CLIENT_SECRET!,
+        redirect_uri: process.env.META_REDIRECT_URI!,
+        code,
+      })
   );
 
   const tokenData = await tokenRes.json();
 
-  // 2. Get user pages
-  const pagesRes = await fetch(
-    `https://graph.facebook.com/v19.0/me/accounts?access_token=${tokenData.access_token}`
+  if (!tokenData.access_token) {
+    return Response.json({ error: tokenData }, { status: 400 });
+  }
+
+  // 2. OPTIONAL: fetch pages / IG user info
+  const meRes = await fetch(
+    `https://graph.facebook.com/me?access_token=${tokenData.access_token}`
   );
+  const me = await meRes.json();
 
-  const pages = await pagesRes.json();
-
-  const page = pages.data?.[0];
-
-  // 3. Save to DB
-  await supabase.from("social_accounts").insert({
+  // 3. STORE IN SUPABASE
+  await supabase.from("social_accounts").upsert({
+    user_id: userId,
     platform: "meta",
-    access_token: page?.access_token || tokenData.access_token,
-    platform_user_id: page?.id,
-    expires_at: null
+    access_token: tokenData.access_token,
+    refresh_token: null,
+    platform_user_id: me.id,
+    platform_username: me.name,
+    expires_at: null,
+    updated_at: new Date().toISOString(),
   });
 
-  return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/social`);
+  // 4. Redirect back to app
+  return Response.redirect(`${process.env.APP_URL}/settings?connected=meta`);
 }

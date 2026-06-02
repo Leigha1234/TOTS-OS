@@ -62,7 +62,15 @@ export default function Settings() {
         setEmail(user.email || "");
         setBio(profile.bio || "");
         setUserOrgId(profile.organisation_id);
-        setConnectedPlatforms([]);
+        // Fetch connected platforms from Supabase
+        const { data: connections } = await supabase
+          .from("social_accounts")
+          .select("platform")
+          .eq("user_id", user.id);
+
+        if (connections) {
+          setConnectedPlatforms(connections.map((c: any) => c.platform));
+        }
       }
       setLoading(false);
     }
@@ -83,46 +91,54 @@ export default function Settings() {
     await supabase.auth.signOut();
     router.push("/login");
   };
-const connectSocialPlatform = (platform: string) => {
+const connectSocialPlatform = async (platform: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    toast.error("Not authenticated");
+    return;
+  }
+
   toast.info(`Redirecting to ${platform} authorization...`);
+
+  const state = encodeURIComponent(user.id);
 
   const metaAuth =
     `https://www.facebook.com/v19.0/dialog/oauth` +
     `?client_id=${process.env.NEXT_PUBLIC_META_CLIENT_ID}` +
     `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_META_REDIRECT_URI || "")}` +
     `&scope=pages_show_list,pages_read_engagement,instagram_basic` +
-    `&response_type=code`;
+    `&response_type=code` +
+    `&state=${state}`;
 
   const linkedinAuth =
     `https://www.linkedin.com/oauth/v2/authorization` +
     `?response_type=code` +
     `&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}` +
     `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI || "")}` +
-    `&scope=w_member_social%20r_liteprofile`;
+    `&scope=w_member_social%20r_liteprofile` +
+    `&state=${state}`;
 
   const tiktokAuth =
     `https://www.tiktok.com/v2/auth/authorize/` +
     `?client_key=${process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID}` +
     `&scope=user.info.basic,video.publish` +
     `&response_type=code` +
-    `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_TIKTOK_REDIRECT_URI || "")}`;
+    `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_TIKTOK_REDIRECT_URI || "")}` +
+    `&state=${state}`;
 
-  switch (platform) {
-    case "meta":
-      window.location.href = metaAuth;
-      break;
+  const urls: Record<string, string> = {
+    meta: metaAuth,
+    linkedin: linkedinAuth,
+    tiktok: tiktokAuth,
+  };
 
-    case "linkedin":
-      window.location.href = linkedinAuth;
-      break;
-
-    case "tiktok":
-      window.location.href = tiktokAuth;
-      break;
-
-    default:
-      toast.error("Unsupported platform");
+  if (!urls[platform]) {
+    toast.error("Unsupported platform");
+    return;
   }
+
+  window.location.href = urls[platform];
 };
 
 const handlePasswordUpdate = async (e: React.FormEvent) => {
@@ -282,7 +298,6 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
                     {[
                       { key: "meta", name: "Meta Business Suite", subtitle: "Instagram & Facebook Pages", icons: [Instagram, Facebook] },
                       { key: "tiktok", name: "TikTok Studio Portal", subtitle: "Corporate Content Pipeline", icons: [Video] },
-                      { key: "pinterest", name: "Pinterest Board Suite", subtitle: "Visual Commercial Vault", icons: [Disc] },
                       { key: "linkedin", name: "LinkedIn Corporate Network", subtitle: "B2B Professional Integration", icons: [Linkedin] }
                     ].map((platformObj) => {
                       const isConnected = connectedPlatforms.includes(platformObj.key);

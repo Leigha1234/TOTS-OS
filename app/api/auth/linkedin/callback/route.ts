@@ -1,43 +1,83 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
+
   const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state"); // user.id
+  const error = url.searchParams.get("error");
 
-  const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code: code!,
-      client_id: process.env.LINKEDIN_CLIENT_ID!,
-      client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
-      redirect_uri: process.env.LINKEDIN_REDIRECT!,
-    }),
-  });
+  if (error || !code || !state) {
+    return Response.json({ error: "LinkedIn OAuth failed" }, { status: 400 });
+  }
 
-  const token = await tokenRes.json();
+  const userId = state;
 
-  // get user id
-  const meRes = await fetch("https://api.linkedin.com/v2/userinfo", {
-    headers: {
-      Authorization: `Bearer ${token.access_token}`
+  const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    // 1. Exchange code for access token
+    const tokenRes = await fetch(
+      "https://www.linkedin.com/oauth/v2/accessToken",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code,
+          client_id: process.env.LINKEDIN_CLIENT_ID!,
+          client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+          redirect_uri: process.env.LINKEDIN_REDIRECT_URI!,
+        }),
+      }
+    );
+
+    const tokenData = await tokenRes.json();
+
+    if (!tokenData.access_token) {
+      return Response.json(
+        { error: "No LinkedIn token", details: tokenData },
+        { status: 400 }
+      );
     }
-  });
 
-  const me = await meRes.json();
+    // 2. Get profile info
+    const profileRes = await fetch("https://api.linkedin.com/v2/me", {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
+    });
 
-  await supabase.from("social_accounts").insert({
-    platform: "linkedin",
-    access_token: token.access_token,
-    platform_user_id: me.sub
-  });
+    const profile = await profileRes.json();
 
-  return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/social`);
+    // 3. Store in Supabase
+    await supabase.from("social_accounts").upsert({
+      user_id: userId,
+      platform: "linkedin",
+      access_token: tokenData.access_token,
+      refresh_token: null,
+      platform_user_id: profile.id,
+      platform_username:
+        profile.localizedFirstName + " " + profile.localizedLastName,
+      expires_at: new Date(
+        Date.now() + tokenData.expires_in * 1000
+      ).toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    // 4. Redirect back
+    return Response.redirect(
+      `${process.env.APP_URL}/settings?connected=linkedin`
+    );
+  } catch (err: any) {
+    return Response.json(
+      { error: "LinkedIn callback error", details: String(err) },
+      { status: 500 }
+    );
+  }
 }

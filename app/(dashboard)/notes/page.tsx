@@ -53,7 +53,7 @@ function VaultContent() {
     try {
       const { data, error, status, statusText } = await supabase
         .from("notes")
-        .select("id, content, user_id, created_at, color, category")
+        .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       
@@ -77,9 +77,13 @@ function VaultContent() {
       }
       setNotes(data || []);
 
-      if (data) {
+      if (data && Array.isArray(data)) {
         const uniqueProjects = Array.from(
-          new Set(data.map((n: any) => n.project).filter(Boolean))
+          new Set(
+            data
+              .map((n: any) => n?.project)
+              .filter((p: any) => typeof p === "string" && p.trim())
+          )
         ) as string[];
         setProjectsList(uniqueProjects);
       }
@@ -182,6 +186,12 @@ function VaultContent() {
             user_id: user.id,
             color: isUrgent ? "#4f4a46" : theme.bg,
             category: tag || "General",
+            project: project || null,
+            assigned_to: assignedTo || null,
+            due_date: isReminder && reminderDateTime ? reminderDateTime : null,
+            is_reminder: isReminder,
+            status,
+            is_urgent: isUrgent,
           },
         ]);
 
@@ -232,7 +242,8 @@ function VaultContent() {
     const { error, status, statusText } = await supabase
       .from("notes")
       .update({ status: nextStatus })
-      .eq("id", id);
+      .eq("id", id)
+      .select();
 
     if (error) {
       console.error("Update note status error:", {
@@ -258,7 +269,8 @@ function VaultContent() {
     const { error, status, statusText } = await supabase
       .from("notes")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select();
 
     if (error) {
       console.error("Delete note error:", {
@@ -275,11 +287,14 @@ function VaultContent() {
     toast.success("Note cleared.");
   };
 
-  const filteredNotes = notes.filter(n => 
-    n.content?.toLowerCase().includes(search.toLowerCase()) || 
-    n.category?.toLowerCase().includes(search.toLowerCase()) ||
-    n.project?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredNotes = notes.filter((n) => {
+    const q = search.toLowerCase();
+    return (
+      n?.content?.toLowerCase?.().includes(q) ||
+      n?.category?.toLowerCase?.().includes(q) ||
+      n?.project?.toLowerCase?.().includes(q)
+    );
+  });
 
   if (isLoading) return <div className="h-screen bg-[#F5F5F3] flex items-center justify-center font-serif italic text-stone-300 text-4xl">Loading Desk...</div>;
 
@@ -323,7 +338,7 @@ function VaultContent() {
                 key={note.id}
                 layout
                 initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1, rotate: note.metadata?.rotation || "0deg" }}
+                animate={{ opacity: 1, scale: 1, rotate: "0deg" }}
                 exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
                 whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
                 // NOTE CONTAINER EXPANDED WIDER ("FATTER") TO ACCLAIM ALL METADATA DROPDOWNS

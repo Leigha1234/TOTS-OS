@@ -1,7 +1,7 @@
 import { createClient } from "./supabase";
 
 export async function getUserPlan() {
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data: auth } = await supabase.auth.getUser();
 
   if (!auth.user) return "free";

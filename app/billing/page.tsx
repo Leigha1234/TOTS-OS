@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { CheckCircle2, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { getBrowserClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { toast } from "sonner";
 
 const TIERS = [
@@ -34,7 +34,7 @@ const TIERS = [
 export default function BillingPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
-  const supabase = getBrowserClient();
+  const supabase = createServerSupabaseClient();
 
   useEffect(() => {
     const getUser = async () => {

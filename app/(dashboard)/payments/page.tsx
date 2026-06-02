@@ -3,8 +3,8 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { getBrowserClient } from "@/lib/supabase";
-const supabase = getBrowserClient();
+import { createServerSupabaseClient } from "@/lib/supabase";
+const supabase = createServerSupabaseClient();
 import { 
   X, Landmark, Wallet, TrendingUp, Search, 
   ArrowUpRight, Receipt, Plus, Activity, 

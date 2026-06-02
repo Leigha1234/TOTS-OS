@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getBrowserClient } from "@/lib/supabase";
-const supabase = getBrowserClient();
+import { createServerSupabaseClient } from "@/lib/supabase";
+const supabase = createServerSupabaseClient();
 import { useSettings } from "@/app/context/SettingsContext";
 import AdminPermissionToggle from "../../../components/AdminPermissionToggle";
 import { 

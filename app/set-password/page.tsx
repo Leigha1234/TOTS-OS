@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
 export default function SetPassword() {
@@ -16,7 +16,7 @@ export default function SetPassword() {
 
     setLoading(true);
 
-    const supabase = await createClient(); // Initialize client
+    const supabase = createClient(); // Initialize client
 
     // This updates the user's password in the Supabase Auth system
     const { error } = await supabase.auth.updateUser({

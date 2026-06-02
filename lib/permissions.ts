@@ -1,7 +1,7 @@
 import { createClient } from "./supabase";
 
 export async function getUserTeam() {
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
@@ -16,7 +16,7 @@ export async function getUserTeam() {
 }
 
 export async function getUserRole() {
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, CheckCircle2, Circle, Clock, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -23,7 +23,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -65,13 +65,13 @@ export default function NotificationsPage() {
   }, [fetchNotifications]);
 
   const markAsRead = async (id: string) => {
-    const supabase = await createClient();
+    const supabase = createClient();
     await supabase.from("notifications").update({ read: true }).eq("id", id);
     setItems(prev => prev.map(i => i.id === id ? { ...i, read: true } : i));
   };
 
   const clearAll = async () => {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 

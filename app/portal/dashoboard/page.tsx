@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase"; 
+import { createServerSupabaseClient } from "@/lib/supabase"; 
 import AuthGuard from "@/app/components/AuthGuard";
 import Card from "@/app/components/Card";
 import { Circle } from "lucide-react";
@@ -13,7 +13,7 @@ export default function Dashboard() {
 
   // Moved loadStats outside to prevent recreation on every render
   async function loadStats() {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -36,7 +36,7 @@ export default function Dashboard() {
   }, []);
 
   async function toggleTask(id: string) {
-    const supabase = await createClient();
+    const supabase = createClient();
     
     // Database Update
     const { error } = await supabase.from("tasks").update({ status: "completed" }).eq("id", id);

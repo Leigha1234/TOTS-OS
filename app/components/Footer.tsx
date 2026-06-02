@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { Copy, Check, X } from "lucide-react";
 
 export default function Footer() {
@@ -21,7 +21,7 @@ export default function Footer() {
   }, []);
 
   async function load() {
-    const supabase = await createClient();
+    const supabase = createClient();
     try {
       // ✅ FIX: getSession is less aggressive than getUser and avoids lock collisions
       const { data: { session } } = await supabase.auth.getSession();

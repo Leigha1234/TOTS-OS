@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { 
   Plus, X, Clock, Type, Image as ImageIcon, 
   FileText, User, ShieldCheck, Zap, Activity,
@@ -40,7 +40,7 @@ export default function CampaignsPage() {
   useEffect(() => { init(); }, []);
 
   async function init() {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: mem } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).maybeSingle();
@@ -51,7 +51,7 @@ export default function CampaignsPage() {
   }
 
   async function loadData(tId: string) {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: camps } = await supabase.from("campaigns").select("*, subscriber_lists(name)").eq("team_id", tId).order("scheduled_for", { ascending: true });
     const { data: listRes } = await supabase.from("subscriber_lists").select("*").eq("team_id", tId);
     const { data: custRes } = await supabase.from("customers").select("*").eq("team_id", tId);
@@ -69,7 +69,7 @@ export default function CampaignsPage() {
     }
 
     setLoading(true);
-    const supabase = await createClient();
+    const supabase = createClient();
     const { error } = await supabase.from("campaigns").insert([{
       ...form,
       team_id: teamId,

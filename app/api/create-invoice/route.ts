@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getBranding } from "@/lib/getBranding";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const { teamId, customerId, note } = body;
 

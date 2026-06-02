@@ -8,8 +8,8 @@
 // - realtime messaging enabled via Supabase subscriptions
 
 import { use, useEffect, useState, useRef } from "react";
-import { getBrowserClient } from "@/lib/supabase";
-const supabase = getBrowserClient();
+import { createServerSupabaseClient } from "@/lib/supabase";
+const supabase = createServerSupabaseClient();
 import { 
   User, Building2, Mail, ArrowLeft,
   Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus, Send, CheckCircle2, XCircle

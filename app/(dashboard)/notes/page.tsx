@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
-import { getBrowserClient } from "@/lib/supabase";
-const supabase = getBrowserClient(); 
+import { createServerSupabaseClient } from "@/lib/supabase";
+const supabase = createServerSupabaseClient(); 
 import { 
   Trash2, Search, Loader2, Plus, X, 
   CheckCircle2, Tag, AlertCircle, Calendar, User, Briefcase, Mic, MicOff, Bell, BellOff, Clock

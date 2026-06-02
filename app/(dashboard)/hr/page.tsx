@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { getBrowserClient } from "@/lib/supabase";
-const supabase = getBrowserClient(); 
+import { createServerSupabaseClient } from "@/lib/supabase";
+const supabase = createServerSupabaseClient(); 
 import { 
   Save, Calendar, Landmark, Fingerprint, 
   X, FileText, Download, BarChart3, Clock,
@@ -47,7 +47,7 @@ export default function HRPage() {
   // Replace your existing functions with these:
 async function fetchProfile() {
   setIsLoading(true);
-  const supabase = getBrowserClient(); // Use local client
+  const supabase = createServerSupabaseClient(); // Use local client
   const { data: { user } } = await supabase.auth.getUser();
   
   if (user) {
@@ -69,7 +69,7 @@ async function handleSave() {
   }
   
   setIsSaving(true);
-  const supabase = getBrowserClient();
+  const supabase = createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (user) {

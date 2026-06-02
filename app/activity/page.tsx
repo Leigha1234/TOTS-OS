@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import Page from "@/app/components/Page";
 import Card from "@/app/components/Card";
 
@@ -14,7 +14,7 @@ export default function ActivityPage() {
   }, []);
 
   async function load() {
-    const supabase = await createClient();
+    const supabase = createClient();
     try {
       setLoading(true);
       

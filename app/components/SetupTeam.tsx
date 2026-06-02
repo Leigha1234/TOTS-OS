@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 
 /**
  * SetupTeam is a background component that ensures a user has 
@@ -12,7 +12,7 @@ export default function SetupTeam() {
     let isMounted = true;
 
     async function provisionTeam() {
-      const supabase = await createClient();
+      const supabase = createClient();
 
       // 1. Get session (avoids navigator lock issues)
       const { data: { session } } = await supabase.auth.getSession();

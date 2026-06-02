@@ -13,7 +13,7 @@ export default function GlobalError({
   useEffect(() => {
     const reportBug = async () => {
       // Initialize the client locally for the error report
-      const supabase = await createClient();
+      const supabase = createClient();
 
       // 🕵️‍♂️ THE SNITCH LOGIC
       await supabase.functions.invoke('report-bug', {

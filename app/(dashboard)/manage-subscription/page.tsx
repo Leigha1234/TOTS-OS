@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { getBrowserClient } from "@/lib/supabase"; 
+import { createServerSupabaseClient } from "@/lib/supabase"; 
 import { 
   ArrowLeft, Check, Loader2, Plus, Minus
 } from "lucide-react";

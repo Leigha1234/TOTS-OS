@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getBrowserClient } from "@/lib/supabase"; 
+import { createServerSupabaseClient } from "@/lib/supabase"; 
 import { useSettings } from "@/app/context/SettingsContext";
 import { 
   ArrowRight, Briefcase, X, Loader2, Zap, FileText, 
@@ -43,7 +43,7 @@ if (error) {
   );
 }
   const { organisationId } = useSettings();
-  const supabase = getBrowserClient();
+  const supabase = createServerSupabaseClient();
   
   // State Management
   const [userName, setUserName] = useState<string>("USER");
@@ -268,7 +268,7 @@ if (error) {
 }
 export default function DashboardPage() {
   const [isInitializing, setIsInitializing] = useState(true);
-  const supabase = getBrowserClient();
+  const supabase = createServerSupabaseClient();
 
   useEffect(() => {
     async function checkInit() {

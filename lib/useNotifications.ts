@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { getUserTeam } from "@/lib/getUserTeam";
 
 export function useNotifications() {
@@ -8,7 +8,7 @@ export function useNotifications() {
   useEffect(() => {
     async function init() {
       // Initialize the client once inside the effect
-      const supabase = await createClient();
+      const supabase = createClient();
 
       const teamId = await getUserTeam();
       if (!teamId) return;

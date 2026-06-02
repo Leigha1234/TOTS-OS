@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { usePathname, useRouter } from "next/navigation";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -11,7 +11,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
-      const supabase = await createClient();
+      const supabase = createClient();
 
       // 1. If we are on the login page, no need to guard
       if (pathname === "/login") {

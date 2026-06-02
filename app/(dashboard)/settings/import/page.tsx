@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getBrowserClient } from "@/lib/supabase";
-const supabase = getBrowserClient(); 
+import { createServerSupabaseClient } from "@/lib/supabase";
+const supabase = createServerSupabaseClient(); 
 import Papa from "papaparse"; 
 import { 
   UploadCloud, CheckCircle2, Loader2, Database, 

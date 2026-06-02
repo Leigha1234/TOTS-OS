@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 
 // We define a 'Context' to tell TypeScript that params is a Promise
 type RouteContext = {
@@ -10,7 +10,7 @@ export async function GET(
   request: Request,
   context: RouteContext
 ) {
-  const supabase = await createClient();
+  const supabase = createClient();
   
   // This is the 'await' part—we wait for the ID to be ready
   const { id } = await context.params;

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { getBrowserClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { 
   Clock, Trash2, Plus, Timer, Briefcase, Loader2,
   Lock, Zap, Send, FileSpreadsheet, Activity, Cpu, Globe, BarChart3, Users
@@ -53,7 +53,7 @@ export default function TimesheetsPage() {
   const [selectedWeek, setSelectedWeek] = useState(getISOWeek(new Date()));
   const [formData, setFormData] = useState({ client: "", task: "", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" });
 
-  const supabase = getBrowserClient();
+  const supabase = createServerSupabaseClient();
   const router = useRouter();
 
   useEffect(() => {

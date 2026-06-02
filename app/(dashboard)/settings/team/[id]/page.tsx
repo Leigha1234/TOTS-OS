@@ -2,12 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getBrowserClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { ArrowLeft, Loader2, Shield, User, CheckCircle2 } from "lucide-react";
 import AdminPermissionToggle from "../../../../components/AdminPermissionToggle"; // Ensure this is created
 import { toast } from "sonner";
 
-const supabase = getBrowserClient();
+const supabase = createServerSupabaseClient();
 
 // List of all available modules in TOTS OS
 const MODULE_PAGES = ["Dashboard", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects", "Reports", "Social", "Vault", "Settings"];

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getBrowserClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { 
   User, Users, RefreshCcw, Save, Camera, Palette, ShieldCheck, 
   Clock, Loader2, LogOut, Droplets, Layout, Type, KeyRound,

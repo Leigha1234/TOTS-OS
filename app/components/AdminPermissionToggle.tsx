@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { getBrowserClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 
 export default function AdminPermissionToggle({ memberId, pageSlug, initialAccess }: any) {
   const [enabled, setEnabled] = useState(initialAccess);
-  const supabase = getBrowserClient();
+  const supabase = createServerSupabaseClient();
 
   const toggleAccess = async () => {
     const newStatus = !enabled;

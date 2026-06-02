@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase-client";
+import { supabase } from "@/lib/supabase";
 import AuthGuard from "@/app/components/AuthGuard";
 import { Circle, Zap, Activity, Target, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";

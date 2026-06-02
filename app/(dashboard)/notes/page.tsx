@@ -49,48 +49,57 @@ function VaultContent() {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  const fetchNotes = useCallback(async (userId: string) => {
+  const fetchNotes = useCallback(async (_userId: string) => {
     try {
-      const { data, error, status, statusText } = await supabase
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+
+      if (!user?.id) {
+        setNotes([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || !profile?.organisation_id) {
+        console.error("Profile org fetch error:", profileError);
+        setNotes([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const orgId = profile.organisation_id;
+
+      const { data, error } = await supabase
         .from("notes")
         .select("*")
-        .eq("user_id", userId)
+        .eq("organisation_id", orgId)
         .order("created_at", { ascending: false });
-      
+
       if (error) {
-        console.error("Supabase notes fetch error:", {
-          error,
-          status,
-          statusText,
-          userId,
-        });
-        throw new Error(
-          JSON.stringify({
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint,
-            status,
-            statusText,
-          })
-        );
+        console.error("Supabase notes fetch error:", error);
+        throw error;
       }
+
       setNotes(data || []);
 
-      if (data && Array.isArray(data)) {
-        const uniqueProjects = Array.from(
-          new Set(
-            data
-              .map((n: any) => n?.project)
-              .filter((p: any) => typeof p === "string" && p.trim())
-          )
-        ) as string[];
-        setProjectsList(uniqueProjects);
-      }
+      const uniqueProjects = Array.from(
+        new Set(
+          (data || [])
+            .map((n: any) => n?.project)
+            .filter((p: any) => typeof p === "string" && p.trim())
+        )
+      ) as string[];
+
+      setProjectsList(uniqueProjects);
     } catch (e) {
       console.error("Notes Fetch Error:", e);
-      console.error("RAW NOTES ERROR:", (e as any)?.message);
-      toast.error("Notes load failed - see console.");
+      toast.error("Notes load failed.");
     } finally {
       setIsLoading(false);
     }
@@ -186,12 +195,21 @@ if (!user?.id) {
     const theme = STICKY_THEMES[notes.length % STICKY_THEMES.length];
 
     try {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .single();
+
+      const orgId = profileData?.organisation_id;
+
       const { error, status: responseStatus, statusText } = await supabase
         .from("notes")
         .insert([
           {
             content,
             user_id: user.id,
+            organisation_id: orgId,
             color: isUrgent ? "#4f4a46" : theme.bg,
             category: tag || "General",
             project: project || null,

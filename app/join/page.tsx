@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase-client";
+import { supabase } from "../../lib/supabase";
 import { 
   Loader2, 
   ShieldCheck, 

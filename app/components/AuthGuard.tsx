@@ -1,53 +1,54 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import type { ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
 import { usePathname, useRouter } from "next/navigation";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-export default function AuthGuard({ children }: { children: React.ReactNode }) {
+export default function AuthGuard({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    if (pathname === "/login") {
-      setLoading(false);
-      return;
-    }
-
     let mounted = true;
 
-    const check = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    const isPublicRoute = pathname === "/login";
+
+    const initAuth = async () => {
+      if (isPublicRoute) {
+        setLoading(false);
+        return;
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (!mounted) return;
 
       if (!session) {
-        router.push("/login");
+        router.replace("/login");
         return;
       }
 
       setLoading(false);
     };
 
-    check();
+    initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!mounted) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
 
-        if (session) {
-          setLoading(false);
-        } else if (pathname !== "/login") {
-          router.push("/login");
-        }
+      if (!session && !isPublicRoute) {
+        router.replace("/login");
+        return;
       }
-    );
+
+      setLoading(false);
+    });
 
     return () => {
       mounted = false;

@@ -1,7 +1,13 @@
-import { createBrowserClient, createServerClient, type CookieOptions } from "@supabase/ssr";
+import {
+  createBrowserClient,
+  createServerClient,
+  type CookieOptions,
+} from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-// 1. Browser Client (safe for client-side usage)
+// =======================
+// Browser Client
+// =======================
 let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 
 export function getBrowserClient() {
@@ -17,7 +23,9 @@ export function getBrowserClient() {
   return browserClient;
 }
 
-// 2. Server Client (App Router / Server Components)
+// =======================
+// Server Client
+// =======================
 export function createClient() {
   const cookieStore = cookies();
 
@@ -26,19 +34,25 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll();
+        async getAll() {
+          return (await cookieStore).getAll().map((c) => ({
+            name: c.name,
+            value: c.value ?? "",
+          }));
         },
-        setAll(
-          cookiesToSet: { name: string; value: string; options: CookieOptions }[]
+
+        async   setAll(
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options: CookieOptions;
+          }[]
         ) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
+            cookiesToSet.forEach(async ({ name, value, options }) => {
+              (await cookieStore).set(name, value, options);
             });
-          } catch {
-            // ignore cookie setting errors in server contexts where not allowed
-          }
+          } catch {}
         },
       },
     }

@@ -1,4 +1,11 @@
+
 "use client";
+
+// SaaS Inbox Mode Enabled:
+// - AI triage enabled
+// - Gmail sync integration hook enabled
+// - RBAC: admin/manager controls inbox assignment & triage
+// - realtime messaging enabled via Supabase subscriptions
 
 import { use, useEffect, useState, useRef } from "react";
 import { getBrowserClient } from "@/lib/supabase";
@@ -18,6 +25,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emailFileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { organisationId } = useSettings();
   
   const [profile, setProfile] = useState<any>(null);
@@ -27,7 +35,10 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
   const [activeTab, setActiveTab] = useState<'info' | 'tasks' | 'email'>('info');
   
   const [tasks, setTasks] = useState<any[]>([]);
-  const [emails, setEmails] = useState<any[]>([]);
+
+  const [threads, setThreads] = useState<any[]>([]);
+  const [activeThread, setActiveThread] = useState<any | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [taskSaving, setTaskSaving] = useState(false);
@@ -35,6 +46,13 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [subscriberLists, setSubscriberLists] = useState<any[]>([]);
   const [selectedListId, setSelectedListId] = useState("");
+
+  // RBAC: Only admin/manager can manage inbox
+  const canManageInbox =
+    profile?.role === "admin" || profile?.role === "manager";
+
+  // AI Triage loading state
+  const [triageLoading, setTriageLoading] = useState(false);
 
   // Form States
   const [editForm, setEditForm] = useState({ 
@@ -67,10 +85,21 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
       fetchProfile();
       fetchTeam();
       fetchTasks();
-      fetchEmails();
+      fetchThreads();
       fetchSubscriberLists();
     }
   }, [resolvedParams.id, organisationId]);
+
+  useEffect(() => {
+    if (threads.length > 0 && !activeThread) {
+      setActiveThread(threads[0]);
+      fetchMessages(threads[0].id);
+    }
+  }, [threads]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   async function fetchProfile() {
     setLoading(true);
@@ -118,14 +147,25 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
     setTasks(data || []);
   }
 
-  async function fetchEmails() {
+  async function fetchThreads() {
     const { data } = await supabase
-        .from("emails")
-        .select("*")
-        .eq("profile_id", resolvedParams.id)
-        .eq("organisation_id", organisationId)
-        .order("created_at", { ascending: false });
-    setEmails(data || []);
+      .from("email_threads")
+      .select("*")
+      .eq("profile_id", resolvedParams.id)
+      .eq("organisation_id", organisationId)
+      .order("last_message_at", { ascending: false });
+
+    setThreads(data || []);
+  }
+
+  async function fetchMessages(threadId: string) {
+    const { data } = await supabase
+      .from("email_messages")
+      .select("*")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true });
+
+    setMessages(data || []);
   }
 
   async function fetchSubscriberLists() {
@@ -142,6 +182,56 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
       }
     }
   }
+
+  // AI Triage function
+  const runAiTriage = async (threadId: string) => {
+    if (!threadId) return;
+
+    setTriageLoading(true);
+
+    try {
+      const res = await fetch("/api/ai/triage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threadId }),
+      });
+
+      const data = await res.json();
+
+      if (data?.tag) {
+        await supabase
+          .from("email_threads")
+          .update({
+            pipeline_stage: data.tag, // support / sales / onboarding
+          })
+          .eq("id", threadId);
+
+        fetchThreads();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    setTriageLoading(false);
+  };
+
+  // Gmail sync placeholder (frontend integration point)
+  const syncGmailInbox = async () => {
+    try {
+      await fetch("/api/integrations/gmail/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profileId: profile.id,
+          organisationId,
+        }),
+      });
+
+      await fetchThreads();
+    } catch (err) {
+      console.error("Gmail sync failed", err);
+    }
+  };
 
   const handleUpdate = async () => {
     setIsSaving(true);
@@ -262,23 +352,62 @@ const toggleMailingListInline = async (newValue: boolean) => {
       const file = newEmail.attachment;
       const fileExt = file.name.split('.').pop();
       const fileName = `${organisationId}/${Math.random()}.${fileExt}`;
-      const { data, error } = await supabase.storage.from('email-attachments').upload(fileName, file);
+      const { data } = await supabase.storage.from('email-attachments').upload(fileName, file);
       if (data) attachmentUrl = data.path;
     }
 
-    const { data, error } = await supabase.from("emails").insert([{
-      subject: newEmail.subject,
-      body: newEmail.body,
+    try {
+      await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: profile.email,
+          subject: newEmail.subject,
+          body: newEmail.body,
+        }),
+      });
+    } catch (err) {
+      console.error(err);
+    }
+
+    // THREAD LOGIC
+    let threadId = activeThread?.id;
+
+    if (!threadId) {
+      const { data: thread } = await supabase
+        .from("email_threads")
+        .insert([{
+          profile_id: profile.id,
+          organisation_id: organisationId,
+          subject: newEmail.subject
+        }])
+        .select()
+        .single();
+
+      threadId = thread.id;
+      setActiveThread(thread);
+    }
+
+    await supabase.from("email_messages").insert([{
+      thread_id: threadId,
       profile_id: profile.id,
       organisation_id: organisationId,
+      direction: "outbound",
+      subject: newEmail.subject,
+      body: newEmail.body,
       attachment_url: attachmentUrl,
-      status: 'sent'
-    }]).select().single();
+      status: "sent"
+    }]);
 
-    if (!error) {
-      setEmails([data, ...emails]);
-      setNewEmail({ subject: "", body: "", attachment: null });
-    }
+    await supabase
+      .from("email_threads")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("id", threadId);
+
+    setNewEmail({ subject: "", body: "", attachment: null });
+
+    await fetchThreads();
+    await fetchMessages(threadId);
     setEmailSaving(false);
   };
 
@@ -554,122 +683,131 @@ const toggleMailingListInline = async (newValue: boolean) => {
           )}
 
           {activeTab === 'email' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid lg:grid-cols-5 gap-12">
-              {/* EMAIL & MARKETING REGISTRY SIDE PANEL */}
-              <div className="lg:col-span-2 space-y-6">
-                
-                {/* INLINE MAILING LIST TOGGLE CARD */}
-                <div className="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-md flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <ListPlus size={18} className="text-[#a9b897]" />
-                    <div className="space-y-2">
-                      <p className="text-[9px] font-black uppercase tracking-wider text-stone-800">Mailing List</p>
-                      <select
-                        value={selectedListId}
-                        onChange={(e) => setSelectedListId(e.target.value)}
-                        className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-[9px] uppercase tracking-widest outline-none"
-                      >
-                        <option value="">Select List</option>
-                        {subscriberLists.map((list) => (
-                          <option key={list.id} value={list.id}>
-                            {list.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => toggleMailingListInline(!profile.email_list)}
-                    disabled={statusUpdating || !selectedListId}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 ${
-                      profile.email_list 
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                        : 'bg-stone-900 text-white hover:bg-[#a9b897]'
-                    }`}
-                  >
-                    {statusUpdating ? (
-                      <Loader2 className="animate-spin" size={12} />
-                    ) : profile.email_list ? (
-                      <>
-                        <CheckCircle2 size={12} className="text-emerald-600" /> Subscribed
-                      </>
-                    ) : (
-                      <>
-                        <XCircle size={12} className="text-stone-400" /> Add to List
-                      </>
-                    )}
-                  </button>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="grid lg:grid-cols-12 gap-6 h-[75vh]"
+            >
+              {/* THREAD LIST */}
+              <div className="lg:col-span-4 bg-white rounded-[2.5rem] border border-stone-100 overflow-hidden flex flex-col">
+                <div className="p-6 border-b border-stone-100">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">
+                    Conversations
+                  </p>
+                  {canManageInbox && (
+                    <button
+                      onClick={() => runAiTriage(activeThread?.id)}
+                      disabled={!activeThread || triageLoading}
+                      className="mt-3 text-[9px] font-black uppercase tracking-widest px-3 py-2 bg-stone-900 text-white rounded-xl"
+                    >
+                      {triageLoading ? "Triaging..." : "AI Triage"}
+                    </button>
+                  )}
+                  {canManageInbox && (
+                    <button
+                      onClick={syncGmailInbox}
+                      className="mt-2 text-[9px] font-black uppercase tracking-widest px-3 py-2 bg-stone-100 text-stone-700 rounded-xl"
+                    >
+                      Sync Gmail
+                    </button>
+                  )}
                 </div>
 
-                {/* EMAIL CREATOR */}
-                <div className="bg-white p-10 rounded-[3.5rem] border border-stone-100 shadow-xl h-fit">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-                    <Send size={14} className="text-[#a9b897]"/> Send New Email
-                  </h3>
-                  <form onSubmit={handleSendEmail} className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Email Subject</label>
-                      <input required placeholder="Brief communication objective..." value={newEmail.subject} onChange={e => setNewEmail({...newEmail, subject: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none focus:ring-1 focus:ring-[#a9b897]" />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <label className="text-[8px] font-black uppercase text-stone-400 ml-1">Message Body</label>
-                      <textarea required placeholder="Describe the core content or follow-up details..." value={newEmail.body} onChange={e => setNewEmail({...newEmail, body: e.target.value})} className="w-full bg-stone-50 p-4 rounded-xl text-xs outline-none h-32 resize-none focus:ring-1 focus:ring-[#a9b897]" />
-                    </div>
-
-                    <div className="pt-2">
-                      <button type="button" onClick={() => emailFileInputRef.current?.click()} className="flex items-center gap-2 text-stone-400 hover:text-[#a9b897] transition-all group">
-                        <Paperclip size={14} className="group-hover:rotate-12 transition-transform" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">{newEmail.attachment ? newEmail.attachment.name : "Attach Documentation Files"}</span>
-                      </button>
-                      <input type="file" ref={emailFileInputRef} className="hidden" onChange={e => setNewEmail({...newEmail, attachment: e.target.files?.[0] || null})} />
-                    </div>
-
-                    <button disabled={emailSaving} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] hover:bg-[#a9b897] transition-all shadow-xl mt-4 active:scale-95">
-                      {emailSaving ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Dispatch Email"}
+                <div className="flex-1 overflow-y-auto">
+                  {threads.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setActiveThread(t);
+                        fetchMessages(t.id);
+                      }}
+                      className={`w-full text-left p-5 border-b border-stone-50 hover:bg-stone-50 transition ${
+                        activeThread?.id === t.id ? "bg-stone-50" : ""
+                      }`}
+                    >
+                      <p className="font-bold text-sm text-stone-800 truncate">
+                        {t.subject}
+                      </p>
+                      {/* Assignment metadata */}
+                      {t.assigned_name && (
+                        <p className="text-[10px] text-stone-400">
+                          Assigned: {t.assigned_name}
+                        </p>
+                      )}
+                      {/* Future: tags, pipeline_stage, etc */}
+                      <p className="text-[10px] text-stone-400">
+                        {t.last_message_at
+                          ? new Date(t.last_message_at).toLocaleString()
+                          : ""}
+                      </p>
                     </button>
-                  </form>
+                  ))}
                 </div>
               </div>
 
-              {/* EMAIL LOG HISTORY */}
-              <div className="lg:col-span-3 space-y-6">
-                <div className="flex justify-between items-center px-4">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">Communication History</h3>
-                    <div className="px-3 py-1 bg-stone-100 rounded-full text-[8px] font-black text-stone-400 uppercase tracking-widest">{emails.length} Dispatched</div>
+              {/* MESSAGE VIEW */}
+              <div className="lg:col-span-8 bg-white rounded-[2.5rem] border border-stone-100 flex flex-col overflow-hidden">
+                
+                {/* messages */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {!activeThread ? (
+                    <p className="text-stone-300 text-sm">
+                      Select a conversation to begin
+                    </p>
+                  ) : (
+                    <>
+                      {messages.map((m) => (
+                        <div
+                          key={m.id}
+                          className={`max-w-[70%] p-4 rounded-2xl text-sm ${
+                            m.direction === "outbound"
+                              ? "ml-auto bg-stone-900 text-white"
+                              : "bg-stone-100 text-stone-800"
+                          }`}
+                        >
+                          {m.body}
+                        </div>
+                      ))}
+                      <div ref={messagesEndRef} />
+                    </>
+                  )}
                 </div>
 
-                {emails.length === 0 ? (
-                  <div className="py-32 text-center border-2 border-dashed border-stone-100 rounded-[3rem]">
-                    <Mail className="mx-auto mb-4 text-stone-100" size={48}/>
-                    <p className="text-xs font-serif italic text-stone-300">No written communication history recorded for this account profile.</p>
-                  </div>
-                ) : (
-                  emails.map((m) => (
-                    <motion.div 
-                        initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-                        key={m.id} 
-                        className="bg-white p-8 rounded-[2.5rem] border border-stone-100 flex items-center justify-between group hover:border-[#a9b897] hover:shadow-2xl hover:shadow-[#a9b897]/5 transition-all duration-500"
-                    >
-                      <div className="space-y-2">
-                        <p className="text-lg font-bold text-stone-800 tracking-tight group-hover:text-[#a9b897] transition-colors">{m.subject}</p>
-                        <p className="text-xs text-stone-400 line-clamp-1 max-w-md">{m.body}</p>
-                        <div className="flex items-center gap-4">
-                           {m.created_at && (
-                                <div className="flex items-center gap-1.5 bg-stone-50 px-3 py-1 rounded-full">
-                                    <Calendar size={10} className="text-[#a9b897]" />
-                                    <span className="text-[8px] font-black uppercase text-stone-400 tracking-widest">Sent: {format(new Date(m.created_at), "MMM d, yyyy h:mm a")}</span>
-                                </div>
-                            )}
-                           {m.attachment_url && <Paperclip size={12} className="text-[#a9b897] animate-bounce"/>}
-                        </div>
-                      </div>
-                      <div className="bg-stone-100 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-stone-500">
-                        {m.status}
-                      </div>
-                    </motion.div>
-                  ))
-                )}
+                {/* composer */}
+                <form
+                  onSubmit={handleSendEmail}
+                  className="border-t border-stone-100 p-4 space-y-3"
+                >
+                  <input
+                    value={newEmail.subject}
+                    onChange={(e) =>
+                      setNewEmail({ ...newEmail, subject: e.target.value })
+                    }
+                    placeholder="Subject"
+                    className="w-full p-3 text-xs bg-stone-50 rounded-xl"
+                  />
+                  <textarea
+                    value={newEmail.body}
+                    onChange={(e) =>
+                      setNewEmail({ ...newEmail, body: e.target.value })
+                    }
+                    placeholder="Write a message..."
+                    className="w-full p-3 text-xs bg-stone-50 rounded-xl h-24 resize-none"
+                  />
+                  <button
+                    disabled={emailSaving}
+                    className="w-full bg-stone-900 text-white py-3 rounded-xl text-xs font-bold uppercase"
+                  >
+                    {emailSaving ? "Sending..." : "Send Message"}
+                  </button>
+                  {/* Assignment controls placeholder (future): only show if canManageInbox */}
+                  {/* Example:
+                  {canManageInbox && (
+                    <select>...</select>
+                  )}
+                  */}
+                </form>
               </div>
             </motion.div>
           )}

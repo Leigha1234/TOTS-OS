@@ -1,8 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function SetPassword() {
   const [password, setPassword] = useState("");
@@ -16,21 +21,17 @@ export default function SetPassword() {
 
     setLoading(true);
 
-    const supabase = createClient(); // Initialize client
-
-    // This updates the user's password in the Supabase Auth system
     const { error } = await supabase.auth.updateUser({
-      password: password 
+      password: password
     });
-    
+
     setLoading(false);
 
     if (error) {
       alert(error.message);
     } else {
       alert("Password set successfully!");
-      // Send them into the app now that they are verified
-      router.push('/dashboard');
+      router.push("/dashboard");
     }
   };
 
@@ -47,30 +48,30 @@ export default function SetPassword() {
             <label className="text-[10px] font-black uppercase text-stone-400 ml-2 mb-1 block">
               New Password
             </label>
-            <input 
-              type="password" 
+            <input
+              type="password"
               placeholder="••••••••"
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none text-sm focus:border-stone-300 transition-colors" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl outline-none text-sm focus:border-stone-300 transition-colors"
             />
           </div>
 
-          <button 
-            onClick={handleUpdatePassword} 
+          <button
+            onClick={handleUpdatePassword}
             disabled={loading}
-            style={{ 
-              width: '100%', 
-              padding: '18px', 
-              backgroundColor: '#000', 
-              color: '#fff', 
-              borderRadius: '20px', 
-              fontWeight: '900', 
-              textTransform: 'uppercase', 
-              fontSize: '10px',
-              letterSpacing: '0.1em',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              marginTop: '10px'
+            style={{
+              width: "100%",
+              padding: "18px",
+              backgroundColor: "#000",
+              color: "#fff",
+              borderRadius: "20px",
+              fontWeight: "900",
+              textTransform: "uppercase",
+              fontSize: "10px",
+              letterSpacing: "0.1em",
+              cursor: loading ? "not-allowed" : "pointer",
+              marginTop: "10px"
             }}
           >
             {loading ? "Saving..." : "Complete Setup"}

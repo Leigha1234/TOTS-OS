@@ -140,55 +140,82 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
     setIsSaving(false);
   };
 
-  const toggleMailingListInline = async (newValue: boolean) => {
+const toggleMailingListInline = async (newValue: boolean) => {
   if (!profile?.email) return;
 
   setStatusUpdating(true);
 
-  // update profile toggle
-  const { error } = await supabase
+  // update profile mailing toggle
+  const { error: profileError } = await supabase
     .from("profiles")
     .update({ email_list: newValue })
-    .eq("id", profile.id);
+    .eq("id", profile.id)
+    .eq("organisation_id", organisationId);
 
-  if (!error) {
-    // get first mailing list
-    const { data: list } = await supabase
-      .from("subscriber_lists")
-      .select("id")
-      .limit(1)
-      .single();
+  if (profileError) {
+    console.error("Profile update error:", profileError);
+    setStatusUpdating(false);
+    return;
+  }
 
-    if (list?.id) {
-      if (newValue) {
-        // add subscriber
-        await supabase
-          .from("subscribers")
-          .upsert({
+  // get a mailing list for this organisation
+  const { data: list, error: listError } = await supabase
+    .from("subscriber_lists")
+    .select("id")
+    .eq("organisation_id", organisationId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (listError) {
+    console.error("List fetch error:", listError);
+  }
+
+  if (list?.id) {
+    if (newValue) {
+      // add subscriber to mailing list
+      const { error: subscriberError } = await supabase
+        .from("subscribers")
+        .upsert(
+          {
             list_id: list.id,
             email: profile.email,
             first_name: profile.name || "",
             status: "subscribed"
-          });
-      } else {
-        // remove subscriber
-        await supabase
-          .from("subscribers")
-          .delete()
-          .eq("email", profile.email);
+          },
+          {
+            onConflict: "list_id,email"
+          }
+        );
+
+      if (subscriberError) {
+        console.error("Subscriber add error:", subscriberError);
+      }
+    } else {
+      // remove subscriber only from this list
+      const { error: deleteError } = await supabase
+        .from("subscribers")
+        .delete()
+        .eq("list_id", list.id)
+        .eq("email", profile.email);
+
+      if (deleteError) {
+        console.error("Subscriber delete error:", deleteError);
       }
     }
-
-    setProfile({
-      ...profile,
-      email_list: newValue
-    });
-
-    setEditForm({
-      ...editForm,
-      email_list: newValue
-    });
+  } else {
+    console.warn("No subscriber list found for organisation");
   }
+
+  setProfile({
+    ...profile,
+    email_list: newValue
+  });
+
+  setEditForm({
+    ...editForm,
+    email_list: newValue
+  });
 
   setStatusUpdating(false);
 };

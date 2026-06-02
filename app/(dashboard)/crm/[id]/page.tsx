@@ -113,17 +113,23 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
      INIT
   --------------------------*/
   useEffect(() => {
-    if (!profileId || !organisationId) return;
+    if (!profileId) return;
 
     safeFetch(async () => {
       await fetchProfile();
-      await fetchTasks();
-      await fetchThreads();
+
+      // Only fetch org-dependent data if organisationId exists
+      if (organisationId) {
+        await fetchTasks();
+        await fetchThreads();
+      }
     });
   }, [profileId, organisationId]);
 
   useEffect(() => {
-    if (threads.length > 0 && !activeThread) {
+    if (!threads?.length) return;
+
+    if (!activeThread) {
       setActiveThread(threads[0]);
       fetchMessages(threads[0].id);
     }
@@ -133,10 +139,14 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
      GUARDS
   --------------------------*/
   if (!profileId) {
-    return <div className="p-10">Missing profile ID</div>;
+    return (
+      <div className="h-screen flex items-center justify-center text-stone-400">
+        Missing profile ID
+      </div>
+    );
   }
 
-  if (loading) {
+  if (loading || !profileId) {
     return (
       <div className="h-screen flex items-center justify-center">
         <Loader2 className="animate-spin" />

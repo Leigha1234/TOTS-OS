@@ -83,11 +83,46 @@ export default function Settings() {
     await supabase.auth.signOut();
     router.push("/login");
   };
-const connectSocialPlatform = async (platform: string) => {
-  if (connectedPlatforms.includes(platform)) return;
+const connectSocialPlatform = (platform: string) => {
+  toast.info(`Redirecting to ${platform} authorization...`);
 
-  setConnectedPlatforms((prev) => [...prev, platform]);
-  toast.success(`${platform} connected`);
+  const metaAuth =
+    `https://www.facebook.com/v19.0/dialog/oauth` +
+    `?client_id=${process.env.NEXT_PUBLIC_META_CLIENT_ID}` +
+    `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_META_REDIRECT_URI || "")}` +
+    `&scope=pages_show_list,pages_read_engagement,instagram_basic` +
+    `&response_type=code`;
+
+  const linkedinAuth =
+    `https://www.linkedin.com/oauth/v2/authorization` +
+    `?response_type=code` +
+    `&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}` +
+    `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI || "")}` +
+    `&scope=w_member_social%20r_liteprofile`;
+
+  const tiktokAuth =
+    `https://www.tiktok.com/v2/auth/authorize/` +
+    `?client_key=${process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID}` +
+    `&scope=user.info.basic,video.publish` +
+    `&response_type=code` +
+    `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_TIKTOK_REDIRECT_URI || "")}`;
+
+  switch (platform) {
+    case "meta":
+      window.location.href = metaAuth;
+      break;
+
+    case "linkedin":
+      window.location.href = linkedinAuth;
+      break;
+
+    case "tiktok":
+      window.location.href = tiktokAuth;
+      break;
+
+    default:
+      toast.error("Unsupported platform");
+  }
 };
 
 const handlePasswordUpdate = async (e: React.FormEvent) => {

@@ -69,6 +69,9 @@ export default function SocialStudioUnified() {
 
   // System Data
   const [posts, setPosts] = useState<SocialPost[]>([]);
+  const [user, setUser] = useState<any>(null);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState("");
 
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -78,10 +81,15 @@ export default function SocialStudioUnified() {
   // --- Data Sync ---
   const syncPosts = async () => {
     setStatus("Syncing");
-    const { data, error } = await supabase
+    let query = supabase
       .from('socials')
-      .select('id, caption, platform, hashtags, media_url, scheduled_for, status, format, platform_post_id, last_error, attempts, analytics')
-      .order('scheduled_for', { ascending: true });
+      .select('id, caption, platform, hashtags, media_url, scheduled_for, status, format, platform_post_id, last_error, attempts, analytics');
+
+    if (user?.id) {
+      query = query.eq('user_id', user.id);
+    }
+
+    const { data, error } = await query.order('scheduled_for', { ascending: true });
     
     if (!error) {
       setPosts(data || []);
@@ -92,9 +100,47 @@ export default function SocialStudioUnified() {
     setStatus("Ready");
   };
 
-  useEffect(() => { 
-    syncPosts(); 
+  useEffect(() => {
+    if (user?.id) {
+      syncPosts();
+    }
+  }, [supabase, user]);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const { data, error } = await supabase.auth.getUser();
+
+      if (error || !data?.user) {
+        setUser(null);
+        setStatus("Not authenticated");
+        toast.error("Please sign in to access Social Studio");
+        return;
+      }
+
+      setUser(data.user);
+    };
+
+    initAuth();
   }, [supabase]);
+
+  useEffect(() => {
+    const loadAccounts = async () => {
+      if (!user?.id) return;
+
+      const { data, error } = await supabase
+        .from("social_accounts")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (!error) {
+        setAccounts(data || []);
+      } else {
+        console.error("Account load error:", error);
+      }
+    };
+
+    loadAccounts();
+  }, [user, supabase]);
 
   // --- Handle Local File Selection ---
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -227,6 +273,8 @@ export default function SocialStudioUnified() {
       media_url: finalMediaUrl, 
       scheduled_for: new Date(scheduledTime).toISOString(),
       status: 'scheduled',
+      user_id: user?.id,
+      account_id: selectedAccountId,
       format: format
     }]);
 
@@ -439,6 +487,23 @@ export default function SocialStudioUnified() {
                            <option value="tiktok">TikTok</option>
                            <option value="linkedin">LinkedIn</option>
                         </select>
+                        <div className="space-y-2 mt-4">
+                          <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest">
+                            Connected Account
+                          </label>
+                          <select
+                            value={selectedAccountId}
+                            onChange={(e) => setSelectedAccountId(e.target.value)}
+                            className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100"
+                          >
+                            <option value="">Select account</option>
+                            {accounts.map((acc) => (
+                              <option key={acc.id} value={acc.id}>
+                                {acc.platform} - {acc.platform_user_id || acc.id}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest flex items-center gap-1.5"><Clock size={12}/> Publishing Schedule</label>

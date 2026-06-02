@@ -53,13 +53,23 @@ async function processPost(supabase: any, post: any) {
       .eq("id", post.id)
       .eq("status", "scheduled")
       .select()
-      .single();
+      .maybeSingle();
 
     if (!locked) return;
 
     const start = Date.now();
 
-    const result = await publishToPlatform(post);
+    const { data: account } = await supabase
+      .from("social_accounts")
+      .select("*")
+      .eq("id", post.account_id)
+      .single();
+
+    if (!account?.access_token) {
+      throw new Error("Missing social account OAuth token");
+    }
+
+    const result = await publishToPlatform(post, account);
 
     const duration = Date.now() - start;
 
@@ -78,18 +88,18 @@ async function processPost(supabase: any, post: any) {
         last_error: null,
       })
       .eq("id", post.id);
-  } catch (err) {
+
+  } catch (err: any) {
     console.error("Post failed:", post.id, err);
 
     const isFinalAttempt = attempt >= MAX_ATTEMPTS;
-
-    const backoffMinutes = Math.pow(2, post.attempts || 0);
+    const backoffMinutes = Math.pow(2, attempt);
 
     await supabase
       .from("socials")
       .update({
         status: isFinalAttempt ? "failed" : "scheduled",
-        last_error: String(err),
+        last_error: String(err?.message || err),
         last_attempt_at: new Date().toISOString(),
         scheduled_for: isFinalAttempt
           ? post.scheduled_for
@@ -99,28 +109,28 @@ async function processPost(supabase: any, post: any) {
   }
 }
 
-async function publishToPlatform(post: any) {
-  switch (post.platform) {
+async function publishToPlatform(post: any, account: any) {
+  switch (account.platform) {
     case "instagram":
-      return await publishInstagram(post);
+      return await publishInstagram(post, account);
     case "tiktok":
-      return await publishTikTok(post);
+      return await publishTikTok(post, account);
     case "linkedin":
-      return await publishLinkedIn(post);
+      return await publishLinkedIn(post, account);
     default:
-      throw new Error(`Unsupported platform: ${post.platform}`);
+      throw new Error(`Unsupported platform: ${account.platform}`);
   }
 }
 
-async function publishInstagram(post: any) {
+async function publishInstagram(post: any, account: any) {
   const res = await fetch(
-    `https://graph.facebook.com/v19.0/${Deno.env.get("IG_USER_ID")}/media`,
+    `https://graph.facebook.com/v19.0/${account.platform_user_id}/media`,
     {
       method: "POST",
       body: new URLSearchParams({
         image_url: post.media_url,
         caption: post.caption || "",
-        access_token: Deno.env.get("META_TOKEN")!,
+        access_token: account.access_token,
       }),
     }
   );
@@ -129,21 +139,18 @@ async function publishInstagram(post: any) {
   if (!data.id) throw new Error(JSON.stringify(data));
 
   const publishRes = await fetch(
-    `https://graph.facebook.com/v19.0/${Deno.env.get("IG_USER_ID")}/media_publish`,
+    `https://graph.facebook.com/v19.0/${account.platform_user_id}/media_publish`,
     {
       method: "POST",
       body: new URLSearchParams({
         creation_id: data.id,
-        access_token: Deno.env.get("META_TOKEN")!,
+        access_token: account.access_token,
       }),
     }
   );
 
   const publishData = await publishRes.json();
-
-  if (!publishData.id) {
-    throw new Error(JSON.stringify(publishData));
-  }
+  if (!publishData.id) throw new Error(JSON.stringify(publishData));
 
   return {
     id: publishData.id,
@@ -152,11 +159,11 @@ async function publishInstagram(post: any) {
   };
 }
 
-async function publishTikTok(post: any) {
+async function publishTikTok(post: any, account: any) {
   const res = await fetch("https://open.tiktokapis.com/v2/post/publish/", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${Deno.env.get("TIKTOK_TOKEN")}`,
+      Authorization: `Bearer ${account.access_token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -183,15 +190,15 @@ async function publishTikTok(post: any) {
   };
 }
 
-async function publishLinkedIn(post: any) {
+async function publishLinkedIn(post: any, account: any) {
   const res = await fetch("https://api.linkedin.com/v2/ugcPosts", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${Deno.env.get("LINKEDIN_TOKEN")}`,
+      Authorization: `Bearer ${account.access_token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      author: `urn:li:person:${Deno.env.get("LINKEDIN_USER_ID")}`,
+      author: `urn:li:person:${account.platform_user_id}`,
       lifecycleState: "PUBLISHED",
       specificContent: {
         "com.linkedin.ugc.ShareContent": {

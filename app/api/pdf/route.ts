@@ -1,8 +1,12 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export async function GET(req: Request) {
-  const supabase = createClient();
+  const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
@@ -10,7 +14,6 @@ export async function GET(req: Request) {
     return new NextResponse("Missing Invoice ID", { status: 400 });
   }
 
-  // Fetch data from Supabase
   const { data: invoice, error } = await supabase
     .from("invoices")
     .select("*, customers(*)")
@@ -21,11 +24,10 @@ export async function GET(req: Request) {
     return new NextResponse("Invoice not found or database error", { status: 404 });
   }
 
-  // Return raw JSON for now to verify the connection is working
   return NextResponse.json({
     message: "Connection successful",
     invoice_id: invoice.id,
     amount: invoice.amount,
-    customer_name: (invoice.customers as any)?.name || "N/A"
+    customer_name: (invoice as any)?.customers?.name || "N/A"
   });
 }

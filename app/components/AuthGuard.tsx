@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import { usePathname, useRouter } from "next/navigation";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -24,6 +29,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
       if (!session) {
         router.push("/login");
+        return;
       }
 
       setLoading(false);
@@ -31,15 +37,17 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     check();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!mounted) return;
 
-      if (session) {
-        setLoading(false);
-      } else if (pathname !== "/login") {
-        router.push("/login");
+        if (session) {
+          setLoading(false);
+        } else if (pathname !== "/login") {
+          router.push("/login");
+        }
       }
-    });
+    );
 
     return () => {
       mounted = false;
@@ -47,7 +55,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, router]);
 
-  // Loading state (Splash screen)
   if (loading && pathname !== "/login") {
     return (
       <div className="flex h-screen items-center justify-center bg-stone-50">

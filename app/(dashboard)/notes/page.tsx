@@ -173,7 +173,15 @@ function VaultContent() {
   };
 
   const handleCreate = async () => {
-    if (!content.trim() || !user) return;
+    if (!content.trim()) {
+  toast.error("Note cannot be empty");
+  return;
+}
+
+if (!user?.id) {
+  toast.error("You must be logged in");
+  return;
+}
     setIsSyncing(true);
     const theme = STICKY_THEMES[notes.length % STICKY_THEMES.length];
 

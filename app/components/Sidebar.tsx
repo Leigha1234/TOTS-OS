@@ -77,6 +77,9 @@ export default function Sidebar() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
+          setUserRole("guest");
+          setSubscriptionTier("unpaid");
+          setAllowedSlugs(tierLinks.unpaid);
           setLoading(false);
           return;
         }
@@ -105,7 +108,10 @@ export default function Sidebar() {
         const tier = (profile?.subscription_tier || "unpaid").toLowerCase();
         setSubscriptionTier(tier);
 
-        const permissionSlugs = perms?.map((p: { page_slug: string }) => p.page_slug) || [];
+        const permissionSlugs =
+          Array.isArray(perms)
+            ? perms.map((p: { page_slug: string }) => p.page_slug)
+            : [];
         const tierAccess = tierLinks[tier] || tierLinks.unpaid;
 
         if (resolvedRole === "admin" || resolvedRole === "owner") {
@@ -155,9 +161,12 @@ export default function Sidebar() {
 
   const activeColor = context?.settings?.brandColor || context?.settings?.brand_color || localColor;
 
-  const visibleLinks = allLinks.filter((link) =>
-    allowedSlugs.includes(link.href)
-  );
+  const visibleLinks =
+    allowedSlugs.length > 0
+      ? allLinks.filter((link) => allowedSlugs.includes(link.href))
+      : allLinks.filter((link) =>
+          ["/dashboard", "/notes", "/calendar"].includes(link.href)
+        );
 
   return (
     <aside className={`

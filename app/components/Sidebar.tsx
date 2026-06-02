@@ -75,8 +75,9 @@ export default function Sidebar() {
   useEffect(() => {
     async function syncPermissions() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (!user?.id) {
           setUserRole("guest");
           setSubscriptionTier("unpaid");
           setAllowedSlugs(tierLinks.unpaid);
@@ -102,16 +103,17 @@ export default function Sidebar() {
             .maybeSingle()
         ]);
 
-        const resolvedRole = profile?.role || membership?.role || "user";
+        const resolvedRole = membership?.role ?? profile?.role ?? "user";
         setUserRole(resolvedRole);
 
         const tier = (profile?.subscription_tier || "unpaid").toLowerCase();
         setSubscriptionTier(tier);
 
-        const permissionSlugs =
-          Array.isArray(perms)
-            ? perms.map((p: { page_slug: string }) => p.page_slug)
-            : [];
+        const permissionSlugs = Array.isArray(perms)
+          ? (perms as any[])
+              .filter((p) => p?.page_slug)
+              .map((p) => p.page_slug)
+          : [];
         const tierAccess = tierLinks[tier] || tierLinks.unpaid;
 
         if (resolvedRole === "admin" || resolvedRole === "owner") {

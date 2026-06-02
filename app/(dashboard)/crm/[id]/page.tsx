@@ -29,6 +29,7 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
   
   const [profile, setProfile] = useState<any>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const safeProfile = profile ?? {};
   const [loading, setLoading] = useState(true);
   
   const [activeTab, setActiveTab] = useState<'info' | 'tasks' | 'email'>('info');
@@ -48,7 +49,7 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
 
   // RBAC: Only admin/manager can manage inbox
   const canManageInbox =
-    profile?.role === "admin" || profile?.role === "manager";
+    safeProfile.role === "admin" || safeProfile.role === "manager";
 
   // AI Triage loading state
   const [triageLoading, setTriageLoading] = useState(false);
@@ -112,11 +113,13 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
 
       if (error || !data) {
         console.error("Profile fetch error:", error);
-        router.push("/crm");
+        setProfile(null);
+        setLoading(false);
         return;
       }
 
       setProfile(data);
+      setLoading(false);
 
       setEditForm({
         name: data.name || "",
@@ -208,7 +211,6 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
 
   // AI Triage function
   const runAiTriage = async (threadId: string) => {
-    if (!activeThread?.id) return;
     if (!threadId) return;
 
     setTriageLoading(true);
@@ -263,7 +265,7 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
     const { error } = await supabase
       .from("profiles")
       .update(editForm)
-      .eq("id", profile.id);
+      .eq("id", safeProfile.id);
 
     if (!error) {
       setProfile({ ...profile, ...editForm });
@@ -274,14 +276,14 @@ export default function AccountProfilePage({ params }: { params: { id: string } 
   };
 
 const toggleMailingListInline = async (newValue: boolean) => {
-  if (!profile?.email || !selectedListId) return;
+  if (!safeProfile.email || !selectedListId) return;
 
   setStatusUpdating(true);
 
   const { error: profileError } = await supabase
     .from("profiles")
     .update({ email_list: newValue })
-    .eq("id", profile.id);
+    .eq("id", safeProfile.id);
 
   if (profileError) {
     console.error("Profile update error:", profileError);
@@ -295,7 +297,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
       .upsert(
         {
           list_id: selectedListId,
-          email: profile.email,
+          email: safeProfile.email,
           status: "subscribed"
         },
         {
@@ -311,7 +313,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
       .from("subscribers")
       .delete()
       .eq("list_id", selectedListId)
-      .eq("email", profile.email);
+      .eq("email", safeProfile.email);
 
     if (deleteError) {
       console.error("Subscriber delete error:", deleteError);
@@ -352,7 +354,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
       description: newTask.description,
       due_date: newTask.due_date || null,
       assigned_to: newTask.assigned_to || null,
-      profile_id: profile.id,
+      profile_id: safeProfile.id,
       organisation_id: organisationId,
       attachment_url: attachmentUrl,
       status: 'todo'
@@ -385,7 +387,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: profile.email,
+          to: safeProfile.email,
           subject: newEmail.subject,
           body: newEmail.body,
         }),
@@ -401,7 +403,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
       const { data: thread } = await supabase
         .from("email_threads")
         .insert([{
-          profile_id: profile.id,
+          profile_id: safeProfile.id,
           organisation_id: organisationId,
           subject: newEmail.subject
         }])
@@ -409,12 +411,12 @@ const toggleMailingListInline = async (newValue: boolean) => {
         .single();
 
       threadId = thread.id;
-      setActiveThread(thread);
+      if (thread) setActiveThread(thread);
     }
 
     await supabase.from("email_messages").insert([{
       thread_id: threadId,
-      profile_id: profile.id,
+      profile_id: safeProfile.id,
       organisation_id: organisationId,
       direction: "outbound",
       subject: newEmail.subject,
@@ -441,6 +443,14 @@ const toggleMailingListInline = async (newValue: boolean) => {
       <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Loading Profile...</p>
     </div>
   );
+
+  if (!loading && !profile) {
+    return (
+      <div className="h-screen bg-[#faf9f6] flex items-center justify-center text-stone-400">
+        Profile not found or access denied
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-16 pb-32">
@@ -471,7 +481,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
             <h1 className="text-4xl md:text-6xl font-serif italic tracking-tighter uppercase break-words leading-none">
               {isEditing ? (
                 <input value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="bg-transparent border-b border-[#a9b897] outline-none w-full py-2" placeholder="Full Name" />
-              ) : profile.name || "UNNAMED ACCOUNT"}
+              ) : safeProfile.name || "UNNAMED ACCOUNT"}
             </h1>
             
             <div className="flex flex-wrap gap-4">
@@ -480,7 +490,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
                 {isEditing ? (
                   <input value={editForm.email} onChange={(e) => setEditForm({...editForm, email: e.target.value})} className="bg-transparent text-xs font-bold text-stone-700 outline-none uppercase tracking-widest border-b border-stone-200" placeholder="Email Address" />
                 ) : (
-                  <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.email || "No Email Provided"}</span>
+                  <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{safeProfile.email || "No Email Provided"}</span>
                 )}
               </div>
               
@@ -489,7 +499,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
                 {isEditing ? (
                   <input value={editForm.company_name} onChange={(e) => setEditForm({...editForm, company_name: e.target.value})} className="bg-transparent text-xs font-bold text-stone-700 outline-none uppercase tracking-widest border-b border-stone-200" placeholder="Company Name" />
                 ) : (
-                  <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{profile.company_name || "No Company Provided"}</span>
+                  <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">{safeProfile.company_name || "No Company Provided"}</span>
                 )}
               </div>
             </div>
@@ -507,7 +517,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
                </select>
              ) : (
                <p className="font-serif italic text-5xl text-[#a9b897] capitalize relative z-10">
-                 {profile.role === 'user' ? 'Standard User' : profile.role}
+                 {safeProfile.role === 'user' ? 'Standard User' : safeProfile.role}
                </p>
              )}
           </div>
@@ -547,7 +557,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
                             <input value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="w-full bg-stone-50 p-2 text-xs font-bold uppercase tracking-widest text-stone-800 rounded-lg outline-none focus:ring-1 focus:ring-[#a9b897]" placeholder="Enter number..." />
                           </div>
                         ) : (
-                          <p className="text-xs font-bold uppercase tracking-widest">{profile.phone || "No phone number recorded"}</p>
+                          <p className="text-xs font-bold uppercase tracking-widest">{safeProfile.phone || "No phone number recorded"}</p>
                         )}
                     </div>
 
@@ -560,7 +570,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
                             <input value={editForm.address} onChange={(e) => setEditForm({...editForm, address: e.target.value})} className="w-full bg-stone-50 p-2 text-xs font-bold uppercase tracking-widest text-stone-800 rounded-lg outline-none focus:ring-1 focus:ring-[#a9b897]" placeholder="Enter corporate address..." />
                           </div>
                         ) : (
-                          <p className="text-xs font-bold uppercase tracking-widest">{profile.address || "Address Location: Unassigned"}</p>
+                          <p className="text-xs font-bold uppercase tracking-widest">{safeProfile.address || "Address Location: Unassigned"}</p>
                         )}
                     </div>
 
@@ -587,11 +597,11 @@ const toggleMailingListInline = async (newValue: boolean) => {
                             <input type="checkbox" checked={editForm.email_list} onChange={(e) => setEditForm({...editForm, email_list: e.target.checked})} className="w-5 h-5 rounded accent-[#a9b897] cursor-pointer" />
                           ) : (
                             <button 
-                              onClick={() => toggleMailingListInline(!profile.email_list)} 
+                              onClick={() => toggleMailingListInline(!safeProfile.email_list)} 
                               disabled={statusUpdating || !selectedListId}
-                              className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm transition-transform active:scale-95 ${profile.email_list ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-stone-100 text-stone-400 hover:bg-stone-200 hover:text-stone-600'}`}
+                              className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm transition-transform active:scale-95 ${safeProfile.email_list ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-stone-100 text-stone-400 hover:bg-stone-200 hover:text-stone-600'}`}
                             >
-                              {statusUpdating ? "Updating..." : profile.email_list ? "Subscribed" : "Unsubscribed"}
+                              {statusUpdating ? "Updating..." : safeProfile.email_list ? "Subscribed" : "Unsubscribed"}
                             </button>
                           )}
                         </div>
@@ -605,7 +615,7 @@ const toggleMailingListInline = async (newValue: boolean) => {
                     <textarea value={editForm.company_details} onChange={(e) => setEditForm({...editForm, company_details: e.target.value})} className="w-full bg-stone-50 p-4 rounded-2xl text-xs font-serif italic text-stone-700 outline-none h-28 resize-none focus:ring-1 focus:ring-[#a9b897]" placeholder="Enter corporate background information..." />
                   ) : (
                     <p className="font-serif italic text-stone-600 leading-relaxed text-lg">
-                      {profile.company_details || "No secondary profile overview details added to this account record."}
+                      {safeProfile.company_details || "No secondary profile overview details added to this account record."}
                     </p>
                   )}
                 </div>

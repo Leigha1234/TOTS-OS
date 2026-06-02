@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { Upload, Loader2, ShieldCheck, FileCode } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,7 +15,6 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
   const [dragActive, setDragActive] = useState(false);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement> | any) {
-    const supabase = createClient();
     const files = e.target.files || e.dataTransfer?.files;
     
     try {

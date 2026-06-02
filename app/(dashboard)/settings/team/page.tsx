@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase";
-const supabase = createServerSupabaseClient();
+import { createBrowserClient } from "@supabase/ssr";
 import { useSettings } from "@/app/context/SettingsContext";
 import AdminPermissionToggle from "../../../components/AdminPermissionToggle";
 import { 
@@ -13,6 +12,11 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function ComprehensiveTeamHub() {
   const router = useRouter();

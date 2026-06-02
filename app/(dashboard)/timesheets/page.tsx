@@ -3,11 +3,16 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase";
-import { 
+import {
   Clock, Trash2, Plus, Timer, Briefcase, Loader2,
   Lock, Zap, Send, FileSpreadsheet, Activity, Cpu, Globe, BarChart3, Users
 } from "lucide-react";
+import { createBrowserClient } from "@supabase/ssr";
+
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 /**
  * TOTS OS v7.1.0 - TIMESHEET GOVERNANCE MODULE
@@ -53,7 +58,6 @@ export default function TimesheetsPage() {
   const [selectedWeek, setSelectedWeek] = useState(getISOWeek(new Date()));
   const [formData, setFormData] = useState({ client: "", task: "", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" });
 
-  const supabase = createServerSupabaseClient();
   const router = useRouter();
 
   useEffect(() => {

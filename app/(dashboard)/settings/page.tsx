@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { 
   User, Users, RefreshCcw, Save, Camera, Palette, ShieldCheck, 
   Clock, Loader2, LogOut, Droplets, Layout, Type, KeyRound,
@@ -19,7 +19,6 @@ import { toast } from "sonner";
 
 export default function Settings() {
  const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // -- 1. STATE MANAGEMENT --
   const [activeTab, setActiveTab] = useState<"account" | "brand" | "security">("account");
@@ -38,7 +37,7 @@ export default function Settings() {
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
 
   // -- 3. PASSWORD / AUTH --
-  const [oldPassword, setOldPassword] = useState("");
+  // REMOVED: oldPassword state
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -69,7 +68,7 @@ export default function Settings() {
     }
     init();
     return () => clearInterval(timer);
-  }, [router, supabase]);
+  }, [router]);
 
   // -- 5. HANDLERS --
   const handleSave = async () => {
@@ -119,7 +118,6 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
     toast.error(error.message);
   } else {
     toast.success("Security key updated successfully");
-    setOldPassword("");
     setNewPassword("");
     setConfirmPassword("");
   }
@@ -160,7 +158,7 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-6 md:p-12 max-w-[1500px] mx-auto font-sans">
+    <div className={`min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-6 md:p-12 max-w-[1500px] mx-auto ${fontPreference === "serif-heavy" ? "font-serif" : "font-sans"}`}>
       <style jsx global>{`
         :root { --accent: ${accentColor}; }
         .accent-text { color: var(--accent); }
@@ -226,7 +224,7 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Full Name</label>
-                        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs focus:accent-border outline-none transition-all" />
+                        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs focus:ring-2 focus:ring-[var(--accent)] focus:border-stone-400 outline-none transition-all" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Email Address</label>
@@ -295,11 +293,7 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
                       <h4 className="text-2xl font-serif italic tracking-tight">Password</h4>
                     </div>
                   </div>
-                  <form onSubmit={handlePasswordUpdate} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-[#faf9f6] p-6 rounded-3xl border border-stone-100">
-                    <div className="space-y-2">
-                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">Old Password</label>
-                      <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
-                    </div>
+                  <form onSubmit={handlePasswordUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end bg-[#faf9f6] p-6 rounded-3xl border border-stone-100">
                     <div className="space-y-2">
                       <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">New Password</label>
                       <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
@@ -308,7 +302,7 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
                       <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">Confirm New Password</label>
                       <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
                     </div>
-                    <div className="md:col-span-3 flex justify-end pt-2">
+                    <div className="md:col-span-2 flex justify-end pt-2">
                       <button type="submit" disabled={isUpdatingPassword} className="w-full md:w-auto px-8 py-3 bg-stone-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all flex items-center justify-center gap-2">
                         {isUpdatingPassword && <Loader2 size={12} className="animate-spin" />}
                         Update Password

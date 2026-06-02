@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { createBrowserClient } from "@supabase/ssr";
 import { 
   BarChart3, Download, FileSpreadsheet, Share2,
   Calculator, TrendingDown,
@@ -36,8 +36,10 @@ export default function FinanceReportsPage() {
   }, []);
 
   async function fetchFinancialData() {
-    const supabase = createServerSupabaseClient();
-    if (!supabase) return;
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
     try {
       const { data: timesheets } = await supabase

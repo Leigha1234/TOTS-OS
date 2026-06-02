@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
-import { createServerSupabaseClient } from "@/lib/supabase";
-const supabase = createServerSupabaseClient(); 
+import { supabase } from "../../../lib/supabase";
 import { 
   Trash2, Search, Loader2, Plus, X, 
   CheckCircle2, Tag, AlertCircle, Calendar, User, Briefcase, Mic, MicOff, Bell, BellOff, Clock
@@ -98,10 +97,7 @@ function VaultContent() {
       
       channel = supabase.channel("vault_desk")
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchNotes(authUser.id))
-        // FIXED: Explicitly typed 'status' as a string to resolve the type error
-        .subscribe((status: string) => {
-          if (status === "CLOSED") console.warn("Supabase Realtime socket dropped gracefully.");
-        });
+        .subscribe();
     };
     init();
     return () => { if (channel) supabase.removeChannel(channel); };
@@ -198,7 +194,7 @@ function VaultContent() {
     }
   };
 
-  const completeNote = async (id: string) => {
+  const deleteNote = async (id: string) => {
     const { error } = await supabase.from("notes").delete().eq("id", id);
     if (!error) {
       setNotes(prev => prev.filter(n => n.id !== id));
@@ -328,7 +324,7 @@ function VaultContent() {
 
                     <div className="flex items-center justify-between">
                       <button 
-                        onClick={() => completeNote(note.id)}
+                        onClick={() => deleteNote(note.id)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
                           note.is_urgent 
                             ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white' 
@@ -340,7 +336,7 @@ function VaultContent() {
                       </button>
 
                       <button 
-                        onClick={() => completeNote(note.id)} 
+                        onClick={() => deleteNote(note.id)} 
                         className={`p-2 rounded-lg transition-colors ${
                           note.is_urgent ? 'hover:bg-white/10 text-white/60 hover:text-white' : 'hover:bg-red-50 text-stone-400 hover:text-red-500'
                         }`}

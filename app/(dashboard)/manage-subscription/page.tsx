@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase"; 
+import { createBrowserClient } from "@supabase/ssr"; 
 import { 
   ArrowLeft, Check, Loader2, Plus, Minus
 } from "lucide-react";
@@ -17,6 +17,10 @@ interface TierFeature {
 
 export default function ManageSubscription() {
  const router = useRouter();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   
   const [currentTier, setCurrentTier] = useState<SubscriptionTier | null>(null);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>("premium");
@@ -74,7 +78,7 @@ useEffect(() => {
     }
   }
   loadSession();
-}, [router, supabase]);
+}, [router]);
 
   const handleTierUpdate = async () => {
     setIsProcessing(true);

@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase"; 
+import { createBrowserClient } from "@supabase/ssr";
 import { useSettings } from "@/app/context/SettingsContext";
 import { 
   ArrowRight, Briefcase, X, Loader2, Zap, FileText, 
@@ -22,28 +22,29 @@ import { motion, AnimatePresence } from "framer-motion";
  * and handles data fetching with a strict singleton pattern.
  */
 function DashboardContent() {
-  
   const router = useRouter();
-  // Inside your DashboardPage component
-const searchParams = useSearchParams();
-const error = searchParams.get("error");
-
-if (error) {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-      <h1 className="text-xl font-black uppercase tracking-[0.2em]">Authentication Required</h1>
-      <p className="text-xs text-stone-500 mt-2">The verification link has expired or is invalid.</p>
-      <button 
-        onClick={() => window.location.href = '/login'}
-        className="mt-6 px-6 py-3 bg-stone-900 text-white rounded-xl text-[10px] font-black uppercase"
-      >
-        Return to Login
-      </button>
-    </div>
-  );
-}
+  const searchParams = useSearchParams();
   const { organisationId } = useSettings();
-  const supabase = createServerSupabaseClient();
+  const error = searchParams.get("error");
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+        <h1 className="text-xl font-black uppercase tracking-[0.2em]">Authentication Required</h1>
+        <p className="text-xs text-stone-500 mt-2">The verification link has expired or is invalid.</p>
+        <button 
+          onClick={() => window.location.href = '/login'}
+          className="mt-6 px-6 py-3 bg-stone-900 text-white rounded-xl text-[10px] font-black uppercase"
+        >
+          Return to Login
+        </button>
+      </div>
+    );
+  }
   
   // State Management
   const [userName, setUserName] = useState<string>("USER");
@@ -268,7 +269,10 @@ if (error) {
 }
 export default function DashboardPage() {
   const [isInitializing, setIsInitializing] = useState(true);
-  const supabase = createServerSupabaseClient();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   useEffect(() => {
     async function checkInit() {

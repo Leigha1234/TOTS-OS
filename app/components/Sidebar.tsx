@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { supabase } from "../../lib/supabase";
 import { useSettings } from "@/app/context/SettingsContext";
 import { 
   LayoutDashboard, Users, Menu, Calendar, Megaphone, 
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const supabase = createServerSupabaseClient();
 
 /**
  * TOTS OS SIDEBAR v7.1.6

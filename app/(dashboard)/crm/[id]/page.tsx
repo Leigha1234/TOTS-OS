@@ -7,9 +7,13 @@
 // - RBAC: admin/manager controls inbox assignment & triage
 // - realtime messaging enabled via Supabase subscriptions
 
-import { use, useEffect, useState, useRef } from "react";
-import { createServerSupabaseClient } from "@/lib/supabase";
-const supabase = createServerSupabaseClient();
+import { useEffect, useState, useRef } from "react";
+import { createBrowserClient } from "@supabase/ssr";
+
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 import { 
   User, Building2, Mail, ArrowLeft,
   Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus, Send, CheckCircle2, XCircle
@@ -20,8 +24,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { useSettings } from "@/app/context/SettingsContext";
 
-export default function AccountProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
+export default function AccountProfilePage({ params }: { params: { id: string } }) {
+  const profileId = params.id;
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emailFileInputRef = useRef<HTMLInputElement>(null);
@@ -81,14 +85,14 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
   });
 
   useEffect(() => {
-    if (resolvedParams.id && organisationId) {
+    if (profileId && organisationId) {
       fetchProfile();
       fetchTeam();
       fetchTasks();
       fetchThreads();
       fetchSubscriberLists();
     }
-  }, [resolvedParams.id, organisationId]);
+  }, [profileId, organisationId]);
 
   useEffect(() => {
     if (threads.length > 0 && !activeThread) {
@@ -106,7 +110,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
     const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", resolvedParams.id)
+        .eq("id", profileId)
         .eq("organisation_id", organisationId) 
         .single();
 
@@ -141,7 +145,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
     const { data } = await supabase
         .from("tasks")
         .select("*")
-        .eq("profile_id", resolvedParams.id)
+        .eq("profile_id", profileId)
         .eq("organisation_id", organisationId)
         .order("created_at", { ascending: false });
     setTasks(data || []);
@@ -151,7 +155,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
     const { data } = await supabase
       .from("email_threads")
       .select("*")
-      .eq("profile_id", resolvedParams.id)
+      .eq("profile_id", profileId)
       .eq("organisation_id", organisationId)
       .order("last_message_at", { ascending: false });
 

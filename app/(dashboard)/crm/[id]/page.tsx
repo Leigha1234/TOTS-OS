@@ -8,13 +8,14 @@ import {
   Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { useSettings } from "@/app/context/SettingsContext";
 
-export default function AccountProfilePage({ params }: { params: { id: string } }) {
-  const profileId = params?.id;
+export default function AccountProfilePage() {
+  const params = useParams();
+  const profileId = params?.id as string;
   const router = useRouter();
   const { organisationId } = useSettings();
 

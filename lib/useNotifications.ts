@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import { getUserTeam } from "@/lib/getUserTeam";
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<any[]>([]);
 
-  useEffect(() => {
-    async function init() {
-      // Initialize the client once inside the effect
-      const supabase = createClient();
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
+  useEffect(() => {
+    let channel: any;
+
+    const init = async () => {
       const teamId = await getUserTeam();
       if (!teamId) return;
 
@@ -21,7 +25,7 @@ export function useNotifications() {
 
       setNotifications(data || []);
 
-      const channel = supabase
+      channel = supabase
         .channel("notifications")
         .on(
           "postgres_changes",
@@ -36,19 +40,14 @@ export function useNotifications() {
           }
         )
         .subscribe();
+    };
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-
-    let cleanup: any;
-    init().then((result) => {
-      cleanup = result;
-    });
+    init();
 
     return () => {
-      if (cleanup) cleanup();
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
 

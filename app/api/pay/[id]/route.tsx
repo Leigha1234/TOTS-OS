@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 // We define a 'Context' to tell TypeScript that params is a Promise
 type RouteContext = {

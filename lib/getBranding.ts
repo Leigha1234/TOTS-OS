@@ -1,7 +1,7 @@
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export async function getBranding(teamId: string) {
-  const supabase = createClient();
+  const supabase = createServerSupabaseClient();
   
   const { data } = await supabase
     .from("settings")

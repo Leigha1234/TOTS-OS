@@ -1,7 +1,10 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createClient } from "@supabase/supabase-js";
 
 export async function GET() {
-  const supabase = createClient();
+  const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   const { data, error } = await supabase
     .from("subscriptions")
@@ -13,21 +16,25 @@ export async function GET() {
   }
 
   for (const sub of data || []) {
-    if (new Date(sub.next_run) <= new Date()) {
-      await supabase.from("invoices").insert({
-        team_id: sub.team_id,
-        client_name: sub.client_name,
-        amount: sub.amount,
-        status: "unpaid",
-      });
+    try {
+      if (new Date(sub.next_run) <= new Date()) {
+        await supabase.from("invoices").insert({
+          team_id: sub.team_id,
+          client_name: sub.client_name,
+          amount: sub.amount,
+          status: "unpaid",
+        });
 
-      const next = new Date(sub.next_run);
-      next.setMonth(next.getMonth() + 1);
+        const next = new Date(sub.next_run);
+        next.setMonth(next.getMonth() + 1);
 
-      await supabase
-        .from("subscriptions")
-        .update({ next_run: next.toISOString() })
-        .eq("id", sub.id);
+        await supabase
+          .from("subscriptions")
+          .update({ next_run: next.toISOString() })
+          .eq("id", sub.id);
+      }
+    } catch (err) {
+      console.error("Subscription processing error:", sub.id, err);
     }
   }
 

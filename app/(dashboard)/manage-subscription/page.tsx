@@ -16,8 +16,7 @@ interface TierFeature {
 }
 
 export default function ManageSubscription() {
-  const supabase = useMemo(() => getBrowserClient(), []);
-  const router = useRouter();
+ const router = useRouter();
   
   const [currentTier, setCurrentTier] = useState<SubscriptionTier | null>(null);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>("premium");

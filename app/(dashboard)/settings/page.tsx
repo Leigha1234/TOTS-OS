@@ -18,8 +18,7 @@ import { toast } from "sonner";
  */
 
 export default function Settings() {
-  const supabase = useMemo(() => getBrowserClient(), []);
-  const router = useRouter();
+ const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // -- 1. STATE MANAGEMENT --

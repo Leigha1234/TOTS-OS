@@ -57,7 +57,10 @@ function VaultContent() {
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase notes fetch error:", error);
+        throw error;
+      }
       setNotes(data || []);
 
       if (data) {
@@ -68,7 +71,7 @@ function VaultContent() {
       }
     } catch (e) {
       console.error("Notes Fetch Error:", e);
-      toast.error("Could not load the notes.");
+      toast.error((e as any)?.message || "Could not load the notes.");
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +168,10 @@ function VaultContent() {
         metadata: { rotation: theme.rotation }
       }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase note insert error:", error);
+        throw error;
+      }
       
       setContent("");
       setTag("");
@@ -180,26 +186,43 @@ function VaultContent() {
       toast.success("Note pinned to desk.");
       fetchNotes(user.id);
     } catch (e) {
-      toast.error("Failed to pin note.");
+      console.error("Create note error:", e);
+      toast.error((e as any)?.message || "Failed to pin note.");
     } finally {
       setIsSyncing(false);
     }
   };
 
   const updateNoteStatus = async (id: string, nextStatus: string) => {
-    const { error } = await supabase.from("notes").update({ status: nextStatus }).eq("id", id);
-    if (!error) {
-      setNotes(prev => prev.map(n => n.id === id ? { ...n, status: nextStatus } : n));
-      toast.success(`Note updated.`);
+    const { error } = await supabase
+      .from("notes")
+      .update({ status: nextStatus })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Update note status error:", error);
+      toast.error(error.message);
+      return;
     }
+
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, status: nextStatus } : n));
+    toast.success(`Note updated.`);
   };
 
   const deleteNote = async (id: string) => {
-    const { error } = await supabase.from("notes").delete().eq("id", id);
-    if (!error) {
-      setNotes(prev => prev.filter(n => n.id !== id));
-      toast.success("Note cleared.");
+    const { error } = await supabase
+      .from("notes")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Delete note error:", error);
+      toast.error(error.message);
+      return;
     }
+
+    setNotes(prev => prev.filter(n => n.id !== id));
+    toast.success("Note cleared.");
   };
 
   const filteredNotes = notes.filter(n => 

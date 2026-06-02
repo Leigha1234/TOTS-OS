@@ -51,15 +51,20 @@ function VaultContent() {
 
   const fetchNotes = useCallback(async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error, status, statusText } = await supabase
         .from("notes")
-        .select("*")
+        .select("id, content, user_id, color, category, is_urgent, project, assigned_to, due_date, is_reminder, status, metadata, created_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       
       if (error) {
-        console.error("Supabase notes fetch error:", error);
-        throw error;
+        console.error("Supabase notes fetch error:", {
+          error,
+          status,
+          statusText,
+          userId,
+        });
+        throw new Error(error.message || `Notes fetch failed (${status})`);
       }
       setNotes(data || []);
 
@@ -83,7 +88,12 @@ function VaultContent() {
         .from("profiles")
         .select("id, name")
         .order("name", { ascending: true });
-      if (!error && data) setTeamMembers(data);
+      if (error) {
+        console.error("Team fetch error:", error);
+        return;
+      }
+
+      if (data) setTeamMembers(data);
     } catch (e) {
       console.error("Error fetching team:", e);
     }
@@ -154,7 +164,7 @@ function VaultContent() {
     const theme = STICKY_THEMES[notes.length % STICKY_THEMES.length];
 
     try {
-      const { error } = await supabase.from("notes").insert([{
+      const { error, status: responseStatus, statusText } = await supabase.from("notes").insert([{
         content,
         user_id: user.id,
         color: isUrgent ? "#4f4a46" : theme.bg, 
@@ -164,13 +174,27 @@ function VaultContent() {
         assigned_to: assignedTo || null,
         due_date: isReminder && reminderDateTime ? new Date(reminderDateTime).toISOString() : null,
         is_reminder: isReminder,
-        status: status,
+        status,
         metadata: { rotation: theme.rotation }
       }]);
 
       if (error) {
-        console.error("Supabase note insert error:", error);
-        throw error;
+        console.error("Supabase note insert error:", {
+          error,
+          status: responseStatus,
+          statusText,
+          payload: {
+            content,
+            user_id: user.id,
+            category: tag || "General",
+            project,
+            assigned_to: assignedTo,
+            due_date: reminderDateTime,
+            is_reminder: isReminder,
+            status,
+          }
+        });
+        throw new Error(error.message || `Insert failed (${responseStatus})`);
       }
       
       setContent("");
@@ -194,14 +218,24 @@ function VaultContent() {
   };
 
   const updateNoteStatus = async (id: string, nextStatus: string) => {
-    const { error } = await supabase
+    if (!id || !nextStatus) {
+      toast.error("Invalid note update.");
+      return;
+    }
+    const { error, status, statusText } = await supabase
       .from("notes")
       .update({ status: nextStatus })
       .eq("id", id);
 
     if (error) {
-      console.error("Update note status error:", error);
-      toast.error(error.message);
+      console.error("Update note status error:", {
+        error,
+        status,
+        statusText,
+        noteId: id,
+        nextStatus,
+      });
+      toast.error(error.message || `Update failed (${status})`);
       return;
     }
 
@@ -210,14 +244,23 @@ function VaultContent() {
   };
 
   const deleteNote = async (id: string) => {
-    const { error } = await supabase
+    if (!id) {
+      toast.error("Invalid note ID.");
+      return;
+    }
+    const { error, status, statusText } = await supabase
       .from("notes")
       .delete()
       .eq("id", id);
 
     if (error) {
-      console.error("Delete note error:", error);
-      toast.error(error.message);
+      console.error("Delete note error:", {
+        error,
+        status,
+        statusText,
+        noteId: id,
+      });
+      toast.error(error.message || `Delete failed (${status})`);
       return;
     }
 

@@ -1,19 +1,20 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createClient } from "@supabase/supabase-js";
 
-// We define a 'Context' to tell TypeScript that params is a Promise
 type RouteContext = {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 };
 
 export async function GET(
   request: Request,
   context: RouteContext
 ) {
-  const supabase = createClient();
-  
-  // This is the 'await' part—we wait for the ID to be ready
-  const { id } = await context.params;
+  const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { id } = context.params;
 
   try {
     const { data, error } = await supabase
@@ -23,11 +24,17 @@ export async function GET(
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Invoice not found" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(data);
   } catch (err) {
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

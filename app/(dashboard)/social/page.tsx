@@ -21,6 +21,11 @@ interface SocialPost {
   scheduled_for: string;
   status: string;
   format: string;
+  platform_post_id?: string;
+  last_error?: string;
+  attempts?: number;
+  analytics?: any;
+  platform_response?: any;
 }
 
 interface ContentConcept {
@@ -75,7 +80,7 @@ export default function SocialStudioUnified() {
     setStatus("Syncing");
     const { data, error } = await supabase
       .from('socials')
-      .select('id, caption, platform, hashtags, media_url, scheduled_for, status, format')
+      .select('id, caption, platform, hashtags, media_url, scheduled_for, status, format, platform_post_id, last_error, attempts, analytics')
       .order('scheduled_for', { ascending: true });
     
     if (!error) {

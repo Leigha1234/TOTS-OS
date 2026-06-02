@@ -1,8 +1,15 @@
-import { createClient } from "./supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function getUserTeam() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) return null;
 
   const { data, error } = await supabase
@@ -16,8 +23,10 @@ export async function getUserTeam() {
 }
 
 export async function getUserRole() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) return null;
 
   const { data, error } = await supabase
@@ -27,14 +36,13 @@ export async function getUserRole() {
     .maybeSingle();
 
   if (error) return null;
-  // Default to member if record exists but role is null
+
   return data?.role?.toLowerCase() || "member";
 }
 
 export function canCreate(role: string | null) {
   if (!role) return false;
   const r = role.toLowerCase();
-  // Allowing all standard roles to create
   return r === "admin" || r === "member" || r === "owner";
 }
 

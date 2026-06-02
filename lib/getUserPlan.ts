@@ -1,7 +1,11 @@
-import { createClient } from "./supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function getUserPlan() {
-  const supabase = createClient();
   const { data: auth } = await supabase.auth.getUser();
 
   if (!auth.user) return "free";

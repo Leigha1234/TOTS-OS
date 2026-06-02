@@ -18,6 +18,6 @@ export async function processScheduledPosts() {
   if (error || !posts) return;
 
   for (const post of posts) {
-    await handlePost(post);
+    await processPost(post);
   }
 }

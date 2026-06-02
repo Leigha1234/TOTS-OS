@@ -142,7 +142,7 @@ const connectSocialPlatform = async (platform: string) => {
 
   const tiktokAuth =
     `https://www.tiktok.com/v2/auth/authorize/` +
-    `?client_key=${process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID}` +
+    `?client_key=${process.env.NEXT_PUBLIC_TIKTOK_CLIENT_KEY}` +
     `&scope=user.info.basic,video.publish` +
     `&response_type=code` +
     `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_TIKTOK_REDIRECT_URI || "")}` +

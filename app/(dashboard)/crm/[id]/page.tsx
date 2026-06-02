@@ -1,16 +1,23 @@
 "use client";
 
-// SaaS Inbox Mode Enabled:
-// - AI triage enabled
-// - Gmail sync integration hook enabled
-// - RBAC: admin/manager controls inbox assignment & triage
-// - realtime messaging enabled via Supabase subscriptions
-
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import {
-  User, Building2, Mail, ArrowLeft,
-  Edit3, Loader2, Phone, MapPin, Zap, Calendar, Paperclip, Radio, Database, ListPlus, Send
+  User,
+  Building2,
+  Mail,
+  ArrowLeft,
+  Edit3,
+  Loader2,
+  Phone,
+  MapPin,
+  Zap,
+  Calendar,
+  Paperclip,
+  Radio,
+  Database,
+  ListPlus,
+  Send
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
@@ -26,9 +33,9 @@ export default function AccountProfilePage() {
   const { organisationId } = useSettings();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [profile, setProfile] = useState<any>(null);
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<"info" | "tasks" | "email">("info");
@@ -40,16 +47,15 @@ export default function AccountProfilePage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [taskSaving, setTaskSaving] = useState(false);
   const [emailSaving, setEmailSaving] = useState(false);
 
   const [subscriberLists, setSubscriberLists] = useState<any[]>([]);
   const [selectedListId, setSelectedListId] = useState("");
 
-  const [triageLoading, setTriageLoading] = useState(false);
-
   const safeProfile = profile ?? {};
-  const canManageInbox = safeProfile.role === "admin" || safeProfile.role === "manager";
+
+  const canManageInbox =
+    safeProfile.role === "admin" || safeProfile.role === "manager";
 
   const [editForm, setEditForm] = useState({
     name: "",
@@ -62,21 +68,13 @@ export default function AccountProfilePage() {
     email_list: false
   });
 
-  const [newTask, setNewTask] = useState({
-    title: "",
-    description: "",
-    due_date: "",
-    assigned_to: "",
-    attachment: null as File | null
-  });
-
   const [newEmail, setNewEmail] = useState({
     subject: "",
     body: "",
     attachment: null as File | null
   });
 
-  /* ---------------- PROFILE ---------------- */
+  /* ---------------- FETCH PROFILE ---------------- */
   const fetchProfile = async () => {
     if (!profileId || !organisationId) return;
 
@@ -90,7 +88,7 @@ export default function AccountProfilePage() {
       .maybeSingle();
 
     if (error) {
-      console.error("Profile error:", error);
+      console.error(error);
       setProfile(null);
       setLoading(false);
       return;
@@ -99,7 +97,7 @@ export default function AccountProfilePage() {
     setProfile(data);
 
     setEditForm({
-      name: data?.name || data?.full_name || "",
+      name: data?.name || "",
       role: data?.role || "user",
       email: data?.email || "",
       phone: data?.phone || "",
@@ -112,27 +110,20 @@ export default function AccountProfilePage() {
     setLoading(false);
   };
 
-  /* ---------------- DATA ---------------- */
   const fetchTasks = async () => {
-    if (!profileId || !organisationId) return;
-
     const { data } = await supabase
       .from("tasks")
       .select("*")
-      .eq("profile_id", profileId)
-      .eq("organisation_id", organisationId);
+      .eq("profile_id", profileId);
 
     setTasks(data || []);
   };
 
   const fetchThreads = async () => {
-    if (!profileId || !organisationId) return;
-
     const { data } = await supabase
       .from("email_threads")
       .select("*")
-      .eq("profile_id", profileId)
-      .eq("organisation_id", organisationId);
+      .eq("profile_id", profileId);
 
     setThreads(data || []);
   };
@@ -157,12 +148,12 @@ export default function AccountProfilePage() {
 
   /* ---------------- INIT ---------------- */
   useEffect(() => {
-    if (!profileId || !organisationId) return;
-
-    fetchProfile();
-    fetchTasks();
-    fetchThreads();
-    fetchSubscriberLists();
+    if (profileId && organisationId) {
+      fetchProfile();
+      fetchTasks();
+      fetchThreads();
+      fetchSubscriberLists();
+    }
   }, [profileId, organisationId]);
 
   useEffect(() => {
@@ -172,10 +163,9 @@ export default function AccountProfilePage() {
     }
   }, [threads]);
 
-  /* ---------------- EMAIL SEND ---------------- */
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!safeProfile.email) return;
+    if (!newEmail.subject || !newEmail.body) return;
 
     setEmailSaving(true);
 
@@ -186,7 +176,7 @@ export default function AccountProfilePage() {
         to: safeProfile.email,
         subject: newEmail.subject,
         body: newEmail.body
-      }),
+      })
     });
 
     let threadId = activeThread?.id;
@@ -194,11 +184,11 @@ export default function AccountProfilePage() {
     if (!threadId) {
       const { data } = await supabase
         .from("email_threads")
-        .insert([{
+        .insert({
           profile_id: profileId,
           organisation_id: organisationId,
           subject: newEmail.subject
-        }])
+        })
         .select()
         .single();
 
@@ -206,7 +196,7 @@ export default function AccountProfilePage() {
       setActiveThread(data);
     }
 
-    await supabase.from("email_messages").insert([{
+    await supabase.from("email_messages").insert({
       thread_id: threadId,
       profile_id: profileId,
       organisation_id: organisationId,
@@ -214,20 +204,35 @@ export default function AccountProfilePage() {
       subject: newEmail.subject,
       body: newEmail.body,
       status: "sent"
-    }]);
+    });
 
     setNewEmail({ subject: "", body: "", attachment: null });
+
     await fetchThreads();
     await fetchMessages(threadId);
 
     setEmailSaving(false);
   };
 
-  /* ---------------- GUARDS ---------------- */
+  const handleUpdate = async () => {
+    setIsSaving(true);
+
+    await supabase
+      .from("profiles")
+      .update(editForm)
+      .eq("id", profileId);
+
+    setProfile({ ...profile, ...editForm });
+    setIsEditing(false);
+
+    setIsSaving(false);
+  };
+
+  /* ---------------- UI ---------------- */
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-[#faf9f6]">
-        <Loader2 className="animate-spin text-[#A3B18A]" />
+        <Loader2 className="animate-spin" />
       </div>
     );
   }
@@ -235,39 +240,39 @@ export default function AccountProfilePage() {
   if (!profile) {
     return (
       <div className="h-screen flex items-center justify-center text-stone-400">
-        Profile not found or access denied
+        Profile not found
       </div>
     );
   }
 
-  /* ---------------- UI (UNCHANGED STYLE PRESERVED) ---------------- */
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-16 pb-32">
       <div className="max-w-6xl mx-auto space-y-12">
 
-        <Link href="/crm" className="text-[10px] uppercase tracking-[0.4em] font-black text-stone-400">
+        <Link href="/crm" className="text-xs uppercase tracking-widest text-stone-400">
           ← Back to CRM
         </Link>
 
-        <div className="bg-white border border-stone-200 rounded-[3.5rem] p-10">
+        {/* HEADER */}
+        <div className="bg-white p-10 rounded-[3rem] border">
           <h1 className="text-5xl font-serif italic">
-            {safeProfile.name || safeProfile.full_name || "Unnamed Profile"}
+            {safeProfile.name || "Unnamed Profile"}
           </h1>
-          <p className="text-stone-500 text-sm">{safeProfile.email}</p>
+          <p className="text-stone-500">{safeProfile.email}</p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-6 text-[10px] uppercase font-black tracking-widest">
-          {["info", "tasks", "email"].map(t => (
-            <button key={t} onClick={() => setActiveTab(t as any)}>
-              {t}
+        {/* TABS */}
+        <div className="flex gap-4 text-xs uppercase font-bold">
+          {["info", "tasks", "email"].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab as any)}>
+              {tab}
             </button>
           ))}
         </div>
 
         {/* INFO */}
         {activeTab === "info" && (
-          <div className="bg-white p-10 rounded-[2rem] border space-y-2">
+          <div className="bg-white p-10 rounded-[2rem] border space-y-3">
             <p>Role: {safeProfile.role}</p>
             <p>Company: {safeProfile.company_name}</p>
             <p>Phone: {safeProfile.phone}</p>
@@ -278,7 +283,9 @@ export default function AccountProfilePage() {
         {activeTab === "tasks" && (
           <div className="bg-white p-10 rounded-[2rem] border">
             {tasks.map(t => (
-              <div key={t.id} className="border-b py-2">{t.title}</div>
+              <div key={t.id} className="border-b py-2">
+                {t.title}
+              </div>
             ))}
           </div>
         )}
@@ -302,19 +309,26 @@ export default function AccountProfilePage() {
               ))}
             </div>
 
-            <div className="bg-white p-6 rounded-[2rem] border">
-              {messages.map(m => (
-                <div key={m.id} className="border-b py-2 text-sm">
-                  {m.body}
-                </div>
-              ))}
+            <div className="bg-white p-6 rounded-[2rem] border flex flex-col">
+              <div className="flex-1 overflow-y-auto">
+                {messages.map(m => (
+                  <div key={m.id} className="border-b py-2 text-sm">
+                    {m.body}
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
 
               <form onSubmit={handleSendEmail} className="mt-4 space-y-2">
-                <input className="w-full p-2 bg-stone-50" placeholder="Subject"
+                <input
+                  className="w-full p-2 bg-stone-50"
+                  placeholder="Subject"
                   value={newEmail.subject}
                   onChange={e => setNewEmail({ ...newEmail, subject: e.target.value })}
                 />
-                <textarea className="w-full p-2 bg-stone-50" placeholder="Message"
+                <textarea
+                  className="w-full p-2 bg-stone-50"
+                  placeholder="Message"
                   value={newEmail.body}
                   onChange={e => setNewEmail({ ...newEmail, body: e.target.value })}
                 />

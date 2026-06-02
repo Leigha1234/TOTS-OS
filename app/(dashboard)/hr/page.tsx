@@ -9,6 +9,7 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+type Profile = Record<string, any>;
 import { 
   Save, Calendar, Landmark, Fingerprint, 
   X, FileText, Download, BarChart3, Clock,
@@ -32,7 +33,7 @@ export default function HRPage() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notification, setNotification] = useState({ visible: false, msg: "" });
 
-  const [profile, setProfile] = useState<any>({
+  const [profile, setProfile] = useState<Profile>({
     id: null,
     full_name: "",
     role: "",
@@ -48,18 +49,27 @@ export default function HRPage() {
     fetchProfile();
   }, []);
 
-  // Replace your existing functions with these:
+// Replace your existing functions with these:
 async function fetchProfile() {
   setIsLoading(true);
-  const { data: { user } } = await supabase.auth.getUser();
-  
+  const { data, error } = await supabase.auth.getUser();
+  const user = data?.user;
+
+  if (error) {
+    console.error("Auth error:", error);
+    setIsLoading(false);
+    return;
+  }
+
   if (user) {
     const { data } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single();
-    if (data) setProfile(data);
+    if (data) {
+      setProfile(data as Profile);
+    }
   }
   setIsLoading(false);
 }
@@ -72,7 +82,14 @@ async function handleSave() {
   }
   
   setIsSaving(true);
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data, error: authError } = await supabase.auth.getUser();
+  const user = data?.user;
+  
+  if (authError || !user) {
+    notify("Auth Error: Unable to verify user");
+    setIsSaving(false);
+    return;
+  }
   
   if (user) {
     const { error } = await supabase
@@ -88,8 +105,12 @@ async function handleSave() {
       })
       .eq('id', user.id);
       
-    if (!error) notify("Identity Synchronized");
-    else notify("Sync Failure: Database Denied");
+    if (!error) {
+      notify("Identity Synchronized");
+      setProfile((prev: Profile) => ({ ...prev, ...profile }));
+    } else {
+      notify("Sync Failure: Database Denied");
+    }
   }
   setIsSaving(false);
 }

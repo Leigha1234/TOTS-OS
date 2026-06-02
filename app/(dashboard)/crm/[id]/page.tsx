@@ -33,6 +33,8 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
   const [taskSaving, setTaskSaving] = useState(false);
   const [emailSaving, setEmailSaving] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [subscriberLists, setSubscriberLists] = useState<any[]>([]);
+  const [selectedListId, setSelectedListId] = useState("");
 
   // Form States
   const [editForm, setEditForm] = useState({ 
@@ -66,6 +68,7 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
       fetchTeam();
       fetchTasks();
       fetchEmails();
+      fetchSubscriberLists();
     }
   }, [resolvedParams.id, organisationId]);
 
@@ -125,6 +128,21 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
     setEmails(data || []);
   }
 
+  async function fetchSubscriberLists() {
+    const { data, error } = await supabase
+      .from("subscriber_lists")
+      .select("id, name")
+      .eq("organisation_id", organisationId)
+      .order("created_at", { ascending: true });
+
+    if (!error && data) {
+      setSubscriberLists(data);
+      if (data.length > 0) {
+        setSelectedListId(data[0].id);
+      }
+    }
+  }
+
   const handleUpdate = async () => {
     setIsSaving(true);
     const { error } = await supabase
@@ -141,11 +159,10 @@ export default function AccountProfilePage({ params }: { params: Promise<{ id: s
   };
 
 const toggleMailingListInline = async (newValue: boolean) => {
-  if (!profile?.email) return;
+  if (!profile?.email || !selectedListId) return;
 
   setStatusUpdating(true);
 
-  // update profile mailing toggle
   const { error: profileError } = await supabase
     .from("profiles")
     .update({ email_list: newValue })
@@ -158,53 +175,33 @@ const toggleMailingListInline = async (newValue: boolean) => {
     return;
   }
 
-  // get a mailing list for this organisation
-  const { data: list, error: listError } = await supabase
-    .from("subscriber_lists")
-    .select("id")
-    .eq("organisation_id", organisationId)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  if (newValue) {
+    const { error: subscriberError } = await supabase
+      .from("subscribers")
+      .upsert(
+        {
+          list_id: selectedListId,
+          email: profile.email,
+          status: "subscribed"
+        },
+        {
+          onConflict: "list_id,email"
+        }
+      );
 
-  if (listError) {
-    console.error("List fetch error:", listError);
-  }
-
-  if (list?.id) {
-    if (newValue) {
-      // add subscriber to mailing list
-      const { error: subscriberError } = await supabase
-        .from("subscribers")
-        .upsert(
-          {
-            list_id: list.id,
-            email: profile.email,
-            first_name: profile.name || "",
-            status: "subscribed"
-          },
-          {
-            onConflict: "list_id,email"
-          }
-        );
-
-      if (subscriberError) {
-        console.error("Subscriber add error:", subscriberError);
-      }
-    } else {
-      // remove subscriber only from this list
-      const { error: deleteError } = await supabase
-        .from("subscribers")
-        .delete()
-        .eq("list_id", list.id)
-        .eq("email", profile.email);
-
-      if (deleteError) {
-        console.error("Subscriber delete error:", deleteError);
-      }
+    if (subscriberError) {
+      console.error("Subscriber add error:", subscriberError);
     }
   } else {
-    console.warn("No subscriber list found for organisation");
+    const { error: deleteError } = await supabase
+      .from("subscribers")
+      .delete()
+      .eq("list_id", selectedListId)
+      .eq("email", profile.email);
+
+    if (deleteError) {
+      console.error("Subscriber delete error:", deleteError);
+    }
   }
 
   setProfile({
@@ -418,15 +415,27 @@ const toggleMailingListInline = async (newValue: boolean) => {
                     <div className="flex items-center gap-4 text-stone-600 pt-2">
                         <div className="p-3 bg-stone-50 rounded-xl"><ListPlus size={18} className="text-[#a9b897]"/></div>
                         <div className="flex-1 flex items-center justify-between">
-                          <div>
+                          <div className="flex-1 space-y-2">
                             <p className="text-[10px] font-black uppercase tracking-wider text-stone-800">Mailing List</p>
+                            <select
+                              value={selectedListId}
+                              onChange={(e) => setSelectedListId(e.target.value)}
+                              className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-[9px] uppercase tracking-widest outline-none"
+                            >
+                              <option value="">Select List</option>
+                              {subscriberLists.map((list) => (
+                                <option key={list.id} value={list.id}>
+                                  {list.name}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                           {isEditing ? (
                             <input type="checkbox" checked={editForm.email_list} onChange={(e) => setEditForm({...editForm, email_list: e.target.checked})} className="w-5 h-5 rounded accent-[#a9b897] cursor-pointer" />
                           ) : (
                             <button 
                               onClick={() => toggleMailingListInline(!profile.email_list)} 
-                              disabled={statusUpdating}
+                              disabled={statusUpdating || !selectedListId}
                               className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm transition-transform active:scale-95 ${profile.email_list ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-stone-100 text-stone-400 hover:bg-stone-200 hover:text-stone-600'}`}
                             >
                               {statusUpdating ? "Updating..." : profile.email_list ? "Subscribed" : "Unsubscribed"}
@@ -553,13 +562,25 @@ const toggleMailingListInline = async (newValue: boolean) => {
                 <div className="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-md flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <ListPlus size={18} className="text-[#a9b897]" />
-                    <div>
+                    <div className="space-y-2">
                       <p className="text-[9px] font-black uppercase tracking-wider text-stone-800">Mailing List</p>
+                      <select
+                        value={selectedListId}
+                        onChange={(e) => setSelectedListId(e.target.value)}
+                        className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-[9px] uppercase tracking-widest outline-none"
+                      >
+                        <option value="">Select List</option>
+                        {subscriberLists.map((list) => (
+                          <option key={list.id} value={list.id}>
+                            {list.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <button
                     onClick={() => toggleMailingListInline(!profile.email_list)}
-                    disabled={statusUpdating}
+                    disabled={statusUpdating || !selectedListId}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 ${
                       profile.email_list 
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 

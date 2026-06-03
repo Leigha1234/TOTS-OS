@@ -154,12 +154,12 @@ const connectSocialPlatform = async (platform: string): Promise<void> => {
   }
 
   const metaAuth =
-    `https://www.facebook.com/v19.0/dialog/oauth` +
-    `?client_id=${metaClientId}` +
-    `&redirect_uri=${encodeURIComponent(metaRedirectUri)}` +
-    `&scope=public_profile` +
-    `&response_type=code` +
-    `&state=${state}`;
+  `https://www.facebook.com/v19.0/dialog/oauth` +
+  `?client_id=${metaClientId}` +
+  `&redirect_uri=${encodeURIComponent(metaRedirectUri)}` +
+  `&scope=public_profile,email` +
+  `&response_type=code` +
+  `&state=${state}`;
 
   const linkedinAuth =
     `https://www.linkedin.com/oauth/v2/authorization` +

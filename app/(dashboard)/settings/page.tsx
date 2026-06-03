@@ -157,7 +157,7 @@ const connectSocialPlatform = async (platform: string): Promise<void> => {
     `https://www.facebook.com/v19.0/dialog/oauth` +
     `?client_id=${metaClientId}` +
     `&redirect_uri=${encodeURIComponent(metaRedirectUri)}` +
-    `&scope=pages_show_list,pages_read_engagement,instagram_basic` +
+    `&scope=public_profile,email` +
     `&response_type=code` +
     `&state=${state}`;
 

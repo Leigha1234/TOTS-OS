@@ -159,7 +159,7 @@ const connectSocialPlatform = async (platform: string): Promise<void> => {
   `&redirect_uri=${encodeURIComponent(metaRedirectUri)}` +
   `&response_type=code` +
   `&auth_type=rerequest` +
-  `scope=public_profile,pages_show_list,pages_read_engagement` +
+  `&scope=public_profile,pages_show_list,pages_read_engagement` +
   `&state=${state}`;
 
   const linkedinAuth =

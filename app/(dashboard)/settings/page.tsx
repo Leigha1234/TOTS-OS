@@ -157,8 +157,9 @@ const connectSocialPlatform = async (platform: string): Promise<void> => {
   `https://www.facebook.com/v23.0/dialog/oauth` +
   `?client_id=${metaClientId}` +
   `&redirect_uri=${encodeURIComponent(metaRedirectUri)}` +
-  `&scope=public_profile` +
   `&response_type=code` +
+  `&auth_type=rerequest` +
+  `&scope=public_profile,email,pages_show_list,pages_read_engagement,instagram_basic,business_management` +
   `&state=${state}`;
 
   const linkedinAuth =

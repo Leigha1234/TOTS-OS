@@ -1,13 +1,21 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { 
-  User, Users, RefreshCcw, Save, Camera, Palette, ShieldCheck, 
-  Clock, Loader2, LogOut, Droplets, Layout, Type, KeyRound,
-  Instagram, Facebook, Disc, Linkedin, Video, CreditCard, Scale, 
-  FileText, ExternalLink, ChevronRight, Zap, Database, Lock
+import {
+  Users,
+  RefreshCcw,
+  Camera,
+  Loader2,
+  Type,
+  KeyRound,
+  Instagram,
+  Facebook,
+  Linkedin,
+  Video,
+  FileText,
+  ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -21,9 +29,9 @@ export default function Settings() {
  const router = useRouter();
   
   // -- 1. STATE MANAGEMENT --
-  const [activeTab, setActiveTab] = useState<"account" | "brand" | "security">("account");
-  const [userName, setUserName] = useState<string>("OPERATOR");
-  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [activeTab, setActiveTab] = useState<"account" | "brand">("account");
+  const [, setUserName] = useState<string>("OPERATOR");
+  const [, setCurrentTime] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -33,7 +41,7 @@ export default function Settings() {
   const [bio, setBio] = useState("");
   const [accentColor, setAccentColor] = useState("#A3B18A");
   const [fontPreference, setFontPreference] = useState("serif-heavy");
-  const [userOrgId, setUserOrgId] = useState<string | null>(null);
+  const [, setUserOrgId] = useState<string | null>(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
 
   // -- 3. PASSWORD / AUTH --
@@ -61,7 +69,6 @@ export default function Settings() {
         setDisplayName(profile.full_name || "");
         setBio(profile.bio || "");
         setUserOrgId(profile.organisation_id);
-        // Fetch connected platforms from Supabase
         const { data: connections } = await supabase
           .from("social_accounts")
           .select("platform")
@@ -99,7 +106,7 @@ export default function Settings() {
 
       if (error) throw error;
 
-      toast.success("Workspace System Settings Saved");
+      toast.success("Settings saved successfully");
     } catch (error: any) {
       toast.error(error?.message || "Failed to save settings");
     } finally {
@@ -111,7 +118,7 @@ export default function Settings() {
     await supabase.auth.signOut();
     router.push("/login");
   };
-const connectSocialPlatform = async (platform: string) => {
+const connectSocialPlatform = async (platform: string): Promise<void> => {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -124,10 +131,32 @@ const connectSocialPlatform = async (platform: string) => {
   const state = crypto.randomUUID();
   sessionStorage.setItem("oauth_state", state);
 
+  const metaClientId = process.env.NEXT_PUBLIC_META_CLIENT_ID ?? "";
+  const metaRedirectUri = process.env.NEXT_PUBLIC_META_REDIRECT_URI ?? "";
+  const linkedinClientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID ?? "";
+  const linkedinRedirectUri = process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI ?? "";
+  const tiktokClientKey = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_KEY ?? "";
+  const tiktokRedirectUri = process.env.NEXT_PUBLIC_TIKTOK_REDIRECT_URI ?? "";
+
+  if (!metaClientId && platform === "meta") {
+    toast.error("Missing NEXT_PUBLIC_META_CLIENT_ID");
+    return;
+  }
+
+  if (!linkedinClientId && platform === "linkedin") {
+    toast.error("Missing NEXT_PUBLIC_LINKEDIN_CLIENT_ID");
+    return;
+  }
+
+  if (!tiktokClientKey && platform === "tiktok") {
+    toast.error("Missing NEXT_PUBLIC_TIKTOK_CLIENT_KEY");
+    return;
+  }
+
   const metaAuth =
     `https://www.facebook.com/v19.0/dialog/oauth` +
-    `?client_id=${process.env.NEXT_PUBLIC_META_CLIENT_ID}` +
-    `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_META_REDIRECT_URI || "")}` +
+    `?client_id=${metaClientId}` +
+    `&redirect_uri=${encodeURIComponent(metaRedirectUri)}` +
     `&scope=pages_show_list,pages_read_engagement,instagram_basic` +
     `&response_type=code` +
     `&state=${state}`;
@@ -135,17 +164,17 @@ const connectSocialPlatform = async (platform: string) => {
   const linkedinAuth =
     `https://www.linkedin.com/oauth/v2/authorization` +
     `?response_type=code` +
-    `&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}` +
-    `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI || "")}` +
+    `&client_id=${linkedinClientId}` +
+    `&redirect_uri=${encodeURIComponent(linkedinRedirectUri)}` +
     `&scope=w_member_social%20r_liteprofile` +
     `&state=${state}`;
 
   const tiktokAuth =
     `https://www.tiktok.com/v2/auth/authorize/` +
-    `?client_key=${process.env.NEXT_PUBLIC_TIKTOK_CLIENT_KEY}` +
+    `?client_key=${tiktokClientKey}` +
     `&scope=user.info.basic,video.publish` +
     `&response_type=code` +
-    `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_TIKTOK_REDIRECT_URI || "")}` +
+    `&redirect_uri=${encodeURIComponent(tiktokRedirectUri)}` +
     `&state=${state}`;
 
   const urls: Record<string, string> = {
@@ -159,10 +188,11 @@ const connectSocialPlatform = async (platform: string) => {
     return;
   }
 
+  console.log(`${platform} OAuth URL`, urls[platform]);
   window.location.href = urls[platform];
 };
 
-const handlePasswordUpdate = async (e: React.FormEvent) => {
+const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
   e.preventDefault();
 
   if (!newPassword || !confirmPassword) {
@@ -229,6 +259,29 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
     );
   }
 
+  // Move disconnectSocialPlatform out of map callback
+  const disconnectSocialPlatform = async (key: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      toast.error("Not authenticated");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("social_accounts")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("platform", key);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setConnectedPlatforms((prev) => prev.filter((p) => p !== key));
+    toast.success(`${key} disconnected`);
+  };
   return (
     <div className={`min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-6 md:p-12 max-w-[1500px] mx-auto ${fontPreference === "serif-heavy" ? "font-serif" : "font-sans"}`}>
       <style jsx global>{`
@@ -322,29 +375,6 @@ const handlePasswordUpdate = async (e: React.FormEvent) => {
                       { key: "linkedin", name: "LinkedIn Corporate Network", subtitle: "B2B Professional Integration", icons: [Linkedin] }
                     ].map((platformObj) => {
                       const isConnected = connectedPlatforms.includes(platformObj.key);
-                      const disconnectSocialPlatform = async (key: string) => {
-                        const { data: { user } } = await supabase.auth.getUser();
-
-                        if (!user) {
-                          toast.error("Not authenticated");
-                          return;
-                        }
-
-                        const { error } = await supabase
-                          .from("social_accounts")
-                          .delete()
-                          .eq("user_id", user.id)
-                          .eq("platform", key);
-
-                        if (error) {
-                          toast.error(error.message);
-                          return;
-                        }
-
-                        setConnectedPlatforms((prev) => prev.filter((p) => p !== key));
-                        toast.success(`${key} disconnected`);
-                      };
-
                       return (
                         <div key={platformObj.key} className="p-5 bg-[#faf9f6] rounded-2xl border border-stone-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                           <div className="flex items-center gap-4">

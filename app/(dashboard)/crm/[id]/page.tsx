@@ -38,12 +38,13 @@ export default function AccountProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<"info" | "tasks" | "email">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "tasks" | "email" | "timeline">("info");
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [threads, setThreads] = useState<any[]>([]);
   const [activeThread, setActiveThread] = useState<any | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
+  const [showComposer, setShowComposer] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,6 +52,10 @@ export default function AccountProfilePage() {
 
   const [subscriberLists, setSubscriberLists] = useState<any[]>([]);
   const [selectedListId, setSelectedListId] = useState("");
+
+  const [notes, setNotes] = useState<any[]>([]);
+  const [noteForm, setNoteForm] = useState({ type: "internal", content: "" });
+  const [membership, setMembership] = useState<any[]>([]);
 
   const safeProfile = profile ?? {};
 
@@ -146,6 +151,25 @@ export default function AccountProfilePage() {
     if (data?.length) setSelectedListId(data[0].id);
   };
 
+  const fetchNotes = async () => {
+    const { data } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("created_at", { ascending: false });
+
+    setNotes(data || []);
+  };
+
+  const fetchMembership = async () => {
+    const { data } = await supabase
+      .from("profile_subscriber_lists")
+      .select("*")
+      .eq("profile_id", profileId);
+
+    setMembership(data || []);
+  };
+
   /* ---------------- INIT ---------------- */
   useEffect(() => {
     if (profileId && organisationId) {
@@ -153,6 +177,8 @@ export default function AccountProfilePage() {
       fetchTasks();
       fetchThreads();
       fetchSubscriberLists();
+      fetchNotes();
+      fetchMembership();
     }
   }, [profileId, organisationId]);
 
@@ -165,53 +191,64 @@ export default function AccountProfilePage() {
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmail.subject || !newEmail.body) return;
+    if (!newEmail.subject || !newEmail.body || emailSaving) return;
 
-    setEmailSaving(true);
+    try {
+      setEmailSaving(true);
 
-    await fetch("/api/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        to: safeProfile.email,
-        subject: newEmail.subject,
-        body: newEmail.body
-      })
-    });
-
-    let threadId = activeThread?.id;
-
-    if (!threadId) {
-      const { data } = await supabase
-        .from("email_threads")
-        .insert({
-          profile_id: profileId,
-          organisation_id: organisationId,
-          subject: newEmail.subject
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: safeProfile.email,
+          subject: newEmail.subject,
+          body: newEmail.body
         })
-        .select()
-        .single();
+      });
 
-      threadId = data.id;
-      setActiveThread(data);
+      if (!response.ok) {
+        throw new Error("Failed to send email");
+      }
+
+      let threadId = activeThread?.id;
+
+      if (!threadId) {
+        const { data, error } = await supabase
+          .from("email_threads")
+          .insert({
+            profile_id: profileId,
+            organisation_id: organisationId,
+            subject: newEmail.subject
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        threadId = data.id;
+        setActiveThread(data);
+      }
+
+      await supabase.from("email_messages").insert({
+        thread_id: threadId,
+        profile_id: profileId,
+        organisation_id: organisationId,
+        direction: "outbound",
+        subject: newEmail.subject,
+        body: newEmail.body,
+        status: "sent"
+      });
+
+      setNewEmail({ subject: "", body: "", attachment: null });
+
+      await fetchThreads();
+      await fetchMessages(threadId);
+    } catch (error) {
+      console.error("Email send failed:", error);
+      alert("Failed to send email. Please try again.");
+    } finally {
+      setEmailSaving(false);
     }
-
-    await supabase.from("email_messages").insert({
-      thread_id: threadId,
-      profile_id: profileId,
-      organisation_id: organisationId,
-      direction: "outbound",
-      subject: newEmail.subject,
-      body: newEmail.body,
-      status: "sent"
-    });
-
-    setNewEmail({ subject: "", body: "", attachment: null });
-
-    await fetchThreads();
-    await fetchMessages(threadId);
-
-    setEmailSaving(false);
   };
 
   const handleUpdate = async () => {
@@ -229,6 +266,43 @@ export default function AccountProfilePage() {
   };
 
   /* ---------------- UI ---------------- */
+  const healthScore = (() => {
+    const openTasks = tasks.filter(t => t.status !== "done").length;
+
+    const lastMessageDate = messages?.[messages.length - 1]?.created_at;
+    const lastContactPenalty =
+      lastMessageDate ? 0 : 20;
+
+    const taskScore = Math.max(0, 40 - openTasks * 5);
+
+    const campaignScore = safeProfile.email_list ? 20 : 0;
+
+    return Math.max(0, Math.min(100, taskScore + campaignScore - lastContactPenalty));
+  })();
+
+  const timelineEvents = [
+    ...(messages || []).map(m => ({
+      type: "email",
+      created_at: m.created_at,
+      title: m.subject || "Email",
+      content: m.body,
+    })),
+    ...(notes || []).map(n => ({
+      type: "note",
+      created_at: n.created_at,
+      title: n.type || "Note",
+      content: n.content,
+    })),
+    ...(tasks || []).map(t => ({
+      type: "task",
+      created_at: t.created_at || t.due_date,
+      title: t.title || "Task",
+      content: t.description || "",
+    })),
+  ]
+    .filter(e => e.created_at)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-[#faf9f6]">
@@ -246,7 +320,7 @@ export default function AccountProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-16 pb-32">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-10 pb-32">
       <div className="max-w-6xl mx-auto space-y-12">
 
         <Link href="/crm" className="text-xs uppercase tracking-widest text-stone-400">
@@ -254,17 +328,53 @@ export default function AccountProfilePage() {
         </Link>
 
         {/* HEADER */}
-        <div className="bg-white p-10 rounded-[3rem] border">
-          <h1 className="text-5xl font-serif italic">
-            {safeProfile.name || "Unnamed Profile"}
-          </h1>
-          <p className="text-stone-500">{safeProfile.email}</p>
+        <div className="bg-white/90 backdrop-blur border border-stone-200 p-10 rounded-[3rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="h-20 w-20 rounded-full bg-stone-900 text-white flex items-center justify-center text-2xl font-bold">
+              {(safeProfile.name || "?").charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h1 className="text-5xl font-serif italic">
+                {safeProfile.name || "Unnamed Profile"}
+              </h1>
+              <p className="text-stone-500">{safeProfile.email}</p>
+              <p className="text-xs uppercase tracking-widest text-stone-400 mt-2">
+                {safeProfile.company_name || "No company assigned"}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setActiveTab("email");
+                setShowComposer(true);
+              }}
+              className="px-5 py-3 rounded-2xl bg-stone-900 text-white text-xs font-bold uppercase tracking-wider"
+            >
+              Send Email
+            </button>
+
+            <button
+              onClick={() => setActiveTab("tasks")}
+              className="px-5 py-3 rounded-2xl border border-stone-200 bg-white text-xs font-bold uppercase tracking-wider"
+            >
+              View Tasks
+            </button>
+          </div>
         </div>
 
         {/* TABS */}
         <div className="flex gap-4 text-xs uppercase font-bold">
-          {["info", "tasks", "email"].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab as any)}>
+          {["info", "tasks", "email", "timeline"].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab as any)}
+              className={`px-5 py-3 rounded-full transition border ${
+                activeTab === tab
+                  ? "bg-stone-900 text-white border-stone-900"
+                  : "bg-white border-stone-200 hover:border-stone-400"
+              }`}
+            >
               {tab}
             </button>
           ))}
@@ -272,29 +382,91 @@ export default function AccountProfilePage() {
 
         {/* INFO */}
         {activeTab === "info" && (
-          <div className="bg-white p-10 rounded-[2rem] border space-y-3">
-            <p>Role: {safeProfile.role}</p>
-            <p>Company: {safeProfile.company_name}</p>
-            <p>Phone: {safeProfile.phone}</p>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Contact Details</h3>
+              <div className="space-y-4 text-sm">
+                <p><strong>Email:</strong> {safeProfile.email || "Not provided"}</p>
+                <p><strong>Phone:</strong> {safeProfile.phone || "Not provided"}</p>
+                <p><strong>Address:</strong> {safeProfile.address || "Not provided"}</p>
+              </div>
+            </div>
+
+            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Business Details</h3>
+              <div className="space-y-4 text-sm">
+                <p><strong>Company:</strong> {safeProfile.company_name || "Not provided"}</p>
+                <p><strong>Role:</strong> {safeProfile.role || "Client"}</p>
+                <p><strong>Mailing List:</strong> {safeProfile.email_list ? "Subscribed" : "Not Subscribed"}</p>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Company Notes</h3>
+              <p className="text-stone-600 leading-relaxed">
+                {safeProfile.company_details || "No notes have been added yet."}
+              </p>
+            </div>
           </div>
         )}
 
         {/* TASKS */}
         {activeTab === "tasks" && (
-          <div className="bg-white p-10 rounded-[2rem] border">
-            {tasks.map(t => (
-              <div key={t.id} className="border-b py-2">
-                {t.title}
-              </div>
-            ))}
+          <>
+          <div className="mb-8 p-6 rounded-2xl bg-[#a9b897]/10 border border-[#a9b897]/20">
+            <h3 className="font-semibold text-stone-900 mb-2">Project Activity</h3>
+            <p className="text-sm text-stone-600">
+              Track deliverables, deadlines and client actions linked to this contact.
+            </p>
           </div>
+
+          <div className="bg-white/90 backdrop-blur p-10 rounded-[2rem] border border-stone-200 shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400">Tasks</h3>
+              <span className="px-3 py-1 rounded-full bg-stone-100 text-xs">
+                {tasks.length} Active
+              </span>
+            </div>
+
+            {tasks.length === 0 ? (
+              <div className="text-center py-16 text-stone-400">
+                No tasks assigned to this contact.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {tasks.map(t => (
+                  <div key={t.id} className="p-5 border border-stone-200 rounded-2xl bg-white">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-semibold">{t.title}</h4>
+                      <span className="px-3 py-1 rounded-full bg-[#a9b897]/20 text-xs text-stone-700">
+                        {t.status || "todo"}
+                      </span>
+                    </div>
+                    {t.description && (
+                      <p className="text-sm text-stone-500 mt-2">{t.description}</p>
+                    )}
+                    {t.due_date && (
+                      <p className="text-xs text-stone-400 mt-3">
+                        Due: {format(new Date(t.due_date), "dd MMM yyyy")}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          </>
         )}
 
         {/* EMAIL */}
         {activeTab === "email" && (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid lg:grid-cols-[320px_1fr] gap-6 min-h-[700px]">
 
-            <div className="bg-white p-6 rounded-[2rem] border">
+            <div className="bg-white/90 backdrop-blur p-6 rounded-[2rem] border border-stone-200 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Inbox</h3>
+                <span className="text-xs text-stone-400">{threads.length}</span>
+              </div>
               {threads.map(t => (
                 <button
                   key={t.id}
@@ -302,40 +474,219 @@ export default function AccountProfilePage() {
                     setActiveThread(t);
                     fetchMessages(t.id);
                   }}
-                  className="block w-full text-left py-2"
+                  className={`block w-full text-left p-3 rounded-xl transition ${activeThread?.id === t.id ? 'bg-stone-900 text-white' : 'hover:bg-stone-100'}`}
                 >
-                  {t.subject}
+                  <div>
+                    <div className="font-medium truncate">{t.subject}</div>
+                    <div className="text-xs opacity-70 truncate">
+                      Email conversation
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
 
-            <div className="bg-white p-6 rounded-[2rem] border flex flex-col">
-              <div className="flex-1 overflow-y-auto">
-                {messages.map(m => (
-                  <div key={m.id} className="border-b py-2 text-sm">
-                    {m.body}
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
+            <div className="bg-white/90 backdrop-blur p-6 rounded-[2rem] border border-stone-200 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between border-b border-stone-200 pb-4 mb-4">
+                <div>
+                  <h2 className="font-semibold text-lg">
+                    {activeThread?.subject || "New Conversation"}
+                  </h2>
+                  <p className="text-xs text-stone-400">
+                    {safeProfile.email}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowComposer(v => !v)}
+                  className="px-4 py-2 rounded-xl bg-stone-900 text-white text-xs"
+                >
+                  {showComposer ? "Hide Composer" : "Reply"}
+                </button>
               </div>
 
+              {showComposer && (
+              <>
               <form onSubmit={handleSendEmail} className="mt-4 space-y-2">
                 <input
-                  className="w-full p-2 bg-stone-50"
+                  className="w-full p-3 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-300"
                   placeholder="Subject"
                   value={newEmail.subject}
                   onChange={e => setNewEmail({ ...newEmail, subject: e.target.value })}
                 />
                 <textarea
-                  className="w-full p-2 bg-stone-50"
+                  className="w-full p-3 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-stone-300"
                   placeholder="Message"
                   value={newEmail.body}
                   onChange={e => setNewEmail({ ...newEmail, body: e.target.value })}
                 />
-                <button className="w-full bg-stone-900 text-white py-2 rounded-xl">
-                  {emailSaving ? "Sending..." : "Send"}
+                {emailSaving && (
+                  <div className="text-xs text-stone-500 text-center">
+                    Sending email...
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={emailSaving}
+                  className="w-full bg-stone-900 text-white py-3 rounded-xl disabled:opacity-50"
+                >
+                  {emailSaving ? "Sending..." : "Send Email"}
                 </button>
               </form>
+              </>
+              )}
+
+              <div className="mt-4 pt-4 border-t border-stone-100 text-xs text-stone-400">
+                {messages.length} messages in this conversation
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* TIMELINE */}
+        {activeTab === "timeline" && (
+          <div className="space-y-6">
+
+            {/* HEALTH SCORE */}
+            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
+                Client Health Score
+              </h3>
+              <div className="text-4xl font-bold">{healthScore}/100</div>
+              <p className="text-xs text-stone-400 mt-2">
+                Based on tasks, engagement and campaign activity
+              </p>
+            </div>
+
+            {/* ACTIVITY FEED */}
+            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
+                Activity Feed
+              </h3>
+
+              <div className="space-y-4">
+                {timelineEvents.length === 0 ? (
+                  <p className="text-sm text-stone-400">No activity yet.</p>
+                ) : (
+                  timelineEvents.map((event, idx) => (
+                    <div key={idx} className="p-4 border rounded-xl bg-white">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs uppercase text-stone-400">
+                          {event.type}
+                        </span>
+                        <span className="text-xs text-stone-400">
+                          {event.created_at ? new Date(event.created_at).toLocaleString() : ""}
+                        </span>
+                      </div>
+
+                      <div className="font-medium text-sm">{event.title}</div>
+                      {event.content && (
+                        <div className="text-xs text-stone-500 mt-1 line-clamp-2">
+                          {event.content}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* NOTES */}
+            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
+                Internal Notes
+              </h3>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!noteForm.content) return;
+
+                  const { data } = await supabase.from("notes").insert({
+                    profile_id: profileId,
+                    organisation_id: organisationId,
+                    type: noteForm.type,
+                    content: noteForm.content
+                  }).select().single();
+
+                  setNotes([data, ...notes]);
+                  setNoteForm({ type: "internal", content: "" });
+                }}
+                className="space-y-2 mb-6"
+              >
+                <select
+                  value={noteForm.type}
+                  onChange={(e) => setNoteForm({ ...noteForm, type: e.target.value })}
+                  className="w-full p-3 border rounded-xl"
+                >
+                  <option value="internal">Internal</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="call">Call</option>
+                </select>
+
+                <textarea
+                  className="w-full p-3 border rounded-xl"
+                  placeholder="Add a note..."
+                  value={noteForm.content}
+                  onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}
+                />
+
+                <button className="px-4 py-2 bg-stone-900 text-white rounded-xl text-xs">
+                  Add Note
+                </button>
+              </form>
+
+              <div className="space-y-3">
+                {notes.map(n => (
+                  <div key={n.id} className="p-4 border rounded-xl bg-white">
+                    <div className="text-xs text-stone-400 uppercase">{n.type}</div>
+                    <div className="text-sm">{n.content}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* CAMPAIGN MEMBERSHIP */}
+            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
+                Campaign Membership
+              </h3>
+
+              <div className="space-y-2">
+                {subscriberLists.map(list => {
+                  const isMember = membership.some(m => m.list_id === list.id);
+
+                  return (
+                    <div key={list.id} className="flex justify-between items-center p-3 border rounded-xl">
+                      <span>{list.name}</span>
+                      <button
+                        onClick={async () => {
+                          if (isMember) {
+                            await supabase
+                              .from("profile_subscriber_lists")
+                              .delete()
+                              .eq("profile_id", profileId)
+                              .eq("list_id", list.id);
+                          } else {
+                            await supabase
+                              .from("profile_subscriber_lists")
+                              .insert({
+                                profile_id: profileId,
+                                list_id: list.id
+                              });
+                          }
+
+                          fetchMembership();
+                        }}
+                        className="text-xs px-3 py-1 rounded-lg border"
+                      >
+                        {isMember ? "Remove" : "Add"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
           </div>

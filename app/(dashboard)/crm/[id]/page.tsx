@@ -192,22 +192,29 @@ export default function AccountProfilePage() {
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail.subject || !newEmail.body || emailSaving) return;
+    if (!profile?.email) {
+      alert('This contact does not have an email address.');
+      return;
+    }
 
     try {
       setEmailSaving(true);
-
+      console.log('Sending email to:', safeProfile.email);
       const response = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: safeProfile.email,
-          subject: newEmail.subject,
-          body: newEmail.body
+          to: profile.email,
+          subject: newEmail.subject.trim(),
+          body: newEmail.body.trim()
         })
       });
 
+      const result = await response.json().catch(() => null);
+      console.log('Email API response:', result);
+
       if (!response.ok) {
-        throw new Error("Failed to send email");
+        throw new Error(result?.error || "Failed to send email");
       }
 
       let threadId = activeThread?.id;
@@ -245,7 +252,7 @@ export default function AccountProfilePage() {
       await fetchMessages(threadId);
     } catch (error) {
       console.error("Email send failed:", error);
-      alert("Failed to send email. Please try again.");
+      alert(`Failed to send email${error instanceof Error ? `: ${error.message}` : ". Please try again."}`);
     } finally {
       setEmailSaving(false);
     }
@@ -314,7 +321,7 @@ export default function AccountProfilePage() {
   if (!profile) {
     return (
       <div className="h-screen flex items-center justify-center text-stone-400">
-        Profile not found
+        Contact not found
       </div>
     );
   }
@@ -330,16 +337,31 @@ export default function AccountProfilePage() {
         {/* HEADER */}
         <div className="bg-white/90 backdrop-blur border border-stone-200 p-10 rounded-[3rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <div className="h-20 w-20 rounded-full bg-stone-900 text-white flex items-center justify-center text-2xl font-bold">
-              {(safeProfile.name || "?").charAt(0).toUpperCase()}
-            </div>
+  <div className="h-20 w-20 rounded-full bg-[#a9b897] text-white flex items-center justify-center text-2xl font-bold">
+  {(safeProfile.name || "?").charAt(0).toUpperCase()}
+</div>
+            
             <div>
-              <h1 className="text-5xl font-serif italic">
-                {safeProfile.name || "Unnamed Profile"}
-              </h1>
+              {isEditing ? (
+  <input
+    className="w-full p-3 border border-[#d8d0c2] rounded-xl bg-[#faf9f6]"
+    value={editForm.name}
+    onChange={(e) =>
+      setEditForm({
+        ...editForm,
+        name: e.target.value
+      })
+    }
+    placeholder="Full Name"
+  />
+) : (
+  <h1 className="text-5xl font-serif italic">
+    {safeProfile.name || "Unnamed Contact"}
+  </h1>
+)}
               <p className="text-stone-500">{safeProfile.email}</p>
               <p className="text-xs uppercase tracking-widest text-stone-400 mt-2">
-                {safeProfile.company_name || "No company assigned"}
+                {safeProfile.company_name || "No company assigned yet"}
               </p>
             </div>
           </div>
@@ -349,14 +371,14 @@ export default function AccountProfilePage() {
                 setActiveTab("email");
                 setShowComposer(true);
               }}
-              className="px-5 py-3 rounded-2xl bg-stone-900 text-white text-xs font-bold uppercase tracking-wider"
+           className="px-5 py-3 rounded-2xl bg-[#a9b897] text-white text-xs font-bold uppercase tracking-wider hover:opacity-90 transition"
             >
               Send Email
             </button>
 
             <button
               onClick={() => setActiveTab("tasks")}
-              className="px-5 py-3 rounded-2xl border border-stone-200 bg-white text-xs font-bold uppercase tracking-wider"
+           className="px-5 py-3 rounded-2xl border border-[#d8d0c2] bg-[#faf9f6] text-xs font-bold uppercase tracking-wider text-stone-700"
             >
               View Tasks
             </button>
@@ -371,11 +393,11 @@ export default function AccountProfilePage() {
               onClick={() => setActiveTab(tab as any)}
               className={`px-5 py-3 rounded-full transition border ${
                 activeTab === tab
-                  ? "bg-stone-900 text-white border-stone-900"
-                  : "bg-white border-stone-200 hover:border-stone-400"
+                  ? "bg-[#a9b897] text-white border-[#a9b897]"
+                  : "bg-[#faf9f6] border-[#d8d0c2] hover:border-[#a9b897]"
               }`}
             >
-              {tab}
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
@@ -383,29 +405,131 @@ export default function AccountProfilePage() {
         {/* INFO */}
         {activeTab === "info" && (
           <div className="grid md:grid-cols-2 gap-6">
+            <div className="md:col-span-2 flex justify-end">
+  <button
+    onClick={() => setIsEditing(!isEditing)}
+    className="px-4 py-2 rounded-xl bg-[#a9b897] text-white text-xs font-semibold"
+  >
+    {isEditing ? "Cancel Editing" : "Edit Details"}
+  </button>
+</div>
             <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
-              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Contact Details</h3>
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Contact Information</h3>
               <div className="space-y-4 text-sm">
-                <p><strong>Email:</strong> {safeProfile.email || "Not provided"}</p>
-                <p><strong>Phone:</strong> {safeProfile.phone || "Not provided"}</p>
-                <p><strong>Address:</strong> {safeProfile.address || "Not provided"}</p>
-              </div>
+              {isEditing ? (
+  <>
+    <input
+      className="w-full p-3 border border-[#d8d0c2] rounded-xl bg-[#faf9f6]"
+      value={editForm.email}
+      onChange={(e) =>
+        setEditForm({ ...editForm, email: e.target.value })
+      }
+      placeholder="Email Address"
+    />
+
+    <input
+      className="w-full p-3 border border-[#d8d0c2] rounded-xl bg-[#faf9f6]"
+      value={editForm.phone}
+      onChange={(e) =>
+        setEditForm({ ...editForm, phone: e.target.value })
+      }
+      placeholder="Phone Number"
+    />
+
+    <input
+      className="w-full p-3 border border-[#d8d0c2] rounded-xl bg-[#faf9f6]"
+      value={editForm.address}
+      onChange={(e) =>
+        setEditForm({ ...editForm, address: e.target.value })
+      }
+      placeholder="Address"
+    />
+  </>
+) : (
+  <>
+    <p><strong>Email Address:</strong> {safeProfile.email || "Not provided"}</p>
+    <p><strong>Phone Number:</strong> {safeProfile.phone || "Not provided"}</p>
+    <p><strong>Address:</strong> {safeProfile.address || "Not provided"}</p>
+  </>
+)}
+ </div>
             </div>
 
             <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
-              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Business Details</h3>
-              <div className="space-y-4 text-sm">
-                <p><strong>Company:</strong> {safeProfile.company_name || "Not provided"}</p>
-                <p><strong>Role:</strong> {safeProfile.role || "Client"}</p>
-                <p><strong>Mailing List:</strong> {safeProfile.email_list ? "Subscribed" : "Not Subscribed"}</p>
-              </div>
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Business Information</h3>
+              {isEditing ? (
+  <>
+    <input
+      className="w-full p-3 border border-[#d8d0c2] rounded-xl bg-[#faf9f6]"
+      value={editForm.company_name}
+      onChange={(e) =>
+        setEditForm({ ...editForm, company_name: e.target.value })
+      }
+      placeholder="Company Name"
+    />
+
+    <input
+      className="w-full p-3 border border-[#d8d0c2] rounded-xl bg-[#faf9f6]"
+      value={editForm.role}
+      onChange={(e) =>
+        setEditForm({ ...editForm, role: e.target.value })
+      }
+      placeholder="Role"
+    />
+
+    <label className="flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={editForm.email_list}
+        onChange={(e) =>
+          setEditForm({
+            ...editForm,
+            email_list: e.target.checked
+          })
+        }
+      />
+      Subscribed to mailing list
+    </label>
+  </>
+) : (
+  <>
+    <p><strong>Company:</strong> {safeProfile.company_name || "Not provided"}</p>
+    <p><strong>Role:</strong> {safeProfile.role || "Client"}</p>
+    <p><strong>Mailing List:</strong> {safeProfile.email_list ? "Subscribed" : "Not Subscribed"}</p>
+  </>
+)}
             </div>
 
             <div className="md:col-span-2 bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
-              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Company Notes</h3>
-              <p className="text-stone-600 leading-relaxed">
-                {safeProfile.company_details || "No notes have been added yet."}
-              </p>
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Company Information & Notes</h3>
+              {isEditing ? (
+  <textarea
+    className="w-full p-4 border border-[#d8d0c2] rounded-xl bg-[#faf9f6] min-h-[120px]"
+    value={editForm.company_details}
+    onChange={(e) =>
+      setEditForm({
+        ...editForm,
+        company_details: e.target.value
+      })
+    }
+  />
+) : (
+  <p className="text-stone-600 leading-relaxed">
+    {safeProfile.company_details || "No notes have been added yet."}
+  </p>
+)}
+
+{isEditing && (
+  <div className="mt-6 flex justify-end">
+    <button
+      onClick={handleUpdate}
+      disabled={isSaving}
+      className="px-6 py-3 rounded-xl bg-[#a9b897] text-white font-semibold disabled:opacity-50"
+    >
+      {isSaving ? "Saving Changes..." : "Save Changes"}
+    </button>
+  </div>
+)}
             </div>
           </div>
         )}
@@ -474,7 +598,7 @@ export default function AccountProfilePage() {
                     setActiveThread(t);
                     fetchMessages(t.id);
                   }}
-                  className={`block w-full text-left p-3 rounded-xl transition ${activeThread?.id === t.id ? 'bg-stone-900 text-white' : 'hover:bg-stone-100'}`}
+                  className={`block w-full text-left p-3 rounded-xl transition ${activeThread?.id === t.id ? 'bg-[#a9b897] text-white' : 'hover:bg-[#f3f0ea]'}`}
                 >
                   <div>
                     <div className="font-medium truncate">{t.subject}</div>
@@ -499,7 +623,7 @@ export default function AccountProfilePage() {
 
                 <button
                   onClick={() => setShowComposer(v => !v)}
-                  className="px-4 py-2 rounded-xl bg-stone-900 text-white text-xs"
+                  className="px-4 py-2 rounded-xl bg-[#a9b897] text-white text-xs hover:opacity-90 transition"
                 >
                   {showComposer ? "Hide Composer" : "Reply"}
                 </button>
@@ -528,7 +652,7 @@ export default function AccountProfilePage() {
                 <button
                   type="submit"
                   disabled={emailSaving}
-                  className="w-full bg-stone-900 text-white py-3 rounded-xl disabled:opacity-50"
+                  className="w-full bg-[#a9b897] text-white py-3 rounded-xl disabled:opacity-50"
                 >
                   {emailSaving ? "Sending..." : "Send Email"}
                 </button>
@@ -536,6 +660,45 @@ export default function AccountProfilePage() {
               </>
               )}
 
+              <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+  {messages.length === 0 ? (
+    <div className="text-sm text-stone-400 text-center py-8">
+      No messages in this conversation yet.
+    </div>
+  ) : (
+    messages.map((message) => (
+      <div
+        key={message.id}
+        className={`p-4 rounded-2xl border ${
+          message.direction === "outbound"
+            ? "bg-[#a9b897]/10 border-[#a9b897]/20"
+            : "bg-stone-50 border-stone-200"
+        }`}
+      >
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs uppercase tracking-wider text-stone-400">
+            {message.direction === "outbound" ? "Sent" : "Received"}
+          </span>
+          <span className="text-xs text-stone-400">
+            {message.created_at
+              ? format(new Date(message.created_at), "dd MMM yyyy HH:mm")
+              : ""}
+          </span>
+        </div>
+
+        {message.subject && (
+          <div className="font-semibold text-sm mb-2">
+            {message.subject}
+          </div>
+        )}
+
+        <div className="text-sm whitespace-pre-wrap text-stone-700">
+          {message.body}
+        </div>
+      </div>
+    ))
+  )}
+</div>
               <div className="mt-4 pt-4 border-t border-stone-100 text-xs text-stone-400">
                 {messages.length} messages in this conversation
               </div>
@@ -632,7 +795,7 @@ export default function AccountProfilePage() {
                   onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}
                 />
 
-                <button className="px-4 py-2 bg-stone-900 text-white rounded-xl text-xs">
+                <button className="px-4 py-2 bg-[#a9b897] text-white rounded-xl text-xs hover:opacity-90 transition">
                   Add Note
                 </button>
               </form>
@@ -662,23 +825,23 @@ export default function AccountProfilePage() {
                       <span>{list.name}</span>
                       <button
                         onClick={async () => {
-                          if (isMember) {
-                            await supabase
-                              .from("profile_subscriber_lists")
-                              .delete()
-                              .eq("profile_id", profileId)
-                              .eq("list_id", list.id);
-                          } else {
-                            await supabase
-                              .from("profile_subscriber_lists")
-                              .insert({
-                                profile_id: profileId,
-                                list_id: list.id
-                              });
-                          }
+  if (isMember) {
+    await supabase
+      .from("profile_subscriber_lists")
+      .delete()
+      .eq("profile_id", profileId)
+      .eq("list_id", list.id);
+  } else {
+    await supabase
+      .from("profile_subscriber_lists")
+      .insert({
+        profile_id: profileId,
+        list_id: list.id
+      });
+  }
 
-                          fetchMembership();
-                        }}
+  fetchMembership();
+}}
                         className="text-xs px-3 py-1 rounded-lg border"
                       >
                         {isMember ? "Remove" : "Add"}

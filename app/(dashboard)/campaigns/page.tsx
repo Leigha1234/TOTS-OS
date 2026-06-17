@@ -10,24 +10,133 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function CampaignsPage() {
+function useCampaigns(supabase: any) {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [lists, setLists] = useState<any[]>([]);
   const [companyName, setCompanyName] = useState("Your Company");
   const [organisationId, setOrganisationId] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [showListModal, setShowListModal] = useState(false);
-  const [newListName, setNewListName] = useState("");
-  
-  // Selected campaign state for viewing specific details
+
+  // Get org context
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: team } = await supabase
+        .from("teams")
+        .select("company_name, name, organisation_id")
+        .single();
+
+      if (team) {
+        setCompanyName(team.company_name || team.name || "Your Company");
+        setOrganisationId(team.organisation_id || null);
+      }
+    };
+
+    init();
+  }, [supabase]);
+
+  // Load data once org is ready
+  useEffect(() => {
+    if (!organisationId) return;
+
+    const load = async () => {
+      const { data: camps } = await supabase
+        .from("campaigns")
+        .select("*, subscriber_lists(name)")
+        .eq("organisation_id", organisationId);
+
+      const { data: listRes } = await supabase
+        .from("subscriber_lists")
+        .select("*")
+        .eq("organisation_id", organisationId);
+
+      setCampaigns(camps || []);
+      setLists(listRes || []);
+    };
+
+    load();
+  }, [organisationId, supabase]);
+
+  // Create list
+  const createList = async (name: string) => {
+    if (!organisationId || !name) return;
+
+    await supabase.from("subscriber_lists").insert({
+      name,
+      organisation_id: organisationId
+    });
+
+    // refresh
+    const { data } = await supabase
+      .from("subscriber_lists")
+      .select("*")
+      .eq("organisation_id", organisationId);
+
+    setLists(data || []);
+  };
+
+  // Schedule campaign
+  const scheduleCampaign = async (form: any) => {
+    if (!organisationId) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    await supabase.from("campaigns").insert({
+      ...form,
+      user_id: user?.id,
+      organisation_id: organisationId
+    });
+
+    // refresh
+    const { data: camps } = await supabase
+      .from("campaigns")
+      .select("*, subscriber_lists(name)")
+      .eq("organisation_id", organisationId);
+
+    setCampaigns(camps || []);
+  };
+
+  return {
+    campaigns,
+    lists,
+    companyName,
+    organisationId,
+    createList,
+    scheduleCampaign
+  };
+}
+
+export default function CampaignsPage() {
+  const supabase = useMemo(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ), []);
+
+  const {
+    campaigns,
+    lists,
+    companyName,
+    organisationId,
+    createList,
+    scheduleCampaign
+  } = useCampaigns(supabase);
+
+  // UI STATE
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  
+
+  const [showModal, setShowModal] = useState(false);
+  const [showListModal, setShowListModal] = useState(false);
+
   const [step, setStep] = useState<'editor' | 'schedule'>('editor');
+
+  const [newListName, setNewListName] = useState("");
+
   const [showClarityPrompt, setShowClarityPrompt] = useState(false);
   const [clarityTopic, setClarityTopic] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  
+
   const [form, setForm] = useState({
     title: "",
     subject: "",
@@ -36,96 +145,20 @@ export default function CampaignsPage() {
     content: ""
   });
 
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
-
-  useEffect(() => {
-    fetchTeamInfo();
-  }, [supabase]);
-
-  useEffect(() => {
-    if (!organisationId) return;
-    loadData();
-  }, [organisationId, supabase]);
-
-  async function loadData() {
-    const { data: camps } = await supabase
-      .from("campaigns")
-      .select("*, subscriber_lists(name)")
-      .eq("organisation_id", organisationId);
-
-    const { data: listRes } = await supabase
-      .from("subscriber_lists")
-      .select("*")
-      .eq("organisation_id", organisationId);
-    setCampaigns(camps || []);
-    setLists(listRes || []);
-  }
-
-  async function fetchTeamInfo() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    
-    const { data: team } = await supabase
-      .from("teams")
-      .select("company_name, name, organisation_id")
-      .single();
-    if (team) {
-      setCompanyName(team.company_name || team.name || "Your Company");
-      setOrganisationId(team.organisation_id || null);
-    }
-  }
-
-  const handleCreateList = async () => {
-    if (!newListName) return;
-    if (!organisationId) {
-      console.error("Missing organisationId - cannot create list");
-      return;
-    }
-    const { error } = await supabase.from("subscriber_lists").insert([{
-      name: newListName,
-      organisation_id: organisationId
-    }]);
-    if (!error) {
-      setNewListName("");
-      setShowListModal(false);
-      loadData();
-    }
-  };
-
+  // AI generation helper
   const executeGeneration = () => {
     if (!clarityTopic) return;
     setIsGenerating(true);
+
     setTimeout(() => {
-      setForm(prev => ({ 
-        ...prev, 
+      setForm(prev => ({
+        ...prev,
         subject: `Update: ${clarityTopic.split(' ').slice(0, 3).join(' ')}`,
         content: `Dear Team,\n\nFollowing up on our campaign goals regarding ${clarityTopic}.`
       }));
       setIsGenerating(false);
       setShowClarityPrompt(false);
     }, 1500);
-  };
-
-  const handleSchedule = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!organisationId) {
-      console.error("Missing organisationId - cannot create campaign");
-      return;
-    }
-    const { error } = await supabase.from("campaigns").insert([{
-      ...form,
-      user_id: user?.id,
-      organisation_id: organisationId
-    }]);
-    if (!error) {
-      setShowModal(false);
-      // Reset form variables
-      setForm({ title: "", subject: "", list_id: "", scheduled_for: "", content: "" });
-      loadData();
-    }
   };
 
   const formatScheduledDate = (dateString: string) => {
@@ -139,7 +172,7 @@ export default function CampaignsPage() {
         hour: "2-digit",
         minute: "2-digit"
       });
-    } catch (e) {
+    } catch {
       return dateString;
     }
   };
@@ -154,7 +187,10 @@ export default function CampaignsPage() {
           <h1 className="text-5xl md:text-7xl font-serif italic text-stone-800 tracking-tighter">Campaigns</h1>
         </div>
         <button 
-          onClick={() => { setStep('editor'); setShowModal(true); }}
+          onClick={() => {
+            setStep('editor');
+            setShowModal(true);
+          }}
           className="bg-stone-900 text-[var(--brand-primary)] w-full md:w-auto px-8 py-4 md:py-5 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 shadow-xl hover:brightness-110 transition-all"
         >
           <Plus size={18} /> Create Campaign
@@ -314,7 +350,7 @@ export default function CampaignsPage() {
                     className="w-full p-4 bg-stone-50 rounded-2xl border border-stone-100 mb-6 outline-none focus:border-stone-900"
                 />
                 <div className="flex gap-3">
-                    <button onClick={handleCreateList} className="w-full py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Create List</button>
+                    <button onClick={() => createList(newListName)} className="w-full py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Create List</button>
                 </div>
             </motion.div>
           </div>
@@ -427,7 +463,11 @@ export default function CampaignsPage() {
                          <label className="text-[9px] font-black uppercase text-stone-400 mb-3 block ml-1">Target Campaign List</label>
                          <select value={form.list_id} onChange={e => setForm({...form, list_id: e.target.value})} className="w-full p-5 bg-stone-50 border border-stone-200 rounded-2xl text-xs outline-none focus:border-stone-900">
                            <option value="">Select target audience list...</option>
-                           {lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                           {lists?.length > 0 ? (
+                             lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)
+                           ) : (
+                             <option value="" disabled>No lists available</option>
+                           )}
                          </select>
                        </div>
                        <div>
@@ -438,7 +478,7 @@ export default function CampaignsPage() {
                      <div className="flex justify-center gap-4">
                        <button onClick={() => setStep('editor')} className="px-10 py-5 rounded-2xl bg-stone-100 text-stone-500 font-black text-[10px] uppercase tracking-widest hover:bg-stone-200 transition-all">Return to Editor</button>
                        <button 
-                        onClick={handleSchedule} 
+                        onClick={() => scheduleCampaign(form)} 
                         className="px-12 py-5 rounded-2xl bg-stone-900 text-[var(--brand-primary)] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-3 hover:brightness-110"
                        >
                          <CalendarIcon size={16}/>Schedule

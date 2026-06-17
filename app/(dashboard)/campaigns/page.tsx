@@ -86,17 +86,34 @@ function useCampaigns(supabase: any) {
 
   // Schedule campaign
   const scheduleCampaign = async (form: any) => {
-    if (!organisationId) return;
+    if (!organisationId) {
+      console.error("Missing organisationId");
+      return;
+    }
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    await supabase.from("campaigns").insert({
+    const payload = {
       ...form,
       user_id: user?.id,
       organisation_id: organisationId
-    });
+    };
 
-    // refresh
+    console.log("Scheduling payload:", payload);
+
+    const { data, error } = await supabase
+      .from("campaigns")
+      .insert(payload)
+      .select();
+
+    if (error) {
+      console.error("Schedule campaign error:", error);
+      alert(error.message);
+      return;
+    }
+
+    console.log("Campaign created:", data);
+
     const { data: camps } = await supabase
       .from("campaigns")
       .select("*, subscriber_lists(name)")
@@ -500,7 +517,16 @@ export default function CampaignsPage() {
                      <div className="flex justify-center gap-4">
                        <button onClick={() => setStep('editor')} className="px-10 py-5 rounded-2xl bg-stone-100 text-stone-500 font-black text-[10px] uppercase tracking-widest hover:bg-stone-200 transition-all">Return to Editor</button>
                        <button 
-                        onClick={() => scheduleCampaign(form)} 
+                        onClick={async () => {
+                          if (!form.title || !form.subject || !form.list_id) {
+                            alert("Please fill in title, subject and target list.");
+                            return;
+                          }
+
+                          await scheduleCampaign(form);
+                          setShowModal(false);
+                          setStep('editor');
+                        }}
                         className="px-12 py-5 rounded-2xl bg-stone-900 text-[var(--brand-primary)] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-3 hover:brightness-110"
                        >
                          <CalendarIcon size={16}/>Schedule

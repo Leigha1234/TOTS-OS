@@ -143,12 +143,18 @@ export default function AccountProfilePage() {
   };
 
   const fetchSubscriberLists = async () => {
+    if (!organisationId) return;
+
     const { data } = await supabase
       .from("subscriber_lists")
-      .select("id, name");
+      .select("id, name")
+      .eq("organisation_id", organisationId);
 
     setSubscriberLists(data || []);
-    if (data?.length) setSelectedListId(data[0].id);
+
+    if (data?.length && !selectedListId) {
+      setSelectedListId(data[0].id);
+    }
   };
 
   const fetchNotes = async () => {
@@ -162,10 +168,13 @@ export default function AccountProfilePage() {
   };
 
   const fetchMembership = async () => {
+    if (!organisationId) return;
+
     const { data } = await supabase
       .from("profile_subscriber_lists")
       .select("*")
-      .eq("profile_id", profileId);
+      .eq("profile_id", profileId)
+      .eq("organisation_id", organisationId);
 
     setMembership(data || []);
   };
@@ -813,11 +822,11 @@ export default function AccountProfilePage() {
             {/* CAMPAIGN MEMBERSHIP */}
             <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
-                Campaign Membership
+                Mailing List Membership
               </h3>
 
               <div className="space-y-2">
-                {subscriberLists.map(list => {
+                {(subscriberLists || []).map(list => {
                   const isMember = membership.some(m => m.list_id === list.id);
 
                   return (
@@ -825,22 +834,26 @@ export default function AccountProfilePage() {
                       <span>{list.name}</span>
                       <button
                         onClick={async () => {
+  if (!organisationId) return;
+
   if (isMember) {
     await supabase
       .from("profile_subscriber_lists")
       .delete()
       .eq("profile_id", profileId)
-      .eq("list_id", list.id);
+      .eq("list_id", list.id)
+      .eq("organisation_id", organisationId);
   } else {
     await supabase
       .from("profile_subscriber_lists")
       .insert({
         profile_id: profileId,
-        list_id: list.id
+        list_id: list.id,
+        organisation_id: organisationId
       });
   }
 
-  fetchMembership();
+  await fetchMembership();
 }}
                         className="text-xs px-3 py-1 rounded-lg border"
                       >

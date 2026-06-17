@@ -105,6 +105,7 @@ function useCampaigns(supabase: any) {
     setCampaigns(camps || []);
   };
 
+  console.log("Hook lists state:", lists);
   return {
     campaigns,
     lists: Array.isArray(lists) ? lists : [],
@@ -129,6 +130,7 @@ export default function CampaignsPage() {
     createList,
     scheduleCampaign
   } = useCampaigns(supabase);
+  console.log("Component lists prop:", lists);
 
   // UI STATE
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
@@ -471,6 +473,8 @@ export default function CampaignsPage() {
                          <label className="text-[9px] font-black uppercase text-stone-400 mb-3 block ml-1">Target Campaign List</label>
                          <p className="text-[10px] text-stone-500 mb-2">
                            Available lists: {Array.isArray(lists) ? lists.length : 0}
+                           <br />
+                           First list: {Array.isArray(lists) && lists[0] ? lists[0].name : "none"}
                          </p>
                          <select value={form.list_id} onChange={e => setForm({...form, list_id: e.target.value})} className="w-full p-5 bg-stone-50 border border-stone-200 rounded-2xl text-xs outline-none focus:border-stone-900">
                            <option value="">Select target audience list...</option>

@@ -22,14 +22,18 @@ function useCampaigns(supabase: any) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: team } = await supabase
-  .from("team")
-  .select("id, company_name, name")
-  .maybeSingle();
+      const { data: team, error: teamError } = await supabase
+        .from("team")
+        .select("organisation_id, company_name, name")
+        .limit(1)
+        .maybeSingle();
 
-      if (team) {
+      console.log("Team record:", team);
+      console.log("Team error:", teamError);
+
+      if (team?.organisation_id) {
         setCompanyName(team.company_name || team.name || "Your Company");
-        setOrganisationId(team.id || null);
+        setOrganisationId(team.organisation_id);
       }
     };
 
@@ -41,18 +45,22 @@ function useCampaigns(supabase: any) {
     if (!organisationId) return;
 
     const load = async () => {
+      console.log("Loading campaigns for organisation:", organisationId);
       const { data: camps } = await supabase
         .from("campaigns")
         .select("*, subscriber_lists(name)")
         .eq("organisation_id", organisationId);
 
-      const { data: listRes } = await supabase
+      const { data: listRes, error: listError } = await supabase
         .from("subscriber_lists")
         .select("*")
         .eq("organisation_id", organisationId);
 
+      console.log("Subscriber lists:", listRes);
+      console.log("Subscriber list error:", listError);
+
       setCampaigns(camps || []);
-      setLists(listRes || []);
+      setLists(Array.isArray(listRes) ? listRes : []);
     };
 
     load();

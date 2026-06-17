@@ -15,6 +15,7 @@ function useCampaigns(supabase: any) {
   const [lists, setLists] = useState<any[]>([]);
   const [companyName, setCompanyName] = useState("Your Company");
   const [organisationId, setOrganisationId] = useState<string | null>(null);
+  const [subscriberCounts, setSubscriberCounts] = useState<Record<string, number>>({});
 
   // Get org context
   useEffect(() => {
@@ -61,10 +62,28 @@ function useCampaigns(supabase: any) {
 
       setCampaigns(camps || []);
       setLists(Array.isArray(listRes) ? listRes : []);
+      await fetchSubscriberCounts(organisationId);
     };
 
     load();
   }, [organisationId, supabase]);
+
+  // Fetch subscriber counts
+  const fetchSubscriberCounts = async (orgId: string) => {
+    const { data, error } = await supabase
+      .from("profile_subscriber_lists")
+      .select("list_id")
+      .eq("organisation_id", orgId);
+
+    if (error || !data) return;
+
+    const counts: Record<string, number> = {};
+    data.forEach((row: any) => {
+      counts[row.list_id] = (counts[row.list_id] || 0) + 1;
+    });
+
+    setSubscriberCounts(counts);
+  };
 
   // Create list
   const createList = async (name: string) => {
@@ -122,6 +141,81 @@ function useCampaigns(supabase: any) {
     setCampaigns(camps || []);
   };
 
+  // Load list subscribers
+  const loadListSubscribers = async (listId: string) => {
+    if (!listId || !organisationId) return;
+
+    const { data, error } = await supabase
+      .from("profile_subscriber_lists")
+      .select("profile_id, profiles(*)")
+      .eq("list_id", listId);
+
+    if (error) {
+      console.error("Load subscribers error:", error);
+      return [];
+    }
+
+    return data || [];
+  };
+
+  // Update campaign
+  const updateCampaign = async (form: any, id: string) => {
+    const payload = {
+      ...form
+    };
+
+    const { data, error } = await supabase
+      .from("campaigns")
+      .update(payload)
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      console.error("Update campaign error:", error);
+      alert(error.message);
+      return;
+    }
+
+    const { data: camps } = await supabase
+      .from("campaigns")
+      .select("*, subscriber_lists(name)")
+      .eq("organisation_id", organisationId);
+
+    setCampaigns(camps || []);
+  };
+
+  // Real-time updates for campaigns and subscriber lists
+  useEffect(() => {
+    if (!organisationId) return;
+
+    const channel = supabase
+      .channel("realtime-campaigns-lists")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profile_subscriber_lists" },
+        () => {
+          fetchSubscriberCounts(organisationId);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "campaigns" },
+        () => {
+          // refresh campaigns for live status updates
+          supabase
+            .from("campaigns")
+            .select("*, subscriber_lists(name)")
+            .eq("organisation_id", organisationId)
+            .then(({ data }) => setCampaigns(data || []));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [organisationId, supabase]);
+
   console.log("Hook lists state:", lists);
   return {
     campaigns,
@@ -129,7 +223,10 @@ function useCampaigns(supabase: any) {
     companyName,
     organisationId,
     createList,
-    scheduleCampaign
+    scheduleCampaign,
+    loadListSubscribers,
+    updateCampaign,
+    subscriberCounts,
   };
 }
 
@@ -145,7 +242,10 @@ export default function CampaignsPage() {
     companyName,
     organisationId,
     createList,
-    scheduleCampaign
+    scheduleCampaign,
+    loadListSubscribers,
+    updateCampaign,
+    subscriberCounts,
   } = useCampaigns(supabase);
   console.log("Component lists prop:", lists);
 
@@ -156,6 +256,10 @@ export default function CampaignsPage() {
   const [showModal, setShowModal] = useState(false);
   const [showListModal, setShowListModal] = useState(false);
 
+  const [showListDetailModal, setShowListDetailModal] = useState(false);
+  const [selectedList, setSelectedList] = useState<any | null>(null);
+  const [listSubscribers, setListSubscribers] = useState<any[]>([]);
+
   const [step, setStep] = useState<'editor' | 'schedule'>('editor');
 
   const [newListName, setNewListName] = useState("");
@@ -164,6 +268,8 @@ export default function CampaignsPage() {
   const [clarityTopic, setClarityTopic] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+
   const [form, setForm] = useState({
     title: "",
     subject: "",
@@ -171,6 +277,7 @@ export default function CampaignsPage() {
     scheduled_for: "",
     content: ""
   });
+  const [showEmailPreview, setShowEmailPreview] = useState(false);
 
   // AI generation helper
   const executeGeneration = () => {
@@ -215,16 +322,17 @@ export default function CampaignsPage() {
         </div>
         <button 
           onClick={() => {
-  setStep('editor');
-  setForm({
-    title: "",
-    subject: "",
-    list_id: "",
-    scheduled_for: "",
-    content: ""
-  });
-  setShowModal(true);
-}}
+            setEditingCampaignId(null);
+            setStep('editor');
+            setForm({
+              title: "",
+              subject: "",
+              list_id: "",
+              scheduled_for: "",
+              content: ""
+            });
+            setShowModal(true);
+          }}
           className="bg-stone-900 text-[var(--brand-primary)] w-full md:w-auto px-8 py-4 md:py-5 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 shadow-xl hover:brightness-110 transition-all"
         >
           <Plus size={18} /> Create Campaign
@@ -266,7 +374,7 @@ export default function CampaignsPage() {
                   </div>
                 </div>
                 <div className="text-[9px] font-black uppercase tracking-widest px-6 py-2 bg-stone-50 rounded-full text-stone-400 border border-stone-100 self-start md:self-auto text-center">
-                  Queued
+                  {c.status ? c.status : (new Date(c.scheduled_for) > new Date() ? "Scheduled" : "Draft")}
                 </div>
               </div>
             ))
@@ -282,8 +390,18 @@ export default function CampaignsPage() {
             </div>
             <div className="space-y-6">
               {lists.map(l => (
-                <div key={l.id} className="flex justify-between items-center border-b border-stone-200 pb-4 text-[10px] font-black tracking-widest uppercase text-stone-600">
-                  {l.name}
+                <div 
+                  key={l.id} 
+                  onClick={async () => {
+                    setSelectedList(l);
+                    setShowListDetailModal(true);
+
+                    const res = await loadListSubscribers(l.id);
+                    setListSubscribers(res);
+                  }}
+                  className="flex justify-between items-center border-b border-stone-200 pb-4 text-[10px] font-black tracking-widest uppercase text-stone-600 cursor-pointer hover:text-stone-900"
+                >
+                  {l.name} ({subscriberCounts?.[l.id] || 0})
                   <Hash size={10} className="text-stone-300" />
                 </div>
               ))}
@@ -351,10 +469,41 @@ export default function CampaignsPage() {
               </div>
 
               {/* VIEW FOOTER */}
-              <div className="p-6 bg-stone-50 border-t border-stone-200 text-center flex justify-end">
-                <button 
-                  onClick={() => { setShowViewModal(false); setSelectedCampaign(null); }}
-                  className="px-8 py-4 bg-stone-900 text-[var(--brand-primary)] rounded-xl font-black text-[10px] uppercase tracking-widest"
+              <div className="p-6 bg-stone-50 border-t border-stone-200 text-center flex justify-between">
+                <button
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setSelectedCampaign(null);
+
+                    setEditingCampaignId(selectedCampaign.id);
+                    setForm({
+                      title: selectedCampaign.title || "",
+                      subject: selectedCampaign.subject || "",
+                      list_id: selectedCampaign.list_id || "",
+                      scheduled_for: selectedCampaign.scheduled_for || "",
+                      content: selectedCampaign.content || ""
+                    });
+
+                    setShowModal(true);
+                  }}
+                  className="px-8 py-4 bg-white border border-stone-200 text-stone-700 rounded-xl font-black text-[10px] uppercase"
+                >
+                  Edit Campaign
+                </button>
+
+                <button
+                  onClick={() => setShowEmailPreview(true)}
+                  className="px-8 py-4 bg-stone-100 border border-stone-200 text-stone-700 rounded-xl font-black text-[10px] uppercase"
+                >
+                  Preview Email
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setSelectedCampaign(null);
+                  }}
+                  className="px-8 py-4 bg-stone-900 text-[var(--brand-primary)] rounded-xl font-black text-[10px] uppercase"
                 >
                   Close Document
                 </button>
@@ -523,7 +672,13 @@ export default function CampaignsPage() {
                             return;
                           }
 
-                          await scheduleCampaign(form);
+                          if (editingCampaignId) {
+                            await updateCampaign(form, editingCampaignId);
+                          } else {
+                            await scheduleCampaign(form);
+                          }
+
+                          setEditingCampaignId(null);
                           setShowModal(false);
                           setStep('editor');
                         }}
@@ -534,6 +689,81 @@ export default function CampaignsPage() {
                      </div>
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* EMAIL PREVIEW MODAL */}
+      {showEmailPreview && selectedCampaign && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-stone-900/70 p-6">
+          <div className="bg-white max-w-3xl w-full rounded-[3rem] p-10 border border-stone-200 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-serif italic">Email Preview</h2>
+              <button onClick={() => setShowEmailPreview(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="border border-stone-100 rounded-2xl p-8 bg-stone-50">
+              <p className="text-xs uppercase font-black text-stone-400 mb-2">Subject</p>
+              <p className="font-bold mb-6">{selectedCampaign.subject}</p>
+
+              <p className="text-xs uppercase font-black text-stone-400 mb-2">Body</p>
+              <div className="whitespace-pre-wrap font-serif text-stone-700 leading-relaxed">
+                {selectedCampaign.content}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LIST DETAIL MODAL */}
+      <AnimatePresence>
+        {showListDetailModal && selectedList && (
+          <div className="fixed inset-0 z-[210] flex items-center justify-center p-6 bg-stone-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-2xl rounded-[3rem] p-10 border border-stone-200 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-serif italic">{selectedList.name}</h2>
+                <button onClick={() => setShowListDetailModal(false)}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className="text-[10px] uppercase font-black tracking-widest text-stone-400 mb-6">
+                Active Subscribers ({listSubscribers.length})
+              </p>
+
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {listSubscribers.length === 0 && (
+                  <p className="text-stone-400 text-sm italic">No subscribers found.</p>
+                )}
+
+                {listSubscribers.map((s: any) => (
+                  <div key={s.profile_id} className="p-4 bg-stone-50 rounded-xl border border-stone-100">
+                    <p className="font-bold text-sm text-stone-800">
+                      {s.profiles?.name || "Unnamed User"}
+                    </p>
+                    <p className="text-xs text-stone-500">
+                      {s.profiles?.email || "No email"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 text-right">
+                <button
+                  onClick={() => setShowListDetailModal(false)}
+                  className="px-6 py-3 bg-stone-900 text-[var(--brand-primary)] rounded-xl text-[10px] font-black uppercase"
+                >
+                  Close
+                </button>
               </div>
             </motion.div>
           </div>

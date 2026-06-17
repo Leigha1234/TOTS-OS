@@ -23,14 +23,13 @@ function useCampaigns(supabase: any) {
       if (!user) return;
 
       const { data: team } = await supabase
-        .from("teams")
-        .select("company_name, name, organisation_id")
-        .limit(1)
-.maybeSingle();
+  .from("team")
+  .select("id, company_name, name")
+  .maybeSingle();
 
       if (team) {
         setCompanyName(team.company_name || team.name || "Your Company");
-        setOrganisationId(team.organisation_id || null);
+        setOrganisationId(team.id || null);
       }
     };
 

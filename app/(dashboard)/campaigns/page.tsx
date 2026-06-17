@@ -14,6 +14,7 @@ export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [lists, setLists] = useState<any[]>([]);
   const [companyName, setCompanyName] = useState("Your Company");
+  const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showListModal, setShowListModal] = useState(false);
   const [newListName, setNewListName] = useState("");
@@ -41,13 +42,24 @@ export default function CampaignsPage() {
   ), []);
 
   useEffect(() => {
-    loadData();
     fetchTeamInfo();
   }, [supabase]);
 
+  useEffect(() => {
+    if (!organisationId) return;
+    loadData();
+  }, [organisationId, supabase]);
+
   async function loadData() {
-    const { data: camps } = await supabase.from("campaigns").select("*, subscriber_lists(name)");
-    const { data: listRes } = await supabase.from("subscriber_lists").select("*");
+    const { data: camps } = await supabase
+      .from("campaigns")
+      .select("*, subscriber_lists(name)")
+      .eq("organisation_id", organisationId);
+
+    const { data: listRes } = await supabase
+      .from("subscriber_lists")
+      .select("*")
+      .eq("organisation_id", organisationId);
     setCampaigns(camps || []);
     setLists(listRes || []);
   }
@@ -56,15 +68,26 @@ export default function CampaignsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     
-    const { data: team } = await supabase.from("teams").select("company_name, name").single();
+    const { data: team } = await supabase
+      .from("teams")
+      .select("company_name, name, organisation_id")
+      .single();
     if (team) {
       setCompanyName(team.company_name || team.name || "Your Company");
+      setOrganisationId(team.organisation_id || null);
     }
   }
 
   const handleCreateList = async () => {
     if (!newListName) return;
-    const { error } = await supabase.from("subscriber_lists").insert([{ name: newListName }]);
+    if (!organisationId) {
+      console.error("Missing organisationId - cannot create list");
+      return;
+    }
+    const { error } = await supabase.from("subscriber_lists").insert([{
+      name: newListName,
+      organisation_id: organisationId
+    }]);
     if (!error) {
       setNewListName("");
       setShowListModal(false);
@@ -88,9 +111,14 @@ export default function CampaignsPage() {
 
   const handleSchedule = async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    if (!organisationId) {
+      console.error("Missing organisationId - cannot create campaign");
+      return;
+    }
     const { error } = await supabase.from("campaigns").insert([{
       ...form,
-      user_id: user?.id
+      user_id: user?.id,
+      organisation_id: organisationId
     }]);
     if (!error) {
       setShowModal(false);

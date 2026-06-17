@@ -107,7 +107,7 @@ function useCampaigns(supabase: any) {
 
   return {
     campaigns,
-    lists,
+    lists: Array.isArray(lists) ? lists : [],
     companyName,
     organisationId,
     createList,
@@ -469,13 +469,16 @@ export default function CampaignsPage() {
                      <div className="space-y-8 text-left mb-12">
                        <div>
                          <label className="text-[9px] font-black uppercase text-stone-400 mb-3 block ml-1">Target Campaign List</label>
+                         <p className="text-[10px] text-stone-500 mb-2">
+                           Available lists: {Array.isArray(lists) ? lists.length : 0}
+                         </p>
                          <select value={form.list_id} onChange={e => setForm({...form, list_id: e.target.value})} className="w-full p-5 bg-stone-50 border border-stone-200 rounded-2xl text-xs outline-none focus:border-stone-900">
                            <option value="">Select target audience list...</option>
-                           {lists?.length > 0 ? (
-                             lists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)
-                           ) : (
-                             <option value="" disabled>No lists available</option>
-                           )}
+                           {Array.isArray(lists) && lists.map((l) => (
+                             <option key={l.id} value={l.id}>
+                               {l.name}
+                             </option>
+                           ))}
                          </select>
                        </div>
                        <div>

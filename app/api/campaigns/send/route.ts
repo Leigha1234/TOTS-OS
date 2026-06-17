@@ -1,5 +1,3 @@
-
-
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
@@ -39,28 +37,41 @@ export async function POST(req: Request) {
       );
     }
 
-    const { data: campaign, error: campaignError } = await supabaseAdmin
-      .from('campaigns')
-      .select('*')
-      .eq('id', campaignId)
-      .single();
+    // 1. Fetch campaign AND verify organisation
+const { data: campaign, error: campaignError } = await supabaseAdmin
+  .from('campaigns')
+  .select('*, organisation_id, list_id')
+  .eq('id', campaignId)
+  .single();
 
-    if (campaignError || !campaign) {
-      return NextResponse.json(
-        { error: 'Campaign not found' },
-        { status: 404 }
-      );
-    }
+if (campaignError || !campaign) {
+  return NextResponse.json(
+    { error: 'Campaign not found' },
+    { status: 404 }
+  );
+}
 
-    const { data: subscribers, error: subscriberError } = await supabaseAdmin
-      .from('subscribers')
-      .select('*')
-      .eq('list_id', campaign.list_id)
-      .eq('subscribed', true);
+if (!campaign.organisation_id) {
+  return NextResponse.json(
+    { error: 'Campaign missing organisation_id. Please backfill campaign data.' },
+    { status: 400 }
+  );
+}
 
-    if (subscriberError) {
-      throw subscriberError;
-    }
+// 2. Fetch subscribers AND verify organisation
+const { data: subscribers, error: subscriberError } = await supabaseAdmin
+  .from('subscribers')
+  .select('*')
+  .eq('list_id', campaign.list_id)
+  .eq('organisation_id', campaign.organisation_id || '')
+  .eq('subscribed', true);
+
+if (subscriberError) {
+  return NextResponse.json(
+    { error: 'Failed to fetch subscribers' },
+    { status: 500 }
+  );
+}
 
     if (!subscribers?.length) {
       return NextResponse.json(

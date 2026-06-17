@@ -25,7 +25,8 @@ function useCampaigns(supabase: any) {
       const { data: team } = await supabase
         .from("teams")
         .select("company_name, name, organisation_id")
-        .single();
+        .limit(1)
+.maybeSingle();
 
       if (team) {
         setCompanyName(team.company_name || team.name || "Your Company");

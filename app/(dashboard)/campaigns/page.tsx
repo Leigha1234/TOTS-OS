@@ -198,9 +198,16 @@ export default function CampaignsPage() {
         </div>
         <button 
           onClick={() => {
-            setStep('editor');
-            setShowModal(true);
-          }}
+  setStep('editor');
+  setForm({
+    title: "",
+    subject: "",
+    list_id: "",
+    scheduled_for: "",
+    content: ""
+  });
+  setShowModal(true);
+}}
           className="bg-stone-900 text-[var(--brand-primary)] w-full md:w-auto px-8 py-4 md:py-5 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 shadow-xl hover:brightness-110 transition-all"
         >
           <Plus size={18} /> Create Campaign

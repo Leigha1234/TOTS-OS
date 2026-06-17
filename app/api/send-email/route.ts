@@ -30,13 +30,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // 📧 Send email
-    const data = await resend.emails.send({
-      from: "Your App <onboarding@resend.dev>",
-      to: [to], // safer format (Resend supports array)
-      subject,
-      html: `<p>${body}</p>`,
-    });
+   const data = await resend.emails.send({
+  from: "hello@tots-os.co.uk", // Change this to your verified domain email
+  to: [to],
+  subject,
+  html: `<p>${body}</p>`,
+});
 
     return Response.json({
       success: true,

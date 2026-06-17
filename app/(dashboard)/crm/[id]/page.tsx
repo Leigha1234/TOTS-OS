@@ -51,11 +51,27 @@ export default function AccountProfilePage() {
   const [emailSaving, setEmailSaving] = useState(false);
 
   const [subscriberLists, setSubscriberLists] = useState<any[]>([]);
+  const [profileLists, setProfileLists] = useState<any[]>([]);
+  const fetchProfileLists = async () => {
+    if (!profileId) return;
+
+    const { data, error } = await supabase
+      .from("profile_subscriber_lists")
+      .select("*")
+      .eq("profile_id", profileId);
+
+    if (error) {
+      console.error("Profile subscriber lists error:", error);
+      return;
+    }
+
+    setProfileLists(data || []);
+  };
   const [selectedListId, setSelectedListId] = useState("");
 
   const [notes, setNotes] = useState<any[]>([]);
   const [noteForm, setNoteForm] = useState({ type: "internal", content: "" });
-  const [membership, setMembership] = useState<any[]>([]);
+
 
   const safeProfile = profile ?? {};
 
@@ -158,36 +174,38 @@ export default function AccountProfilePage() {
   };
 
   const fetchNotes = async () => {
-    const { data } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("profile_id", profileId)
-      .order("created_at", { ascending: false });
+    if (!profileId) return;
 
-    setNotes(data || []);
+    try {
+      const { data, error } = await supabase
+        .from("notes")
+        .select("*")
+        .eq("profile_id", profileId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Notes fetch error:", error);
+        setNotes([]);
+        return;
+      }
+
+      setNotes(data || []);
+    } catch (err) {
+      console.error("Notes fetch exception:", err);
+      setNotes([]);
+    }
   };
 
-  const fetchMembership = async () => {
-    if (!organisationId) return;
-
-    const { data } = await supabase
-      .from("profile_subscriber_lists")
-      .select("*")
-      .eq("profile_id", profileId)
-      .eq("organisation_id", organisationId);
-
-    setMembership(data || []);
-  };
 
   /* ---------------- INIT ---------------- */
   useEffect(() => {
-    if (profileId && organisationId) {
+    if (profileId) {
       fetchProfile();
       fetchTasks();
       fetchThreads();
       fetchSubscriberLists();
       fetchNotes();
-      fetchMembership();
+      fetchProfileLists();
     }
   }, [profileId, organisationId]);
 
@@ -827,35 +845,48 @@ export default function AccountProfilePage() {
 
               <div className="space-y-2">
                 {(subscriberLists || []).map(list => {
-                  const isMember = membership.some(m => m.list_id === list.id);
+                  const isMember = profileLists.some(
+                    (x: any) => x.subscriber_list_id === list.id
+                  );
 
                   return (
                     <div key={list.id} className="flex justify-between items-center p-3 border rounded-xl">
                       <span>{list.name}</span>
+
                       <button
-                        onClick={async () => {
-  if (!organisationId) return;
+                        disabled={!organisationId}
+                        onClick={
+                          async () => {
+                            if (!organisationId || !profileId) return;
 
-  if (isMember) {
-    await supabase
-      .from("profile_subscriber_lists")
-      .delete()
-      .eq("profile_id", profileId)
-      .eq("list_id", list.id)
-      .eq("organisation_id", organisationId);
-  } else {
-    await supabase
-      .from("profile_subscriber_lists")
-      .insert({
-        profile_id: profileId,
-        list_id: list.id,
-        organisation_id: organisationId
-      });
-  }
+                            try {
+                              if (isMember) {
+                                const { error } = await supabase
+                                  .from("profile_subscriber_lists")
+                                  .delete()
+                                  .eq("profile_id", profileId)
+                                  .eq("subscriber_list_id", list.id);
 
-  await fetchMembership();
-}}
-                        className="text-xs px-3 py-1 rounded-lg border"
+                                if (error) console.error("Remove list error:", error);
+                              } else {
+                                const { error } = await supabase
+                                  .from("profile_subscriber_lists")
+                                  .insert({
+                                    profile_id: profileId,
+                                    subscriber_list_id: list.id,
+                                    organisation_id: organisationId
+                                  });
+
+                                if (error) console.error("Add list error:", error);
+                              }
+
+                              fetchProfileLists();
+                            } catch (err) {
+                              console.error("Membership toggle exception:", err);
+                            }
+                          }
+                        }
+                        className={`text-xs px-3 py-1 rounded-lg border ${!organisationId ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
                         {isMember ? "Remove" : "Add"}
                       </button>

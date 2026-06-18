@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
   Plus, X, Clock, Type, Image as ImageIcon, 
@@ -10,13 +10,188 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+type Campaign = {
+  id: string;
+  title: string;
+  subject: string | null;
+  content: string | null;
+  list_id: string | null;
+  scheduled_for: string | null;
+  status?: string;
+  subscriber_lists?: {
+    name: string | null;
+  } | null;
+};
+
+function createCampaignService(supabase: any, organisationId: string | null) {
+  return {
+    async listCampaigns() {
+      if (!organisationId) return [];
+
+      const { data, error } = await supabase
+        .from("campaigns")
+        .select("*, subscriber_lists(name)")
+        .eq("organisation_id", organisationId)
+        .order("scheduled_for", { ascending: true });
+
+      if (error) {
+        console.error("listCampaigns error:", error);
+        return [];
+      }
+
+      return data || [];
+    },
+
+    async createCampaign(payload: any) {
+      const { data, error } = await supabase
+        .from("campaigns")
+        .insert(payload)
+        .select();
+
+      if (error) {
+        console.error("createCampaign error:", error);
+        throw error;
+      }
+
+      return data?.[0] || null;
+    },
+
+    async updateCampaign(id: string, payload: any) {
+      const { data, error } = await supabase
+        .from("campaigns")
+        .update(payload)
+        .eq("id", id)
+        .select();
+
+      if (error) {
+        console.error("updateCampaign error:", error);
+        throw error;
+      }
+
+      return data?.[0] || null;
+    },
+
+    async listSubscriberLists() {
+      if (!organisationId) return [];
+
+      const { data, error } = await supabase
+        .from("subscriber_lists")
+        .select("*")
+        .eq("organisation_id", organisationId);
+
+      if (error) {
+        console.error("listSubscriberLists error:", error);
+        return [];
+      }
+
+      return data || [];
+    },
+
+    async listProfiles() {
+      if (!organisationId) return [];
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,name,full_name,email,is_subscribed")
+        .eq("organisation_id", organisationId)
+        .eq("is_subscribed", true);
+
+      if (error) {
+        console.error("listProfiles error:", error);
+        return [];
+      }
+
+      return data || [];
+    },
+
+    async addSubscribers(listId: string, profileIds: string[]) {
+      if (!organisationId) return;
+
+      const rows = profileIds.map(profile_id => ({
+        profile_id,
+        list_id: listId,
+        organisation_id: organisationId
+      }));
+
+      const { error } = await supabase
+        .from("profile_subscriber_lists")
+        .upsert(rows, { onConflict: "profile_id,list_id" });
+
+      if (error) {
+        console.error("addSubscribers error:", error);
+        throw error;
+      }
+    },
+
+    async subscriberCounts() {
+      if (!organisationId) return {};
+
+      const { data, error } = await supabase
+        .from("profile_subscriber_lists")
+        .select("list_id")
+        .eq("organisation_id", organisationId);
+
+      if (error || !data) return {};
+
+      const counts: Record<string, number> = {};
+      data.forEach((row: any) => {
+        counts[row.list_id] = (counts[row.list_id] || 0) + 1;
+      });
+
+      return counts;
+    }
+  };
+}
+
 function useCampaigns(supabase: any) {
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [lists, setLists] = useState<any[]>([]);
   const [companyName, setCompanyName] = useState("Your Company");
   const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [subscriberCounts, setSubscriberCounts] = useState<Record<string, number>>({});
   const [profiles, setProfiles] = useState<any[]>([]);
+
+  const requestRef = useRef(0);
+  const cacheRef = useRef<{ data: Campaign[] | null; ts: number }>({
+    data: null,
+    ts: 0
+  });
+
+  const abortRef = useRef<AbortController | null>(null);
+
+  const service = useMemo(
+    () => createCampaignService(supabase, organisationId),
+    [supabase, organisationId]
+  );
+
+  const refreshCampaigns = async () => {
+    const now = Date.now();
+
+    // 30s cache (prevents over-fetching under load)
+    if (cacheRef.current.data && now - cacheRef.current.ts < 30000) {
+      setCampaigns(cacheRef.current.data);
+      return;
+    }
+
+    // abort previous request if still running
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const data = await service.listCampaigns();
+
+    if (controller.signal.aborted) return;
+
+    cacheRef.current = {
+      data,
+      ts: now
+    };
+
+    setCampaigns(data);
+  };
 
   // Get org context
   useEffect(() => {
@@ -48,54 +223,23 @@ function useCampaigns(supabase: any) {
 
     const load = async () => {
       console.log("Loading campaigns for organisation:", organisationId);
-      const { data: camps } = await supabase
-        .from("campaigns")
-        .select("*, subscriber_lists(name)")
-        .eq("organisation_id", organisationId)
-        .order("scheduled_for", { ascending: true });
 
-      const { data: listRes, error: listError } = await supabase
-        .from("subscriber_lists")
-        .select("*")
-        .eq("organisation_id", organisationId);
+      const [camps, listsData, profilesData, counts] = await Promise.all([
+        service.listCampaigns(),
+        service.listSubscriberLists(),
+        service.listProfiles(),
+        service.subscriberCounts()
+      ]);
 
-      const { data: profileRes } = await supabase
-        .from("profiles")
-        .select("id,name,full_name,email,is_subscribed")
-        .eq("organisation_id", organisationId)
-        .eq("is_subscribed", true);
-
-      setProfiles(profileRes || []);
-
-      console.log("Subscriber lists:", listRes);
-      console.log("Subscriber list error:", listError);
-
-      setCampaigns(camps || []);
-      setLists(Array.isArray(listRes) ? listRes : []);
-      await fetchSubscriberCounts(organisationId);
+      setCampaigns(camps);
+      setLists(listsData);
+      setProfiles(profilesData);
+      setSubscriberCounts(counts);
     };
 
     load();
   }, [organisationId, supabase]);
 
-  // Fetch subscriber counts
-  const fetchSubscriberCounts = async (orgId: string) => {
-    const { data, error } = await supabase
-      .from("profile_subscriber_lists")
-      .select("list_id")
-      .eq("organisation_id", orgId);
-
-    if (error || !data) return;
-
-    const counts: Record<string, number> = {};
-    data.forEach((row: any) => {
-      counts[row.list_id] = (counts[row.list_id] || 0) + 1;
-    });
-
-    setSubscriberCounts(counts);
-  };
-
-  // Create list
   const createList = async (name: string) => {
     if (!organisationId || !name) return;
 
@@ -104,21 +248,12 @@ function useCampaigns(supabase: any) {
       organisation_id: organisationId
     });
 
-    // refresh
-    const { data } = await supabase
-      .from("subscriber_lists")
-      .select("*")
-      .eq("organisation_id", organisationId);
-
-    setLists(data || []);
+    const listsData = await service.listSubscriberLists();
+    setLists(listsData);
   };
 
-  // Schedule campaign
   const scheduleCampaign = async (form: any) => {
-    if (!organisationId) {
-      console.error("Missing organisationId");
-      return;
-    }
+    if (!organisationId) return;
 
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -128,28 +263,14 @@ function useCampaigns(supabase: any) {
       organisation_id: organisationId
     };
 
-    console.log("Scheduling payload:", payload);
+    const created = await service.createCampaign(payload);
 
-    const { data, error } = await supabase
-      .from("campaigns")
-      .insert(payload)
-      .select();
-
-    if (error) {
-      console.error("Schedule campaign error:", error);
-      alert(error.message);
-      return;
+    if (created) {
+      setCampaigns(prev => [created, ...prev]);
     }
 
-    console.log("Campaign created:", data);
-
-    const { data: camps } = await supabase
-  .from('campaigns')
-  .select('*, subscriber_lists(name)')
-  .eq('organisation_id', organisationId)
-  .order('created_at', { ascending: false });
-
-    setCampaigns(camps || []);
+    cacheRef.current.ts = 0;
+    await refreshCampaigns();
   };
 
   // Load list subscribers
@@ -169,31 +290,17 @@ function useCampaigns(supabase: any) {
     return data || [];
   };
 
-  // Update campaign
   const updateCampaign = async (form: any, id: string) => {
-    const payload = {
-      ...form
-    };
+    const updated = await service.updateCampaign(id, form);
 
-    const { data, error } = await supabase
-      .from("campaigns")
-      .update(payload)
-      .eq("id", id)
-      .select();
-
-    if (error) {
-      console.error("Update campaign error:", error);
-      alert(error.message);
-      return;
+    if (updated) {
+      setCampaigns(prev =>
+        prev.map(c => (c.id === id ? { ...c, ...updated } : c))
+      );
     }
 
-    const { data: camps } = await supabase
-      .from("campaigns")
-      .select("*, subscriber_lists(name)")
-      .eq("organisation_id", organisationId)
-      .order("scheduled_for", { ascending: true });
-
-    setCampaigns(camps || []);
+    cacheRef.current.ts = 0;
+    await refreshCampaigns();
   };
 
   // Send campaign now
@@ -210,13 +317,8 @@ function useCampaigns(supabase: any) {
       return;
     }
 
-    const { data: camps } = await supabase
-      .from('campaigns')
-      .select('*, subscriber_lists(name)')
-      .eq('organisation_id', organisationId)
-      .order('scheduled_for', { ascending: true, nullsFirst: false });
-
-    setCampaigns(camps || []);
+    cacheRef.current.ts = 0;
+    await refreshCampaigns();
   };
 
   // Process due scheduled campaigns (cron trigger)
@@ -228,38 +330,17 @@ function useCampaigns(supabase: any) {
       });
 
       // refresh campaigns after processing
-      const { data: camps } = await supabase
-        .from('campaigns')
-        .select('*, subscriber_lists(name)')
-        .eq('organisation_id', organisationId)
-        .order('scheduled_for', { ascending: true, nullsFirst: false });
-
-      setCampaigns(camps || []);
+      cacheRef.current.ts = 0;
+      await refreshCampaigns();
     } catch (err) {
       console.error('Error processing due campaigns:', err);
     }
   };
 
-  // Add subscribers to list
   const addSubscribersToList = async (listId: string, profileIds: string[]) => {
-    if (!organisationId) return;
-
-    const rows = profileIds.map(profile_id => ({
-      profile_id,
-      list_id: listId,
-      organisation_id: organisationId
-    }));
-
-    const { error } = await supabase
-      .from('profile_subscriber_lists')
-      .upsert(rows, { onConflict: 'profile_id,list_id' });
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    await fetchSubscriberCounts(organisationId);
+    await service.addSubscribers(listId, profileIds);
+    const counts = await service.subscriberCounts();
+    setSubscriberCounts(counts);
   };
 
   // Real-time updates for campaigns and subscriber lists
@@ -272,20 +353,14 @@ function useCampaigns(supabase: any) {
         "postgres_changes",
         { event: "*", schema: "public", table: "profile_subscriber_lists" },
         () => {
-          fetchSubscriberCounts(organisationId);
+          service.subscriberCounts().then(setSubscriberCounts);
         }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "campaigns" },
         () => {
-          // refresh campaigns for live status updates
-          supabase
-            .from("campaigns")
-            .select("*, subscriber_lists(name)")
-            .eq("organisation_id", organisationId)
-            .order("scheduled_for", { ascending: true })
-            .then((res: any) => setCampaigns(res.data || []));
+          refreshCampaigns();
         }
       )
       .subscribe();
@@ -293,7 +368,7 @@ function useCampaigns(supabase: any) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [organisationId, supabase]);
+  }, [organisationId, supabase, service]);
 
   console.log("Hook lists state:", lists);
   return {
@@ -385,7 +460,7 @@ export default function CampaignsPage() {
     }, 1500);
   };
 
-  const formatScheduledDate = (dateString: string) => {
+  const formatScheduledDate = (dateString: string | null) => {
     if (!dateString) return "Immediate Release";
     try {
       const date = new Date(dateString);

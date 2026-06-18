@@ -408,11 +408,26 @@ function useCampaigns(supabase: any) {
     if (!res.ok) {
       const err = await res.json();
       alert(err.error || 'Failed to send campaign');
-      return;
+      return res;
     }
 
     cacheRef.current.ts = 0;
     await refreshCampaigns();
+
+    return res;
+  };
+
+  // Click tracking helper
+  const trackCampaignClick = async (campaignId: string, url: string) => {
+    try {
+      await fetch('/api/campaigns/click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId, url })
+      });
+    } catch (err) {
+      console.error('Click tracking failed:', err);
+    }
   };
 
   // Process due scheduled campaigns (cron trigger)
@@ -480,8 +495,10 @@ function useCampaigns(supabase: any) {
     subscriberCounts,
     profiles,
     sendCampaignNow,
+    setCampaigns,
     addSubscribersToList,
     processDueCampaigns,
+    trackCampaignClick,
   };
 }
 
@@ -505,7 +522,7 @@ export default function CampaignsPage() {
     removeSubscriber,
     subscriberCounts,
     profiles,
-    sendCampaignNow,
+    sendCampaignNow: sendCampaignNowBase,
     addSubscribersToList,
     processDueCampaigns,
   } = useCampaigns(supabase);
@@ -534,6 +551,68 @@ export default function CampaignsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+
+  // Optimistic send handler (UI status + real send + refresh)
+  const sendCampaignNow = async (campaignId: string) => {
+    // set optimistic "sending" state
+    setCampaigns(prev =>
+      prev.map(c =>
+        c.id === campaignId ? { ...c, status: "sending" } : c
+      )
+    );
+
+    if (selectedCampaign && selectedCampaign.id === campaignId) {
+      setSelectedCampaign((prev: any) => prev ? { ...prev, status: "sending" } : prev);
+    }
+
+    try {
+      const res = await sendCampaignNowBase(campaignId);
+
+      if (!res || !res.ok) {
+        throw new Error("Failed to send campaign");
+      }
+
+      // mark as sent optimistically
+      setCampaigns(prev =>
+        prev.map(c =>
+          c.id === campaignId
+            ? { ...c, status: "sent", sent_at: new Date().toISOString() }
+            : c
+        )
+      );
+
+      if (selectedCampaign && selectedCampaign.id === campaignId) {
+        setSelectedCampaign((prev: any) =>
+          prev ? { ...prev, status: "sent", sent_at: new Date().toISOString() } : prev
+        );
+      }
+
+      // hard refresh from database to sync sent_count/open_count
+      if (organisationId) {
+        const { data } = await supabase
+          .from("campaigns")
+          .select("*, subscriber_lists(name)")
+          .eq("organisation_id", organisationId)
+          .order("scheduled_for", { ascending: true });
+
+        if (data) setCampaigns(data);
+      }
+    } catch (err) {
+      console.error(err);
+
+      setCampaigns(prev =>
+        prev.map(c =>
+          c.id === campaignId ? { ...c, status: "failed" } : c
+        )
+      );
+
+      if (selectedCampaign && selectedCampaign.id === campaignId) {
+        setSelectedCampaign((prev: any) =>
+          prev ? { ...prev, status: "failed" } : prev
+        );
+      }
+    }
+  };
 
   const [form, setForm] = useState({
     title: "",

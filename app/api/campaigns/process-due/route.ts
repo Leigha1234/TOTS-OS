@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { NextResponse } from "next/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,14 +13,18 @@ export async function POST() {
   const now = new Date().toISOString();
 
   // 1. Get due campaigns
-  const { data: campaigns } = await supabase
+  const { data: campaigns, error: campaignsError } = await supabase
     .from("campaigns")
     .select("*")
     .eq("status", "scheduled")
     .lte("scheduled_for", now);
 
+  if (campaignsError) {
+    return NextResponse.json({ error: "Failed to fetch campaigns" }, { status: 500 });
+  }
+
   if (!campaigns?.length) {
-    return Response.json({ message: "No campaigns due" });
+    return NextResponse.json({ message: "No campaigns due" });
   }
 
   for (const campaign of campaigns) {
@@ -30,25 +35,29 @@ export async function POST() {
         .update({
           status: "sending",
           last_attempt_at: now,
-          send_attempts: (campaign.send_attempts || 0) + 1
+          send_attempts: ((campaign as any).send_attempts ?? 0) + 1
         })
         .eq("id", campaign.id);
 
       // 3. Get subscribers
-      const { data: recipients } = await supabase
+      const { data: recipients, error: recipientsError } = await supabase
         .from("profile_subscriber_lists")
-        .select("profiles(id,email,is_subscribed)")
+        .select("profiles:profiles(id,email,is_subscribed)")
         .eq("list_id", campaign.list_id);
 
-      const users = (recipients || [])
-        .map(r => r.profiles)
-        .filter(p => p?.email && p?.is_subscribed);
+      if (recipientsError) {
+        throw new Error("Failed to fetch recipients");
+      }
+
+      const users = (recipients ?? [])
+        .map((r: any) => r?.profiles)
+        .filter((p: any) => p?.email && p?.is_subscribed);
 
       // 4. Send emails
       for (const user of users) {
         try {
           await resend.emails.send({
-            from: "TOTS-OS <hello@yourdomain.com>",
+            from: process.env.RESEND_FROM_EMAIL || "TOTS-OS <no-reply@resend.dev>",
             to: user.email,
             subject: campaign.subject,
             html: campaign.content
@@ -92,5 +101,5 @@ export async function POST() {
     }
   }
 
-  return Response.json({ success: true });
+  return NextResponse.json({ success: true });
 }

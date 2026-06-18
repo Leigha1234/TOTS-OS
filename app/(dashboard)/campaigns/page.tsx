@@ -16,6 +16,7 @@ function useCampaigns(supabase: any) {
   const [companyName, setCompanyName] = useState("Your Company");
   const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [subscriberCounts, setSubscriberCounts] = useState<Record<string, number>>({});
+  const [profiles, setProfiles] = useState<any[]>([]);
 
   // Get org context
   useEffect(() => {
@@ -50,12 +51,21 @@ function useCampaigns(supabase: any) {
       const { data: camps } = await supabase
         .from("campaigns")
         .select("*, subscriber_lists(name)")
-        .eq("organisation_id", organisationId);
+        .eq("organisation_id", organisationId)
+        .order("scheduled_for", { ascending: true, nullsFirst: false });
 
       const { data: listRes, error: listError } = await supabase
         .from("subscriber_lists")
         .select("*")
         .eq("organisation_id", organisationId);
+
+      const { data: profileRes } = await supabase
+        .from("profiles")
+        .select("id,name,full_name,email,is_subscribed")
+        .eq("organisation_id", organisationId)
+        .eq("is_subscribed", true);
+
+      setProfiles(profileRes || []);
 
       console.log("Subscriber lists:", listRes);
       console.log("Subscriber list error:", listError);
@@ -136,7 +146,8 @@ function useCampaigns(supabase: any) {
     const { data: camps } = await supabase
       .from("campaigns")
       .select("*, subscriber_lists(name)")
-      .eq("organisation_id", organisationId);
+      .eq("organisation_id", organisationId)
+      .order("scheduled_for", { ascending: true, nullsFirst: false });
 
     setCampaigns(camps || []);
   };
@@ -179,9 +190,55 @@ function useCampaigns(supabase: any) {
     const { data: camps } = await supabase
       .from("campaigns")
       .select("*, subscriber_lists(name)")
-      .eq("organisation_id", organisationId);
+      .eq("organisation_id", organisationId)
+      .order("scheduled_for", { ascending: true, nullsFirst: false });
 
     setCampaigns(camps || []);
+  };
+
+  // Send campaign now
+  const sendCampaignNow = async (campaignId: string) => {
+    const res = await fetch('/api/campaigns/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.error || 'Failed to send campaign');
+      return;
+    }
+
+    const { data: camps } = await supabase
+      .from('campaigns')
+      .select('*, subscriber_lists(name)')
+      .eq('organisation_id', organisationId)
+      .order('scheduled_for', { ascending: true, nullsFirst: false });
+
+    setCampaigns(camps || []);
+  };
+
+  // Add subscribers to list
+  const addSubscribersToList = async (listId: string, profileIds: string[]) => {
+    if (!organisationId) return;
+
+    const rows = profileIds.map(profile_id => ({
+      profile_id,
+      list_id: listId,
+      organisation_id: organisationId
+    }));
+
+    const { error } = await supabase
+      .from('profile_subscriber_lists')
+      .upsert(rows, { onConflict: 'profile_id,list_id' });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await fetchSubscriberCounts(organisationId);
   };
 
   // Real-time updates for campaigns and subscriber lists
@@ -206,6 +263,7 @@ function useCampaigns(supabase: any) {
             .from("campaigns")
             .select("*, subscriber_lists(name)")
             .eq("organisation_id", organisationId)
+            .order("scheduled_for", { ascending: true, nullsFirst: false })
             .then((res: any) => setCampaigns(res.data || []));
         }
       )
@@ -227,6 +285,9 @@ function useCampaigns(supabase: any) {
     loadListSubscribers,
     updateCampaign,
     subscriberCounts,
+    profiles,
+    sendCampaignNow,
+    addSubscribersToList,
   };
 }
 
@@ -246,6 +307,9 @@ export default function CampaignsPage() {
     loadListSubscribers,
     updateCampaign,
     subscriberCounts,
+    profiles,
+    sendCampaignNow,
+    addSubscribersToList,
   } = useCampaigns(supabase);
   console.log("Component lists prop:", lists);
 
@@ -259,6 +323,9 @@ export default function CampaignsPage() {
   const [showListDetailModal, setShowListDetailModal] = useState(false);
   const [selectedList, setSelectedList] = useState<any | null>(null);
   const [listSubscribers, setListSubscribers] = useState<any[]>([]);
+
+  const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
+  const [showSubscriberManager, setShowSubscriberManager] = useState(false);
 
   const [step, setStep] = useState<'editor' | 'schedule'>('editor');
 
@@ -374,7 +441,7 @@ export default function CampaignsPage() {
                   </div>
                 </div>
                 <div className="text-[9px] font-black uppercase tracking-widest px-6 py-2 bg-stone-50 rounded-full text-stone-400 border border-stone-100 self-start md:self-auto text-center">
-                  {c.status ? c.status : (new Date(c.scheduled_for) > new Date() ? "Scheduled" : "Draft")}
+                  {c.status || 'draft'}
                 </div>
               </div>
             ))
@@ -496,6 +563,13 @@ export default function CampaignsPage() {
                   className="px-8 py-4 bg-stone-100 border border-stone-200 text-stone-700 rounded-xl font-black text-[10px] uppercase"
                 >
                   Preview Email
+                </button>
+
+                <button
+                  onClick={() => sendCampaignNow(selectedCampaign.id)}
+                  className="px-8 py-4 bg-green-600 text-white rounded-xl font-black text-[10px] uppercase"
+                >
+                  Send Now
                 </button>
 
                 <button
@@ -739,6 +813,12 @@ export default function CampaignsPage() {
               <p className="text-[10px] uppercase font-black tracking-widest text-stone-400 mb-6">
                 Active Subscribers ({listSubscribers.length})
               </p>
+              <button
+                onClick={() => setShowSubscriberManager(true)}
+                className="mb-4 px-4 py-2 bg-stone-900 text-white rounded-xl text-[10px] uppercase font-black"
+              >
+                Add Subscribers
+              </button>
 
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {listSubscribers.length === 0 && (
@@ -769,6 +849,52 @@ export default function CampaignsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* SUBSCRIBER MANAGER MODAL */}
+      {showSubscriberManager && selectedList && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 p-6">
+          <div className="bg-white max-w-2xl w-full rounded-[3rem] p-8">
+            <div className="flex justify-between mb-6">
+              <h3 className="text-xl font-bold">Manage Subscribers</h3>
+              <button onClick={() => setShowSubscriberManager(false)}><X size={18} /></button>
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto space-y-2">
+              {profiles.map((profile: any) => (
+                <label key={profile.id} className="flex items-center gap-3 p-3 border rounded-xl">
+                  <input
+                    type="checkbox"
+                    checked={selectedProfiles.includes(profile.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedProfiles(prev => [...prev, profile.id]);
+                      } else {
+                        setSelectedProfiles(prev => prev.filter(id => id !== profile.id));
+                      }
+                    }}
+                  />
+                  <div>
+                    <p className="font-bold">{profile.full_name || profile.name}</p>
+                    <p className="text-xs text-stone-500">{profile.email}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <button
+              onClick={async () => {
+                await addSubscribersToList(selectedList.id, selectedProfiles);
+                const res = await loadListSubscribers(selectedList.id);
+                setListSubscribers(res);
+                setShowSubscriberManager(false);
+              }}
+              className="mt-6 w-full py-4 bg-stone-900 text-white rounded-2xl font-black"
+            >
+              Save Subscribers
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* GLOBAL SCROLLBAR REMOVAL */}
       <style jsx global>{`

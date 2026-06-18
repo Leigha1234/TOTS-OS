@@ -8,6 +8,8 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(req: Request) {
+  let campaignId: string | undefined;
+
   try {
     const resendKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.RESEND_FROM_EMAIL;
@@ -20,7 +22,8 @@ export async function POST(req: Request) {
     }
 
     const resend = new Resend(resendKey);
-    const { campaignId } = await req.json();
+    const body = await req.json();
+    campaignId = body.campaignId;
 
     const batchSize = 50;
 

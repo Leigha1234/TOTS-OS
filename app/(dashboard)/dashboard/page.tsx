@@ -83,7 +83,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-8 lg:p-12 space-y-12 max-w-[1600px] mx-auto">
       
-      {/* HEADER: NODE ACTIVE (USER, DATE, TIME) */}
+      {/* HEADER: User (USER, DATE, TIME) */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-stone-200 pb-12 gap-8">
         <div className="space-y-4">
           <div className="flex items-center gap-6 text-[#a9b897]">
@@ -170,7 +170,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-2">
              <h3 className="text-4xl font-serif italic text-stone-800 tracking-tight">To do list</h3>
-             <p className="text-stone-400 max-w-md mx-auto font-medium">Team status: Active. Sub-modules are synchronized and up to date.</p>
+             <p className="text-stone-400 max-w-md mx-auto font-medium">You have 3 pending tasks to complete today.</p>
           </div>
       </div>
 

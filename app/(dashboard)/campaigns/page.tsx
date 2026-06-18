@@ -332,6 +332,7 @@ function useCampaigns(supabase: any) {
 
     const payload = {
       ...form,
+      list_id: form.list_id || null,
       user_id: user?.id,
       organisation_id: organisationId
     };
@@ -364,7 +365,10 @@ function useCampaigns(supabase: any) {
   };
 
   const updateCampaign = async (form: any, id: string) => {
-    const updated = await service.updateCampaign(id, form);
+    const updated = await service.updateCampaign(id, {
+      ...form,
+      list_id: form.list_id || null
+    });
 
     if (updated) {
       setCampaigns(prev =>
@@ -878,7 +882,7 @@ export default function CampaignsPage() {
                         setForm({
                           title: selectedCampaign.title || "",
                           subject: selectedCampaign.subject || "",
-                          list_id: selectedCampaign.list_id || "",
+                          list_id: selectedCampaign.list_id ? String(selectedCampaign.list_id) : "",
                           scheduled_for: selectedCampaign.scheduled_for || "",
                           content: selectedCampaign.content || ""
                         });
@@ -1078,7 +1082,11 @@ export default function CampaignsPage() {
                            <br />
                            First list: {Array.isArray(lists) && lists[0] ? lists[0].name : "none"}
                          </p>
-                         <select value={form.list_id} onChange={e => setForm({...form, list_id: e.target.value})} className="w-full p-5 bg-stone-50 border border-stone-200 rounded-2xl text-xs outline-none focus:border-stone-900">
+                         <select
+                           value={form.list_id ?? ""}
+                           onChange={e => setForm({ ...form, list_id: e.target.value || "" })}
+                           className="w-full p-5 bg-stone-50 border border-stone-200 rounded-2xl text-xs outline-none focus:border-stone-900"
+                         >
                            <option value="">Select target audience list...</option>
                            {Array.isArray(lists) && lists.map((l) => (
                              <option key={l.id} value={l.id}>

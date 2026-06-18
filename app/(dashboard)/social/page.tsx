@@ -308,23 +308,23 @@ export default function SocialStudioUnified() {
   }, [currentDate]);
 
   return (
-    <div className="min-h-screen bg-[#FBFBFA] text-[#1c1c1c] font-sans antialiased flex flex-col">
+    <div className="min-h-screen bg-[#FBFBFA] text-[#1c1c1c] font-sans antialiased flex flex-col overflow-x-hidden">
       
       {/* Navigation Header */}
-      <nav className="h-20 px-10 flex items-center justify-between bg-white/80 backdrop-blur-xl border-b border-stone-100 sticky top-0 z-50">
-        <div className="flex items-center gap-12">
+      <nav className="h-auto min-h-20 px-4 sm:px-6 lg:px-10 py-3 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between bg-white/80 backdrop-blur-xl border-b border-stone-100 sticky top-0 z-50">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 lg:gap-12">
           <div className="flex items-center gap-3">
              <div className="w-9 h-9 bg-[#1c1c1c] rounded-xl flex items-center justify-center text-[#a9b897] shadow-lg"><Layers size={18}/></div>
              <span className="font-serif italic text-2xl tracking-tighter">Social.OS</span>
           </div>
           
-          <div className="flex bg-stone-50 p-1 rounded-2xl border border-stone-100">
+          <div className="flex flex-wrap bg-stone-50 p-1 rounded-2xl border border-stone-100 gap-1">
              <button onClick={() => setViewMode('lab')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'lab' ? 'bg-white shadow-sm text-[#1c1c1c]' : 'text-stone-300'}`}>Strategy Lab</button>
              <button onClick={() => setViewMode('planner')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'planner' ? 'bg-white shadow-sm text-[#1c1c1c]' : 'text-stone-300'}`}>Content Planner</button>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
            <div className="flex items-center gap-3 px-4 py-2 bg-stone-50 rounded-full border border-stone-100">
              <div className={`w-1.5 h-1.5 rounded-full ${status === 'Ready' ? 'bg-[#a9b897]' : 'bg-amber-400'} animate-pulse`}/>
              <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">{status}</span>
@@ -335,12 +335,12 @@ export default function SocialStudioUnified() {
       </nav>
 
       {/* Main Container */}
-      <main className="flex-1 p-10 overflow-hidden">
+      <main className="flex-1 p-4 sm:p-6 lg:p-10 overflow-x-hidden">
         <AnimatePresence mode="wait">
           
           {/* VIEW 1: STRATEGY LAB & COMPOSITION CANVAS */}
           {viewMode === 'lab' ? (
-            <motion.div key="lab" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="max-w-7xl mx-auto grid grid-cols-12 gap-12">
+            <motion.div key="lab" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
               
               {/* Left Column: AI Engine and Brief Breakdown */}
               <div className="col-span-12 lg:col-span-6 space-y-8">
@@ -523,9 +523,9 @@ export default function SocialStudioUnified() {
             
             /* VIEW 2: FULL CONTENT PLANNER CALENDAR */
             <motion.div key="planner" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="max-w-6xl mx-auto space-y-12">
-               <div className="flex justify-between items-end">
+               <div className="flex flex-col lg:flex-row gap-4 lg:items-end lg:justify-between">
                   <div className="flex items-baseline gap-6">
-                    <h2 className="text-8xl font-serif italic tracking-tighter">{currentDate.toLocaleString('default', { month: 'long' })}.</h2>
+                    <h2 className="text-5xl sm:text-6xl lg:text-8xl font-serif italic tracking-tighter">{currentDate.toLocaleString('default', { month: 'long' })}.</h2>
                     <span className="text-stone-300 text-3xl font-serif italic leading-none">{currentDate.getFullYear()}</span>
                   </div>
                   <div className="flex gap-2 bg-white p-2 rounded-2xl border border-stone-100 shadow-sm">
@@ -534,7 +534,7 @@ export default function SocialStudioUnified() {
                   </div>
                </div>
 
-               <div className="grid grid-cols-7 gap-5 bg-white p-16 rounded-[4rem] border border-stone-100 shadow-2xl">
+               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 sm:gap-4 lg:gap-5 bg-white p-4 sm:p-8 lg:p-16 rounded-[2rem] lg:rounded-[4rem] border border-stone-100 shadow-2xl overflow-x-auto">
                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
                    <div key={d} className="text-center text-[10px] font-black text-stone-200 uppercase tracking-[0.3em] mb-10">{d}</div>
                  ))}
@@ -547,7 +547,7 @@ export default function SocialStudioUnified() {
                      <div 
                       key={i} 
                       onClick={() => handleDateClick(day)}
-                      className={`aspect-square rounded-[2rem] border border-stone-50 flex items-center justify-center text-4xl font-serif italic relative cursor-pointer group transition-all
+                      className={`aspect-square min-w-[60px] rounded-[1.5rem] lg:rounded-[2rem] border border-stone-50 flex items-center justify-center text-xl sm:text-2xl lg:text-4xl font-serif italic relative cursor-pointer group transition-all
                         ${day === 0 ? 'opacity-0 pointer-events-none' : 'hover:bg-stone-50 hover:border-stone-100'}
                         ${dayPosts.length > 0 ? 'text-[#1c1c1c]' : 'text-stone-100'}
                       `}
@@ -568,15 +568,15 @@ export default function SocialStudioUnified() {
         {isDayViewOpen && (
           <div className="fixed inset-0 z-[100] flex justify-end">
              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsDayViewOpen(false)} className="absolute inset-0 bg-stone-100/40 backdrop-blur-md" />
-             <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="relative w-full max-w-md bg-white h-full shadow-2xl border-l border-stone-100 p-12 flex flex-col">
-                <div className="flex justify-between items-center mb-12">
+             <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="relative w-full max-w-md bg-white h-full shadow-2xl border-l border-stone-100 p-4 sm:p-8 lg:p-12 flex flex-col">
+                <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center mb-6 lg:mb-12">
                    <h3 className="text-4xl font-serif italic">Daily Overview.</h3>
                    <button onClick={() => setIsDayViewOpen(false)} className="p-3 bg-stone-50 rounded-full hover:bg-stone-100 transition-colors"><X size={20}/></button>
                 </div>
 
                 <div className="flex-1 space-y-6 overflow-y-auto custom-scrollbar pr-4">
                   {selectedDayPosts.map((post) => (
-                    <div key={post.id} className="bg-stone-50 rounded-[2.5rem] p-6 space-y-4 border border-stone-100 group">
+                    <div key={post.id} className="bg-stone-50 rounded-[2rem] lg:rounded-[2.5rem] p-4 lg:p-6 space-y-4 border border-stone-100 group">
                        <div className="flex gap-4 items-center">
                           <div className="w-12 h-12 rounded-xl bg-[#1c1c1c]/5 flex items-center justify-center text-[#a9b897]">
                              {post.platform === 'instagram' ? <Instagram size={20}/> : post.platform === 'tiktok' ? <Video size={20}/> : <Linkedin size={20}/>}

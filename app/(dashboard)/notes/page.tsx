@@ -338,12 +338,12 @@ if (!user?.id) {
       `}</style>
       
       {/* HEADER */}
-      <header className="max-w-[1400px] mx-auto p-12 flex justify-between items-end">
+      <header className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-12 flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-end">
         <div>
-          <h1 className="text-8xl font-serif italic tracking-tighter capitalize leading-none text-[#4f4a46]">Notes</h1>
+          <h1 className="text-5xl sm:text-6xl lg:text-8xl font-serif italic tracking-tighter capitalize leading-none text-[#4f4a46]">Notes</h1>
           <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400 mt-4 ml-1">Your Digital Notepad</p>
         </div>
-        <div className="relative group w-64">
+        <div className="relative group w-full lg:w-64">
           <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
           <input 
             className="w-full bg-transparent border-b border-stone-200 py-2 pl-7 outline-none font-serif italic text-xl focus:border-stone-900 transition-all text-stone-800 placeholder:text-stone-300"
@@ -355,7 +355,7 @@ if (!user?.id) {
       </header>
 
       {/* THE DESK GRID - RESPONSIVE AUTO-FIT WITH LARGER BASE CARDS */}
-      <main className="max-w-[1600px] mx-auto px-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-12 justify-items-start">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-12 justify-items-stretch">
         <AnimatePresence mode="popLayout">
           {filteredNotes.map((note) => {
             const assignedTeamMember = teamMembers.find(m => m.id === note.assigned_to);
@@ -368,7 +368,7 @@ if (!user?.id) {
                 exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
                 whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
                 // NOTE CONTAINER EXPANDED WIDER ("FATTER") TO ACCLAIM ALL METADATA DROPDOWNS
-                className={`p-8 min-h-[460px] w-full min-w-[340px] md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${
+                className={`p-4 lg:p-8 min-h-[360px] lg:min-h-[460px] w-full min-w-0 md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${
                   note.is_urgent ? 'text-white' : 'text-stone-800'
                 }`}
                 style={{ background: note.color || "#FFF9E6" }}
@@ -388,7 +388,7 @@ if (!user?.id) {
                     </div>
                   </div>
 
-                  <p className="text-3xl font-serif italic leading-snug tracking-tight mb-6 line-clamp-[6] break-words whitespace-pre-wrap">
+                  <p className="text-xl lg:text-3xl font-serif italic leading-snug tracking-tight mb-4 lg:mb-6 line-clamp-[6] break-words whitespace-pre-wrap">
                     {note.content}
                   </p>
                 </div>
@@ -469,15 +469,15 @@ if (!user?.id) {
       {/* FLOATING ACTION BUTTON */}
       <button 
         onClick={() => setShowModal(true)}
-        className="fixed bottom-12 right-12 h-20 w-20 bg-stone-900 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all z-[100]"
+        className="fixed bottom-6 right-6 lg:bottom-12 lg:right-12 h-16 w-16 lg:h-20 lg:w-20 bg-stone-900 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all z-[100]"
       >
-        <Plus size={32} />
+        <Plus size={24} />
       </button>
 
       {/* NEW NOTE DIALOG POPUP */}
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 overflow-y-auto">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 lg:p-6 overflow-y-auto">
             <motion.div 
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => { if(!isListening) setShowModal(false); }}
@@ -485,7 +485,7 @@ if (!user?.id) {
             />
             <motion.div 
               initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }}
-              className="bg-white w-full max-w-xl rounded-[2.5rem] p-8 shadow-2xl relative z-10 space-y-5"
+              className="bg-white w-full max-w-xl rounded-[1.5rem] lg:rounded-[2.5rem] p-4 lg:p-8 shadow-2xl relative z-10 space-y-5 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center">
                 <h3 className="text-3xl font-serif italic lowercase text-[#4f4a46]">New Note</h3>
@@ -513,7 +513,7 @@ if (!user?.id) {
               </div>
 
               {/* DYNAMIC DROPDOWN MATRIX OVERLAY */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100">
                   <Tag size={12} className="text-stone-400 mr-2" />
                   <input 
@@ -557,7 +557,7 @@ if (!user?.id) {
 
               {/* TIMED REMINDER SCHEDULER */}
               <div className="space-y-2.5 border-t border-stone-100 pt-4">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
                   <button 
                     type="button"
                     onClick={() => setIsReminder(!isReminder)}
@@ -598,7 +598,7 @@ if (!user?.id) {
               </div>
 
               {/* PIPELINE DISPATCH OVERVIEW */}
-              <div className="flex items-center justify-between gap-4 pt-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
                 <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Initial Note Placement:</span>
                 <select 
                   value={status} 

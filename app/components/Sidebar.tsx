@@ -8,7 +8,7 @@ import { supabase } from "../../lib/supabase";
 import { useSettings } from "@/app/context/SettingsContext";
 import { 
   LayoutDashboard, Users, Menu, Calendar, Megaphone, 
-  StickyNote, DollarSign, BarChart3, Globe, Lock,
+  StickyNote, Globe,
   Briefcase, Settings, Loader2, LogOut
 } from "lucide-react";
 import { toast } from "sonner";
@@ -51,7 +51,6 @@ export default function Sidebar() {
       "/campaigns",
       "/crm",
       "/notes",
-      "/payments",
       "/projects",
       "/settings"
     ],
@@ -61,11 +60,8 @@ export default function Sidebar() {
       "/campaigns",
       "/crm",
       "/notes",
-      "/payments",
       "/projects",
-      "/reports",
       "/social",
-      "/vault",
       "/settings"
     ]
   };
@@ -153,11 +149,8 @@ export default function Sidebar() {
     { href: "/campaigns", label: "Campaigns", icon: Megaphone },
     { href: "/crm", label: "Contacts", icon: Users },
     { href: "/notes", label: "Notes", icon: StickyNote },
-    { href: "/coming-soon", label: "Finance", icon: DollarSign },
     { href: "/projects", label: "Projects", icon: Briefcase },
-    { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/social", label: "Social", icon: Globe },
-    { href: "/vault", label: "Vault", icon: Lock },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
@@ -172,16 +165,11 @@ export default function Sidebar() {
 
   return (
     <aside className={`
-      hidden md:flex flex-col h-screen bg-stone-50 border-r border-stone-200 
+      flex flex-col h-screen bg-stone-50 border-r border-stone-200
       transition-all duration-500 ease-in-out z-50 relative
       ${collapsed ? "w-20" : "w-64"}
+      max-md:fixed max-md:left-0 max-md:top-0 max-md:z-[100] max-md:shadow-xl
     `}>
-
-      {/* NEW: COMING SOON BANNER */}
-  <div className="bg-amber-100 text-amber-800 text-[8px] font-black uppercase tracking-widest text-center py-1.5 border-b border-amber-200">
-    {!collapsed ? "Finance Pages Coming Soon" : "⚠️"}
-  </div>
-  
       {/* BRANDING AREA */}
       <div className="flex items-center justify-between p-6 h-24 shrink-0 overflow-hidden">
         {!collapsed ? (

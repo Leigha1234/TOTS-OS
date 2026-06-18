@@ -165,7 +165,7 @@ export default function Calendar() {
   };
 
   return (
-    <div className="h-screen bg-[#F9F9F7] text-stone-900 font-sans p-6 lg:p-10 flex flex-col overflow-hidden relative">
+    <div className="min-h-screen bg-[#F9F9F7] text-stone-900 font-sans p-3 sm:p-4 lg:p-10 flex flex-col relative overflow-x-hidden">
       
       {/* SETTINGS OVERLAY */}
       <AnimatePresence>
@@ -193,12 +193,12 @@ export default function Calendar() {
         {isModalOpen && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-stone-900/5 backdrop-blur-md" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-[1.5rem] lg:rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col">
                <div className="p-8 pb-4 flex justify-between items-center">
                  <h2 className="text-2xl font-serif italic">{viewMode === 'CREATE' ? 'New Entry' : 'Event Name'}</h2>
                  <button onClick={() => setIsModalOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={18}/></button>
                </div>
-               <div className="p-8 pt-2 space-y-4 overflow-y-auto max-h-[70vh] no-scrollbar">
+               <div className="p-4 lg:p-8 pt-2 space-y-4 overflow-y-auto max-h-[75vh] no-scrollbar">
                  {viewMode === 'CREATE' ? (
                    <>
                     <input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Entry Title" className="w-full bg-stone-50 rounded-xl p-4 text-sm outline-none border-none ring-1 ring-stone-100" />
@@ -264,8 +264,8 @@ export default function Calendar() {
       </AnimatePresence>
 
       {/* HEADER */}
-      <header className="flex items-end justify-between mb-8">
-        <h1 className="text-[clamp(4rem,8vw,7.5rem)] font-serif italic text-stone-800 leading-[0.8] tracking-tighter capitalize">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between mb-6 lg:mb-8">
+        <h1 className="text-[clamp(2.5rem,12vw,7.5rem)] font-serif italic text-stone-800 leading-[0.8] tracking-tighter capitalize">
           {format(currentMonth, "MMMM")} <span className="text-stone-300 ml-2">{format(currentMonth, "yyyy")}</span>
         </h1>
         <div className="flex items-center gap-2 bg-white p-2 rounded-full border border-stone-100 shadow-sm mb-2">
@@ -276,7 +276,7 @@ export default function Calendar() {
       </header>
 
       {/* CORE GRID */}
-      <div className="grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 flex-1 min-h-0">
         <section className="lg:col-span-8 bg-white rounded-[3rem] border border-stone-100 shadow-3xl flex flex-col overflow-hidden">
           <div className="grid grid-cols-7 border-b border-stone-50 bg-stone-50/5">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
@@ -289,7 +289,7 @@ export default function Calendar() {
               const isToday = isSameDay(day, new Date());
               return (
                 <div key={day.toISOString()} onClick={() => handleDayClick(day)}
-                  className={`relative min-h-[100px] p-4 border-r border-b border-stone-50 transition-all cursor-pointer group
+                  className={`relative min-h-[72px] lg:min-h-[100px] p-2 lg:p-4 border-r border-b border-stone-50 transition-all cursor-pointer group
                     ${!isSameMonth(day, currentMonth) ? 'opacity-10' : 'bg-white hover:bg-[#FDFDFB]'}
                     ${isSameDay(day, selectedDay) ? 'bg-[#A3B18A]/5' : ''}
                     ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''}
@@ -322,7 +322,7 @@ export default function Calendar() {
         <aside className="lg:col-span-4 bg-white rounded-[3rem] border border-stone-100 shadow-3xl p-8 flex flex-col overflow-hidden relative">
           <div className="mb-8">
             <p className="text-[10px] font-black uppercase tracking-widest text-[#A3B18A] mb-1">{format(selectedDay, "EEEE")}</p>
-            <h2 className="text-5xl font-serif italic text-stone-800 leading-[0.8] capitalize">{format(selectedDay, "do MMM")}</h2>
+            <h2 className="text-3xl lg:text-5xl font-serif italic text-stone-800 leading-[0.8] capitalize">{format(selectedDay, "do MMM")}</h2>
           </div>
 
           <div className="relative mb-6 z-[100]">
@@ -386,7 +386,7 @@ export default function Calendar() {
         </aside>
       </div>
 
-      <footer className="mt-6 flex justify-between items-center opacity-50 px-2">
+      <footer className="mt-4 lg:mt-6 flex flex-col gap-2 lg:flex-row justify-between items-center opacity-50 px-2">
         <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">TOTS OS Infrastructure v11.0</p>
         <div className="flex gap-4 text-stone-300">
           <RefreshCw size={14} onClick={syncCalendar} className={`cursor-pointer ${isLoading ? 'animate-spin' : ''}`} />

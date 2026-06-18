@@ -6,7 +6,6 @@ import { supabase } from "../../../lib/supabase";
 import {
   Users,
   RefreshCcw,
-  Camera,
   Loader2,
   Type,
   KeyRound,
@@ -284,7 +283,7 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
     toast.success(`${key} disconnected`);
   };
   return (
-    <div className={`min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-6 md:p-12 max-w-[1500px] mx-auto ${fontPreference === "serif-heavy" ? "font-serif" : "font-sans"}`}>
+    <div className={`min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-3 sm:p-6 lg:p-12 max-w-[1500px] mx-auto overflow-x-hidden ${fontPreference === "serif-heavy" ? "font-serif" : "font-sans"}`}>
       <style jsx global>{`
         :root { --accent: ${accentColor}; }
         .accent-text { color: var(--accent); }
@@ -294,7 +293,7 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
       {/* Header Section (100 lines of structure) */}
       <header className="flex flex-col lg:flex-row lg:justify-between gap-8 lg:items-end border-b border-stone-200 pb-10 mb-12">
         <div className="space-y-6">
-          <h1 className="text-8xl font-serif italic tracking-tighter">Settings</h1>
+          <h1 className="text-5xl sm:text-6xl lg:text-8xl font-serif italic tracking-tighter break-words">Settings</h1>
          
          <nav className="flex flex-wrap gap-3">
   <button
@@ -334,18 +333,18 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
   </button> */}
 </nav>
         </div>
-        <div className="flex gap-4">
-           <button onClick={handleLogout} className="px-8 py-5 rounded-full border text-[10px] font-black uppercase">Sign Out</button>
+        <div className="flex flex-wrap gap-3 sm:gap-4">
+           <button onClick={handleLogout} className="w-full sm:w-auto px-8 py-5 rounded-full border text-[10px] font-black uppercase">Sign Out</button>
            <button
              onClick={() => router.push('/manage-subscription')}
-             className="px-8 py-5 rounded-full border bg-white hover:bg-stone-50 text-[10px] font-black uppercase"
+             className="w-full sm:w-auto px-8 py-5 rounded-full border bg-white hover:bg-stone-50 text-[10px] font-black uppercase"
            >
              Manage Subscription
            </button>
            <button
              onClick={handleSave}
              disabled={isSaving}
-             className="accent-bg px-12 py-5 rounded-full text-white font-black uppercase text-[10px] disabled:opacity-50 flex items-center justify-center gap-2 min-w-[160px]"
+             className="w-full sm:w-auto min-w-0 sm:min-w-[160px] accent-bg px-12 py-5 rounded-full text-white font-black uppercase text-[10px] disabled:opacity-50 flex items-center justify-center gap-2"
            >
              {isSaving && <Loader2 size={14} className="animate-spin" />}
              {isSaving ? "Saving..." : "Save Changes"}
@@ -361,22 +360,19 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
           {/* VIEW: ACCOUNT DETAILS */}
           {activeTab === "account" && (
             <motion.div key="account" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-12">
-              <section className="bg-white/90 backdrop-blur border border-stone-200 p-8 md:p-12 rounded-[4rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] space-y-16">
+              <section className="bg-white/90 backdrop-blur border border-stone-200 p-4 sm:p-8 lg:p-12 rounded-[2rem] lg:rounded-[4rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] space-y-10 lg:space-y-16">
                 
                 {/* ADMINISTRATIVE DETAILS */}
-                <div className="flex flex-col md:flex-row gap-12">
-                  <div className="shrink-0 mx-auto md:mx-0">
-                    <div className="w-40 h-40 rounded-[3rem] bg-[#faf9f6] border border-stone-100 flex items-center justify-center group relative overflow-hidden">
+                <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+                  <div className="shrink-0 mx-auto lg:mx-0">
+                    <div className="w-28 h-28 sm:w-36 sm:h-36 lg:w-40 lg:h-40 rounded-[3rem] bg-[#faf9f6] border border-stone-100 flex items-center justify-center relative overflow-hidden">
                        <span className="text-4xl font-serif italic text-stone-200">
                          {displayName ? displayName.split(" ").map(n => n[0]).join("").toUpperCase() : "OS"}
                        </span>
-                       <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
-                          <Camera size={20} className="text-white" />
-                       </div>
                     </div>
                   </div>
                   <div className="flex-grow space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Full Name</label>
                         <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs focus:ring-2 focus:ring-[var(--accent)] focus:border-stone-400 outline-none transition-all" />
@@ -398,7 +394,7 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
                   <div>
                     <h4 className="text-2xl font-serif italic tracking-tight">Connect Socials</h4>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
                     {[
                       { key: "meta", name: "Meta Business Suite", subtitle: "Instagram & Facebook Pages", icons: [Instagram, Facebook] },
                       { key: "tiktok", name: "TikTok Studio Portal", subtitle: "Corporate Content Pipeline", icons: [Video] },
@@ -442,7 +438,7 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
                       <h4 className="text-2xl font-serif italic tracking-tight">Password</h4>
                     </div>
                   </div>
-                  <form onSubmit={handlePasswordUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end bg-[#faf9f6] p-6 rounded-3xl border border-stone-100">
+                  <form onSubmit={handlePasswordUpdate} className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 items-end bg-[#faf9f6] p-4 lg:p-6 rounded-3xl border border-stone-100">
                     <div className="space-y-2">
                       <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">New Password</label>
                       <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
@@ -460,44 +456,13 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
                   </form>
                 </div>
                 
-                {/* --- NAVIGATION LINKS --- */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10 border-t border-stone-50">
-                  <button onClick={() => router.push('/settings/team')} className="p-8 bg-stone-900 rounded-[2.5rem] text-white flex flex-col justify-between h-48 group text-left">
-                    <Users size={24} className="accent-text" />
-                    <div className="flex justify-between items-end w-full">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest">Team Hub</p>
-                      </div>
-                      <Users size={16} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform text-[#A3B18A]" />
-                    </div>
-                  </button>
-                  <button onClick={() => router.push('/settings/import')} className="p-8 bg-white border border-stone-200 rounded-[2.5rem] flex flex-col justify-between h-48 group text-left">
-                    <RefreshCcw size={24} className="text-stone-200 group-hover:accent-text transition-colors" />
-                    <div className="flex justify-between items-end w-full">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest">Import Hub</p>
-                      </div>
-                      <RefreshCcw size={16} className="text-stone-200 group-hover:text-stone-900 transition-transform" />
-                    </div>
-                  </button>
-                </div>
-              </section>
-            </motion.div>
-          )}
-
-          {/* VIEW: BRAND DNA Customization */}
-          {activeTab === "brand" && (
-            <motion.div key="brand" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-               <section className="lg:col-span-12 bg-white/90 backdrop-blur border border-stone-200 p-12 rounded-[4rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] space-y-16">
-                  <div className="space-y-2">
-                    <h3 className="text-4xl font-serif italic tracking-tight">System Appearance</h3>
-                  </div>
+              
 
                   <div className="space-y-12">
                     {/* ACCENT SELECTION */}
                     <div className="space-y-6">
                       
-                      <div className="flex flex-wrap gap-4">
+                      <div className="flex flex-wrap gap-3 lg:gap-4">
                         {["#A3B18A", "#6B705C", "#8E9AAF", "#9D8189", "#2D2D2D"].map(color => (
                           <button 
                             key={color} 
@@ -521,7 +486,7 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
                         <Type size={16} className="accent-text" />
                         <label className="text-[10px] font-black uppercase tracking-widest">Typography Weight Scaling</label>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <button 
                           onClick={() => setFontPreference("serif-heavy")}
                           className={`p-6 rounded-3xl border text-left transition-all ${fontPreference === 'serif-heavy' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
@@ -550,17 +515,17 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
       <section className="mt-20 pt-12 border-t border-stone-200">
         <h3 className="text-3xl font-serif italic mb-8">Legal Hub</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <LegalDocCard title="Terms & Conditions" path="/dashboard/docs/terms" />
-<LegalDocCard title="Privacy Policy" path="/dashboard/docs/privacy" />
-<LegalDocCard title="AI Policy" path="/dashboard/docs/ai" />
-<LegalDocCard title="Beta Terms" path="/dashboard/docs/beta" />
-<LegalDocCard title="Cancellation Policy" path="/dashboard/docs/cancellation" />
-<LegalDocCard title="Community Guidelines" path="/dashboard/docs/community" />
-<LegalDocCard title="Cookies Policy" path="/dashboard/docs/cookies" />
-<LegalDocCard title="Data Terms" path="/dashboard/docs/data" />
-<LegalDocCard title="Property Notice" path="/dashboard/docs/property" />
-<LegalDocCard title="Security Policy" path="/dashboard/docs/security" />
-<LegalDocCard title="Service Policy" path="/dashboard/docs/service" />
+          <LegalDocCard title="Terms & Conditions" path="/docs/terms" />
+<LegalDocCard title="Privacy Policy" path="/docs/privacy" />
+<LegalDocCard title="AI Policy" path="/docs/ai" />
+<LegalDocCard title="Beta Terms" path="/docs/beta" />
+<LegalDocCard title="Cancellation Policy" path="/docs/cancellation" />
+<LegalDocCard title="Community Guidelines" path="/docs/community" />
+<LegalDocCard title="Cookies Policy" path="/docs/cookies" />
+<LegalDocCard title="Data Terms" path="/docs/data" />
+<LegalDocCard title="Property Notice" path="/docs/property" />
+<LegalDocCard title="Security Policy" path="/docs/security" />
+<LegalDocCard title="Service Policy" path="/docs/service" />
         </div>
       </section>
     </div>

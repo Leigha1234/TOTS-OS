@@ -59,8 +59,8 @@ export default function ProjectEngine() {
 
   if (loading || !project) return null;
 
-  return (
-    <div className="min-h-screen bg-stone-50 pb-24 selection:bg-[#a9b897] selection:text-white">
+return (
+    <div className="min-h-screen bg-stone-50 pb-24 overflow-x-hidden selection:bg-[#a9b897] selection:text-white">
       
       {/* TACTICAL HEADER */}
       <nav className="p-6 flex justify-between items-center border-b border-stone-200 bg-white/80 backdrop-blur-md sticky top-0 z-40">
@@ -95,7 +95,7 @@ export default function ProjectEngine() {
         </div>
       </nav>
 
-      <main className="max-w-[1400px] mx-auto px-6 py-16 grid grid-cols-12 gap-12">
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 overflow-x-hidden">
         
         {/* LEFT COLUMN: PRIMARY INTERFACE */}
         <div className="col-span-12 lg:col-span-8 space-y-12">
@@ -105,7 +105,7 @@ export default function ProjectEngine() {
                <Hash size={16} />
                <p className="text-[11px] font-black uppercase tracking-[0.4em]">{project.category}</p>
             </div>
-            <h1 className="text-6xl md:text-8xl font-serif italic tracking-tighter text-stone-800 leading-none">
+            <h1 className="text-4xl sm:text-6xl lg:text-8xl font-serif italic tracking-tighter text-stone-800 leading-none break-words">
               {project.name}
             </h1>
           </header>
@@ -114,7 +114,7 @@ export default function ProjectEngine() {
             {activeTab === "Tasks" && (
               <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-10">
                 {/* TIMELINE VISUAL */}
-                <div className="bg-white border border-stone-100 rounded-[3rem] p-10 shadow-sm space-y-10">
+                <div className="bg-white border border-stone-100 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-10 shadow-sm space-y-10">
                   <div>
                     <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Timeline</h3>
                     <div className="mt-8 flex items-center gap-4 relative">
@@ -130,18 +130,18 @@ export default function ProjectEngine() {
 
                   {/* TASK LIST */}
                   <div className="space-y-6 pt-10 border-t border-stone-50">
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <input 
                         value={taskInput}
                         onChange={(e) => setTaskInput(e.target.value)}
                         placeholder="Define next objective..."
                         className="flex-1 bg-stone-50 p-5 rounded-2xl text-xs font-serif italic outline-none focus:ring-1 ring-[#a9b897]/30 transition-all"
                       />
-                      <button onClick={addTask} className="bg-stone-900 text-white px-10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all">Add</button>
+                      <button onClick={addTask} className="bg-stone-900 text-white px-6 sm:px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all w-full sm:w-auto">Add</button>
                     </div>
                     <div className="space-y-3">
                       {tasks.map(t => (
-                        <div key={t.id} className="flex items-center justify-between p-5 hover:bg-stone-50 rounded-2xl transition-all group border border-transparent hover:border-stone-100">
+                        <div key={t.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5 hover:bg-stone-50 rounded-2xl transition-all group border border-transparent hover:border-stone-100">
                           <div className="flex items-center gap-5">
                             <div className="w-6 h-6 rounded-lg border-2 border-stone-100 flex items-center justify-center group-hover:border-[#a9b897] transition-all cursor-pointer">
                               <Check size={12} className="text-transparent group-hover:text-[#a9b897]" />
@@ -159,16 +159,16 @@ export default function ProjectEngine() {
 
             {activeTab === "assets" && (
               <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                   {/* UPLOAD ZONE */}
-                  <div className="border-2 border-dashed border-stone-200 rounded-[3rem] p-12 text-center bg-white hover:border-[#a9b897] transition-all cursor-pointer group">
+                  <div className="border-2 border-dashed border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-12 text-center bg-white hover:border-[#a9b897] transition-all cursor-pointer group">
                     <Cloud size={40} className="mx-auto text-stone-200 group-hover:text-[#a9b897] transition-all mb-4" />
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Add New Assets</p>
                     <p className="text-[9px] text-stone-300 mt-2 font-serif italic">PDF, PNG, MP4, .SQL</p>
                   </div>
 
                   {/* RECENT FILES */}
-                  <div className="bg-white border border-stone-100 rounded-[3rem] p-8 space-y-4">
+                  <div className="bg-white border border-stone-100 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-8 space-y-4">
                      <h3 className="text-[9px] font-black uppercase tracking-widest text-stone-300">Sync Assets</h3>
                      {[1,2].map(i => (
                         <div key={i} className="flex items-center justify-between p-4 bg-stone-50 rounded-2xl">
@@ -186,7 +186,7 @@ export default function ProjectEngine() {
 
             {activeTab === "Project Settings" && (
               <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-                 <div className="bg-white border border-stone-100 rounded-[3rem] p-10 space-y-12 shadow-sm">
+                 <div className="bg-white border border-stone-100 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-10 space-y-12 shadow-sm">
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                         {/* PARAMETERS SECTION */}
@@ -246,7 +246,7 @@ export default function ProjectEngine() {
         <aside className="col-span-12 lg:col-span-4 space-y-8">
           
           {/* THE VAULT (QUICK ACCESS) */}
-          <div className="bg-stone-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+          <div className="bg-stone-900 text-white p-6 lg:p-10 rounded-[2rem] lg:rounded-[3rem] shadow-2xl relative overflow-hidden">
             <Shield size={180} className="absolute -right-12 -top-12 opacity-5 rotate-12" />
             <div className="relative z-10 space-y-6">
               <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Vault</h3>
@@ -257,7 +257,7 @@ export default function ProjectEngine() {
           </div>
 
           {/* TEAM CARD */}
-          <div className="bg-white border border-stone-100 p-8 rounded-[3rem] shadow-sm space-y-6">
+          <div className="bg-white border border-stone-100 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] shadow-sm space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">Invite Team Members</h3>
               <Share2 size={14} className="text-stone-300" />

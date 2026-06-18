@@ -204,14 +204,7 @@ function DashboardContent() {
           </div>
           <h1 className="text-7xl font-serif italic tracking-tighter">Dashboard</h1>
         </div>
-        <motion.button 
-          whileHover={{ scale: 1.02 }}
-          onClick={runClarityScan}
-          className="bg-stone-900 px-8 py-5 rounded-[2rem] shadow-xl flex items-center gap-4 text-white"
-        >
-          {isScanActive ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} className="text-[#A3B18A]" fill="currentColor" />}
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]">AI Scan</span>
-        </motion.button>
+     
         
       </header>
 

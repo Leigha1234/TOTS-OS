@@ -354,7 +354,7 @@ export default function AccountProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-10 pb-32">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-3 sm:p-4 md:p-6 lg:p-10 pb-24 lg:pb-32 overflow-x-hidden">
       <div className="max-w-6xl mx-auto space-y-12">
 
         <Link href="/crm" className="text-xs uppercase tracking-widest text-stone-400">
@@ -362,50 +362,48 @@ export default function AccountProfilePage() {
         </Link>
 
         {/* HEADER */}
-        <div className="bg-white/90 backdrop-blur border border-stone-200 p-10 rounded-[3rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] flex items-center justify-between">
-          <div className="flex items-center gap-6">
-  <div className="h-20 w-20 rounded-full bg-[#a9b897] text-white flex items-center justify-center text-2xl font-bold">
-  {(safeProfile.name || "?").charAt(0).toUpperCase()}
-</div>
-            
+        <div className="bg-white/90 backdrop-blur border border-stone-200 p-4 md:p-6 lg:p-10 rounded-[2rem] lg:rounded-[3rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col sm:flex-row items-center sm:items-center gap-4 lg:gap-6 text-center sm:text-left">
+            <div className="h-16 w-16 lg:h-20 lg:w-20 rounded-full bg-[#a9b897] text-white flex items-center justify-center text-2xl font-bold">
+              {(safeProfile.name || "?").charAt(0).toUpperCase()}
+            </div>
             <div>
               {isEditing ? (
-  <input
-    className="w-full p-3 border border-[#d8d0c2] rounded-xl bg-[#faf9f6]"
-    value={editForm.name}
-    onChange={(e) =>
-      setEditForm({
-        ...editForm,
-        name: e.target.value
-      })
-    }
-    placeholder="Full Name"
-  />
-) : (
-  <h1 className="text-5xl font-serif italic">
-    {safeProfile.name || "Unnamed Contact"}
-  </h1>
-)}
+                <input
+                  className="w-full p-3 border border-[#d8d0c2] rounded-xl bg-[#faf9f6]"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      name: e.target.value
+                    })
+                  }
+                  placeholder="Full Name"
+                />
+              ) : (
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif italic break-words">
+                  {safeProfile.name || "Unnamed Contact"}
+                </h1>
+              )}
               <p className="text-stone-500">{safeProfile.email}</p>
               <p className="text-xs uppercase tracking-widest text-stone-400 mt-2">
                 {safeProfile.company_name || "No company assigned yet"}
               </p>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
             <button
               onClick={() => {
                 setActiveTab("email");
                 setShowComposer(true);
               }}
-           className="px-5 py-3 rounded-2xl bg-[#a9b897] text-white text-xs font-bold uppercase tracking-wider hover:opacity-90 transition"
+              className="px-5 py-3 rounded-2xl bg-[#a9b897] text-white text-xs font-bold uppercase tracking-wider hover:opacity-90 transition w-full sm:w-auto"
             >
               Send Email
             </button>
-
             <button
               onClick={() => setActiveTab("tasks")}
-           className="px-5 py-3 rounded-2xl border border-[#d8d0c2] bg-[#faf9f6] text-xs font-bold uppercase tracking-wider text-stone-700"
+              className="px-5 py-3 rounded-2xl border border-[#d8d0c2] bg-[#faf9f6] text-xs font-bold uppercase tracking-wider text-stone-700 w-full sm:w-auto"
             >
               View Tasks
             </button>
@@ -413,7 +411,7 @@ export default function AccountProfilePage() {
         </div>
 
         {/* TABS */}
-        <div className="flex gap-4 text-xs uppercase font-bold">
+        <div className="flex gap-2 lg:gap-4 text-xs uppercase font-bold overflow-x-auto pb-2 no-scrollbar">
           {["info", "tasks", "email", "timeline"].map(tab => (
             <button
               key={tab}
@@ -440,7 +438,7 @@ export default function AccountProfilePage() {
     {isEditing ? "Cancel Editing" : "Edit Details"}
   </button>
 </div>
-            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+            <div className="bg-white/90 backdrop-blur p-4 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Contact Information</h3>
               <div className="space-y-4 text-sm">
               {isEditing ? (
@@ -482,7 +480,7 @@ export default function AccountProfilePage() {
  </div>
             </div>
 
-            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+            <div className="bg-white/90 backdrop-blur p-4 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Business Information</h3>
               {isEditing ? (
   <>
@@ -527,7 +525,7 @@ export default function AccountProfilePage() {
 )}
             </div>
 
-            <div className="md:col-span-2 bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+            <div className="md:col-span-2 bg-white/90 backdrop-blur p-4 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-6">Company Information & Notes</h3>
               {isEditing ? (
   <textarea
@@ -571,8 +569,8 @@ export default function AccountProfilePage() {
             </p>
           </div>
 
-          <div className="bg-white/90 backdrop-blur p-10 rounded-[2rem] border border-stone-200 shadow-sm">
-            <div className="flex justify-between items-center mb-6">
+          <div className="bg-white/90 backdrop-blur p-4 lg:p-10 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-6">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400">Tasks</h3>
               <span className="px-3 py-1 rounded-full bg-stone-100 text-xs">
                 {tasks.length} Active
@@ -587,7 +585,7 @@ export default function AccountProfilePage() {
               <div className="space-y-4">
                 {tasks.map(t => (
                   <div key={t.id} className="p-5 border border-stone-200 rounded-2xl bg-white">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                       <h4 className="font-semibold">{t.title}</h4>
                       <span className="px-3 py-1 rounded-full bg-[#a9b897]/20 text-xs text-stone-700">
                         {t.status || "todo"}
@@ -611,9 +609,9 @@ export default function AccountProfilePage() {
 
         {/* EMAIL */}
         {activeTab === "email" && (
-          <div className="grid lg:grid-cols-[320px_1fr] gap-6 min-h-[700px]">
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 lg:gap-6 min-h-[700px]">
 
-            <div className="bg-white/90 backdrop-blur p-6 rounded-[2rem] border border-stone-200 shadow-sm overflow-hidden">
+            <div className="bg-white/90 backdrop-blur p-4 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Inbox</h3>
                 <span className="text-xs text-stone-400">{threads.length}</span>
@@ -637,8 +635,8 @@ export default function AccountProfilePage() {
               ))}
             </div>
 
-            <div className="bg-white/90 backdrop-blur p-6 rounded-[2rem] border border-stone-200 shadow-sm flex flex-col">
-              <div className="flex items-center justify-between border-b border-stone-200 pb-4 mb-4">
+            <div className="bg-white/90 backdrop-blur p-4 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm flex flex-col">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-stone-200 pb-4 mb-4">
                 <div>
                   <h2 className="font-semibold text-lg">
                     {activeThread?.subject || "New Conversation"}
@@ -739,7 +737,7 @@ export default function AccountProfilePage() {
           <div className="space-y-6">
 
             {/* HEALTH SCORE */}
-            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+            <div className="bg-white/90 backdrop-blur p-4 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
                 Client Health Score
               </h3>
@@ -750,7 +748,7 @@ export default function AccountProfilePage() {
             </div>
 
             {/* ACTIVITY FEED */}
-            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+            <div className="bg-white/90 backdrop-blur p-4 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
                 Conversations
               </h3>
@@ -761,7 +759,7 @@ export default function AccountProfilePage() {
                 ) : (
                   timelineEvents.map((event, idx) => (
                     <div key={idx} className="p-4 border rounded-xl bg-white">
-                      <div className="flex justify-between items-center mb-1">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-1">
                         <span className="text-xs uppercase text-stone-400">
                           {event.type}
                         </span>
@@ -783,7 +781,7 @@ export default function AccountProfilePage() {
             </div>
 
             {/* NOTES */}
-            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+            <div className="bg-white/90 backdrop-blur p-4 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
                 Notes
               </h3>
@@ -838,7 +836,7 @@ export default function AccountProfilePage() {
             </div>
 
             {/* CAMPAIGN MEMBERSHIP */}
-            <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
+            <div className="bg-white/90 backdrop-blur p-4 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
                 Mailing List Membership
               </h3>
@@ -850,7 +848,7 @@ export default function AccountProfilePage() {
                   );
 
                   return (
-                    <div key={list.id} className="flex justify-between items-center p-3 border rounded-xl">
+                    <div key={list.id} className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center p-3 border rounded-xl">
                       <span>{list.name}</span>
 
                       <button

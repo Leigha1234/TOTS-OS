@@ -112,6 +112,7 @@ export async function POST(req: Request) {
               <div style="font-family:Arial,sans-serif;padding:24px;line-height:1.6;">
                 <h2>${campaign.title ?? ''}</h2>
                 <div>${campaign.content ?? ''}</div>
+                <img src="https://www.tots-os.co.uk/api/campaigns/open?campaignId=${campaignId}&profileId=${subscriber.id}" width="1" height="1" style="display:none;" />
               </div>
             `,
           })
@@ -135,7 +136,7 @@ export async function POST(req: Request) {
       .update({
         status: 'sent',
         sent_at: new Date().toISOString(),
-        total_sent: sentCount,
+        sent_count: sentCount,
       })
       .eq('id', campaignId);
 

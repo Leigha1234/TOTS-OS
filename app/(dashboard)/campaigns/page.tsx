@@ -18,10 +18,20 @@ type Campaign = {
   list_id: string | null;
   scheduled_for: string | null;
   status?: string;
+  sent_at?: string | null;
+  sent_count?: number | null;
+  open_count?: number | null;
   subscriber_lists?: {
     name: string | null;
   } | null;
 };
+
+function getOpenRate(campaign: Campaign): number {
+  const sent = campaign.sent_count || 0;
+  const opens = campaign.open_count || 0;
+  if (!sent || sent === 0) return 0;
+  return Math.round((opens / sent) * 100);
+}
 
 function createCampaignService(supabase: any, organisationId: string | null) {
   return {
@@ -628,8 +638,22 @@ export default function CampaignsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="text-[9px] font-black uppercase tracking-widest px-6 py-2 bg-stone-50 rounded-full text-stone-400 border border-stone-100 self-start md:self-auto text-center">
-                  {c.status || 'draft'}
+                <div className="flex flex-col items-end gap-1">
+                  <div className={`text-[9px] font-black uppercase tracking-widest px-6 py-2 rounded-full border self-start md:self-auto text-center ${
+                    c.status === 'sent'
+                      ? 'bg-green-50 text-green-600 border-green-200'
+                      : c.status === 'sending'
+                      ? 'bg-yellow-50 text-yellow-600 border-yellow-200'
+                      : c.status === 'failed'
+                      ? 'bg-red-50 text-red-600 border-red-200'
+                      : 'bg-stone-50 text-stone-400 border-stone-100'
+                  }`}
+                  >
+                    {c.status || 'draft'}
+                  </div>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                    {getOpenRate(c)}% open
+                  </div>
                 </div>
               </div>
             ))
@@ -706,6 +730,13 @@ export default function CampaignsPage() {
                     <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Company Name</p>
                     <p className="font-bold text-stone-800 flex items-center gap-2"><Users size={14} className="text-stone-400" /> {companyName}</p>
                   </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Open Rate</p>
+                    <p className="font-bold text-stone-800 flex items-center gap-2">
+                      <Eye size={14} className="text-stone-400" />
+                      {getOpenRate(selectedCampaign)}%
+                    </p>
+                  </div>
                 </div>
 
                 <div>
@@ -719,6 +750,20 @@ export default function CampaignsPage() {
                   <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-2">Email Content Output</p>
                   <div className="p-8 md:p-10 bg-white rounded-[2.5rem] border border-stone-200 shadow-sm font-serif text-stone-800 leading-relaxed text-base whitespace-pre-wrap min-h-[200px]">
                     {selectedCampaign.content || "Empty content payload."}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                  <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100">
+                    <p className="text-[9px] uppercase font-black text-stone-400">Sent</p>
+                    <p className="text-xl font-bold">{selectedCampaign.sent_count || 0}</p>
+                  </div>
+                  <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100">
+                    <p className="text-[9px] uppercase font-black text-stone-400">Opens</p>
+                    <p className="text-xl font-bold">{selectedCampaign.open_count || 0}</p>
+                  </div>
+                  <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100">
+                    <p className="text-[9px] uppercase font-black text-stone-400">Open Rate</p>
+                    <p className="text-xl font-bold">{getOpenRate(selectedCampaign)}%</p>
                   </div>
                 </div>
               </div>

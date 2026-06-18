@@ -328,28 +328,30 @@ function DashboardContent() {
   const toggleTodo = async (id: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
 
-    // Optimistic UI update using safe state pattern
+    // optimistic update
     setTodos(prev =>
       prev.map(t =>
         t.id === id ? { ...t, completed: newStatus } : t
       )
     );
 
-    // Update database
     const { error } = await supabase
       .from("notes")
       .update({ completed: newStatus })
       .eq("id", id);
 
-    // Rollback UI if DB update fails
     if (error) {
       console.error("Toggle failed:", error);
 
+      // rollback UI state
       setTodos(prev =>
         prev.map(t =>
           t.id === id ? { ...t, completed: currentStatus } : t
         )
       );
+    } else {
+      // refresh dashboard data so UI stays consistent
+      loadDashboardData();
     }
   };
 
@@ -379,6 +381,10 @@ function DashboardContent() {
   };
 
   const handleClarityBrief = () => {
+  // Quick create navigation for notes/tasks
+  const handleCreateQuickNote = () => {
+    router.push("/notes?mode=create");
+  };
     const brief = `CLARITY BRIEF:\n` +
       `Risk: ${riskLevel}\n` +
       `Tasks: ${todos.filter(t => !t.completed).length} pending\n` +
@@ -414,6 +420,10 @@ function DashboardContent() {
       <p className="font-black uppercase tracking-[0.5em] text-stone-300 text-[10px]">Syncing Business Intelligence</p>
     </div>
   );
+
+  function handleCreateQuickNote(event: React.MouseEvent<HTMLButtonElement>): void {
+    throw new Error("Function not implemented.");
+  }
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-3 sm:p-6 lg:p-12 space-y-8 lg:space-y-12 max-w-[1600px] mx-auto font-sans overflow-x-hidden">
@@ -480,6 +490,13 @@ function DashboardContent() {
               className="px-4 py-3 rounded-xl border border-stone-300 text-stone-700 text-[10px] font-black uppercase tracking-widest"
             >
               Clarity Brief
+            </button>
+
+            <button
+              onClick={handleCreateQuickNote}
+              className="px-4 py-3 rounded-xl border border-stone-300 text-stone-700 text-[10px] font-black uppercase tracking-widest"
+            >
+              + New Note / Task
             </button>
           </div>
 

@@ -21,6 +21,32 @@ export default function ProjectEngine() {
   const [taskInput, setTaskInput] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [loading, setLoading] = useState(true);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [taskAssignee, setTaskAssignee] = useState<string>("");
+
+  // --- CLARITY TEAM INTELLIGENCE ENGINE ---
+  const workloadByUser = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    tasks.forEach(t => {
+      if (t.assigned_to) {
+        map[t.assigned_to] = (map[t.assigned_to] || 0) + 1;
+      }
+    });
+
+    return map;
+  }, [tasks]);
+
+  const leastBusyUser = useMemo(() => {
+    if (!contacts.length) return null;
+
+    return contacts.reduce((best, user) => {
+      const bestLoad = best ? (workloadByUser[best.id] || 0) : Infinity;
+      const userLoad = workloadByUser[user.id] || 0;
+
+      return userLoad < bestLoad ? user : best;
+    }, null as any);
+  }, [contacts, workloadByUser]);
 
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,6 +74,13 @@ export default function ProjectEngine() {
         .eq("project_id", id)
         .eq("type", "todo");
 
+      // Fetch contacts (profiles)
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email, full_name");
+
+      setContacts(profiles || []);
+
       const normalisedNotes = (notesTasks || []).map((n: any) => ({
         id: n.id,
         name: n.title || n.content || "Task",
@@ -57,45 +90,61 @@ export default function ProjectEngine() {
 
       const normalisedProjectTasks = (projectTasks || []).map((t: any) => ({
         id: t.id,
-        name: t.name,
+        name: t.title || t.name,
         status: t.status,
-        source: "tasks"
+        source: "tasks",
+        assigned_to: t.assigned_to || null
       }));
 
       setProject(p);
       setTasks([...normalisedProjectTasks, ...normalisedNotes]);
+      // Auto-suggest least busy user for task assignment
+      if (!taskAssignee && leastBusyUser?.id) {
+        setTaskAssignee(leastBusyUser.id);
+      }
       setLoading(false);
     }
     load();
+    // Including leastBusyUser and taskAssignee intentionally for smart default.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, supabase]);
 
   const addTask = async () => {
     if (!taskInput) return;
 
-    // 1. write to tasks (existing system)
     const { data: taskData } = await supabase
       .from("tasks")
-      .insert([{ project_id: id, name: taskInput, status: 'Active' }])
+      .insert([
+        {
+          project_id: id,
+          title: taskInput,
+          status: "todo",
+          assigned_to: taskAssignee || null
+        }
+      ])
       .select()
       .single();
 
-    // 2. also write to notes (Clarity + cross-page sync)
     await supabase
       .from("notes")
-      .insert([{
-        project_id: id,
-        title: taskInput,
-        content: taskInput,
-        type: "todo",
-        completed: false
-      }]);
+      .insert([
+        {
+          project_id: id,
+          title: taskInput,
+          content: taskInput,
+          type: "todo",
+          completed: false
+        }
+      ]);
 
     if (taskData) {
       setTasks([...tasks, taskData]);
     }
 
     setTaskInput("");
-    toast.success("Objective Synced Across Clarity OS");
+    setTaskAssignee("");
+
+    toast.success("Task assigned and synced across Clarity OS");
   };
 
   const updateProject = async (updates: any) => {
@@ -189,6 +238,20 @@ return (
                           if (e.key === "Enter") addTask();
                         }}
                       />
+                      <select
+                        value={taskAssignee}
+                        onChange={(e) => setTaskAssignee(e.target.value)}
+                        className="bg-stone-50 p-5 rounded-2xl text-xs font-serif italic outline-none border border-stone-100"
+                      >
+                        <option value="">
+                          Assign manually (Clarity can suggest)
+                        </option>
+                        {contacts.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.full_name || c.email}
+                          </option>
+                        ))}
+                      </select>
                       <button onClick={addTask} className="bg-stone-900 text-white px-6 sm:px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all w-full sm:w-auto">Add</button>
                     </div>
                     <div className="space-y-3">
@@ -198,7 +261,14 @@ return (
                             <div className="w-6 h-6 rounded-lg border-2 border-stone-100 flex items-center justify-center group-hover:border-[#a9b897] transition-all cursor-pointer">
                               <Check size={12} className="text-transparent group-hover:text-[#a9b897]" />
                             </div>
-                            <span className="text-sm font-bold text-stone-700">{t.name}</span>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-stone-700">{t.name}</span>
+                              {t.assigned_to && (
+                                <span className="text-[10px] text-stone-400">
+                                  Assigned
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <Trash2 size={14} className="text-stone-100 hover:text-red-400 cursor-pointer transition-colors" />
                         </div>
@@ -297,6 +367,45 @@ return (
         {/* RIGHT COLUMN: UTILITY & CARDS */}
         <aside className="col-span-12 lg:col-span-4 space-y-8">
           
+          {/* CLARITY TEAM INTELLIGENCE */}
+          <div className="bg-white border border-stone-100 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] shadow-sm space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">
+                Team Intelligence
+              </h3>
+              <Users size={14} className="text-stone-300" />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] text-stone-500">
+                Total Tasks: {tasks.length}
+              </p>
+
+              <p className="text-[10px] text-stone-500">
+                Assigned: {tasks.filter(t => t.assigned_to).length}
+              </p>
+
+              <p className="text-[10px] text-stone-500">
+                Unassigned: {tasks.filter(t => !t.assigned_to).length}
+              </p>
+
+              <p className="text-[10px] text-stone-500">
+                Team Members: {contacts.length}
+              </p>
+            </div>
+
+            {leastBusyUser && (
+              <div className="p-3 bg-stone-50 rounded-xl">
+                <p className="text-[9px] font-black uppercase tracking-widest text-[#a9b897]">
+                  Clarity Suggestion
+                </p>
+                <p className="text-[10px] text-stone-600 mt-1">
+                  Suggested Assignee: {leastBusyUser.full_name || leastBusyUser.email}
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* THE VAULT (QUICK ACCESS) */}
           <div className="bg-stone-900 text-white p-6 lg:p-10 rounded-[2rem] lg:rounded-[3rem] shadow-2xl relative overflow-hidden">
             <Shield size={180} className="absolute -right-12 -top-12 opacity-5 rotate-12" />

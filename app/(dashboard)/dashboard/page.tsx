@@ -64,6 +64,11 @@ function DashboardContent() {
 
   const [teamMembers, setTeamMembers] = useState<{full_name: string, role: string}[]>([]);
   const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean }[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [emails, setEmails] = useState<any[]>([]);
+  const [aiSummary, setAiSummary] = useState<string>("");
+  const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high">("low");
+  const [aiActions, setAiActions] = useState<string[]>([]);
 
 
   // Real-time Clock
@@ -104,7 +109,7 @@ function DashboardContent() {
       }
 
       // Fetch Business Data in Parallel for Performance
-      const [projectsRes, invoicesRes, membersRes, notesRes] = await Promise.all([
+      const [projectsRes, invoicesRes, membersRes, notesRes, eventsRes, emailsRes] = await Promise.all([
         supabase
           .from("projects")
           .select("*", { count: 'exact', head: true })
@@ -125,6 +130,19 @@ function DashboardContent() {
           .from("notes")
           .select("id, title, content, completed")
           .eq("organisation_id", organisationId)
+          .limit(5),
+
+        supabase
+          .from("events")
+          .select("*")
+          .eq("organisation_id", organisationId)
+          .limit(5),
+
+        supabase
+          .from("emails")
+          .select("*")
+          .eq("organisation_id", organisationId)
+          .order("created_at", { ascending: false })
           .limit(5)
       ]);
 
@@ -147,6 +165,40 @@ function DashboardContent() {
         text: n.title || n.content?.substring(0, 40) || "Priority Task",
         completed: n.completed || false
       })));
+      setEvents((eventsRes.data as any[]) || []);
+      setEmails((emailsRes.data as any[]) || []);
+
+      // EXECUTIVE ANALYSIS LOGIC
+      const emailLoad = (emailsRes.data || []).length;
+      const eventLoad = (eventsRes.data || []).length;
+      const taskLoad = (notesRes.data || []).filter((n: any) => !n.completed).length;
+
+      let risk: "low" | "medium" | "high" = "low";
+
+      if (taskLoad > 8 || emailLoad > 10) risk = "high";
+      else if (taskLoad > 4 || emailLoad > 5) risk = "medium";
+
+      setRiskLevel(risk);
+
+      setAiSummary(
+        risk === "high"
+          ? "High activity detected. Focus required on outstanding tasks and inbox load."
+          : risk === "medium"
+          ? "Moderate workload. Prioritise tasks due today and review incoming emails."
+          : "System stable. Low operational pressure across all modules."
+      );
+
+      // AI DECISION ENGINE LOGIC
+      const actions: string[] = [];
+
+      if (taskLoad > 5) actions.push("Prioritise incomplete tasks");
+      if (emailLoad > 5) actions.push("Process unread emails");
+      if (eventLoad > 3) actions.push("Prepare for today's schedule");
+      if ((stats.invoicesDue || 0) > 0) actions.push("Review pending invoices");
+
+      if (actions.length === 0) actions.push("Maintain operational focus");
+
+      setAiActions(actions);
 
     } catch (err) {
       console.error("Dashboard Sync Critical Error:", err);
@@ -193,50 +245,143 @@ function DashboardContent() {
   );
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-4 md:p-8 lg:p-12 space-y-12 max-w-[1600px] mx-auto font-sans">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-3 sm:p-6 lg:p-12 space-y-8 lg:space-y-12 max-w-[1600px] mx-auto font-sans overflow-x-hidden">
       
       {/* Header */}
-      <header className="flex flex-col md:flex-row justify-between items-start border-b border-stone-200 pb-12 gap-8">
+      <header className="flex flex-col lg:flex-row justify-between items-start border-b border-stone-200 pb-8 lg:pb-12 gap-6 lg:gap-8">
         <div className="space-y-4">
           <div className="flex items-center gap-4 text-[#A3B18A]">
             <UserIcon size={12} fill="currentColor" />
             <p className="font-black uppercase text-[9px] tracking-[0.4em]">User: {userName}</p>
           </div>
-          <h1 className="text-7xl font-serif italic tracking-tighter">Dashboard</h1>
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-serif italic tracking-tighter break-words">Dashboard</h1>
         </div>
-     
-        
       </header>
 
-      {/* Primary Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
-        
-        {/* Priorities Section */}
-        <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-3">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-            <CheckSquare size={14} className="text-[#A3B18A]" /> To Do List
-          </h2>
-          <div className="space-y-4">
-            {todos.length > 0 ? todos.map((todo) => (
-              <div 
-                key={todo.id} 
-                onClick={() => toggleTodo(todo.id, todo.completed)}
-                className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer ${
-                  todo.completed ? "bg-stone-50 opacity-60" : "bg-[#faf9f6] hover:border-[#A3B18A]"
-                }`}
-              >
-                <div className={`w-5 h-5 rounded flex items-center justify-center border ${todo.completed ? "bg-[#A3B18A] border-[#A3B18A] text-white" : "border-stone-400"}`}>
-                  ✓
-                </div>
-                <span className={`text-xs font-bold uppercase ${todo.completed ? 'line-through text-stone-400' : 'text-stone-700'}`}>
-                  {todo.text}
-                </span>
+      {/* AI EXECUTIVE SUMMARY */}
+      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400 mb-2">
+              AI Executive Summary
+            </p>
+            <p className="text-sm lg:text-base font-medium text-stone-700">
+              {aiSummary}
+            </p>
+          </div>
+          <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest
+            ${riskLevel === "high" ? "bg-red-100 text-red-600"
+              : riskLevel === "medium" ? "bg-yellow-100 text-yellow-700"
+              : "bg-green-100 text-green-700"}`}
+          >
+            {riskLevel} risk
+          </div>
+        </div>
+      </section>
+
+      {/* AI DECISION ENGINE */}
+      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-8">
+        <div className="flex flex-col gap-4">
+
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
+              AI Decision Engine
+            </p>
+            <Zap size={14} className="text-[#A3B18A]" />
+          </div>
+
+          <div className="space-y-2">
+            {aiActions.map((action, idx) => (
+              <div key={idx} className="flex items-center gap-2 p-3 rounded-xl border bg-[#faf9f6]">
+                <ChevronRight size={12} className="text-[#A3B18A]" />
+                <p className="text-[10px] font-bold uppercase tracking-wide">
+                  {action}
+                </p>
               </div>
-            )) : <p className="text-[10px] font-black uppercase tracking-widest text-stone-300">No tasks assigned.</p>}
+            ))}
+          </div>
+
+        </div>
+      </section>
+
+      {/* Primary Overview Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-12">
+
+        {/* TASKS */}
+        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-2">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
+            <CheckSquare size={14} className="text-[#A3B18A]" /> Tasks
+          </h2>
+          <div className="space-y-3">
+            {todos.length > 0 ? [...todos]
+              .sort((a, b) => Number(a.completed) - Number(b.completed))
+              .slice(0, 5)
+              .map((todo) => (
+                <div key={todo.id} className="flex items-center gap-3 p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${todo.completed ? "bg-[#A3B18A] border-[#A3B18A] text-white" : "border-stone-400"}`}>✓</div>
+                  <span className="text-[10px] font-bold uppercase truncate">{todo.text}</span>
+                </div>
+              )) : <p className="text-[10px] text-stone-400 uppercase">No tasks</p>}
           </div>
         </section>
 
-       
+        {/* PROJECTS */}
+        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-3">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
+            <Briefcase size={14} className="text-[#A3B18A]" /> Projects
+          </h2>
+          <div className="space-y-3">
+            <p className="text-[10px] uppercase text-stone-400">{stats.activeProjects} active projects</p>
+            <p className="text-[10px] uppercase text-stone-400">{stats.invoicesDue} invoices pending</p>
+            <p className="text-[10px] uppercase text-stone-400">Revenue: £{stats.currentProfit}</p>
+          </div>
+        </section>
+
+        {/* EVENTS */}
+        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-3">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
+            <Clock size={14} className="text-[#A3B18A]" /> Today’s Events
+          </h2>
+          <div className="space-y-3">
+            {events.length > 0 ? events.slice(0,5).map((e:any, idx:number) => (
+              <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
+                <p className="text-[10px] font-bold uppercase truncate">{e.title || "Event"}</p>
+                <p className="text-[10px] text-stone-400">{e.time || "All day"}</p>
+              </div>
+            )) : <p className="text-[10px] uppercase text-stone-400">No scheduled activity for today</p>}
+          </div>
+        </section>
+
+        {/* EMAILS */}
+        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-2">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
+            <Mail size={14} className="text-[#A3B18A]" /> Emails
+          </h2>
+          <div className="space-y-3">
+            {emails.length > 0 ? emails.slice(0,5).map((m:any, idx:number) => (
+              <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
+                <p className="text-[10px] font-bold uppercase truncate">{m.subject || "New Email"}</p>
+                <p className="text-[10px] text-stone-400 truncate">{m.from || "Unknown sender"}</p>
+              </div>
+            )) : <p className="text-[10px] uppercase text-stone-400">System inbox clear</p>}
+          </div>
+        </section>
+
+        {/* NOTES */}
+        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-5">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
+            <FileText size={14} className="text-[#A3B18A]" /> Notes
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+            {todos.slice(0,6).map((t:any) => (
+              <div key={t.id} className="p-3 lg:p-4 rounded-2xl border bg-[#faf9f6]">
+                <p className="text-[10px] font-bold uppercase truncate">{t.text}</p>
+                <p className="text-[10px] text-stone-400">{t.completed ? "Completed" : "Pending"}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
       </div>
 
       {/* Financial Stats Grid */}
@@ -247,16 +392,16 @@ function DashboardContent() {
           { label: "Profit", val: stats.currentProfit, icon: PoundSterling },
           { label: "Analytics", val: "88%", icon: TrendingUp },
         ].map((item, idx) => (
-          <div key={idx} className="bg-white border border-stone-200 p-10 rounded-[3rem] shadow-sm flex flex-col gap-4">
+          <div key={idx} className="bg-white border border-stone-200 p-6 lg:p-10 rounded-[2rem] lg:rounded-[3rem] shadow-sm flex flex-col gap-3 lg:gap-4">
             <item.icon className="text-[#A3B18A]" size={24} />
             <p className="text-[10px] font-black uppercase text-stone-400">{item.label}</p>
-            <p className="text-3xl font-serif italic">{item.val}</p>
+            <p className="text-2xl sm:text-3xl font-serif italic">{item.val}</p>
           </div>
         ))}
       </section>
 
       {/* Footer/Navigation Bar */}
-      <footer className="border-t border-stone-200 pt-12 flex justify-between items-center text-stone-400">
+      <footer className="border-t border-stone-200 pt-8 lg:pt-12 flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center text-stone-400">
         <p className="text-[10px] uppercase tracking-widest">© 2026 Enterprise OS</p>
         <button onClick={() => router.push('/settings')} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:text-stone-900">
           Account Settings <Settings size={12} />

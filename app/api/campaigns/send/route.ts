@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
+export const runtime = 'nodejs';
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,7 +15,6 @@ async function processCampaign({
   campaign,
   resend,
   fromEmail,
-  supabaseAdmin,
 }: any) {
   const batchSize = 50;
   let sentCount = 0;
@@ -42,8 +43,6 @@ async function processCampaign({
       if (r.status === 'fulfilled') sentCount++;
     });
   }
-
-  console.log('Campaign finished processing', { campaignId, sentCount });
 
   await supabaseAdmin
     .from('campaigns')
@@ -81,7 +80,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Fetch campaign
+    // Fetch campaign
     const { data: campaign, error: campaignError } = await supabaseAdmin
       .from('campaigns')
       .select('*')
@@ -102,7 +101,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Fetch subscribers from profile_subscriber_lists
+    // Fetch subscribers
     const { data: subscriberLinks, error: subscriberError } = await supabaseAdmin
       .from('profile_subscriber_lists')
       .select(`
@@ -125,10 +124,7 @@ export async function POST(req: Request) {
 
     const subscribers = (subscriberLinks || [])
       .map((row: any) => row.profiles)
-      .filter(
-        (profile: any) =>
-          profile?.email && profile?.is_subscribed === true
-      );
+      .filter((p: any) => p?.email && p?.is_subscribed === true);
 
     if (subscribers.length === 0) {
       return NextResponse.json(
@@ -137,15 +133,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Mark as queued
-    const { error: sendingError } = await supabaseAdmin
+    // Mark queued
+    await supabaseAdmin
       .from('campaigns')
       .update({ status: 'queued' })
       .eq('id', campaignId);
-
-    if (sendingError) {
-      console.error('Failed to set queued status:', sendingError);
-    }
 
     await supabaseAdmin.from('campaign_jobs').insert({
       campaign_id: campaignId,
@@ -153,23 +145,26 @@ export async function POST(req: Request) {
       created_at: new Date().toISOString(),
     });
 
-    // Fire-and-forget processing (production queue style)
-    processCampaign({
+    const processPromise = processCampaign({
       campaignId,
       subscribers,
       campaign,
       resend,
       fromEmail,
-      supabaseAdmin,
-    }).catch((err: any) => {
+    }).catch((err) => {
       console.error('Background campaign processing failed:', err);
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Campaign queued for delivery',
-      total: subscribers.length,
-    }, { status: 202 });
+    processPromise;
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Campaign queued for delivery',
+        total: subscribers.length,
+      },
+      { status: 202 }
+    );
   } catch (err: any) {
     console.error('Campaign send error:', err);
 

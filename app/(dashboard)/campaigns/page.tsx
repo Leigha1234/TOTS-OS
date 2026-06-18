@@ -499,6 +499,7 @@ function useCampaigns(supabase: any) {
     addSubscribersToList,
     processDueCampaigns,
     trackCampaignClick,
+    refreshCampaigns,
   };
 }
 
@@ -526,6 +527,7 @@ export default function CampaignsPage() {
     sendCampaignNow: sendCampaignNowBase,
     addSubscribersToList,
     processDueCampaigns,
+    refreshCampaigns,
   } = useCampaigns(supabase);
   console.log("Component lists prop:", lists);
 

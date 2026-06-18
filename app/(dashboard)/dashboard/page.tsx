@@ -136,7 +136,7 @@ export default function DashboardPage() {
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-2">{item.label}</p>
             <p className="text-6xl font-serif italic text-stone-900 leading-none">{item.value}</p>
             <div className="mt-8 flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-stone-300 group-hover:text-stone-900 transition-colors">
-              Access Module <ArrowRight size={12} />
+              Access <ArrowRight size={12} />
             </div>
           </motion.div>
         ))}

@@ -32,6 +32,7 @@ export default function HRPage() {
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [notification, setNotification] = useState({ visible: false, msg: "" });
+  const [activeTab, setActiveTab] = useState<string>("overview");
 
   const [profile, setProfile] = useState<Profile>({
     id: null,
@@ -43,6 +44,36 @@ export default function HRPage() {
     account_number: "",
     sort_code: ""
   });
+
+  // === CLARITY HR INTELLIGENCE ENGINE ===
+  const clarityHR = React.useMemo(() => {
+    const filledFields = [
+      profile.full_name,
+      profile.role,
+      profile.phone,
+      profile.address,
+      profile.bank_name,
+      profile.account_number,
+      profile.sort_code
+    ].filter(Boolean).length;
+
+    const completeness = (filledFields / 7) * 100;
+
+    const riskFlags: string[] = [];
+
+    if (!profile.bank_name) riskFlags.push("Missing payroll institution");
+    if (!profile.address) riskFlags.push("Incomplete identity record");
+    if (!profile.role) riskFlags.push("Undefined operational role");
+
+    const status =
+      completeness > 80 ? "verified" : completeness > 50 ? "partial" : "critical";
+
+    return {
+      completeness,
+      riskFlags,
+      status
+    };
+  }, [profile]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -160,6 +191,29 @@ async function handleSave() {
       </AnimatePresence>
 
       <div className="max-w-[1200px] mx-auto px-6 py-10 space-y-10">
+
+        {/* CLARITY HR INTELLIGENCE PANEL */}
+        <div className="bg-stone-900 text-white rounded-[2.5rem] p-6 mb-6 relative overflow-hidden">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">
+              Clarity HR Intelligence
+            </h3>
+            <Cpu size={14} className="text-[#a9b897]" />
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[10px] font-mono">
+            <div>Completeness: {clarityHR.completeness.toFixed(0)}%</div>
+            <div>Status: {clarityHR.status}</div>
+            <div>Role: {profile.role || "undefined"}</div>
+            <div>Fields: {7}</div>
+          </div>
+
+          {clarityHR.riskFlags.length > 0 && (
+            <div className="mt-3 text-[9px] uppercase tracking-widest text-red-300">
+              {clarityHR.riskFlags.join(" • ")}
+            </div>
+          )}
+        </div>
         
         {/* HEADER ARCHITECTURE */}
         <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 border-b border-stone-100 pb-8">
@@ -195,145 +249,170 @@ async function handleSave() {
           </div>
         </header>
 
-        {/* IDENTITY SECTION */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <section className="lg:col-span-8 bg-white border border-stone-100 p-8 rounded-[2.5rem] space-y-10 shadow-sm relative overflow-hidden group text-left">
-            <div className="flex justify-between items-end border-b border-stone-50 pb-8 relative z-10">
-              <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897] italic">Verified Registry</p>
-                <h4 className="text-4xl font-serif italic tracking-tighter leading-none mt-1">
-                  {profile.full_name || "Registry Pending"}
-                </h4>
-              </div>
-              <Activity size={24} className="text-[#a9b897] opacity-20" />
-            </div>
+        {/* HR INTERNAL TABS */}
+        <div className="flex items-center gap-2 bg-white border border-stone-100 rounded-full p-1 w-fit shadow-sm mb-6">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`px-5 py-2 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${activeTab === "overview" ? "bg-stone-900 text-white" : "text-stone-300 hover:text-stone-900"}`}
+          >
+            Overview
+          </button>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-              {[
-                { label: 'Full Legal Name', key: 'full_name', icon: <Fingerprint size={12}/> },
-                { label: 'Operational Role', key: 'role', icon: <Briefcase size={12}/> },
-                { label: 'Secure Contact', key: 'phone', icon: <Phone size={12}/> },
-                { label: 'Physical Address', key: 'address', full: true, icon: <MapPin size={12}/> },
-              ].map((field) => (
-                <div key={field.key} className={`${field.full ? 'md:col-span-2' : ''} space-y-2`}>
-                  <div className="flex items-center gap-2 ml-2">
-                    <span className="text-[#a9b897]">{field.icon}</span>
-                    <label className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">{field.label}</label>
-                  </div>
-                  <input value={profile[field.key] || ""} onChange={(e) => setProfile({...profile, [field.key]: e.target.value})}
-                      className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:border-stone-900 focus:bg-white transition-all font-bold text-base text-stone-800" />
-                </div>
-              ))}
-            </div>
-            <Cpu size={180} className="absolute -right-10 -bottom-10 opacity-[0.02] text-stone-900 pointer-events-none" />
-          </section>
-
-          {/* RESOURCE LEDGER */}
-          <div className="lg:col-span-4">
-            <div className="bg-stone-900 rounded-[2.5rem] p-8 text-white flex flex-col justify-between shadow-xl relative overflow-hidden min-h-[440px] group text-left">
-              <div className="relative z-10 space-y-8">
-                <div className="flex items-center gap-3 text-stone-500">
-                  <Activity size={14} />
-                  <p className="text-[8px] font-black uppercase tracking-[0.4em]">Resource Ledger</p>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <h2 className="text-7xl font-mono tracking-tighter text-[#a9b897] leading-none">28.0</h2>
-                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-[0.4em] italic mt-2">Holiday Credit</p>
-                  </div>
-                  <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
-                    <motion.div initial={{ width: 0 }} animate={{ width: '65%' }} transition={{ duration: 1.5 }} 
-                      className="bg-[#a9b897] h-full rounded-full" />
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-4">
-                  <button onClick={() => setActiveModal('leave')} className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-all">
-                    <div className="flex items-center gap-4">
-                      <Calendar size={18} className="text-[#a9b897]" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Request Leave</span>
-                    </div>
-                    <ChevronRight size={14} className="text-stone-700" />
-                  </button>
-                  <button onClick={() => setActiveModal('payslip')} className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-all">
-                    <div className="flex items-center gap-4">
-                      <FileText size={18} className="text-stone-500" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Document Vault</span>
-                    </div>
-                    <ChevronRight size={14} className="text-stone-700" />
-                  </button>
-                </div>
-              </div>
-              <Lock size={120} className="absolute -right-8 -bottom-8 opacity-[0.03] text-white" />
-            </div>
-          </div>
+          <button
+            onClick={() => setActiveTab("modules")}
+            className={`px-5 py-2 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${activeTab === "modules" ? "bg-stone-900 text-white" : "text-stone-300 hover:text-stone-900"}`}
+          >
+            Modules
+          </button>
         </div>
 
-        {/* HR & PAYROLL MODULES */}
-        <section className="space-y-5 text-left">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897] italic">Operations Hub</p>
-              <h3 className="text-3xl font-serif italic tracking-tighter">HR & Payroll Modules</h3>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
-            {[
-              { title: 'Payroll', id: 'payroll', icon: <Wallet size={18} /> },
-              { title: 'Payslips', id: 'payslips', icon: <Receipt size={18} /> },
-              { title: 'Appraisals', id: 'appraisals', icon: <ClipboardCheck size={18} /> },
-              { title: 'Holiday Requests', id: 'holiday-requests', icon: <Umbrella size={18} /> },
-              { title: 'Sick Pay', id: 'sick-pay', icon: <HeartPulse size={18} /> }
-            ].map((card) => (
-              <motion.button
-                key={card.title}
-                onClick={() => setActiveModal(card.id)}
-                whileHover={{ y: -4 }}
-                whileTap={{ scale: 0.98 }}
-                className="bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm hover:border-stone-900 hover:shadow-lg transition-all text-left group flex flex-col justify-between min-h-[170px]"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center text-[#a9b897] group-hover:bg-stone-900 group-hover:text-white transition-all">
-                  {card.icon}
-                </div>
-
-                <div className="space-y-2">
-                  <h4 className="text-lg font-bold tracking-tight text-stone-900">{card.title}</h4>
-                  <div className="flex items-center gap-2 text-stone-300 group-hover:text-stone-900 transition-all">
-                    <span className="text-[8px] font-black uppercase tracking-[0.3em]">Open Module</span>
-                    <ChevronRight size={12} />
+        {activeTab === "overview" && (
+          <>
+            {/* IDENTITY SECTION */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <section className="lg:col-span-8 bg-white border border-stone-100 p-8 rounded-[2.5rem] space-y-10 shadow-sm relative overflow-hidden group text-left">
+                <div className="flex justify-between items-end border-b border-stone-50 pb-8 relative z-10">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897] italic">Verified Registry</p>
+                    <h4 className="text-4xl font-serif italic tracking-tighter leading-none mt-1">
+                      {profile.full_name || "Registry Pending"}
+                    </h4>
                   </div>
+                  <Activity size={24} className="text-[#a9b897] opacity-20" />
                 </div>
-              </motion.button>
-            ))}
-          </div>
-        </section>
 
-        {/* BANKING ENDPOINT */}
-        <section className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-sm grid grid-cols-1 xl:grid-cols-12 gap-8 hover:border-stone-900 transition-all text-left">
-           <div className="xl:col-span-4 xl:border-r border-stone-100 xl:pr-8 space-y-3">
-              <div className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center text-[#a9b897] shadow-inner"><Landmark size={20} /></div>
-              <div className="space-y-1">
-                <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-900">Financial Endpoint</h5>
-                <p className="text-[8px] text-stone-400 font-bold uppercase tracking-widest italic">Secured parameters for compensation.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                  {[
+                    { label: 'Full Legal Name', key: 'full_name', icon: <Fingerprint size={12}/> },
+                    { label: 'Operational Role', key: 'role', icon: <Briefcase size={12}/> },
+                    { label: 'Secure Contact', key: 'phone', icon: <Phone size={12}/> },
+                    { label: 'Physical Address', key: 'address', full: true, icon: <MapPin size={12}/> },
+                  ].map((field) => (
+                    <div key={field.key} className={`${field.full ? 'md:col-span-2' : ''} space-y-2`}>
+                      <div className="flex items-center gap-2 ml-2">
+                        <span className="text-[#a9b897]">{field.icon}</span>
+                        <label className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">{field.label}</label>
+                      </div>
+                      <input value={profile[field.key] || ""} onChange={(e) => setProfile({...profile, [field.key]: e.target.value})}
+                          className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:border-stone-900 focus:bg-white transition-all font-bold text-base text-stone-800" />
+                    </div>
+                  ))}
+                </div>
+                <Cpu size={180} className="absolute -right-10 -bottom-10 opacity-[0.02] text-stone-900 pointer-events-none" />
+              </section>
+
+              {/* RESOURCE LEDGER */}
+              <div className="lg:col-span-4">
+                <div className="bg-stone-900 rounded-[2.5rem] p-8 text-white flex flex-col justify-between shadow-xl relative overflow-hidden min-h-[440px] group text-left">
+                  <div className="relative z-10 space-y-8">
+                    <div className="flex items-center gap-3 text-stone-500">
+                      <Activity size={14} />
+                      <p className="text-[8px] font-black uppercase tracking-[0.4em]">Resource Ledger</p>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-7xl font-mono tracking-tighter text-[#a9b897] leading-none">28.0</h2>
+                        <p className="text-[9px] font-black uppercase text-stone-400 tracking-[0.4em] italic mt-2">Holiday Credit</p>
+                      </div>
+                      <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                        <motion.div initial={{ width: 0 }} animate={{ width: '65%' }} transition={{ duration: 1.5 }} 
+                          className="bg-[#a9b897] h-full rounded-full" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-4">
+                      <button onClick={() => setActiveModal('leave')} className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-all">
+                        <div className="flex items-center gap-4">
+                          <Calendar size={18} className="text-[#a9b897]" />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Request Leave</span>
+                        </div>
+                        <ChevronRight size={14} className="text-stone-700" />
+                      </button>
+                      <button onClick={() => setActiveModal('payslip')} className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-all">
+                        <div className="flex items-center gap-4">
+                          <FileText size={18} className="text-stone-500" />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Document Vault</span>
+                        </div>
+                        <ChevronRight size={14} className="text-stone-700" />
+                      </button>
+                    </div>
+                  </div>
+                  <Lock size={120} className="absolute -right-8 -bottom-8 opacity-[0.03] text-white" />
+                </div>
               </div>
-           </div>
-           
-           <div className="xl:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                  { label: 'Institution', key: 'bank_name' },
-                  { label: 'Account No.', key: 'account_number' },
-                  { label: 'Sort Code', key: 'sort_code' }
-                ].map((bank) => (
-                  <div key={bank.key} className="p-5 bg-stone-50 rounded-2xl border border-stone-100 space-y-2 group hover:bg-white transition-all">
-                    <p className="text-[8px] font-black uppercase text-stone-300 tracking-[0.4em]">{bank.label}</p>
-                    <input value={profile[bank.key] || ""} onChange={(e) => setProfile({...profile, [bank.key]: e.target.value})}
-                      className="w-full bg-transparent font-mono font-bold text-base outline-none text-stone-900" placeholder="XXXXXX" />
+            </div>
+
+            {/* BANKING ENDPOINT */}
+            <section className="bg-white rounded-[2.5rem] p-8 border border-stone-100 shadow-sm grid grid-cols-1 xl:grid-cols-12 gap-8 hover:border-stone-900 transition-all text-left">
+               <div className="xl:col-span-4 xl:border-r border-stone-100 xl:pr-8 space-y-3">
+                  <div className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center text-[#a9b897] shadow-inner"><Landmark size={20} /></div>
+                  <div className="space-y-1">
+                    <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-900">Financial Endpoint</h5>
+                    <p className="text-[8px] text-stone-400 font-bold uppercase tracking-widest italic">Secured parameters for compensation.</p>
                   </div>
-              ))}
-           </div>
-        </section>
+               </div>
+               
+               <div className="xl:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[
+                      { label: 'Institution', key: 'bank_name' },
+                      { label: 'Account No.', key: 'account_number' },
+                      { label: 'Sort Code', key: 'sort_code' }
+                    ].map((bank) => (
+                      <div key={bank.key} className="p-5 bg-stone-50 rounded-2xl border border-stone-100 space-y-2 group hover:bg-white transition-all">
+                        <p className="text-[8px] font-black uppercase text-stone-300 tracking-[0.4em]">{bank.label}</p>
+                        <input value={profile[bank.key] || ""} onChange={(e) => setProfile({...profile, [bank.key]: e.target.value})}
+                          className="w-full bg-transparent font-mono font-bold text-base outline-none text-stone-900" placeholder="XXXXXX" />
+                      </div>
+                  ))}
+               </div>
+            </section>
+          </>
+        )}
+
+        {activeTab === "modules" && (
+          <>
+            {/* HR & PAYROLL MODULES */}
+            <section className="space-y-5 text-left">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897] italic">Operations Hub</p>
+                  <h3 className="text-3xl font-serif italic tracking-tighter">HR & Payroll Modules</h3>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
+                {[
+                  { title: 'Payroll', id: 'payroll', icon: <Wallet size={18} /> },
+                  { title: 'Payslips', id: 'payslips', icon: <Receipt size={18} /> },
+                  { title: 'Appraisals', id: 'appraisals', icon: <ClipboardCheck size={18} /> },
+                  { title: 'Holiday Requests', id: 'holiday-requests', icon: <Umbrella size={18} /> },
+                  { title: 'Sick Pay', id: 'sick-pay', icon: <HeartPulse size={18} /> }
+                ].map((card) => (
+                  <motion.button
+                    key={card.title}
+                    onClick={() => setActiveModal(card.id)}
+                    whileHover={{ y: -4 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm hover:border-stone-900 hover:shadow-lg transition-all text-left group flex flex-col justify-between min-h-[170px]"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center text-[#a9b897] group-hover:bg-stone-900 group-hover:text-white transition-all">
+                      {card.icon}
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-lg font-bold tracking-tight text-stone-900">{card.title}</h4>
+                      <div className="flex items-center gap-2 text-stone-300 group-hover:text-stone-900 transition-all">
+                        <span className="text-[8px] font-black uppercase tracking-[0.3em]">Open Module</span>
+                        <ChevronRight size={12} />
+                      </div>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
 
         <footer className="pt-8 border-t border-stone-100 flex justify-between items-center text-stone-300 text-[8px] font-black uppercase tracking-[0.4em]">
           <div className="flex items-center gap-3">

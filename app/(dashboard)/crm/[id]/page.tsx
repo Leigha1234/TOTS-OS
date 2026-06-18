@@ -358,7 +358,7 @@ export default function AccountProfilePage() {
       <div className="max-w-6xl mx-auto space-y-12">
 
         <Link href="/crm" className="text-xs uppercase tracking-widest text-stone-400">
-          ← Back to CRM
+          ← Back to contacts
         </Link>
 
         {/* HEADER */}

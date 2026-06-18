@@ -977,15 +977,7 @@ export default function CampaignsPage() {
                       Delete Campaign
                     </button>
 
-                    <button
-                      onClick={() => {
-                        setShowViewModal(false);
-                        setSelectedCampaign(null);
-                      }}
-                      className="px-8 py-4 bg-stone-900 text-[var(--brand-primary)] rounded-xl font-black text-[10px] uppercase"
-                    >
-                      Close Document
-                    </button>
+                    
                   </div>
                 );
               })()}
@@ -1062,7 +1054,7 @@ export default function CampaignsPage() {
                     <div className="flex justify-between items-center mb-10 pr-14 md:pr-0">
                       <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Campaign Content Draft</span>
                       <button onClick={() => setShowClarityPrompt(true)} className="px-6 py-3 rounded-full shadow-md text-[10px] font-black uppercase tracking-widest flex items-center gap-2 bg-stone-900 text-[var(--brand-primary)]">
-                        <Zap size={14} fill="var(--brand-primary)" /> AI Content Assistant
+                        <Zap size={14} fill="var(--brand-primary)" /> Clarity Content Assistant
                       </button>
                     </div>
 

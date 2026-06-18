@@ -221,7 +221,7 @@ function DashboardContent() {
         {/* Priorities Section */}
         <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-3">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-            <CheckSquare size={14} className="text-[#A3B18A]" /> Active Priorities
+            <CheckSquare size={14} className="text-[#A3B18A]" /> To Do List
           </h2>
           <div className="space-y-4">
             {todos.length > 0 ? todos.map((todo) => (
@@ -243,20 +243,7 @@ function DashboardContent() {
           </div>
         </section>
 
-        {/* Team/Sidebar Section */}
-        <section className="bg-white border border-stone-200 p-12 rounded-[3.5rem] lg:col-span-2">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-8 flex items-center gap-2">
-            <Users size={14} className="text-[#A3B18A]" /> Team Status
-          </h2>
-          <div className="space-y-4">
-            {teamMembers.map((member, idx) => (
-              <div key={idx} className="flex justify-between p-5 bg-[#faf9f6] rounded-2xl">
-                <span className="text-xs font-bold text-stone-800">{member.full_name}</span>
-                <span className="text-[8px] uppercase tracking-widest text-stone-400">{member.role}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+       
       </div>
 
       {/* Financial Stats Grid */}

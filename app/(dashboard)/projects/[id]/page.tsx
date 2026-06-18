@@ -15,7 +15,7 @@ import { toast } from "sonner";
 
 export default function ProjectEngine() {
   const { id } = useParams();
-  const [activeTab, setActiveTab] = useState("execution"); // execution, assets, administration
+  const [activeTab, setActiveTab] = useState("Tasks"); // Tasks, assets, Project Settings
   const [project, setProject] = useState<any>(null);
   const [tasks, setTasks] = useState<any[]>([]);
   const [taskInput, setTaskInput] = useState("");
@@ -73,7 +73,7 @@ export default function ProjectEngine() {
           </Link>
           
           <div className="hidden md:flex items-center gap-1 bg-stone-100 p-1 rounded-xl">
-            {["execution", "assets", "administration"].map((tab) => (
+            {["Tasks", "assets", "Project Settings"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -111,7 +111,7 @@ export default function ProjectEngine() {
           </header>
 
           <AnimatePresence mode="wait">
-            {activeTab === "execution" && (
+            {activeTab === "Tasks" && (
               <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-10">
                 {/* TIMELINE VISUAL */}
                 <div className="bg-white border border-stone-100 rounded-[3rem] p-10 shadow-sm space-y-10">
@@ -184,7 +184,7 @@ export default function ProjectEngine() {
               </motion.section>
             )}
 
-            {activeTab === "administration" && (
+            {activeTab === "Project Settings" && (
               <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
                  <div className="bg-white border border-stone-100 rounded-[3rem] p-10 space-y-12 shadow-sm">
                     
@@ -264,7 +264,7 @@ export default function ProjectEngine() {
             </div>
             <div className="flex -space-x-3">
                 {[1,2,3].map(i => <div key={i} className="w-10 h-10 rounded-full border-4 border-white bg-stone-100 flex items-center justify-center text-[10px] font-black text-stone-300 ring-1 ring-stone-50">{i}</div>)}
-                <button onClick={() => setActiveTab("administration")} className="w-10 h-10 rounded-full border-4 border-white bg-stone-900 flex items-center justify-center text-white ring-1 ring-stone-900 hover:bg-[#a9b897] transition-all">
+                <button onClick={() => setActiveTab("Project Settings")} className="w-10 h-10 rounded-full border-4 border-white bg-stone-900 flex items-center justify-center text-white ring-1 ring-stone-900 hover:bg-[#a9b897] transition-all">
                     <Plus size={14} />
                 </button>
             </div>

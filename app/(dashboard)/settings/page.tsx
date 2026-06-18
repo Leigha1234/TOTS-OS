@@ -295,15 +295,44 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
       <header className="flex flex-col lg:flex-row lg:justify-between gap-8 lg:items-end border-b border-stone-200 pb-10 mb-12">
         <div className="space-y-6">
           <h1 className="text-8xl font-serif italic tracking-tighter">Settings</h1>
-          <p className="text-xs uppercase tracking-[0.3em] text-stone-400 font-black">
-            Workspace Administration & System Control
-          </p>
-          <nav className="flex flex-wrap gap-3">
-            <button onClick={() => setActiveTab("account")} className={`px-8 py-4 rounded-full text-[9px] font-black uppercase ${activeTab === "account" ? "bg-stone-900 text-white" : "bg-white border"}`}>Profile</button>
-            <button onClick={() => setActiveTab("brand")} className={`px-8 py-4 rounded-full text-[9px] font-black uppercase ${activeTab === "brand" ? "bg-stone-900 text-white" : "bg-white border"}`}>Brand DNA</button>
-            <button onClick={() => router.push('/settings/team')} className="px-8 py-4 rounded-full text-[9px] font-black uppercase bg-white border hover:bg-stone-50">Team Hub</button>
-            <button onClick={() => router.push('/settings/import')} className="px-8 py-4 rounded-full text-[9px] font-black uppercase bg-white border hover:bg-stone-50">Import Hub</button>
-          </nav>
+         
+         <nav className="flex flex-wrap gap-3">
+  <button
+    onClick={() => setActiveTab("account")}
+    className={`px-8 py-4 rounded-full text-[9px] font-black uppercase ${
+      activeTab === "account"
+        ? "bg-stone-900 text-white"
+        : "bg-white border"
+    }`}
+  >
+    Profile
+  </button>
+
+  {/* <button
+    onClick={() => setActiveTab("brand")}
+    className={`px-8 py-4 rounded-full text-[9px] font-black uppercase ${
+      activeTab === "brand"
+        ? "bg-stone-900 text-white"
+        : "bg-white border"
+    }`}
+  >
+    Brand DNA
+  </button> */}
+
+  {/* <button
+    onClick={() => router.push('/settings/team')}
+    className="px-8 py-4 rounded-full text-[9px] font-black uppercase bg-white border hover:bg-stone-50"
+  >
+    Team Hub
+  </button> */}
+
+  {/* <button
+    onClick={() => router.push('/settings/import')}
+    className="px-8 py-4 rounded-full text-[9px] font-black uppercase bg-white border hover:bg-stone-50"
+  >
+    Import Hub
+  </button> */}
+</nav>
         </div>
         <div className="flex gap-4">
            <button onClick={handleLogout} className="px-8 py-5 rounded-full border text-[10px] font-black uppercase">Sign Out</button>
@@ -521,17 +550,17 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
       <section className="mt-20 pt-12 border-t border-stone-200">
         <h3 className="text-3xl font-serif italic mb-8">Legal Hub</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <LegalDocCard title="Terms & Conditions" path="/docs/terms" />
-          <LegalDocCard title="Privacy Policy" path="/docs/privacy" />
-          <LegalDocCard title="AI Policy" path="/docs/ai" />
-          <LegalDocCard title="Beta Terms" path="/docs/beta" />
-          <LegalDocCard title="Cancellation Policy" path="/docs/cancellation" />
-          <LegalDocCard title="Community Guidelines" path="/docs/community" />
-          <LegalDocCard title="Cookies Policy" path="/docs/cookies" />
-          <LegalDocCard title="Data Terms" path="/docs/data" />
-          <LegalDocCard title="Property Notice" path="/docs/property" />
-          <LegalDocCard title="Security Policy" path="/docs/security" />
-          <LegalDocCard title="Service Policy" path="/docs/service" />
+          <LegalDocCard title="Terms & Conditions" path="/dashboard/docs/terms" />
+<LegalDocCard title="Privacy Policy" path="/dashboard/docs/privacy" />
+<LegalDocCard title="AI Policy" path="/dashboard/docs/ai" />
+<LegalDocCard title="Beta Terms" path="/dashboard/docs/beta" />
+<LegalDocCard title="Cancellation Policy" path="/dashboard/docs/cancellation" />
+<LegalDocCard title="Community Guidelines" path="/dashboard/docs/community" />
+<LegalDocCard title="Cookies Policy" path="/dashboard/docs/cookies" />
+<LegalDocCard title="Data Terms" path="/dashboard/docs/data" />
+<LegalDocCard title="Property Notice" path="/dashboard/docs/property" />
+<LegalDocCard title="Security Policy" path="/dashboard/docs/security" />
+<LegalDocCard title="Service Policy" path="/dashboard/docs/service" />
         </div>
       </section>
     </div>

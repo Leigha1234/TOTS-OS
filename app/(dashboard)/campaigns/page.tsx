@@ -206,7 +206,7 @@ function useCampaigns(supabase: any) {
             .from("campaigns")
             .select("*, subscriber_lists(name)")
             .eq("organisation_id", organisationId)
-            .then(({ data }) => setCampaigns(data || []));
+            .then((res: any) => setCampaigns(res.data || []));
         }
       )
       .subscribe();

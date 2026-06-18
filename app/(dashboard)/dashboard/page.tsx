@@ -69,6 +69,8 @@ function DashboardContent() {
   const [aiSummary, setAiSummary] = useState<string>("");
   const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high">("low");
   const [aiActions, setAiActions] = useState<string[]>([]);
+  const [clarityCommand, setClarityCommand] = useState<string>("");
+  const [clarityResponse, setClarityResponse] = useState<string | null>(null);
 
 
   // Real-time Clock
@@ -212,10 +214,61 @@ function DashboardContent() {
     loadDashboardData();
   }, [loadDashboardData]);
 
+  // PROACTIVE CLARITY AI LOOP
+  useEffect(() => {
+    if (!organisationId) return;
+
+    const interval = setInterval(() => {
+      try {
+        runClarityScan();
+      } catch (err) {
+        console.warn("Clarity proactive scan failed:", err);
+      }
+    }, 5 * 60 * 1000); // every 5 minutes
+
+    return () => clearInterval(interval);
+  }, [organisationId]);
+
   // Utility Functions
   const toggleTodo = async (id: string, currentStatus: boolean) => {
     setTodos(todos.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
     await supabase?.from("notes").update({ completed: !currentStatus }).eq("id", id);
+  };
+
+  // --- CLARITY COMMAND HANDLERS ---
+  const handleAskClarity = () => {
+    if (!clarityCommand.trim()) return;
+
+    const query = clarityCommand.toLowerCase();
+
+    // lightweight local reasoning layer (no backend dependency)
+    if (query.includes("task")) {
+      const incomplete = todos.filter(t => !t.completed).length;
+      setClarityResponse(`You have ${incomplete} incomplete tasks requiring attention.`);
+    } else if (query.includes("email")) {
+      setClarityResponse(`You currently have ${emails.length} recent emails in your system inbox.`);
+    } else if (query.includes("event")) {
+      setClarityResponse(`You have ${events.length} scheduled events loaded today.`);
+    } else if (query.includes("risk")) {
+      setClarityResponse(`System risk level is currently ${riskLevel}.`);
+    } else if (query.includes("summary")) {
+      setClarityResponse(aiSummary);
+    } else {
+      setClarityResponse(`Clarity received your query. Focus areas: tasks (${todos.length}), emails (${emails.length}), events (${events.length}).`);
+    }
+
+    setClarityCommand("");
+  };
+
+  const handleClarityBrief = () => {
+    const brief = `CLARITY BRIEF:\n` +
+      `Risk: ${riskLevel}\n` +
+      `Tasks: ${todos.filter(t => !t.completed).length} pending\n` +
+      `Emails: ${emails.length} recent\n` +
+      `Events: ${events.length} scheduled\n` +
+      `Action: ${aiActions[0] || "Maintain operational focus"}`;
+
+    setClarityResponse(brief);
   };
 
   const runClarityScan = async () => {
@@ -258,12 +311,12 @@ function DashboardContent() {
         </div>
       </header>
 
-      {/* AI EXECUTIVE SUMMARY */}
+      {/* Clarity Executive Summary */}
       <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400 mb-2">
-              AI Executive Summary
+              Clarity Executive Summary
             </p>
             <p className="text-sm lg:text-base font-medium text-stone-700">
               {aiSummary}
@@ -279,13 +332,55 @@ function DashboardContent() {
         </div>
       </section>
 
-      {/* AI DECISION ENGINE */}
+      {/* CLARITY COMMAND SYSTEM */}
       <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-8">
         <div className="flex flex-col gap-4">
 
           <div className="flex items-center justify-between">
             <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
-              AI Decision Engine
+              Ask Clarity
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              value={clarityCommand}
+              onChange={(e) => setClarityCommand(e.target.value)}
+              placeholder="Ask about tasks, emails, risk, summary..."
+              className="flex-1 p-3 rounded-xl border bg-[#faf9f6] text-[10px] uppercase tracking-wide"
+            />
+
+            <button
+              onClick={handleAskClarity}
+              className="px-4 py-3 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+            >
+              Ask <ArrowRight size={12} />
+            </button>
+
+            <button
+              onClick={handleClarityBrief}
+              className="px-4 py-3 rounded-xl border border-stone-300 text-stone-700 text-[10px] font-black uppercase tracking-widest"
+            >
+              Clarity Brief
+            </button>
+          </div>
+
+          {clarityResponse && (
+            <div className="p-4 rounded-xl border bg-[#faf9f6] text-[10px] font-medium whitespace-pre-line">
+              {clarityResponse}
+            </div>
+          )}
+
+        </div>
+      </section>
+
+      {/* Clarity Decision Engine */}
+      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-8">
+        <div className="flex flex-col gap-4">
+
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
+              Clarity Decision Engine
             </p>
             <Zap size={14} className="text-[#A3B18A]" />
           </div>

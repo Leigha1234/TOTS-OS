@@ -510,6 +510,7 @@ export default function CampaignsPage() {
 
   const {
     campaigns,
+    setCampaigns,
     lists,
     companyName,
     organisationId,

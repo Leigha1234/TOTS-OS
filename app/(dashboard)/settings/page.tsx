@@ -455,56 +455,6 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
                     </div>
                   </form>
                 </div>
-                
-              
-
-                  <div className="space-y-12">
-                    {/* ACCENT SELECTION */}
-                    <div className="space-y-6">
-                      
-                      <div className="flex flex-wrap gap-3 lg:gap-4">
-                        {["#A3B18A", "#6B705C", "#8E9AAF", "#9D8189", "#2D2D2D"].map(color => (
-                          <button 
-                            key={color} 
-                            onClick={() => setAccentColor(color)}
-                            className={`w-14 h-14 rounded-2xl transition-all ${accentColor === color ? 'scale-110 shadow-lg ring-2 ring-offset-2 ring-stone-200' : 'opacity-40 hover:opacity-100'}`}
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                        <input 
-                          type="color" 
-                          value={accentColor} 
-                          onChange={(e) => setAccentColor(e.target.value)}
-                          className="w-14 h-14 rounded-2xl bg-transparent border-none cursor-pointer"
-                        />
-                      </div>
-                    </div>
-
-                    {/* TYPOGRAPHY CONTROLS */}
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-4">
-                        <Type size={16} className="accent-text" />
-                        <label className="text-[10px] font-black uppercase tracking-widest">Typography Weight Scaling</label>
-                      </div>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <button 
-                          onClick={() => setFontPreference("serif-heavy")}
-                          className={`p-6 rounded-3xl border text-left transition-all ${fontPreference === 'serif-heavy' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
-                        >
-                          <p className="font-serif italic text-2xl mb-1">Instrument Serif</p>
-                          <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">High-Contrast Creative Layout</p>
-                        </button>
-                        <button 
-                          onClick={() => setFontPreference("sans-clean")}
-                          className={`p-6 rounded-3xl border text-left transition-all ${fontPreference === 'sans-clean' ? 'border-stone-900 bg-stone-50' : 'border-stone-100'}`}
-                        >
-                          <p className="font-sans font-black text-xl mb-1 uppercase tracking-tight">Inter Bold</p>
-                          <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Minimalist Structure Interface</p>
-                        </button>
-                      </div>
-                    </div>
-
-                  </div>
                </section>
             </motion.div>
           )}

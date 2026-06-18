@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { useSettings } from "@/app/context/SettingsContext";
 import { 
   LayoutDashboard, Users, Calendar, Megaphone, 
-  DollarSign, Briefcase, BarChart3, Globe, Lock, Settings, Menu, X,
+  Briefcase, BarChart3, Globe, Lock, Settings, Menu, X,
   Sparkles, StickyNote 
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,16 +24,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const allLinks = [
     { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-    { href: "/clarity", label: "Clarity", icon: Sparkles },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/crm", label: "Contacts", icon: Users },
     { href: "/notes", label: "Notes", icon: StickyNote },
     { href: "/campaigns", label: "Campaigns", icon: Megaphone },
-    { href: "/payments", label: "Finance", icon: DollarSign },
     { href: "/projects", label: "Projects", icon: Briefcase },
-    { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/social", label: "Social", icon: Globe },
-    { href: "/vault", label: "Vault", icon: Lock },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 

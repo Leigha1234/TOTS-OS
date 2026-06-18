@@ -190,17 +190,74 @@ function DashboardContent() {
           : "System stable. Low operational pressure across all modules."
       );
 
-      // AI DECISION ENGINE LOGIC
+      // ===============================
+      // CLARITY CEO MODE AI ENGINE
+      // ===============================
+
       const actions: string[] = [];
+      const insights: string[] = [];
 
-      if (taskLoad > 5) actions.push("Prioritise incomplete tasks");
-      if (emailLoad > 5) actions.push("Process unread emails");
-      if (eventLoad > 3) actions.push("Prepare for today's schedule");
-      if ((stats.invoicesDue || 0) > 0) actions.push("Review pending invoices");
+      const workloadScore = taskLoad + emailLoad + eventLoad;
+      const pressureLevel =
+        workloadScore > 18 ? "high" :
+        workloadScore > 10 ? "medium" :
+        "low";
 
-      if (actions.length === 0) actions.push("Maintain operational focus");
+      // -------------------------------
+      // CEO MODE: STRATEGIC PRIORITIES
+      // -------------------------------
 
-      setAiActions(actions);
+      // Always compress into TOP 3 EXECUTIVE PRIORITIES
+      if (taskLoad > 0) actions.push("Focus on highest-impact tasks");
+      if (emailLoad > 0) actions.push("Clear critical inbox items");
+      if (eventLoad > 0) actions.push("Align schedule with priorities");
+      if ((stats.invoicesDue || 0) > 0) actions.push("Secure outstanding revenue");
+
+      // Reduce to CEO-level focus (max 3)
+      const topPriorities = actions.slice(0, 3);
+
+      // -------------------------------
+      // CEO MODE: RISK INTELLIGENCE
+      // -------------------------------
+
+      if (pressureLevel === "high") {
+        insights.push("CEO ALERT: Operational overload detected — delegation required");
+        insights.push("Risk: Execution bottleneck likely within 24–48 hours");
+      }
+
+      if (pressureLevel === "medium") {
+        insights.push("CEO VIEW: Stable operations — optimise throughput");
+      }
+
+      if (pressureLevel === "low") {
+        insights.push("CEO OPPORTUNITY: Capacity available for strategic growth work");
+      }
+
+      // -------------------------------
+      // CEO MODE: STRATEGIC FORECAST
+      // -------------------------------
+
+      if (taskLoad > 6) {
+        insights.push("Forecast: Task backlog is compounding — intervention recommended");
+      }
+
+      if (emailLoad > 8) {
+        insights.push("Forecast: Inbox pressure will increase without triage system");
+      }
+
+      // -------------------------------
+      // CEO MODE: OPPORTUNITY SIGNAL
+      // -------------------------------
+
+      if (pressureLevel === "low") {
+        insights.push("Opportunity: Ideal window for high-leverage strategic planning");
+      }
+
+      // -------------------------------
+      // FINAL CEO OUTPUT COMPOSITION
+      // -------------------------------
+
+      setAiActions([...topPriorities, ...insights]);
 
     } catch (err) {
       console.error("Dashboard Sync Critical Error:", err);
@@ -229,10 +286,53 @@ function DashboardContent() {
     return () => clearInterval(interval);
   }, [organisationId]);
 
+  // --- TASK INTELLIGENCE ENGINE ---
+  const getTaskScore = (task: any) => {
+    const text = (task.text || "").toLowerCase();
+
+    let score = 0;
+
+    // incomplete tasks are higher priority
+    if (!task.completed) score += 2;
+
+    // urgency keywords
+    if (
+      text.includes("urgent") ||
+      text.includes("asap") ||
+      text.includes("today")
+    ) {
+      score += 3;
+    }
+
+    return score;
+  };
   // Utility Functions
   const toggleTodo = async (id: string, currentStatus: boolean) => {
-    setTodos(todos.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-    await supabase?.from("notes").update({ completed: !currentStatus }).eq("id", id);
+    const newStatus = !currentStatus;
+
+    // Optimistic UI update using safe state pattern
+    setTodos(prev =>
+      prev.map(t =>
+        t.id === id ? { ...t, completed: newStatus } : t
+      )
+    );
+
+    // Update database
+    const { error } = await supabase
+      .from("notes")
+      .update({ completed: newStatus })
+      .eq("id", id);
+
+    // Rollback UI if DB update fails
+    if (error) {
+      console.error("Toggle failed:", error);
+
+      setTodos(prev =>
+        prev.map(t =>
+          t.id === id ? { ...t, completed: currentStatus } : t
+        )
+      );
+    }
   };
 
   // --- CLARITY COMMAND HANDLERS ---
@@ -409,11 +509,14 @@ function DashboardContent() {
           </h2>
           <div className="space-y-3">
             {todos.length > 0 ? [...todos]
-              .sort((a, b) => Number(a.completed) - Number(b.completed))
+              .sort((a, b) => getTaskScore(b) - getTaskScore(a))
               .slice(0, 5)
               .map((todo) => (
-                <div key={todo.id} className="flex items-center gap-3 p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
+                <div key={todo.id} className="flex items-center gap-3 p-2 lg:p-3 rounded-xl border bg-[#faf9f6] relative">
                   <div className={`w-4 h-4 rounded border flex items-center justify-center ${todo.completed ? "bg-[#A3B18A] border-[#A3B18A] text-white" : "border-stone-400"}`}>✓</div>
+                  {!todo.completed && (
+                    <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                  )}
                   <span className="text-[10px] font-bold uppercase truncate">{todo.text}</span>
                 </div>
               )) : <p className="text-[10px] text-stone-400 uppercase">No tasks</p>}

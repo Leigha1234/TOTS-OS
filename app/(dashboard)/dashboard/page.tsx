@@ -212,6 +212,7 @@ function DashboardContent() {
           {isScanActive ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} className="text-[#A3B18A]" fill="currentColor" />}
           <span className="text-[10px] font-black uppercase tracking-[0.2em]">AI Scan</span>
         </motion.button>
+        
       </header>
 
       {/* Primary Grid Layout */}

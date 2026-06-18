@@ -71,6 +71,48 @@ function createCampaignService(supabase: any, organisationId: string | null) {
       return data?.[0] || null;
     },
 
+    async deleteCampaign(id: string) {
+      const { error } = await supabase
+        .from("campaigns")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.error("deleteCampaign error:", error);
+        throw error;
+      }
+    },
+
+    async deleteList(id: string) {
+      await supabase
+        .from("profile_subscriber_lists")
+        .delete()
+        .eq("list_id", id);
+
+      const { error } = await supabase
+        .from("subscriber_lists")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.error("deleteList error:", error);
+        throw error;
+      }
+    },
+
+    async removeSubscriber(listId: string, profileId: string) {
+      const { error } = await supabase
+        .from("profile_subscriber_lists")
+        .delete()
+        .eq("list_id", listId)
+        .eq("profile_id", profileId);
+
+      if (error) {
+        console.error("removeSubscriber error:", error);
+        throw error;
+      }
+    },
+
     async listSubscriberLists() {
       if (!organisationId) return [];
 
@@ -303,6 +345,27 @@ function useCampaigns(supabase: any) {
     await refreshCampaigns();
   };
 
+  const deleteCampaign = async (id: string) => {
+    await service.deleteCampaign(id);
+
+    setCampaigns(prev => prev.filter(c => c.id !== id));
+
+    cacheRef.current.ts = 0;
+  };
+
+  const deleteList = async (id: string) => {
+    await service.deleteList(id);
+
+    setLists(prev => prev.filter(l => l.id !== id));
+  };
+
+  const removeSubscriber = async (listId: string, profileId: string) => {
+    await service.removeSubscriber(listId, profileId);
+
+    const counts = await service.subscriberCounts();
+    setSubscriberCounts(counts);
+  };
+
   // Send campaign now
   const sendCampaignNow = async (campaignId: string) => {
     const res = await fetch('/api/campaigns/send', {
@@ -380,6 +443,9 @@ function useCampaigns(supabase: any) {
     scheduleCampaign,
     loadListSubscribers,
     updateCampaign,
+    deleteCampaign,
+    deleteList,
+    removeSubscriber,
     subscriberCounts,
     profiles,
     sendCampaignNow,
@@ -403,6 +469,9 @@ export default function CampaignsPage() {
     scheduleCampaign,
     loadListSubscribers,
     updateCampaign,
+    deleteCampaign,
+    deleteList,
+    removeSubscriber,
     subscriberCounts,
     profiles,
     sendCampaignNow,
@@ -671,6 +740,20 @@ export default function CampaignsPage() {
                 </button>
 
                 <button
+                  onClick={async () => {
+                    if (!confirm(`Delete "${selectedCampaign.title}"? This cannot be undone.`)) return;
+
+                    await deleteCampaign(selectedCampaign.id);
+
+                    setShowViewModal(false);
+                    setSelectedCampaign(null);
+                  }}
+                  className="px-8 py-4 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase"
+                >
+                  Delete Campaign
+                </button>
+
+                <button
                   onClick={() => {
                     setShowViewModal(false);
                     setSelectedCampaign(null);
@@ -924,18 +1007,48 @@ export default function CampaignsPage() {
                 )}
 
                 {listSubscribers.map((s: any) => (
-                  <div key={s.profile_id} className="p-4 bg-stone-50 rounded-xl border border-stone-100">
-                    <p className="font-bold text-sm text-stone-800">
-                      {s.profiles?.name || "Unnamed User"}
-                    </p>
-                    <p className="text-xs text-stone-500">
-                      {s.profiles?.email || "No email"}
-                    </p>
+                  <div
+                    key={s.profile_id}
+                    className="p-4 bg-stone-50 rounded-xl border border-stone-100 flex justify-between items-center"
+                  >
+                    <div>
+                      <p className="font-bold text-sm text-stone-800">
+                        {s.profiles?.name || "Unnamed User"}
+                      </p>
+                      <p className="text-xs text-stone-500">
+                        {s.profiles?.email || "No email"}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        await removeSubscriber(selectedList.id, s.profile_id);
+
+                        const updated = await loadListSubscribers(selectedList.id);
+                        setListSubscribers(updated);
+                      }}
+                      className="text-red-600 text-xs font-black uppercase"
+                    >
+                      Remove
+                    </button>
                   </div>
                 ))}
               </div>
 
               <div className="mt-8 text-right">
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Delete list "${selectedList.name}"? This cannot be undone.`)) return;
+
+                    await deleteList(selectedList.id);
+
+                    setShowListDetailModal(false);
+                    setSelectedList(null);
+                  }}
+                  className="px-6 py-3 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase mr-3"
+                >
+                  Delete List
+                </button>
                 <button
                   onClick={() => setShowListDetailModal(false)}
                   className="px-6 py-3 bg-stone-900 text-[var(--brand-primary)] rounded-xl text-[10px] font-black uppercase"

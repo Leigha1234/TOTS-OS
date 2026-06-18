@@ -22,6 +22,8 @@ export async function POST(req: Request) {
     const resend = new Resend(resendKey);
     const { campaignId } = await req.json();
 
+    const batchSize = 50;
+
     if (!campaignId) {
       return NextResponse.json(
         { error: 'Missing campaignId' },
@@ -50,12 +52,19 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Fetch subscribers (FIXED FIELD NAME)
-    const { data: subscribers, error: subscriberError } = await supabaseAdmin
-      .from('subscribers')
-      .select('*')
-      .eq('list_id', campaign.list_id)
-      .eq('is_subscribed', true);
+    // 2. Fetch subscribers from profile_subscriber_lists
+    const { data: subscriberLinks, error: subscriberError } = await supabaseAdmin
+      .from('profile_subscriber_lists')
+      .select(`
+        profile_id,
+        profiles (
+          id,
+          email,
+          name,
+          is_subscribed
+        )
+      `)
+      .eq('list_id', campaign.list_id);
 
     if (subscriberError) {
       return NextResponse.json(
@@ -64,9 +73,16 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!subscribers || subscribers.length === 0) {
+    const subscribers = (subscriberLinks || [])
+      .map((row: any) => row.profiles)
+      .filter(
+        (profile: any) =>
+          profile?.email && profile?.is_subscribed === true
+      );
+
+    if (subscribers.length === 0) {
       return NextResponse.json(
-        { error: 'No subscribers found' },
+        { error: 'No subscribed recipients found' },
         { status: 400 }
       );
     }
@@ -79,25 +95,35 @@ export async function POST(req: Request) {
 
     let sentCount = 0;
 
-    // 4. Send emails (SAFE PARALLEL BATCHING)
-    const results = await Promise.allSettled(
-      subscribers.map((subscriber) =>
-        resend.emails.send({
-          from: fromEmail,
-          to: subscriber.email,
-          subject: campaign.subject || campaign.title || 'Campaign',
-          html: `
-            <div style="font-family:Arial,sans-serif;padding:24px;line-height:1.6;">
-              <h2>${campaign.title ?? ''}</h2>
-              <div>${campaign.content ?? ''}</div>
-            </div>
-          `,
-        })
-      )
-    );
+    // 4. Send emails in batches
+    for (let i = 0; i < subscribers.length; i += batchSize) {
+      const batch = subscribers.slice(i, i + batchSize);
 
-    results.forEach((r) => {
-      if (r.status === 'fulfilled') sentCount++;
+      const results = await Promise.allSettled(
+        batch.map((subscriber: any) =>
+          resend.emails.send({
+            from: fromEmail,
+            to: subscriber.email,
+            subject: campaign.subject || campaign.title || 'Campaign',
+            html: `
+              <div style="font-family:Arial,sans-serif;padding:24px;line-height:1.6;">
+                <h2>${campaign.title ?? ''}</h2>
+                <div>${campaign.content ?? ''}</div>
+              </div>
+            `,
+          })
+        )
+      );
+
+      results.forEach((r) => {
+        if (r.status === 'fulfilled') sentCount++;
+      });
+    }
+
+    console.log('Campaign sent successfully', {
+      campaignId,
+      sentCount,
+      totalRecipients: subscribers.length,
     });
 
     // 5. Update campaign status
@@ -117,6 +143,13 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     console.error('Campaign send error:', err);
+
+    if (typeof campaignId !== 'undefined') {
+      await supabaseAdmin
+        .from('campaigns')
+        .update({ status: 'failed' })
+        .eq('id', campaignId);
+    }
 
     return NextResponse.json(
       { error: err.message || 'Campaign send failed' },

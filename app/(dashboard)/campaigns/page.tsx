@@ -84,20 +84,41 @@ function createCampaignService(supabase: any, organisationId: string | null) {
     },
 
     async deleteList(id: string) {
-      await supabase
+      // 1. Detach campaigns from this list to prevent FK constraint errors
+      const { error: campaignError } = await supabase
+        .from("campaigns")
+        .update({ list_id: null })
+        .eq("list_id", id);
+
+      if (campaignError) {
+        console.error("deleteList campaign detach error:", campaignError);
+        throw campaignError;
+      }
+
+      // 2. Delete subscriber list links
+      const { error: linkError } = await supabase
         .from("profile_subscriber_lists")
         .delete()
         .eq("list_id", id);
 
-      const { error } = await supabase
+      if (linkError) {
+        console.error("deleteList subscriber link error:", linkError);
+        throw linkError;
+      }
+
+      // 3. Delete the list itself
+      const { data, error } = await supabase
         .from("subscriber_lists")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .select();
 
       if (error) {
         console.error("deleteList error:", error);
         throw error;
       }
+
+      console.log("Deleted list:", data);
     },
 
     async removeSubscriber(listId: string, profileId: string) {
@@ -1040,7 +1061,13 @@ export default function CampaignsPage() {
                   onClick={async () => {
                     if (!confirm(`Delete list "${selectedList.name}"? This cannot be undone.`)) return;
 
-                    await deleteList(selectedList.id);
+                    try {
+                      await deleteList(selectedList.id);
+                    } catch (err) {
+                      console.error(err);
+                      alert(`Failed to delete list. Check browser console for the Supabase error.`);
+                      return;
+                    }
 
                     setShowListDetailModal(false);
                     setSelectedList(null);

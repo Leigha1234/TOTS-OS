@@ -324,15 +324,36 @@ function useCampaigns(supabase: any) {
   }, [organisationId, supabase]);
 
   const createList = async (name: string) => {
-    if (!organisationId || !name) return;
+    const trimmed = name?.trim();
 
-    await supabase.from("subscriber_lists").insert({
-      name,
-      organisation_id: organisationId
-    });
+    if (!organisationId) {
+      console.error("Missing organisationId");
+      alert("Organisation not loaded yet");
+      return;
+    }
 
-    const listsData = await service.listSubscriberLists();
-    setLists(listsData);
+    if (!trimmed) {
+      alert("List name cannot be empty");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("subscriber_lists")
+      .insert({
+        name: trimmed,
+        organisation_id: organisationId
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("createList error:", error);
+      alert(error.message || "Failed to create list");
+      return;
+    }
+
+    // update UI immediately without refetch
+    setLists(prev => [...prev, data]);
   };
 
   const scheduleCampaign = async (form: any) => {
@@ -993,7 +1014,16 @@ export default function CampaignsPage() {
                     className="w-full p-4 bg-stone-50 rounded-2xl border border-stone-100 mb-6 outline-none focus:border-stone-900"
                 />
                 <div className="flex gap-3">
-                    <button onClick={() => createList(newListName)} className="w-full py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Create List</button>
+                    <button
+                      onClick={async () => {
+                        await createList(newListName);
+                        setNewListName("");
+                        setShowListModal(false);
+                      }}
+                      className="w-full py-4 bg-stone-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest"
+                    >
+                      Create List
+                    </button>
                 </div>
             </motion.div>
           </div>

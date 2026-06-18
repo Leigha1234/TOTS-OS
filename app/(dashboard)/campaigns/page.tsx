@@ -849,66 +849,81 @@ export default function CampaignsPage() {
               </div>
 
               {/* VIEW FOOTER */}
-              <div className="p-6 bg-stone-50 border-t border-stone-200 text-center flex justify-between">
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedCampaign(null);
+              {(() => {
+                // Ensure currentCampaign and status are up to date for modal
+                const currentCampaign = campaigns.find(c => c.id === selectedCampaign?.id) || selectedCampaign;
+                const isSending = currentCampaign?.status === 'sending';
+                const isSent = currentCampaign?.status === 'sent';
+                return (
+                  <div className="p-6 bg-stone-50 border-t border-stone-200 text-center flex justify-between">
+                    <button
+                      onClick={() => {
+                        setShowViewModal(false);
+                        setSelectedCampaign(null);
 
-                    setEditingCampaignId(selectedCampaign.id);
-                    setForm({
-                      title: selectedCampaign.title || "",
-                      subject: selectedCampaign.subject || "",
-                      list_id: selectedCampaign.list_id || "",
-                      scheduled_for: selectedCampaign.scheduled_for || "",
-                      content: selectedCampaign.content || ""
-                    });
+                        setEditingCampaignId(selectedCampaign.id);
+                        setForm({
+                          title: selectedCampaign.title || "",
+                          subject: selectedCampaign.subject || "",
+                          list_id: selectedCampaign.list_id || "",
+                          scheduled_for: selectedCampaign.scheduled_for || "",
+                          content: selectedCampaign.content || ""
+                        });
 
-                    setShowModal(true);
-                  }}
-                  className="px-8 py-4 bg-white border border-stone-200 text-stone-700 rounded-xl font-black text-[10px] uppercase"
-                >
-                  Edit Campaign
-                </button>
+                        setShowModal(true);
+                      }}
+                      className="px-8 py-4 bg-white border border-stone-200 text-stone-700 rounded-xl font-black text-[10px] uppercase"
+                    >
+                      Edit Campaign
+                    </button>
 
-                <button
-                  onClick={() => setShowEmailPreview(true)}
-                  className="px-8 py-4 bg-stone-100 border border-stone-200 text-stone-700 rounded-xl font-black text-[10px] uppercase"
-                >
-                  Preview Email
-                </button>
+                    <button
+                      onClick={() => setShowEmailPreview(true)}
+                      className="px-8 py-4 bg-stone-100 border border-stone-200 text-stone-700 rounded-xl font-black text-[10px] uppercase"
+                    >
+                      Preview Email
+                    </button>
 
-                <button
-                  onClick={() => sendCampaignNow(selectedCampaign.id)}
-                  className="px-8 py-4 bg-green-600 text-white rounded-xl font-black text-[10px] uppercase"
-                >
-                  Send Now
-                </button>
+                    <button
+                      onClick={() => sendCampaignNow(selectedCampaign.id)}
+                      disabled={isSending || isSent}
+                      className={`px-8 py-4 rounded-xl font-black text-[10px] uppercase transition-all ${
+                        isSent
+                          ? 'bg-green-700 text-white opacity-80 cursor-not-allowed'
+                          : isSending
+                          ? 'bg-yellow-500 text-white cursor-wait'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
+                    >
+                      {isSent ? 'Sent' : isSending ? 'Sending...' : 'Send Now'}
+                    </button>
 
-                <button
-                  onClick={async () => {
-                    if (!confirm(`Delete "${selectedCampaign.title}"? This cannot be undone.`)) return;
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Delete "${selectedCampaign.title}"? This cannot be undone.`)) return;
 
-                    await deleteCampaign(selectedCampaign.id);
+                        await deleteCampaign(selectedCampaign.id);
 
-                    setShowViewModal(false);
-                    setSelectedCampaign(null);
-                  }}
-                  className="px-8 py-4 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase"
-                >
-                  Delete Campaign
-                </button>
+                        setShowViewModal(false);
+                        setSelectedCampaign(null);
+                      }}
+                      className="px-8 py-4 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase"
+                    >
+                      Delete Campaign
+                    </button>
 
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedCampaign(null);
-                  }}
-                  className="px-8 py-4 bg-stone-900 text-[var(--brand-primary)] rounded-xl font-black text-[10px] uppercase"
-                >
-                  Close Document
-                </button>
-              </div>
+                    <button
+                      onClick={() => {
+                        setShowViewModal(false);
+                        setSelectedCampaign(null);
+                      }}
+                      className="px-8 py-4 bg-stone-900 text-[var(--brand-primary)] rounded-xl font-black text-[10px] uppercase"
+                    >
+                      Close Document
+                    </button>
+                  </div>
+                );
+              })()}
             </motion.div>
           </div>
         )}

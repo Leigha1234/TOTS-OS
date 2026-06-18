@@ -38,7 +38,7 @@ export default function AccountProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<"info" | "tasks" | "email" | "timeline">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "tasks" | "email" | "overview">("info");
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [threads, setThreads] = useState<any[]>([]);
@@ -735,7 +735,7 @@ export default function AccountProfilePage() {
         )}
 
         {/* TIMELINE */}
-        {activeTab === "timeline" && (
+        {activeTab === "overview" && (
           <div className="space-y-6">
 
             {/* HEALTH SCORE */}
@@ -752,7 +752,7 @@ export default function AccountProfilePage() {
             {/* ACTIVITY FEED */}
             <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
-                Activity Feed
+                Conversations
               </h3>
 
               <div className="space-y-4">
@@ -785,7 +785,7 @@ export default function AccountProfilePage() {
             {/* NOTES */}
             <div className="bg-white/90 backdrop-blur p-8 rounded-[2rem] border border-stone-200 shadow-sm">
               <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
-                Internal Notes
+                Notes
               </h3>
 
               <form

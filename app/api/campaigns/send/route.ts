@@ -7,6 +7,54 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+async function processCampaign({
+  campaignId,
+  subscribers,
+  campaign,
+  resend,
+  fromEmail,
+  supabaseAdmin,
+}: any) {
+  const batchSize = 50;
+  let sentCount = 0;
+
+  for (let i = 0; i < subscribers.length; i += batchSize) {
+    const batch = subscribers.slice(i, i + batchSize);
+
+    const results = await Promise.allSettled(
+      batch.map((subscriber: any) =>
+        resend.emails.send({
+          from: fromEmail,
+          to: subscriber.email,
+          subject: campaign.subject || campaign.title || 'Campaign',
+          html: `
+            <div style="font-family:Arial,sans-serif;padding:24px;line-height:1.6;">
+              <h2>${campaign.title ?? ''}</h2>
+              <div>${campaign.content ?? ''}</div>
+              <img src="https://www.tots-os.co.uk/api/campaigns/open?campaignId=${campaignId}&profileId=${encodeURIComponent(subscriber.id)}" width="1" height="1" style="display:none;" />
+            </div>
+          `,
+        })
+      )
+    );
+
+    results.forEach((r: any) => {
+      if (r.status === 'fulfilled') sentCount++;
+    });
+  }
+
+  console.log('Campaign finished processing', { campaignId, sentCount });
+
+  await supabaseAdmin
+    .from('campaigns')
+    .update({
+      status: 'sent',
+      sent_at: new Date().toISOString(),
+      sent_count: sentCount,
+    })
+    .eq('id', campaignId);
+}
+
 export async function POST(req: Request) {
   let campaignId: string | undefined;
 
@@ -15,8 +63,9 @@ export async function POST(req: Request) {
     const fromEmail = process.env.RESEND_FROM_EMAIL;
 
     if (!resendKey || !fromEmail) {
+      console.error('Missing RESEND configuration');
       return NextResponse.json(
-        { error: 'Missing RESEND configuration' },
+        { error: 'Email service not configured' },
         { status: 500 }
       );
     }
@@ -24,8 +73,6 @@ export async function POST(req: Request) {
     const resend = new Resend(resendKey);
     const body = await req.json();
     campaignId = body.campaignId;
-
-    const batchSize = 50;
 
     if (!campaignId) {
       return NextResponse.json(
@@ -90,65 +137,43 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Mark as sending
-    await supabaseAdmin
+    // 3. Mark as queued
+    const { error: sendingError } = await supabaseAdmin
       .from('campaigns')
-      .update({ status: 'sending' })
+      .update({ status: 'queued' })
       .eq('id', campaignId);
 
-    let sentCount = 0;
-
-    // 4. Send emails in batches
-    for (let i = 0; i < subscribers.length; i += batchSize) {
-      const batch = subscribers.slice(i, i + batchSize);
-
-      const results = await Promise.allSettled(
-        batch.map((subscriber: any) =>
-          resend.emails.send({
-            from: fromEmail,
-            to: subscriber.email,
-            subject: campaign.subject || campaign.title || 'Campaign',
-            html: `
-              <div style="font-family:Arial,sans-serif;padding:24px;line-height:1.6;">
-                <h2>${campaign.title ?? ''}</h2>
-                <div>${campaign.content ?? ''}</div>
-                <img src="https://www.tots-os.co.uk/api/campaigns/open?campaignId=${campaignId}&profileId=${subscriber.id}" width="1" height="1" style="display:none;" />
-              </div>
-            `,
-          })
-        )
-      );
-
-      results.forEach((r) => {
-        if (r.status === 'fulfilled') sentCount++;
-      });
+    if (sendingError) {
+      console.error('Failed to set queued status:', sendingError);
     }
 
-    console.log('Campaign sent successfully', {
-      campaignId,
-      sentCount,
-      totalRecipients: subscribers.length,
+    await supabaseAdmin.from('campaign_jobs').insert({
+      campaign_id: campaignId,
+      status: 'queued',
+      created_at: new Date().toISOString(),
     });
 
-    // 5. Update campaign status
-    await supabaseAdmin
-      .from('campaigns')
-      .update({
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-        sent_count: sentCount,
-      })
-      .eq('id', campaignId);
+    // Fire-and-forget processing (production queue style)
+    processCampaign({
+      campaignId,
+      subscribers,
+      campaign,
+      resend,
+      fromEmail,
+      supabaseAdmin,
+    }).catch((err: any) => {
+      console.error('Background campaign processing failed:', err);
+    });
 
     return NextResponse.json({
       success: true,
-      sent: sentCount,
+      message: 'Campaign queued for delivery',
       total: subscribers.length,
-    });
+    }, { status: 202 });
   } catch (err: any) {
     console.error('Campaign send error:', err);
 
-    if (typeof campaignId !== 'undefined') {
+    if (campaignId) {
       await supabaseAdmin
         .from('campaigns')
         .update({ status: 'failed' })

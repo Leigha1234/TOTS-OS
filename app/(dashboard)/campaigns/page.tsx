@@ -553,53 +553,64 @@ export default function CampaignsPage() {
 
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
 
-  // Optimistic send handler (UI status + real send + refresh)
   const sendCampaignNow = async (campaignId: string) => {
-    // set optimistic "sending" state
+    // 1. optimistic UI update immediately
     setCampaigns(prev =>
       prev.map(c =>
         c.id === campaignId ? { ...c, status: "sending" } : c
       )
     );
 
-    if (selectedCampaign && selectedCampaign.id === campaignId) {
-      setSelectedCampaign((prev: any) => prev ? { ...prev, status: "sending" } : prev);
+    if (selectedCampaign?.id === campaignId) {
+      setSelectedCampaign((prev: any) =>
+        prev ? { ...prev, status: "sending" } : prev
+      );
     }
 
     try {
+      // 2. trigger backend send
       const res = await sendCampaignNowBase(campaignId);
 
       if (!res || !res.ok) {
         throw new Error("Failed to send campaign");
       }
 
-      // mark as sent optimistically
-      setCampaigns(prev =>
-        prev.map(c =>
-          c.id === campaignId
-            ? { ...c, status: "sent", sent_at: new Date().toISOString() }
-            : c
-        )
-      );
+      // 3. immediate refresh (server truth)
+      await refreshCampaigns();
 
-      if (selectedCampaign && selectedCampaign.id === campaignId) {
-        setSelectedCampaign((prev: any) =>
-          prev ? { ...prev, status: "sent", sent_at: new Date().toISOString() } : prev
-        );
-      }
+      // 4. short polling to wait for DB status to flip to "sent"
+      let attempts = 0;
 
-      // hard refresh from database to sync sent_count/open_count
-      if (organisationId) {
-        const { data } = await supabase
+      const interval = setInterval(async () => {
+        attempts++;
+
+        const { data, error } = await supabase
           .from("campaigns")
-          .select("*, subscriber_lists(name)")
-          .eq("organisation_id", organisationId)
-          .order("scheduled_for", { ascending: true });
+          .select("id,status,sent_count,open_count")
+          .eq("id", campaignId)
+          .single();
 
-        if (data) setCampaigns(data);
-      }
+        if (error || !data) {
+          clearInterval(interval);
+          return;
+        }
+
+        // once confirmed terminal state, stop polling
+        if (data.status === "sent" || data.status === "failed" || attempts > 10) {
+          clearInterval(interval);
+          await refreshCampaigns();
+
+          // sync modal if open
+          if (selectedCampaign?.id === campaignId) {
+            setSelectedCampaign((prev: any) =>
+              prev ? { ...prev, status: data.status } : prev
+            );
+          }
+        }
+      }, 1000);
+
     } catch (err) {
-      console.error(err);
+      console.error("sendCampaignNow error:", err);
 
       setCampaigns(prev =>
         prev.map(c =>
@@ -607,7 +618,7 @@ export default function CampaignsPage() {
         )
       );
 
-      if (selectedCampaign && selectedCampaign.id === campaignId) {
+      if (selectedCampaign?.id === campaignId) {
         setSelectedCampaign((prev: any) =>
           prev ? { ...prev, status: "failed" } : prev
         );

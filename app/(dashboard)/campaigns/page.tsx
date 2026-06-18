@@ -52,7 +52,7 @@ function useCampaigns(supabase: any) {
         .from("campaigns")
         .select("*, subscriber_lists(name)")
         .eq("organisation_id", organisationId)
-        .order("scheduled_for", { ascending: true, nullsFirst: false });
+        .order("scheduled_for", { ascending: true });
 
       const { data: listRes, error: listError } = await supabase
         .from("subscriber_lists")
@@ -144,10 +144,10 @@ function useCampaigns(supabase: any) {
     console.log("Campaign created:", data);
 
     const { data: camps } = await supabase
-      .from("campaigns")
-      .select("*, subscriber_lists(name)")
-      .eq("organisation_id", organisationId)
-      .order("scheduled_for", { ascending: true, nullsFirst: false });
+  .from('campaigns')
+  .select('*, subscriber_lists(name)')
+  .eq('organisation_id', organisationId)
+  .order('created_at', { ascending: false });
 
     setCampaigns(camps || []);
   };
@@ -191,7 +191,7 @@ function useCampaigns(supabase: any) {
       .from("campaigns")
       .select("*, subscriber_lists(name)")
       .eq("organisation_id", organisationId)
-      .order("scheduled_for", { ascending: true, nullsFirst: false });
+      .order("scheduled_for", { ascending: true });
 
     setCampaigns(camps || []);
   };
@@ -217,6 +217,27 @@ function useCampaigns(supabase: any) {
       .order('scheduled_for', { ascending: true, nullsFirst: false });
 
     setCampaigns(camps || []);
+  };
+
+  // Process due scheduled campaigns (cron trigger)
+  const processDueCampaigns = async () => {
+    try {
+      await fetch('/api/campaigns/process-due', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      // refresh campaigns after processing
+      const { data: camps } = await supabase
+        .from('campaigns')
+        .select('*, subscriber_lists(name)')
+        .eq('organisation_id', organisationId)
+        .order('scheduled_for', { ascending: true, nullsFirst: false });
+
+      setCampaigns(camps || []);
+    } catch (err) {
+      console.error('Error processing due campaigns:', err);
+    }
   };
 
   // Add subscribers to list
@@ -263,7 +284,7 @@ function useCampaigns(supabase: any) {
             .from("campaigns")
             .select("*, subscriber_lists(name)")
             .eq("organisation_id", organisationId)
-            .order("scheduled_for", { ascending: true, nullsFirst: false })
+            .order("scheduled_for", { ascending: true })
             .then((res: any) => setCampaigns(res.data || []));
         }
       )
@@ -288,6 +309,7 @@ function useCampaigns(supabase: any) {
     profiles,
     sendCampaignNow,
     addSubscribersToList,
+    processDueCampaigns,
   };
 }
 
@@ -310,6 +332,7 @@ export default function CampaignsPage() {
     profiles,
     sendCampaignNow,
     addSubscribersToList,
+    processDueCampaigns,
   } = useCampaigns(supabase);
   console.log("Component lists prop:", lists);
 

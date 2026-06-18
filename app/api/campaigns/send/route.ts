@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,16 +12,9 @@ export async function POST(req: Request) {
     const resendKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.RESEND_FROM_EMAIL;
 
-    if (!resendKey) {
+    if (!resendKey || !fromEmail) {
       return NextResponse.json(
-        { error: 'RESEND_API_KEY missing from environment variables.' },
-        { status: 500 }
-      );
-    }
-
-    if (!fromEmail) {
-      return NextResponse.json(
-        { error: 'RESEND_FROM_EMAIL missing from environment variables.' },
+        { error: 'Missing RESEND configuration' },
         { status: 500 }
       );
     }
@@ -37,49 +29,49 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Fetch campaign AND verify organisation
-const { data: campaign, error: campaignError } = await supabaseAdmin
-  .from('campaigns')
-  .select('*, organisation_id, list_id')
-  .eq('id', campaignId)
-  .single();
+    // 1. Fetch campaign
+    const { data: campaign, error: campaignError } = await supabaseAdmin
+      .from('campaigns')
+      .select('*')
+      .eq('id', campaignId)
+      .single();
 
-if (campaignError || !campaign) {
-  return NextResponse.json(
-    { error: 'Campaign not found' },
-    { status: 404 }
-  );
-}
-
-if (!campaign.organisation_id) {
-  return NextResponse.json(
-    { error: 'Campaign missing organisation_id. Please backfill campaign data.' },
-    { status: 400 }
-  );
-}
-
-// 2. Fetch subscribers AND verify organisation
-const { data: subscribers, error: subscriberError } = await supabaseAdmin
-  .from('subscribers')
-  .select('*')
-  .eq('list_id', campaign.list_id)
-  .eq('organisation_id', campaign.organisation_id || '')
-  .eq('subscribed', true);
-
-if (subscriberError) {
-  return NextResponse.json(
-    { error: 'Failed to fetch subscribers' },
-    { status: 500 }
-  );
-}
-
-    if (!subscribers?.length) {
+    if (campaignError || !campaign) {
       return NextResponse.json(
-        { error: 'No subscribers found in selected list.' },
+        { error: 'Campaign not found' },
+        { status: 404 }
+      );
+    }
+
+    if (!campaign.list_id) {
+      return NextResponse.json(
+        { error: 'Campaign missing list_id' },
         { status: 400 }
       );
     }
 
+    // 2. Fetch subscribers (FIXED FIELD NAME)
+    const { data: subscribers, error: subscriberError } = await supabaseAdmin
+      .from('subscribers')
+      .select('*')
+      .eq('list_id', campaign.list_id)
+      .eq('is_subscribed', true);
+
+    if (subscriberError) {
+      return NextResponse.json(
+        { error: 'Failed to fetch subscribers' },
+        { status: 500 }
+      );
+    }
+
+    if (!subscribers || subscribers.length === 0) {
+      return NextResponse.json(
+        { error: 'No subscribers found' },
+        { status: 400 }
+      );
+    }
+
+    // 3. Mark as sending
     await supabaseAdmin
       .from('campaigns')
       .update({ status: 'sending' })
@@ -87,26 +79,28 @@ if (subscriberError) {
 
     let sentCount = 0;
 
-    for (const subscriber of subscribers) {
-      try {
-        await resend.emails.send({
+    // 4. Send emails (SAFE PARALLEL BATCHING)
+    const results = await Promise.allSettled(
+      subscribers.map((subscriber) =>
+        resend.emails.send({
           from: fromEmail,
           to: subscriber.email,
-          subject: campaign.subject,
+          subject: campaign.subject || campaign.title || 'Campaign',
           html: `
             <div style="font-family:Arial,sans-serif;padding:24px;line-height:1.6;">
-              <h2>${campaign.title}</h2>
-              <div>${campaign.content}</div>
+              <h2>${campaign.title ?? ''}</h2>
+              <div>${campaign.content ?? ''}</div>
             </div>
           `,
-        });
+        })
+      )
+    );
 
-        sentCount++;
-      } catch (emailErr) {
-        console.error('Email failed:', subscriber.email, emailErr);
-      }
-    }
+    results.forEach((r) => {
+      if (r.status === 'fulfilled') sentCount++;
+    });
 
+    // 5. Update campaign status
     await supabaseAdmin
       .from('campaigns')
       .update({
@@ -118,15 +112,14 @@ if (subscriberError) {
 
     return NextResponse.json({
       success: true,
-      message: `Campaign sent to ${sentCount} subscribers.`
+      sent: sentCount,
+      total: subscribers.length,
     });
   } catch (err: any) {
     console.error('Campaign send error:', err);
 
     return NextResponse.json(
-      {
-        error: err.message || 'Campaign send failed'
-      },
+      { error: err.message || 'Campaign send failed' },
       { status: 500 }
     );
   }

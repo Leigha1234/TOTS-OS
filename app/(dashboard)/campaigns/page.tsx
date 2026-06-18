@@ -476,6 +476,22 @@ function useCampaigns(supabase: any) {
           refreshCampaigns();
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "campaigns_open" },
+        () => {
+          // realtime open tracking updates
+          refreshCampaigns();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "campaign_clicks" },
+        () => {
+          // realtime click tracking updates
+          refreshCampaigns();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -560,7 +576,7 @@ export default function CampaignsPage() {
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
 
   const sendCampaignNow = async (campaignId: string) => {
-    // 1. optimistic UI update immediately
+    // 1. Optimistic UI update
     setCampaigns(prev =>
       prev.map(c =>
         c.id === campaignId ? { ...c, status: "sending" } : c
@@ -574,50 +590,33 @@ export default function CampaignsPage() {
     }
 
     try {
-      // 2. trigger backend send
+      // 2. Trigger backend send
       const res = await sendCampaignNowBase(campaignId);
 
       if (!res || !res.ok) {
         throw new Error("Failed to send campaign");
       }
 
-      // 3. immediate refresh (server truth)
+      // 3. Immediately mark as sent (UI truth)
+      setCampaigns(prev =>
+        prev.map(c =>
+          c.id === campaignId ? { ...c, status: "sent" } : c
+        )
+      );
+
+      if (selectedCampaign?.id === campaignId) {
+        setSelectedCampaign((prev: any) =>
+          prev ? { ...prev, status: "sent" } : prev
+        );
+      }
+
+      // 4. Refresh server truth (including sent/open counts)
       await refreshCampaigns();
-
-      // 4. short polling to wait for DB status to flip to "sent"
-      let attempts = 0;
-
-      const interval = setInterval(async () => {
-        attempts++;
-
-        const { data, error } = await supabase
-          .from("campaigns")
-          .select("id,status,sent_count,open_count")
-          .eq("id", campaignId)
-          .single();
-
-        if (error || !data) {
-          clearInterval(interval);
-          return;
-        }
-
-        // once confirmed terminal state, stop polling
-        if (data.status === "sent" || data.status === "failed" || attempts > 10) {
-          clearInterval(interval);
-          await refreshCampaigns();
-
-          // sync modal if open
-          if (selectedCampaign?.id === campaignId) {
-            setSelectedCampaign((prev: any) =>
-              prev ? { ...prev, status: data.status } : prev
-            );
-          }
-        }
-      }, 1000);
 
     } catch (err) {
       console.error("sendCampaignNow error:", err);
 
+      // Mark failed state
       setCampaigns(prev =>
         prev.map(c =>
           c.id === campaignId ? { ...c, status: "failed" } : c

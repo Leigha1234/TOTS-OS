@@ -62,6 +62,8 @@ export default function DashboardPage() {
     init();
   }, [loadDashboardData]);
 
+  // AI Scan logic commented out safely
+  /*
   const runClarityScan = () => {
     setIsScanActive(true);
     setTimeout(() => {
@@ -69,6 +71,7 @@ export default function DashboardPage() {
       setIsScanActive(false);
     }, 2000);
   };
+  */
 
   if (loading) return (
     <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
@@ -98,6 +101,8 @@ export default function DashboardPage() {
           <h1 className="text-7xl font-serif italic tracking-tighter leading-none">Dashboard</h1>
         </div>
 
+        {/* AI Scan Button safely commented out using JSX format */}
+        {/* 
         <motion.button 
           whileHover={{ scale: 1.02 }}
           onClick={runClarityScan}
@@ -108,6 +113,7 @@ export default function DashboardPage() {
             {isScanActive ? "Running Analysis..." : "Intelligence Scan"}
           </span>
         </motion.button>
+        */}
       </header>
 
       {/* CLICKABLE MODULES GRID */}
@@ -163,8 +169,8 @@ export default function DashboardPage() {
              <div className="absolute top-0 right-0 w-4 h-4 bg-green-500 rounded-full border-4 border-white animate-pulse" />
           </div>
           <div className="space-y-2">
-             <h3 className="text-4xl font-serif italic text-stone-800 tracking-tight">Ecosystem Stable</h3>
-             <p className="text-stone-400 max-w-md mx-auto font-medium">All sub-modules are responding. Current latency: 14ms. Ready for deployment.</p>
+             <h3 className="text-4xl font-serif italic text-stone-800 tracking-tight">To do list</h3>
+             <p className="text-stone-400 max-w-md mx-auto font-medium">Team status: Active. Sub-modules are synchronized and up to date.</p>
           </div>
       </div>
 

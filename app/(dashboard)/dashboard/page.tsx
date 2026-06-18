@@ -71,6 +71,8 @@ function DashboardContent() {
   const [aiActions, setAiActions] = useState<string[]>([]);
   const [clarityCommand, setClarityCommand] = useState<string>("");
   const [clarityResponse, setClarityResponse] = useState<string | null>(null);
+  const [taskInput, setTaskInput] = useState<string>("");
+  const [noteInput, setNoteInput] = useState<string>("");
 
 
   // Real-time Clock
@@ -355,6 +357,62 @@ function DashboardContent() {
     }
   };
 
+  // --- TASK CREATION ---
+  const addTask = async () => {
+    if (!taskInput.trim() || !organisationId) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert([
+        {
+          title: taskInput,
+          status: "todo",
+          organisation_id: organisationId,
+          user_id: user?.id || null
+        }
+      ])
+      .select()
+      .single();
+
+    if (!error && data) {
+      setTodos(prev => [
+        {
+          id: data.id,
+          text: data.title,
+          completed: false
+        },
+        ...prev
+      ]);
+    }
+
+    setTaskInput("");
+    loadDashboardData();
+  };
+
+  // --- NOTE CREATION ---
+  const addNote = async () => {
+    if (!noteInput.trim() || !organisationId) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { error } = await supabase
+      .from("notes")
+      .insert([
+        {
+          title: noteInput,
+          content: noteInput,
+          completed: false,
+          organisation_id: organisationId,
+          user_id: user?.id || null
+        }
+      ]);
+
+    setNoteInput("");
+    loadDashboardData();
+  };
+
   // --- CLARITY COMMAND HANDLERS ---
   const handleAskClarity = () => {
     if (!clarityCommand.trim()) return;
@@ -421,9 +479,6 @@ function DashboardContent() {
     </div>
   );
 
-  function handleCreateQuickNote(event: React.MouseEvent<HTMLButtonElement>): void {
-    throw new Error("Function not implemented.");
-  }
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-3 sm:p-6 lg:p-12 space-y-8 lg:space-y-12 max-w-[1600px] mx-auto font-sans overflow-x-hidden">
@@ -491,13 +546,6 @@ function DashboardContent() {
             >
               Clarity Brief
             </button>
-
-            <button
-              onClick={handleCreateQuickNote}
-              className="px-4 py-3 rounded-xl border border-stone-300 text-stone-700 text-[10px] font-black uppercase tracking-widest"
-            >
-              + New Note / Task
-            </button>
           </div>
 
           {clarityResponse && (
@@ -542,6 +590,20 @@ function DashboardContent() {
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
             <CheckSquare size={14} className="text-[#A3B18A]" /> Tasks
           </h2>
+          <div className="flex gap-2 mb-4">
+            <input
+              value={taskInput}
+              onChange={(e) => setTaskInput(e.target.value)}
+              placeholder="New task..."
+              className="flex-1 p-2 rounded-xl border bg-[#faf9f6] text-[10px] uppercase"
+            />
+            <button
+              onClick={addTask}
+              className="px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase"
+            >
+              Add
+            </button>
+          </div>
           <div className="space-y-3">
             {todos.length > 0 ? [...todos]
               .sort((a, b) => getTaskScore(b) - getTaskScore(a))
@@ -616,6 +678,20 @@ function DashboardContent() {
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
             <FileText size={14} className="text-[#A3B18A]" /> Notes
           </h2>
+          <div className="flex gap-2 mb-4">
+            <input
+              value={noteInput}
+              onChange={(e) => setNoteInput(e.target.value)}
+              placeholder="New note..."
+              className="flex-1 p-2 rounded-xl border bg-[#faf9f6] text-[10px] uppercase"
+            />
+            <button
+              onClick={addNote}
+              className="px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase"
+            >
+              Add
+            </button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
             {todos.slice(0,6).map((t:any) => (
               <div key={t.id} className="p-3 lg:p-4 rounded-2xl border bg-[#faf9f6]">

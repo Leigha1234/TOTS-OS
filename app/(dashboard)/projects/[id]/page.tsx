@@ -138,7 +138,14 @@ export default function ProjectEngine() {
       ]);
 
     if (taskData) {
-      setTasks([...tasks, taskData]);
+      const normalizedTask = {
+        id: taskData.id,
+        name: taskData.title,
+        status: taskData.status,
+        source: "tasks",
+        assigned_to: taskData.assigned_to || null
+      };
+      setTasks(prev => [...prev, normalizedTask]);
     }
 
     setTaskInput("");

@@ -30,10 +30,40 @@ export default function ProjectEngine() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const { data: p } = await supabase.from("projects").select("*").eq("id", id).single();
-      const { data: t } = await supabase.from("project_tasks").select("*").eq("project_id", id);
+
+      const { data: p } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      const { data: projectTasks } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("project_id", id);
+
+      const { data: notesTasks } = await supabase
+        .from("notes")
+        .select("*")
+        .eq("project_id", id)
+        .eq("type", "todo");
+
+      const normalisedNotes = (notesTasks || []).map((n: any) => ({
+        id: n.id,
+        name: n.title || n.content || "Task",
+        status: n.completed ? "Completed" : "Active",
+        source: "notes"
+      }));
+
+      const normalisedProjectTasks = (projectTasks || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        status: t.status,
+        source: "tasks"
+      }));
+
       setProject(p);
-      setTasks(t || []);
+      setTasks([...normalisedProjectTasks, ...normalisedNotes]);
       setLoading(false);
     }
     load();
@@ -41,12 +71,31 @@ export default function ProjectEngine() {
 
   const addTask = async () => {
     if (!taskInput) return;
-    const { data } = await supabase.from("project_tasks").insert([{ project_id: id, name: taskInput, status: 'Active' }]).select().single();
-    if (data) {
-      setTasks([...tasks, data]);
-      setTaskInput("");
-      toast.success("Objective Synchronized");
+
+    // 1. write to tasks (existing system)
+    const { data: taskData } = await supabase
+      .from("tasks")
+      .insert([{ project_id: id, name: taskInput, status: 'Active' }])
+      .select()
+      .single();
+
+    // 2. also write to notes (Clarity + cross-page sync)
+    await supabase
+      .from("notes")
+      .insert([{
+        project_id: id,
+        title: taskInput,
+        content: taskInput,
+        type: "todo",
+        completed: false
+      }]);
+
+    if (taskData) {
+      setTasks([...tasks, taskData]);
     }
+
+    setTaskInput("");
+    toast.success("Objective Synced Across Clarity OS");
   };
 
   const updateProject = async (updates: any) => {
@@ -136,6 +185,9 @@ return (
                         onChange={(e) => setTaskInput(e.target.value)}
                         placeholder="Define next objective..."
                         className="flex-1 bg-stone-50 p-5 rounded-2xl text-xs font-serif italic outline-none focus:ring-1 ring-[#a9b897]/30 transition-all"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") addTask();
+                        }}
                       />
                       <button onClick={addTask} className="bg-stone-900 text-white px-6 sm:px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all w-full sm:w-auto">Add</button>
                     </div>

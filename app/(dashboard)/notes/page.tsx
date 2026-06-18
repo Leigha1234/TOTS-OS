@@ -68,6 +68,7 @@ function VaultContent() {
 
       if (profileError || !profile?.organisation_id) {
         console.error("Profile org fetch error:", profileError);
+        toast.error("Unable to load organisation data.");
         setNotes([]);
         setIsLoading(false);
         return;
@@ -83,6 +84,7 @@ function VaultContent() {
 
       if (error) {
         console.error("Supabase notes fetch error:", error);
+        toast.error("Failed to load notes from server.");
         throw error;
       }
 
@@ -183,14 +185,14 @@ function VaultContent() {
 
   const handleCreate = async () => {
     if (!content.trim()) {
-  toast.error("Note cannot be empty");
-  return;
-}
+      toast.error("Note cannot be empty");
+      return;
+    }
 
-if (!user?.id) {
-  toast.error("You must be logged in");
-  return;
-}
+    if (!user?.id) {
+      toast.error("You must be logged in");
+      return;
+    }
     setIsSyncing(true);
     const theme = STICKY_THEMES[notes.length % STICKY_THEMES.length];
 
@@ -201,7 +203,14 @@ if (!user?.id) {
         .eq("id", user.id)
         .single();
 
-      const orgId = profileData?.organisation_id;
+      if (!profileData?.organisation_id) {
+        console.error("Missing organisation_id for user:", user.id);
+        toast.error("Unable to determine your organisation. Please contact support.");
+        setIsSyncing(false);
+        return;
+      }
+
+      const orgId = profileData.organisation_id;
 
       const { error, status: responseStatus, statusText } = await supabase
         .from("notes")
@@ -218,8 +227,16 @@ if (!user?.id) {
             is_reminder: isReminder,
             status,
             is_urgent: isUrgent,
+            type: status === "todo" ? "todo" : "note",
           },
         ]);
+
+      if (!orgId) {
+        console.error("Insert aborted: missing orgId");
+        toast.error("Missing organisation context. Cannot create note.");
+        setIsSyncing(false);
+        return;
+      }
 
       if (error) {
         console.error("Supabase note insert error:", {
@@ -253,6 +270,7 @@ if (!user?.id) {
       toast.success("Note pinned to desk.");
       fetchNotes(user.id);
     } catch (e) {
+      toast.error("Unexpected error creating note. Please try again.");
       console.error("Create note error:", e);
       toast.error((e as any)?.message || "Failed to pin note.");
     } finally {
@@ -265,9 +283,15 @@ if (!user?.id) {
       toast.error("Invalid note update.");
       return;
     }
+    const completed = nextStatus === "done";
+
     const { error, status, statusText } = await supabase
       .from("notes")
-      .update({ status: nextStatus })
+      .update({
+        status: nextStatus,
+        completed,
+        type: nextStatus === "todo" ? "todo" : "note"
+      })
       .eq("id", id)
       .select();
 
@@ -283,7 +307,13 @@ if (!user?.id) {
       return;
     }
 
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, status: nextStatus } : n));
+    setNotes(prev =>
+      prev.map(n =>
+        n.id === id
+          ? { ...n, status: nextStatus, completed: nextStatus === "done" }
+          : n
+      )
+    );
     toast.success(`Note updated.`);
   };
 

@@ -286,25 +286,43 @@ function DashboardContent() {
     return () => clearInterval(interval);
   }, [organisationId]);
 
-  // --- TASK INTELLIGENCE ENGINE ---
+  // --- TASK PRIORITY AI ENGINE ---
   const getTaskScore = (task: any) => {
     const text = (task.text || "").toLowerCase();
 
     let score = 0;
 
-    // incomplete tasks are higher priority
-    if (!task.completed) score += 2;
+    // incomplete tasks are always higher priority
+    if (!task.completed) score += 3;
+    else score -= 5;
 
     // urgency keywords
     if (
       text.includes("urgent") ||
       text.includes("asap") ||
-      text.includes("today")
+      text.includes("today") ||
+      text.includes("important") ||
+      text.includes("now")
     ) {
-      score += 3;
+      score += 4;
     }
 
+    // high intent language detection
+    if (text.includes("!!!")) score += 2;
+
+    // longer tasks often indicate complexity (light weighting)
+    if (text.length > 40) score += 1;
+
     return score;
+  };
+
+  // --- PRIORITY LABEL AI ---
+  const getTaskPriorityLabel = (task: any) => {
+    const score = getTaskScore(task);
+
+    if (score >= 6) return "HIGH";
+    if (score >= 3) return "MEDIUM";
+    return "LOW";
   };
   // Utility Functions
   const toggleTodo = async (id: string, currentStatus: boolean) => {
@@ -517,7 +535,18 @@ function DashboardContent() {
                   {!todo.completed && (
                     <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
                   )}
-                  <span className="text-[10px] font-bold uppercase truncate">{todo.text}</span>
+                  <div className="flex items-center justify-between w-full gap-2">
+                    <span className="text-[10px] font-bold uppercase truncate">{todo.text}</span>
+                    <span className={`text-[8px] font-black px-2 py-1 rounded-full border
+                      ${getTaskPriorityLabel(todo) === "HIGH"
+                        ? "bg-red-100 text-red-600 border-red-200"
+                        : getTaskPriorityLabel(todo) === "MEDIUM"
+                        ? "bg-yellow-100 text-yellow-700 border-yellow-200"
+                        : "bg-green-100 text-green-600 border-green-200"}
+                    `}>
+                      {getTaskPriorityLabel(todo)}
+                    </span>
+                  </div>
                 </div>
               )) : <p className="text-[10px] text-stone-400 uppercase">No tasks</p>}
           </div>

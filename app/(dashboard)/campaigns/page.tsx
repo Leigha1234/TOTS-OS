@@ -27,10 +27,11 @@ type Campaign = {
 };
 
 function getOpenRate(campaign: Campaign): number {
-  const sent = campaign.sent_count || 0;
-  const opens = campaign.open_count || 0;
-  if (!sent || sent === 0) return 0;
-  return Math.round((opens / sent) * 100);
+  const sent = Number(campaign.sent_count ?? 0);
+  const opens = Number(campaign.open_count ?? 0);
+
+  if (!sent) return 0;
+  return Math.min(100, Math.round((opens / sent) * 100));
 }
 
 function createCampaignService(supabase: any, organisationId: string | null) {
@@ -231,6 +232,7 @@ function useCampaigns(supabase: any) {
   });
 
   const abortRef = useRef<AbortController | null>(null);
+  const optimisticStatusRef = useRef<Record<string, string>>({});
 
   const service = useMemo(
     () => createCampaignService(supabase, organisationId),
@@ -263,7 +265,22 @@ function useCampaigns(supabase: any) {
       ts: now
     };
 
-    setCampaigns(data);
+    setCampaigns(prev => {
+      const incoming = data || [];
+
+      return incoming.map((c: any) => {
+        const optimisticStatus = optimisticStatusRef.current[c.id];
+
+        if (optimisticStatus) {
+          return {
+            ...c,
+            status: optimisticStatus
+          };
+        }
+
+        return c;
+      });
+    });
   };
 
   // Get org context
@@ -341,6 +358,7 @@ function useCampaigns(supabase: any) {
 
     if (created) {
       setCampaigns(prev => [created, ...prev]);
+      optimisticStatusRef.current[created.id] = created.status || 'queued';
     }
 
     cacheRef.current.ts = 0;
@@ -374,6 +392,9 @@ function useCampaigns(supabase: any) {
       setCampaigns(prev =>
         prev.map(c => (c.id === id ? { ...c, ...updated } : c))
       );
+      if (updated?.status) {
+        optimisticStatusRef.current[id] = updated.status;
+      }
     }
 
     cacheRef.current.ts = 0;
@@ -382,7 +403,7 @@ function useCampaigns(supabase: any) {
 
   const deleteCampaign = async (id: string) => {
     await service.deleteCampaign(id);
-
+    delete optimisticStatusRef.current[id];
     setCampaigns(prev => prev.filter(c => c.id !== id));
 
     cacheRef.current.ts = 0;
@@ -403,22 +424,31 @@ function useCampaigns(supabase: any) {
 
   // Send campaign now
   const sendCampaignNow = async (campaignId: string) => {
-    const res = await fetch('/api/campaigns/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ campaignId })
-    });
+    optimisticStatusRef.current[campaignId] = 'sending';
+    let res;
+    try {
+      res = await fetch('/api/campaigns/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId })
+      });
 
-    if (!res.ok) {
-      const err = await res.json();
-      alert(err.error || 'Failed to send campaign');
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'Failed to send campaign');
+        optimisticStatusRef.current[campaignId] = 'failed';
+        return res;
+      }
+
+      optimisticStatusRef.current[campaignId] = 'sent';
+      cacheRef.current.ts = 0;
+      await refreshCampaigns();
+
       return res;
+    } catch (err) {
+      optimisticStatusRef.current[campaignId] = 'failed';
+      throw err;
     }
-
-    cacheRef.current.ts = 0;
-    await refreshCampaigns();
-
-    return res;
   };
 
   // Click tracking helper
@@ -478,10 +508,24 @@ function useCampaigns(supabase: any) {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "campaigns_open" },
-        () => {
-          // realtime open tracking updates
-          refreshCampaigns();
+        { event: "*", schema: "public", table: "campaign_opens" },
+        async () => {
+          const { data } = await supabase
+            .from("campaign_opens")
+            .select("campaign_id");
+
+          const counts: Record<string, number> = {};
+
+          (data || []).forEach((row: any) => {
+            counts[row.campaign_id] = (counts[row.campaign_id] || 0) + 1;
+          });
+
+          setCampaigns(prev =>
+            prev.map(c => ({
+              ...c,
+              open_count: counts[c.id] || 0
+            }))
+          );
         }
       )
       .on(
@@ -597,21 +641,33 @@ export default function CampaignsPage() {
         throw new Error("Failed to send campaign");
       }
 
-      // 3. Immediately mark as sent (UI truth)
+      // 3. Mark as sent with sent_at fallback if missing
       setCampaigns(prev =>
         prev.map(c =>
-          c.id === campaignId ? { ...c, status: "sent" } : c
+          c.id === campaignId
+            ? {
+                ...c,
+                status: "sent",
+                sent_at: c.sent_at || new Date().toISOString()
+              }
+            : c
         )
       );
 
       if (selectedCampaign?.id === campaignId) {
         setSelectedCampaign((prev: any) =>
-          prev ? { ...prev, status: "sent" } : prev
+          prev ? {
+            ...prev,
+            status: "sent",
+            sent_at: prev.sent_at || new Date().toISOString()
+          } : prev
         );
       }
 
       // 4. Refresh server truth (including sent/open counts)
-      await refreshCampaigns();
+      setTimeout(() => {
+        refreshCampaigns();
+      }, 1500);
 
     } catch (err) {
       console.error("sendCampaignNow error:", err);
@@ -628,6 +684,7 @@ export default function CampaignsPage() {
           prev ? { ...prev, status: "failed" } : prev
         );
       }
+      await refreshCampaigns();
     }
   };
 
@@ -742,10 +799,12 @@ export default function CampaignsPage() {
                       ? 'bg-yellow-50 text-yellow-600 border-yellow-200'
                       : c.status === 'failed'
                       ? 'bg-red-50 text-red-600 border-red-200'
-                      : 'bg-stone-50 text-stone-400 border-stone-100'
+                      : (c.status === 'queued' || !c.status)
+                        ? 'bg-stone-50 text-stone-400 border-stone-100'
+                        : 'bg-stone-50 text-stone-400 border-stone-100'
                   }`}
                   >
-                    {c.status || 'draft'}
+                    {c.status ?? 'queued'}
                   </div>
                   <div className="text-[9px] font-black uppercase tracking-widest text-stone-400">
                     {getOpenRate(c)}% open
@@ -855,7 +914,9 @@ export default function CampaignsPage() {
                   </div>
                   <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100">
                     <p className="text-[9px] uppercase font-black text-stone-400">Opens</p>
-                    <p className="text-xl font-bold">{selectedCampaign.open_count || 0}</p>
+                    <p className="text-xl font-bold">
+                      {selectedCampaign?.open_count || 0}
+                    </p>
                   </div>
                   <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100">
                     <p className="text-[9px] uppercase font-black text-stone-400">Open Rate</p>

@@ -14,51 +14,63 @@ export async function GET(req: Request) {
 
     const campaignId = url.searchParams.get("campaignId");
     const profileId = url.searchParams.get("profileId");
-    const redirectUrl = url.searchParams.get("url");
 
-    if (!campaignId || !redirectUrl) {
+    if (!campaignId) {
       return NextResponse.json(
-        { error: "Missing campaignId or url" },
+        { error: "Missing campaignId" },
         { status: 400 }
       );
     }
 
     const userAgent = req.headers.get("user-agent") || null;
 
-    const ip =
+    const ipRaw =
       req.headers.get("x-forwarded-for") ||
       req.headers.get("x-real-ip") ||
-      null;
+      "";
 
-    // log click event (best effort)
+    const ip = ipRaw.split(",")[0].trim() || null;
+
+    // log open event (best effort)
     try {
-      await supabaseAdmin.from("campaign_clicks").insert({
+      await supabaseAdmin.from("campaigns_open").insert({
         campaign_id: campaignId,
-        profile_id: profileId,
-        url: redirectUrl,
+        profile_id: profileId || null,
         user_agent: userAgent,
         ip: ip
       });
     } catch (e) {
-      console.error("campaign_clicks insert error:", e);
+      console.error("campaigns_open insert error:", e);
     }
 
-    // increment aggregate click counter (optional if RPC exists)
-    try {
-      await supabaseAdmin.rpc("increment_campaign_click", {
-        campaign_id_input: campaignId
-      });
-    } catch (e) {
-      console.error("increment_campaign_click RPC error:", e);
-    }
+    const pixel = Buffer.from(
+      "R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==",
+      "base64"
+    );
 
-    // redirect user to real destination
-    return NextResponse.redirect(redirectUrl, 302);
+    return new NextResponse(pixel, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/gif",
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      }
+    });
   } catch (err) {
-    console.error("click tracking error:", err);
+    console.error("open tracking error:", err);
 
-    const fallback = new URL(req.url).searchParams.get("url");
+    const pixel = Buffer.from(
+      "R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==",
+      "base64"
+    );
 
-    return NextResponse.redirect(fallback || "https://www.google.com", 302);
+    return new NextResponse(pixel, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/gif",
+        "Cache-Control": "no-store"
+      }
+    });
   }
 }

@@ -50,6 +50,7 @@ async function processCampaign({
       status: 'sent',
       sent_at: new Date().toISOString(),
       sent_count: sentCount,
+      open_count: 0,
     })
     .eq('id', campaignId);
 }
@@ -124,7 +125,7 @@ export async function POST(req: Request) {
 
     const subscribers = (subscriberLinks || [])
       .map((row: any) => row.profiles)
-      .filter((p: any) => p?.email && p?.is_subscribed === true);
+      .filter((p: any) => p?.email && p?.is_subscribed !== false);
 
     if (subscribers.length === 0) {
       return NextResponse.json(
@@ -133,10 +134,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Mark queued
+    // Mark processing
     await supabaseAdmin
       .from('campaigns')
-      .update({ status: 'queued' })
+      .update({ status: 'processing' })
       .eq('id', campaignId);
 
     await supabaseAdmin.from('campaign_jobs').insert({
@@ -145,17 +146,20 @@ export async function POST(req: Request) {
       created_at: new Date().toISOString(),
     });
 
-    const processPromise = processCampaign({
+    void processCampaign({
       campaignId,
       subscribers,
       campaign,
       resend,
       fromEmail,
-    }).catch((err) => {
+    }).catch(async (err) => {
       console.error('Background campaign processing failed:', err);
-    });
 
-    processPromise;
+      await supabaseAdmin
+        .from('campaigns')
+        .update({ status: 'failed' })
+        .eq('id', campaignId);
+    });
 
     return NextResponse.json(
       {

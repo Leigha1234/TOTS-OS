@@ -189,6 +189,14 @@ export default function SocialStudioUnified() {
     loadAccounts();
   }, [user, supabase]);
 
+  // Ensure selected account is set by default if not set and available (fixes IG/meta posting failures)
+  useEffect(() => {
+    if (!selectedAccountId && accounts?.length > 0) {
+      const metaAccount = accounts.find(a => a.platform === "meta");
+      if (metaAccount) setSelectedAccountId(metaAccount.id);
+    }
+  }, [accounts]);
+
   // --- REAL-TIME POST EXECUTION SYNC (PHASE 3 ENGINE HOOK) ---
   useEffect(() => {
     const channel = supabase
@@ -306,128 +314,142 @@ export default function SocialStudioUnified() {
 
   // --- Unified Post Creation Engine (Updated Implementation) ---
   const createPost = async (opts: { instant: boolean }) => {
-    if (!caption) {
-      toast.error("Please add a caption before posting.");
-      return false;
-    }
-
-    if (!selectedAccountId) {
-      toast.error("Please select a connected Meta account.");
-      return false;
-    }
-
     setIsPosting(true);
     setPostState('posting');
     setStatus("Posting...");
 
-    setStatus("Saving");
-
-    let finalMediaUrl = "https://picsum.photos/seed/system-blueprint/1080/1350";
-
-    if (mediaFile) {
-      setIsUploadingMedia(true);
-
-      const fileExt = mediaFile.name.split(".").pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${user?.id || "anonymous"}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("social-assets")
-        .upload(filePath, mediaFile);
-
-      if (!uploadError) {
-        const { data } = supabase.storage.from("social-assets").getPublicUrl(filePath);
-        if (data) finalMediaUrl = data.publicUrl;
-      } else {
-        console.error("Storage Error:", uploadError);
-        toast.error("Media upload failed. Using placeholder.");
+    try {
+      if (!caption) {
+        toast.error("Please add a caption before posting.");
+        return false;
       }
 
-      setIsUploadingMedia(false);
-    }
+      if (!selectedAccountId) {
+        toast.error("Please select a connected Meta account.");
+        return false;
+      }
 
-    // 1. Save post in DB
-    const { data, error } = await supabase
-      .from("scheduled_posts")
-      .insert([
-        {
-          caption,
-          platforms: platforms,
-          hashtags,
-          media_url: finalMediaUrl,
-          scheduled_for: opts.instant
-            ? new Date().toISOString()
-            : (scheduledTime ? new Date(scheduledTime).toISOString() : new Date().toISOString()),
-          status: POST_STATUS.SCHEDULED,
-          user_id: user?.id,
-          account_id: selectedAccountId,
-          format
-        }
-      ])
-      .select("id")
-      .single();
+      setStatus("Saving");
 
-    if (error || !data?.id) {
-      console.error(error);
-      toast.error(opts.instant ? "Instant post failed." : "Post scheduled failed.");
-      setStatus("Ready");
-      setIsPosting(false);
-      return false;
-    }
+      let finalMediaUrl = "https://picsum.photos/seed/system-blueprint/1080/1350";
 
-    const postId = data.id;
+      if (mediaFile) {
+        setIsUploadingMedia(true);
 
-    // 2. If instant, trigger Meta publish function
-    if (opts.instant) {
-      try {
-        const { error: publishError } = await supabase.functions.invoke("publish-social-post", {
-          body: {
-            post_id: postId,
-            platform: platforms[0],
-            account_id: selectedAccountId
-          }
-        });
+        const fileExt = mediaFile.name.split(".").pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${user?.id || "anonymous"}/${fileName}`;
 
-        if (publishError) {
-          console.error("Publish error:", publishError);
-          toast.error("Post saved but failed to publish to Meta.");
+        const { error: uploadError } = await supabase.storage
+          .from("social-assets")
+          .upload(filePath, mediaFile);
+
+        if (!uploadError) {
+          const { data } = supabase.storage.from("social-assets").getPublicUrl(filePath);
+          if (data) finalMediaUrl = data.publicUrl;
         } else {
-          toast.success("Posted to Meta successfully!");
+          console.error("Social asset upload failed:", uploadError);
+          toast.error("Media upload failed. Using placeholder.");
         }
+
+        setIsUploadingMedia(false);
+      }
+
+      const { data, error } = await supabase
+        .from("scheduled_posts")
+        .insert([
+          {
+            caption,
+            platforms,
+            hashtags,
+            media_url: finalMediaUrl,
+            scheduled_for: opts.instant
+              ? new Date().toISOString()
+              : (scheduledTime ? new Date(scheduledTime).toISOString() : new Date().toISOString()),
+            status: POST_STATUS.SCHEDULED,
+            user_id: user?.id,
+            account_id: selectedAccountId,
+            format
+          }
+        ])
+        .select("id")
+        .single();
+
+      if (error || !data?.id) {
+        console.error("Scheduled post insert error:", error);
+        toast.error(opts.instant ? "Instant post failed." : "Post schedule failed.");
+        setStatus("Ready");
+        return false;
+      }
+
+      const postId = data.id;
+
+      if (opts.instant) {
+        try {
+          const { error: publishError } = await supabase.functions.invoke("publish-social-post", {
+            body: {
+              post_id: postId,
+              platform: platforms[0],
+              account_id: selectedAccountId
+            }
+          });
+
+          if (publishError) {
+            console.error("Publish error:", publishError);
+            toast.error("Post saved but failed to publish to Meta.");
+          } else {
+            toast.success("Posted to Meta successfully!");
+          }
+
+          setPostState('posted');
+          setStatus("Posted!");
+
+          setTimeout(() => {
+            setStatus("Ready");
+            setPostState('idle');
+            setIsPosting(false);
+          }, 1500);
+
+        } catch (err) {
+          console.error(err);
+          toast.error("Meta publish failed.");
+          setStatus("Ready");
+        }
+      } else {
+        toast.success("Post scheduled successfully!");
+
         setPostState('posted');
         setStatus("Posted!");
+
         setTimeout(() => {
           setStatus("Ready");
           setPostState('idle');
+          setIsPosting(false);
         }, 1500);
-      } catch (err) {
-        console.error(err);
-        toast.error("Meta publish failed.");
-        setStatus("Ready");
       }
-    } else {
-      toast.success("Post scheduled successfully!");
-      setPostState('posted');
-      setStatus("Posted!");
-      setTimeout(() => {
-        setStatus("Ready");
-        setPostState('idle');
-      }, 1500);
+
+      setCaption("");
+      setHashtags("");
+      setMetaScript("");
+      setMetaAudio("");
+      setScheduledTime("");
+      setMediaFile(null);
+      setMediaPreview(null);
+
+      syncPosts();
+
+      // DO NOT immediately reset UI state here — let success handlers control it
+      setIsPosting(false);
+
+      return true;
+    } catch (err) {
+      console.error("createPost fatal error:", err);
+      toast.error("Something went wrong posting content");
+      setStatus("Ready");
+      setPostState('idle');
+      setIsPosting(false);
+      return false;
     }
-
-    setCaption("");
-    setHashtags("");
-    setMetaScript("");
-    setMetaAudio("");
-    setScheduledTime("");
-    setMediaFile(null);
-    setMediaPreview(null);
-
-    syncPosts();
-    setIsPosting(false);
-    setPostState('idle');
-
-    return true;
   };
 
   const handleInstantPost = async () => {
@@ -654,7 +676,7 @@ export default function SocialStudioUnified() {
                                 checked={platforms.includes(p)}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setPlatforms([...platforms, p]);
+                                    setPlatforms(prev => prev.includes(p) ? prev : [...prev, p]);
                                   } else {
                                     setPlatforms(platforms.filter(x => x !== p));
                                   }

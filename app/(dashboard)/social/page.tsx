@@ -110,6 +110,7 @@ export default function SocialStudioUnified() {
   const [user, setUser] = useState<any>(null);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [previewPost, setPreviewPost] = useState<SocialPost | null>(null);
 
   const supabase = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -411,6 +412,27 @@ export default function SocialStudioUnified() {
   const handleInstantPost = async () => {
     await createPost({ instant: true });
   };
+
+  const approvePost = async (postId: string) => {
+  try {
+    const { error } = await supabase.functions.invoke("approve-post", {
+      body: { post_id: postId }
+    });
+
+    if (error) {
+      console.error(error);
+      toast.error("Failed to approve post");
+      return;
+    }
+
+    toast.success("Post approved for publishing");
+    setPreviewPost(null);
+    syncPosts();
+  } catch (err) {
+    console.error(err);
+    toast.error("Approval failed");
+  }
+};
 
   const deployToProductionGrid = async () => {
     await createPost({ instant: false });
@@ -734,8 +756,19 @@ export default function SocialStudioUnified() {
                           <div className="flex items-center gap-2 text-[10px] font-bold text-stone-300 uppercase">
                              <Clock size={12}/> {new Date(post.scheduled_for).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
-                          <button className="text-stone-200 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
-                       </div>
+                      <div className="flex items-center gap-3">
+  <button
+    onClick={() => setPreviewPost(post)}
+    className="text-stone-300 hover:text-[#1c1c1c] text-[10px] font-black uppercase tracking-widest"
+  >
+    Preview
+  </button>
+
+  <button className="text-stone-200 hover:text-red-500 transition-colors">
+    <Trash2 size={16}/>
+  </button>
+</div>
+ </div>
                     </div>
                   ))}
                 </div>
@@ -750,7 +783,53 @@ export default function SocialStudioUnified() {
           </div>
         )}
       </AnimatePresence>
+{previewPost && (
+  <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-md">
+    <div className="bg-white w-full max-w-2xl rounded-[2rem] p-8 shadow-2xl space-y-6">
 
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-serif italic">Post Preview</h2>
+        <button
+          onClick={() => setPreviewPost(null)}
+          className="text-stone-400 hover:text-black"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <img
+          src={previewPost.media_url}
+          className="w-full h-72 object-cover rounded-2xl border"
+        />
+
+        <div className="text-sm font-medium text-stone-600 whitespace-pre-wrap">
+          {previewPost.caption}
+        </div>
+
+        <div className="text-[10px] font-black uppercase tracking-widest text-stone-300">
+          {previewPost.platforms} • {previewPost.format}
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <button
+          onClick={() => setPreviewPost(null)}
+          className="px-5 py-3 text-xs font-black uppercase tracking-widest text-stone-400"
+        >
+          Close
+        </button>
+
+        <button
+          onClick={() => approvePost(previewPost.id)}
+          className="px-6 py-3 bg-[#a9b897] text-white rounded-xl text-xs font-black uppercase tracking-widest"
+        >
+          Approve & Publish
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }

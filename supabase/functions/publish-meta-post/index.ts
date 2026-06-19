@@ -25,7 +25,11 @@ Deno.serve(async (req) => {
     if (postError || !post) {
       return new Response(JSON.stringify({ error: "Post not found" }), { status: 404 });
     }
-
+if (post.status !== "scheduled") {
+  return new Response(JSON.stringify({
+    error: "Post not scheduled for publishing"
+  }), { status: 400 });
+}
     // Prevent double processing
     if (post.status === "processing") {
       return new Response(JSON.stringify({ error: "Post already processing" }), { status: 409 });
@@ -62,7 +66,7 @@ Deno.serve(async (req) => {
     const pageId = account.platform_user_id;
 
     // IMPORTANT: no fallback now — IG must be explicit
-    const igId = account.platform_user_id;
+    const igId = account.instagram_business_account_id || account.platform_user_id;
 
     const platforms = post.platforms || [];
 
@@ -162,27 +166,45 @@ Deno.serve(async (req) => {
             error: createJson,
           };
         } else {
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-          // Step 2: publish
-          const publishRes = await fetch(
-            `https://graph.facebook.com/v19.0/${igId}/media_publish`,
-            {
-              method: "POST",
-              body: new URLSearchParams({
-                creation_id: createJson.id,
-                access_token: token,
-              }),
+          const creationId = createJson.id;
+
+          let publishJson;
+          let publishRes;
+
+          let lastError = null;
+
+          // retry publish up to 5 times (handles Meta propagation delay)
+          for (let i = 0; i < 5; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+
+            publishRes = await fetch(
+              `https://graph.facebook.com/v19.0/${igId}/media_publish`,
+              {
+                method: "POST",
+                body: new URLSearchParams({
+                  creation_id: creationId,
+                  access_token: token,
+                }),
+              }
+            );
+
+            publishJson = await publishRes.json();
+
+            if (publishRes.ok && !publishJson?.error) {
+              lastError = null;
+              break;
             }
-          );
 
-          const publishJson = await publishRes.json();
+            lastError = publishJson;
+          }
 
-          if (!publishRes.ok || publishJson?.error) {
+          // final result handling
+          if (lastError) {
             failureCount++;
             results.instagram = {
               success: false,
               stage: "publish",
-              error: publishJson,
+              error: lastError,
             };
           } else {
             successCount++;

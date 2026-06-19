@@ -43,8 +43,8 @@ export async function middleware(request: NextRequest) {
   );
 
   const {
-    data: { session },
-  }: { data: { session: unknown } } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const isPublic: boolean = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
   const isProtected: boolean = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
@@ -59,14 +59,14 @@ export async function middleware(request: NextRequest) {
   // -----------------------------
   // If not authenticated, block protected routes
   // -----------------------------
-  if (isProtected && !session) {
+  if (isProtected && !user) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // -----------------------------
   // If logged in, prevent access to login page
   // -----------------------------
-  if (session && pathname === '/login') {
+  if (user && pathname === '/login') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

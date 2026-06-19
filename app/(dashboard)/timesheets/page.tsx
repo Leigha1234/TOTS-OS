@@ -175,7 +175,7 @@ export default function TimesheetsPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[10px] font-mono">
             <div>Total Hours: {clarityTimesheets.totalHours}</div>
-            <div>Avg/Entry: {clarityTimesheets.avgHours.toFixed(2)}</div>
+            <div>Entries: {clarityTimesheets.avgHours.toFixed(2)}</div>
             <div>Entries: {timesheetList.length}</div>
             <div>Status: {clarityTimesheets.status}</div>
           </div>

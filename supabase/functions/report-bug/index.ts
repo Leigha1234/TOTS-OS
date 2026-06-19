@@ -1,14 +1,30 @@
 // supabase/functions/report-bug/index.ts
 
+const ALLOWED_ORIGINS = [
+  'https://www.tots-os.co.uk',
+  'https://tots-os.co.uk'
+];
+
+function getCorsHeaders(origin: string | null) {
+  const allowOrigin = origin && ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0];
+
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Content-Type': 'application/json'
+  };
+}
+
 Deno.serve(async (req) => {
-  // Handle CORS for browser requests if necessary
+  const origin = req.headers.get('origin');
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-      headers: { 
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-      } 
+    return new Response(null, {
+      status: 204,
+      headers: getCorsHeaders(origin)
     });
   }
 
@@ -24,7 +40,7 @@ Deno.serve(async (req) => {
   } catch (_err) {
     return new Response(
       JSON.stringify({ error: 'Invalid JSON body' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      { status: 400, headers: getCorsHeaders(req.headers.get('origin')) }
     );
   }
 
@@ -62,10 +78,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ sent: true }), { 
       status: 200,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
+      headers: getCorsHeaders(req.headers.get('origin'))
     });
     
   } catch (error) {
@@ -73,10 +86,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), 
       { 
         status: 500, 
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        } 
+        headers: getCorsHeaders(req.headers.get('origin'))
       }
     );
   }

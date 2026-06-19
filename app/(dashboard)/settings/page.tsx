@@ -169,8 +169,16 @@ const exchangeOAuthCode = async (platform: string, code: string, state: string) 
       throw new Error("Malformed OAuth state");
     }
 
-    if (!storedState || !state.includes(":") || stateUserId !== user.id) {
-      throw new Error("Invalid OAuth state - potential CSRF risk");
+    if (!storedState) {
+      throw new Error("Missing OAuth state - session expired");
+    }
+
+    if (storedState !== state) {
+      throw new Error("OAuth state mismatch - potential CSRF risk");
+    }
+
+    if (stateUserId !== user.id) {
+      throw new Error("OAuth user mismatch - potential CSRF risk");
     }
 
     // STORE PLATFORM SAFETY CHECK (PREVENT MISASSIGNMENT)
@@ -521,15 +529,15 @@ const retryFailedPosts = async () => {
     // ===============================
     // REAL-TIME SOCIAL CONNECTION SYNC (MULTI-TENANT SAFE)
     // ===============================
-    let channel: any = null;
-    const engineIntervalRef = useRef<any>(null);
-    const tokenIntervalRef = useRef<any>(null);
+    const channelRef = useRef<any>(null);
+const engineIntervalRef = useRef<any>(null);
+const tokenIntervalRef = useRef<any>(null);
 
     const setupRealtime = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      channel = supabase
+      channelRef.current = supabase
         .channel(`social_accounts_${user.id}`)
         .on(
           "postgres_changes",
@@ -584,8 +592,8 @@ const retryFailedPosts = async () => {
       if (engineIntervalRef.current) clearInterval(engineIntervalRef.current);
       if (tokenIntervalRef.current) clearInterval(tokenIntervalRef.current);
 
-      if (channel) {
-        supabase.removeChannel(channel);
+      if (channelRef.current  ) {
+        supabase.removeChannel(channelRef.current);
       }
     };
   }, [router]);
@@ -829,7 +837,11 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
       return;
     }
 
-    setConnectedPlatforms((prev) => prev.filter((p) => p !== key));
+    setConnectedPlatforms((prev) => {
+      const updated = prev.filter((p) => p !== key);
+      connectedPlatformsRef.current = updated;
+      return updated;
+    });
     toast.success(`${key} disconnected`);
   };
   return (

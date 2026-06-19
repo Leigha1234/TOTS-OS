@@ -622,6 +622,12 @@ function VaultContent() {
       }
 
       const orgId = profileData.organisation_id;
+      if (!orgId) {
+        console.error("Insert aborted: missing orgId");
+        toast.error("Missing organisation context. Cannot create note.");
+        setIsSyncing(false);
+        return;
+      }
 
       const { error, status: responseStatus, statusText } = await supabase
         .from("notes")
@@ -641,13 +647,6 @@ function VaultContent() {
             type: status === "todo" ? "task" : "note",
           },
         ]);
-
-      if (!orgId) {
-        console.error("Insert aborted: missing orgId");
-        toast.error("Missing organisation context. Cannot create note.");
-        setIsSyncing(false);
-        return;
-      }
 
       if (error) {
         console.error("Supabase note insert error:", {
@@ -811,7 +810,9 @@ function VaultContent() {
 
 
   const renderNoteCard = (note: any) => {
-    const assignedTeamMember = teamMembers.find(m => m.id === note.assigned_to);
+    const assignedTeamMember = Array.isArray(note.assigned_to)
+      ? teamMembers.find(m => (note.assigned_to || []).includes(m.id))
+      : teamMembers.find(m => m.id === note.assigned_to);
     // Only return the normal card (non-expanded version)
     return (
       <motion.div
@@ -1564,39 +1565,6 @@ const CommentBox = ({ noteId, addComment, typingChannel, user, typingUsers }: an
               payload: {
                 noteId,
                 userId: user?.id
-              }
-            });
-          }}
-          onMouseMove={(e: any) => {
-            if (!typingChannel || !user?.id) return;
-
-            const rect = e.currentTarget.getBoundingClientRect();
-
-            typingChannel.send({
-              type: "broadcast",
-              event: "note:cursor",
-              payload: {
-                noteId,
-                userId: user.id,
-                x: (e.clientX - rect.left) / rect.width,
-                y: (e.clientY - rect.top) / rect.height
-              }
-            });
-          }}
-          onSelect={(e: any) => {
-            if (!typingChannel || !user?.id) return;
-
-            const start = e.currentTarget.selectionStart || 0;
-            const end = e.currentTarget.selectionEnd || 0;
-
-            typingChannel.send({
-              type: "broadcast",
-              event: "note:selection",
-              payload: {
-                noteId,
-                userId: user.id,
-                start,
-                end
               }
             });
           }}

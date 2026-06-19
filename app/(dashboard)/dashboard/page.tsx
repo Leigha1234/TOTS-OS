@@ -695,23 +695,102 @@ function DashboardContent() {
           </h2>
           <div className="space-y-3">
             {(() => {
-              const todaysEvents = events
-                .filter((e:any) => {
-                  const eventDate = e.start_date || e.date || e.start || e.created_at;
-                  if (!eventDate) return false;
-                  return new Date(eventDate).toDateString() === new Date().toDateString();
-                })
-                .slice(0,5);
+              const getEventDate = (e: any) =>
+                e?.start_date || e?.date || e?.start || e?.created_at;
 
-              return todaysEvents.length > 0 ? (
-                todaysEvents.map((e:any, idx:number) => (
-                  <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
-                    <p className="text-[10px] font-bold uppercase truncate">{e.title || "Event"}</p>
-                    <p className="text-[10px] text-stone-400">{e.time || "All day"}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-[10px] uppercase text-stone-400">No scheduled activity for today</p>
+              const safeDate = (d: any) => {
+                const date = new Date(d);
+                return isNaN(date.getTime()) ? null : date;
+              };
+
+              const now = new Date();
+
+              const isToday = (d: Date) =>
+                d.getFullYear() === now.getFullYear() &&
+                d.getMonth() === now.getMonth() &&
+                d.getDate() === now.getDate();
+
+              const isTomorrow = (d: Date) => {
+                const t = new Date();
+                t.setDate(now.getDate() + 1);
+                return (
+                  d.getFullYear() === t.getFullYear() &&
+                  d.getMonth() === t.getMonth() &&
+                  d.getDate() === t.getDate()
+                );
+              };
+
+              // Merge DB events + realtime event stream
+              const streamEvents = (eventStream || [])
+                .filter((e: any) => e?.type === "calendar_event")
+                .map((e: any) => e?.payload?.new)
+                .filter(Boolean);
+
+              const allEventsRaw = [...(events || []), ...streamEvents];
+
+              const normalized = allEventsRaw
+                .map((e: any) => {
+                  const date = safeDate(getEventDate(e));
+                  if (!date) return null;
+                  return { ...e, _date: date };
+                })
+                .filter(Boolean)
+                .sort((a: any, b: any) => a._date - b._date);
+
+              const todayEvents = normalized.filter((e: any) => isToday(e._date));
+              const tomorrowEvents = normalized.filter((e: any) => isTomorrow(e._date));
+              const upcomingEvents = normalized.filter(
+                (e: any) => !isToday(e._date) && !isTomorrow(e._date)
+              );
+
+              const renderEvent = (e: any, idx: number) => (
+                <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
+                  <p className="text-[10px] font-bold uppercase truncate">
+                    {e.title || "Event"}
+                  </p>
+                  <p className="text-[10px] text-stone-400">
+                    {e._date ? e._date.toLocaleString() : "No time set"}
+                  </p>
+                </div>
+              );
+
+              return (
+                <>
+                  {todayEvents.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-[#A3B18A]">
+                        Today
+                      </p>
+                      {todayEvents.slice(0, 3).map(renderEvent)}
+                    </div>
+                  )}
+
+                  {tomorrowEvents.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                        Tomorrow
+                      </p>
+                      {tomorrowEvents.slice(0, 3).map(renderEvent)}
+                    </div>
+                  )}
+
+                  {upcomingEvents.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                        Upcoming
+                      </p>
+                      {upcomingEvents.slice(0, 3).map(renderEvent)}
+                    </div>
+                  )}
+
+                  {todayEvents.length === 0 &&
+                    tomorrowEvents.length === 0 &&
+                    upcomingEvents.length === 0 && (
+                      <p className="text-[10px] uppercase text-stone-400">
+                        No scheduled activity
+                      </p>
+                    )}
+                </>
               );
             })()}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
+import React, { useState, useEffect, useRef, useCallback, type FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import {
@@ -24,7 +24,7 @@ import { toast } from "sonner";
  * FULL SCALE IMPLEMENTATION
  */
 
-export default function Settings() {
+function SettingsInner() {
   const isMountedRef = useRef(true);
  const router = useRouter();
   const searchParams = useSearchParams();
@@ -1143,6 +1143,23 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function Settings() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-stone-400" size={28} />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
+            Loading Settings
+          </p>
+        </div>
+      </div>
+    }>
+      <SettingsInner />
+    </Suspense>
   );
 }
 

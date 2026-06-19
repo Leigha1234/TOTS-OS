@@ -159,29 +159,35 @@ export default function ProjectDirectory() {
       console.log("Creating project payload:", payload);
       console.log("Organisation ID used:", orgId);
 
-      const result = await supabase
-        .from("projects")
-        .insert([payload])
-        .select();
+      const session = await supabase.auth.getSession();
 
-      console.log("🧪 FULL SUPABASE INSERT RESULT:");
-      console.log(JSON.stringify(result, null, 2));
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/projects`,
+        {
+          method: "POST",
+          headers: {
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            Authorization: `Bearer ${session.data.session?.access_token}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation"
+          },
+          body: JSON.stringify([payload])
+        }
+      );
 
-      const { data, error } = result;
+      const text = await res.text();
 
-      if (error) {
-        console.error("❌ Supabase error:", error);
-        toast.error(error.message);
+      console.log("RAW SUPABASE RESPONSE STATUS:", res.status);
+      console.log("RAW SUPABASE RESPONSE BODY:", text);
+
+      if (!res.ok) {
+        console.error("Insert failed:", text);
+        toast.error("Project not saved (see console)");
         setSaving(false);
         return;
       }
 
-      if (!data || data.length === 0) {
-        console.error("⚠️ INSERT RETURNED EMPTY DATA — THIS IS RLS OR PERMISSION BLOCK");
-        toast.error("Project not saved (permission issue)");
-        setSaving(false);
-        return;
-      }
+      const data = JSON.parse(text);
 
       const inserted = data[0];
       setProjects((prev) => [inserted, ...prev]);

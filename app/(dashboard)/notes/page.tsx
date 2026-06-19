@@ -74,6 +74,7 @@ function VaultContent() {
   const [notes, setNotes] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [comments, setComments] = useState<any[]>([]);
+  const commentsByNoteId = useRef<Record<string, any[]>>({});
   const [activeComments, setActiveComments] = useState<Record<string, any[]>>({});
   const [projectsList, setProjectsList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,8 +104,19 @@ function VaultContent() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [reactions, setReactions] = useState<Record<string, { userId: string; type: string }[]>>({});
   const [typingUsers, setTypingUsers] = useState<Record<string, number>>({});
+  const [notePresence, setNotePresence] = useState<Record<string, string[]>>({});
+  const presenceChannelRef = useRef<any>(null);
+  const [cursorPositions, setCursorPositions] = useState<Record<string, Record<string, { x: number; y: number }>>>({});
+  const cursorChannelRef = useRef<any>(null);
+  const [selectionPositions, setSelectionPositions] = useState<
+    Record<string, Record<string, { start: number; end: number }>>
+  >({});
+  const selectionChannelRef = useRef<any>(null);
+  const contentChannelRef = useRef<any>(null);
+  const noteOpsChannelRef = useRef<any>(null);
   const channelRef = useRef<any>(null);
   const typingChannelRef = useRef<any>(null);
+  const [noteOps, setNoteOps] = useState<Record<string, any[]>>({});
 
   const fetchNotes = useCallback(async (_userId: string) => {
     try {
@@ -174,6 +186,14 @@ function VaultContent() {
 
         if (commentData) {
           setComments(commentData);
+
+          const map: Record<string, any[]> = {};
+          commentData.forEach((c: any) => {
+            if (!map[c.note_id]) map[c.note_id] = [];
+            map[c.note_id].push(c);
+          });
+
+          commentsByNoteId.current = map;
         }
       }
     } catch (e) {
@@ -336,13 +356,46 @@ function VaultContent() {
       mainChannel
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchNotes(authUser.id))
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'note_comments' }, (payload: any) => {
-          setComments(prev => [...prev, payload.new]);
+          setComments(prev => {
+            const updated = [...prev, payload.new];
+
+            const map: Record<string, any[]> = {};
+            updated.forEach((c: any) => {
+              if (!map[c.note_id]) map[c.note_id] = [];
+              map[c.note_id].push(c);
+            });
+
+            commentsByNoteId.current = map;
+            return updated;
+          });
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'note_comments' }, (payload: any) => {
-          setComments(prev => prev.map(c => c.id === payload.new.id ? payload.new : c));
+          setComments(prev => {
+            const updated = prev.map(c => c.id === payload.new.id ? payload.new : c);
+
+            const map: Record<string, any[]> = {};
+            updated.forEach((c: any) => {
+              if (!map[c.note_id]) map[c.note_id] = [];
+              map[c.note_id].push(c);
+            });
+
+            commentsByNoteId.current = map;
+            return updated;
+          });
         })
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'note_comments' }, (payload: any) => {
-          setComments(prev => prev.filter(c => c.id !== payload.old.id));
+          setComments(prev => {
+            const updated = prev.filter(c => c.id !== payload.old.id);
+
+            const map: Record<string, any[]> = {};
+            updated.forEach((c: any) => {
+              if (!map[c.note_id]) map[c.note_id] = [];
+              map[c.note_id].push(c);
+            });
+
+            commentsByNoteId.current = map;
+            return updated;
+          });
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'note_comment_reactions' }, () => fetchNotes(authUser.id))
         .subscribe();
@@ -367,11 +420,135 @@ function VaultContent() {
         .subscribe();
 
       typingChannelRef.current = typingChannel;
+
+      const presenceChannel = supabase.channel("note_presence");
+
+      presenceChannel
+        .on("broadcast", { event: "note:view:enter" }, ({ payload }: any) => {
+          setNotePresence(prev => {
+            const set = new Set(prev[payload.noteId] || []);
+            set.add(payload.userId);
+
+            return {
+              ...prev,
+              [payload.noteId]: Array.from(set)
+            };
+          });
+        })
+        .on("broadcast", { event: "note:view:leave" }, ({ payload }: any) => {
+          setNotePresence(prev => {
+            const set = new Set(prev[payload.noteId] || []);
+            set.delete(payload.userId);
+
+            return {
+              ...prev,
+              [payload.noteId]: Array.from(set)
+            };
+          });
+        })
+        .subscribe();
+
+      presenceChannelRef.current = presenceChannel;
+
+      const cursorChannel = supabase.channel("note_cursor");
+
+      cursorChannel
+        .on("broadcast", { event: "note:cursor" }, ({ payload }: any) => {
+          setCursorPositions(prev => {
+            const noteId = payload.noteId;
+            const userId = payload.userId;
+
+            const existing = prev[noteId] || {};
+
+            return {
+              ...prev,
+              [noteId]: {
+                ...existing,
+                [userId]: {
+                  x: payload.x,
+                  y: payload.y
+                }
+              }
+            };
+          });
+        })
+        .subscribe();
+
+      cursorChannelRef.current = cursorChannel;
+
+      const selectionChannel = supabase.channel("note_selection");
+
+      selectionChannel
+        .on("broadcast", { event: "note:selection" }, ({ payload }: any) => {
+          setSelectionPositions(prev => {
+            const noteId = payload.noteId;
+            const userId = payload.userId;
+
+            const existing = prev[noteId] || {};
+
+            return {
+              ...prev,
+              [noteId]: {
+                ...existing,
+                [userId]: {
+                  start: payload.start,
+                  end: payload.end
+                }
+              }
+            };
+          });
+        })
+        .subscribe();
+
+      selectionChannelRef.current = selectionChannel;
+
+      // Content channel for note content sync
+      const contentChannel = supabase.channel("note_content");
+
+      contentChannel
+        .on("broadcast", { event: "note:content" }, ({ payload }: any) => {
+          const { noteId, content } = payload;
+
+          setNotes(prev =>
+            prev.map(n =>
+              n.id === noteId
+                ? { ...n, content }
+                : n
+            )
+          );
+        })
+        .subscribe();
+
+      contentChannelRef.current = contentChannel;
+
+      // Phase 6: Operation-based collaboration channel (CRDT-lite layer)
+      const opsChannel = supabase.channel("note_ops");
+
+      opsChannel
+        .on("broadcast", { event: "note:op" }, ({ payload }: any) => {
+          const { noteId, op } = payload;
+
+          setNoteOps(prev => {
+            const existing = prev[noteId] || [];
+            return {
+              ...prev,
+              [noteId]: [...existing, op]
+            };
+          });
+        })
+        .subscribe();
+
+      noteOpsChannelRef.current = opsChannel;
     };
     init();
     return () => {
       if (channelRef.current) supabase.removeChannel(channelRef.current);
       if (typingChannelRef.current) supabase.removeChannel(typingChannelRef.current);
+      if (presenceChannelRef.current) supabase.removeChannel(presenceChannelRef.current);
+      if (cursorChannelRef.current) supabase.removeChannel(cursorChannelRef.current);
+      if (selectionChannelRef.current) supabase.removeChannel(selectionChannelRef.current);
+      if (contentChannelRef.current) supabase.removeChannel(contentChannelRef.current);
+      if (noteOpsChannelRef.current) supabase.removeChannel(noteOpsChannelRef.current);
     };
   }, [fetchNotes, fetchTeamMembers]);
   
@@ -876,7 +1053,7 @@ function VaultContent() {
             <NoteModal
               note={notes.find((n: any) => n.id === expandedNote)}
               teamMembers={teamMembers}
-              comments={comments}
+              commentsByNoteId={commentsByNoteId.current}
               reactions={reactions}
               addComment={addComment}
               addReaction={addReaction}
@@ -884,6 +1061,15 @@ function VaultContent() {
               user={user}
               typingChannel={typingChannelRef.current}
               typingUsers={typingUsers}
+              notePresence={notePresence}
+              presenceChannel={presenceChannelRef.current}
+              cursorPositions={cursorPositions}
+              cursorChannel={cursorChannelRef.current}
+              selectionPositions={selectionPositions}
+              selectionChannel={selectionChannelRef.current}
+              contentChannel={contentChannelRef.current}
+              noteOpsChannel={noteOpsChannelRef.current}
+              noteOps={noteOps}
             />
           </div>
         </section>
@@ -1057,18 +1243,57 @@ function VaultContent() {
 const NoteModal = ({
   note,
   teamMembers,
-  comments,
+  commentsByNoteId,
   reactions,
   addComment,
   addReaction,
   setExpandedNote,
   user,
   typingChannel,
-  typingUsers
+  typingUsers,
+  notePresence,
+  presenceChannel,
+  cursorPositions,
+  cursorChannel,
+  selectionPositions,
+  selectionChannel,
+  contentChannel,
+  noteOps,
+  noteOpsChannel,
 }: any) => {
   if (!note) return null;
 
-  const noteComments = comments.filter((c: any) => c.note_id === note.id);
+  const [draftContent, setDraftContent] = useState(note.content);
+  const [blocks, setBlocks] = useState(
+    (note.content || "").split("\n").map((text: string, idx: number) => ({
+      id: `${note.id}-block-${idx}`,
+      text
+    }))
+  );
+
+  useEffect(() => {
+    const lines = (note.content || "").split("\n");
+
+    setDraftContent(note.content);
+
+    setBlocks(
+      lines.map((text: string, idx: number) => ({
+        id: `${note.id}-block-${idx}`,
+        text
+      }))
+    );
+  }, [note.id, note.content]);
+
+  const presentIds = notePresence?.[note.id] || [];
+  const presentMembers = teamMembers?.filter((m: any) => presentIds.includes(m.id)) || [];
+
+  const noteComments = (commentsByNoteId?.[note.id] || []);
+
+  const opsFeed = (noteOps?.[note.id] || []).slice(-20).map((op: any, idx: number) => ({
+    id: `op-${idx}`,
+    content: `${op.type} (${op.blockId || op.index})`,
+    created_at: op.timestamp || Date.now()
+  }));
 
   const activityFeed = [
     {
@@ -1076,12 +1301,30 @@ const NoteModal = ({
       content: "Task created",
       created_at: note.created_at || Date.now()
     },
+    ...opsFeed,
     ...noteComments.map((c: any) => ({
       id: c.id,
       content: c.content,
       created_at: c.created_at || Date.now()
     }))
   ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  useEffect(() => {
+    if (!presenceChannel || !user?.id || !note?.id) return;
+
+    const interval = setInterval(() => {
+      presenceChannel.send({
+        type: "broadcast",
+        event: "note:view:heartbeat",
+        payload: {
+          noteId: note.id,
+          userId: user.id
+        }
+      });
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [note?.id]);
 
   return (
     <motion.div
@@ -1090,8 +1333,21 @@ const NoteModal = ({
     >
       <motion.div
         onClick={(e: any) => e.stopPropagation()}
-        className="w-full max-w-2xl p-6 lg:p-10 rounded-2xl shadow-2xl bg-white overflow-y-auto max-h-[90vh]"
+        className="relative w-full max-w-2xl p-6 lg:p-10 rounded-2xl shadow-2xl bg-white overflow-y-auto max-h-[90vh]"
       >
+        <div className="absolute inset-0 pointer-events-none">
+          {(cursorPositions?.[note.id] || {}) &&
+            Object.entries(cursorPositions[note.id] || {}).map(([userId, pos]: any) => (
+              <div
+                key={userId}
+                className="absolute w-2 h-2 rounded-full bg-blue-500 opacity-70"
+                style={{
+                  left: `${pos.x * 100}%`,
+                  top: `${pos.y * 100}%`
+                }}
+              />
+            ))}
+        </div>
         <div className="flex justify-between items-center mb-4">
           <span className="text-[10px] font-black uppercase text-stone-400">
             {note.category}
@@ -1104,9 +1360,54 @@ const NoteModal = ({
           </button>
         </div>
 
-        <p className="text-2xl lg:text-4xl font-serif italic whitespace-pre-wrap">
-          {note.content}
-        </p>
+        <div className="space-y-3">
+          {blocks.map((block: any, idx: number) => (
+            <textarea
+              key={block.id}
+              value={block.text}
+              onChange={(e) => {
+                const newBlocks = [...blocks];
+                newBlocks[idx] = {
+                  ...newBlocks[idx],
+                  text: e.target.value
+                };
+
+                setBlocks(newBlocks);
+
+                const joined = newBlocks.map(b => b.text).join("\n");
+                setDraftContent(joined);
+
+                // broadcast full content (backwards compatible)
+                contentChannel?.send({
+                  type: "broadcast",
+                  event: "note:content",
+                  payload: {
+                    noteId: note.id,
+                    content: joined
+                  }
+                });
+
+                // Phase 7: block-ID based op system (upgrade from index-based)
+                noteOpsChannel?.send({
+                  type: "broadcast",
+                  event: "note:op",
+                  payload: {
+                    noteId: note.id,
+                    op: {
+                      type: "update_block_v2",
+                      blockId: block.id,
+                      index: idx,
+                      value: e.target.value,
+                      timestamp: Date.now(),
+                      userId: user?.id
+                    }
+                  }
+                });
+              }}
+              className="w-full min-h-[80px] text-2xl lg:text-3xl font-serif italic whitespace-pre-wrap outline-none bg-transparent border-b border-stone-100"
+            />
+          ))}
+        </div>
 
         <div className="mt-6 space-y-2 text-[10px] uppercase font-black text-stone-500">
           {note.project && <p>Project: {note.project}</p>}
@@ -1128,6 +1429,26 @@ const NoteModal = ({
         </div>
 
         <div className="mt-6 border-t pt-4 space-y-3">
+          {notePresence?.[note.id]?.length > 0 && (
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="flex -space-x-2">
+                  {presentMembers.slice(0, 5).map((m: any) => (
+                    <div
+                      key={m.id}
+                      className="w-6 h-6 rounded-full bg-stone-200 border border-white flex items-center justify-center text-[9px] font-black uppercase text-stone-600"
+                      title={m.name}
+                    >
+                      {m.name?.[0] || "U"}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="text-[10px] font-black uppercase text-green-600">
+                {presentMembers.length} viewing now
+              </div>
+            </div>
+          )}
           <p className="text-[10px] font-black uppercase text-stone-400">Comments</p>
 
           <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -1245,6 +1566,19 @@ const CommentBox = ({ noteId, addComment, typingChannel, user, typingUsers }: an
                 }
               });
             }, 1200);
+
+            if (typingChannel && user?.id) {
+              typingChannel.send({
+                type: "broadcast",
+                event: "note:cursor",
+                payload: {
+                  noteId,
+                  userId: user.id,
+                  x: 0,
+                  y: 0
+                }
+              });
+            }
           }}
           onBlur={() => {
             typingChannel?.send({
@@ -1253,6 +1587,39 @@ const CommentBox = ({ noteId, addComment, typingChannel, user, typingUsers }: an
               payload: {
                 noteId,
                 userId: user?.id
+              }
+            });
+          }}
+          onMouseMove={(e: any) => {
+            if (!typingChannel || !user?.id) return;
+
+            const rect = e.currentTarget.getBoundingClientRect();
+
+            typingChannel.send({
+              type: "broadcast",
+              event: "note:cursor",
+              payload: {
+                noteId,
+                userId: user.id,
+                x: (e.clientX - rect.left) / rect.width,
+                y: (e.clientY - rect.top) / rect.height
+              }
+            });
+          }}
+          onSelect={(e: any) => {
+            if (!typingChannel || !user?.id) return;
+
+            const start = e.currentTarget.selectionStart || 0;
+            const end = e.currentTarget.selectionEnd || 0;
+
+            typingChannel.send({
+              type: "broadcast",
+              event: "note:selection",
+              payload: {
+                noteId,
+                userId: user.id,
+                start,
+                end
               }
             });
           }}

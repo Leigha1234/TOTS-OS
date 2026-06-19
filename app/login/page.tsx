@@ -26,13 +26,16 @@ function LoginForm() {
 
   useEffect(() => {
     if (inviteId) setIsRegister(true);
-    
+
     const checkUser = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) router.replace("/dashboard");
+      const { data } = await supabase.auth.getUser();
+
+      if (data?.user) {
+        router.replace("/dashboard");
+      }
     };
     checkUser();
-  }, [inviteId, router, supabase.auth]);
+  }, [inviteId, router]);
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();

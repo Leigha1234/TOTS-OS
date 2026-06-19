@@ -182,10 +182,16 @@ export default function ProjectDirectory() {
       }
       setProjects((prev) => [data, ...prev]);
       setShowModal(false);
-      setForm({ 
-        name: "", objective_summary: "", description: "", 
-        category: "Strategic", members: "", start_date: "", 
-        due_date: "", budget: "", health: "Stable" 
+      setForm({
+        name: "",
+        objective_summary: "",
+        description: "",
+        category: "Strategic",
+        members: "",
+        start_date: "",
+        due_date: "",
+        budget: "",
+        health: "Stable"
       });
       toast.success("Project Established");
     } catch (error) {
@@ -318,7 +324,12 @@ export default function ProjectDirectory() {
                         <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Start Date</label>
                         <div className="relative">
                             <Calendar size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
-                            <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-[10px] font-bold outline-none" />
+                            <input
+                                type="date"
+                                value={form.start_date}
+                                onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                                className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-[10px] font-bold outline-none"
+                            />
                         </div>
                     </div>
                     <div className="space-y-1">

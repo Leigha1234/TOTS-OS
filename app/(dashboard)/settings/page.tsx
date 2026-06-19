@@ -465,17 +465,50 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
       <section className="mt-20 pt-12 border-t border-stone-200">
         <h3 className="text-3xl font-serif italic mb-8">Legal Hub</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <LegalDocCard title="Terms & Conditions" path="/docs/terms" />
-<LegalDocCard title="Privacy Policy" path="/docs/privacy" />
-<LegalDocCard title="AI Policy" path="/docs/ai" />
-<LegalDocCard title="Beta Terms" path="/docs/beta" />
-<LegalDocCard title="Cancellation Policy" path="/docs/cancellation" />
-<LegalDocCard title="Community Guidelines" path="/docs/community" />
-<LegalDocCard title="Cookies Policy" path="/docs/cookies" />
-<LegalDocCard title="Data Terms" path="/docs/data" />
-<LegalDocCard title="Property Notice" path="/docs/property" />
-<LegalDocCard title="Security Policy" path="/docs/security" />
-<LegalDocCard title="Service Policy" path="/docs/service" />
+          <LegalDocCard
+            title="Terms & Conditions"
+            path={`/docs/${"termsandconditions"}`}
+          />
+          <LegalDocCard
+            title="Privacy Policy"
+            path={`/docs/${"privacypolicy"}`}
+          />
+          <LegalDocCard
+            title="AI Policy"
+            path={`/docs/${"aipolicy"}`}
+          />
+          <LegalDocCard
+            title="Beta Terms"
+            path={`/docs/${"betaterms"}`}
+          />
+          <LegalDocCard
+            title="Cancellation Policy"
+            path={`/docs/${"cancellationpolicy"}`}
+          />
+          <LegalDocCard
+            title="Community Guidelines"
+            path={`/docs/${"communityguidelines"}`}
+          />
+          <LegalDocCard
+            title="Cookies Policy"
+            path={`/docs/${"cookiespolicy"}`}
+          />
+          <LegalDocCard
+            title="Data Terms"
+            path={`/docs/${"dataterms"}`}
+          />
+          <LegalDocCard
+            title="Property Notice"
+            path={`/docs/${"propertynotice"}`}
+          />
+          <LegalDocCard
+            title="Security Policy"
+            path={`/docs/${"securitypolicy"}`}
+          />
+          <LegalDocCard
+            title="Service Policy"
+            path={`/docs/${"servicepolicy"}`}
+          />
         </div>
       </section>
     </div>

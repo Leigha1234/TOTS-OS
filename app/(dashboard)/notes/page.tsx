@@ -102,6 +102,9 @@ function VaultContent() {
   const [lastViewed, setLastViewed] = useState<Record<string, number>>({});
   const [notifications, setNotifications] = useState<any[]>([]);
   const [reactions, setReactions] = useState<Record<string, { userId: string; type: string }[]>>({});
+  const [typingUsers, setTypingUsers] = useState<Record<string, number>>({});
+  const channelRef = useRef<any>(null);
+  const typingChannelRef = useRef<any>(null);
 
   const fetchNotes = useCallback(async (_userId: string) => {
     try {
@@ -217,22 +220,30 @@ function VaultContent() {
       .filter(Boolean);
   };
 
-  const addComment = async (noteId: string, text: string) => {
+  const addComment = async (noteId: string, text: string, parentId?: string) => {
     if (!text.trim() || !user?.id) return;
 
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from("note_comments")
       .insert([
         {
           note_id: noteId,
           user_id: user.id,
-          content: text.replace(/@(\w+)/g, "$1")
+          content: text.replace(/@(\w+)/g, "$1"),
+          parent_id: parentId || null
         }
-      ]);
+      ])
+      .select("*")
+      .single();
 
     if (error) {
-      toast.error("Failed to add comment");
+      console.error("Comment insert failed:", error);
+      toast.error(error.message || "Failed to add comment");
       return;
+    }
+
+    if (inserted) {
+      setComments(prev => [...prev, inserted]);
     }
 
     const mentionedUsers = resolveMentions(text);
@@ -313,21 +324,55 @@ function VaultContent() {
   };
 
   useEffect(() => {
-    let channel: any;
     const init = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
       setUser(authUser);
       await fetchNotes(authUser.id);
       await fetchTeamMembers();
-      
-      channel = supabase.channel("vault_desk")
+
+      const mainChannel = supabase.channel("vault_desk");
+
+      mainChannel
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchNotes(authUser.id))
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'note_comments' }, () => fetchNotes(authUser.id))
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'note_comments' }, (payload: any) => {
+          setComments(prev => [...prev, payload.new]);
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'note_comments' }, (payload: any) => {
+          setComments(prev => prev.map(c => c.id === payload.new.id ? payload.new : c));
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'note_comments' }, (payload: any) => {
+          setComments(prev => prev.filter(c => c.id !== payload.old.id));
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'note_comment_reactions' }, () => fetchNotes(authUser.id))
         .subscribe();
+
+      channelRef.current = mainChannel;
+
+      const typingChannel = supabase.channel("typing-comments");
+
+      typingChannel
+        .on("broadcast", { event: "typing:start" }, ({ payload }: any) => {
+          setTypingUsers(prev => ({
+            ...prev,
+            [payload.noteId]: (prev[payload.noteId] || 0) + 1
+          }));
+        })
+        .on("broadcast", { event: "typing:stop" }, ({ payload }: any) => {
+          setTypingUsers(prev => ({
+            ...prev,
+            [payload.noteId]: Math.max((prev[payload.noteId] || 1) - 1, 0)
+          }));
+        })
+        .subscribe();
+
+      typingChannelRef.current = typingChannel;
     };
     init();
-    return () => { if (channel) supabase.removeChannel(channel); };
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      if (typingChannelRef.current) supabase.removeChannel(typingChannelRef.current);
+    };
   }, [fetchNotes, fetchTeamMembers]);
   
   // Speech Recognition Initializer
@@ -836,6 +881,9 @@ function VaultContent() {
               addComment={addComment}
               addReaction={addReaction}
               setExpandedNote={setExpandedNote}
+              user={user}
+              typingChannel={typingChannelRef.current}
+              typingUsers={typingUsers}
             />
           </div>
         </section>
@@ -1013,7 +1061,10 @@ const NoteModal = ({
   reactions,
   addComment,
   addReaction,
-  setExpandedNote
+  setExpandedNote,
+  user,
+  typingChannel,
+  typingUsers
 }: any) => {
   if (!note) return null;
 
@@ -1088,7 +1139,11 @@ const NoteModal = ({
                     {member?.name || "You"}
                   </p>
                   <p className="text-stone-700">{c.content}</p>
-
+                  {c.content && c.content.includes("@") && (
+                    <p className="text-[10px] text-stone-400 mt-1">
+                      Mentions active
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 mt-2">
                     <button
                       onClick={() => addReaction(c.id, "like")}
@@ -1097,12 +1152,49 @@ const NoteModal = ({
                       👍 {reactions[c.id]?.length || 0}
                     </button>
                   </div>
+                  <button
+                    onClick={async () => {
+                      const newText = prompt("Edit comment", c.content);
+                      if (!newText) return;
+                      const { error } = await supabase
+                        .from("note_comments")
+                        .update({ content: newText })
+                        .eq("id", c.id);
+                      if (error) toast.error("Update failed");
+                      else toast.success("Comment updated");
+                    }}
+                    className="text-[10px] font-black uppercase text-stone-400 hover:text-blue-600"
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      const ok = confirm("Delete comment?");
+                      if (!ok) return;
+                      const { error } = await supabase
+                        .from("note_comments")
+                        .delete()
+                        .eq("id", c.id);
+                      if (error) toast.error("Delete failed");
+                      else toast.success("Comment deleted");
+                    }}
+                    className="text-[10px] font-black uppercase text-stone-400 hover:text-red-600"
+                  >
+                    Delete
+                  </button>
                 </div>
               );
             })}
           </div>
 
-          <CommentBox noteId={note.id} addComment={addComment} />
+          <CommentBox
+            noteId={note.id}
+            addComment={addComment}
+            typingChannel={typingChannel}
+            user={user}
+            typingUsers={typingUsers}
+          />
         </div>
       </motion.div>
     </motion.div>
@@ -1117,26 +1209,67 @@ export default function VaultPage() {
   );
 }
 // Standalone CommentBox component
-const CommentBox = ({ noteId, addComment }: any) => {
+const CommentBox = ({ noteId, addComment, typingChannel, user, typingUsers }: any) => {
   const [text, setText] = useState("");
+  const [replyTo, setReplyTo] = useState<string | null>(null);
 
   return (
-    <div className="flex gap-2 mt-2">
-      <input
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Write a comment..."
-        className="flex-1 bg-stone-100 rounded-lg px-3 py-2 text-sm outline-none"
-      />
-      <button
-        onClick={() => {
-          addComment(noteId, text);
-          setText("");
-        }}
-        className="px-3 py-2 bg-stone-900 text-white text-xs rounded-lg"
-      >
-        Send
-      </button>
+    <div className="flex flex-col gap-1 mt-2">
+      {/* global typing state */}
+      {(typingUsers?.[noteId] || 0) > 0 && (
+        <p className="text-[10px] text-stone-400 mb-1">Someone is typing...</p>
+      )}
+      <div className="flex gap-2">
+        <input
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+
+            typingChannel?.send({
+              type: "broadcast",
+              event: "typing:start",
+              payload: {
+                noteId,
+                userId: user?.id
+              }
+            });
+
+            // auto stop after inactivity window
+            setTimeout(() => {
+              typingChannel?.send({
+                type: "broadcast",
+                event: "typing:stop",
+                payload: {
+                  noteId,
+                  userId: user?.id
+                }
+              });
+            }, 1200);
+          }}
+          onBlur={() => {
+            typingChannel?.send({
+              type: "broadcast",
+              event: "typing:stop",
+              payload: {
+                noteId,
+                userId: user?.id
+              }
+            });
+          }}
+          placeholder="Write a comment..."
+          className="flex-1 bg-stone-100 rounded-lg px-3 py-2 text-sm outline-none"
+        />
+        <button
+          onClick={() => {
+            addComment(noteId, text, replyTo || undefined);
+            setReplyTo(null);
+            setText("");
+          }}
+          className="px-3 py-2 bg-stone-900 text-white text-xs rounded-lg"
+        >
+          Send
+        </button>
+      </div>
     </div>
   );
 };

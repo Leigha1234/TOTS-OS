@@ -71,6 +71,7 @@ const STICKY_THEMES = [
 
 function VaultContent() {
   const [user, setUser] = useState<any>(null);
+  const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [notes, setNotes] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [comments, setComments] = useState<any[]>([]);
@@ -140,6 +141,10 @@ function VaultContent() {
       }
 
       const orgId = profile?.organisation_id;
+
+      // Guard to prevent accidental cross-org fetch
+      if (!orgId) return;
+      console.log("ORG ISOLATION CHECK:", orgId);
 
       if (!orgId) {
         console.error("Missing organisation_id for user:", user.id, profile);
@@ -365,6 +370,7 @@ function VaultContent() {
         .eq("id", authUser.id)
         .maybeSingle();
       const orgId = profile?.organisation_id;
+      setOrganisationId(orgId || null);
       await fetchTeamMembers(orgId);
 
       const mainChannel = supabase.channel("vault_desk", {
@@ -378,7 +384,7 @@ function VaultContent() {
           event: '*',
           schema: 'public',
           table: 'notes',
-          filter: `organisation_id=eq.${orgId}`
+          filter: `organisation_id=eq.${orgId || ''}`
         }, () => fetchNotes(authUser.id))
         .on('postgres_changes', {
           event: 'INSERT',
@@ -737,10 +743,11 @@ function VaultContent() {
     const { error, status, statusText } = await supabase
       .from("notes")
       .update({
-  status: nextStatus,
-  completed
-})
+        status: nextStatus,
+        completed
+      })
       .eq("id", id)
+      .eq("organisation_id", organisationId)
       .select();
 
     if (error) {
@@ -774,6 +781,7 @@ function VaultContent() {
       .from("notes")
       .delete()
       .eq("id", id)
+      .eq("organisation_id", organisationId)
       .select();
 
     if (error) {
@@ -836,7 +844,8 @@ function VaultContent() {
     const { error } = await supabase
       .from("notes")
       .update({ status: newStatus, completed: newStatus === "done" })
-      .eq("id", taskId);
+      .eq("id", taskId)
+      .eq("organisation_id", organisationId);
 
     if (error) {
       toast.error("Failed to update task status");

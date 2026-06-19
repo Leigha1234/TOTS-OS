@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect, useRef, useCallback, type FormEvent, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import {
   Users,
@@ -620,11 +620,11 @@ const retryFailedPosts = async () => {
     };
   }, [router]);
 
-  // --- OAuth callback handler (NEW) ---
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    const state = params.get("state");
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
 
     if (!code || !state) return;
 
@@ -658,7 +658,7 @@ const retryFailedPosts = async () => {
     };
 
     handleOAuthCallback();
-  }, []);
+  }, [searchParams]);
 
   // -- 5. HANDLERS --
   const handleSave = async () => {

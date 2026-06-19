@@ -720,7 +720,7 @@ function DashboardContent() {
                 );
               };
 
-              // Merge DB events + realtime event stream
+              // Merge DB events + realtime stream
               const streamEvents = (eventStream || [])
                 .filter((e: any) => e?.type === "calendar_event")
                 .map((e: any) => e?.payload?.new)
@@ -728,20 +728,26 @@ function DashboardContent() {
 
               const allEventsRaw = [...(events || []), ...streamEvents];
 
+              // IMPORTANT FIX: do NOT drop events without valid dates
               const normalized = allEventsRaw
                 .map((e: any) => {
                   const date = safeDate(getEventDate(e));
-                  if (!date) return null;
                   return { ...e, _date: date };
                 })
-                .filter(Boolean)
-                .sort((a: any, b: any) => a._date - b._date);
+                .sort((a: any, b: any) => {
+                  const aTime = a._date ? a._date.getTime() : Infinity;
+                  const bTime = b._date ? b._date.getTime() : Infinity;
+                  return aTime - bTime;
+                });
 
-              const todayEvents = normalized.filter((e: any) => isToday(e._date));
-              const tomorrowEvents = normalized.filter((e: any) => isTomorrow(e._date));
-              const upcomingEvents = normalized.filter(
-                (e: any) => !isToday(e._date) && !isTomorrow(e._date)
+              const todayEvents = normalized.filter((e: any) => e._date && isToday(e._date));
+              const tomorrowEvents = normalized.filter((e: any) => e._date && isTomorrow(e._date));
+
+              const datedUpcoming = normalized.filter(
+                (e: any) => e._date && !isToday(e._date) && !isTomorrow(e._date)
               );
+
+              const unscheduledEvents = normalized.filter((e: any) => !e._date);
 
               const renderEvent = (e: any, idx: number) => (
                 <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
@@ -749,7 +755,7 @@ function DashboardContent() {
                     {e.title || "Event"}
                   </p>
                   <p className="text-[10px] text-stone-400">
-                    {e._date ? e._date.toLocaleString() : "No time set"}
+                    {e._date ? e._date.toLocaleString() : "No date set"}
                   </p>
                 </div>
               );
@@ -774,18 +780,28 @@ function DashboardContent() {
                     </div>
                   )}
 
-                  {upcomingEvents.length > 0 && (
+                  {datedUpcoming.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
                         Upcoming
                       </p>
-                      {upcomingEvents.slice(0, 3).map(renderEvent)}
+                      {datedUpcoming.slice(0, 3).map(renderEvent)}
+                    </div>
+                  )}
+
+                  {unscheduledEvents.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                        Unscheduled
+                      </p>
+                      {unscheduledEvents.slice(0, 3).map(renderEvent)}
                     </div>
                   )}
 
                   {todayEvents.length === 0 &&
                     tomorrowEvents.length === 0 &&
-                    upcomingEvents.length === 0 && (
+                    datedUpcoming.length === 0 &&
+                    unscheduledEvents.length === 0 && (
                       <p className="text-[10px] uppercase text-stone-400">
                         No scheduled activity
                       </p>

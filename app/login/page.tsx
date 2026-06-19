@@ -18,6 +18,8 @@ function LoginForm() {
   const [jobTitle, setJobTitle] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -92,6 +94,28 @@ function LoginForm() {
     } finally {
       setAuthLoading(false);
     }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      alert("Please enter your email first");
+      return;
+    }
+
+    setResetLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/dashboard`,
+    });
+
+    if (error) {
+      alert("Error: " + error.message);
+    } else {
+      setResetSent(true);
+      alert("Password reset link sent to your email");
+    }
+
+    setResetLoading(false);
   };
 
   if (isRedirecting) {
@@ -193,6 +217,22 @@ function LoginForm() {
               required
             />
           </div>
+          {!isRegister && (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={resetLoading}
+              className="mt-2 text-[9px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-800 transition-colors flex items-center gap-2"
+            >
+              {resetLoading ? "Sending..." : "Forgot password?"}
+            </button>
+          )}
+
+          {resetSent && (
+            <p className="text-[9px] uppercase tracking-widest text-[#a9b897] mt-2">
+              Reset link sent — check your email
+            </p>
+          )}
         </div>
       </div>
 

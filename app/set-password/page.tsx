@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 
@@ -14,15 +14,38 @@ export default function SetPassword() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  useEffect(() => {
+    const hash = window.location.hash;
+
+    if (hash) {
+      const params = new URLSearchParams(hash.replace("#", ""));
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+
+      if (access_token && refresh_token) {
+        supabase.auth.setSession({
+          access_token,
+          refresh_token,
+        });
+      }
+    }
+  }, []);
+
   const handleUpdatePassword = async () => {
     if (password.length < 6) {
       return alert("Password must be at least 6 characters.");
     }
 
     setLoading(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+
+    if (!sessionData.session) {
+      setLoading(false);
+      return alert("Session expired. Please request a new reset link.");
+    }
 
     const { error } = await supabase.auth.updateUser({
-      password: password
+      password: password,
     });
 
     setLoading(false);
@@ -31,7 +54,7 @@ export default function SetPassword() {
       alert(error.message);
     } else {
       alert("Password set successfully!");
-      router.push("/dashboard");
+      router.push("/login");
     }
   };
 

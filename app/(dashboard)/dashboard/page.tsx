@@ -175,8 +175,8 @@ function DashboardContent() {
         .map((n: any) => ({
           id: n.id,
           text: n.title || n.content?.substring(0, 40) || "Priority Task",
-          completed: n.completed || false,
-          status: n.status || "todo"
+          completed: Boolean(n.completed),
+          status: n.status || (n.completed ? "done" : "todo")
         })));
       setEvents((eventsRes.data as any[]) || []);
       setEmails((emailsRes.data as any[]) || []);
@@ -383,31 +383,33 @@ function DashboardContent() {
   const toggleTodo = async (id: string, currentStatus: boolean) => {
     const newStatus = !currentStatus;
 
-    // optimistic update
     setTodos(prev =>
       prev.map(t =>
-        t.id === id ? { ...t, completed: newStatus } : t
+        t.id === id ? { ...t, completed: newStatus, status: newStatus ? "done" : "todo" } : t
       )
     );
 
     const { error } = await supabase
       .from("notes")
-      .update({ completed: newStatus })
+      .update({
+        completed: newStatus,
+        status: newStatus ? "done" : "todo"
+      })
       .eq("id", id);
 
     if (error) {
-      console.error("Toggle failed:", error);
+      console.error("Task update failed:", error);
 
-      // rollback UI state
       setTodos(prev =>
         prev.map(t =>
-          t.id === id ? { ...t, completed: currentStatus } : t
+          t.id === id ? { ...t, completed: currentStatus, status: currentStatus ? "done" : "todo" } : t
         )
       );
-    } else {
-      // refresh dashboard data so UI stays consistent
-      loadDashboardData();
+
+      return;
     }
+
+    await loadDashboardData();
   };
 
   // --- TASK CREATION ---
@@ -632,6 +634,7 @@ function DashboardContent() {
                     .map((todo) => (
                       <div key={todo.id} className="flex items-center gap-2 p-2 rounded-xl border bg-[#faf9f6]">
                         <button
+                          type="button"
                           onClick={() => toggleTodo(todo.id, todo.completed)}
                           className={`w-4 h-4 rounded border flex items-center justify-center ${todo.completed ? "bg-[#A3B18A] border-[#A3B18A] text-white" : "border-stone-400"}`}
                         >
@@ -761,6 +764,7 @@ function DashboardContent() {
                 <div className="flex items-center justify-between mt-2 gap-2">
                   <p className="text-[10px] text-stone-400">{t.completed ? "Completed" : "Pending"}</p>
                   <button
+                    type="button"
                     onClick={() => toggleTodo(t.id, t.completed)}
                     className="px-2 py-1 rounded-lg border text-[9px] font-bold uppercase tracking-wide hover:bg-stone-100 transition"
                   >

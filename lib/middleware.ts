@@ -12,7 +12,7 @@ import { createServerClient } from '@supabase/ssr';
 const PROTECTED_PATHS = ['/dashboard', '/settings', '/projects', '/hr', '/finance'];
 const PUBLIC_PATHS = ['/login', '/register', '/auth/callback', '/api/webhooks'];
 const BILLING_PATH = '/pricing';
-const SUBSCRIPTION_REQUIRED_PATHS = ['/dashboard', '/projects', '/hr', '/finance'];
+const SUBSCRIPTION_REQUIRED_PATHS = ['/projects', '/hr', '/finance'];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({

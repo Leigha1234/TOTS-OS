@@ -89,10 +89,32 @@ export default function ProjectDirectory() {
   async function establishProject(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    if (!organisationId) {
-      toast.error("Organisation not loaded");
-      setSaving(false);
-      return;
+
+    let orgId = organisationId;
+
+    if (!orgId) {
+      const { data: user } = await supabase.auth.getUser();
+
+      if (!user?.user?.id) {
+        toast.error("Not authenticated");
+        setSaving(false);
+        return;
+      }
+
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.user.id)
+        .single();
+
+      if (error || !profile?.organisation_id) {
+        console.error("Failed to resolve organisation:", error);
+        toast.error("Organisation not found");
+        setSaving(false);
+        return;
+      }
+
+      orgId = profile.organisation_id;
     }
     try {
       const { data, error } = await supabase
@@ -108,9 +130,9 @@ export default function ProjectDirectory() {
               : [],
             start_date: form.start_date || null,
             due_date: form.due_date || null,
-            budget: form.budget ? Number(form.budget) : null,
+            budget: form.budget && !isNaN(Number(form.budget)) ? Number(form.budget) : null,
             health: form.health,
-            organisation_id: organisationId
+            organisation_id: orgId
           }
         ])
         .select()

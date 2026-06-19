@@ -590,101 +590,7 @@ function VaultContent() {
 
   const renderNoteCard = (note: any) => {
     const assignedTeamMember = teamMembers.find(m => m.id === note.assigned_to);
-    const isExpanded = expandedNote === note.id;
-
-    if (isExpanded) {
-      const noteComments = comments.filter(c => c.note_id === note.id);
-      const activityFeed = [
-        {
-          id: "created",
-          content: "Task created",
-          created_at: note.created_at || Date.now()
-        },
-        ...noteComments.map((c: any) => ({
-          id: c.id,
-          content: c.content,
-          created_at: c.created_at || Date.now()
-        }))
-      ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-      return (
-        <motion.div
-          key={note.id}
-          className="fixed inset-0 z-[999] bg-black/40 backdrop-blur-md flex items-center justify-center p-6"
-          onClick={() => setExpandedNote(null)}
-        >
-          <motion.div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl p-6 lg:p-10 rounded-2xl shadow-2xl bg-white overflow-y-auto max-h-[90vh]"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-[10px] font-black uppercase text-stone-400">
-                {note.category}
-              </span>
-              <button
-                onClick={() => setExpandedNote(null)}
-                className="text-stone-400 hover:text-stone-900"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-2xl lg:text-4xl font-serif italic whitespace-pre-wrap">
-              {note.content}
-            </p>
-
-            <div className="mt-6 space-y-2 text-[10px] uppercase font-black text-stone-500">
-              {note.project && <p>Project: {note.project}</p>}
-              {note.due_date && <p>Due: {format(new Date(note.due_date), "MMM d, p")}</p>}
-            </div>
-
-            {/* ACTIVITY FEED */}
-            <div className="mt-6 border-t pt-4 space-y-2">
-              <p className="text-[10px] font-black uppercase text-stone-400">Activity</p>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {activityFeed.map((a: any) => (
-                  <div key={a.id} className="text-[11px] text-stone-600 flex justify-between">
-                    <span>{a.content}</span>
-                    <span className="text-[9px] text-stone-400">
-                      {new Date(a.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6 border-t pt-4 space-y-3">
-              <p className="text-[10px] font-black uppercase text-stone-400">Comments</p>
-
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {noteComments.map((c: any) => {
-                  const member = teamMembers.find(m => m.id === c.user_id);
-                  return (
-                    <div key={c.id} className="text-sm bg-stone-50 p-2 rounded-lg">
-                      <p className="text-[10px] font-black uppercase text-stone-500">
-                        {member?.name || "You"}
-                      </p>
-                      <p className="text-stone-700">{c.content}</p>
-
-                      <div className="flex items-center gap-2 mt-2">
-                        <button
-                          onClick={() => addReaction(c.id, "like")}
-                          className="text-[10px] font-black uppercase text-stone-400 hover:text-green-600"
-                        >
-                          👍 {reactions[c.id]?.length || 0}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <CommentBox noteId={note.id} addComment={addComment} />
-            </div>
-          </motion.div>
-        </motion.div>
-      );
-    }
-
+    // Only return the normal card (non-expanded version)
     return (
       <motion.div
         key={note.id}
@@ -922,6 +828,15 @@ function VaultContent() {
             <AnimatePresence mode="popLayout">
               {regularNotes.map((note) => renderNoteCard(note))}
             </AnimatePresence>
+            <NoteModal
+              note={notes.find((n: any) => n.id === expandedNote)}
+              teamMembers={teamMembers}
+              comments={comments}
+              reactions={reactions}
+              addComment={addComment}
+              addReaction={addReaction}
+              setExpandedNote={setExpandedNote}
+            />
           </div>
         </section>
 
@@ -1090,6 +1005,109 @@ function VaultContent() {
     </div>
   );
 }
+
+const NoteModal = ({
+  note,
+  teamMembers,
+  comments,
+  reactions,
+  addComment,
+  addReaction,
+  setExpandedNote
+}: any) => {
+  if (!note) return null;
+
+  const noteComments = comments.filter((c: any) => c.note_id === note.id);
+
+  const activityFeed = [
+    {
+      id: "created",
+      content: "Task created",
+      created_at: note.created_at || Date.now()
+    },
+    ...noteComments.map((c: any) => ({
+      id: c.id,
+      content: c.content,
+      created_at: c.created_at || Date.now()
+    }))
+  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[999] bg-black/40 backdrop-blur-md flex items-center justify-center p-6"
+      onClick={() => setExpandedNote(null)}
+    >
+      <motion.div
+        onClick={(e: any) => e.stopPropagation()}
+        className="w-full max-w-2xl p-6 lg:p-10 rounded-2xl shadow-2xl bg-white overflow-y-auto max-h-[90vh]"
+      >
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-[10px] font-black uppercase text-stone-400">
+            {note.category}
+          </span>
+          <button
+            onClick={() => setExpandedNote(null)}
+            className="text-stone-400 hover:text-stone-900"
+          >
+            ✕
+          </button>
+        </div>
+
+        <p className="text-2xl lg:text-4xl font-serif italic whitespace-pre-wrap">
+          {note.content}
+        </p>
+
+        <div className="mt-6 space-y-2 text-[10px] uppercase font-black text-stone-500">
+          {note.project && <p>Project: {note.project}</p>}
+          {note.due_date && <p>Due: {format(new Date(note.due_date), "MMM d, p")}</p>}
+        </div>
+
+        <div className="mt-6 border-t pt-4 space-y-2">
+          <p className="text-[10px] font-black uppercase text-stone-400">Activity</p>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {activityFeed.map((a: any) => (
+              <div key={a.id} className="text-[11px] text-stone-600 flex justify-between">
+                <span>{a.content}</span>
+                <span className="text-[9px] text-stone-400">
+                  {new Date(a.created_at).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 border-t pt-4 space-y-3">
+          <p className="text-[10px] font-black uppercase text-stone-400">Comments</p>
+
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {noteComments.map((c: any) => {
+              const member = teamMembers.find((m: any) => m.id === c.user_id);
+              return (
+                <div key={c.id} className="text-sm bg-stone-50 p-2 rounded-lg">
+                  <p className="text-[10px] font-black uppercase text-stone-500">
+                    {member?.name || "You"}
+                  </p>
+                  <p className="text-stone-700">{c.content}</p>
+
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      onClick={() => addReaction(c.id, "like")}
+                      className="text-[10px] font-black uppercase text-stone-400 hover:text-green-600"
+                    >
+                      👍 {reactions[c.id]?.length || 0}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <CommentBox noteId={note.id} addComment={addComment} />
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
 
 export default function VaultPage() {
   return (

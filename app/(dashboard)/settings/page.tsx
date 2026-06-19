@@ -47,9 +47,14 @@ export default function Settings() {
 const [connectionHealth, setConnectionHealth] = useState<
   Record<string, "connected" | "disconnected" | "unknown" | "expired">
 >({});
-const [postQueue, setPostQueue] = useState<any[]>([]);
-const [showConnectedModal, setShowConnectedModal] = useState(false);
-const [connectedPlatformModal, setConnectedPlatformModal] = useState<string | null>(null);
+  const [postQueue, setPostQueue] = useState<any[]>([]);
+  const [showConnectedModal, setShowConnectedModal] = useState(false);
+  const [connectedPlatformModal, setConnectedPlatformModal] = useState<string | null>(null);
+
+  // --- REFS FOR SOCIAL ENGINE ---
+  const channelRef = useRef<any>(null);
+  const engineIntervalRef = useRef<any>(null);
+  const tokenIntervalRef = useRef<any>(null);
 
   const refreshConnections = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -466,6 +471,43 @@ const retryFailedPosts = async () => {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   // -- 4. DATA FETCHING --
+  // --- Handler for window focus ---
+  const handleFocus = async () => {
+    if (!isMountedRef.current) return;
+    try {
+      await refreshConnections();
+      await verifyPendingOAuth();
+      await verifyConnections();
+
+      ["meta", "linkedin", "tiktok"].forEach((p) => {
+        if (!connectedPlatformsRef.current.includes(p)) return;
+        sessionStorage.removeItem(`oauth_pending_${p}`);
+      });
+    } catch (err) {
+      console.warn("Focus sync failed:", err);
+    }
+  };
+
+  // --- Handler for document visibility ---
+  const triggerBackendScheduler = async () => {
+    try {
+      await fetch("/api/social/worker/run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    } catch (err) {
+      console.warn("Scheduler trigger failed:", err);
+    }
+  };
+
+  const handleVisibility = () => {
+    if (document.visibilityState === "visible") {
+      triggerBackendScheduler();
+    }
+  };
+
   useEffect(() => {
     isMountedRef.current = true;
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -503,54 +545,13 @@ const retryFailedPosts = async () => {
     if (typeof window !== "undefined" && window.location.hash === "#_=_") {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-    const handleFocus = async () => {
-      if (!isMountedRef.current) return;
-      try {
-        await refreshConnections();
-        await verifyPendingOAuth();
-        await verifyConnections();
-
-        ["meta", "linkedin", "tiktok"].forEach((p) => {
-          if (!connectedPlatformsRef.current.includes(p)) return;
-          sessionStorage.removeItem(`oauth_pending_${p}`);
-        });
-      } catch (err) {
-        console.warn("Focus sync failed:", err);
-      }
-    };
 
     window.addEventListener("focus", handleFocus);
-    // ===============================
-    // SOCIAL ENGINE v8 — BACKEND RUNTIME BRIDGE
-    // ===============================
-    const triggerBackendScheduler = async () => {
-      try {
-        await fetch("/api/social/worker/run", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-      } catch (err) {
-        console.warn("Scheduler trigger failed:", err);
-      }
-    };
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        triggerBackendScheduler();
-      }
-    };
-
     window.addEventListener("visibilitychange", handleVisibility);
 
     // ===============================
     // REAL-TIME SOCIAL CONNECTION SYNC (MULTI-TENANT SAFE)
     // ===============================
-    const channelRef = useRef<any>(null);
-    const engineIntervalRef = useRef<any>(null);
-    const tokenIntervalRef = useRef<any>(null);
-
     const setupRealtime = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;

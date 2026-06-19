@@ -709,13 +709,12 @@ function VaultContent() {
             color: isUrgent ? "#4f4a46" : theme.bg,
             category: tag || "General",
             project: project || null,
-            assigned_to: assignedTo.length ? assignedTo : null,
+            assigned_to: assignedTo.length ? assignedTo : [],
             due_date: isReminder && reminderDateTime ? reminderDateTime : null,
             is_reminder: isReminder,
             status,
             is_urgent: isUrgent,
             type: status === "todo" ? "task" : "note",
-            visibility,
           },
         ]);
 

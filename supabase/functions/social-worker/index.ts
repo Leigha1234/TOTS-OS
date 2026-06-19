@@ -127,11 +127,11 @@ Deno.serve(async (req) => {
           .eq("id", post.id);
 
         // 3. Get social accounts for user
-        const { data: accounts } = await supabase
-  .from("social_accounts")
-  .select("*")
-  .eq("organisation_id", post.organisation_id);
-        const platforms = post.platforms || [];
+        const { data: accounts = [] } = await supabase
+          .from("social_accounts")
+          .select("*")
+          .eq("organisation_id", post.organisation_id);
+        const platforms = Array.isArray(post.platforms) ? post.platforms : [];
 
         for (const platform of platforms) {
           const { data: existing } = await supabase
@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
 
           if (existing) continue;
 
-          const account = accounts?.find((a) => a.platform === platform);
+          const account = (accounts || []).find((a) => a.platform === platform);
 
           if (!account?.access_token) continue;
 

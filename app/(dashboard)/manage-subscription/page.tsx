@@ -31,6 +31,8 @@ export default function ManageSubscription() {
   const [loading, setLoading] = useState(true);
 
   const TEAM_MEMBER_PRICE = 19.95; 
+  const formatPounds = (value: number) =>
+    (Math.round(value * 100) / 100).toFixed(2);
 
   const tierMatrix: Record<SubscriptionTier, { name: string; price: number; description: string; features: TierFeature[] }> = {
     standard: {
@@ -150,7 +152,9 @@ useEffect(() => {
             <span className="w-8 text-center font-bold">{teamMembersCount}</span>
             <button onClick={() => setTeamMembersCount(teamMembersCount + 1)}><Plus size={14}/></button>
          </div>
-         <p className="text-xs uppercase font-black text-stone-400">Team Seats ( £{teamMembersCount * TEAM_MEMBER_PRICE}/mo )</p>
+         <p className="text-xs uppercase font-black text-stone-400">
+           Team Seats ( £{formatPounds(teamMembersCount * TEAM_MEMBER_PRICE)}/mo )
+         </p>
       </div>
     </div>
   );

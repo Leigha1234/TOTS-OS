@@ -35,6 +35,8 @@ const TIERS = [
 export default function BillingPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
+  const formatPounds = (value: number | string) =>
+    (Math.round(Number(value) * 100) / 100).toFixed(2);
 
   useEffect(() => {
     // Try to retrieve the authenticated user's email from a runtime endpoint.
@@ -112,7 +114,9 @@ export default function BillingPage() {
                 </div>
                 
                 <div className="flex items-baseline gap-1 mb-10">
-                  <span className="text-6xl font-serif italic tracking-tighter">£{tier.price}</span>
+                  <span className="text-6xl font-serif italic tracking-tighter">
+                    £{formatPounds(tier.price)}
+                  </span>
                   <span className="text-stone-400 text-[11px] uppercase font-black">/mo</span>
                 </div>
 

@@ -1,0 +1,19 @@
+
+Query to run when made a new user in auth
+
+insert into profiles (
+  id,
+  email,
+  role,
+  subscription_tier
+)
+values (
+  'f0524a73-0559-467f-9465-095e43c3952e',
+  'theorganisedtypes@gmail.com',
+  'admin',
+  'elite'
+)
+on conflict (id)
+do update set
+  role = 'admin',
+  subscription_tier = 'elite';

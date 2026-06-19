@@ -64,6 +64,18 @@ export default function ProjectEngine() {
     return tasks.filter(t => !t.assigned_to).length;
   }, [tasks]);
 
+  const membersList = useMemo(() => {
+    if (!project?.members) return [];
+    if (Array.isArray(project.members)) return project.members;
+    if (typeof project.members === "string") {
+      return project.members
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+    }
+    return [];
+  }, [project?.members]);
+
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -595,7 +607,7 @@ return (
                                     </button>
                                 </div>
                                 <div className="space-y-2 pt-2">
-                                    {project.members?.split(',').map((m: string, i: number) => (
+                                    {membersList.map((m: string, i: number) => (
                                         <div key={i} className="flex items-center justify-between p-3 border border-stone-50 rounded-xl bg-stone-50/30">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-6 h-6 rounded bg-[#a9b897]/20 flex items-center justify-center text-[8px] font-black text-[#a9b897]">{m.trim().charAt(0)}</div>

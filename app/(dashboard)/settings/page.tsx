@@ -984,30 +984,36 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
                     ].map((platformObj) => {
                       const isConnected = connectedPlatforms.includes(platformObj.key);
                       return (
-                        <div key={platformObj.key} className="p-5 bg-[#faf9f6] rounded-2xl border border-stone-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div key={platformObj.key} className="p-5 bg-[#faf9f6] rounded-2xl border border-stone-100 flex flex-col gap-4">
                           <div className="flex items-center gap-4">
                             <div className={`p-3 rounded-xl flex gap-1 items-center shrink-0 ${isConnected ? 'accent-bg text-white' : 'bg-white text-stone-300 border border-stone-100'}`}>
                               {platformObj.icons.map((Icon, idx) => (
                                 <Icon key={idx} size={16} fill="currentColor" className="stroke-none" />
                               ))}
                             </div>
+
                             <div className="flex flex-col min-w-0">
                               <span className="text-xs font-bold text-stone-800 truncate">{platformObj.name}</span>
                               <span className="text-[8px] font-black uppercase tracking-widest mt-0.5 text-stone-300 truncate">{platformObj.subtitle}</span>
-                           {isConnected && (
-  <span className="text-[9px] font-black uppercase tracking-widest mt-1 text-green-600">
-    Connected
-  </span>
-)}
-                           </div>
+                              {isConnected && (
+                                <span className="text-[9px] font-black uppercase tracking-widest mt-1 text-green-600">
+                                  Connected
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <button 
+
+                          <button
                             onClick={() =>
                               isConnected
                                 ? disconnectSocialPlatform(platformObj.key)
                                 : connectSocialPlatform(platformObj.key)
                             }
-                            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-wider border transition-all text-center shrink-0 ${isConnected ? 'bg-white text-stone-400 border-stone-200 hover:text-red-500' : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'}`}
+                            className={`w-full px-4 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-wider border transition-all text-center shrink-0 ${
+                              isConnected
+                                ? 'bg-white text-stone-400 border-stone-200 hover:text-red-500'
+                                : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'
+                            }`}
                           >
                             {isConnected ? "Disconnect" : "Connect Account"}
                           </button>

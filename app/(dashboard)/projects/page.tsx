@@ -42,8 +42,16 @@ export default function ProjectDirectory() {
   async function loadProjects() {
     try {
       setLoading(true);
-      const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Load projects error:", error);
+        toast.error("Failed to load projects");
+        return;
+      }
       setProjects(data || []);
     } finally {
       setLoading(false);
@@ -54,9 +62,31 @@ export default function ProjectDirectory() {
     e.preventDefault();
     setSaving(true);
     try {
-      const { data, error } = await supabase.from("projects").insert([form]).select().single();
-      if (error) throw error;
-      setProjects([data, ...projects]);
+      const { data, error } = await supabase
+        .from("projects")
+        .insert([
+          {
+            name: form.name,
+            objective_summary: form.objective_summary,
+            description: form.description,
+            category: form.category,
+            members: form.members
+              ? form.members.split(",").map((m: string) => m.trim()).filter(Boolean)
+              : [],
+            start_date: form.start_date || null,
+            due_date: form.due_date || null,
+            budget: form.budget ? Number(form.budget) : null,
+            health: form.health
+          }
+        ])
+        .select()
+        .single();
+      if (error) {
+        console.error("Supabase insert error:", error);
+        toast.error("Invalid project data");
+        return;
+      }
+      setProjects((prev) => [data, ...prev]);
       setShowModal(false);
       setForm({ 
         name: "", objective_summary: "", description: "", 
@@ -64,6 +94,9 @@ export default function ProjectDirectory() {
         due_date: "", budget: "", health: "Stable" 
       });
       toast.success("Project Established");
+    } catch (error) {
+      console.error("Project creation error:", error);
+      toast.error("Failed to create project");
     } finally {
       setSaving(false);
     }

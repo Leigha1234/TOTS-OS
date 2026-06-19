@@ -18,7 +18,8 @@ import {
   Database,
   ListPlus,
   Send,
-  Trash2
+  Trash2,
+  Check
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
@@ -54,6 +55,8 @@ export default function AccountProfilePage() {
   const [subscriberLists, setSubscriberLists] = useState<any[]>([]);
   const [profileLists, setProfileLists] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [taskComments, setTaskComments] = useState<Record<string, string>>({});
+  const [taskCommentThreads, setTaskCommentThreads] = useState<Record<string, any[]>>({});
   const projectMap = useMemo(() => {
     const map: Record<string, string> = {};
     projects.forEach((p: any) => {
@@ -170,6 +173,65 @@ export default function AccountProfilePage() {
     setTasks(data || []);
   };
 
+  const fetchTaskComments = async () => {
+    if (!tasks.length) return;
+
+    const taskIds = tasks.map(t => t.id);
+
+    const { data, error } = await supabase
+      .from("task_comments")
+      .select("*")
+      .in("task_id", taskIds)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Fetch task comments error:", error);
+      return;
+    }
+
+    const grouped: Record<string, any[]> = {};
+
+    (data || []).forEach((c: any) => {
+      if (!grouped[c.task_id]) grouped[c.task_id] = [];
+      grouped[c.task_id].push(c);
+    });
+
+    setTaskCommentThreads(grouped);
+  };
+
+  useEffect(() => {
+    fetchTaskComments();
+  }, [tasks]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("task_comments_realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "task_comments"
+        },
+        (payload: any) => {
+          const newComment = payload.new;
+
+          setTaskCommentThreads(prev => {
+            const existing = prev[newComment.task_id] || [];
+            return {
+              ...prev,
+              [newComment.task_id]: [...existing, newComment]
+            };
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const toggleTaskComplete = async (task: any) => {
     const newStatus = task.status === "done" ? "todo" : "done";
 
@@ -202,6 +264,27 @@ export default function AccountProfilePage() {
     }
 
     setTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
+  const addTaskComment = async (taskId: string) => {
+    const content = taskComments[taskId];
+    if (!content || !content.trim()) return;
+
+    const { error } = await supabase
+      .from("task_comments")
+      .insert({
+        task_id: taskId,
+        profile_id: profileId,
+        organisation_id: organisationId,
+        content: content.trim()
+      });
+
+    if (error) {
+      console.error("Comment error:", error);
+      return;
+    }
+
+    setTaskComments(prev => ({ ...prev, [taskId]: "" }));
   };
 
   const fetchThreads = async () => {
@@ -748,9 +831,10 @@ export default function AccountProfilePage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => toggleTaskComplete(t)}
-                            className="text-xs px-2 py-1 rounded bg-stone-100 hover:bg-stone-200"
+                            className="text-stone-600 hover:text-stone-900"
+                            title="Mark complete"
                           >
-                            Toggle
+                            <Check size={16} />
                           </button>
 
                           <button
@@ -780,6 +864,42 @@ export default function AccountProfilePage() {
                         Due: {format(new Date(t.due_date), "dd MMM yyyy")}
                       </p>
                     )}
+                    {/* Comments Section */}
+                    <div className="mt-4 border-t pt-3 space-y-3">
+
+                      <div className="flex gap-2">
+                        <input
+                          className="flex-1 p-2 text-xs border rounded-lg bg-[#faf9f6]"
+                          placeholder="Add comment..."
+                          value={taskComments[t.id] || ""}
+                          onChange={(e) =>
+                            setTaskComments({
+                              ...taskComments,
+                              [t.id]: e.target.value
+                            })
+                          }
+                        />
+
+                        <button
+                          onClick={() => addTaskComment(t.id)}
+                          className="px-3 py-2 bg-[#a9b897] text-white rounded-lg text-xs"
+                        >
+                          <Send size={14} />
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {(taskCommentThreads[t.id] || []).map((c: any) => (
+                          <div key={c.id} className="text-xs p-2 rounded-lg bg-stone-50 border">
+                            <div className="text-[10px] uppercase text-stone-400 mb-1">
+                              {c.created_at ? new Date(c.created_at).toLocaleString() : ""}
+                            </div>
+                            <div className="text-stone-700">{c.content}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                    </div>
                   </div>
                 ))}
               </div>

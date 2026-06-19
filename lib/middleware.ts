@@ -60,6 +60,10 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  if (pathname.startsWith('/dashboard')) {
+    return response;
+  }
+
   // 2. AUTHENTICATION GUARD
   const isProtected = PROTECTED_PATHS.some(path => pathname.startsWith(path));
   if (!isPublic && isProtected && !session) {
@@ -75,11 +79,16 @@ export async function middleware(request: NextRequest) {
   if (
     session &&
     !isPublic &&
+    !pathname.startsWith('/dashboard') &&
     SUBSCRIPTION_REQUIRED_PATHS.some(path => pathname.startsWith(path))
   ) {
+    if (pathname === BILLING_PATH) {
+      return response;
+    }
     
     // Extract tier from Metadata (Cached in JWT for optimal performance)
-    const tier = (session.user.user_metadata?.subscription_tier as string)?.toLowerCase() || 'unpaid';
+    const tierRaw = session.user.user_metadata?.subscription_tier;
+    const tier = (typeof tierRaw === 'string' ? tierRaw : 'standard').toLowerCase();
 
     // A. Billing Bypass: Users must be allowed to reach the pricing page
     if (pathname === BILLING_PATH || pathname.startsWith('/settings/manage-subscription')) {
@@ -93,7 +102,11 @@ export async function middleware(request: NextRequest) {
 
     // C. Tiered Capability Gating (e.g., Enterprise features)
     // Example: Only 'elite' users allowed access to /projects
-    if (pathname.startsWith('/projects') && tier !== 'elite') {
+    if (
+      pathname.startsWith('/projects') &&
+      SUBSCRIPTION_REQUIRED_PATHS.some(p => pathname.startsWith(p)) &&
+      tier !== 'elite'
+    ) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }

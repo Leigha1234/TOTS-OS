@@ -77,7 +77,7 @@ export async function middleware(request: NextRequest) {
 
   // 2. AUTHENTICATION GUARD
   const isProtected = PROTECTED_PATHS.some(path => pathname.startsWith(path));
-  if (!isPublic && isProtected && (!session || !profile)) {
+  if (!isPublic && isProtected && !session) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -123,7 +123,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (!profile && isProtected) {
+  if (!session && isProtected) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 

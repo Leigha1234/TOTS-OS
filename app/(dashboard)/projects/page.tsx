@@ -44,14 +44,14 @@ export default function ProjectDirectory() {
 
   useEffect(() => {
     const loadOrg = async () => {
-      const { data: user } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user?.user?.id) return;
+      if (!user?.id) return;
 
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("organisation_id")
-        .eq("id", user.user.id)
+        .eq("id", user.id)
         .single();
 
       if (error) {
@@ -59,7 +59,12 @@ export default function ProjectDirectory() {
         return;
       }
 
-      setOrganisationId(profile?.organisation_id);
+      if (!profile?.organisation_id) {
+        console.warn("No organisation_id found on profile");
+        return;
+      }
+
+      setOrganisationId(profile.organisation_id);
     };
 
     loadOrg();
@@ -99,6 +104,13 @@ export default function ProjectDirectory() {
       return;
     }
 
+    // ADD LOADING GUARD (prevents insert before org loads)
+    if (!orgId) {
+      toast.error("Organisation not loaded yet");
+      setSaving(false);
+      return;
+    }
+
     if (!form.name?.trim()) {
       toast.error("Project name required");
       setSaving(false);
@@ -106,9 +118,9 @@ export default function ProjectDirectory() {
     }
 
     if (!orgId) {
-      const { data: user } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user?.user?.id) {
+      if (!user?.id) {
         toast.error("Not authenticated");
         setSaving(false);
         return;
@@ -117,7 +129,7 @@ export default function ProjectDirectory() {
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("organisation_id")
-        .eq("id", user.user.id)
+        .eq("id", user.id)
         .single();
 
       if (error || !profile?.organisation_id) {
@@ -139,9 +151,13 @@ export default function ProjectDirectory() {
             description: form.description,
             category: form.category,
 
-            members: form.members
-              ? form.members.split(",").map((m) => m.trim())
-              : null,
+            members:
+              form.members && form.members.trim().length > 0
+                ? form.members
+                    .split(",")
+                    .map((m) => m.trim())
+                    .filter(Boolean)
+                : [],
 
             start_date: form.start_date || null,
             due_date: form.due_date || null,
@@ -160,6 +176,8 @@ export default function ProjectDirectory() {
         .single();
       if (error) {
         console.error("Supabase insert error:", error);
+        console.error("Details:", error?.details);
+        console.error("Hint:", error?.hint);
         toast.error(error?.message || "Invalid project data");
         return;
       }
@@ -180,7 +198,7 @@ export default function ProjectDirectory() {
   }
 
   const filtered = projects.filter((p) =>
-    p.name?.toLowerCase().includes(search.toLowerCase())
+    (p.name || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (

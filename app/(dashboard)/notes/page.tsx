@@ -910,23 +910,28 @@ function VaultContent() {
               </select>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {/* CLEAR / COMPLETE ACTION */}
               <button
                 onClick={() => deleteNote(note.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all border shadow-sm ${
                   note.is_urgent
                     ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white'
-                    : 'bg-white/60 border-black/[0.03] hover:bg-white text-stone-700 hover:text-green-700'
+                    : 'bg-white/70 border-black/[0.05] hover:bg-white text-stone-700 hover:text-green-700'
                 }`}
               >
                 <CheckCircle2 size={13} />
                 <span>Clear</span>
               </button>
 
+              {/* DELETE ICON BUTTON */}
               <button
                 onClick={() => deleteNote(note.id)}
-                className={`p-2 rounded-lg transition-colors ${
-                  note.is_urgent ? 'hover:bg-white/10 text-white/60 hover:text-white' : 'hover:bg-red-50 text-stone-400 hover:text-red-500'
+                className={`flex items-center justify-center h-8 w-8 rounded-full transition-all border border-transparent
+                  hover:scale-105 active:scale-95 ${
+                  note.is_urgent
+                    ? 'hover:bg-white/10 text-white/60 hover:text-white'
+                    : 'hover:bg-red-50 text-stone-400 hover:text-red-600'
                 }`}
               >
                 <Trash2 size={13} />
@@ -1079,7 +1084,7 @@ function VaultContent() {
       {/* FLOATING ACTION BUTTON */}
       <button 
         onClick={() => setShowModal(true)}
-        className="fixed bottom-6 right-6 lg:bottom-12 lg:right-12 h-16 w-16 lg:h-20 lg:w-20 bg-stone-900 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all z-[100]"
+        className="fixed bottom-6 right-6 lg:bottom-12 lg:right-12 h-16 w-16 lg:h-20 lg:w-20 bg-gradient-to-br from-stone-900 to-stone-800 text-white rounded-full flex items-center justify-center shadow-xl hover:shadow-2xl hover:scale-110 active:scale-95 transition-all duration-200 z-[100] border border-white/10 backdrop-blur-md"
       >
         <Plus size={24} />
       </button>
@@ -1632,7 +1637,7 @@ const CommentBox = ({ noteId, addComment, typingChannel, user, typingUsers }: an
             setReplyTo(null);
             setText("");
           }}
-          className="px-3 py-2 bg-stone-900 text-white text-xs rounded-lg"
+          className="px-3 py-2 bg-stone-900 text-white text-xs rounded-full font-black uppercase tracking-wider hover:bg-stone-800 active:scale-95 transition-all shadow-sm"
         >
           Send
         </button>

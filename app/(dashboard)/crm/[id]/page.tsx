@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   User,
@@ -17,7 +17,8 @@ import {
   Radio,
   Database,
   ListPlus,
-  Send
+  Send,
+  Trash2
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
@@ -52,6 +53,14 @@ export default function AccountProfilePage() {
 
   const [subscriberLists, setSubscriberLists] = useState<any[]>([]);
   const [profileLists, setProfileLists] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const projectMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    projects.forEach((p: any) => {
+      map[p.id] = p.name;
+    });
+    return map;
+  }, [projects]);
   const fetchProfileLists = async () => {
     if (!profileId) return;
 
@@ -66,6 +75,22 @@ export default function AccountProfilePage() {
     }
 
     setProfileLists(data || []);
+  };
+
+  const fetchProjects = async () => {
+    if (!organisationId) return;
+
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id, name")
+      .eq("organisation_id", organisationId);
+
+    if (error) {
+      console.error("Projects fetch error:", error);
+      return;
+    }
+
+    setProjects(data || []);
   };
   const [selectedListId, setSelectedListId] = useState("");
 
@@ -145,6 +170,40 @@ export default function AccountProfilePage() {
     setTasks(data || []);
   };
 
+  const toggleTaskComplete = async (task: any) => {
+    const newStatus = task.status === "done" ? "todo" : "done";
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status: newStatus })
+      .eq("id", task.id);
+
+    if (error) {
+      console.error("Task update error:", error);
+      return;
+    }
+
+    setTasks(prev =>
+      prev.map(t =>
+        t.id === task.id ? { ...t, status: newStatus } : t
+      )
+    );
+  };
+
+  const deleteTask = async (taskId: string) => {
+    const { error } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("id", taskId);
+
+    if (error) {
+      console.error("Task delete error:", error);
+      return;
+    }
+
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
   const fetchThreads = async () => {
     const { data } = await supabase
       .from("email_threads")
@@ -211,6 +270,7 @@ export default function AccountProfilePage() {
       fetchSubscriberLists();
       fetchNotes();
       fetchProfileLists();
+      fetchProjects();
     }
   }, [profileId, organisationId]);
 
@@ -626,14 +686,23 @@ export default function AccountProfilePage() {
                   }
                 />
 
-                <input
+                <p className="text-xs uppercase tracking-widest text-stone-400">
+                  Assign to project
+                </p>
+                <select
                   className="w-full p-3 border rounded-xl bg-[#faf9f6]"
-                  placeholder="Project ID (optional)"
                   value={newTask?.project_id || ""}
                   onChange={(e) =>
                     setNewTask({ ...newTask, project_id: e.target.value })
                   }
-                />
+                >
+                  <option value="">No project</option>
+                  {projects.map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
 
                 <button
                   type="submit"
@@ -664,15 +733,47 @@ export default function AccountProfilePage() {
             ) : (
               <div className="space-y-4">
                 {tasks.map(t => (
-                  <div key={t.id} className="p-5 border border-stone-200 rounded-2xl bg-white">
+                  <div
+                    key={t.id}
+                    className={`p-5 border rounded-2xl bg-white transition ${
+                      t.status === "done" ? "opacity-50" : ""
+                    }`}
+                  >
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                      <h4 className="font-semibold">{t.title}</h4>
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className={`font-semibold ${t.status === "done" ? "line-through text-stone-400" : ""}`}>
+                          {t.title}
+                        </h4>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => toggleTaskComplete(t)}
+                            className="text-xs px-2 py-1 rounded bg-stone-100 hover:bg-stone-200"
+                          >
+                            Toggle
+                          </button>
+
+                          <button
+                            onClick={() => deleteTask(t.id)}
+                            className="text-red-400 hover:text-red-600"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
                       <span className="px-3 py-1 rounded-full bg-[#a9b897]/20 text-xs text-stone-700">
                         {t.status || "todo"}
                       </span>
                     </div>
                     {t.description && (
-                      <p className="text-sm text-stone-500 mt-2">{t.description}</p>
+                      <p className={`text-sm mt-2 ${t.status === "done" ? "line-through text-stone-400" : "text-stone-500"}`}>
+                        {t.description}
+                      </p>
+                    )}
+                    {t.project_id && (
+                      <div className="mt-3 text-xs inline-flex px-2 py-1 rounded-full bg-[#a9b897]/20 text-stone-700">
+                        {projectMap[t.project_id] || "Unknown Project"}
+                      </div>
                     )}
                     {t.due_date && (
                       <p className="text-xs text-stone-400 mt-3">

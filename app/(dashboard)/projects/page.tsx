@@ -159,29 +159,26 @@ export default function ProjectDirectory() {
       console.log("Creating project payload:", payload);
       console.log("Organisation ID used:", orgId);
 
-      const { data, error, status, statusText } = await supabase
+      const result = await supabase
         .from("projects")
         .insert([payload])
         .select();
 
-      console.log("INSERT DEBUG FULL:", {
-        data,
-        error,
-        status,
-        statusText,
-        payload
-      });
+      console.log("🧪 FULL SUPABASE INSERT RESULT:");
+      console.log(JSON.stringify(result, null, 2));
+
+      const { data, error } = result;
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("❌ Supabase error:", error);
         toast.error(error.message);
         setSaving(false);
         return;
       }
 
       if (!data || data.length === 0) {
-        console.error("No data returned — likely RLS blocked insert");
-        toast.error("Project was blocked (RLS or permissions)");
+        console.error("⚠️ INSERT RETURNED EMPTY DATA — THIS IS RLS OR PERMISSION BLOCK");
+        toast.error("Project not saved (permission issue)");
         setSaving(false);
         return;
       }

@@ -631,7 +631,7 @@ const connectSocialPlatform = async (platform: string): Promise<void> => {
     `&response_type=code` +
     `&auth_type=rerequest` +
     // 4) Fix Meta OAuth scope stability (remove risky permissions drift)
-    `&scope=public_profile,email,pages_show_list,pages_read_engagement,pages_manage_posts` +
+    `&scope=pages_show_list,pages_manage_posts,pages_read_engagement,pages_manage_metadata` +
     `&state=${state}`;
 
   const linkedinAuth =

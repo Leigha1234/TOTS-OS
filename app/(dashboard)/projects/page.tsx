@@ -28,7 +28,7 @@ export default function ProjectDirectory() {
     start_date: "",
     due_date: "",
     budget: "",
-    health: "Stable"
+    health: "good"
   });
 
   const supabase = useMemo(() => createBrowserClient(
@@ -187,7 +187,7 @@ export default function ProjectDirectory() {
         start_date: "",
         due_date: "",
         budget: "",
-        health: "Stable"
+        health: "good"
       });
 
       toast.success("Project Created");

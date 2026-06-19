@@ -32,19 +32,31 @@ Deno.serve(async (req) => {
       .order("scheduled_for", { ascending: true })
       .limit(MAX_BATCH);
 
-    const platformsMap: Record<string, (account: any, content: string) => Promise<Response>> = {
-      meta: async (account: any, content: string) => {
-        return fetch(
-          `https://graph.facebook.com/v23.0/${account.platform_user_id}/feed`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: content,
-              access_token: account.access_token,
-            }),
-          }
-        );
+    const platformsMap: Record<
+      string,
+      (account: any, content: string, post?: any) => Promise<Response>
+    > = {
+      meta: async (account: any, content: string, post?: any) => {
+        const pageId = account.page_id || account.platform_user_id;
+
+        const url = post?.media_url
+          ? `https://graph.facebook.com/v23.0/${pageId}/photos`
+          : `https://graph.facebook.com/v23.0/${pageId}/feed`;
+
+        const body = new URLSearchParams();
+        body.append("access_token", account.access_token);
+
+        if (post?.media_url) {
+          body.append("url", post.media_url);
+          body.append("caption", content);
+        } else {
+          body.append("message", content);
+        }
+
+        return fetch(url, {
+          method: "POST",
+          body,
+        });
       },
 
       linkedin: async (account: any, content: string) => {
@@ -116,9 +128,9 @@ Deno.serve(async (req) => {
           const handler = platformsMap[platform];
           if (!handler) continue;
 
-          const content = post.content ?? post.message ?? "";
+          const content = post.caption ?? "";
 
-          const response = await handler(account, content);
+          const response = await handler(account, content, post);
           const text = await response.text();
 
           await supabase.from("post_logs").insert({

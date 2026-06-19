@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, type FormEvent } from "react";
+import React, { useState, useEffect, useRef, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import {
@@ -46,7 +46,8 @@ const [connectionHealth, setConnectionHealth] = useState<
   Record<string, "connected" | "disconnected" | "unknown" | "expired">
 >({});
 const [postQueue, setPostQueue] = useState<any[]>([]);
-const [executionLogs, setExecutionLogs] = useState<any[]>([]);
+const [showConnectedModal, setShowConnectedModal] = useState(false);
+const [connectedPlatformModal, setConnectedPlatformModal] = useState<string | null>(null);
 
   const refreshConnections = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -336,18 +337,18 @@ const postToSocial = async (content: string, platforms: string[]) => {
 };
 
 const scheduleSocialPost = async (
-  content: string,
+  caption: string,
   platforms: string[],
-  scheduledAt: Date
+  scheduledFor: Date
 ) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { error } = await supabase.from("scheduled_posts").insert({
     user_id: user.id,
-    content,
+    caption,
     platforms,
-    scheduled_at: scheduledAt.toISOString(),
+    scheduled_for: scheduledFor.toISOString(),
     status: "scheduled",
     created_at: new Date().toISOString(),
   });
@@ -356,7 +357,7 @@ const scheduleSocialPost = async (
 
   setPostQueue((prev) => [
     ...prev,
-    { content, platforms, scheduledAt }
+    { caption, platforms, scheduledFor }
   ]);
 
   return true;
@@ -373,46 +374,36 @@ const processScheduledPosts = async () => {
     .from("scheduled_posts")
     .select("*")
     .eq("status", "scheduled")
-    .lte("scheduled_at", now);
+    .lte("scheduled_for", now);
 
   if (error || !posts) return;
 
   for (const post of posts) {
     try {
-      // mark as processing
       await supabase
         .from("scheduled_posts")
         .update({ status: "processing" })
         .eq("id", post.id);
 
-      // execute post
-      const results = await postToSocial(post.content, post.platforms || []);
+      const results = await postToSocial(post.caption, post.platforms || []);
 
-      const failed = results.filter((r) => r.status === "failed");
+      const failed = results.filter((r: any) => r.status === "failed");
 
-      if (failed.length === 0) {
-        await supabase
-          .from("scheduled_posts")
-          .update({
-            status: "posted",
-            executed_at: new Date().toISOString(),
-          })
-          .eq("id", post.id);
-      } else {
-        await supabase
-          .from("scheduled_posts")
-          .update({
-            status: "failed",
-            last_error: JSON.stringify(failed),
-          })
-          .eq("id", post.id);
-      }
+      await supabase
+        .from("scheduled_posts")
+        .update({
+          status: failed.length === 0 ? "posted" : "failed",
+          published_at: failed.length === 0 ? new Date().toISOString() : null,
+          error_message: failed.length ? JSON.stringify(failed) : null,
+        })
+        .eq("id", post.id);
+
     } catch (err: any) {
       await supabase
         .from("scheduled_posts")
         .update({
           status: "failed",
-          last_error: err.message,
+          error_message: err.message,
         })
         .eq("id", post.id);
     }
@@ -429,24 +420,25 @@ const retryFailedPosts = async () => {
 
   for (const post of posts) {
     try {
-      const results = await postToSocial(post.content, post.platforms || []);
+      const results = await postToSocial(post.caption, post.platforms || []);
 
-      const failed = results.filter((r) => r.status === "failed");
+      const failed = results.filter((r: any) => r.status === "failed");
 
       await supabase
         .from("scheduled_posts")
         .update({
           status: failed.length === 0 ? "posted" : "failed",
-          last_error: failed.length ? JSON.stringify(failed) : null,
-          executed_at: new Date().toISOString(),
+          error_message: failed.length ? JSON.stringify(failed) : null,
+          published_at: new Date().toISOString(),
         })
         .eq("id", post.id);
+
     } catch (err: any) {
       await supabase
         .from("scheduled_posts")
         .update({
           status: "failed",
-          last_error: err.message,
+          error_message: err.message,
         })
         .eq("id", post.id);
     }
@@ -528,8 +520,8 @@ const retryFailedPosts = async () => {
     // REAL-TIME SOCIAL CONNECTION SYNC (MULTI-TENANT SAFE)
     // ===============================
     let channel: any = null;
-    let engineInterval: any = null;
-    let tokenInterval: any = null;
+    const engineIntervalRef = useRef<any>(null);
+    const tokenIntervalRef = useRef<any>(null);
 
     const setupRealtime = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -561,7 +553,7 @@ const retryFailedPosts = async () => {
     // ===============================
 
     // Runs scheduled posts every 60 seconds
-    engineInterval = setInterval(async () => {
+    engineIntervalRef.current = setInterval(async () => {
       try {
         await processScheduledPosts();
         await retryFailedPosts();
@@ -571,7 +563,7 @@ const retryFailedPosts = async () => {
     }, 60_000);
 
     // Refresh tokens every 15 minutes (multi-platform safe)
-    tokenInterval = setInterval(async () => {
+    tokenIntervalRef.current = setInterval(async () => {
       try {
         const platforms = ["meta", "linkedin", "tiktok"];
         for (const p of platforms) {
@@ -587,8 +579,8 @@ const retryFailedPosts = async () => {
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("visibilitychange", handleVisibility);
 
-      if (engineInterval) clearInterval(engineInterval);
-      if (tokenInterval) clearInterval(tokenInterval);
+      if (engineIntervalRef.current) clearInterval(engineIntervalRef.current);
+      if (tokenIntervalRef.current) clearInterval(tokenIntervalRef.current);
 
       if (channel) {
         supabase.removeChannel(channel);
@@ -638,10 +630,13 @@ const retryFailedPosts = async () => {
             const success = await exchangeOAuthCode(platform, code, state);
 
             if (success) {
-              await refreshConnections();
-              await verifyConnections();
-              toast.success(`${platform} connected successfully`);
-            }
+  await refreshConnections();
+  await verifyConnections();
+  toast.success(`${platform} connected successfully`);
+
+  setConnectedPlatformModal(platform);
+  setShowConnectedModal(true);
+}
           }
         }
       }
@@ -965,7 +960,12 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
                             <div className="flex flex-col min-w-0">
                               <span className="text-xs font-bold text-stone-800 truncate">{platformObj.name}</span>
                               <span className="text-[8px] font-black uppercase tracking-widest mt-0.5 text-stone-300 truncate">{platformObj.subtitle}</span>
-                            </div>
+                           {isConnected && (
+  <span className="text-[9px] font-black uppercase tracking-widest mt-1 text-green-600">
+    Connected
+  </span>
+)}
+                           </div>
                           </div>
                           <button 
                             onClick={() =>
@@ -975,12 +975,43 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
                             }
                             className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-wider border transition-all text-center shrink-0 ${isConnected ? 'bg-white text-stone-400 border-stone-200 hover:text-red-500' : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'}`}
                           >
-                            {isConnected ? "Disconnect" : "Connect"}
+                            {isConnected ? "Disconnect" : "Connect Account"}
                           </button>
                         </div>
                       );
                     })}
                   </div>
+                  {showConnectedModal && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white p-8 rounded-3xl shadow-xl max-w-sm w-full text-center space-y-6">
+
+      <h2 className="text-xl font-serif italic">
+        {connectedPlatformModal} Connected
+      </h2>
+
+      <p className="text-xs text-stone-500 uppercase tracking-widest">
+        Your account is now linked successfully.
+      </p>
+
+      <button
+        onClick={() => router.push('/social')}
+        className="w-full px-6 py-3 bg-stone-900 text-white rounded-xl text-[10px] font-black uppercase"
+      >
+        Start Posting
+      </button>
+
+      <button
+        onClick={() => {
+          setShowConnectedModal(false);
+          setConnectedPlatformModal(null);
+        }}
+        className="w-full px-6 py-3 border rounded-xl text-[10px] font-black uppercase"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
                 </div>
 
                 {/* --- SECURE PASSWORD ALTERATION MATRICES --- */}

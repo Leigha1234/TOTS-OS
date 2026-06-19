@@ -15,7 +15,7 @@ import Link from "next/link";
 interface SocialPost {
   id: string;
   caption: string;
-  platform: string;
+  platforms: string;
   hashtags?: string;
   media_url: string;
   scheduled_for: string;
@@ -120,7 +120,7 @@ export default function SocialStudioUnified() {
     setPosts([]); // clear stale state before refresh
     let query = supabase
       .from('scheduled_posts')
-      .select('id, caption, platform, hashtags, media_url, scheduled_for, status, format, platform_post_id, last_error, attempts, analytics');
+      .select('id, caption, platforms, hashtags, media_url, scheduled_for, status, format, platform_post_id, last_error, attempts, analytics');
 
     if (user?.id) {
       query = query.eq('user_id', user.id);
@@ -325,7 +325,7 @@ export default function SocialStudioUnified() {
 
     const { error } = await supabase.from('scheduled_posts').insert([{
       caption: caption,
-      platform,
+      platforms: platform,
       hashtags,
       media_url: finalMediaUrl, 
       scheduled_for: new Date(scheduledTime).toISOString(),
@@ -349,6 +349,68 @@ export default function SocialStudioUnified() {
       console.error(error);
       toast.error("Database Save Failure. Check column names.");
     }
+    setStatus("Ready");
+  };
+
+  // --- INSTANT POST ACTION (LEVEL 3 ENGINE) ---
+  const handleInstantPost = async () => {
+    if (!caption) {
+      return toast.error("Please add a caption before posting.");
+    }
+
+    setStatus("Saving");
+
+    let finalMediaUrl = "https://picsum.photos/seed/system-blueprint/1080/1350";
+
+    // Media upload (reuse existing logic)
+    if (mediaFile) {
+      setIsUploadingMedia(true);
+
+      const fileExt = mediaFile.name.split(".").pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `public/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("social-assets")
+        .upload(filePath, mediaFile);
+
+      if (!uploadError) {
+        const { data } = supabase.storage.from("social-assets").getPublicUrl(filePath);
+        if (data) finalMediaUrl = data.publicUrl;
+      } else {
+        console.error("Storage Error:", uploadError);
+        toast.error("Media upload failed. Posting without media.");
+      }
+
+      setIsUploadingMedia(false);
+    }
+
+    const { error } = await supabase.from("scheduled_posts").insert([{
+      caption: caption,
+      platforms: platform,
+      hashtags,
+      media_url: finalMediaUrl,
+      scheduled_for: new Date().toISOString(),
+      status: POST_STATUS.SCHEDULED,
+      user_id: user?.id,
+      account_id: selectedAccountId,
+      format: format
+    }]);
+
+    if (!error) {
+      toast.success("Posted instantly! Your content is now processing.");
+      setCaption("");
+      setHashtags("");
+      setMetaScript("");
+      setMetaAudio("");
+      setMediaFile(null);
+      setMediaPreview(null);
+      syncPosts();
+    } else {
+      console.error(error);
+      toast.error("Instant post failed. Check database logs.");
+    }
+
     setStatus("Ready");
   };
 
@@ -572,6 +634,13 @@ export default function SocialStudioUnified() {
                   </div>
 
                   {/* Submission Action */}
+                  <button
+                    onClick={handleInstantPost}
+                    disabled={isUploadingMedia}
+                    className="w-full py-6 mb-3 bg-[#a9b897] text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-[#97a786] transition-all shadow-xl"
+                  >
+                    Post Now <ArrowRight size={14} />
+                  </button>
                   <button onClick={deployToProductionGrid} disabled={isUploadingMedia} className="w-full py-6 mt-6 bg-[#1c1c1c] text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-stone-800 transition-all shadow-xl shadow-stone-100">
                     {isUploadingMedia ? "Staging Assets..." : "Schedule Content Post"} <ArrowRight size={14} className="text-[#a9b897]"/>
                   </button>
@@ -647,13 +716,13 @@ export default function SocialStudioUnified() {
                     <div key={post.id} className="bg-stone-50 rounded-[2rem] lg:rounded-[2.5rem] p-4 lg:p-6 space-y-4 border border-stone-100 group">
                        <div className="flex gap-4 items-center">
                           <div className="w-12 h-12 rounded-xl bg-[#1c1c1c]/5 flex items-center justify-center text-[#a9b897]">
-                             {post.platform === 'meta' ? <Layers size={20}/> : post.platform === 'tiktok' ? <Video size={20}/> : <Linkedin size={20}/>}
+                             {post.platforms === 'meta' ? <Layers size={20}/> : post.platforms === 'tiktok' ? <Video size={20}/> : <Linkedin size={20}/>}
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <div className={`w-2 h-2 rounded-full ${getStatusColor(post.status)}`} />
                               <p className="text-[10px] font-black uppercase text-[#a9b897] tracking-widest">
-                                {post.platform} // {post.format}
+                                {post.platforms} // {post.format}
                               </p>
                             </div>
                              <p className="text-sm font-serif italic text-stone-600 line-clamp-2 leading-snug mt-0.5">"{post.caption}"</p>

@@ -167,7 +167,6 @@ export default function ProjectDirectory() {
                 ? Number(form.budget)
                 : 0,
 
-            health: form.health,
 
             organisation_id: orgId
           }

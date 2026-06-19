@@ -68,6 +68,17 @@ export default function Sidebar() {
 
   const [localColor, setLocalColor] = useState("#a9b897");
 
+  const allLinks = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/calendar", label: "Calendar", icon: Calendar },
+    { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+    { href: "/crm", label: "Contacts", icon: Users },
+    { href: "/notes", label: "Notes", icon: StickyNote },
+    { href: "/projects", label: "Projects", icon: Briefcase },
+    { href: "/social", label: "Social", icon: Globe },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
   useEffect(() => {
     async function syncPermissions() {
       try {
@@ -113,7 +124,7 @@ export default function Sidebar() {
         const tierAccess = tierLinks[tier] || tierLinks.unpaid;
 
         if (resolvedRole === "admin" || resolvedRole === "owner") {
-          setAllowedSlugs(tierAccess);
+          setAllowedSlugs(allLinks.map((link) => link.href));
         } else if (permissionSlugs.length > 0) {
           setAllowedSlugs(permissionSlugs);
         } else {
@@ -142,17 +153,6 @@ export default function Sidebar() {
       toast.error("Unable to log out");
     }
   };
-
-  const allLinks = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/calendar", label: "Calendar", icon: Calendar },
-    { href: "/campaigns", label: "Campaigns", icon: Megaphone },
-    { href: "/crm", label: "Contacts", icon: Users },
-    { href: "/notes", label: "Notes", icon: StickyNote },
-    { href: "/projects", label: "Projects", icon: Briefcase },
-    { href: "/social", label: "Social", icon: Globe },
-    { href: "/settings", label: "Settings", icon: Settings },
-  ];
 
   const activeColor = context?.settings?.brandColor || context?.settings?.brand_color || localColor;
 

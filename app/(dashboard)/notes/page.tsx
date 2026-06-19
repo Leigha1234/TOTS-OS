@@ -1479,15 +1479,23 @@ const NoteModal = ({
                     </button>
                   </div>
                   <button
-                    onClick={async () => {
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
                       const newText = prompt("Edit comment", c.content);
                       if (!newText) return;
+
                       const { error } = await supabase
                         .from("note_comments")
                         .update({ content: newText })
                         .eq("id", c.id);
-                      if (error) toast.error("Update failed");
-                      else toast.success("Comment updated");
+
+                      if (error) {
+                        console.error("Edit comment failed:", error);
+                        toast.error(error.message || "Update failed");
+                      } else {
+                        toast.success("Comment updated");
+                      }
                     }}
                     className="text-[10px] font-black uppercase text-stone-400 hover:text-blue-600"
                   >
@@ -1495,15 +1503,23 @@ const NoteModal = ({
                   </button>
 
                   <button
-                    onClick={async () => {
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
                       const ok = confirm("Delete comment?");
                       if (!ok) return;
+
                       const { error } = await supabase
                         .from("note_comments")
                         .delete()
                         .eq("id", c.id);
-                      if (error) toast.error("Delete failed");
-                      else toast.success("Comment deleted");
+
+                      if (error) {
+                        console.error("Delete comment failed:", error);
+                        toast.error(error.message || "Delete failed");
+                      } else {
+                        toast.success("Comment deleted");
+                      }
                     }}
                     className="text-[10px] font-black uppercase text-stone-400 hover:text-red-600"
                   >

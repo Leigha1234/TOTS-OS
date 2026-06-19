@@ -153,43 +153,33 @@ export default function ProjectDirectory() {
           form.budget !== "" && !isNaN(Number(form.budget))
             ? Number(form.budget)
             : 0,
-        health: form.health || "Stable",
+        // Always set health to "good" for safety
+        health: "good",
         organisation_id: orgId,
       };
       console.log("Creating project payload:", payload);
       console.log("Organisation ID used:", orgId);
 
-      const session = await supabase.auth.getSession();
+      const { data: inserted, error: insertError } = await supabase
+        .from("projects")
+        .insert([payload])
+        .select()
+        .single();
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/projects`,
-        {
-          method: "POST",
-          headers: {
-            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            Authorization: `Bearer ${session.data.session?.access_token}`,
-            "Content-Type": "application/json",
-            Prefer: "return=representation"
-          },
-          body: JSON.stringify([payload])
-        }
-      );
-
-      const text = await res.text();
-
-      console.log("RAW SUPABASE RESPONSE STATUS:", res.status);
-      console.log("RAW SUPABASE RESPONSE BODY:", text);
-
-      if (!res.ok) {
-        console.error("Insert failed:", text);
-        toast.error("Project not saved (see console)");
+      if (insertError) {
+        console.error("Supabase insert error:", insertError);
+        toast.error(insertError.message || "Failed to create project");
         setSaving(false);
         return;
       }
 
-      const data = JSON.parse(text);
+      if (!inserted) {
+        console.error("Insert returned no data");
+        toast.error("Project created but no data returned");
+        setSaving(false);
+        return;
+      }
 
-      const inserted = data[0];
       setProjects((prev) => [inserted, ...prev]);
       setShowModal(false);
 

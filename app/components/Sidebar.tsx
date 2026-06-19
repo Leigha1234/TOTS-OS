@@ -92,17 +92,19 @@ export default function Sidebar() {
           return;
         }
 
-        const [{ data: profile }, { data: perms }, { data: membership }] = await Promise.all([
+        const [{ data: profile }, permsResult, { data: membership }] = await Promise.all([
           supabase
             .from("profiles")
             .select("role, brand_color, subscription_tier")
             .eq("id", user.id)
             .single(),
+
           supabase
             .from("permissions")
             .select("page_slug")
             .eq("user_id", user.id)
             .eq("can_access", true),
+
           supabase
             .from("team_members")
             .select("role")
@@ -116,10 +118,12 @@ export default function Sidebar() {
         const tier = (profile?.subscription_tier || "unpaid").toLowerCase();
         setSubscriptionTier(tier);
 
-        const permissionSlugs = Array.isArray(perms)
-          ? (perms as any[])
-              .filter((p) => p?.page_slug)
-              .map((p) => p.page_slug)
+        const permsData = permsResult?.data ?? [];
+
+        const permissionSlugs = Array.isArray(permsData)
+          ? permsData
+              .filter((p: any) => p?.page_slug)
+              .map((p: any) => p.page_slug)
           : [];
         const tierAccess = tierLinks[tier] || tierLinks.unpaid;
 

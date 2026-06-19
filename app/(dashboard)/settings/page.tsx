@@ -644,18 +644,48 @@ const retryFailedPosts = async () => {
         const success = await exchangeOAuthCode(platform, code, state);
 
         if (success) {
-          await refreshConnections();
-          await verifyConnections();
+          try {
+            // 1. Force DB sync FIRST
+            await supabase.auth.refreshSession();
 
-          toast.success(`${platform} connected successfully`);
+            // 2. Wait for database propagation
+            await new Promise((res) => setTimeout(res, 600));
 
-          setConnectedPlatformModal(platform);
-          setShowConnectedModal(true);
+            // 3. Refresh connections (must reflect DB)
+            await refreshConnections();
 
-          // Clean URL so callback does not re-trigger
-          window.history.replaceState({}, document.title, "/settings");
-          router.replace("/settings");
-          isOAuthProcessingRef.current = false;
+            // 4. Verify actual connection state
+            await verifyConnections();
+
+            // 5. UI feedback ONLY after confirmed DB state
+            const platformsCheck = await supabase
+              .from("social_accounts")
+              .select("platform")
+              .eq("user_id", userId)
+              .eq("platform", platform)
+              .maybeSingle();
+
+            if (platformsCheck.data) {
+              toast.success(`${platform} connected successfully`);
+
+              setConnectedPlatformModal(platform);
+              setShowConnectedModal(true);
+            }
+
+            // 6. Clean URL
+            window.history.replaceState({}, document.title, "/settings");
+
+            // 7. Only redirect AFTER everything is confirmed
+            setTimeout(() => {
+              router.replace("/settings");
+            }, 300);
+
+          } catch (err) {
+            console.warn("Post-OAuth sync failed:", err);
+            toast.error("Connection completed but UI sync failed");
+          } finally {
+            isOAuthProcessingRef.current = false;
+          }
         } else {
           isOAuthProcessingRef.current = false;
         }

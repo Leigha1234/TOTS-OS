@@ -92,6 +92,19 @@ export default function ProjectDirectory() {
 
     let orgId = organisationId;
 
+    // HARD GUARD (prevents silent 400 insert attempts)
+    if (!orgId && !organisationId) {
+      toast.error("Organisation not loaded");
+      setSaving(false);
+      return;
+    }
+
+    if (!form.name?.trim()) {
+      toast.error("Project name required");
+      setSaving(false);
+      return;
+    }
+
     if (!orgId) {
       const { data: user } = await supabase.auth.getUser();
 
@@ -125,21 +138,19 @@ export default function ProjectDirectory() {
             objective_summary: form.objective_summary,
             description: form.description,
             category: form.category,
-            members: form.members
-              ? form.members.split(",").map((m: string) => m.trim()).filter(Boolean)
-              : [],
+            members: form.members || null,
             start_date: form.start_date || null,
             due_date: form.due_date || null,
             budget: form.budget && !isNaN(Number(form.budget)) ? Number(form.budget) : null,
             health: form.health,
-            organisation_id: orgId
+            organisation_id: orgId ?? organisationId
           }
         ])
         .select()
         .single();
       if (error) {
         console.error("Supabase insert error:", error);
-        toast.error("Invalid project data");
+        toast.error(error?.message || "Invalid project data");
         return;
       }
       setProjects((prev) => [data, ...prev]);

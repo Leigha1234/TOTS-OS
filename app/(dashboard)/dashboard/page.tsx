@@ -77,6 +77,30 @@ function DashboardContent() {
   // Phase 5: Kernel event stream (runtime feed)
   const [eventStream, setEventStream] = useState<any[]>([]);
 
+  // ===============================
+  // EVENT SYSTEM (STANDARDISED MODEL)
+  // ===============================
+  const normaliseEvent = (e: any) => {
+    const raw =
+      e?.start_at ||
+      e?.start_date ||
+      e?.start_time ||
+      e?.start ||
+      e?.date ||
+      e?.created_at ||
+      e?.payload?.new?.start_at ||
+      e?.payload?.new?.start_date;
+
+    return {
+      id: e?.id || e?.payload?.new?.id,
+      title: e?.title || e?.payload?.new?.title || "Event",
+      startAt: raw ? new Date(raw) : null,
+      endAt: e?.end_at || e?.payload?.new?.end_at
+        ? new Date(e?.end_at || e?.payload?.new?.end_at)
+        : null,
+    };
+  };
+
 
   // Real-time Clock
   useEffect(() => {
@@ -178,7 +202,7 @@ function DashboardContent() {
           completed: Boolean(n.completed),
           status: n.status || (n.completed ? "done" : "todo")
         })));
-      setEvents((eventsRes.data as any[]) || []);
+      setEvents(((eventsRes.data as any[]) || []).map(normaliseEvent));
       setEmails((emailsRes.data as any[]) || []);
       setProjects((projectsRes.data as any[]) || []);
 
@@ -695,59 +719,31 @@ function DashboardContent() {
           </h2>
           <div className="space-y-3">
             {(() => {
-              const getEventDate = (e: any) =>
-                e?.start_date || e?.date || e?.start || e?.created_at;
-
-              const safeDate = (d: any) => {
-                const date = new Date(d);
-                return isNaN(date.getTime()) ? null : date;
-              };
-
               const now = new Date();
 
               const isToday = (d: Date) =>
-                d.getFullYear() === now.getFullYear() &&
-                d.getMonth() === now.getMonth() &&
-                d.getDate() === now.getDate();
+                d.toDateString() === now.toDateString();
 
               const isTomorrow = (d: Date) => {
                 const t = new Date();
                 t.setDate(now.getDate() + 1);
-                return (
-                  d.getFullYear() === t.getFullYear() &&
-                  d.getMonth() === t.getMonth() &&
-                  d.getDate() === t.getDate()
-                );
+                return d.toDateString() === t.toDateString();
               };
 
-              // Merge DB events + realtime stream
-              const streamEvents = (eventStream || [])
-                .filter((e: any) => e?.type === "calendar_event")
-                .map((e: any) => e?.payload?.new)
-                .filter(Boolean);
+              const allEvents = events;
 
-              const allEventsRaw = [...(events || []), ...streamEvents];
+              const sorted = [...allEvents].sort((a: any, b: any) => {
+                const aTime = a.startAt?.getTime?.() ?? Infinity;
+                const bTime = b.startAt?.getTime?.() ?? Infinity;
+                return aTime - bTime;
+              });
 
-              // IMPORTANT FIX: do NOT drop events without valid dates
-              const normalized = allEventsRaw
-                .map((e: any) => {
-                  const date = safeDate(getEventDate(e));
-                  return { ...e, _date: date };
-                })
-                .sort((a: any, b: any) => {
-                  const aTime = a._date ? a._date.getTime() : Infinity;
-                  const bTime = b._date ? b._date.getTime() : Infinity;
-                  return aTime - bTime;
-                });
-
-              const todayEvents = normalized.filter((e: any) => e._date && isToday(e._date));
-              const tomorrowEvents = normalized.filter((e: any) => e._date && isTomorrow(e._date));
-
-              const datedUpcoming = normalized.filter(
-                (e: any) => e._date && !isToday(e._date) && !isTomorrow(e._date)
+              const todayEvents = sorted.filter(e => e.startAt && isToday(e.startAt));
+              const tomorrowEvents = sorted.filter(e => e.startAt && isTomorrow(e.startAt));
+              const upcomingEvents = sorted.filter(
+                e => e.startAt && !isToday(e.startAt) && !isTomorrow(e.startAt)
               );
-
-              const unscheduledEvents = normalized.filter((e: any) => !e._date);
+              const unscheduledEvents = sorted.filter(e => !e.startAt);
 
               const renderEvent = (e: any, idx: number) => (
                 <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
@@ -755,7 +751,7 @@ function DashboardContent() {
                     {e.title || "Event"}
                   </p>
                   <p className="text-[10px] text-stone-400">
-                    {e._date ? e._date.toLocaleString() : "No date set"}
+                    {e.startAt ? e.startAt.toLocaleString() : "No date set"}
                   </p>
                 </div>
               );
@@ -780,12 +776,12 @@ function DashboardContent() {
                     </div>
                   )}
 
-                  {datedUpcoming.length > 0 && (
+                  {upcomingEvents.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
                         Upcoming
                       </p>
-                      {datedUpcoming.slice(0, 3).map(renderEvent)}
+                      {upcomingEvents.slice(0, 3).map(renderEvent)}
                     </div>
                   )}
 
@@ -800,7 +796,7 @@ function DashboardContent() {
 
                   {todayEvents.length === 0 &&
                     tomorrowEvents.length === 0 &&
-                    datedUpcoming.length === 0 &&
+                    upcomingEvents.length === 0 &&
                     unscheduledEvents.length === 0 && (
                       <p className="text-[10px] uppercase text-stone-400">
                         No scheduled activity

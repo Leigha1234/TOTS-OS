@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   format, addMonths, subMonths, startOfMonth, 
   endOfMonth, startOfWeek, endOfWeek, isSameMonth, 
-  isSameDay, eachDayOfInterval, parseISO, isValid
+  isSameDay, eachDayOfInterval, isValid
 } from "date-fns";
 
 /**
@@ -21,13 +21,14 @@ import {
 interface CalendarEvent {
   id: string;
   title?: string;
-  created_at: string;
+  created_at?: string;
   description?: string;
   location?: string;
   meeting_link?: string;
   guests?: string;
   tags?: string; 
   user_id: string;
+  startAt?: Date | null;
 }
 
 const TAG_PALETTE = [
@@ -67,6 +68,20 @@ export default function Calendar() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const normaliseEvent = (e: any): CalendarEvent => {
+    const raw =
+      e?.start_at ||
+      e?.start_date ||
+      e?.start_time ||
+      e?.date ||
+      e?.created_at;
+
+    return {
+      ...e,
+      startAt: raw && isValid(new Date(raw)) ? new Date(raw) : null,
+    };
+  };
+
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -77,7 +92,7 @@ export default function Calendar() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data } = await supabase.from("tasks").select("*").eq("user_id", user.id);
-    setEvents(data || []);
+    setEvents((data || []).map(normaliseEvent));
     setIsLoading(false);
   }, [supabase]);
 
@@ -105,10 +120,12 @@ export default function Calendar() {
 
   const getDayEvents = useCallback((date: Date) => {
     return events.filter(e => {
-      const d = parseISO(e.created_at);
-      const matchesDate = isValid(d) && isSameDay(d, date);
-      const matchesTag = activeTagFilter === "ALL" || 
+      const d = e.startAt;
+      const matchesDate = d && isValid(d) && isSameDay(d, date);
+      const matchesTag =
+        activeTagFilter === "ALL" ||
         (e.tags && e.tags.toUpperCase().includes(activeTagFilter));
+
       return matchesDate && matchesTag;
     });
   }, [events, activeTagFilter]);
@@ -364,7 +381,7 @@ export default function Calendar() {
                       return <span key={t} className={`text-[7px] font-black ${style.text} uppercase`}>{t.trim()}</span>
                     })}
                   </div>
-                  <span className="text-[9px] font-bold text-stone-300">{format(parseISO(e.created_at), "HH:mm")}</span>
+                  <span className="text-[9px] font-bold text-stone-300">{e.startAt ? format(e.startAt, "HH:mm") : ""}</span>
                 </div>
                 <p className="text-[11px] font-black text-stone-800 uppercase truncate group-hover:text-[#A3B18A] transition-colors">{e.title}</p>
               </div>

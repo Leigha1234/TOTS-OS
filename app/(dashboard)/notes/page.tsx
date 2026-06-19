@@ -70,6 +70,7 @@ const STICKY_THEMES = [
 ];
 
 function VaultContent() {
+  const orgId = orgIdRef.current;
   const [user, setUser] = useState<any>(null);
   const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [notes, setNotes] = useState<any[]>([]);
@@ -119,36 +120,18 @@ function VaultContent() {
   const typingChannelRef = useRef<any>(null);
   const [noteOps, setNoteOps] = useState<Record<string, any[]>>({});
 
-  const fetchNotes = useCallback(async (_userId: string) => {
+  const fetchNotes = useCallback(async (_orgId: string | null, userId: string) => {
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
-
-      if (!user?.id) {
+      if (!userId) {
         setNotes([]);
         setIsLoading(false);
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("id", user.id)
-        .maybeSingle();
+      const effectiveOrgId = _orgId ?? orgIdRef.current;
 
-      if (profileError) {
-        console.error("Profile org fetch error (supabase):", JSON.stringify(profileError));
-      }
-
-      const orgId = profile?.organisation_id;
-
-      // Guard to prevent accidental cross-org fetch
-      if (!orgId) return;
-      console.log("ORG ISOLATION CHECK:", orgId);
-
-      if (!orgId) {
-        console.error("Missing organisation_id for user:", user.id, profile);
-        toast.error("No organisation found for your account. Please contact support or refresh your profile.");
+      if (!effectiveOrgId) {
+        console.error("Missing organisation_id for user:", userId);
         setNotes([]);
         setIsLoading(false);
         return;
@@ -157,7 +140,7 @@ function VaultContent() {
       const { data, error } = await supabase
         .from("notes")
         .select("*")
-        .eq("organisation_id", orgId)
+        .eq("organisation_id", effectiveOrgId)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -183,7 +166,6 @@ function VaultContent() {
 
       setProjectsList(uniqueProjects);
 
-      // fetch all comments for organisation notes
       const noteIds = (data || []).map((n: any) => n.id).filter(Boolean);
 
       if (noteIds.length) {
@@ -325,7 +307,7 @@ function VaultContent() {
       ]);
     }
 
-    fetchNotes(user.id);
+    fetchNotes(orgIdRef.current, user.id);
   };
 
   const addReaction = async (commentId: string, type: string = "like") => {
@@ -362,7 +344,6 @@ function VaultContent() {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
       setUser(authUser);
-      await fetchNotes(authUser.id);
       // Get orgId for multi-tenancy
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
@@ -370,8 +351,16 @@ function VaultContent() {
         .eq("id", authUser.id)
         .maybeSingle();
       const orgId = profile?.organisation_id;
-      setOrganisationId(orgId || null);
+
+if (!orgId) {
+  console.error("Missing organisation_id for user:", authUser.id);
+  return;
+}
+
+orgIdRef.current = orgId;
+setOrganisationId(orgId);
       await fetchTeamMembers(orgId);
+      if (orgId) await fetchNotes(orgId, authUser.id);
 
       const mainChannel = supabase.channel("vault_desk", {
         config: {
@@ -384,8 +373,8 @@ function VaultContent() {
           event: '*',
           schema: 'public',
           table: 'notes',
-          filter: `organisation_id=eq.${orgId || ''}`
-        }, () => fetchNotes(authUser.id))
+          filter: orgId ? `organisation_id=eq.${orgId}` : "organisation_id=eq.null"
+        }, () => fetchNotes(orgId, authUser.id))
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -444,7 +433,7 @@ function VaultContent() {
           event: '*',
           schema: 'public',
           table: 'note_comment_reactions'
-        }, () => fetchNotes(authUser.id))
+        }, () => fetchNotes(orgId, authUser.id))
         .subscribe();
 
       channelRef.current = mainChannel;
@@ -665,7 +654,7 @@ function VaultContent() {
         console.error("Profile fetch error (create note):", JSON.stringify(profileError));
       }
 
-      const orgId = profileData?.organisation_id;
+      const orgId = orgIdRef.current;
 
       if (!orgId) {
         console.error("Missing organisation_id during note creation:", user.id, profileData);
@@ -723,7 +712,7 @@ function VaultContent() {
       setShowModal(false);
       
       toast.success("Note pinned to desk.");
-      fetchNotes(user.id);
+      fetchNotes(orgIdRef.current, user.id);
     } catch (e) {
       toast.error("Unexpected error creating note. Please try again.");
       console.error("Create note error:", e);

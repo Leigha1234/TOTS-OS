@@ -17,3 +17,9 @@ on conflict (id)
 do update set
   role = 'admin',
   subscription_tier = 'elite';
+
+update profiles
+set
+  role = 'admin',
+  subscription_tier = 'free'
+where email = 'theorganisedtypes@gmail.com';

@@ -7,13 +7,28 @@ Deno.serve(async (req) => {
       headers: { 
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS'
       } 
     });
   }
 
-  try {
-    const { errorDetails, userEmail, location } = await req.json();
+  let errorDetails = '';
+  let userEmail = '';
+  let location = '';
 
+  try {
+    const body = await req.json();
+    errorDetails = body?.errorDetails ?? '';
+    userEmail = body?.userEmail ?? '';
+    location = body?.location ?? '';
+  } catch (_err) {
+    return new Response(
+      JSON.stringify({ error: 'Invalid JSON body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  }
+
+  try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -35,19 +50,34 @@ Deno.serve(async (req) => {
     });
 
     if (!res.ok) {
-      const errorData = await res.json();
+      let errorData: any = {};
+      try {
+        errorData = await res.json();
+      } catch {
+        errorData = { error: 'Non-JSON response from Resend' };
+      }
+
       throw new Error(`Resend API Error: ${JSON.stringify(errorData)}`);
     }
 
     return new Response(JSON.stringify({ sent: true }), { 
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     });
     
   } catch (error) {
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), 
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { 
+        status: 500, 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        } 
+      }
     );
   }
 });

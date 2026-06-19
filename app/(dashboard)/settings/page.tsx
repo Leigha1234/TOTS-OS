@@ -645,6 +645,9 @@ const retryFailedPosts = async () => {
 
         if (success) {
           try {
+            // 🚨 CRITICAL: immediately clean URL to prevent callback re-trigger loop
+            window.history.replaceState({}, document.title, "/settings");
+
             // 1. Force DB sync FIRST
             await supabase.auth.refreshSession();
 
@@ -657,7 +660,7 @@ const retryFailedPosts = async () => {
             // 4. Verify actual connection state
             await verifyConnections();
 
-            // 5. UI feedback ONLY after confirmed DB state
+            // 5. Confirm platform is actually in DB
             const platformsCheck = await supabase
               .from("social_accounts")
               .select("platform")
@@ -667,18 +670,12 @@ const retryFailedPosts = async () => {
 
             if (platformsCheck.data) {
               toast.success(`${platform} connected successfully`);
-
               setConnectedPlatformModal(platform);
               setShowConnectedModal(true);
             }
 
-            // 6. Clean URL
-            window.history.replaceState({}, document.title, "/settings");
-
-            // 7. Only redirect AFTER everything is confirmed
-            setTimeout(() => {
-              router.replace("/settings");
-            }, 300);
+            // ❌ IMPORTANT: remove router.replace entirely (this was causing redirect loops)
+            // ❌ DO NOT re-navigate - URL is already cleaned above
 
           } catch (err) {
             console.warn("Post-OAuth sync failed:", err);

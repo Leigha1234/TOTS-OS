@@ -94,7 +94,7 @@ export default function SocialStudioUnified() {
   // Production Form State (Manual Edit / AI Apply Canvas)
   const [caption, setCaption] = useState("");
   const [hashtags, setHashtags] = useState("");
-  const [platform, setPlatform] = useState("meta");
+  const [platforms, setPlatforms] = useState<string[]>(["meta"]);
   const [format, setFormat] = useState("Post");
   const [scheduledTime, setScheduledTime] = useState("");
   const [metaScript, setMetaScript] = useState("");
@@ -276,10 +276,10 @@ export default function SocialStudioUnified() {
     setFormat(concept.format);
     setMetaScript(concept.script);
     setMetaAudio(concept.recommendedAudio);
-    
-    if (concept.format === "Reel") setPlatform("meta");
-    else if (concept.format === "TikTok") setPlatform("tiktok");
-    else setPlatform("linkedin");
+
+    if (concept.format === "Reel") setPlatforms(["meta", "instagram"]);
+    else if (concept.format === "TikTok") setPlatforms(["tiktok"]);
+    else setPlatforms(["linkedin"]);
   };
 
   // --- Calendar Integration Mechanics ---
@@ -346,7 +346,7 @@ export default function SocialStudioUnified() {
       .insert([
         {
           caption,
-          platforms: [platform],
+          platforms: platforms,
           hashtags,
           media_url: finalMediaUrl,
           scheduled_for: opts.instant
@@ -376,7 +376,7 @@ export default function SocialStudioUnified() {
         const { error: publishError } = await supabase.functions.invoke("publish-social-post", {
           body: {
             post_id: postId,
-            platform: platform,
+            platform: platforms[0],
             account_id: selectedAccountId
           }
         });
@@ -625,11 +625,24 @@ export default function SocialStudioUnified() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Target Platform</label>
-                        <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100">
-                           <option value="meta">Meta (Facebook)</option>
-<option value="tiktok">TikTok</option>
-<option value="linkedin">LinkedIn</option>
-                        </select>
+                        <div className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100 space-y-2">
+                          {["meta", "instagram", "tiktok", "linkedin"].map((p) => (
+                            <label key={p} className="flex items-center gap-2 capitalize">
+                              <input
+                                type="checkbox"
+                                checked={platforms.includes(p)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setPlatforms([...platforms, p]);
+                                  } else {
+                                    setPlatforms(platforms.filter(x => x !== p));
+                                  }
+                                }}
+                              />
+                              {p}
+                            </label>
+                          ))}
+                        </div>
                         <div className="space-y-2 mt-4">
                           <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest">
                             Connected Account

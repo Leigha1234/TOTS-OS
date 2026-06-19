@@ -1,25 +1,77 @@
+-- =========================================
+-- 1. CREATE ORG IF NOT EXISTS
+-- =========================================
+insert into organisations (id, name)
+select gen_random_uuid(), 'DP Leadership'
+where not exists (
+  select 1 from organisations where name = 'DP Leadership'
+);
 
-Query to run when made a new user in auth
 
-insert into profiles (
-  id,
-  email,
-  role,
-  subscription_tier
+-- =========================================
+-- 2. LINK DAVE TO ORG + UPSERT PROFILE
+-- =========================================
+with org as (
+  select id
+  from organisations
+  where name = 'DP Leadership'
+  limit 1
 )
-values (
-  'f0524a73-0559-467f-9465-095e43c3952e',
-  'theorganisedtypes@gmail.com',
-  'admin',
-  'elite'
-)
+
+insert into profiles (id, organisation_id)
+select
+  '4fc0093f-50cd-4950-9c0c-99733841c095'::uuid,
+  org.id
+from org
 on conflict (id)
 do update set
-  role = 'admin',
-  subscription_tier = 'elite';
+  organisation_id = excluded.organisation_id;
 
-update profiles
-set
-  role = 'admin',
-  subscription_tier = 'free'
-where email = 'theorganisedtypes@gmail.com';
+
+-- =========================================
+-- 3. VERIFY
+-- =========================================
+select
+  p.id,
+  p.organisation_id,
+  o.name
+from profiles p
+join organisations o on o.id = p.organisation_id
+where p.id = '4fc0093f-50cd-4950-9c0c-99733841c095';
+
+
+
+-- =========================================
+-- 1. USE EXISTING ORG (DP Leadership)
+-- =========================================
+with org as (
+  select id
+  from organisations
+  where name = 'DP Leadership'
+  limit 1
+)
+
+-- =========================================
+-- 2. UPSERT DAVE PROFILE INTO ORG
+-- =========================================
+insert into profiles (id, organisation_id)
+select
+  '4fc0093f-50cd-4950-9c0c-99733841c095'::uuid,
+  org.id
+from org
+
+on conflict (id)
+do update set
+  organisation_id = excluded.organisation_id;
+
+
+-- =========================================
+-- 3. VERIFY RESULT
+-- =========================================
+select
+  p.id,
+  p.organisation_id,
+  o.name as organisation_name
+from profiles p
+join organisations o on o.id = p.organisation_id
+where p.id = '4fc0093f-50cd-4950-9c0c-99733841c095';

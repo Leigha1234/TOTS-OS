@@ -706,11 +706,11 @@ function DashboardContent() {
               Edit Notes
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 max-h-[260px] overflow-y-auto pr-1">
             {todos.slice(0,6).map((t:any) => (
-              <div key={t.id} className="p-3 lg:p-4 rounded-2xl border bg-[#faf9f6]">
-                <p className="text-[10px] font-bold uppercase truncate">{t.text}</p>
-                <div className="flex items-center justify-between mt-2">
+              <div key={t.id} className="p-2 lg:p-3 rounded-2xl border bg-[#faf9f6] min-w-0">
+                <p className="text-[10px] font-bold uppercase truncate max-w-full">{t.text}</p>
+                <div className="flex items-center justify-between mt-2 gap-2">
                   <p className="text-[10px] text-stone-400">{t.completed ? "Completed" : "Pending"}</p>
                   <button
                     onClick={() => toggleTodo(t.id, t.completed)}

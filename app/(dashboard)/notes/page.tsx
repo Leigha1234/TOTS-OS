@@ -75,7 +75,7 @@ function VaultContent() {
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [projectsList, setProjectsList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Modal & Input States
   const [showModal, setShowModal] = useState(false);
   const [content, setContent] = useState("");
@@ -94,6 +94,9 @@ function VaultContent() {
   // Voice Note State
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // Expanded note state for click-to-expand cards
+  const [expandedNote, setExpandedNote] = useState<string | null>(null);
 
   const fetchNotes = useCallback(async (_userId: string) => {
     try {
@@ -452,6 +455,43 @@ function VaultContent() {
 
   const renderNoteCard = (note: any) => {
     const assignedTeamMember = teamMembers.find(m => m.id === note.assigned_to);
+    const isExpanded = expandedNote === note.id;
+
+    if (isExpanded) {
+      return (
+        <motion.div
+          key={note.id}
+          className="fixed inset-0 z-[999] bg-black/40 backdrop-blur-md flex items-center justify-center p-6"
+          onClick={() => setExpandedNote(null)}
+        >
+          <motion.div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl p-6 lg:p-10 rounded-2xl shadow-2xl bg-white overflow-y-auto max-h-[90vh]"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-[10px] font-black uppercase text-stone-400">
+                {note.category}
+              </span>
+              <button
+                onClick={() => setExpandedNote(null)}
+                className="text-stone-400 hover:text-stone-900"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-2xl lg:text-4xl font-serif italic whitespace-pre-wrap">
+              {note.content}
+            </p>
+
+            <div className="mt-6 space-y-2 text-[10px] uppercase font-black text-stone-500">
+              {note.project && <p>Project: {note.project}</p>}
+              {note.due_date && <p>Due: {format(new Date(note.due_date), "MMM d, p")}</p>}
+            </div>
+          </motion.div>
+        </motion.div>
+      );
+    }
 
     return (
       <motion.div
@@ -461,12 +501,13 @@ function VaultContent() {
         animate={{ opacity: 1, scale: 1, rotate: "0deg" }}
         exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
         whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
-        className={`p-4 lg:p-8 min-h-[360px] lg:min-h-[460px] w-full min-w-0 md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${note.is_urgent ? 'text-white' : 'text-stone-800'}`}
+        className={`p-3 lg:p-5 min-h-[260px] lg:min-h-[320px] w-full min-w-0 md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${note.is_urgent ? 'text-white' : 'text-stone-800'}`}
         style={{ background: note.color || '#FFF9E6' }}
+        onClick={() => setExpandedNote(note.id)}
       >
         {/* PARCHMENT TAPE ACCENT */}
         <div className="absolute top-[-9px] left-1/2 -translate-x-1/2 w-28 h-6 bg-white/45 backdrop-blur-sm border border-white/20 z-10 rounded-sm" />
-        
+
         {/* UPPER CONTENT AREA */}
         <div>
           <div className="flex justify-between items-center mb-5">
@@ -479,7 +520,7 @@ function VaultContent() {
             </div>
           </div>
 
-          <p className="text-xl lg:text-3xl font-serif italic leading-snug tracking-tight mb-4 lg:mb-6 line-clamp-[6] break-words whitespace-pre-wrap">
+          <p className="text-base lg:text-xl font-serif italic leading-snug tracking-tight mb-4 lg:mb-6 line-clamp-4 break-words whitespace-pre-wrap">
             {note.content}
           </p>
         </div>
@@ -491,19 +532,19 @@ function VaultContent() {
             <div className="space-y-2 pt-3 border-t border-black/[0.05] opacity-80">
               {note.project && (
                 <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
-                  <Briefcase size={11} className="opacity-40" /> 
+                  <Briefcase size={11} className="opacity-40" />
                   <span className="truncate">Project: {note.project}</span>
                 </div>
               )}
               {assignedTeamMember && (
                 <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
-                  <User size={11} className="opacity-40" /> 
+                  <User size={11} className="opacity-40" />
                   <span className="truncate">Lead: {assignedTeamMember.name}</span>
                 </div>
               )}
               {note.due_date && (
                 <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-amber-900/80">
-                  <Calendar size={11} className="opacity-50" /> 
+                  <Calendar size={11} className="opacity-50" />
                   <span>Alert: {format(new Date(note.due_date), "MMM d, p")}</span>
                 </div>
               )}
@@ -514,7 +555,7 @@ function VaultContent() {
           <div className="pt-3 border-t border-black/[0.05] space-y-3">
             <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
               <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Progress</span>
-              <select 
+              <select
                 value={note.status || (note.type === "task" ? "todo" : "active")}
                 onChange={(e) => updateNoteStatus(note.id, e.target.value)}
                 className={`text-[9px] font-black uppercase bg-transparent outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none text-right pr-1 ${
@@ -522,28 +563,27 @@ function VaultContent() {
                 }`}
               >
                 {note.type === "task" ? (
-  <>
-    <option value="todo">To Do</option>
-    <option value="in_progress">In Progress</option>
-    <option value="blocked">Blocked</option>
-    <option value="done">Done</option>
-  </>
-) : (
-  <>
-    <option value="draft">Draft</option>
-    <option value="active">Active</option>
-    <option value="archived">Archived</option>
-  </>
-)}
+                  <>
+                    <option value="todo">To Do</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="done">Done</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="draft">Draft</option>
+                    <option value="active">Active</option>
+                    <option value="archived">Archived</option>
+                  </>
+                )}
               </select>
             </div>
 
             <div className="flex items-center justify-between">
-              <button 
+              <button
                 onClick={() => deleteNote(note.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
-                  note.is_urgent 
-                    ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white' 
+                  note.is_urgent
+                    ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white'
                     : 'bg-white/60 border-black/[0.03] hover:bg-white text-stone-700 hover:text-green-700'
                 }`}
               >
@@ -551,8 +591,8 @@ function VaultContent() {
                 <span>Clear</span>
               </button>
 
-              <button 
-                onClick={() => deleteNote(note.id)} 
+              <button
+                onClick={() => deleteNote(note.id)}
                 className={`p-2 rounded-lg transition-colors ${
                   note.is_urgent ? 'hover:bg-white/10 text-white/60 hover:text-white' : 'hover:bg-red-50 text-stone-400 hover:text-red-500'
                 }`}
@@ -605,7 +645,7 @@ function VaultContent() {
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h2 className="text-3xl lg:text-5xl font-serif italic text-[#4f4a46]">
-                Tasks & To-Do Lists
+                Tasks
               </h2>
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mt-2">
                 Action Items
@@ -617,9 +657,9 @@ function VaultContent() {
           </div>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
 
-              {(["todo", "in_progress", "blocked", "done"] as const).map((statusKey) => {
+              {(["todo", "in_progress", "done"] as const).map((statusKey) => {
                 const columnTasks = taskNotes.filter(
                   (t: any) => (t.status || "todo") === statusKey
                 );
@@ -669,7 +709,7 @@ function VaultContent() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             <AnimatePresence mode="popLayout">
               {regularNotes.map((note) => renderNoteCard(note))}
             </AnimatePresence>

@@ -20,82 +20,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-// ===============================
-// NOTES SERVICE LAYER (PHASE 2)
-// ===============================
-
-const notesService = {
-  async getCurrentUser() {
-    const { data } = await supabase.auth.getUser();
-    return data?.user;
-  },
-
-  async getOrgId(userId: string) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("id", userId)
-      .single();
-
-    if (error) throw error;
-    return data?.organisation_id;
-  },
-
-  async fetchNotes(orgId: string) {
-    const { data, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("organisation_id", orgId)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return data || [];
-  },
-
-  async fetchComments(noteIds: string[]) {
-    if (!noteIds.length) return [];
-    const { data } = await supabase
-      .from("note_comments")
-      .select("*")
-      .in("note_id", noteIds)
-      .order("created_at", { ascending: true });
-
-    return data || [];
-  },
-
-  async createNote(payload: any) {
-    const { error } = await supabase
-      .from("notes")
-      .insert([payload]);
-
-    if (error) throw error;
-  },
-
-  async updateNoteStatus(id: string, nextStatus: string) {
-    const completed = nextStatus === "done";
-
-    const { error } = await supabase
-      .from("notes")
-      .update({ status: nextStatus, completed })
-      .eq("id", id);
-
-    if (error) throw error;
-
-    return { id, nextStatus, completed };
-  },
-
-  async deleteNote(id: string) {
-    const { error } = await supabase
-      .from("notes")
-      .delete()
-      .eq("id", id);
-
-    if (error) throw error;
-
-    return id;
-  }
-};
-
 /**
  * TOTS OS | THE VAULT (V12.0)
  * DESIGN: EXPANDED FAT PARCHMENT CARDS WITH STABLE FOOTER ALIGNMENT
@@ -108,13 +32,9 @@ const TaskColumn = ({ id, children }: any) => {
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col w-full min-h-[420px] h-full space-y-3 p-3 rounded-xl transition-all ${
-        isOver ? "bg-stone-100" : "bg-transparent"
-      }`}
+      className={`space-y-3 p-2 rounded-xl transition-all ${isOver ? "bg-stone-100" : ""}`}
     >
-      <div className="flex-1 w-full flex flex-col">
-        {children}
-      </div>
+      {children}
     </div>
   );
 };
@@ -185,7 +105,8 @@ function VaultContent() {
 
   const fetchNotes = useCallback(async (_userId: string) => {
     try {
-      const user = await notesService.getCurrentUser();
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
 
       if (!user?.id) {
         setNotes([]);
@@ -193,19 +114,36 @@ function VaultContent() {
         return;
       }
 
-      const orgId = await notesService.getOrgId(user.id);
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .single();
 
-      if (!orgId) {
+      if (profileError || !profile?.organisation_id) {
+        console.error("Profile org fetch error:", profileError);
         toast.error("Unable to load organisation data.");
         setNotes([]);
         setIsLoading(false);
         return;
       }
 
-      const data = await notesService.fetchNotes(orgId);
+      const orgId = profile.organisation_id;
+
+      const { data, error } = await supabase
+        .from("notes")
+        .select("*")
+        .eq("organisation_id", orgId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Supabase notes fetch error:", error);
+        toast.error("Failed to load notes from server.");
+        throw error;
+      }
 
       setNotes(
-        data.map((n: any) => ({
+        (data || []).map((n: any) => ({
           ...n,
           type: n.type ?? (n.status === "todo" ? "task" : "note")
         }))
@@ -213,7 +151,7 @@ function VaultContent() {
 
       const uniqueProjects = Array.from(
         new Set(
-          data
+          (data || [])
             .map((n: any) => n?.project)
             .filter((p: any) => typeof p === "string" && p.trim())
         )
@@ -221,11 +159,20 @@ function VaultContent() {
 
       setProjectsList(uniqueProjects);
 
-      const noteIds = data.map((n: any) => n.id).filter(Boolean);
+      // fetch all comments for organisation notes
+      const noteIds = (data || []).map((n: any) => n.id).filter(Boolean);
 
-      const commentData = await notesService.fetchComments(noteIds);
+      if (noteIds.length) {
+        const { data: commentData } = await supabase
+          .from("note_comments")
+          .select("*")
+          .in("note_id", noteIds)
+          .order("created_at", { ascending: true });
 
-      setComments(commentData);
+        if (commentData) {
+          setComments(commentData);
+        }
+      }
     } catch (e) {
       console.error("Notes Fetch Error:", e);
       toast.error("Notes load failed.");
@@ -454,21 +401,51 @@ function VaultContent() {
 
       const orgId = profileData.organisation_id;
 
-      await notesService.createNote({
-        content,
-        user_id: user.id,
-        organisation_id: orgId,
-        color: isUrgent ? "#4f4a46" : theme.bg,
-        category: tag || "General",
-        project: project || null,
-        assigned_to: assignedTo.length ? assignedTo : null,
-        due_date: isReminder && reminderDateTime ? reminderDateTime : null,
-        is_reminder: isReminder,
-        status,
-        is_urgent: isUrgent,
-        type: status === "todo" ? "task" : "note",
-      });
+      const { error, status: responseStatus, statusText } = await supabase
+        .from("notes")
+        .insert([
+          {
+            content,
+            user_id: user.id,
+            organisation_id: orgId,
+            color: isUrgent ? "#4f4a46" : theme.bg,
+            category: tag || "General",
+            project: project || null,
+            assigned_to: assignedTo.length ? assignedTo : null,
+            due_date: isReminder && reminderDateTime ? reminderDateTime : null,
+            is_reminder: isReminder,
+            status,
+            is_urgent: isUrgent,
+            type: status === "todo" ? "task" : "note",
+          },
+        ]);
 
+      if (!orgId) {
+        console.error("Insert aborted: missing orgId");
+        toast.error("Missing organisation context. Cannot create note.");
+        setIsSyncing(false);
+        return;
+      }
+
+      if (error) {
+        console.error("Supabase note insert error:", {
+          error,
+          status: responseStatus,
+          statusText,
+          payload: {
+            content,
+            user_id: user.id,
+            category: tag || "General",
+            project,
+            assigned_to: assignedTo,
+            due_date: reminderDateTime,
+            is_reminder: isReminder,
+            status,
+          }
+        });
+        throw new Error(error.message || `Insert failed (${responseStatus})`);
+      }
+      
       setContent("");
       setTag("");
       setIsUrgent(false);
@@ -495,20 +472,37 @@ function VaultContent() {
       toast.error("Invalid note update.");
       return;
     }
-    try {
-      await notesService.updateNoteStatus(id, nextStatus);
-      setNotes(prev =>
-        prev.map(n =>
-          n.id === id
-            ? { ...n, status: nextStatus, completed: nextStatus === "done" }
-            : n
-        )
-      );
-      toast.success(`Note updated.`);
-    } catch (e: any) {
-      console.error("Update note status error:", e);
-      toast.error(e?.message || `Update failed`);
+    const completed = nextStatus === "done";
+
+    const { error, status, statusText } = await supabase
+      .from("notes")
+      .update({
+  status: nextStatus,
+  completed
+})
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      console.error("Update note status error:", {
+        error,
+        status,
+        statusText,
+        noteId: id,
+        nextStatus,
+      });
+      toast.error(error.message || `Update failed (${status})`);
+      return;
     }
+
+    setNotes(prev =>
+      prev.map(n =>
+        n.id === id
+          ? { ...n, status: nextStatus, completed: nextStatus === "done" }
+          : n
+      )
+    );
+    toast.success(`Note updated.`);
   };
 
   const deleteNote = async (id: string) => {
@@ -516,14 +510,25 @@ function VaultContent() {
       toast.error("Invalid note ID.");
       return;
     }
-    try {
-      await notesService.deleteNote(id);
-      setNotes(prev => prev.filter(n => n.id !== id));
-      toast.success("Note cleared.");
-    } catch (e: any) {
-      console.error("Delete note error:", e);
-      toast.error(e?.message || `Delete failed`);
+    const { error, status, statusText } = await supabase
+      .from("notes")
+      .delete()
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      console.error("Delete note error:", {
+        error,
+        status,
+        statusText,
+        noteId: id,
+      });
+      toast.error(error.message || `Delete failed (${status})`);
+      return;
     }
+
+    setNotes(prev => prev.filter(n => n.id !== id));
+    toast.success("Note cleared.");
   };
 
   const filteredNotes = notes.filter((n) => {
@@ -584,10 +589,102 @@ function VaultContent() {
 
 
   const renderNoteCard = (note: any) => {
-    const assignedTeamMember = Array.isArray(note.assigned_to)
-      ? teamMembers.find(m => note.assigned_to.includes(m.id))
-      : teamMembers.find(m => m.id === note.assigned_to);
-    // Only return the normal sticky card; expanded overlay logic removed.
+    const assignedTeamMember = teamMembers.find(m => m.id === note.assigned_to);
+    const isExpanded = expandedNote === note.id;
+
+    if (isExpanded) {
+      const noteComments = comments.filter(c => c.note_id === note.id);
+      const activityFeed = [
+        {
+          id: "created",
+          content: "Task created",
+          created_at: note.created_at || Date.now()
+        },
+        ...noteComments.map((c: any) => ({
+          id: c.id,
+          content: c.content,
+          created_at: c.created_at || Date.now()
+        }))
+      ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      return (
+        <motion.div
+          key={note.id}
+          className="fixed inset-0 z-[999] bg-black/40 backdrop-blur-md flex items-center justify-center p-6"
+          onClick={() => setExpandedNote(null)}
+        >
+          <motion.div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl p-6 lg:p-10 rounded-2xl shadow-2xl bg-white overflow-y-auto max-h-[90vh]"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-[10px] font-black uppercase text-stone-400">
+                {note.category}
+              </span>
+              <button
+                onClick={() => setExpandedNote(null)}
+                className="text-stone-400 hover:text-stone-900"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-2xl lg:text-4xl font-serif italic whitespace-pre-wrap">
+              {note.content}
+            </p>
+
+            <div className="mt-6 space-y-2 text-[10px] uppercase font-black text-stone-500">
+              {note.project && <p>Project: {note.project}</p>}
+              {note.due_date && <p>Due: {format(new Date(note.due_date), "MMM d, p")}</p>}
+            </div>
+
+            {/* ACTIVITY FEED */}
+            <div className="mt-6 border-t pt-4 space-y-2">
+              <p className="text-[10px] font-black uppercase text-stone-400">Activity</p>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {activityFeed.map((a: any) => (
+                  <div key={a.id} className="text-[11px] text-stone-600 flex justify-between">
+                    <span>{a.content}</span>
+                    <span className="text-[9px] text-stone-400">
+                      {new Date(a.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 border-t pt-4 space-y-3">
+              <p className="text-[10px] font-black uppercase text-stone-400">Comments</p>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {noteComments.map((c: any) => {
+                  const member = teamMembers.find(m => m.id === c.user_id);
+                  return (
+                    <div key={c.id} className="text-sm bg-stone-50 p-2 rounded-lg">
+                      <p className="text-[10px] font-black uppercase text-stone-500">
+                        {member?.name || "You"}
+                      </p>
+                      <p className="text-stone-700">{c.content}</p>
+
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => addReaction(c.id, "like")}
+                          className="text-[10px] font-black uppercase text-stone-400 hover:text-green-600"
+                        >
+                          👍 {reactions[c.id]?.length || 0}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <CommentBox noteId={note.id} addComment={addComment} />
+            </div>
+          </motion.div>
+        </motion.div>
+      );
+    }
+
     return (
       <motion.div
         key={note.id}
@@ -687,7 +784,7 @@ function VaultContent() {
 
             <div className="flex items-center justify-between">
               <button
-                onClick={() => updateNoteStatus(note.id, "done")}
+                onClick={() => deleteNote(note.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
                   note.is_urgent
                     ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white'
@@ -716,7 +813,7 @@ function VaultContent() {
   if (isLoading) return <div className="h-screen bg-[#F5F5F3] flex items-center justify-center font-serif italic text-stone-300 text-4xl">Loading Desk...</div>;
 
   return (
-    <div className="min-h-screen bg-[#F5F5F3] font-sans text-stone-900 pb-40 relative flex">
+    <div className="min-h-screen bg-[#F5F5F3] font-sans text-stone-900 pb-40 relative">
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
@@ -751,7 +848,7 @@ function VaultContent() {
       </header>
 
       {/* THE DESK GRID - SPLIT INTO TASKS & NOTES */}
-      <main className="flex-1 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 space-y-12">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 space-y-12">
 
         <section>
           <div className="mb-6 flex items-center justify-between">
@@ -769,7 +866,7 @@ function VaultContent() {
           </div>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 items-stretch">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
 
               {(["todo", "in_progress", "done"] as const).map((statusKey) => {
                 const columnTasks = taskNotes.filter(
@@ -829,56 +926,6 @@ function VaultContent() {
         </section>
 
       </main>
-
-      {/* NOTE DETAIL SIDE PANEL */}
-      {expandedNote && (
-        <div className="fixed top-0 right-0 h-full w-full md:w-[420px] bg-white shadow-2xl z-[150] flex flex-col border-l border-stone-200">
-          {(() => {
-            const note = notes.find(n => n.id === expandedNote);
-            if (!note) return null;
-
-            const noteComments = comments.filter(c => c.note_id === note.id);
-
-            return (
-              <>
-                <div className="p-4 border-b flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase text-stone-400">
-                    {note.category}
-                  </span>
-                  <button onClick={() => setExpandedNote(null)} className="text-stone-400 hover:text-stone-900">
-                    ✕
-                  </button>
-                </div>
-
-                <div className="p-6 overflow-y-auto flex-1">
-                  <h2 className="font-serif italic text-2xl mb-4">{note.content}</h2>
-
-                  <div className="text-[10px] font-black uppercase text-stone-400 space-y-2">
-                    {note.project && <p>Project: {note.project}</p>}
-                    {note.due_date && <p>Due: {format(new Date(note.due_date), "MMM d, p")}</p>}
-                  </div>
-
-                  <div className="mt-6 border-t pt-4">
-                    <p className="text-[10px] font-black uppercase text-stone-400 mb-2">Comments</p>
-
-                    <div className="space-y-2">
-                      {noteComments.map((c: any) => (
-                        <div key={c.id} className="text-sm bg-stone-50 p-2 rounded-lg">
-                          <p className="text-stone-700">{c.content}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-3">
-                      <CommentBox noteId={note.id} addComment={addComment} />
-                    </div>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </div>
-      )}
 
       {/* FLOATING ACTION BUTTON */}
       <button 

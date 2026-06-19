@@ -66,6 +66,7 @@ function DashboardContent() {
   const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean }[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [aiSummary, setAiSummary] = useState<string>("");
   const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high">("low");
   const [aiActions, setAiActions] = useState<string[]>([]);
@@ -116,8 +117,9 @@ function DashboardContent() {
       const [projectsRes, invoicesRes, membersRes, notesRes, eventsRes, emailsRes] = await Promise.all([
         supabase
           .from("projects")
-          .select("*", { count: 'exact', head: true })
-          .eq("organisation_id", organisationId),
+          .select("id, name, title, status")
+          .eq("organisation_id", organisationId)
+          .limit(5),
 
         supabase
           .from("invoices")
@@ -132,7 +134,7 @@ function DashboardContent() {
 
         supabase
           .from("notes")
-          .select("id, title, content, completed")
+          .select("id, title, content, completed, status, type")
           .eq("organisation_id", organisationId)
           .limit(5),
 
@@ -156,7 +158,7 @@ function DashboardContent() {
       const pendingCount = invData.filter(inv => inv.status === 'pending').length;
 
       setStats({ 
-        activeProjects: projectsRes.count || 0,
+        activeProjects: (projectsRes.data || []).length,
         currentProfit: totalProfit,
         invoicesDue: pendingCount,
         socialsPending: 0,
@@ -164,18 +166,21 @@ function DashboardContent() {
       });
 
       setTeamMembers((membersRes.data as any[]) || []);
-      setTodos(((notesRes.data as any[]) || []).map((n: any) => ({
-        id: n.id,
-        text: n.title || n.content?.substring(0, 40) || "Priority Task",
-        completed: n.completed || false
-      })));
+      setTodos(((notesRes.data as any[]) || [])
+        .filter((n: any) => n.type === "task")
+        .map((n: any) => ({
+          id: n.id,
+          text: n.title || n.content?.substring(0, 40) || "Priority Task",
+          completed: n.completed || false
+        })));
       setEvents((eventsRes.data as any[]) || []);
       setEmails((emailsRes.data as any[]) || []);
+      setProjects((projectsRes.data as any[]) || []);
 
       // EXECUTIVE ANALYSIS LOGIC
       const emailLoad = (emailsRes.data || []).length;
       const eventLoad = (eventsRes.data || []).length;
-      const taskLoad = (notesRes.data || []).filter((n: any) => !n.completed).length;
+      const taskLoad = (notesRes.data || []).filter((n: any) => n.type === "task" && !n.completed).length;
 
       let risk: "low" | "medium" | "high" = "low";
 
@@ -367,13 +372,14 @@ function DashboardContent() {
      .from("notes")
       .insert([
         {
-  title: taskInput,
-  content: taskInput,
-  completed: false,
-  status: "todo",
-  organisation_id: organisationId,
-  user_id: user?.id || null
-}
+          title: taskInput,
+          content: taskInput,
+          completed: false,
+          status: "todo",
+          type: "task",
+          organisation_id: organisationId,
+          user_id: user?.id || null
+        }
       ])
       .select()
       .single();
@@ -538,29 +544,6 @@ function DashboardContent() {
       </section>
 
       {/* Clarity Decision Engine */}
-      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-8">
-        <div className="flex flex-col gap-4">
-
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
-              Clarity Decision Engine
-            </p>
-            <Zap size={14} className="text-[#A3B18A]" />
-          </div>
-
-          <div className="space-y-2">
-            {aiActions.map((action, idx) => (
-              <div key={idx} className="flex items-center gap-2 p-3 rounded-xl border bg-[#faf9f6]">
-                <ChevronRight size={12} className="text-[#A3B18A]" />
-                <p className="text-[10px] font-bold uppercase tracking-wide">
-                  {action}
-                </p>
-              </div>
-            ))}
-          </div>
-
-        </div>
-      </section>
 
       {/* Primary Overview Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-12">
@@ -579,8 +562,8 @@ function DashboardContent() {
             />
             <button
               onClick={addTask}
-          className="w-full sm:w-auto px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase shrink-0"
-           >
+              className="w-full sm:w-auto px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase shrink-0"
+            >
               Add
             </button>
           </div>
@@ -590,21 +573,36 @@ function DashboardContent() {
               .slice(0, 5)
               .map((todo) => (
                 <div key={todo.id} className="flex items-center gap-3 p-2 lg:p-3 rounded-xl border bg-[#faf9f6] relative">
-                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${todo.completed ? "bg-[#A3B18A] border-[#A3B18A] text-white" : "border-stone-400"}`}>✓</div>
+                  <button
+                    onClick={() => toggleTodo(todo.id, todo.completed)}
+                    className={`w-4 h-4 rounded border flex items-center justify-center ${todo.completed ? "bg-[#A3B18A] border-[#A3B18A] text-white" : "border-stone-400"}`}
+                  >
+                    ✓
+                  </button>
                   {!todo.completed && (
                     <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
                   )}
                   <div className="flex items-center justify-between w-full gap-2">
-                    <span className="text-[10px] font-bold uppercase truncate">{todo.text}</span>
-                    <span className={`text-[8px] font-black px-2 py-1 rounded-full border
-                      ${getTaskPriorityLabel(todo) === "HIGH"
-                        ? "bg-red-100 text-red-600 border-red-200"
-                        : getTaskPriorityLabel(todo) === "MEDIUM"
-                        ? "bg-yellow-100 text-yellow-700 border-yellow-200"
-                        : "bg-green-100 text-green-600 border-green-200"}
-                    `}>
-                      {getTaskPriorityLabel(todo)}
-                    </span>
+                    <>
+                      <span className="text-[10px] font-bold uppercase truncate">{todo.text}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => router.push('/notes')}
+                          className="text-[8px] px-2 py-1 border rounded-lg uppercase"
+                        >
+                          Edit
+                        </button>
+                        <span className={`text-[8px] font-black px-2 py-1 rounded-full border
+                          ${getTaskPriorityLabel(todo) === "HIGH"
+                            ? "bg-red-100 text-red-600 border-red-200"
+                            : getTaskPriorityLabel(todo) === "MEDIUM"
+                            ? "bg-yellow-100 text-yellow-700 border-yellow-200"
+                            : "bg-green-100 text-green-600 border-green-200"}
+                        `}>
+                          {getTaskPriorityLabel(todo)}
+                        </span>
+                      </div>
+                    </>
                   </div>
                 </div>
               )) : <p className="text-[10px] text-stone-400 uppercase">No tasks</p>}
@@ -618,8 +616,22 @@ function DashboardContent() {
           </h2>
           <div className="space-y-3">
             <p className="text-[10px] uppercase text-stone-400">{stats.activeProjects} active projects</p>
-            <p className="text-[10px] uppercase text-stone-400">{stats.invoicesDue} invoices pending</p>
-            <p className="text-[10px] uppercase text-stone-400">Revenue: £{stats.currentProfit}</p>
+            {projects.length > 0 ? projects.map((project:any) => (
+              <button
+                key={project.id}
+                onClick={() => router.push(`/projects/${project.id}`)}
+                className="w-full text-left p-3 rounded-xl border bg-[#faf9f6] hover:bg-stone-100 transition"
+              >
+                <p className="text-[10px] font-bold uppercase truncate">
+                  {project.name || project.title || 'Project'}
+                </p>
+                <p className="text-[10px] text-stone-400 uppercase">
+                  {project.status || 'Active'}
+                </p>
+              </button>
+            )) : (
+              <p className="text-[10px] uppercase text-stone-400">No active projects</p>
+            )}
           </div>
         </section>
 
@@ -629,12 +641,26 @@ function DashboardContent() {
             <Clock size={14} className="text-[#A3B18A]" /> Today’s Events
           </h2>
           <div className="space-y-3">
-            {events.length > 0 ? events.slice(0,5).map((e:any, idx:number) => (
-              <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
-                <p className="text-[10px] font-bold uppercase truncate">{e.title || "Event"}</p>
-                <p className="text-[10px] text-stone-400">{e.time || "All day"}</p>
-              </div>
-            )) : <p className="text-[10px] uppercase text-stone-400">No scheduled activity for today</p>}
+            {(() => {
+              const todaysEvents = events
+                .filter((e:any) => {
+                  const eventDate = e.start_date || e.date || e.start || e.created_at;
+                  if (!eventDate) return false;
+                  return new Date(eventDate).toDateString() === new Date().toDateString();
+                })
+                .slice(0,5);
+
+              return todaysEvents.length > 0 ? (
+                todaysEvents.map((e:any, idx:number) => (
+                  <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
+                    <p className="text-[10px] font-bold uppercase truncate">{e.title || "Event"}</p>
+                    <p className="text-[10px] text-stone-400">{e.time || "All day"}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-[10px] uppercase text-stone-400">No scheduled activity for today</p>
+              );
+            })()}
           </div>
         </section>
 
@@ -671,12 +697,26 @@ function DashboardContent() {
             >
               Add
             </button>
+            <button
+              onClick={() => router.push('/notes')}
+              className="px-3 py-2 rounded-xl border text-[10px] font-black uppercase"
+            >
+              Edit Notes
+            </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
             {todos.slice(0,6).map((t:any) => (
               <div key={t.id} className="p-3 lg:p-4 rounded-2xl border bg-[#faf9f6]">
                 <p className="text-[10px] font-bold uppercase truncate">{t.text}</p>
-                <p className="text-[10px] text-stone-400">{t.completed ? "Completed" : "Pending"}</p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[10px] text-stone-400">{t.completed ? "Completed" : "Pending"}</p>
+                  <button
+                    onClick={() => toggleTodo(t.id, t.completed)}
+                    className="text-[8px] uppercase border rounded-lg px-2 py-1"
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
             ))}
           </div>

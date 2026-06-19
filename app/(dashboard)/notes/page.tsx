@@ -227,7 +227,7 @@ function VaultContent() {
             is_reminder: isReminder,
             status,
             is_urgent: isUrgent,
-            type: status === "todo" ? "todo" : "note",
+            type: status === "todo" ? "task" : "note",
           },
         ]);
 
@@ -288,10 +288,9 @@ function VaultContent() {
     const { error, status, statusText } = await supabase
       .from("notes")
       .update({
-        status: nextStatus,
-        completed,
-        type: nextStatus === "todo" ? "todo" : "note"
-      })
+  status: nextStatus,
+  completed
+})
       .eq("id", id)
       .select();
 
@@ -352,6 +351,132 @@ function VaultContent() {
     );
   });
 
+  const taskNotes = filteredNotes.filter(
+  (n) => n.type === "task"
+);
+
+const regularNotes = filteredNotes.filter(
+  (n) => n.type === "note"
+);
+
+
+
+  const renderNoteCard = (note: any) => {
+    const assignedTeamMember = teamMembers.find(m => m.id === note.assigned_to);
+
+    return (
+      <motion.div
+        key={note.id}
+        layout
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1, rotate: "0deg" }}
+        exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
+        whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
+        className={`p-4 lg:p-8 min-h-[360px] lg:min-h-[460px] w-full min-w-0 md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${note.is_urgent ? 'text-white' : 'text-stone-800'}`}
+        style={{ background: note.color || '#FFF9E6' }}
+      >
+        {/* PARCHMENT TAPE ACCENT */}
+        <div className="absolute top-[-9px] left-1/2 -translate-x-1/2 w-28 h-6 bg-white/45 backdrop-blur-sm border border-white/20 z-10 rounded-sm" />
+        
+        {/* UPPER CONTENT AREA */}
+        <div>
+          <div className="flex justify-between items-center mb-5">
+            <span className="text-[9px] font-black uppercase tracking-widest opacity-40">
+              {note.category || 'General'}
+            </span>
+            <div className="flex items-center gap-2">
+              {note.is_reminder && <Clock size={11} className={note.is_urgent ? "text-amber-300" : "text-stone-400 animate-pulse"} />}
+              {note.is_urgent && <AlertCircle size={13} className="text-red-400 animate-pulse" />}
+            </div>
+          </div>
+
+          <p className="text-xl lg:text-3xl font-serif italic leading-snug tracking-tight mb-4 lg:mb-6 line-clamp-[6] break-words whitespace-pre-wrap">
+            {note.content}
+          </p>
+        </div>
+
+        {/* BOTTOM METADATA PINNED CONTAINER */}
+        <div className="space-y-4 mt-auto">
+          {/* CONTEXT DATA HOOKS */}
+          {(note.project || assignedTeamMember || note.due_date) && (
+            <div className="space-y-2 pt-3 border-t border-black/[0.05] opacity-80">
+              {note.project && (
+                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
+                  <Briefcase size={11} className="opacity-40" /> 
+                  <span className="truncate">Project: {note.project}</span>
+                </div>
+              )}
+              {assignedTeamMember && (
+                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
+                  <User size={11} className="opacity-40" /> 
+                  <span className="truncate">Lead: {assignedTeamMember.name}</span>
+                </div>
+              )}
+              {note.due_date && (
+                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-amber-900/80">
+                  <Calendar size={11} className="opacity-50" /> 
+                  <span>Alert: {format(new Date(note.due_date), "MMM d, p")}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CONTROL GRID LAYER */}
+          <div className="pt-3 border-t border-black/[0.05] space-y-3">
+            <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
+              <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Progress</span>
+              <select 
+                value={note.status || (note.type === "task" ? "todo" : "active")}
+                onChange={(e) => updateNoteStatus(note.id, e.target.value)}
+                className={`text-[9px] font-black uppercase bg-transparent outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none text-right pr-1 ${
+                  note.is_urgent ? 'text-white font-bold' : 'text-stone-700'
+                }`}
+              >
+                {note.type === "task" ? (
+  <>
+    <option value="todo">To Do</option>
+    <option value="in_progress">In Progress</option>
+    <option value="blocked">Blocked</option>
+    <option value="done">Done</option>
+  </>
+) : (
+  <>
+    <option value="draft">Draft</option>
+    <option value="active">Active</option>
+    <option value="archived">Archived</option>
+  </>
+)}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <button 
+                onClick={() => deleteNote(note.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
+                  note.is_urgent 
+                    ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white' 
+                    : 'bg-white/60 border-black/[0.03] hover:bg-white text-stone-700 hover:text-green-700'
+                }`}
+              >
+                <CheckCircle2 size={13} />
+                <span>Clear</span>
+              </button>
+
+              <button 
+                onClick={() => deleteNote(note.id)} 
+                className={`p-2 rounded-lg transition-colors ${
+                  note.is_urgent ? 'hover:bg-white/10 text-white/60 hover:text-white' : 'hover:bg-red-50 text-stone-400 hover:text-red-500'
+                }`}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
   if (isLoading) return <div className="h-screen bg-[#F5F5F3] flex items-center justify-center font-serif italic text-stone-300 text-4xl">Loading Desk...</div>;
 
   return (
@@ -384,116 +509,53 @@ function VaultContent() {
         </div>
       </header>
 
-      {/* THE DESK GRID - RESPONSIVE AUTO-FIT WITH LARGER BASE CARDS */}
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-12 justify-items-stretch">
-        <AnimatePresence mode="popLayout">
-          {filteredNotes.map((note) => {
-            const assignedTeamMember = teamMembers.find(m => m.id === note.assigned_to);
-            return (
-              <motion.div 
-                key={note.id}
-                layout
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1, rotate: "0deg" }}
-                exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
-                whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
-                // NOTE CONTAINER EXPANDED WIDER ("FATTER") TO ACCLAIM ALL METADATA DROPDOWNS
-                className={`p-4 lg:p-8 min-h-[360px] lg:min-h-[460px] w-full min-w-0 md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${
-                  note.is_urgent ? 'text-white' : 'text-stone-800'
-                }`}
-                style={{ background: note.color || "#FFF9E6" }}
-              >
-                {/* PARCHMENT TAPE ACCENT */}
-                <div className="absolute top-[-9px] left-1/2 -translate-x-1/2 w-28 h-6 bg-white/45 backdrop-blur-sm border border-white/20 z-10 rounded-sm" />
-                
-                {/* UPPER CONTENT AREA */}
-                <div>
-                  <div className="flex justify-between items-center mb-5">
-                    <span className="text-[9px] font-black uppercase tracking-widest opacity-40">
-                      {note.category || 'General'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {note.is_reminder && <Clock size={11} className={note.is_urgent ? "text-amber-300" : "text-stone-400 animate-pulse"} />}
-                      {note.is_urgent && <AlertCircle size={13} className="text-red-400 animate-pulse" />}
-                    </div>
-                  </div>
+      {/* THE DESK GRID - SPLIT INTO TASKS & NOTES */}
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 space-y-12">
 
-                  <p className="text-xl lg:text-3xl font-serif italic leading-snug tracking-tight mb-4 lg:mb-6 line-clamp-[6] break-words whitespace-pre-wrap">
-                    {note.content}
-                  </p>
-                </div>
+        <section>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl lg:text-5xl font-serif italic text-[#4f4a46]">
+                Tasks & To-Do Lists
+              </h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mt-2">
+                Action Items
+              </p>
+            </div>
+            <div className="text-[10px] font-black uppercase text-stone-400">
+              {taskNotes.length} Tasks
+            </div>
+          </div>
 
-                {/* BOTTOM METADATA PINNED CONTAINER */}
-                <div className="space-y-4 mt-auto">
-                  {/* CONTEXT DATA HOOKS */}
-                  {(note.project || assignedTeamMember || note.due_date) && (
-                    <div className="space-y-2 pt-3 border-t border-black/[0.05] opacity-80">
-                      {note.project && (
-                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
-                          <Briefcase size={11} className="opacity-40" /> 
-                          <span className="truncate">Project: {note.project}</span>
-                        </div>
-                      )}
-                      {assignedTeamMember && (
-                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
-                          <User size={11} className="opacity-40" /> 
-                          <span className="truncate">Lead: {assignedTeamMember.name}</span>
-                        </div>
-                      )}
-                      {note.due_date && (
-                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-amber-900/80">
-                          <Calendar size={11} className="opacity-50" /> 
-                          <span>Alert: {format(new Date(note.due_date), "MMM d, p")}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-12">
+            <AnimatePresence mode="popLayout">
+              {taskNotes.map((note) => renderNoteCard(note))}
+            </AnimatePresence>
+          </div>
+        </section>
 
-                  {/* CONTROL GRID LAYER */}
-                  <div className="pt-3 border-t border-black/[0.05] space-y-3">
-                    <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
-                      <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Progress</span>
-                      <select 
-                        value={note.status || "todo"}
-                        onChange={(e) => updateNoteStatus(note.id, e.target.value)}
-                        className={`text-[9px] font-black uppercase bg-transparent outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none text-right pr-1 ${
-                          note.is_urgent ? 'text-white font-bold' : 'text-stone-700'
-                        }`}
-                      >
-                        <option value="todo">To Do</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="done">Done</option>
-                      </select>
-                    </div>
+        <section>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl lg:text-5xl font-serif italic text-[#4f4a46]">
+                Notes
+              </h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mt-2">
+                Knowledge Base
+              </p>
+            </div>
+            <div className="text-[10px] font-black uppercase text-stone-400">
+              {regularNotes.length} Notes
+            </div>
+          </div>
 
-                    <div className="flex items-center justify-between">
-                      <button 
-                        onClick={() => deleteNote(note.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
-                          note.is_urgent 
-                            ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white' 
-                            : 'bg-white/60 border-black/[0.03] hover:bg-white text-stone-700 hover:text-green-700'
-                        }`}
-                      >
-                        <CheckCircle2 size={13} />
-                        <span>Clear</span>
-                      </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-12">
+            <AnimatePresence mode="popLayout">
+              {regularNotes.map((note) => renderNoteCard(note))}
+            </AnimatePresence>
+          </div>
+        </section>
 
-                      <button 
-                        onClick={() => deleteNote(note.id)} 
-                        className={`p-2 rounded-lg transition-colors ${
-                          note.is_urgent ? 'hover:bg-white/10 text-white/60 hover:text-white' : 'hover:bg-red-50 text-stone-400 hover:text-red-500'
-                        }`}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
       </main>
 
       {/* FLOATING ACTION BUTTON */}
@@ -635,9 +697,9 @@ function VaultContent() {
                   onChange={e => setStatus(e.target.value)}
                   className="bg-stone-50 text-[9px] font-black uppercase tracking-wider p-2 rounded-lg border border-stone-100 text-stone-700 outline-none cursor-pointer"
                 >
-                  <option value="todo">To Do</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="done">Done</option>
+                  <option value="todo">Task / To Do</option>
+<option value="active">Note</option>
+<option value="archived">Archived Note</option>
                 </select>
               </div>
 

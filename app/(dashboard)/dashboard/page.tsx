@@ -74,6 +74,8 @@ function DashboardContent() {
   const [clarityResponse, setClarityResponse] = useState<string | null>(null);
   const [taskInput, setTaskInput] = useState<string>("");
   const [noteInput, setNoteInput] = useState<string>("");
+  // Phase 5: Kernel event stream (runtime feed)
+  const [eventStream, setEventStream] = useState<any[]>([]);
 
 
   // Real-time Clock
@@ -278,6 +280,50 @@ function DashboardContent() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // Phase 5: Kernel event stream runtime integration (live activity feed)
+  useEffect(() => {
+    if (!organisationId || !supabase) return;
+
+    const channel = supabase.channel("dashboard_runtime_events");
+
+    channel
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notes" },
+        (payload) => {
+          setEventStream((prev: any[]) => [
+            { type: "note_event", payload, created_at: Date.now() },
+            ...prev,
+          ].slice(0, 50));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        (payload) => {
+          setEventStream((prev: any[]) => [
+            { type: "calendar_event", payload, created_at: Date.now() },
+            ...prev,
+          ].slice(0, 50));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "emails" },
+        (payload) => {
+          setEventStream((prev: any[]) => [
+            { type: "email_event", payload, created_at: Date.now() },
+            ...prev,
+          ].slice(0, 50));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [organisationId, supabase]);
 
   // PROACTIVE CLARITY AI LOOP
   useEffect(() => {
@@ -549,9 +595,9 @@ function DashboardContent() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-12">
 
         {/* TASKS */}
-        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-2">
+        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-5">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
-            <CheckSquare size={14} className="text-[#A3B18A]" /> Execution Board
+            <CheckSquare size={14} className="text-[#A3B18A]" /> To Do List
           </h2>
 
           <div className="flex flex-col sm:flex-row gap-2 mb-4 w-full">

@@ -73,6 +73,8 @@ function VaultContent() {
   const [user, setUser] = useState<any>(null);
   const [notes, setNotes] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [comments, setComments] = useState<any[]>([]);
+  const [activeComments, setActiveComments] = useState<Record<string, any[]>>({});
   const [projectsList, setProjectsList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -86,7 +88,7 @@ function VaultContent() {
 
   // Custom Metadata Fields
   const [project, setProject] = useState("");
-  const [assignedTo, setAssignedTo] = useState("");
+  const [assignedTo, setAssignedTo] = useState<string[]>([]);
   const [reminderDateTime, setReminderDateTime] = useState("");
   const [isReminder, setIsReminder] = useState(false);
   const [status, setStatus] = useState("todo");
@@ -97,6 +99,9 @@ function VaultContent() {
 
   // Expanded note state for click-to-expand cards
   const [expandedNote, setExpandedNote] = useState<string | null>(null);
+  const [lastViewed, setLastViewed] = useState<Record<string, number>>({});
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [reactions, setReactions] = useState<Record<string, { userId: string; type: string }[]>>({});
 
   const fetchNotes = useCallback(async (_userId: string) => {
     try {
@@ -153,6 +158,21 @@ function VaultContent() {
       ) as string[];
 
       setProjectsList(uniqueProjects);
+
+      // fetch all comments for organisation notes
+      const noteIds = (data || []).map((n: any) => n.id).filter(Boolean);
+
+      if (noteIds.length) {
+        const { data: commentData } = await supabase
+          .from("note_comments")
+          .select("*")
+          .in("note_id", noteIds)
+          .order("created_at", { ascending: true });
+
+        if (commentData) {
+          setComments(commentData);
+        }
+      }
     } catch (e) {
       console.error("Notes Fetch Error:", e);
       toast.error("Notes load failed.");
@@ -165,18 +185,132 @@ function VaultContent() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, name")
+        .select("id, name, email")
         .order("name", { ascending: true });
       if (error) {
         console.error("Team fetch error:", error);
         return;
       }
-
-      if (data) setTeamMembers(data);
+      if (data) {
+        setTeamMembers(
+          data.map((u: any) => ({
+            ...u,
+            email: u.email || null
+          }))
+        );
+      }
     } catch (e) {
       console.error("Error fetching team:", e);
     }
   }, []);
+
+  const resolveMentions = (text: string) => {
+    const matches = text.match(/@(\w+)/g) || [];
+
+    return matches
+      .map(m => m.replace("@", "").toLowerCase())
+      .map(name =>
+        teamMembers.find(
+          (u: any) => u.name?.toLowerCase() === name
+        )
+      )
+      .filter(Boolean);
+  };
+
+  const addComment = async (noteId: string, text: string) => {
+    if (!text.trim() || !user?.id) return;
+
+    const { error } = await supabase
+      .from("note_comments")
+      .insert([
+        {
+          note_id: noteId,
+          user_id: user.id,
+          content: text.replace(/@(\w+)/g, "$1")
+        }
+      ]);
+
+    if (error) {
+      toast.error("Failed to add comment");
+      return;
+    }
+
+    const mentionedUsers = resolveMentions(text);
+
+    if (mentionedUsers.length > 0) {
+      for (const u of mentionedUsers) {
+        // 1. Persist notification (OS layer)
+        await supabase.from("notifications").insert([
+          {
+            user_id: u.id,
+            type: "mention",
+            message: `${user?.email || "Someone"} mentioned you in a task`,
+            note_id: noteId,
+            read: false,
+            created_at: new Date().toISOString()
+          }
+        ]);
+
+        // 2. Email dispatch (Kernel layer bridge)
+        try {
+          await supabase.functions.invoke("send-notification-email", {
+            body: {
+              to: u.email,
+              subject: "You were mentioned in TOTS-OS",
+              message: text,
+              context: {
+                noteId,
+                from: user?.email
+              }
+            }
+          });
+        } catch (e) {
+          console.error("Email dispatch failed:", e);
+        }
+      }
+
+      setNotifications(prev => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: "mention",
+          message: `Mention sent to ${mentionedUsers.length} user(s)`,
+          created_at: Date.now()
+        }
+      ]);
+    }
+
+    fetchNotes(user.id);
+  };
+
+  const addReaction = async (commentId: string, type: string = "like") => {
+    if (!user?.id) return;
+
+    try {
+      setReactions(prev => {
+        const existing = prev[commentId] || [];
+        const already = existing.find(r => r.userId === user.id);
+
+        if (already) return prev;
+
+        return {
+          ...prev,
+          [commentId]: [...existing, { userId: user.id, type }]
+        };
+      });
+
+      // Optional persistence layer (safe assume table exists)
+      await supabase.from("note_comment_reactions").insert([
+        {
+          comment_id: commentId,
+          user_id: user.id,
+          type
+        }
+      ]);
+    } catch (e) {
+      console.error("Reaction error:", e);
+    }
+  };
 
   useEffect(() => {
     let channel: any;
@@ -189,6 +323,7 @@ function VaultContent() {
       
       channel = supabase.channel("vault_desk")
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchNotes(authUser.id))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'note_comments' }, () => fetchNotes(authUser.id))
         .subscribe();
     };
     init();
@@ -276,7 +411,7 @@ function VaultContent() {
             color: isUrgent ? "#4f4a46" : theme.bg,
             category: tag || "General",
             project: project || null,
-            assigned_to: assignedTo || null,
+            assigned_to: assignedTo.length ? assignedTo : null,
             due_date: isReminder && reminderDateTime ? reminderDateTime : null,
             is_reminder: isReminder,
             status,
@@ -315,7 +450,7 @@ function VaultContent() {
       setTag("");
       setIsUrgent(false);
       setProject("");
-      setAssignedTo("");
+      setAssignedTo([]);
       setReminderDateTime("");
       setIsReminder(false);
       setStatus("todo");
@@ -458,6 +593,19 @@ function VaultContent() {
     const isExpanded = expandedNote === note.id;
 
     if (isExpanded) {
+      const noteComments = comments.filter(c => c.note_id === note.id);
+      const activityFeed = [
+        {
+          id: "created",
+          content: "Task created",
+          created_at: note.created_at || Date.now()
+        },
+        ...noteComments.map((c: any) => ({
+          id: c.id,
+          content: c.content,
+          created_at: c.created_at || Date.now()
+        }))
+      ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       return (
         <motion.div
           key={note.id}
@@ -488,6 +636,50 @@ function VaultContent() {
               {note.project && <p>Project: {note.project}</p>}
               {note.due_date && <p>Due: {format(new Date(note.due_date), "MMM d, p")}</p>}
             </div>
+
+            {/* ACTIVITY FEED */}
+            <div className="mt-6 border-t pt-4 space-y-2">
+              <p className="text-[10px] font-black uppercase text-stone-400">Activity</p>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {activityFeed.map((a: any) => (
+                  <div key={a.id} className="text-[11px] text-stone-600 flex justify-between">
+                    <span>{a.content}</span>
+                    <span className="text-[9px] text-stone-400">
+                      {new Date(a.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 border-t pt-4 space-y-3">
+              <p className="text-[10px] font-black uppercase text-stone-400">Comments</p>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {noteComments.map((c: any) => {
+                  const member = teamMembers.find(m => m.id === c.user_id);
+                  return (
+                    <div key={c.id} className="text-sm bg-stone-50 p-2 rounded-lg">
+                      <p className="text-[10px] font-black uppercase text-stone-500">
+                        {member?.name || "You"}
+                      </p>
+                      <p className="text-stone-700">{c.content}</p>
+
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => addReaction(c.id, "like")}
+                          className="text-[10px] font-black uppercase text-stone-400 hover:text-green-600"
+                        >
+                          👍 {reactions[c.id]?.length || 0}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <CommentBox noteId={note.id} addComment={addComment} />
+            </div>
           </motion.div>
         </motion.div>
       );
@@ -503,7 +695,13 @@ function VaultContent() {
         whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
         className={`p-3 lg:p-5 min-h-[260px] lg:min-h-[320px] w-full min-w-0 md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${note.is_urgent ? 'text-white' : 'text-stone-800'}`}
         style={{ background: note.color || '#FFF9E6' }}
-        onClick={() => setExpandedNote(note.id)}
+        onClick={() => {
+          setExpandedNote(note.id);
+          setLastViewed(prev => ({
+            ...prev,
+            [note.id]: Date.now()
+          }));
+        }}
       >
         {/* PARCHMENT TAPE ACCENT */}
         <div className="absolute top-[-9px] left-1/2 -translate-x-1/2 w-28 h-6 bg-white/45 backdrop-blur-sm border border-white/20 z-10 rounded-sm" />
@@ -514,6 +712,12 @@ function VaultContent() {
             <span className="text-[9px] font-black uppercase tracking-widest opacity-40">
               {note.category || 'General'}
             </span>
+            {/* UNREAD INDICATOR */}
+            {lastViewed[note.id] && note.updated_at && new Date(note.updated_at).getTime() > lastViewed[note.id] && (
+              <span className="text-[9px] font-black uppercase text-red-500 animate-pulse">
+                NEW
+              </span>
+            )}
             <div className="flex items-center gap-2">
               {note.is_reminder && <Clock size={11} className={note.is_urgent ? "text-amber-300" : "text-stone-400 animate-pulse"} />}
               {note.is_urgent && <AlertCircle size={13} className="text-red-400 animate-pulse" />}
@@ -636,6 +840,11 @@ function VaultContent() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {notifications.length > 0 && (
+          <div className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full animate-pulse">
+            {notifications.length} alerts
+          </div>
+        )}
       </header>
 
       {/* THE DESK GRID - SPLIT INTO TASKS & NOTES */}
@@ -795,9 +1004,13 @@ function VaultContent() {
                 <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100 col-span-2">
                   <User size={12} className="text-stone-400 mr-2" />
                   <select
+                    multiple
                     className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer"
-                    value={assignedTo}
-                    onChange={(e) => setAssignedTo(e.target.value)}
+                    value={assignedTo as any}
+                    onChange={(e) => {
+                      const values = Array.from(e.target.selectedOptions).map(o => o.value);
+                      setAssignedTo(values);
+                    }}
                   >
                     <option value="">Assign Team Member...</option>
                     {teamMembers.map(member => (
@@ -885,3 +1098,27 @@ export default function VaultPage() {
     </Suspense>
   );
 }
+// Standalone CommentBox component
+const CommentBox = ({ noteId, addComment }: any) => {
+  const [text, setText] = useState("");
+
+  return (
+    <div className="flex gap-2 mt-2">
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Write a comment..."
+        className="flex-1 bg-stone-100 rounded-lg px-3 py-2 text-sm outline-none"
+      />
+      <button
+        onClick={() => {
+          addComment(noteId, text);
+          setText("");
+        }}
+        className="px-3 py-2 bg-stone-900 text-white text-xs rounded-lg"
+      >
+        Send
+      </button>
+    </div>
+  );
+};

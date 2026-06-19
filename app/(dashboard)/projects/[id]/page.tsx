@@ -23,6 +23,9 @@ export default function ProjectEngine() {
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<any[]>([]);
   const [taskAssignee, setTaskAssignee] = useState<string>("");
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentInput, setCommentInput] = useState<Record<string, string>>({});
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
 
   // --- CLARITY TEAM INTELLIGENCE ENGINE ---
   const workloadByUser = useMemo(() => {
@@ -96,6 +99,13 @@ export default function ProjectEngine() {
         assigned_to: t.assigned_to || null
       }));
 
+      // --- PHASE 3: FETCH COMMENTS ---
+      const { data: taskComments } = await supabase
+        .from("task_comments")
+        .select("*")
+        .eq("project_id", id);
+      setComments(taskComments || []);
+
       setProject(p);
       setTasks([...normalisedProjectTasks, ...normalisedNotes]);
       // Auto-suggest least busy user for task assignment
@@ -108,6 +118,52 @@ export default function ProjectEngine() {
     // Including leastBusyUser and taskAssignee intentionally for smart default.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, supabase]);
+
+  // --- PHASE 4: EMAIL NOTIFICATION KERNEL ---
+  const sendEmailNotification = async (payload: {
+    type: string;
+    taskId?: string;
+    content?: string;
+  }) => {
+    try {
+      await fetch("/api/notifications/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          projectId: id,
+          ...payload
+        })
+      });
+    } catch (err) {
+      console.error("Email notification failed:", err);
+    }
+  };
+
+  // --- PHASE 3: ADD COMMENT FUNCTION ---
+  const addComment = async (taskId: string, text: string) => {
+    if (!text) return;
+
+    const { data } = await supabase.from("task_comments").insert([
+      {
+        task_id: taskId,
+        project_id: id,
+        content: text,
+        user_id: (await supabase.auth.getUser()).data.user?.id
+      }
+    ]);
+
+    setCommentInput(prev => ({ ...prev, [taskId]: "" }));
+
+    // Notification hook placeholder (email system already exists in OS)
+    toast.success("Comment sent to team");
+    await sendEmailNotification({
+      type: "task_comment",
+      taskId,
+      content: text
+    });
+  };
 
   const addTask = async () => {
     if (!taskInput) return;
@@ -146,13 +202,49 @@ export default function ProjectEngine() {
         assigned_to: taskData.assigned_to || null
       };
       setTasks(prev => [...prev, normalizedTask]);
+      // OPTIONAL SAFETY: EMAIL ONLY IF ASSIGNED
+      if (taskData?.assigned_to) {
+        await sendEmailNotification({
+          type: "task_assigned",
+          taskId: taskData.id,
+          content: taskInput
+        });
+      }
     }
 
     setTaskInput("");
     setTaskAssignee("");
 
     toast.success("Task assigned and synced across Clarity OS");
+    await sendEmailNotification({
+      type: "task_created",
+      taskId: taskData?.id,
+      content: taskInput
+    });
   };
+
+  useEffect(() => {
+    // --- PHASE 3: REALTIME COMMENTS CHANNEL ---
+    const commentsChannel = supabase
+      .channel("task_comments_room")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "task_comments" },
+        (payload: any) => {
+          setComments((prev) => {
+            const filtered = prev.filter(c => c.id !== payload.new?.id);
+            return [payload.new, ...filtered];
+          });
+          // OS EVENT HOOK (notification-ready layer)
+          toast.success("New task activity");
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(commentsChannel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
 
   const updateProject = async (updates: any) => {
     const { error } = await supabase.from("projects").update(updates).eq("id", id);
@@ -178,7 +270,7 @@ return (
           </Link>
           
           <div className="hidden md:flex items-center gap-1 bg-stone-100 p-1 rounded-xl">
-            {["Tasks", "assets", "Project Settings"].map((tab) => (
+            {["Tasks", "assets", "Admin"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -201,6 +293,24 @@ return (
       </nav>
 
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 overflow-x-hidden">
+        
+        {/* PROJECT PROGRESS BAR */}
+        {tasks.length > 0 && (
+          <div className="col-span-12">
+            <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
+              <div
+                className="h-2 bg-[#a9b897]"
+                style={{
+                  width: `${(tasks.filter(t => t.status === "Completed").length / tasks.length) * 100}%`
+                }}
+              />
+            </div>
+
+            <p className="text-[9px] font-black uppercase text-stone-400 mt-2">
+              Project Completion: {Math.round((tasks.filter(t => t.status === "Completed").length / tasks.length) * 100)}%
+            </p>
+          </div>
+        )}
         
         {/* LEFT COLUMN: PRIMARY INTERFACE */}
         <div className="col-span-12 lg:col-span-8 space-y-12">
@@ -263,21 +373,70 @@ return (
                     </div>
                     <div className="space-y-3">
                       {tasks.map(t => (
-                        <div key={t.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5 hover:bg-stone-50 rounded-2xl transition-all group border border-transparent hover:border-stone-100">
-                          <div className="flex items-center gap-5">
-                            <div className="w-6 h-6 rounded-lg border-2 border-stone-100 flex items-center justify-center group-hover:border-[#a9b897] transition-all cursor-pointer">
-                              <Check size={12} className="text-transparent group-hover:text-[#a9b897]" />
+                        <div key={t.id}>
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5 hover:bg-stone-50 rounded-2xl transition-all group border border-transparent hover:border-stone-100">
+                            <div className="flex items-center gap-5">
+                              <div className="w-6 h-6 rounded-lg border-2 border-stone-100 flex items-center justify-center group-hover:border-[#a9b897] transition-all cursor-pointer">
+                                <Check size={12} className="text-transparent group-hover:text-[#a9b897]" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-bold text-stone-700">{t.name}</span>
+                                {t.assigned_to && (
+                                  <span className="text-[10px] text-stone-400">
+                                    Assigned
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-bold text-stone-700">{t.name}</span>
-                              {t.assigned_to && (
-                                <span className="text-[10px] text-stone-400">
-                                  Assigned
-                                </span>
-                              )}
-                            </div>
+                            <Trash2 size={14} className="text-stone-100 hover:text-red-400 cursor-pointer transition-colors" />
                           </div>
-                          <Trash2 size={14} className="text-stone-100 hover:text-red-400 cursor-pointer transition-colors" />
+                          {/* PHASE 3: COMMENTS UI */}
+                          <div className="ml-11 mt-2 space-y-2">
+                            <button
+                              onClick={() =>
+                                setOpenComments(prev => ({
+                                  ...prev,
+                                  [t.id]: !prev[t.id]
+                                }))
+                              }
+                              className="text-[9px] font-black uppercase text-stone-400 hover:text-stone-600"
+                            >
+                              {openComments[t.id] ? "Hide Comments" : "View Comments"}
+                            </button>
+
+                            {openComments[t.id] && (
+                              <div className="space-y-2">
+                                {(comments.filter(c => c.task_id === t.id)).map((c) => (
+                                  <div key={c.id} className="text-[10px] bg-stone-50 p-2 rounded-lg">
+                                    {c.content}
+                                  </div>
+                                ))}
+
+                                <div className="flex gap-2">
+                                  <input
+                                    value={commentInput[t.id] || ""}
+                                    onChange={(e) =>
+                                      setCommentInput(prev => ({
+                                        ...prev,
+                                        [t.id]: e.target.value
+                                      }))
+                                    }
+                                    placeholder="Write a comment..."
+                                    className="flex-1 bg-stone-50 p-2 rounded-lg text-[10px]"
+                                  />
+
+                                  <button
+                                    onClick={() =>
+                                      addComment(t.id, commentInput[t.id])
+                                    }
+                                    className="text-[9px] font-black uppercase bg-stone-900 text-white px-3 rounded-lg"
+                                  >
+                                    Send
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -292,7 +451,7 @@ return (
                   {/* UPLOAD ZONE */}
                   <div className="border-2 border-dashed border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-6 lg:p-12 text-center bg-white hover:border-[#a9b897] transition-all cursor-pointer group">
                     <Cloud size={40} className="mx-auto text-stone-200 group-hover:text-[#a9b897] transition-all mb-4" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Add New Assets</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">Assets (Upload Coming Soon)</p>
                     <p className="text-[9px] text-stone-300 mt-2 font-serif italic">PDF, PNG, MP4, .SQL</p>
                   </div>
 
@@ -313,7 +472,7 @@ return (
               </motion.section>
             )}
 
-            {activeTab === "Project Settings" && (
+            {activeTab === "Admin" && (
               <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
                  <div className="bg-white border border-stone-100 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-10 space-y-12 shadow-sm">
                     
@@ -413,31 +572,7 @@ return (
             )}
           </div>
 
-          {/* THE VAULT (QUICK ACCESS) */}
-          <div className="bg-stone-900 text-white p-6 lg:p-10 rounded-[2rem] lg:rounded-[3rem] shadow-2xl relative overflow-hidden">
-            <Shield size={180} className="absolute -right-12 -top-12 opacity-5 rotate-12" />
-            <div className="relative z-10 space-y-6">
-              <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Vault</h3>
-              <div className="bg-white/5 p-6 rounded-2xl border border-white/5 space-y-4">
-                 <button onClick={() => setActiveTab("assets")} className="w-full py-3 bg-[#a9b897] text-white rounded-xl text-[9px] font-black uppercase tracking-widest">Access Vault</button>
-              </div>
-            </div>
-          </div>
-
-          {/* TEAM CARD */}
-          <div className="bg-white border border-stone-100 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] shadow-sm space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">Invite Team Members</h3>
-              <Share2 size={14} className="text-stone-300" />
-            </div>
-            <div className="flex -space-x-3">
-                {[1,2,3].map(i => <div key={i} className="w-10 h-10 rounded-full border-4 border-white bg-stone-100 flex items-center justify-center text-[10px] font-black text-stone-300 ring-1 ring-stone-50">{i}</div>)}
-                <button onClick={() => setActiveTab("Project Settings")} className="w-10 h-10 rounded-full border-4 border-white bg-stone-900 flex items-center justify-center text-white ring-1 ring-stone-900 hover:bg-[#a9b897] transition-all">
-                    <Plus size={14} />
-                </button>
-            </div>
-            <p className="text-[10px] font-serif italic text-stone-400 leading-relaxed">Collaborate with team members on this project.</p>
-          </div>
+          
 
         </aside>
       </main>

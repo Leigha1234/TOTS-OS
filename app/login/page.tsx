@@ -65,11 +65,11 @@ function LoginForm() {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: fullName || email.split('@')[0],
-              company_name: companyName,
-              job_title: jobTitle,
+              company_name: companyName || null,
+              job_title: jobTitle || null,
               is_new_org: !inviteId,
-              org_name: companyName || 'New Organisation',
-              invite_team_id: inviteId,
+              org_name: companyName || "New Organisation",
+              invite_team_id: inviteId || null,
             },
           },
         });

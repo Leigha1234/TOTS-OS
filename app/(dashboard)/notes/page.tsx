@@ -108,9 +108,13 @@ const TaskColumn = ({ id, children }: any) => {
   return (
     <div
       ref={setNodeRef}
-      className={`space-y-3 p-2 rounded-xl transition-all ${isOver ? "bg-stone-100" : ""}`}
+      className={`flex flex-col w-full min-h-[420px] h-full space-y-3 p-3 rounded-xl transition-all ${
+        isOver ? "bg-stone-100" : "bg-transparent"
+      }`}
     >
-      {children}
+      <div className="flex-1 w-full flex flex-col">
+        {children}
+      </div>
     </div>
   );
 };
@@ -765,7 +769,7 @@ function VaultContent() {
           </div>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 items-stretch">
 
               {(["todo", "in_progress", "done"] as const).map((statusKey) => {
                 const columnTasks = taskNotes.filter(

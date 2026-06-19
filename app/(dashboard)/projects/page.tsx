@@ -124,30 +124,34 @@ export default function ProjectDirectory() {
         return;
       }
 
-      const orgId = profile.organisation_id;
+      const orgId = profile.organisation_id || null;
+      if (!orgId) {
+        console.error("Missing organisation_id on profile");
+        toast.error("No organisation linked to your account");
+        setSaving(false);
+        return;
+      }
 
       const payload = {
-  name: form.name.trim(),
-  objective_summary: form.objective_summary || null,
-  description: form.description || null,
-  category: form.category,
-
-  members: form.members?.trim()
-    ? form.members.split(",").map(m => m.trim()).filter(Boolean)
-    : [],
-
-  start_date: form.start_date || null,
-  due_date: form.due_date || null,
-
-  budget:
-    form.budget && !isNaN(Number(form.budget))
-      ? Number(form.budget)
-      : 0,
-
-  health: form.health || "Stable",
-  organisation_id: orgId,
-};
+        name: form.name.trim(),
+        objective_summary: form.objective_summary || null,
+        description: form.description || null,
+        category: form.category,
+        members:
+          typeof form.members === "string" && form.members.trim().length > 0
+            ? form.members.split(",").map(m => m.trim()).filter(Boolean)
+            : [],
+        start_date: form.start_date || null,
+        due_date: form.due_date || null,
+        budget:
+          form.budget !== "" && !isNaN(Number(form.budget))
+            ? Number(form.budget)
+            : 0,
+        health: form.health || "Stable",
+        organisation_id: orgId,
+      };
       console.log("Creating project payload:", payload);
+      console.log("Organisation ID used:", orgId);
 
       const { data, error } = await supabase
         .from("projects")
@@ -156,10 +160,17 @@ export default function ProjectDirectory() {
         .single();
 
       if (error) {
-        console.error("Supabase insert error:", error);
-        console.error("Details:", error?.details);
-        console.error("Hint:", error?.hint);
-        toast.error(error?.message || "Failed to create project");
+        console.error("Supabase insert error (full):", error);
+        console.error("Payload that failed:", payload);
+
+        const message =
+          error?.message ||
+          error?.details ||
+          error?.hint ||
+          "Failed to create project (check required fields / schema)";
+
+        toast.error(message);
+
         setSaving(false);
         return;
       }
@@ -180,9 +191,14 @@ export default function ProjectDirectory() {
       });
 
       toast.success("Project Created");
-    } catch (err) {
-      console.error("Project creation error:", err);
-      toast.error("Unexpected error creating project");
+    } catch (err: any) {
+      console.error("Project creation error (uncaught):", err);
+      console.error("Payload at crash:", form);
+
+      toast.error(
+        err?.message ||
+        "Unexpected error creating project"
+      );
     } finally {
       setSaving(false);
     }

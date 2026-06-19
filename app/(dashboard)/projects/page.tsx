@@ -81,10 +81,20 @@ export default function ProjectDirectory() {
     try {
       if (!organisationId) return;
       setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user?.id) {
+        toast.error("Not authenticated");
+        setProjects([]);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("projects")
         .select("*")
-        .eq("organisation_id", organisationId);
+        .eq("organisation_id", organisationId)
+        .or(`user_id.eq.${user.id},members.cs.{${user.id}}`);
 
       if (error) {
         console.error("Load projects error:", error);
@@ -155,6 +165,7 @@ export default function ProjectDirectory() {
             : 0,
         health: "good",
         organisation_id: orgId,
+        user_id: user.id,
       };
       console.log("Creating project payload:", payload);
       console.log("Organisation ID used:", orgId);

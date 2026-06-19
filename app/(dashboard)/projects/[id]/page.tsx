@@ -51,6 +51,18 @@ export default function ProjectEngine() {
     }, null as any);
   }, [contacts, workloadByUser]);
 
+  const completedCount = useMemo(() => {
+    return tasks.filter(t => t.status === "Completed").length;
+  }, [tasks]);
+
+  const assignedCount = useMemo(() => {
+    return tasks.filter(t => t.assigned_to).length;
+  }, [tasks]);
+
+  const unassignedCount = useMemo(() => {
+    return tasks.filter(t => !t.assigned_to).length;
+  }, [tasks]);
+
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -211,7 +223,6 @@ export default function ProjectEngine() {
         });
       }
     }
-
     setTaskInput("");
     setTaskAssignee("");
 
@@ -221,6 +232,37 @@ export default function ProjectEngine() {
       taskId: taskData?.id,
       content: taskInput
     });
+  };
+
+  const deleteTask = async (taskId: string) => {
+    try {
+      await supabase.from("tasks").delete().eq("id", taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      toast.success("Task removed");
+    } catch (err) {
+      toast.error("Failed to delete task");
+    }
+  };
+
+  const toggleTaskComplete = async (task: any) => {
+    const newStatus = task.status === "Completed" ? "todo" : "Completed";
+
+    if (task.source === "tasks") {
+      await supabase
+        .from("tasks")
+        .update({ status: newStatus })
+        .eq("id", task.id);
+    }
+
+    setTasks(prev =>
+      prev.map(t =>
+        t.id === task.id ? { ...t, status: newStatus } : t
+      )
+    );
+
+    toast.success(
+      newStatus === "Completed" ? "Task completed" : "Task reopened"
+    );
   };
 
   useEffect(() => {
@@ -254,7 +296,18 @@ export default function ProjectEngine() {
     }
   };
 
-  if (loading || !project) return null;
+  if (loading || !project) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="text-center space-y-3">
+        <div className="w-10 h-10 border-2 border-stone-200 border-t-stone-900 rounded-full animate-spin mx-auto" />
+        <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">
+          Loading Project Engine...
+        </p>
+      </div>
+    </div>
+  );
+}
 
 return (
     <div className="min-h-screen bg-stone-50 pb-24 overflow-x-hidden selection:bg-[#a9b897] selection:text-white">
@@ -301,13 +354,13 @@ return (
               <div
                 className="h-2 bg-[#a9b897]"
                 style={{
-                  width: `${(tasks.filter(t => t.status === "Completed").length / tasks.length) * 100}%`
+                  width: `${tasks.length ? (completedCount / tasks.length) * 100 : 0}%`
                 }}
               />
             </div>
 
             <p className="text-[9px] font-black uppercase text-stone-400 mt-2">
-              Project Completion: {Math.round((tasks.filter(t => t.status === "Completed").length / tasks.length) * 100)}%
+              Project Completion: {tasks.length ? Math.round((completedCount / tasks.length) * 100) : 0}%
             </p>
           </div>
         )}
@@ -372,11 +425,18 @@ return (
                       <button onClick={addTask} className="bg-stone-900 text-white px-6 sm:px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all w-full sm:w-auto">Add</button>
                     </div>
                     <div className="space-y-3">
-                      {tasks.map(t => (
+                      {tasks.length === 0 ? (
+                        <div className="text-center py-10 text-[10px] font-black uppercase tracking-widest text-stone-300">
+                          No tasks yet. Add your first objective.
+                        </div>
+                      ) : tasks.map(t => (
                         <div key={t.id}>
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5 hover:bg-stone-50 rounded-2xl transition-all group border border-transparent hover:border-stone-100">
                             <div className="flex items-center gap-5">
-                              <div className="w-6 h-6 rounded-lg border-2 border-stone-100 flex items-center justify-center group-hover:border-[#a9b897] transition-all cursor-pointer">
+                              <div
+  onClick={() => toggleTaskComplete(t)}
+  className="w-6 h-6 rounded-lg border-2 border-stone-100 flex items-center justify-center group-hover:border-[#a9b897] transition-all cursor-pointer"
+>
                                 <Check size={12} className="text-transparent group-hover:text-[#a9b897]" />
                               </div>
                               <div className="flex flex-col">
@@ -388,7 +448,11 @@ return (
                                 )}
                               </div>
                             </div>
-                            <Trash2 size={14} className="text-stone-100 hover:text-red-400 cursor-pointer transition-colors" />
+                            <Trash2
+  size={14}
+  onClick={() => deleteTask(t.id)}
+  className="text-stone-100 hover:text-red-400 cursor-pointer transition-colors"
+/>
                           </div>
                           {/* PHASE 3: COMMENTS UI */}
                           <div className="ml-11 mt-2 space-y-2">
@@ -548,11 +612,11 @@ return (
               </p>
 
               <p className="text-[10px] text-stone-500">
-                Assigned: {tasks.filter(t => t.assigned_to).length}
+                Assigned: {assignedCount}
               </p>
 
               <p className="text-[10px] text-stone-500">
-                Unassigned: {tasks.filter(t => !t.assigned_to).length}
+                Unassigned: {unassignedCount}
               </p>
 
               <p className="text-[10px] text-stone-500">

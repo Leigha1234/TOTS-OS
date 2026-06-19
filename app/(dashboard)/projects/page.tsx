@@ -153,7 +153,6 @@ export default function ProjectDirectory() {
           form.budget !== "" && !isNaN(Number(form.budget))
             ? Number(form.budget)
             : 0,
-        // Always set health to "good" for safety
         health: "good",
         organisation_id: orgId,
       };
@@ -192,7 +191,7 @@ export default function ProjectDirectory() {
         start_date: "",
         due_date: "",
         budget: "",
-        health: "good"
+        health: "good",
       });
 
       toast.success("Project Created");

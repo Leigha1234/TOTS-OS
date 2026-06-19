@@ -100,7 +100,7 @@ function DashboardContent() {
       // Fetch Profile Data
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name")
+        .select("full_name, organisation_id")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -108,48 +108,50 @@ function DashboardContent() {
         setUserName(profile.full_name.toUpperCase());
       }
 
+      const activeOrganisationId = organisationId || profile?.organisation_id;
+
       // Guard for Missing OrgID - critical to prevent unauthorized 403s
-      if (!organisationId || organisationId === "undefined") {
+      if (!activeOrganisationId || activeOrganisationId === "undefined") {
         console.warn("Dashboard: No valid organisationId found. Skipping data fetch.");
         setLoading(false);
-        return; 
+        return;
       }
 
       // Fetch Business Data in Parallel for Performance
       const [projectsRes, invoicesRes, membersRes, notesRes, eventsRes, emailsRes] = await Promise.all([
         supabase
           .from("projects")
-          .select("id, name, title, status")
-          .eq("organisation_id", organisationId)
+          .select("id, name, status")
+          .eq("organisation_id", activeOrganisationId)
           .limit(5),
 
         supabase
           .from("invoices")
           .select("amount, status")
-          .eq("organisation_id", organisationId),
+          .eq("organisation_id", activeOrganisationId),
 
         supabase
           .from("profiles")
           .select("full_name, role")
-          .eq("organisation_id", organisationId)
+          .eq("organisation_id", activeOrganisationId)
           .limit(4),
 
         supabase
           .from("notes")
           .select("id, title, content, completed, status, type")
-          .eq("organisation_id", organisationId)
+          .eq("organisation_id", activeOrganisationId)
           .limit(5),
 
         supabase
           .from("events")
           .select("*")
-          .eq("organisation_id", organisationId)
+          .eq("organisation_id", activeOrganisationId)
           .limit(5),
 
         supabase
           .from("emails")
           .select("*")
-          .eq("organisation_id", organisationId)
+          .eq("organisation_id", activeOrganisationId)
           .order("created_at", { ascending: false })
           .limit(5)
       ]);

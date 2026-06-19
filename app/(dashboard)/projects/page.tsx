@@ -46,7 +46,10 @@ export default function ProjectDirectory() {
     const loadOrg = async () => {
       const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user?.id) return;
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
 
       const { data: profile, error } = await supabase
         .from("profiles")
@@ -56,15 +59,19 @@ export default function ProjectDirectory() {
 
       if (error) {
         console.error("Org load error:", error);
+        setLoading(false);
         return;
       }
 
       if (!profile?.organisation_id) {
         console.warn("No organisation_id found on profile");
+        toast.error("No organisation assigned to account");
+        setLoading(false);
         return;
       }
 
       setOrganisationId(profile.organisation_id);
+      setLoading(false);
     };
 
     loadOrg();
@@ -177,7 +184,14 @@ export default function ProjectDirectory() {
         return;
       }
 
-      const inserted = Array.isArray(data) ? data[0] : data;
+      if (!data || data.length === 0) {
+        console.error("Insert returned no rows (likely RLS blocking insert)");
+        toast.error("Project was not saved (permission issue)");
+        setSaving(false);
+        return;
+      }
+
+      const inserted = data[0];
       setProjects((prev) => [inserted, ...prev]);
       setShowModal(false);
 

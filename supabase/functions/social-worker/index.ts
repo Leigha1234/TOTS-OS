@@ -5,6 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 Deno.serve(async (req) => {
@@ -14,8 +15,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(
+        JSON.stringify({ error: "Missing Supabase environment variables" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -31,6 +42,16 @@ Deno.serve(async (req) => {
       .lte("scheduled_for", now)
       .order("scheduled_for", { ascending: true })
       .limit(MAX_BATCH);
+
+    if (fetchError) {
+      return new Response(
+        JSON.stringify({ error: fetchError.message }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     const platformsMap: Record<
       string,
@@ -86,7 +107,10 @@ Deno.serve(async (req) => {
     if (!posts || posts.length === 0) {
       return new Response(
         JSON.stringify({ message: "No scheduled posts due" }),
-        { status: 200, headers: corsHeaders }
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
       );
     }
 
@@ -104,10 +128,9 @@ Deno.serve(async (req) => {
 
         // 3. Get social accounts for user
         const { data: accounts } = await supabase
-          .from("social_accounts")
-          .select("*")
-          .eq("user_id", post.user_id);
-
+  .from("social_accounts")
+  .select("*")
+  .eq("organisation_id", post.organisation_id);
         const platforms = post.platforms || [];
 
         for (const platform of platforms) {
@@ -172,12 +195,18 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, processed: posts.length }),
-      { status: 200, headers: corsHeaders }
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      }
     );
   } catch (err: any) {
     return new Response(
       JSON.stringify({ error: err.message }),
-      { status: 500, headers: corsHeaders }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      }
     );
   }
 });

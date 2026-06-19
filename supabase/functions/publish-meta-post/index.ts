@@ -1,16 +1,36 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 Deno.serve(async (req) => {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     const { post_id } = await req.json();
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: "Missing Supabase env vars" }), {
+        status: 500,
+        headers: corsHeaders,
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     if (!post_id) {
-      return new Response(JSON.stringify({ error: "Missing post_id" }), { status: 400 });
+      return new Response(JSON.stringify({ error: "Missing post_id" }), {
+        status: 400,
+        headers: corsHeaders,
+      });
     }
 
     // -------------------------
@@ -23,16 +43,26 @@ Deno.serve(async (req) => {
       .single();
 
     if (postError || !post) {
-      return new Response(JSON.stringify({ error: "Post not found" }), { status: 404 });
+      return new Response(JSON.stringify({ error: "Post not found" }), {
+        status: 404,
+        headers: corsHeaders,
+      });
     }
-if (post.status !== "scheduled") {
-  return new Response(JSON.stringify({
-    error: "Post not scheduled for publishing"
-  }), { status: 400 });
-}
-    // Prevent double processing
+
     if (post.status === "processing") {
-      return new Response(JSON.stringify({ error: "Post already processing" }), { status: 409 });
+      return new Response(JSON.stringify({ error: "Post already processing" }), {
+        status: 409,
+        headers: corsHeaders,
+      });
+    }
+
+    if (post.status !== "scheduled") {
+      return new Response(JSON.stringify({
+        error: "Post not scheduled for publishing",
+      }), {
+        status: 400,
+        headers: corsHeaders,
+      });
     }
 
     // Mark as processing
@@ -59,7 +89,10 @@ if (post.status !== "scheduled") {
         attempts: (post.attempts || 0) + 1,
       }).eq("id", post_id);
 
-      return new Response(JSON.stringify({ error: "Missing access token" }), { status: 400 });
+      return new Response(JSON.stringify({ error: "Missing access token" }), {
+        status: 400,
+        headers: corsHeaders,
+      });
     }
 
     const token = account.access_token;
@@ -243,13 +276,19 @@ if (post.status !== "scheduled") {
       status: finalStatus,
       results,
     }), {
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders,
+      },
     });
 
   } catch (err: any) {
     return new Response(
       JSON.stringify({ error: err.message || "Unknown error" }),
-      { status: 500 }
+      {
+        status: 500,
+        headers: corsHeaders,
+      }
     );
   }
 });

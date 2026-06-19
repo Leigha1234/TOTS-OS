@@ -19,7 +19,7 @@ function getCorsHeaders(origin: string | null) {
 }
 
 Deno.serve(async (req) => {
-  const origin = req.headers.get('origin');
+  const origin = req.headers.get('origin') ?? null;
 
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -40,16 +40,28 @@ Deno.serve(async (req) => {
   } catch (_err) {
     return new Response(
       JSON.stringify({ error: 'Invalid JSON body' }),
-      { status: 400, headers: getCorsHeaders(req.headers.get('origin')) }
+      { status: 400, headers: getCorsHeaders(origin) }
     );
   }
 
   try {
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+
+    if (!resendApiKey) {
+      return new Response(
+        JSON.stringify({ error: 'Missing RESEND_API_KEY' }),
+        {
+          status: 500,
+          headers: getCorsHeaders(origin)
+        }
+      );
+    }
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
+        'Authorization': `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
         from: 'Sentinel <system@theorganisedtypes.com>',
@@ -78,15 +90,17 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ sent: true }), { 
       status: 200,
-      headers: getCorsHeaders(req.headers.get('origin'))
+      headers: getCorsHeaders(origin)
     });
     
   } catch (error) {
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), 
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }), 
       { 
         status: 500, 
-        headers: getCorsHeaders(req.headers.get('origin'))
+        headers: getCorsHeaders(origin)
       }
     );
   }

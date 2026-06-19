@@ -3,10 +3,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const MAX_ATTEMPTS = 5;
 
 Deno.serve(async () => {
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return new Response(
+      JSON.stringify({ error: "Missing Supabase environment variables" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   const now = new Date().toISOString();
 
@@ -19,11 +29,16 @@ Deno.serve(async () => {
     .limit(20);
 
   if (error) {
-    return new Response(JSON.stringify({ error }), { status: 500 });
+    return new Response(JSON.stringify({ error }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   if (!posts || posts.length === 0) {
-    return new Response(JSON.stringify({ message: "No posts due" }));
+    return new Response(JSON.stringify({ message: "No posts due" }), {
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   for (const post of posts) {
@@ -35,7 +50,9 @@ Deno.serve(async () => {
       success: true,
       processed: posts.length,
     }),
-    { headers: { "Content-Type": "application/json" } }
+    {
+      headers: { "Content-Type": "application/json" },
+    }
   );
 });
 
@@ -59,11 +76,15 @@ async function processPost(supabase: any, post: any) {
 
     const start = Date.now();
 
-    const { data: account } = await supabase
+    const { data: account, error: accountError } = await supabase
       .from("social_accounts")
       .select("*")
       .eq("id", post.account_id)
       .single();
+
+    if (accountError || !account) {
+      throw new Error("Failed to load social account");
+    }
 
     if (!account?.access_token) {
       throw new Error("Missing social account OAuth token");
@@ -223,7 +244,7 @@ async function publishLinkedIn(post: any, account: any) {
   const data = await res.json();
 
   if (!res.ok) {
-    throw new Error(JSON.stringify(data));
+    throw new Error(`LinkedIn publish failed: ${JSON.stringify(data)}`);
   }
 
   return {

@@ -133,17 +133,21 @@ function VaultContent() {
         .from("profiles")
         .select("organisation_id")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError || !profile?.organisation_id) {
-        console.error("Profile org fetch error:", profileError);
-        toast.error("Unable to load organisation data.");
+      if (profileError) {
+        console.error("Profile org fetch error (supabase):", JSON.stringify(profileError));
+      }
+
+      const orgId = profile?.organisation_id;
+
+      if (!orgId) {
+        console.error("Missing organisation_id for user:", user.id, profile);
+        toast.error("No organisation found for your account. Please contact support or refresh your profile.");
         setNotes([]);
         setIsLoading(false);
         return;
       }
-
-      const orgId = profile.organisation_id;
 
       const { data, error } = await supabase
         .from("notes")
@@ -608,23 +612,21 @@ function VaultContent() {
     const theme = STICKY_THEMES[notes.length % STICKY_THEMES.length];
 
     try {
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("organisation_id")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (!profileData?.organisation_id) {
-        console.error("Missing organisation_id for user:", user.id);
-        toast.error("Unable to determine your organisation. Please contact support.");
-        setIsSyncing(false);
-        return;
+      if (profileError) {
+        console.error("Profile fetch error (create note):", JSON.stringify(profileError));
       }
 
-      const orgId = profileData.organisation_id;
+      const orgId = profileData?.organisation_id;
+
       if (!orgId) {
-        console.error("Insert aborted: missing orgId");
-        toast.error("Missing organisation context. Cannot create note.");
+        console.error("Missing organisation_id during note creation:", user.id, profileData);
+        toast.error("Your account is missing an organisation. Please refresh or contact support.");
         setIsSyncing(false);
         return;
       }

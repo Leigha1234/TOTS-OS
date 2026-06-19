@@ -4,19 +4,32 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/plain",
+      },
+    });
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: "Missing Supabase env vars" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // 1. Get posts that are 'scheduled' where the time has passed
     const now = new Date().toISOString();
@@ -27,7 +40,12 @@ Deno.serve(async (req) => {
       .eq('status', 'scheduled')
       .lte('scheduled_for', now);
 
-    if (fetchError) throw fetchError;
+    if (fetchError) {
+      return new Response(JSON.stringify({ error: fetchError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!posts || posts.length === 0) {
       return new Response(JSON.stringify({ message: "No pending posts found." }), {
@@ -41,6 +59,11 @@ Deno.serve(async (req) => {
     // 2. Loop and push to Ayrshare
     for (const post of posts) {
       const ayrshareKey = Deno.env.get('AYRSHARE_API_KEY');
+
+      if (!ayrshareKey) {
+        results.push({ id: post.id, status: 'failed', error: 'Missing AYRSHARE_API_KEY' });
+        continue;
+      }
       
       const res = await fetch("https://app.ayrshare.com/api/post", {
         method: "POST",
@@ -50,7 +73,9 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           post: post.content || post.caption,
-          platforms: [post.platform.toLowerCase()]
+          platforms: post.platform
+            ? [post.platform.toLowerCase()]
+            : []
         })
       });
 

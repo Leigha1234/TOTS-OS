@@ -15,9 +15,9 @@ export async function POST(req: Request) {
   }
 
   const { data: accounts } = await supabase
-    .from("social_accounts")
-    .select("*")
-    .eq("user_id", post.user_id);
+  .from("social_accounts")
+  .select("*")
+  .eq("organisation_id", post.organisation_id);
 
   const results = [];
 

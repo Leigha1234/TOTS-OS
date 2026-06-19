@@ -25,6 +25,7 @@ import { toast } from "sonner";
  */
 
 export default function Settings() {
+  const isMountedRef = useRef(true);
  const router = useRouter();
   
   // -- 1. STATE MANAGEMENT --
@@ -53,7 +54,7 @@ const [connectedPlatformModal, setConnectedPlatformModal] = useState<string | nu
   const refreshConnections = async () => {
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) return;
+    if (!user || !isMountedRef.current) return;
 
     const { data: connections } = await supabase
       .from("social_accounts")
@@ -73,7 +74,7 @@ const [connectedPlatformModal, setConnectedPlatformModal] = useState<string | nu
 const refreshSocialToken = async (platform: string) => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
+    if (!user || !isMountedRef.current) return false;
 
     const { data } = await supabase
       .from("social_accounts")
@@ -157,6 +158,7 @@ const exchangeOAuthCode = async (platform: string, code: string, state: string) 
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
+    if (!isMountedRef.current) return false;
 
     // Validate state binding (CRITICAL SECURITY CHECK)
     const storedState = sessionStorage.getItem("oauth_state");
@@ -250,8 +252,8 @@ const verifyConnections = async () => {
     tiktok: "unknown",
   };
 
-  if (!user) {
-    setConnectionHealth(health);
+  if (!user || !isMountedRef.current) {
+    if (isMountedRef.current) setConnectionHealth(health);
     return;
   }
 
@@ -378,6 +380,7 @@ const scheduleSocialPost = async (
 // ===============================
 
 const processScheduledPosts = async () => {
+  if (!isMountedRef.current) return;
   const now = new Date().toISOString();
 
   const { data: posts, error } = await supabase
@@ -421,6 +424,7 @@ const processScheduledPosts = async () => {
 };
 
 const retryFailedPosts = async () => {
+  if (!isMountedRef.current) return;
   const { data: posts } = await supabase
     .from("scheduled_posts")
     .select("*")
@@ -463,6 +467,7 @@ const retryFailedPosts = async () => {
 
   // -- 4. DATA FETCHING --
   useEffect(() => {
+    isMountedRef.current = true;
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
 
     async function init() {
@@ -479,9 +484,17 @@ const retryFailedPosts = async () => {
         setUserName((profile.full_name || "OPERATOR").toUpperCase());
         setDisplayName(profile.full_name || "");
         setBio(profile.bio || "");
-        setUserOrgId(profile.organisation_id);
-        await refreshConnections();
-        await verifyPendingOAuth();
+        setUserOrgId(profile.organisation_id ?? null);
+
+        // Prevent unsafe execution if component unmounted
+        if (isMountedRef.current) {
+          try {
+            await refreshConnections();
+            await verifyPendingOAuth();
+          } catch (err) {
+            console.warn("Init connection refresh failed:", err);
+          }
+        }
       }
       setLoading(false);
     }
@@ -490,15 +503,20 @@ const retryFailedPosts = async () => {
     if (typeof window !== "undefined" && window.location.hash === "#_=_") {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-    const handleFocus = () => {
-      refreshConnections();
-      verifyPendingOAuth();
-      verifyConnections();
+    const handleFocus = async () => {
+      if (!isMountedRef.current) return;
+      try {
+        await refreshConnections();
+        await verifyPendingOAuth();
+        await verifyConnections();
 
-      ["meta", "linkedin", "tiktok"].forEach((p) => {
-        if (!connectedPlatformsRef.current.includes(p)) return;
-        sessionStorage.removeItem(`oauth_pending_${p}`);
-      });
+        ["meta", "linkedin", "tiktok"].forEach((p) => {
+          if (!connectedPlatformsRef.current.includes(p)) return;
+          sessionStorage.removeItem(`oauth_pending_${p}`);
+        });
+      } catch (err) {
+        console.warn("Focus sync failed:", err);
+      }
     };
 
     window.addEventListener("focus", handleFocus);
@@ -530,8 +548,8 @@ const retryFailedPosts = async () => {
     // REAL-TIME SOCIAL CONNECTION SYNC (MULTI-TENANT SAFE)
     // ===============================
     const channelRef = useRef<any>(null);
-const engineIntervalRef = useRef<any>(null);
-const tokenIntervalRef = useRef<any>(null);
+    const engineIntervalRef = useRef<any>(null);
+    const tokenIntervalRef = useRef<any>(null);
 
     const setupRealtime = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -585,6 +603,7 @@ const tokenIntervalRef = useRef<any>(null);
     }, 15 * 60 * 1000);
 
     return () => {
+      isMountedRef.current = false;
       clearInterval(timer);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("visibilitychange", handleVisibility);
@@ -592,7 +611,7 @@ const tokenIntervalRef = useRef<any>(null);
       if (engineIntervalRef.current) clearInterval(engineIntervalRef.current);
       if (tokenIntervalRef.current) clearInterval(tokenIntervalRef.current);
 
-      if (channelRef.current  ) {
+      if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
     };

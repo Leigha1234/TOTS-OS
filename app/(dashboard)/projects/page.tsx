@@ -77,8 +77,7 @@ export default function ProjectDirectory() {
       const { data, error } = await supabase
         .from("projects")
         .select("*")
-        .eq("organisation_id", organisationId)
-        .order("created_at", { ascending: false });
+        .eq("organisation_id", organisationId);
 
       if (error) {
         console.error("Load projects error:", error);
@@ -153,21 +152,24 @@ export default function ProjectDirectory() {
       console.log("Creating project payload:", payload);
       console.log("Organisation ID used:", orgId);
 
-      const { data, error } = await supabase
+      const response = await supabase
         .from("projects")
         .insert([payload])
-        .select()
-        .single();
+        .select();
 
-      if (error) {
-        console.error("Supabase insert error (full):", error);
+      console.log("FULL INSERT RESPONSE:", response);
+
+      const { data, error } = response;
+
+      if (error || !data) {
+        console.error("Supabase insert failed (full response):", response);
         console.error("Payload that failed:", payload);
 
         const message =
           error?.message ||
           error?.details ||
           error?.hint ||
-          "Failed to create project (check required fields / schema)";
+          "Insert failed (likely RLS, schema mismatch, or missing required fields)";
 
         toast.error(message);
 
@@ -175,7 +177,8 @@ export default function ProjectDirectory() {
         return;
       }
 
-      setProjects((prev) => [data, ...prev]);
+      const inserted = Array.isArray(data) ? data[0] : data;
+      setProjects((prev) => [inserted, ...prev]);
       setShowModal(false);
 
       setForm({

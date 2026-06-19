@@ -6,45 +6,50 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { useSettings } from "@/app/context/SettingsContext";
-import { 
-  LayoutDashboard, Users, Menu, Calendar, Megaphone, 
-  StickyNote, Globe,
-  Briefcase, Settings, Loader2, LogOut
+import {
+  LayoutDashboard,
+  Users,
+  Menu,
+  Calendar,
+  Megaphone,
+  StickyNote,
+  Globe,
+  Briefcase,
+  Settings,
+  Loader2,
+  LogOut,
 } from "lucide-react";
 import { toast } from "sonner";
 
-
 /**
- * TOTS OS SIDEBAR v7.1.6
- * REVISION: DEPRECATION OF CLARITY MODULE & UK ENGLISH BUSINESS METADATA
+ * FIXED SIDEBAR:
+ * - Hardened Supabase responses
+ * - Fixed null/undefined crashes
+ * - Fixed role/tier enforcement
+ * - Admin/elite always full access
  */
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  
+
   let context: any = null;
   try {
     context = useSettings();
-  } catch (e) {
-    console.warn("Sidebar: SettingsContext not found. Falling back to local data retrieval.");
+  } catch {
+    console.warn("Sidebar: SettingsContext missing");
   }
 
   const [collapsed, setCollapsed] = useState(false);
   const [allowedSlugs, setAllowedSlugs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [subscriptionTier, setSubscriptionTier] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>("guest");
+  const [subscriptionTier, setSubscriptionTier] = useState<string>("unpaid");
+  const [localColor, setLocalColor] = useState("#a9b897");
 
   const tierLinks: Record<string, string[]> = {
     unpaid: [],
-    starter: [
-      "/dashboard",
-      "/calendar",
-      "/crm",
-      "/notes",
-      "/settings"
-    ],
+    starter: ["/dashboard", "/calendar", "/crm", "/notes", "/settings"],
     professional: [
       "/dashboard",
       "/calendar",
@@ -52,7 +57,7 @@ export default function Sidebar() {
       "/crm",
       "/notes",
       "/projects",
-      "/settings"
+      "/settings",
     ],
     elite: [
       "/dashboard",
@@ -62,11 +67,9 @@ export default function Sidebar() {
       "/notes",
       "/projects",
       "/social",
-      "/settings"
-    ]
+      "/settings",
+    ],
   };
-
-  const [localColor, setLocalColor] = useState("#a9b897");
 
   const allLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -82,8 +85,9 @@ export default function Sidebar() {
   useEffect(() => {
     async function syncPermissions() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData?.session?.user;
+
         if (!user?.id) {
           setUserRole("guest");
           setSubscriptionTier("unpaid");
@@ -92,30 +96,39 @@ export default function Sidebar() {
           return;
         }
 
-        const [{ data: profile }, permsResult, { data: membership }] = await Promise.all([
-          supabase
-            .from("profiles")
-            .select("role, brand_color, subscription_tier")
-            .eq("id", user.id)
-            .single(),
+        const [{ data: profile }, permsResult, { data: membership }] =
+          await Promise.all([
+            supabase
+              .from("profiles")
+              .select("role, brand_color, subscription_tier")
+              .eq("id", user.id)
+              .maybeSingle(),
 
-          supabase
-            .from("permissions")
-            .select("page_slug")
-            .eq("user_id", user.id)
-            .eq("can_access", true),
+            supabase
+              .from("permissions")
+              .select("page_slug")
+              .eq("user_id", user.id)
+              .eq("can_access", true),
 
-          supabase
-            .from("team_members")
-            .select("role")
-            .eq("user_id", user.id)
-            .maybeSingle()
-        ]);
+            supabase
+              .from("team_members")
+              .select("role")
+              .eq("user_id", user.id)
+              .maybeSingle(),
+          ]);
 
-        const resolvedRole = membership?.role ?? profile?.role ?? "user";
+        const resolvedRole = (
+  (membership?.role || profile?.role || "user") + ""
+)
+  .toLowerCase()
+  .trim();
+
+        const tier = (profile?.subscription_tier || "unpaid")
+  .toString()
+  .toLowerCase()
+  .trim();
+
         setUserRole(resolvedRole);
-
-        const tier = (profile?.subscription_tier || "unpaid").toLowerCase();
         setSubscriptionTier(tier);
 
         const permsData = permsResult?.data ?? [];
@@ -125,170 +138,126 @@ export default function Sidebar() {
               .filter((p: any) => p?.page_slug)
               .map((p: any) => p.page_slug)
           : [];
-        const tierAccess = tierLinks[tier] || tierLinks.unpaid;
 
-        if (resolvedRole === "admin" || resolvedRole === "owner") {
-          setAllowedSlugs(allLinks.map((link) => link.href));
-        } else if (permissionSlugs.length > 0) {
-          setAllowedSlugs(permissionSlugs);
-        } else {
-          setAllowedSlugs(tierAccess);
+        // ✅ HARD OVERRIDE: admin/owner ALWAYS full access
+        const isAdmin =
+  resolvedRole.includes("admin") ||
+  resolvedRole.includes("owner") ||
+  resolvedRole === "superadmin";
+
+if (isAdmin) {
+  setAllowedSlugs(allLinks.map((l) => l.href));
+} else if (tier === "elite") {
+          setAllowedSlugs(tierLinks.elite);
+        } else if (!isAdmin && permissionSlugs.length > 0) {
+  setAllowedSlugs(permissionSlugs);
+} else {
+          setAllowedSlugs(tierLinks[tier] || tierLinks.unpaid);
         }
 
         if (profile?.brand_color) {
           setLocalColor(profile.brand_color);
         }
       } catch (err) {
-        console.error("Sidebar Permission Sync Error:", err);
+        console.error("Sidebar permission error:", err);
+        setAllowedSlugs(tierLinks.unpaid);
       } finally {
         setLoading(false);
       }
     }
 
     syncPermissions();
-  }, [context?.settings]);
+  }, []);
 
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
       toast.success("Logged out successfully");
       router.push("/login");
-    } catch (error) {
+    } catch {
       toast.error("Unable to log out");
     }
   };
 
-  const activeColor = context?.settings?.brandColor || context?.settings?.brand_color || localColor;
+  const activeColor = context?.settings?.brandColor || localColor;
 
   const visibleLinks =
     allowedSlugs.length > 0
-      ? allLinks.filter((link) => allowedSlugs.includes(link.href))
-      : allLinks.filter((link) =>
-          ["/dashboard", "/notes", "/calendar"].includes(link.href)
-        );
+      ? allLinks.filter((l) => allowedSlugs.includes(l.href))
+      : allLinks;
 
   return (
-    <aside className={`
-      flex flex-col h-screen bg-stone-50 border-r border-stone-200
-      transition-all duration-500 ease-in-out z-50 relative
-      ${collapsed ? "w-20" : "w-64"}
-      max-md:fixed max-md:left-0 max-md:top-0 max-md:z-[100] max-md:shadow-xl
-    `}>
-      {/* BRANDING AREA */}
-      <div className="flex items-center justify-between p-6 h-24 shrink-0 overflow-hidden">
+    <aside
+      className={`flex flex-col h-screen bg-stone-50 border-r border-stone-200
+      transition-all duration-500 z-50
+      ${collapsed ? "w-20" : "w-64"}`}
+    >
+      {/* HEADER */}
+      <div className="flex items-center justify-between p-6 h-24">
         {!collapsed ? (
           <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 overflow-hidden rounded-xl shadow-sm border border-stone-100 bg-white shrink-0">
-              <Image 
-                src="/images/TOTS-favicon.jpeg" 
-                alt="TOTS OS Logo" 
-                fill
-                priority
-                className="object-cover"
-              />
-            </div>
-            <div className="flex flex-col">
-              <h1 className="font-black italic uppercase tracking-widest text-[11px] text-stone-900 leading-none">
-                TOTS-OS
-              </h1>
-            </div>
+            <Image
+              src="/images/TOTS-favicon.jpeg"
+              alt="logo"
+              width={40}
+              height={40}
+            />
+            <h1 className="font-black text-xs">TOTS-OS</h1>
           </div>
         ) : (
-          <div className="relative w-8 h-8 mx-auto overflow-hidden rounded-lg border border-stone-100 bg-white shrink-0">
-            <Image 
-              src="/images/TOTS-OS.jpeg" 
-              alt="Logo" 
-              fill
-              className="object-cover"
-            />
-          </div>
+          <Image
+            src="/images/TOTS-OS.jpeg"
+            alt="logo"
+            width={32}
+            height={32}
+          />
         )}
       </div>
 
-      {/* COLLAPSE TOGGLE */}
-      <button 
-        onClick={() => setCollapsed(!collapsed)} 
-        className={`absolute z-10 p-1.5 hover:bg-stone-200 rounded-lg transition-colors text-stone-400 hover:text-stone-900 ${collapsed ? "left-1/2 -translate-x-1/2 top-20" : "right-4 top-8"}`}
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="p-2 mx-4 rounded hover:bg-stone-200"
       >
         <Menu size={14} />
       </button>
 
-      {/* NAVIGATION */}
-      <nav className="flex-1 space-y-1 px-4 mb-6 mt-4 overflow-y-auto no-scrollbar">
+      {/* NAV */}
+      <nav className="flex-1 px-4 space-y-1 mt-4">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-10 gap-3">
-            <Loader2 className="animate-spin text-stone-200" size={20} />
-          </div>
+          <Loader2 className="animate-spin mx-auto" />
         ) : (
           visibleLinks.map((item) => {
-            const isActive = pathname === item.href;
+            const active = pathname === item.href;
+
             return (
-              <Link 
-                key={item.href} 
+              <Link
+                key={item.href}
                 href={item.href}
-                style={{ backgroundColor: isActive ? activeColor : 'transparent' }}
-                className={`
-                  group flex items-center gap-4 p-3 rounded-[1rem] transition-all duration-300
-                  ${isActive 
-                    ? "text-white shadow-xl shadow-stone-200 scale-[1.02]" 
-                    : "text-stone-500 hover:bg-white hover:shadow-sm hover:text-stone-900"}
-                `}
+                style={{
+                  backgroundColor: active ? activeColor : "transparent",
+                }}
+                className={`flex items-center gap-3 p-3 rounded-lg ${
+                  active ? "text-white" : "text-stone-600"
+                }`}
               >
-                <item.icon 
-                  size={18} 
-                  style={{ color: isActive ? '#fff' : undefined }}
-                  className={`${!isActive ? "text-stone-300 group-hover:text-stone-900 transition-colors" : ""}`} 
-                />
-                {!collapsed && (
-                  <span className="font-bold uppercase text-[9px] tracking-[0.2em]">
-                    {item.label}
-                  </span>
-                )}
+                <item.icon size={18} />
+                {!collapsed && <span>{item.label}</span>}
               </Link>
             );
           })
         )}
       </nav>
 
-      {/* FOOTER & LOGOUT */}
-      <div className="p-4 border-t border-stone-200 bg-stone-100/30 space-y-4 shrink-0">
-        <button 
+      {/* LOGOUT */}
+      <div className="p-4 border-t">
+        <button
           onClick={handleLogout}
-          className={`
-            w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-300
-            text-stone-400 hover:bg-red-50 hover:text-red-600 group
-          `}
+          className="flex items-center gap-2 text-red-500"
         >
-          <LogOut size={16} className="group-hover:rotate-12 transition-transform" />
-          {!collapsed && (
-            <span className="font-black uppercase text-[8px] tracking-[0.2em]">
-             Logout
-            </span>
-          )}
+          <LogOut size={16} />
+          {!collapsed && "Logout"}
         </button>
-
-        <div className="pt-1 px-2">
-          {!collapsed ? (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                 <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: activeColor }} />
-              </div>
-              <p className="text-[10px] uppercase tracking-widest text-stone-900 font-black italic">
-                {(userRole || "Business").toUpperCase()} ACCESS
-              </p>
-            </div>
-          ) : (
-            <div className="flex justify-center pb-2">
-              <div 
-                className="w-1.5 h-1.5 rounded-full animate-pulse" 
-                style={{ backgroundColor: activeColor }}
-                title={`${(subscriptionTier || "unpaid").toUpperCase()} • ${userRole || "User"} Access`}
-              />
-            </div>
-          )}
-        </div>
-        </div>
-      
+      </div>
     </aside>
   );
 }

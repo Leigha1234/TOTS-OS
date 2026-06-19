@@ -46,7 +46,21 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
+  let profile = null;
+
+  if (session?.user?.id) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('organisation_id, subscription_tier')
+      .eq('id', session.user.id)
+      .single();
+
+    profile = data;
+  }
+
   const { pathname } = request.nextUrl;
+  const isAuthCallback = pathname.startsWith('/auth/callback');
+  const isDashboard = pathname.startsWith('/dashboard');
 
   // 1. SECURITY HEADER INJECTION
   response.headers.set('x-tots-os-version', '7.1.0');
@@ -54,19 +68,20 @@ export async function middleware(request: NextRequest) {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-  // Added public path check to allow public paths to bypass auth
   const isPublic = PUBLIC_PATHS.some(path => pathname.startsWith(path));
-  if (isPublic) {
-    return response;
-  }
 
-  if (pathname.startsWith('/dashboard')) {
+  const isAuthRoute =
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/auth');
+
+  if (isAuthRoute) {
     return response;
   }
 
   // 2. AUTHENTICATION GUARD
   const isProtected = PROTECTED_PATHS.some(path => pathname.startsWith(path));
-  if (!isPublic && isProtected && !session) {
+  if (!isPublic && isProtected && (!session || !profile)) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -78,17 +93,18 @@ export async function middleware(request: NextRequest) {
   // 4. SUBSCRIPTION GATE (The Pay-First Wall)
   if (
     session &&
+    profile &&
     !isPublic &&
-    !pathname.startsWith('/dashboard') &&
+    !isAuthCallback &&
+    !isDashboard &&
     SUBSCRIPTION_REQUIRED_PATHS.some(path => pathname.startsWith(path))
   ) {
     if (pathname === BILLING_PATH) {
       return response;
     }
     
-    // Extract tier from Metadata (Cached in JWT for optimal performance)
-    const tierRaw = session.user.user_metadata?.subscription_tier;
-    const tier = (typeof tierRaw === 'string' ? tierRaw : 'standard').toLowerCase();
+    // Extract tier from profile (Cached in DB for optimal performance)
+    const tier = (profile?.subscription_tier || 'standard').toLowerCase();
 
     // A. Billing Bypass: Users must be allowed to reach the pricing page
     if (pathname === BILLING_PATH || pathname.startsWith('/settings/manage-subscription')) {
@@ -109,6 +125,10 @@ export async function middleware(request: NextRequest) {
     ) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
+  }
+
+  if (!profile && isProtected) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   return response;

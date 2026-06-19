@@ -58,23 +58,27 @@ function LoginForm() {
 
     try {
       if (isRegister) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
-            data: {
-              full_name: fullName || email.split('@')[0],
-              company_name: companyName || null,
-              job_title: jobTitle || null,
-              is_new_org: !inviteId,
-              org_name: companyName || "New Organisation",
-              invite_team_id: inviteId || null,
-            },
+        const res = await fetch("/api/send-signup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
+          body: JSON.stringify({
+            email,
+            password,
+            fullName,
+            companyName,
+            jobTitle,
+            inviteId,
+          }),
         });
 
-        if (error) throw error;
+        const result = await res.json();
+
+        if (!res.ok || result?.error) {
+          throw new Error(result?.error || "Signup failed");
+        }
+
         alert("Registration successful. Please check your email to verify your account and complete setup.");
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({

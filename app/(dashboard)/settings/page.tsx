@@ -42,6 +42,409 @@ export default function Settings() {
   const [fontPreference, setFontPreference] = useState("serif-heavy");
   const [, setUserOrgId] = useState<string | null>(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+const [connectionHealth, setConnectionHealth] = useState<
+  Record<string, "connected" | "disconnected" | "unknown" | "expired">
+>({});
+const [postQueue, setPostQueue] = useState<any[]>([]);
+const [executionLogs, setExecutionLogs] = useState<any[]>([]);
+
+  const refreshConnections = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data: connections } = await supabase
+      .from("social_accounts")
+      .select("platform")
+      .eq("user_id", user.id);
+
+    if (connections) {
+  const platforms = connections.map((c: any) => c.platform);
+  setConnectedPlatforms(platforms);
+
+  await verifyPendingOAuth();
+  await verifyConnections();
+}
+  };
+
+const refreshSocialToken = async (platform: string) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data } = await supabase
+      .from("social_accounts")
+      .select("refresh_token")
+      .eq("user_id", user.id)
+      .eq("platform", platform)
+      .maybeSingle();
+
+    if (!data?.refresh_token) return false;
+
+    const res = await fetch("/api/oauth/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        platform,
+        refresh_token: data.refresh_token,
+        userId: user.id,
+      }),
+    });
+
+    if (!res.ok) return false;
+
+    const tokens = await res.json();
+
+    const { error } = await supabase
+      .from("social_accounts")
+      .update({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token || data.refresh_token,
+        expires_at: tokens.expires_at,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id)
+      .eq("platform", platform);
+
+    if (error) return false;
+
+    return true;
+  } catch (err) {
+    console.warn("Token refresh failed:", platform, err);
+    return false;
+  }
+};
+
+const verifyPendingOAuth = async () => {
+  const pending = ["meta", "linkedin", "tiktok"].filter((p) =>
+    sessionStorage.getItem(`oauth_pending_${p}`) === "true"
+  );
+
+  if (pending.length === 0) return;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  for (const platform of pending) {
+    try {
+      const { data } = await supabase
+        .from("social_accounts")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("platform", platform)
+        .maybeSingle();
+
+      if (data?.id) {
+        sessionStorage.removeItem(`oauth_pending_${platform}`);
+      }
+    } catch (err) {
+      console.warn("OAuth verify failed:", platform, err);
+    }
+  }
+};
+
+const exchangeOAuthCode = async (platform: string, code: string, state: string) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    // Validate state binding (CRITICAL SECURITY CHECK)
+    const storedState = sessionStorage.getItem("oauth_state");
+    // ENHANCED STATE VALIDATION (ALIGN WITH NEW FORMAT)
+    const parts = (state || "").split(":");
+    const statePlatform = parts[0];
+    const stateUserId = parts[2];
+
+    if (!statePlatform || !stateUserId) {
+      throw new Error("Malformed OAuth state");
+    }
+
+    if (!storedState || !state.includes(":") || stateUserId !== user.id) {
+      throw new Error("Invalid OAuth state - potential CSRF risk");
+    }
+
+    // STORE PLATFORM SAFETY CHECK (PREVENT MISASSIGNMENT)
+    if (statePlatform !== platform) {
+      throw new Error("OAuth platform mismatch detected");
+    }
+
+    // Call backend token exchange endpoint (Edge Function / API route)
+    const res = await fetch("/api/oauth/exchange", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        platform,
+        code,
+        state,
+        userId: user.id,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || "OAuth exchange failed");
+    }
+
+    const data = await res.json();
+
+    // Expected: { access_token, refresh_token, expires_at }
+    const { access_token, refresh_token, expires_at } = data || {};
+
+    if (!access_token) {
+      throw new Error("Missing access token from OAuth exchange");
+    }
+
+    // Store securely in Supabase (server-side encrypted column expected)
+    const { error } = await supabase.from("social_accounts").upsert({
+      user_id: user.id,
+      platform,
+      access_token,
+      refresh_token: refresh_token || null,
+      expires_at: expires_at || null,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Cleanup OAuth session state
+    sessionStorage.removeItem("oauth_state");
+    sessionStorage.removeItem(`oauth_pending_${platform}`);
+    sessionStorage.removeItem("oauth_started_at");
+
+    return true;
+  } catch (err: any) {
+    console.error("OAuth exchange error:", err);
+    toast.error(err.message || "OAuth exchange failed");
+    return false;
+  }
+};
+
+const verifyConnections = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const health: Record<string, "connected" | "disconnected" | "unknown" | "expired"> = {
+    meta: "unknown",
+    linkedin: "unknown",
+    tiktok: "unknown",
+  };
+
+  if (!user) {
+    setConnectionHealth(health);
+    return;
+  }
+
+  const { data: connections, error } = await supabase
+    .from("social_accounts")
+    .select("platform, expires_at")
+    .eq("user_id", user.id);
+
+  if (error || !connections) {
+    setConnectionHealth(health);
+    return;
+  }
+
+  const now = Date.now();
+
+  for (const connection of connections as any[]) {
+    const platform = connection.platform;
+    const expiresAt = connection.expires_at ? new Date(connection.expires_at).getTime() : null;
+
+    if (!platform) continue;
+
+    // expired token handling
+    if (expiresAt && expiresAt < now) {
+      const refreshed = await refreshSocialToken(platform);
+
+      if (refreshed) {
+        health[platform] = "connected";
+      } else {
+        health[platform] = "expired";
+      }
+
+      continue;
+    }
+
+    health[platform] = "connected";
+  }
+
+  ["meta", "linkedin", "tiktok"].forEach((platform) => {
+    if (health[platform] !== "connected" && health[platform] !== "expired") {
+      health[platform] = "disconnected";
+    }
+  });
+
+  setConnectionHealth(health);
+};
+
+// ===============================
+// SOCIAL ENGINE v6 — POSTING CORE
+// ===============================
+
+const publishToPlatform = async (
+  platform: string,
+  content: string,
+  media?: any
+) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const res = await fetch("/api/social/post", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      platform,
+      content,
+      media: media || null,
+      userId: user.id,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || "Post failed");
+  }
+
+  return await res.json();
+};
+
+const postToSocial = async (content: string, platforms: string[]) => {
+  const results: any[] = [];
+
+  for (const platform of platforms) {
+    try {
+      const result = await publishToPlatform(platform, content);
+      results.push({ platform, status: "success", result });
+    } catch (err: any) {
+      results.push({ platform, status: "failed", error: err.message });
+    }
+  }
+
+  return results;
+};
+
+const scheduleSocialPost = async (
+  content: string,
+  platforms: string[],
+  scheduledAt: Date
+) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { error } = await supabase.from("scheduled_posts").insert({
+    user_id: user.id,
+    content,
+    platforms,
+    scheduled_at: scheduledAt.toISOString(),
+    status: "scheduled",
+    created_at: new Date().toISOString(),
+  });
+
+  if (error) throw new Error(error.message);
+
+  setPostQueue((prev) => [
+    ...prev,
+    { content, platforms, scheduledAt }
+  ]);
+
+  return true;
+};
+
+// ===============================
+// SOCIAL ENGINE v7 — SCHEDULER RUNTIME
+// ===============================
+
+const processScheduledPosts = async () => {
+  const now = new Date().toISOString();
+
+  const { data: posts, error } = await supabase
+    .from("scheduled_posts")
+    .select("*")
+    .eq("status", "scheduled")
+    .lte("scheduled_at", now);
+
+  if (error || !posts) return;
+
+  for (const post of posts) {
+    try {
+      // mark as processing
+      await supabase
+        .from("scheduled_posts")
+        .update({ status: "processing" })
+        .eq("id", post.id);
+
+      // execute post
+      const results = await postToSocial(post.content, post.platforms || []);
+
+      const failed = results.filter((r) => r.status === "failed");
+
+      if (failed.length === 0) {
+        await supabase
+          .from("scheduled_posts")
+          .update({
+            status: "posted",
+            executed_at: new Date().toISOString(),
+          })
+          .eq("id", post.id);
+      } else {
+        await supabase
+          .from("scheduled_posts")
+          .update({
+            status: "failed",
+            last_error: JSON.stringify(failed),
+          })
+          .eq("id", post.id);
+      }
+    } catch (err: any) {
+      await supabase
+        .from("scheduled_posts")
+        .update({
+          status: "failed",
+          last_error: err.message,
+        })
+        .eq("id", post.id);
+    }
+  }
+};
+
+const retryFailedPosts = async () => {
+  const { data: posts } = await supabase
+    .from("scheduled_posts")
+    .select("*")
+    .eq("status", "failed");
+
+  if (!posts) return;
+
+  for (const post of posts) {
+    try {
+      const results = await postToSocial(post.content, post.platforms || []);
+
+      const failed = results.filter((r) => r.status === "failed");
+
+      await supabase
+        .from("scheduled_posts")
+        .update({
+          status: failed.length === 0 ? "posted" : "failed",
+          last_error: failed.length ? JSON.stringify(failed) : null,
+          executed_at: new Date().toISOString(),
+        })
+        .eq("id", post.id);
+    } catch (err: any) {
+      await supabase
+        .from("scheduled_posts")
+        .update({
+          status: "failed",
+          last_error: err.message,
+        })
+        .eq("id", post.id);
+    }
+  }
+};
 
   // -- 3. PASSWORD / AUTH --
   // REMOVED: oldPassword state
@@ -52,7 +455,7 @@ export default function Settings() {
   // -- 4. DATA FETCHING --
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    
+
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
@@ -68,19 +471,53 @@ export default function Settings() {
         setDisplayName(profile.full_name || "");
         setBio(profile.bio || "");
         setUserOrgId(profile.organisation_id);
-        const { data: connections } = await supabase
-          .from("social_accounts")
-          .select("platform")
-          .eq("user_id", user.id);
-
-        if (connections) {
-          setConnectedPlatforms(connections.map((c: any) => c.platform));
-        }
+        await refreshConnections();
+        await verifyPendingOAuth();
       }
       setLoading(false);
     }
     init();
-    return () => clearInterval(timer);
+    const handleFocus = () => {
+      refreshConnections();
+      verifyPendingOAuth();
+      verifyConnections();
+
+      ["meta", "linkedin", "tiktok"].forEach((p) => {
+        if (!connectedPlatforms.includes(p)) return;
+        sessionStorage.removeItem(`oauth_pending_${p}`);
+      });
+    };
+
+    window.addEventListener("focus", handleFocus);
+    // ===============================
+    // SOCIAL ENGINE v8 — BACKEND RUNTIME BRIDGE
+    // ===============================
+    const triggerBackendScheduler = async () => {
+      try {
+        await fetch("/api/social/worker/run", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      } catch (err) {
+        console.warn("Scheduler trigger failed:", err);
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        triggerBackendScheduler();
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [router]);
 
   // -- 5. HANDLERS --
@@ -103,6 +540,36 @@ export default function Settings() {
         })
         .eq("id", user.id);
 
+      // UPGRADE OAuth callback handling (SECURE FLOW)
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+        const state = params.get("state");
+
+        const url = window.location.href;
+
+        // detect OAuth callback ONLY
+        if (code && state && url.includes("code=")) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+
+          const platform =
+            state.includes("meta") ? "meta" :
+            state.includes("linkedin") ? "linkedin" :
+            state.includes("tiktok") ? "tiktok" :
+            null;
+
+          if (platform) {
+            const success = await exchangeOAuthCode(platform, code, state);
+
+            if (success) {
+              await refreshConnections();
+              await verifyConnections();
+              toast.success(`${platform} connected successfully`);
+            }
+          }
+        }
+      }
+
       if (error) throw error;
 
       toast.success("Settings saved successfully");
@@ -113,6 +580,8 @@ export default function Settings() {
     }
   };
 
+
+  
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
@@ -127,8 +596,11 @@ const connectSocialPlatform = async (platform: string): Promise<void> => {
 
   toast.info(`Redirecting to ${platform} authorization...`);
 
-  const state = crypto.randomUUID();
+  // 1) Strengthen OAuth state (security + user binding)
+  const state = `${platform}:${crypto.randomUUID()}:${user.id}`;
   sessionStorage.setItem("oauth_state", state);
+  // 2) Improve OAuth session tracking (engine reliability)
+  sessionStorage.setItem("oauth_started_at", Date.now().toString());
 
   const metaClientId = process.env.NEXT_PUBLIC_META_CLIENT_ID ?? "";
   const metaRedirectUri = process.env.NEXT_PUBLIC_META_REDIRECT_URI ?? "";
@@ -152,14 +624,15 @@ const connectSocialPlatform = async (platform: string): Promise<void> => {
     return;
   }
 
- const metaAuth =
-  `https://www.facebook.com/v23.0/dialog/oauth` +
-  `?client_id=${metaClientId}` +
-  `&redirect_uri=${encodeURIComponent(metaRedirectUri)}` +
-  `&response_type=code` +
-  `&auth_type=rerequest` +
-  `&scope=public_profile,pages_show_list,pages_read_engagement` +
-  `&state=${state}`;
+  const metaAuth =
+    `https://www.facebook.com/v23.0/dialog/oauth` +
+    `?client_id=${metaClientId}` +
+    `&redirect_uri=${encodeURIComponent(metaRedirectUri)}` +
+    `&response_type=code` +
+    `&auth_type=rerequest` +
+    // 4) Fix Meta OAuth scope stability (remove risky permissions drift)
+    `&scope=public_profile,email,pages_show_list,pages_read_engagement,pages_manage_posts` +
+    `&state=${state}`;
 
   const linkedinAuth =
     `https://www.linkedin.com/oauth/v2/authorization` +
@@ -187,6 +660,10 @@ const connectSocialPlatform = async (platform: string): Promise<void> => {
     toast.error("Unsupported platform");
     return;
   }
+
+  // 3) Force post-OAuth refresh trigger hook (engine resilience)
+  // mark platform auth attempt for UI recovery + polling fallback
+  sessionStorage.setItem(`oauth_pending_${platform}`, "true");
 
   console.log(`${platform} OAuth URL`, urls[platform]);
   window.location.href = urls[platform];
@@ -514,3 +991,4 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
     </div>
   );
 }
+

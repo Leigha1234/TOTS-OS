@@ -39,6 +39,42 @@ interface ContentConcept {
   recommendedAudio: string;
 }
 
+const POST_STATUS = {
+  DRAFT: "draft",
+  SCHEDULED: "scheduled",
+  PROCESSING: "processing",
+  PUBLISHED: "published",
+  FAILED: "failed"
+} as const;
+
+
+const isSameDay = (dateStr: string, day: number, month: number, year: number) => {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  return (
+    d.getDate() === day &&
+    d.getMonth() === month &&
+    d.getFullYear() === year
+  );
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "published":
+      return "bg-green-500";
+    case "scheduled":
+      return "bg-blue-400";
+    case "processing":
+      return "bg-yellow-400";
+    case "failed":
+      return "bg-red-500";
+    case "draft":
+      return "bg-stone-300";
+    default:
+      return "bg-stone-200";
+  }
+};
+
 export default function SocialStudioUnified() {
   // Navigation & UI State
   const [viewMode, setViewMode] = useState<"lab" | "planner">("lab");
@@ -81,8 +117,9 @@ export default function SocialStudioUnified() {
   // --- Data Sync ---
   const syncPosts = async () => {
     setStatus("Syncing");
+    setPosts([]); // clear stale state before refresh
     let query = supabase
-      .from('socials')
+      .from('scheduled_posts')
       .select('id, caption, platform, hashtags, media_url, scheduled_for, status, format, platform_post_id, last_error, attempts, analytics');
 
     if (user?.id) {
@@ -101,10 +138,9 @@ export default function SocialStudioUnified() {
   };
 
   useEffect(() => {
-    if (user?.id) {
-      syncPosts();
-    }
-  }, [supabase, user]);
+  if (!user?.id) return;
+  syncPosts();
+}, [user?.id]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -141,6 +177,28 @@ export default function SocialStudioUnified() {
 
     loadAccounts();
   }, [user, supabase]);
+
+  // --- REAL-TIME POST EXECUTION SYNC (PHASE 3 ENGINE HOOK) ---
+  useEffect(() => {
+    const channel = supabase
+      .channel("scheduled_posts_realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "scheduled_posts",
+        },
+        () => {
+          syncPosts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
 
   // --- Handle Local File Selection ---
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -220,10 +278,9 @@ export default function SocialStudioUnified() {
     if (day === 0) return;
     
     const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    const dayPosts = posts.filter(p => {
-      const d = new Date(p.scheduled_for);
-      return d.getDate() === day && d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear();
-    });
+    const dayPosts = posts.filter(p =>
+      isSameDay(p.scheduled_for, day, currentDate.getMonth(), currentDate.getFullYear())
+    );
 
     if (dayPosts.length > 0) {
       setSelectedDayPosts(dayPosts);
@@ -266,13 +323,13 @@ export default function SocialStudioUnified() {
       setIsUploadingMedia(false);
     }
 
-    const { error } = await supabase.from('socials').insert([{
+    const { error } = await supabase.from('scheduled_posts').insert([{
       caption: caption,
       platform,
       hashtags,
       media_url: finalMediaUrl, 
       scheduled_for: new Date(scheduledTime).toISOString(),
-      status: 'scheduled',
+      status: POST_STATUS.SCHEDULED,
       user_id: user?.id,
       account_id: selectedAccountId,
       format: format
@@ -497,7 +554,7 @@ export default function SocialStudioUnified() {
                             className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100"
                           >
                             <option value="">Select account</option>
-                            {accounts.map((acc) => (
+                            {accounts?.length > 0 && accounts.map((acc) => (
                               <option key={acc.id} value={acc.id}>
                                 {acc.platform} - {acc.platform_user_id || acc.id}
                               </option>
@@ -539,10 +596,9 @@ export default function SocialStudioUnified() {
                    <div key={d} className="text-center text-[10px] font-black text-stone-200 uppercase tracking-[0.3em] mb-10">{d}</div>
                  ))}
                  {calendarDays.map((day, i) => {
-                   const dayPosts = posts.filter(p => {
-                     const d = new Date(p.scheduled_for);
-                     return d.getDate() === day && d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear();
-                   });
+                   const dayPosts = posts.filter(p =>
+                     isSameDay(p.scheduled_for, day, currentDate.getMonth(), currentDate.getFullYear())
+                   );
                    return (
                      <div 
                       key={i} 
@@ -553,7 +609,16 @@ export default function SocialStudioUnified() {
                       `}
                      >
                         {day > 0 ? day : ""}
-                        {dayPosts.length > 0 && <div className="absolute bottom-5 w-2 h-2 rounded-full bg-[#a9b897] shadow-[0_0_12px_#a9b897]" />}
+                        {dayPosts.length > 0 && (
+                          <div className="absolute bottom-5 flex gap-1">
+                            {dayPosts.slice(0, 3).map((p) => (
+                              <div
+                                key={p.id}
+                                className={`w-2 h-2 rounded-full ${getStatusColor(p.status)}`}
+                              />
+                            ))}
+                          </div>
+                        )}
                      </div>
                    );
                  })}
@@ -582,7 +647,12 @@ export default function SocialStudioUnified() {
                              {post.platform === 'instagram' ? <Instagram size={20}/> : post.platform === 'tiktok' ? <Video size={20}/> : <Linkedin size={20}/>}
                           </div>
                           <div className="flex-1">
-                             <p className="text-[10px] font-black uppercase text-[#a9b897] tracking-widest">{post.platform} // {post.format}</p>
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${getStatusColor(post.status)}`} />
+                              <p className="text-[10px] font-black uppercase text-[#a9b897] tracking-widest">
+                                {post.platform} // {post.format}
+                              </p>
+                            </div>
                              <p className="text-sm font-serif italic text-stone-600 line-clamp-2 leading-snug mt-0.5">"{post.caption}"</p>
                           </div>
                        </div>

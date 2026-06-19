@@ -105,6 +105,7 @@ export default function SocialStudioUnified() {
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
+  const [postState, setPostState] = useState<'idle' | 'posting' | 'posted'>('idle');
 
   // System Data
   const [posts, setPosts] = useState<SocialPost[]>([]);
@@ -316,6 +317,7 @@ export default function SocialStudioUnified() {
     }
 
     setIsPosting(true);
+    setPostState('posting');
     setStatus("Posting...");
 
     setStatus("Saving");
@@ -392,8 +394,12 @@ export default function SocialStudioUnified() {
         } else {
           toast.success("Posted to Meta successfully!");
         }
+        setPostState('posted');
         setStatus("Posted!");
-        setTimeout(() => setStatus("Ready"), 1500);
+        setTimeout(() => {
+          setStatus("Ready");
+          setPostState('idle');
+        }, 1500);
       } catch (err) {
         console.error(err);
         toast.error("Meta publish failed.");
@@ -401,8 +407,12 @@ export default function SocialStudioUnified() {
       }
     } else {
       toast.success("Post scheduled successfully!");
+      setPostState('posted');
       setStatus("Posted!");
-      setTimeout(() => setStatus("Ready"), 1500);
+      setTimeout(() => {
+        setStatus("Ready");
+        setPostState('idle');
+      }, 1500);
     }
 
     setCaption("");
@@ -415,6 +425,7 @@ export default function SocialStudioUnified() {
 
     syncPosts();
     setIsPosting(false);
+    setPostState('idle');
 
     return true;
   };
@@ -686,14 +697,22 @@ export default function SocialStudioUnified() {
                     disabled={isUploadingMedia || isPosting}
                     className="w-full py-6 mb-3 bg-[#a9b897] text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-[#97a786] transition-all shadow-xl"
                   >
-                    {isPosting ? "Posting..." : "Post Now"} <ArrowRight size={14} />
+                    {postState === 'posting'
+                      ? "Posting..."
+                      : postState === 'posted'
+                      ? "Posted!"
+                      : "Post Now"} <ArrowRight size={14} />
                   </button>
                   <button
                     onClick={deployToProductionGrid}
                     disabled={isUploadingMedia || isPosting}
                     className="w-full py-6 mt-6 bg-[#1c1c1c] text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-stone-800 transition-all shadow-xl shadow-stone-100"
                   >
-                    {isPosting ? "Posting..." : (isUploadingMedia ? "Staging Assets..." : "Schedule Content Post")} <ArrowRight size={14} className="text-[#a9b897]"/>
+                    {postState === 'posting'
+                      ? "Posting..."
+                      : postState === 'posted'
+                      ? "Posted!"
+                      : (isUploadingMedia ? "Staging Assets..." : "Schedule Content Post")} <ArrowRight size={14} className="text-[#a9b897]"/>
                   </button>
                 </div>
               </div>

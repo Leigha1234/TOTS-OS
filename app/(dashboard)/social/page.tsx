@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, ChangeEvent } from "react";
+import React, { useState, useEffect, useMemo, ChangeEvent, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Trash2, RefreshCcw, Layers, Sparkles, Hash, Clock, X, 
-  ArrowRight, BarChart3, Video, Linkedin, 
+  ArrowRight, BarChart3, Video, Linkedin as LinkedinIcon, 
   Plus, Film, Music, ChevronLeft, ChevronRight, Upload, Image as ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
@@ -15,17 +15,18 @@ import Link from "next/link";
 interface SocialPost {
   id: string;
   caption: string;
-  platforms: string;
+  platforms: string[];
   hashtags?: string;
   media_url: string;
   scheduled_for: string;
   status: string;
   format: string;
   platform_post_id?: string;
-  last_error?: string;
+  error_message?: string;
   attempts?: number;
   analytics?: any;
   platform_response?: any;
+  account_id?: string;
 }
 
 interface ContentConcept {
@@ -39,7 +40,7 @@ interface ContentConcept {
   recommendedAudio: string;
 }
 
-const POST_STATUS = {
+const POST_STATUS: Record<string, string> = {
   DRAFT: "draft",
   SCHEDULED: "scheduled",
   PROCESSING: "processing",
@@ -51,6 +52,7 @@ const POST_STATUS = {
 const isSameDay = (dateStr: string, day: number, month: number, year: number) => {
   if (!dateStr) return false;
   const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return false;
   return (
     d.getDate() === day &&
     d.getMonth() === month &&
@@ -58,8 +60,8 @@ const isSameDay = (dateStr: string, day: number, month: number, year: number) =>
   );
 };
 
-const getStatusColor = (status: string) => {
-  switch (status) {
+const getStatusColor = (status?: string) => {
+  switch (status || "") {
     case "published":
       return "bg-green-500";
     case "scheduled":
@@ -109,10 +111,16 @@ export default function SocialStudioUnified() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState("");
 
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
+  const supabase = useMemo(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
+      console.error("Missing Supabase environment variables");
+    }
+
+    return createBrowserClient(url || "", key || "");
+  }, []);
 
   // --- Data Sync ---
   const syncPosts = async () => {
@@ -120,7 +128,7 @@ export default function SocialStudioUnified() {
     setPosts([]); // clear stale state before refresh
     let query = supabase
       .from('scheduled_posts')
-      .select('id, caption, platforms, hashtags, media_url, scheduled_for, status, format, platform_post_id, last_error, attempts, analytics');
+      .select('id, caption, platforms, hashtags, media_url, scheduled_for, status, format, platform_post_id, error_message, attempts, analytics');
 
     if (user?.id) {
       query = query.eq('user_id', user.id);
@@ -279,7 +287,7 @@ export default function SocialStudioUnified() {
     
     const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     const dayPosts = posts.filter(p =>
-      isSameDay(p.scheduled_for, day, currentDate.getMonth(), currentDate.getFullYear())
+      p.scheduled_for && isSameDay(p.scheduled_for, day, currentDate.getMonth(), currentDate.getFullYear())
     );
 
     if (dayPosts.length > 0) {
@@ -293,76 +301,22 @@ export default function SocialStudioUnified() {
     }
   };
 
-  // --- Deploy / Save Action ---
-  const deployToProductionGrid = async () => {
-    if (!caption || !scheduledTime) {
-      return toast.error("Please fill in the scheduled time and final caption before publishing.");
-    }
-    
-    setStatus("Saving");
-    let finalMediaUrl = "https://picsum.photos/seed/system-blueprint/1080/1350"; // Fallback placeholder
-
-    // Visual Upload Routine to Supabase Storage Bucket
-    if (mediaFile) {
-      setIsUploadingMedia(true);
-      const fileExt = mediaFile.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `public/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('social-assets')
-        .upload(filePath, mediaFile);
-
-      if (!uploadError) {
-        const { data } = supabase.storage.from('social-assets').getPublicUrl(filePath);
-        if (data) finalMediaUrl = data.publicUrl;
-      } else {
-        console.error("Storage Error:", uploadError);
-        toast.error("Media failed to route to bucket asset storage. Using placeholder URL instead.");
-      }
-      setIsUploadingMedia(false);
-    }
-
-    const { error } = await supabase.from('scheduled_posts').insert([{
-      caption: caption,
-      platforms: platform,
-      hashtags,
-      media_url: finalMediaUrl, 
-      scheduled_for: new Date(scheduledTime).toISOString(),
-      status: POST_STATUS.SCHEDULED,
-      user_id: user?.id,
-      account_id: selectedAccountId,
-      format: format
-    }]);
-
-    if (!error) {
-      toast.success("Content item synchronized! Job queued for API delivery pipeline.");
-      setCaption(""); 
-      setHashtags(""); 
-      setMetaScript(""); 
-      setMetaAudio(""); 
-      setScheduledTime("");
-      setMediaFile(null);
-      setMediaPreview(null);
-      syncPosts();
-    } else {
-      console.error(error);
-      toast.error("Database Save Failure. Check column names.");
-    }
-    setStatus("Ready");
-  };
-
-  // --- INSTANT POST ACTION (LEVEL 3 ENGINE) ---
-  const handleInstantPost = async () => {
+  // --- Unified Post Creation Engine (Updated Implementation) ---
+  const createPost = async (opts: { instant: boolean }) => {
     if (!caption) {
-      return toast.error("Please add a caption before posting.");
+      toast.error("Please add a caption before posting.");
+      return false;
+    }
+
+    if (!selectedAccountId) {
+      toast.error("Please select a connected Meta account.");
+      return false;
     }
 
     setStatus("Saving");
 
     let finalMediaUrl = "https://picsum.photos/seed/system-blueprint/1080/1350";
 
-    // Media upload (reuse existing logic)
     if (mediaFile) {
       setIsUploadingMedia(true);
 
@@ -379,39 +333,87 @@ export default function SocialStudioUnified() {
         if (data) finalMediaUrl = data.publicUrl;
       } else {
         console.error("Storage Error:", uploadError);
-        toast.error("Media upload failed. Posting without media.");
+        toast.error("Media upload failed. Using placeholder.");
       }
 
       setIsUploadingMedia(false);
     }
 
-    const { error } = await supabase.from("scheduled_posts").insert([{
-      caption: caption,
-      platforms: platform,
-      hashtags,
-      media_url: finalMediaUrl,
-      scheduled_for: new Date().toISOString(),
-      status: POST_STATUS.SCHEDULED,
-      user_id: user?.id,
-      account_id: selectedAccountId,
-      format: format
-    }]);
+    // 1. Save post in DB
+    const { data, error } = await supabase
+      .from("scheduled_posts")
+      .insert([
+        {
+          caption,
+          platforms: [platform],
+          hashtags,
+          media_url: finalMediaUrl,
+          scheduled_for: opts.instant
+            ? new Date().toISOString()
+            : (scheduledTime ? new Date(scheduledTime).toISOString() : new Date().toISOString()),
+          status: POST_STATUS.SCHEDULED,
+          user_id: user?.id,
+          account_id: selectedAccountId,
+          format
+        }
+      ])
+      .select("id")
+      .single();
 
-    if (!error) {
-      toast.success("Posted instantly! Your content is now processing.");
-      setCaption("");
-      setHashtags("");
-      setMetaScript("");
-      setMetaAudio("");
-      setMediaFile(null);
-      setMediaPreview(null);
-      syncPosts();
-    } else {
+    if (error || !data?.id) {
       console.error(error);
-      toast.error("Instant post failed. Check database logs.");
+      toast.error(opts.instant ? "Instant post failed." : "Post scheduled failed.");
+      setStatus("Ready");
+      return false;
     }
 
+    const postId = data.id;
+
+    // 2. If instant, trigger Meta publish function
+    if (opts.instant) {
+      try {
+        const { error: publishError } = await supabase.functions.invoke("publish-social-post", {
+          body: {
+            post_id: postId,
+            platform: platform,
+            account_id: selectedAccountId
+          }
+        });
+
+        if (publishError) {
+          console.error("Publish error:", publishError);
+          toast.error("Post saved but failed to publish to Meta.");
+        } else {
+          toast.success("Posted to Meta successfully!");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Meta publish failed.");
+      }
+    } else {
+      toast.success("Post scheduled successfully!");
+    }
+
+    setCaption("");
+    setHashtags("");
+    setMetaScript("");
+    setMetaAudio("");
+    setScheduledTime("");
+    setMediaFile(null);
+    setMediaPreview(null);
+
+    syncPosts();
     setStatus("Ready");
+
+    return true;
+  };
+
+  const handleInstantPost = async () => {
+    await createPost({ instant: true });
+  };
+
+  const deployToProductionGrid = async () => {
+    await createPost({ instant: false });
   };
 
   // --- Calendar Grid Helpers ---
@@ -616,8 +618,8 @@ export default function SocialStudioUnified() {
                             className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100"
                           >
                             <option value="">Select account</option>
-                            {accounts
-  ?.filter(acc => acc.platform === "meta")
+                            {(accounts || [])
+  .filter(acc => acc?.platform === "meta")
   .map((acc) => (
                               <option key={acc.id} value={acc.id}>
                                 {acc.platform} - {acc.name || acc.page_name || acc.platform_user_id || acc.id}
@@ -668,7 +670,7 @@ export default function SocialStudioUnified() {
                  ))}
                  {calendarDays.map((day, i) => {
                    const dayPosts = posts.filter(p =>
-                     isSameDay(p.scheduled_for, day, currentDate.getMonth(), currentDate.getFullYear())
+                     p.scheduled_for && isSameDay(p.scheduled_for, day, currentDate.getMonth(), currentDate.getFullYear())
                    );
                    return (
                      <div 
@@ -716,7 +718,7 @@ export default function SocialStudioUnified() {
                     <div key={post.id} className="bg-stone-50 rounded-[2rem] lg:rounded-[2.5rem] p-4 lg:p-6 space-y-4 border border-stone-100 group">
                        <div className="flex gap-4 items-center">
                           <div className="w-12 h-12 rounded-xl bg-[#1c1c1c]/5 flex items-center justify-center text-[#a9b897]">
-                             {post.platforms === 'meta' ? <Layers size={20}/> : post.platforms === 'tiktok' ? <Video size={20}/> : <Linkedin size={20}/>}
+                             {post.platforms?.includes("meta") ? <Layers size={20}/> : post.platforms?.includes("tiktok") ? <Video size={20}/> : <LinkedinIcon size={20}/>}
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">

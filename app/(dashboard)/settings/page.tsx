@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, type FormEvent } from "react";
+import React, { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import {
@@ -42,6 +42,7 @@ export default function Settings() {
   const [fontPreference, setFontPreference] = useState("serif-heavy");
   const [, setUserOrgId] = useState<string | null>(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+  const connectedPlatformsRef = useRef<string[]>([]);
 const [connectionHealth, setConnectionHealth] = useState<
   Record<string, "connected" | "disconnected" | "unknown" | "expired">
 >({});
@@ -60,12 +61,13 @@ const [connectedPlatformModal, setConnectedPlatformModal] = useState<string | nu
       .eq("user_id", user.id);
 
     if (connections) {
-  const platforms = connections.map((c: any) => c.platform);
-  setConnectedPlatforms(platforms);
+      const platforms = connections.map((c: any) => c.platform);
+      setConnectedPlatforms(platforms);
+      connectedPlatformsRef.current = platforms;
 
-  await verifyPendingOAuth();
-  await verifyConnections();
-}
+      await verifyPendingOAuth();
+      await verifyConnections();
+    }
   };
 
 const refreshSocialToken = async (platform: string) => {
@@ -486,7 +488,7 @@ const retryFailedPosts = async () => {
       verifyConnections();
 
       ["meta", "linkedin", "tiktok"].forEach((p) => {
-        if (!connectedPlatforms.includes(p)) return;
+        if (!connectedPlatformsRef.current.includes(p)) return;
         sessionStorage.removeItem(`oauth_pending_${p}`);
       });
     };

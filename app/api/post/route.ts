@@ -73,7 +73,7 @@ export async function POST(req: Request) {
 }
 
 async function postToMeta(post: any, account: any) {
-  const pageId = account.page_id;
+  const pageId = account.platform_user_id;
   const token = account.access_token;
 
   if (!pageId || !token) {

@@ -46,6 +46,7 @@ function SettingsInner() {
   const [, setUserOrgId] = useState<string | null>(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
   const connectedPlatformsRef = useRef<string[]>([]);
+  const isOAuthProcessingRef = useRef(false);
 const [connectionHealth, setConnectionHealth] = useState<
   Record<string, "connected" | "disconnected" | "unknown" | "expired">
 >({});
@@ -609,18 +610,17 @@ const retryFailedPosts = async () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isOAuthProcessingRef.current) return;
 
-    const url = new URL(window.location.href);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
 
     if (!code || !state) return;
 
-    let isProcessing = false;
-
     const handleOAuthCallback = async () => {
-      if (isProcessing) return;
-      isProcessing = true;
+      if (isOAuthProcessingRef.current) return;
+      isOAuthProcessingRef.current = true;
 
       try {
         let parsed: any;
@@ -629,13 +629,17 @@ const retryFailedPosts = async () => {
           parsed = JSON.parse(decodeURIComponent(state));
         } catch {
           console.error("Invalid OAuth state format");
+          isOAuthProcessingRef.current = false;
           return;
         }
 
         const platform = parsed.platform;
         const userId = parsed.userId;
 
-        if (!platform || !userId) return;
+        if (!platform || !userId) {
+          isOAuthProcessingRef.current = false;
+          return;
+        }
 
         const success = await exchangeOAuthCode(platform, code, state);
 
@@ -650,9 +654,14 @@ const retryFailedPosts = async () => {
 
           // Clean URL so callback does not re-trigger
           window.history.replaceState({}, document.title, "/settings");
+          router.replace("/settings");
+          isOAuthProcessingRef.current = false;
+        } else {
+          isOAuthProcessingRef.current = false;
         }
       } catch (err) {
         console.warn("OAuth callback handling failed:", err);
+        isOAuthProcessingRef.current = false;
       }
     };
 

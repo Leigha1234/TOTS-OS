@@ -1,7 +1,9 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, { useState, useEffect, useRef, useCallback, type FormEvent, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import {
   Users,
@@ -27,7 +29,6 @@ import { toast } from "sonner";
 function SettingsInner() {
   const isMountedRef = useRef(true);
  const router = useRouter();
-  const searchParams = useSearchParams();
   
   // -- 1. STATE MANAGEMENT --
   const [activeTab, setActiveTab] = useState<"account" | "brand">("account");
@@ -621,8 +622,9 @@ const retryFailedPosts = async () => {
 
   // --- OAuth callback handler (NEW) ---
   useEffect(() => {
-    const code = searchParams?.get("code");
-    const state = searchParams?.get("state");
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
 
     if (!code || !state) return;
 
@@ -656,7 +658,7 @@ const retryFailedPosts = async () => {
     };
 
     handleOAuthCallback();
-  }, [searchParams]);
+  }, []);
 
   // -- 5. HANDLERS --
   const handleSave = async () => {
@@ -1145,7 +1147,6 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
     </div>
   );
 }
-
 export default function Settings() {
   return (
     <Suspense fallback={

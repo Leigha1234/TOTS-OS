@@ -641,6 +641,7 @@ export default function SocialStudioUnified() {
                    <button onClick={() => setIsDayViewOpen(false)} className="p-3 bg-stone-50 rounded-full hover:bg-stone-100 transition-colors"><X size={20}/></button>
                 </div>
 
+
                 <div className="flex-1 space-y-6 overflow-y-auto custom-scrollbar pr-4">
                   {selectedDayPosts.map((post) => (
                     <div key={post.id} className="bg-stone-50 rounded-[2rem] lg:rounded-[2.5rem] p-4 lg:p-6 space-y-4 border border-stone-100 group">

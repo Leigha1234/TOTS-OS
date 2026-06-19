@@ -383,8 +383,7 @@ function VaultContent() {
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
-          table: 'note_comments',
-          filter: `organisation_id=eq.${orgId}`
+          table: 'note_comments'
         }, (payload: any) => {
           setComments(prev => {
             const updated = [...prev, payload.new];
@@ -402,8 +401,7 @@ function VaultContent() {
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
-          table: 'note_comments',
-          filter: `organisation_id=eq.${orgId}`
+          table: 'note_comments'
         }, (payload: any) => {
           setComments(prev => {
             const updated = prev.map(c => c.id === payload.new.id ? payload.new : c);
@@ -421,8 +419,7 @@ function VaultContent() {
         .on('postgres_changes', {
           event: 'DELETE',
           schema: 'public',
-          table: 'note_comments',
-          filter: `organisation_id=eq.${orgId}`
+          table: 'note_comments'
         }, (payload: any) => {
           setComments(prev => {
             const updated = prev.filter(c => c.id !== payload.old.id);
@@ -440,8 +437,7 @@ function VaultContent() {
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
-          table: 'note_comment_reactions',
-          filter: `organisation_id=eq.${orgId}`
+          table: 'note_comment_reactions'
         }, () => fetchNotes(authUser.id))
         .subscribe();
 

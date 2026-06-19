@@ -71,7 +71,6 @@ const STICKY_THEMES = [
 
 function VaultContent() {
   const orgIdRef = useRef<string | null>(null);
-  const orgId = orgIdRef.current;
   const [user, setUser] = useState<any>(null);
   const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [notes, setNotes] = useState<any[]>([]);
@@ -131,18 +130,21 @@ function VaultContent() {
 
       const effectiveOrgId = _orgId ?? orgIdRef.current;
 
-      if (!effectiveOrgId) {
-        console.error("Missing organisation_id for user:", userId);
+      let query = supabase
+        .from("notes")
+        .select("*");
+
+      if (userId && effectiveOrgId) {
+        query = query.or(`user_id.eq.${userId},organisation_id.eq.${effectiveOrgId}`);
+      } else if (userId) {
+        query = query.eq("user_id", userId);
+      } else {
         setNotes([]);
         setIsLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("notes")
-        .select("*")
-        .eq("organisation_id", effectiveOrgId)
-        .order("created_at", { ascending: false });
+      const { data, error } = await query.order("created_at", { ascending: false });
 
       if (error) {
         console.error("Supabase notes fetch error:", error);
@@ -151,10 +153,12 @@ function VaultContent() {
       }
 
       setNotes(
-        (data || []).map((n: any) => ({
-          ...n,
-          type: n.type ?? (n.status === "todo" ? "task" : "note")
-        }))
+        (data || [])
+          .filter((n: any) => n && typeof n === "object" && n.id)
+          .map((n: any) => ({
+            ...n,
+            type: n.type ?? (n.status === "todo" ? "task" : "note")
+          }))
       );
 
       const uniqueProjects = Array.from(
@@ -167,7 +171,7 @@ function VaultContent() {
 
       setProjectsList(uniqueProjects);
 
-      const noteIds = (data || []).map((n: any) => n.id).filter(Boolean);
+      const noteIds = (data || []).filter((n: any) => n && typeof n === "object" && n.id).map((n: any) => n.id);
 
       if (noteIds.length) {
         const { data: commentData } = await supabase
@@ -308,7 +312,7 @@ function VaultContent() {
       ]);
     }
 
-    fetchNotes(orgIdRef.current, user.id);
+    fetchNotes(orgIdRef.current ?? organisationId, user.id);
   };
 
   const addReaction = async (commentId: string, type: string = "like") => {
@@ -353,19 +357,19 @@ function VaultContent() {
         .maybeSingle();
       const orgId = profile?.organisation_id;
 
-if (!orgId) {
-  console.error("Missing organisation_id for user:", authUser.id);
-  return;
-}
+      if (!orgId) {
+        console.error("Missing organisation_id for user:", authUser.id);
+        return;
+      }
 
-orgIdRef.current = orgId;
-setOrganisationId(orgId);
+      orgIdRef.current = orgId;
+      setOrganisationId(orgId);
       await fetchTeamMembers(orgId);
       if (orgId) await fetchNotes(orgId, authUser.id);
 
       const mainChannel = supabase.channel("vault_desk", {
         config: {
-          presence: { key: user.id }
+          presence: { key: authUser.id }
         }
       });
 
@@ -374,8 +378,8 @@ setOrganisationId(orgId);
           event: '*',
           schema: 'public',
           table: 'notes',
-          filter: orgId ? `organisation_id=eq.${orgId}` : "organisation_id=eq.null"
-        }, () => fetchNotes(orgId, authUser.id))
+          filter: `organisation_id=eq.${orgId}`
+        }, () => fetchNotes(orgIdRef.current ?? organisationId, authUser.id))
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -434,7 +438,7 @@ setOrganisationId(orgId);
           event: '*',
           schema: 'public',
           table: 'note_comment_reactions'
-        }, () => fetchNotes(orgId, authUser.id))
+        }, () => fetchNotes(orgIdRef.current ?? organisationId, authUser.id))
         .subscribe();
 
       channelRef.current = mainChannel;
@@ -713,7 +717,7 @@ setOrganisationId(orgId);
       setShowModal(false);
       
       toast.success("Note pinned to desk.");
-      fetchNotes(orgIdRef.current, user.id);
+      fetchNotes(orgIdRef.current ?? organisationId, user.id);
     } catch (e) {
       toast.error("Unexpected error creating note. Please try again.");
       console.error("Create note error:", e);
@@ -737,7 +741,6 @@ setOrganisationId(orgId);
         completed
       })
       .eq("id", id)
-      .eq("organisation_id", organisationId)
       .select();
 
     if (error) {
@@ -771,7 +774,6 @@ setOrganisationId(orgId);
       .from("notes")
       .delete()
       .eq("id", id)
-      .eq("organisation_id", organisationId)
       .select();
 
     if (error) {
@@ -835,7 +837,7 @@ setOrganisationId(orgId);
       .from("notes")
       .update({ status: newStatus, completed: newStatus === "done" })
       .eq("id", taskId)
-      .eq("organisation_id", organisationId);
+      ;
 
     if (error) {
       toast.error("Failed to update task status");
@@ -981,6 +983,15 @@ setOrganisationId(orgId);
       </motion.div>
     );
   };
+
+  // Prevent UI from rendering notes when organisation is missing (fix “notes showing for everyone” root symptom)
+  if (!organisationId && !orgIdRef.current) {
+    return (
+      <div className="h-screen flex items-center justify-center text-stone-400 font-serif italic">
+        Missing organisation context. Please refresh or log in again.
+      </div>
+    );
+  }
 
   if (isLoading) return <div className="h-screen bg-[#F5F5F3] flex items-center justify-center font-serif italic text-stone-300 text-4xl">Loading Desk...</div>;
 

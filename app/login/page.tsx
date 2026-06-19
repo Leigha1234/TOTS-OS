@@ -104,18 +104,30 @@ function LoginForm() {
 
     setResetLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/dashboard`,
-    });
+    try {
+      const res = await fetch("/api/send-reset", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+        }),
+      });
 
-    if (error) {
-      alert("Error: " + error.message);
-    } else {
+      const result = await res.json();
+
+      if (!res.ok || result?.error) {
+        throw new Error(result?.error || "Failed to send reset email");
+      }
+
       setResetSent(true);
       alert("Password reset link sent to your email");
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setResetLoading(false);
     }
-
-    setResetLoading(false);
   };
 
   if (isRedirecting) {

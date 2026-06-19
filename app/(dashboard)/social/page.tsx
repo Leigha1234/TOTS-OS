@@ -129,7 +129,7 @@ export default function SocialStudioUnified() {
     setPosts([]); // clear stale state before refresh
     let query = supabase
       .from('scheduled_posts')
-      .select('id, caption, platforms, hashtags, media_url, scheduled_for, status, format, platform_post_id, error_message, attempts, analytics');
+      .select('id, caption, platforms, hashtags, media_url, scheduled_for, status, format, platform_post_id, error_message, attempts');
 
     if (user?.id) {
       query = query.eq('user_id', user.id);

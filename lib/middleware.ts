@@ -17,7 +17,19 @@ interface CookieToSet {
   options?: CookieSetOptions;
 }
 
-const PROTECTED_PATHS = ['/dashboard', '/settings', '/projects', '/hr', '/finance'];
+const PROTECTED_PATHS = [
+  '/dashboard',
+  '/settings',
+  '/projects',
+  '/hr',
+  '/finance',
+  '/calendar',
+  '/notes',
+  '/social',
+  '/contacts',
+  '/assets',
+  '/admin'
+];
 const PUBLIC_PATHS = ['/login', '/register', '/auth/callback', '/api/webhooks'];
 
 export async function middleware(request: NextRequest) {

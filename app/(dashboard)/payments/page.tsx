@@ -255,54 +255,10 @@ export default function PaymentsPage() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1200px] mx-auto px-6 py-10 space-y-10">
+      <div className="max-w-[1400px] mx-auto px-6 lg:px-8 py-10 space-y-8">
 
-        {/* CLARITY CROSS-TAB INTELLIGENCE */}
-        <div className="bg-stone-900 text-white rounded-[2.5rem] p-6 mb-6 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">
-              Clarity Cross-Tab Intelligence
-            </h3>
-            <Cpu size={14} className="text-[#a9b897]" />
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[10px] font-mono">
-            <div>Hours: {crossTabMemory.totalHours}</div>
-            <div>Revenue/hr: £{crossTabMemory.efficiency.toFixed(2)}</div>
-            <div>Profit: £{crossTabMemory.profit.toFixed(2)}</div>
-            <div>Status: {clarityBrain.status}</div>
-          </div>
-
-          {clarityBrain.riskSignals.length > 0 && (
-            <div className="mt-3 text-[9px] text-red-300 uppercase tracking-widest">
-              {clarityBrain.riskSignals.join(" • ")}
-            </div>
-          )}
-        </div>
-
-        {/* CLARITY CFO PREDICTIVE ENGINE */}
-        <div className="bg-gradient-to-br from-stone-900 to-black text-white rounded-[2.5rem] p-6 mb-6 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">
-              Clarity CFO Forecast Engine
-            </h3>
-            <TrendingUp size={14} className="text-[#a9b897]" />
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[10px] font-mono">
-            <div>Revenue: £{clarityCFO.projectedRevenue.toFixed(2)}</div>
-            <div>Costs: £{clarityCFO.projectedCosts.toFixed(2)}</div>
-            <div>Profit: £{clarityCFO.projectedProfit.toFixed(2)}</div>
-            <div>Risk: {clarityCFO.riskLevel}</div>
-          </div>
-
-          <div className="mt-3 text-[9px] uppercase tracking-widest text-stone-400">
-            Forecast horizon: short-term run-rate model (Clarity CFO Engine)
-          </div>
-        </div>
-        
         {/* HEADER ARCHITECTURE */}
-        <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 border-b border-stone-100 pb-8">
+        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm">
           <div className="space-y-4">
             <div className="flex items-center gap-4 text-left">
               <div className="p-3 bg-stone-900 text-[#a9b897] rounded-xl shadow-lg"><Fingerprint size={18} /></div>
@@ -315,6 +271,9 @@ export default function PaymentsPage() {
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-serif italic tracking-tighter leading-none">
               Finance
             </h1>
+            <p className="text-stone-500 text-sm max-w-xl mt-3">
+              Centralised financial operations, invoices, payroll visibility, timesheet intelligence and business performance reporting.
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -357,44 +316,19 @@ export default function PaymentsPage() {
         {activeTab === "payments" && (
           <>
             {/* METRIC GRID */}
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
               <MetricCard label="Gross Intake" value={metrics.revYtd} sub="Engagement: 114%" icon={<TrendingUp />} isDark />
               <MetricCard label="Operational" value={metrics.revYtd - metrics.operatingCosts} sub="Flow: Clear" icon={<Database />} />
               <MetricCard label="VAT Escrow" value={metrics.vatPool} sub="Lock Active" icon={<Landmark />} />
               <MetricCard label="Fiscal Prov" value={metrics.taxDue} sub="FY26 Est." icon={<Receipt />} />
             </section>
-
-            {/* CLARITY AI BRIEF */}
-            <div className="bg-stone-900 text-white rounded-[2.5rem] p-8 relative overflow-hidden mt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">
-                  Clarity Financial Brief
-                </h3>
-                <Cpu size={14} className="text-[#a9b897]" />
-              </div>
-
-              <p className="text-sm leading-relaxed text-stone-200">
-                System status is <span className="text-[#a9b897] font-bold">{clarityBrain.status}</span>. 
-                Workforce efficiency is <span className="text-[#a9b897] font-bold">£{crossTabMemory.efficiency.toFixed(2)}/hr</span>. 
-                Operational margin is <span className="text-[#a9b897] font-bold">
-                  {crossTabMemory.profit > 0 ? "positive" : "negative"}
-                </span>.
-              </p>
-
-              <div className="mt-4 text-[9px] uppercase tracking-widest text-stone-400">
-                Generated by Clarity AI Finance Engine
-              </div>
-
-              <div className="absolute -right-10 -bottom-10 opacity-[0.05]">
-                <BarChart3 size={140} />
-              </div>
-            </div>
             
             {/* LEDGER ARCHIVE */}
-            <section className="bg-white border border-stone-100 rounded-[2.5rem] overflow-hidden shadow-sm">
+            <section className="bg-white border border-stone-100 rounded-[2.5rem] overflow-hidden shadow-lg">
               <div className="p-8 border-b border-stone-50 flex flex-col xl:flex-row justify-between items-center gap-6">
                 <div className="text-left w-full xl:w-auto">
                     <h3 className="text-4xl font-serif italic tracking-tighter">Transaction Logs</h3>
+                    <p className="text-sm text-stone-500 mt-2">Monitor invoices, quotes, payments and outstanding revenue across the business.</p>
                 </div>
                 <div className="flex items-center gap-3 w-full xl:w-auto">
                   <div className="relative flex-1 xl:w-72">
@@ -445,7 +379,10 @@ export default function PaymentsPage() {
 
         {activeTab === "timesheets" && (
           <section className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm">
-            <h3 className="text-3xl font-serif italic mb-6">Timesheets</h3>
+            <div className="mb-6">
+              <h3 className="text-3xl font-serif italic">Timesheets</h3>
+              <p className="text-sm text-stone-500 mt-2">Track workforce utilisation, submitted hours and payroll activity.</p>
+            </div>
 
             <div className="space-y-3">
               {timesheets.map((t: any) => (

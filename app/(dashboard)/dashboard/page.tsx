@@ -364,14 +364,16 @@ function DashboardContent() {
     const { data: { user } } = await supabase.auth.getUser();
 
     const { data, error } = await supabase
-      .from("tasks")
+     .from("notes")
       .insert([
         {
-          title: taskInput,
-          status: "todo",
-          organisation_id: organisationId,
-          user_id: user?.id || null
-        }
+  title: taskInput,
+  content: taskInput,
+  completed: false,
+  status: "todo",
+  organisation_id: organisationId,
+  user_id: user?.id || null
+}
       ])
       .select()
       .single();
@@ -380,7 +382,7 @@ function DashboardContent() {
       setTodos(prev => [
         {
           id: data.id,
-          text: data.title,
+          text: data.title || data.content,
           completed: false
         },
         ...prev
@@ -440,9 +442,7 @@ function DashboardContent() {
 
   const handleClarityBrief = () => {
   // Quick create navigation for notes/tasks
-  const handleCreateQuickNote = () => {
-    router.push("/notes?mode=create");
-  };
+  
     const brief = `CLARITY BRIEF:\n` +
       `Risk: ${riskLevel}\n` +
       `Tasks: ${todos.filter(t => !t.completed).length} pending\n` +
@@ -494,27 +494,7 @@ function DashboardContent() {
         </div>
       </header>
 
-      {/* Clarity Executive Summary */}
-      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-8">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400 mb-2">
-              Clarity Executive Summary
-            </p>
-            <p className="text-sm lg:text-base font-medium text-stone-700">
-              {aiSummary}
-            </p>
-          </div>
-          <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest
-            ${riskLevel === "high" ? "bg-red-100 text-red-600"
-              : riskLevel === "medium" ? "bg-yellow-100 text-yellow-700"
-              : "bg-green-100 text-green-700"}`}
-          >
-            {riskLevel} risk
-          </div>
-        </div>
-      </section>
-
+     
       {/* CLARITY COMMAND SYSTEM */}
       <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-8">
         <div className="flex flex-col gap-4">
@@ -590,7 +570,7 @@ function DashboardContent() {
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
             <CheckSquare size={14} className="text-[#A3B18A]" /> Tasks
           </h2>
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4 w-full">
             <input
               value={taskInput}
               onChange={(e) => setTaskInput(e.target.value)}
@@ -599,8 +579,8 @@ function DashboardContent() {
             />
             <button
               onClick={addTask}
-              className="px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase"
-            >
+          className="w-full sm:w-auto px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase shrink-0"
+           >
               Add
             </button>
           </div>
@@ -678,7 +658,7 @@ function DashboardContent() {
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
             <FileText size={14} className="text-[#A3B18A]" /> Notes
           </h2>
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4 w-full">
             <input
               value={noteInput}
               onChange={(e) => setNoteInput(e.target.value)}
@@ -720,13 +700,6 @@ function DashboardContent() {
         ))}
       </section>
 
-      {/* Footer/Navigation Bar */}
-      <footer className="border-t border-stone-200 pt-8 lg:pt-12 flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center text-stone-400">
-        <p className="text-[10px] uppercase tracking-widest">© 2026 Enterprise OS</p>
-        <button onClick={() => router.push('/settings')} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] hover:text-stone-900">
-          Account Settings <Settings size={12} />
-        </button>
-      </footer>
     </div>
   );
 }

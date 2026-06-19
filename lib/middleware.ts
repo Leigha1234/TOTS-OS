@@ -1,38 +1,42 @@
-/**
- * TOTS OS v7.1.0 - MIDDLEWARE GOVERNANCE
- * LAYER: EDGE-COMPUTE AUTH & BILLING GATE
- * * This middleware protects core modules, enforces tiered subscription access,
- * and maintains security header integrity.
- */
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-// --- GOVERNANCE CONFIGURATION ---
+interface CookieSetOptions {
+  domain?: string;
+  expires?: Date;
+  httpOnly?: boolean;
+  maxAge?: number;
+  path?: string;
+  sameSite?: 'strict' | 'lax' | 'none';
+  secure?: boolean;
+}
+
+interface CookieToSet {
+  name: string;
+  value: string;
+  options?: CookieSetOptions;
+}
+
 const PROTECTED_PATHS = ['/dashboard', '/settings', '/projects', '/hr', '/finance'];
 const PUBLIC_PATHS = ['/login', '/register', '/auth/callback', '/api/webhooks'];
-const BILLING_PATH = '/pricing';
-const SUBSCRIPTION_REQUIRED_PATHS = ['/projects', '/hr', '/finance'];
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  const { pathname } = request.nextUrl;
+
+  const response: NextResponse = NextResponse.next({
     request: { headers: request.headers },
   });
 
-  const supabase = createServerClient(
+  const supabase: ReturnType<typeof createServerClient> = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: any[]) {
-          response = NextResponse.next({ request });
-
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set({ name, value, ...options })
-          );
+        getAll: (): ReturnType<typeof request.cookies.getAll> => request.cookies.getAll(),
+        setAll(cookiesToSet: CookieToSet[]) {
+          cookiesToSet.forEach(({ name, value, options }: CookieToSet) => {
+            response.cookies.set({ name, value, ...options });
+          });
         },
       },
     }
@@ -40,110 +44,45 @@ export async function middleware(request: NextRequest) {
 
   const {
     data: { session },
-  } = await supabase.auth.getSession();
+  }: { data: { session: unknown } } = await supabase.auth.getSession();
 
-  let profile = null;
+  const isPublic: boolean = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isProtected: boolean = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
 
-  if (session?.user?.id) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('organisation_id, subscription_tier')
-      .eq('id', session.user.id)
-      .single();
-
-    profile = data;
+  // -----------------------------
+  // Allow public routes without interference
+  // -----------------------------
+  if (isPublic) {
+    return response;
   }
 
-  const { pathname } = request.nextUrl;
-  const isAuthCallback = pathname.startsWith('/auth/callback');
-  const isDashboard = pathname.startsWith('/dashboard');
+  // -----------------------------
+  // If not authenticated, block protected routes
+  // -----------------------------
+  if (isProtected && !session) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 
-  // 1. SECURITY HEADER INJECTION
+  // -----------------------------
+  // If logged in, prevent access to login page
+  // -----------------------------
+  if (session && pathname === '/login') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // -----------------------------
+  // Security headers only
+  // -----------------------------
   response.headers.set('x-tots-os-version', '7.1.0');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-  const isPublic = PUBLIC_PATHS.some(path => pathname.startsWith(path));
-
-  const isAuthRoute =
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/register') ||
-    pathname.startsWith('/auth');
-
-  if (isAuthRoute) {
-    return response;
-  }
-
-  // 2. AUTHENTICATION GUARD
-  const isProtected = PROTECTED_PATHS.some(path => pathname.startsWith(path));
-  if (!isPublic && isProtected && !session) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // 3. PREVENT LOGGED-IN REDIRECT LOOPS
-  if ((pathname === '/login' || pathname.startsWith('/auth/callback')) && session) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-
-  // 4. SUBSCRIPTION GATE (The Pay-First Wall)
-  if (
-    session &&
-    profile &&
-    !isPublic &&
-    !isAuthCallback &&
-    !isDashboard &&
-    SUBSCRIPTION_REQUIRED_PATHS.some(path => pathname.startsWith(path))
-  ) {
-    if (pathname === BILLING_PATH) {
-      return response;
-    }
-    
-    // Extract tier from profile (Cached in DB for optimal performance)
-    const tier = (profile?.subscription_tier || 'standard').toLowerCase();
-
-    // A. Billing Bypass: Users must be allowed to reach the pricing page
-    if (pathname === BILLING_PATH || pathname.startsWith('/settings/manage-subscription')) {
-      return response;
-    }
-
-    // B. Enforcement of Payment
-    if (tier === 'unpaid') {
-      return NextResponse.redirect(new URL(BILLING_PATH, request.url));
-    }
-
-    // C. Tiered Capability Gating (e.g., Enterprise features)
-    // Example: Only 'elite' users allowed access to /projects
-    if (
-      pathname.startsWith('/projects') &&
-      SUBSCRIPTION_REQUIRED_PATHS.some(p => pathname.startsWith(p)) &&
-      tier !== 'elite'
-    ) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-  }
-
-  if (!session && isProtected) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
   return response;
 }
 
-/**
- * MATCHING CONFIGURATION
- * We exclude static assets to prevent performance degradation.
- */
 export const config = {
   matcher: [
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
-
-/**
- * SYSTEM NOTES:
- * - This middleware performs authentication and subscription checks at the edge.
- * - By utilizing user_metadata within the JWT, we avoid database roundtrips.
- * - Tiered gating ensures revenue protection for premium TOTS OS modules.
- * - Always keep static assets excluded in the matcher to maintain latency below 50ms.
- */

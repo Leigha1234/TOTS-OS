@@ -127,27 +127,26 @@ export default function ProjectDirectory() {
       const orgId = profile.organisation_id;
 
       const payload = {
-        name: form.name,
-        objective_summary: form.objective_summary,
-        description: form.description,
-        category: form.category,
+  name: form.name.trim(),
+  objective_summary: form.objective_summary || null,
+  description: form.description || null,
+  category: form.category,
 
-        members: form.members?.trim()
-          ? form.members.split(",").map((m) => m.trim()).filter(Boolean)
-          : [],
+  members: form.members?.trim()
+    ? form.members.split(",").map(m => m.trim()).filter(Boolean)
+    : [],
 
-        start_date: form.start_date?.trim() ? form.start_date : null,
-        due_date: form.due_date?.trim() ? form.due_date : null,
+  start_date: form.start_date || null,
+  due_date: form.due_date || null,
 
-        budget:
-          form.budget && !isNaN(Number(form.budget))
-            ? Number(form.budget)
-            : 0,
+  budget:
+    form.budget && !isNaN(Number(form.budget))
+      ? Number(form.budget)
+      : 0,
 
-        health: form.health || "Stable",
-        organisation_id: orgId,
-      };
-
+  health: form.health || "Stable",
+  organisation_id: orgId,
+};
       console.log("Creating project payload:", payload);
 
       const { data, error } = await supabase

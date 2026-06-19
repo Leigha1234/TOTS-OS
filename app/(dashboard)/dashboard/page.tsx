@@ -63,7 +63,7 @@ function DashboardContent() {
   });
 
   const [teamMembers, setTeamMembers] = useState<{full_name: string, role: string}[]>([]);
-  const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean }[]>([]);
+  const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean; status?: string }[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -171,7 +171,8 @@ function DashboardContent() {
         .map((n: any) => ({
           id: n.id,
           text: n.title || n.content?.substring(0, 40) || "Priority Task",
-          completed: n.completed || false
+          completed: n.completed || false,
+          status: n.status || "todo"
         })));
       setEvents((eventsRes.data as any[]) || []);
       setEmails((emailsRes.data as any[]) || []);
@@ -328,7 +329,6 @@ function DashboardContent() {
     const score = getTaskScore(task);
 
     if (score >= 6) return "HIGH";
-    if (score >= 3) return "MEDIUM";
     return "LOW";
   };
   // Utility Functions
@@ -551,8 +551,9 @@ function DashboardContent() {
         {/* TASKS */}
         <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-2">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
-            <CheckSquare size={14} className="text-[#A3B18A]" /> Tasks
+            <CheckSquare size={14} className="text-[#A3B18A]" /> Execution Board
           </h2>
+
           <div className="flex flex-col sm:flex-row gap-2 mb-4 w-full">
             <input
               value={taskInput}
@@ -562,50 +563,51 @@ function DashboardContent() {
             />
             <button
               onClick={addTask}
-              className="w-full sm:w-auto px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase shrink-0"
+              className="w-full sm:w-auto px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase"
             >
               Add
             </button>
           </div>
-          <div className="space-y-3">
-            {todos.length > 0 ? [...todos]
-              .sort((a, b) => getTaskScore(b) - getTaskScore(a))
-              .slice(0, 5)
-              .map((todo) => (
-                <div key={todo.id} className="flex items-center gap-3 p-2 lg:p-3 rounded-xl border bg-[#faf9f6] relative">
-                  <button
-                    onClick={() => toggleTodo(todo.id, todo.completed)}
-                    className={`w-4 h-4 rounded border flex items-center justify-center ${todo.completed ? "bg-[#A3B18A] border-[#A3B18A] text-white" : "border-stone-400"}`}
-                  >
-                    ✓
-                  </button>
-                  {!todo.completed && (
-                    <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                  )}
-                  <div className="flex items-center justify-between w-full gap-2">
-                    <>
-                      <span className="text-[10px] font-bold uppercase truncate">{todo.text}</span>
-                      <div className="flex items-center gap-2">
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            {(["todo", "in_progress", "blocked", "done"] as const).map((status) => (
+              <div key={status} className="space-y-2">
+                <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest">
+                  {status.replace("_", " ")}
+                </p>
+
+                {todos.filter(t => t.status === status).length > 0 ? (
+                  todos
+                    .filter(t => t.status === status)
+                    .sort((a, b) => getTaskScore(b) - getTaskScore(a))
+                    .slice(0, 6)
+                    .map((todo) => (
+                      <div key={todo.id} className="flex items-center gap-2 p-2 rounded-xl border bg-[#faf9f6]">
                         <button
-                          onClick={() => router.push('/notes')}
-                          className="text-[8px] px-2 py-1 border rounded-lg uppercase"
+                          onClick={() => toggleTodo(todo.id, todo.completed)}
+                          className={`w-4 h-4 rounded border flex items-center justify-center ${todo.completed ? "bg-[#A3B18A] border-[#A3B18A] text-white" : "border-stone-400"}`}
                         >
-                          Edit
+                          ✓
                         </button>
-                        <span className={`text-[8px] font-black px-2 py-1 rounded-full border
-                          ${getTaskPriorityLabel(todo) === "HIGH"
+
+                        <span className="text-[10px] font-bold uppercase truncate">
+                          {todo.text}
+                        </span>
+
+                        <span className={`ml-auto text-[8px] px-2 py-1 rounded-full border font-bold uppercase ${
+                          getTaskPriorityLabel(todo) === "HIGH"
                             ? "bg-red-100 text-red-600 border-red-200"
-                            : getTaskPriorityLabel(todo) === "MEDIUM"
-                            ? "bg-yellow-100 text-yellow-700 border-yellow-200"
-                            : "bg-green-100 text-green-600 border-green-200"}
-                        `}>
+                            : "bg-green-100 text-green-600 border-green-200"
+                        }`}>
                           {getTaskPriorityLabel(todo)}
                         </span>
                       </div>
-                    </>
-                  </div>
-                </div>
-              )) : <p className="text-[10px] text-stone-400 uppercase">No tasks</p>}
+                    ))
+                ) : (
+                  <p className="text-[9px] text-stone-400 uppercase">None</p>
+                )}
+              </div>
+            ))}
           </div>
         </section>
 
@@ -712,7 +714,7 @@ function DashboardContent() {
                   <p className="text-[10px] text-stone-400">{t.completed ? "Completed" : "Pending"}</p>
                   <button
                     onClick={() => toggleTodo(t.id, t.completed)}
-                    className="text-[8px] uppercase border rounded-lg px-2 py-1"
+                    className="px-2 py-1 rounded-lg border text-[9px] font-bold uppercase tracking-wide hover:bg-stone-100 transition"
                   >
                     Clear
                   </button>

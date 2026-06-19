@@ -1,6 +1,16 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  useDroppable,
+  useDraggable
+} from "@dnd-kit/core";
 import { supabase } from "../../../lib/supabase";
 import { 
   Trash2, Search, Loader2, Plus, X, 
@@ -14,6 +24,42 @@ import { format } from "date-fns";
  * TOTS OS | THE VAULT (V12.0)
  * DESIGN: EXPANDED FAT PARCHMENT CARDS WITH STABLE FOOTER ALIGNMENT
  */
+
+// DND-KIT COLUMN DROPPABLE
+const TaskColumn = ({ id, children }: any) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`space-y-3 p-2 rounded-xl transition-all ${isOver ? "bg-stone-100" : ""}`}
+    >
+      {children}
+    </div>
+  );
+};
+
+// DND-KIT DRAGGABLE TASK
+const DraggableTask = ({ task, children }: any) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{
+        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        opacity: isDragging ? 0.5 : 1
+      }}
+      className="cursor-grab active:cursor-grabbing"
+    >
+      {children}
+    </div>
+  );
+};
 
 const STICKY_THEMES = [
   { bg: "#FFF9E6", text: "#451a03", rotation: "-1.5deg" },
@@ -88,7 +134,12 @@ function VaultContent() {
         throw error;
       }
 
-      setNotes(data || []);
+      setNotes(
+        (data || []).map((n: any) => ({
+          ...n,
+          type: n.type ?? (n.status === "todo" ? "task" : "note")
+        }))
+      );
 
       const uniqueProjects = Array.from(
         new Set(
@@ -352,12 +403,50 @@ function VaultContent() {
   });
 
   const taskNotes = filteredNotes.filter(
-  (n) => n.type === "task"
-);
+    (n) => n.type === "task"
+  );
 
-const regularNotes = filteredNotes.filter(
-  (n) => n.type === "note"
-);
+  const regularNotes = filteredNotes.filter(
+    (n) => n.type === "note"
+  );
+
+  // DND-KIT SENSORS/HANDLERS
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const newStatus = over.id as string;
+
+    if (!taskId || !newStatus) return;
+
+    // update UI immediately
+    setNotes(prev =>
+      prev.map(n =>
+        n.id === taskId
+          ? { ...n, status: newStatus, completed: newStatus === "done" }
+          : n
+      )
+    );
+
+    // persist to Supabase
+    const { error } = await supabase
+      .from("notes")
+      .update({ status: newStatus, completed: newStatus === "done" })
+      .eq("id", taskId);
+
+    if (error) {
+      toast.error("Failed to update task status");
+      console.error(error);
+    } else {
+      toast.success("Task moved");
+    }
+  };
 
 
 
@@ -527,11 +616,42 @@ const regularNotes = filteredNotes.filter(
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-12">
-            <AnimatePresence mode="popLayout">
-              {taskNotes.map((note) => renderNoteCard(note))}
-            </AnimatePresence>
-          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-10">
+
+              {(["todo", "in_progress", "blocked", "done"] as const).map((statusKey) => {
+                const columnTasks = taskNotes.filter(
+                  (t: any) => (t.status || "todo") === statusKey
+                );
+
+                return (
+                  <TaskColumn key={statusKey} id={statusKey}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                        {statusKey.replace("_", " ")}
+                      </p>
+                      <span className="text-[9px] font-black uppercase text-stone-300">
+                        {columnTasks.length}
+                      </span>
+                    </div>
+
+                    {columnTasks.length > 0 ? (
+                      columnTasks.map((note: any) => (
+                        <DraggableTask key={note.id} task={note}>
+                          <div className="transform hover:scale-[1.01] transition">
+                            {renderNoteCard(note)}
+                          </div>
+                        </DraggableTask>
+                      ))
+                    ) : (
+                      <p className="text-[9px] text-stone-300 uppercase">Empty</p>
+                    )}
+                  </TaskColumn>
+                );
+              })}
+
+            </div>
+          </DndContext>
         </section>
 
         <section>

@@ -20,20 +20,56 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const now = new Date().toISOString();
+    const MAX_BATCH = 10;
 
     // 1. Fetch due scheduled posts
     const { data: posts, error: fetchError } = await supabase
       .from("scheduled_posts")
       .select("*")
       .eq("status", "scheduled")
-      .lte("scheduled_for", now);
+      .is("locked_at", null)
+      .lte("scheduled_for", now)
+      .order("scheduled_for", { ascending: true })
+      .limit(MAX_BATCH);
 
-    if (fetchError) {
-      return new Response(
-        JSON.stringify({ error: fetchError.message }),
-        { status: 500, headers: corsHeaders }
-      );
-    }
+    const platformsMap: Record<string, (account: any, content: string) => Promise<Response>> = {
+      meta: async (account: any, content: string) => {
+        return fetch(
+          `https://graph.facebook.com/v23.0/${account.platform_user_id}/feed`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: content,
+              access_token: account.access_token,
+            }),
+          }
+        );
+      },
+
+      linkedin: async (account: any, content: string) => {
+        return fetch("https://api.linkedin.com/v2/ugcPosts", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${account.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            author: account.platform_user_id,
+            lifecycleState: "PUBLISHED",
+            specificContent: {
+              "com.linkedin.ugc.ShareContent": {
+                shareCommentary: { text: content },
+                shareMediaCategory: "NONE",
+              },
+            },
+            visibility: {
+              "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
+            },
+          }),
+        });
+      },
+    };
 
     if (!posts || posts.length === 0) {
       return new Response(
@@ -44,11 +80,13 @@ Deno.serve(async (req) => {
 
     for (const post of posts) {
       try {
-        // 2. Lock post
+        const nowIso = new Date().toISOString();
+
         await supabase
           .from("scheduled_posts")
           .update({
             status: "processing",
+            locked_at: nowIso,
           })
           .eq("id", post.id);
 
@@ -61,69 +99,38 @@ Deno.serve(async (req) => {
         const platforms = post.platforms || [];
 
         for (const platform of platforms) {
+          const { data: existing } = await supabase
+            .from("post_logs")
+            .select("id")
+            .eq("post_id", post.id)
+            .eq("platform", platform)
+            .eq("status", "success")
+            .maybeSingle();
+
+          if (existing) continue;
+
           const account = accounts?.find((a) => a.platform === platform);
 
           if (!account?.access_token) continue;
 
-          let response: Response | null = null;
+          const handler = platformsMap[platform];
+          if (!handler) continue;
 
-          // =========================
-          // META (Facebook / Instagram Pages)
-          // =========================
-          if (platform === "meta") {
-            response = await fetch(
-              `https://graph.facebook.com/v23.0/${account.platform_user_id}/feed`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  message: post.content,
-                  access_token: account.access_token,
-                }),
-              }
-            );
-          }
+          const content = post.content ?? post.message ?? "";
 
-          // =========================
-          // LINKEDIN
-          // =========================
-          if (platform === "linkedin") {
-            response = await fetch(
-              "https://api.linkedin.com/v2/ugcPosts",
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${account.access_token}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  author: account.platform_user_id,
-                  lifecycleState: "PUBLISHED",
-                  specificContent: {
-                    "com.linkedin.ugc.ShareContent": {
-                      shareCommentary: { text: post.content },
-                      shareMediaCategory: "NONE",
-                    },
-                  },
-                  visibility: {
-                    "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
-                  },
-                }),
-              }
-            );
-          }
+          const response = await handler(account, content);
+          const text = await response.text();
 
-          const text = await response?.text();
-
-          // 4. Log result
           await supabase.from("post_logs").insert({
             post_id: post.id,
             platform,
-            status: response?.ok ? "success" : "failed",
+            status: response.ok ? "success" : "failed",
             response: text,
           });
+
+          if (!response.ok) {
+            throw new Error(text);
+          }
         }
 
         // 5. Mark as published
@@ -132,14 +139,20 @@ Deno.serve(async (req) => {
           .update({
             status: "published",
             published_at: new Date().toISOString(),
+            locked_at: null,
           })
           .eq("id", post.id);
       } catch (err: any) {
         await supabase
           .from("scheduled_posts")
           .update({
-            status: "failed",
+            status: post.retry_count >= 3 ? "failed" : "scheduled",
+            retry_count: (post.retry_count || 0) + 1,
+            next_retry_at: new Date(
+              Date.now() + Math.pow(2, post.retry_count || 0) * 60000
+            ).toISOString(),
             error_message: err?.message ?? "Unknown error",
+            locked_at: null,
           })
           .eq("id", post.id);
       }

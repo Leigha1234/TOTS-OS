@@ -5,7 +5,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Trash2, RefreshCcw, Layers, Sparkles, Hash, Clock, X, 
-  ArrowRight, BarChart3, Video, Instagram, Linkedin, 
+  ArrowRight, BarChart3, Video, Linkedin, 
   Plus, Film, Music, ChevronLeft, ChevronRight, Upload, Image as ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
@@ -92,7 +92,7 @@ export default function SocialStudioUnified() {
   // Production Form State (Manual Edit / AI Apply Canvas)
   const [caption, setCaption] = useState("");
   const [hashtags, setHashtags] = useState("");
-  const [platform, setPlatform] = useState("instagram");
+  const [platform, setPlatform] = useState("meta");
   const [format, setFormat] = useState("Post");
   const [scheduledTime, setScheduledTime] = useState("");
   const [metaScript, setMetaScript] = useState("");
@@ -268,7 +268,7 @@ export default function SocialStudioUnified() {
     setMetaScript(concept.script);
     setMetaAudio(concept.recommendedAudio);
     
-    if (concept.format === "Reel") setPlatform("instagram");
+    if (concept.format === "Reel") setPlatform("meta");
     else if (concept.format === "TikTok") setPlatform("tiktok");
     else setPlatform("linkedin");
   };
@@ -540,9 +540,9 @@ export default function SocialStudioUnified() {
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Target Platform</label>
                         <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100">
-                           <option value="instagram">Instagram</option>
-                           <option value="tiktok">TikTok</option>
-                           <option value="linkedin">LinkedIn</option>
+                           <option value="meta">Meta (Facebook)</option>
+<option value="tiktok">TikTok</option>
+<option value="linkedin">LinkedIn</option>
                         </select>
                         <div className="space-y-2 mt-4">
                           <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest">
@@ -554,9 +554,11 @@ export default function SocialStudioUnified() {
                             className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100"
                           >
                             <option value="">Select account</option>
-                            {accounts?.length > 0 && accounts.map((acc) => (
+                            {accounts
+  ?.filter(acc => acc.platform === "meta")
+  .map((acc) => (
                               <option key={acc.id} value={acc.id}>
-                                {acc.platform} - {acc.platform_user_id || acc.id}
+                                {acc.platform} - {acc.name || acc.page_name || acc.platform_user_id || acc.id}
                               </option>
                             ))}
                           </select>
@@ -644,7 +646,7 @@ export default function SocialStudioUnified() {
                     <div key={post.id} className="bg-stone-50 rounded-[2rem] lg:rounded-[2.5rem] p-4 lg:p-6 space-y-4 border border-stone-100 group">
                        <div className="flex gap-4 items-center">
                           <div className="w-12 h-12 rounded-xl bg-[#1c1c1c]/5 flex items-center justify-center text-[#a9b897]">
-                             {post.platform === 'instagram' ? <Instagram size={20}/> : post.platform === 'tiktok' ? <Video size={20}/> : <Linkedin size={20}/>}
+                             {post.platform === 'meta' ? <Layers size={20}/> : post.platform === 'tiktok' ? <Video size={20}/> : <Linkedin size={20}/>}
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">

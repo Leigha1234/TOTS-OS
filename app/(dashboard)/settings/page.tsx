@@ -136,6 +136,13 @@ const verifyPendingOAuth = async () => {
 
       if (data?.id) {
         sessionStorage.removeItem(`oauth_pending_${platform}`);
+
+        // Immediately refresh connection state so UI updates to "Connected"
+        await refreshConnections();
+        await verifyConnections();
+
+        // UX feedback: confirm successful connection detection
+        toast.success(`${platform} connected successfully`);
       }
     } catch (err) {
       console.warn("OAuth verify failed:", platform, err);
@@ -477,6 +484,10 @@ const retryFailedPosts = async () => {
       setLoading(false);
     }
     init();
+    // Clean Meta OAuth redirect artifact (#_=_) on load
+    if (typeof window !== "undefined" && window.location.hash === "#_=_") {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
     const handleFocus = () => {
       refreshConnections();
       verifyPendingOAuth();
@@ -513,10 +524,75 @@ const retryFailedPosts = async () => {
 
     window.addEventListener("visibilitychange", handleVisibility);
 
+    // ===============================
+    // REAL-TIME SOCIAL CONNECTION SYNC (MULTI-TENANT SAFE)
+    // ===============================
+    let channel: any = null;
+    let engineInterval: any = null;
+    let tokenInterval: any = null;
+
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      channel = supabase
+        .channel(`social_accounts_${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "social_accounts",
+            filter: `user_id=eq.${user.id}`,
+          },
+          async () => {
+            // instantly sync UI when DB changes (connect/disconnect/token refresh)
+            await refreshConnections();
+            await verifyConnections();
+          }
+        )
+        .subscribe();
+    };
+
+    setupRealtime();
+
+    // ===============================
+    // LEVEL 2 SOCIAL ENGINE (AUTOMATION CORE)
+    // ===============================
+
+    // Runs scheduled posts every 60 seconds
+    engineInterval = setInterval(async () => {
+      try {
+        await processScheduledPosts();
+        await retryFailedPosts();
+      } catch (err) {
+        console.warn("Engine tick failed:", err);
+      }
+    }, 60_000);
+
+    // Refresh tokens every 15 minutes (multi-platform safe)
+    tokenInterval = setInterval(async () => {
+      try {
+        const platforms = ["meta", "linkedin", "tiktok"];
+        for (const p of platforms) {
+          await refreshSocialToken(p);
+        }
+      } catch (err) {
+        console.warn("Token refresh cycle failed:", err);
+      }
+    }, 15 * 60 * 1000);
+
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("visibilitychange", handleVisibility);
+
+      if (engineInterval) clearInterval(engineInterval);
+      if (tokenInterval) clearInterval(tokenInterval);
+
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [router]);
 

@@ -467,7 +467,7 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <LegalDocCard
             title="Terms & Conditions"
-            path={`/docs/${"termsandconditions"}`}
+            path={`/docs/${"termsconditions"}`}
           />
           <LegalDocCard
             title="Privacy Policy"
@@ -491,7 +491,7 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
           />
           <LegalDocCard
             title="Cookies Policy"
-            path={`/docs/${"cookiespolicy"}`}
+            path={`/docs/${"cookies"}`}
           />
           <LegalDocCard
             title="Data Terms"

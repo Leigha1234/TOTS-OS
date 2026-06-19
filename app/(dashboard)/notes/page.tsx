@@ -208,16 +208,21 @@ function VaultContent() {
     }
   }, []);
 
-  const fetchTeamMembers = useCallback(async () => {
+  const fetchTeamMembers = useCallback(async (orgId?: string) => {
     try {
+      if (!orgId) return;
+
       const { data, error } = await supabase
         .from("profiles")
         .select("id, name, email")
+        .eq("organisation_id", orgId)
         .order("name", { ascending: true });
+
       if (error) {
         console.error("Team fetch error:", error);
         return;
       }
+
       if (data) {
         setTeamMembers(
           data.map((u: any) => ({
@@ -353,13 +358,34 @@ function VaultContent() {
       if (!authUser) return;
       setUser(authUser);
       await fetchNotes(authUser.id);
-      await fetchTeamMembers();
+      // Get orgId for multi-tenancy
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", authUser.id)
+        .maybeSingle();
+      const orgId = profile?.organisation_id;
+      await fetchTeamMembers(orgId);
 
-      const mainChannel = supabase.channel("vault_desk");
+      const mainChannel = supabase.channel("vault_desk", {
+        config: {
+          presence: { key: user.id }
+        }
+      });
 
       mainChannel
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => fetchNotes(authUser.id))
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'note_comments' }, (payload: any) => {
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'notes',
+          filter: `organisation_id=eq.${orgId}`
+        }, () => fetchNotes(authUser.id))
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'note_comments',
+          filter: `organisation_id=eq.${orgId}`
+        }, (payload: any) => {
           setComments(prev => {
             const updated = [...prev, payload.new];
 
@@ -373,7 +399,12 @@ function VaultContent() {
             return updated;
           });
         })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'note_comments' }, (payload: any) => {
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'note_comments',
+          filter: `organisation_id=eq.${orgId}`
+        }, (payload: any) => {
           setComments(prev => {
             const updated = prev.map(c => c.id === payload.new.id ? payload.new : c);
 
@@ -387,7 +418,12 @@ function VaultContent() {
             return updated;
           });
         })
-        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'note_comments' }, (payload: any) => {
+        .on('postgres_changes', {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'note_comments',
+          filter: `organisation_id=eq.${orgId}`
+        }, (payload: any) => {
           setComments(prev => {
             const updated = prev.filter(c => c.id !== payload.old.id);
 
@@ -401,7 +437,12 @@ function VaultContent() {
             return updated;
           });
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'note_comment_reactions' }, () => fetchNotes(authUser.id))
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'note_comment_reactions',
+          filter: `organisation_id=eq.${orgId}`
+        }, () => fetchNotes(authUser.id))
         .subscribe();
 
       channelRef.current = mainChannel;

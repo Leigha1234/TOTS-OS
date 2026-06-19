@@ -20,6 +20,82 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+// ===============================
+// NOTES SERVICE LAYER (PHASE 2)
+// ===============================
+
+const notesService = {
+  async getCurrentUser() {
+    const { data } = await supabase.auth.getUser();
+    return data?.user;
+  },
+
+  async getOrgId(userId: string) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", userId)
+      .single();
+
+    if (error) throw error;
+    return data?.organisation_id;
+  },
+
+  async fetchNotes(orgId: string) {
+    const { data, error } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("organisation_id", orgId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async fetchComments(noteIds: string[]) {
+    if (!noteIds.length) return [];
+    const { data } = await supabase
+      .from("note_comments")
+      .select("*")
+      .in("note_id", noteIds)
+      .order("created_at", { ascending: true });
+
+    return data || [];
+  },
+
+  async createNote(payload: any) {
+    const { error } = await supabase
+      .from("notes")
+      .insert([payload]);
+
+    if (error) throw error;
+  },
+
+  async updateNoteStatus(id: string, nextStatus: string) {
+    const completed = nextStatus === "done";
+
+    const { error } = await supabase
+      .from("notes")
+      .update({ status: nextStatus, completed })
+      .eq("id", id);
+
+    if (error) throw error;
+
+    return { id, nextStatus, completed };
+  },
+
+  async deleteNote(id: string) {
+    const { error } = await supabase
+      .from("notes")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    return id;
+  }
+};
+
 /**
  * TOTS OS | THE VAULT (V12.0)
  * DESIGN: EXPANDED FAT PARCHMENT CARDS WITH STABLE FOOTER ALIGNMENT
@@ -105,8 +181,7 @@ function VaultContent() {
 
   const fetchNotes = useCallback(async (_userId: string) => {
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
+      const user = await notesService.getCurrentUser();
 
       if (!user?.id) {
         setNotes([]);
@@ -114,36 +189,19 @@ function VaultContent() {
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("id", user.id)
-        .single();
+      const orgId = await notesService.getOrgId(user.id);
 
-      if (profileError || !profile?.organisation_id) {
-        console.error("Profile org fetch error:", profileError);
+      if (!orgId) {
         toast.error("Unable to load organisation data.");
         setNotes([]);
         setIsLoading(false);
         return;
       }
 
-      const orgId = profile.organisation_id;
-
-      const { data, error } = await supabase
-        .from("notes")
-        .select("*")
-        .eq("organisation_id", orgId)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Supabase notes fetch error:", error);
-        toast.error("Failed to load notes from server.");
-        throw error;
-      }
+      const data = await notesService.fetchNotes(orgId);
 
       setNotes(
-        (data || []).map((n: any) => ({
+        data.map((n: any) => ({
           ...n,
           type: n.type ?? (n.status === "todo" ? "task" : "note")
         }))
@@ -151,7 +209,7 @@ function VaultContent() {
 
       const uniqueProjects = Array.from(
         new Set(
-          (data || [])
+          data
             .map((n: any) => n?.project)
             .filter((p: any) => typeof p === "string" && p.trim())
         )
@@ -159,20 +217,11 @@ function VaultContent() {
 
       setProjectsList(uniqueProjects);
 
-      // fetch all comments for organisation notes
-      const noteIds = (data || []).map((n: any) => n.id).filter(Boolean);
+      const noteIds = data.map((n: any) => n.id).filter(Boolean);
 
-      if (noteIds.length) {
-        const { data: commentData } = await supabase
-          .from("note_comments")
-          .select("*")
-          .in("note_id", noteIds)
-          .order("created_at", { ascending: true });
+      const commentData = await notesService.fetchComments(noteIds);
 
-        if (commentData) {
-          setComments(commentData);
-        }
-      }
+      setComments(commentData);
     } catch (e) {
       console.error("Notes Fetch Error:", e);
       toast.error("Notes load failed.");
@@ -401,51 +450,21 @@ function VaultContent() {
 
       const orgId = profileData.organisation_id;
 
-      const { error, status: responseStatus, statusText } = await supabase
-        .from("notes")
-        .insert([
-          {
-            content,
-            user_id: user.id,
-            organisation_id: orgId,
-            color: isUrgent ? "#4f4a46" : theme.bg,
-            category: tag || "General",
-            project: project || null,
-            assigned_to: assignedTo.length ? assignedTo : null,
-            due_date: isReminder && reminderDateTime ? reminderDateTime : null,
-            is_reminder: isReminder,
-            status,
-            is_urgent: isUrgent,
-            type: status === "todo" ? "task" : "note",
-          },
-        ]);
+      await notesService.createNote({
+        content,
+        user_id: user.id,
+        organisation_id: orgId,
+        color: isUrgent ? "#4f4a46" : theme.bg,
+        category: tag || "General",
+        project: project || null,
+        assigned_to: assignedTo.length ? assignedTo : null,
+        due_date: isReminder && reminderDateTime ? reminderDateTime : null,
+        is_reminder: isReminder,
+        status,
+        is_urgent: isUrgent,
+        type: status === "todo" ? "task" : "note",
+      });
 
-      if (!orgId) {
-        console.error("Insert aborted: missing orgId");
-        toast.error("Missing organisation context. Cannot create note.");
-        setIsSyncing(false);
-        return;
-      }
-
-      if (error) {
-        console.error("Supabase note insert error:", {
-          error,
-          status: responseStatus,
-          statusText,
-          payload: {
-            content,
-            user_id: user.id,
-            category: tag || "General",
-            project,
-            assigned_to: assignedTo,
-            due_date: reminderDateTime,
-            is_reminder: isReminder,
-            status,
-          }
-        });
-        throw new Error(error.message || `Insert failed (${responseStatus})`);
-      }
-      
       setContent("");
       setTag("");
       setIsUrgent(false);
@@ -472,37 +491,20 @@ function VaultContent() {
       toast.error("Invalid note update.");
       return;
     }
-    const completed = nextStatus === "done";
-
-    const { error, status, statusText } = await supabase
-      .from("notes")
-      .update({
-  status: nextStatus,
-  completed
-})
-      .eq("id", id)
-      .select();
-
-    if (error) {
-      console.error("Update note status error:", {
-        error,
-        status,
-        statusText,
-        noteId: id,
-        nextStatus,
-      });
-      toast.error(error.message || `Update failed (${status})`);
-      return;
+    try {
+      await notesService.updateNoteStatus(id, nextStatus);
+      setNotes(prev =>
+        prev.map(n =>
+          n.id === id
+            ? { ...n, status: nextStatus, completed: nextStatus === "done" }
+            : n
+        )
+      );
+      toast.success(`Note updated.`);
+    } catch (e: any) {
+      console.error("Update note status error:", e);
+      toast.error(e?.message || `Update failed`);
     }
-
-    setNotes(prev =>
-      prev.map(n =>
-        n.id === id
-          ? { ...n, status: nextStatus, completed: nextStatus === "done" }
-          : n
-      )
-    );
-    toast.success(`Note updated.`);
   };
 
   const deleteNote = async (id: string) => {
@@ -510,25 +512,14 @@ function VaultContent() {
       toast.error("Invalid note ID.");
       return;
     }
-    const { error, status, statusText } = await supabase
-      .from("notes")
-      .delete()
-      .eq("id", id)
-      .select();
-
-    if (error) {
-      console.error("Delete note error:", {
-        error,
-        status,
-        statusText,
-        noteId: id,
-      });
-      toast.error(error.message || `Delete failed (${status})`);
-      return;
+    try {
+      await notesService.deleteNote(id);
+      setNotes(prev => prev.filter(n => n.id !== id));
+      toast.success("Note cleared.");
+    } catch (e: any) {
+      console.error("Delete note error:", e);
+      toast.error(e?.message || `Delete failed`);
     }
-
-    setNotes(prev => prev.filter(n => n.id !== id));
-    toast.success("Note cleared.");
   };
 
   const filteredNotes = notes.filter((n) => {
@@ -589,7 +580,9 @@ function VaultContent() {
 
 
   const renderNoteCard = (note: any) => {
-    const assignedTeamMember = teamMembers.find(m => m.id === note.assigned_to);
+    const assignedTeamMember = Array.isArray(note.assigned_to)
+      ? teamMembers.find(m => note.assigned_to.includes(m.id))
+      : teamMembers.find(m => m.id === note.assigned_to);
     const isExpanded = expandedNote === note.id;
 
     if (isExpanded) {
@@ -784,7 +777,7 @@ function VaultContent() {
 
             <div className="flex items-center justify-between">
               <button
-                onClick={() => deleteNote(note.id)}
+                onClick={() => updateNoteStatus(note.id, "done")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
                   note.is_urgent
                     ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white'

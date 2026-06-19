@@ -54,19 +54,29 @@ export async function middleware(request: NextRequest) {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
+  // Added public path check to allow public paths to bypass auth
+  const isPublic = PUBLIC_PATHS.some(path => pathname.startsWith(path));
+  if (isPublic) {
+    return response;
+  }
+
   // 2. AUTHENTICATION GUARD
   const isProtected = PROTECTED_PATHS.some(path => pathname.startsWith(path));
-  if (isProtected && !session) {
+  if (!isPublic && isProtected && !session) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // 3. PREVENT LOGGED-IN REDIRECT LOOPS
-  if (pathname === '/login' && session) {
+  if ((pathname === '/login' || pathname.startsWith('/auth/callback')) && session) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   // 4. SUBSCRIPTION GATE (The Pay-First Wall)
-  if (session && SUBSCRIPTION_REQUIRED_PATHS.some(path => pathname.startsWith(path))) {
+  if (
+    session &&
+    !isPublic &&
+    SUBSCRIPTION_REQUIRED_PATHS.some(path => pathname.startsWith(path))
+  ) {
     
     // Extract tier from Metadata (Cached in JWT for optimal performance)
     const tier = (session.user.user_metadata?.subscription_tier as string)?.toLowerCase() || 'unpaid';

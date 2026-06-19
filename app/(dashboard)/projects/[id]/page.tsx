@@ -9,12 +9,13 @@ import {
   Cloud, Lock, Save, AlertCircle, Hash
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 export default function ProjectEngine() {
   const { id } = useParams();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("Tasks"); // Tasks, assets, Project Settings
   const [project, setProject] = useState<any>(null);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -162,7 +163,7 @@ export default function ProjectEngine() {
         task_id: taskId,
         project_id: id,
         content: text,
-        user_id: (await supabase.auth.getUser()).data.user?.id
+        user_id: (await supabase.auth.getUser()).data?.user?.id
       }
     ]);
 
@@ -274,7 +275,8 @@ export default function ProjectEngine() {
         { event: "*", schema: "public", table: "task_comments" },
         (payload: any) => {
           setComments((prev) => {
-            const filtered = prev.filter(c => c.id !== payload.new?.id);
+            if (!payload.new) return prev;
+            const filtered = prev.filter(c => c.id !== payload.new.id);
             return [payload.new, ...filtered];
           });
           // OS EVENT HOOK (notification-ready layer)
@@ -293,6 +295,23 @@ export default function ProjectEngine() {
     if (!error) {
       setProject({ ...project, ...updates });
       toast.success("System Parameters Updated");
+    }
+  };
+
+  const deleteProject = async () => {
+    const confirmDelete = window.confirm("Delete this project permanently?");
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from("projects")
+      .delete()
+      .eq("id", id);
+
+    if (!error) {
+      toast.success("Project deleted");
+      router.push("/projects");
+    } else {
+      toast.error("Failed to delete project");
     }
   };
 
@@ -437,7 +456,14 @@ return (
   onClick={() => toggleTaskComplete(t)}
   className="w-6 h-6 rounded-lg border-2 border-stone-100 flex items-center justify-center group-hover:border-[#a9b897] transition-all cursor-pointer"
 >
-                                <Check size={12} className="text-transparent group-hover:text-[#a9b897]" />
+                                <Check
+                                  size={12}
+                                  className={
+                                    t.status === "Completed"
+                                      ? "text-[#a9b897]"
+                                      : "text-transparent group-hover:text-[#a9b897]"
+                                  }
+                                />
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-sm font-bold text-stone-700">{t.name}</span>
@@ -546,7 +572,7 @@ return (
                             <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">Administrative Details</h3>
                             <div className="space-y-4">
                                 <div className="space-y-1">
-                                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">Start Date</label>
+                                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">Due Date</label>
                                     <input type="date" defaultValue={project.due_date} onChange={(e) => updateProject({ due_date: e.target.value })} className="w-full bg-stone-50 p-4 rounded-xl text-[10px] font-bold outline-none border border-transparent focus:border-stone-200" />
                                 </div>
                                
@@ -584,8 +610,11 @@ return (
                     </div>
 
                     <div className="pt-10 border-t border-stone-50">
-                        <button className="flex items-center gap-2 text-red-400 text-[10px] font-black uppercase tracking-[0.2em] hover:text-red-600 transition-colors">
-                            <Trash2 size={14} /> Delete Project
+                        <button
+                          onClick={deleteProject}
+                          className="flex items-center gap-2 text-red-400 text-[10px] font-black uppercase tracking-[0.2em] hover:text-red-600 transition-colors"
+                        >
+                          <Trash2 size={14} /> Delete Project
                         </button>
                     </div>
                  </div>

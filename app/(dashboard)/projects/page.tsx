@@ -17,6 +17,7 @@ export default function ProjectDirectory() {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [organisationId, setOrganisationId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -36,15 +37,42 @@ export default function ProjectDirectory() {
   ), []);
 
   useEffect(() => {
-    loadProjects();
+    if (organisationId) {
+      loadProjects();
+    }
+  }, [organisationId]);
+
+  useEffect(() => {
+    const loadOrg = async () => {
+      const { data: user } = await supabase.auth.getUser();
+
+      if (!user?.user?.id) return;
+
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.user.id)
+        .single();
+
+      if (error) {
+        console.error("Org load error:", error);
+        return;
+      }
+
+      setOrganisationId(profile?.organisation_id);
+    };
+
+    loadOrg();
   }, []);
 
   async function loadProjects() {
     try {
+      if (!organisationId) return;
       setLoading(true);
       const { data, error } = await supabase
         .from("projects")
         .select("*")
+        .eq("organisation_id", organisationId)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -61,6 +89,11 @@ export default function ProjectDirectory() {
   async function establishProject(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    if (!organisationId) {
+      toast.error("Organisation not loaded");
+      setSaving(false);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from("projects")
@@ -76,7 +109,8 @@ export default function ProjectDirectory() {
             start_date: form.start_date || null,
             due_date: form.due_date || null,
             budget: form.budget ? Number(form.budget) : null,
-            health: form.health
+            health: form.health,
+            organisation_id: organisationId
           }
         ])
         .select()
@@ -251,7 +285,7 @@ export default function ProjectDirectory() {
                 </div>
 
                 <button type="submit" disabled={saving} className="w-full bg-stone-900 text-white py-6 rounded-[2rem] font-black text-[10px] tracking-[0.4em] uppercase hover:bg-[#a9b897] disabled:opacity-40 transition-all shadow-xl flex items-center justify-center gap-3">
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : "Commit Project to Archive"}
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : "Save Project"}
                 </button>
               </form>
             </motion.div>

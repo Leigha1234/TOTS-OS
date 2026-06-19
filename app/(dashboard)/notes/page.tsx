@@ -95,6 +95,7 @@ function VaultContent() {
   const [reminderDateTime, setReminderDateTime] = useState("");
   const [isReminder, setIsReminder] = useState(false);
   const [status, setStatus] = useState("todo");
+  const [visibility, setVisibility] = useState("private");
 
   // Voice Note State
   const [isListening, setIsListening] = useState(false);
@@ -120,6 +121,38 @@ function VaultContent() {
   const typingChannelRef = useRef<any>(null);
   const [noteOps, setNoteOps] = useState<Record<string, any[]>>({});
 
+  // Strict per-user/org/shared/assigned note visibility guard
+  const canViewNote = (note: any, userId: string, orgId: string | null) => {
+    if (!note || !userId || !orgId) return false;
+
+    const assigned = Array.isArray(note.assigned_to)
+      ? note.assigned_to
+      : note.assigned_to
+        ? [note.assigned_to]
+        : [];
+
+    switch (note.visibility) {
+      case "private":
+        return note.user_id === userId;
+
+      case "org":
+        return note.organisation_id === orgId;
+
+      case "shared":
+        return (
+          note.user_id === userId ||
+          assigned.includes(userId) ||
+          note.organisation_id === orgId
+        );
+
+      case "assigned":
+        return assigned.includes(userId);
+
+      default:
+        return note.organisation_id === orgId;
+    }
+  };
+
   const fetchNotes = useCallback(async (_orgId: string | null, userId: string) => {
     try {
       if (!userId) {
@@ -130,19 +163,16 @@ function VaultContent() {
 
       const effectiveOrgId = _orgId ?? orgIdRef.current;
 
-      let query = supabase
-        .from("notes")
-        .select("*");
-
-      if (userId && effectiveOrgId) {
-        query = query.or(`user_id.eq.${userId},organisation_id.eq.${effectiveOrgId}`);
-      } else if (userId) {
-        query = query.eq("user_id", userId);
-      } else {
+      if (!effectiveOrgId || !userId) {
         setNotes([]);
         setIsLoading(false);
         return;
       }
+
+      let query = supabase
+        .from("notes")
+        .select("*")
+        .eq("organisation_id", effectiveOrgId);
 
       const { data, error } = await query.order("created_at", { ascending: false });
 
@@ -152,18 +182,19 @@ function VaultContent() {
         throw error;
       }
 
-      setNotes(
-        (data || [])
-          .filter((n: any) => n && typeof n === "object" && n.id)
-          .map((n: any) => ({
-            ...n,
-            type: n.type ?? (n.status === "todo" ? "task" : "note")
-          }))
-      );
+      const safeNotes = (data || [])
+        .filter((n: any) => n && typeof n === "object" && n.id)
+        .filter((n: any) => canViewNote(n, userId, effectiveOrgId))
+        .map((n: any) => ({
+          ...n,
+          type: n.type ?? (n.status === "todo" ? "task" : "note")
+        }));
+
+      setNotes(safeNotes);
 
       const uniqueProjects = Array.from(
         new Set(
-          (data || [])
+          safeNotes
             .map((n: any) => n?.project)
             .filter((p: any) => typeof p === "string" && p.trim())
         )
@@ -684,6 +715,7 @@ function VaultContent() {
             status,
             is_urgent: isUrgent,
             type: status === "todo" ? "task" : "note",
+            visibility,
           },
         ]);
 
@@ -1220,6 +1252,20 @@ function VaultContent() {
                     {teamMembers.map(member => (
                       <option key={member.id} value={member.id}>{member.name}</option>
                     ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100 col-span-2">
+                  <Tag size={12} className="text-stone-400 mr-2" />
+                  <select
+                    className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer"
+                    value={visibility}
+                    onChange={(e) => setVisibility(e.target.value)}
+                  >
+                    <option value="private">Private</option>
+                    <option value="org">Organisation</option>
+                    <option value="shared">Shared</option>
+                    <option value="assigned">Assigned</option>
                   </select>
                 </div>
               </div>

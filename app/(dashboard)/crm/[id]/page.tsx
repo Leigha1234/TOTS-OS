@@ -71,6 +71,11 @@ export default function AccountProfilePage() {
 
   const [notes, setNotes] = useState<any[]>([]);
   const [noteForm, setNoteForm] = useState({ type: "internal", content: "" });
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    project_id: ""
+  });
 
 
   const safeProfile = profile ?? {};
@@ -563,6 +568,81 @@ export default function AccountProfilePage() {
         {activeTab === "tasks" && (
           <>
           <div className="mb-8 p-6 rounded-2xl bg-[#a9b897]/10 border border-[#a9b897]/20">
+            {/* CREATE TASK */}
+            <div className="bg-white/90 backdrop-blur p-4 lg:p-6 rounded-2xl border border-stone-200 shadow-sm mb-6">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
+                Add Task
+              </h3>
+
+              <form
+                className="space-y-3"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+
+                  if (!profileId || !organisationId) return;
+
+                  const { data, error } = await supabase
+                    .from("tasks")
+                    .insert({
+                      title: newTask.title,
+                      description: newTask.description,
+                      status: "todo",
+                      profile_id: profileId,
+                      organisation_id: organisationId,
+                      project_id: newTask.project_id || null
+                    })
+                    .select()
+                    .single();
+
+                  if (error) {
+                    console.error("Task creation error:", error);
+                    return;
+                  }
+
+                  setTasks(prev => [data, ...prev]);
+
+                  setNewTask({
+                    title: "",
+                    description: "",
+                    project_id: ""
+                  });
+                }}
+              >
+                <input
+                  className="w-full p-3 border rounded-xl bg-[#faf9f6]"
+                  placeholder="Task title"
+                  value={newTask?.title || ""}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, title: e.target.value })
+                  }
+                />
+
+                <textarea
+                  className="w-full p-3 border rounded-xl bg-[#faf9f6]"
+                  placeholder="Task description"
+                  value={newTask?.description || ""}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, description: e.target.value })
+                  }
+                />
+
+                <input
+                  className="w-full p-3 border rounded-xl bg-[#faf9f6]"
+                  placeholder="Project ID (optional)"
+                  value={newTask?.project_id || ""}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, project_id: e.target.value })
+                  }
+                />
+
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#a9b897] text-white rounded-xl text-xs hover:opacity-90 transition"
+                >
+                  Create Task
+                </button>
+              </form>
+            </div>
             <h3 className="font-semibold text-stone-900 mb-2">Project Activity</h3>
             <p className="text-sm text-stone-600">
               Track deliverables, deadlines and client actions linked to this contact.

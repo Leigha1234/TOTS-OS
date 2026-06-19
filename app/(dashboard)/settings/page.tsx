@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import {
   Users,
@@ -27,6 +27,7 @@ import { toast } from "sonner";
 export default function Settings() {
   const isMountedRef = useRef(true);
  const router = useRouter();
+  const searchParams = useSearchParams();
   
   // -- 1. STATE MANAGEMENT --
   const [activeTab, setActiveTab] = useState<"account" | "brand">("account");
@@ -618,6 +619,45 @@ const retryFailedPosts = async () => {
     };
   }, [router]);
 
+  // --- OAuth callback handler (NEW) ---
+  useEffect(() => {
+    const code = searchParams?.get("code");
+    const state = searchParams?.get("state");
+
+    if (!code || !state) return;
+
+    const handleOAuthCallback = async () => {
+      try {
+        const platform =
+          state.includes("meta") ? "meta" :
+          state.includes("linkedin") ? "linkedin" :
+          state.includes("tiktok") ? "tiktok" :
+          null;
+
+        if (!platform) return;
+
+        const success = await exchangeOAuthCode(platform, code, state);
+
+        if (success) {
+          await refreshConnections();
+          await verifyConnections();
+
+          toast.success(`${platform} connected successfully`);
+
+          setConnectedPlatformModal(platform);
+          setShowConnectedModal(true);
+
+          // clean URL so it doesn't re-trigger
+          router.replace("/settings");
+        }
+      } catch (err) {
+        console.warn("OAuth callback handling failed:", err);
+      }
+    };
+
+    handleOAuthCallback();
+  }, [searchParams]);
+
   // -- 5. HANDLERS --
   const handleSave = async () => {
     setIsSaving(true);
@@ -637,39 +677,6 @@ const retryFailedPosts = async () => {
           bio,
         })
         .eq("id", user.id);
-
-      // UPGRADE OAuth callback handling (SECURE FLOW)
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get("code");
-        const state = params.get("state");
-
-        const url = window.location.href;
-
-        // detect OAuth callback ONLY
-        if (code && state && url.includes("code=")) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-
-          const platform =
-            state.includes("meta") ? "meta" :
-            state.includes("linkedin") ? "linkedin" :
-            state.includes("tiktok") ? "tiktok" :
-            null;
-
-          if (platform) {
-            const success = await exchangeOAuthCode(platform, code, state);
-
-            if (success) {
-  await refreshConnections();
-  await verifyConnections();
-  toast.success(`${platform} connected successfully`);
-
-  setConnectedPlatformModal(platform);
-  setShowConnectedModal(true);
-}
-          }
-        }
-      }
 
       if (error) throw error;
 

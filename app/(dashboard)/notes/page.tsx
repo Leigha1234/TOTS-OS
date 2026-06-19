@@ -70,6 +70,7 @@ const STICKY_THEMES = [
 ];
 
 function VaultContent() {
+  const orgIdRef = useRef<string | null>(null);
   const orgId = orgIdRef.current;
   const [user, setUser] = useState<any>(null);
   const [organisationId, setOrganisationId] = useState<string | null>(null);

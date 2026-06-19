@@ -95,29 +95,14 @@ export default function ProjectDirectory() {
     e.preventDefault();
     setSaving(true);
 
-    let orgId = organisationId;
+    try {
+      if (!form.name?.trim()) {
+        toast.error("Project name required");
+        setSaving(false);
+        return;
+      }
 
-    // HARD GUARD (prevents silent 400 insert attempts)
-    if (!orgId && !organisationId) {
-      toast.error("Organisation not loaded");
-      setSaving(false);
-      return;
-    }
-
-    // ADD LOADING GUARD (prevents insert before org loads)
-    if (!orgId) {
-      toast.error("Organisation not loaded yet");
-      setSaving(false);
-      return;
-    }
-
-    if (!form.name?.trim()) {
-      toast.error("Project name required");
-      setSaving(false);
-      return;
-    }
-
-    if (!orgId) {
+      // Always resolve organisation from DB to avoid stale state issues
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user?.id) {
@@ -126,62 +111,63 @@ export default function ProjectDirectory() {
         return;
       }
 
-      const { data: profile, error } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organisation_id")
         .eq("id", user.id)
         .single();
 
-      if (error || !profile?.organisation_id) {
-        console.error("Failed to resolve organisation:", error);
+      if (profileError || !profile?.organisation_id) {
+        console.error("Organisation lookup error:", profileError);
         toast.error("Organisation not found");
         setSaving(false);
         return;
       }
 
-      orgId = profile.organisation_id;
-    }
-    try {
+      const orgId = profile.organisation_id;
+
+      const payload = {
+        name: form.name,
+        objective_summary: form.objective_summary,
+        description: form.description,
+        category: form.category,
+
+        members: form.members?.trim()
+          ? form.members.split(",").map((m) => m.trim()).filter(Boolean)
+          : [],
+
+        start_date: form.start_date?.trim() ? form.start_date : null,
+        due_date: form.due_date?.trim() ? form.due_date : null,
+
+        budget:
+          form.budget && !isNaN(Number(form.budget))
+            ? Number(form.budget)
+            : 0,
+
+        health: form.health || "Stable",
+        organisation_id: orgId,
+      };
+
+      console.log("Creating project payload:", payload);
+
       const { data, error } = await supabase
         .from("projects")
-        .insert([
-          {
-            name: form.name,
-            objective_summary: form.objective_summary,
-            description: form.description,
-            category: form.category,
-
-            members:
-              form.members && form.members.trim().length > 0
-                ? form.members
-                    .split(",")
-                    .map((m) => m.trim())
-                    .filter(Boolean)
-                : [],
-
-            start_date: form.start_date || null,
-            due_date: form.due_date || null,
-
-            budget:
-              form.budget && !isNaN(Number(form.budget))
-                ? Number(form.budget)
-                : 0,
-
-
-            organisation_id: orgId
-          }
-        ])
+        .insert([payload])
         .select()
         .single();
+
       if (error) {
         console.error("Supabase insert error:", error);
         console.error("Details:", error?.details);
         console.error("Hint:", error?.hint);
-        toast.error(error?.message || "Invalid project data");
+        toast.error(error?.message || "Failed to create project");
+        setSaving(false);
         return;
       }
+
       setProjects((prev) => [data, ...prev]);
       setShowModal(false);
+
       setForm({
         name: "",
         objective_summary: "",
@@ -193,10 +179,11 @@ export default function ProjectDirectory() {
         budget: "",
         health: "Stable"
       });
-      toast.success("Project Established");
-    } catch (error) {
-      console.error("Project creation error:", error);
-      toast.error("Failed to create project");
+
+      toast.success("Project Created");
+    } catch (err) {
+      console.error("Project creation error:", err);
+      toast.error("Unexpected error creating project");
     } finally {
       setSaving(false);
     }

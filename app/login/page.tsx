@@ -27,14 +27,25 @@ function LoginForm() {
   useEffect(() => {
     if (inviteId) setIsRegister(true);
 
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getUser();
+    let mounted = true;
 
-      if (data?.user) {
-        router.replace("/dashboard");
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      if (data.session?.user) {
+        setTimeout(() => {
+          router.replace("/dashboard");
+        }, 100);
       }
     };
+
     checkUser();
+
+    return () => {
+      mounted = false;
+    };
   }, [inviteId, router]);
 
   const handleAction = async (e: React.FormEvent) => {

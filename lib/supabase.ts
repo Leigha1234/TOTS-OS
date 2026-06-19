@@ -13,6 +13,7 @@ export const supabase = (() => {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        storageKey: "tots-os-auth", // ✅ prevents cross-app/session collisions
       },
     }
   );

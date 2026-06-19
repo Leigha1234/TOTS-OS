@@ -152,6 +152,7 @@ function VaultContent() {
       const { data, error } = await supabase
         .from("notes")
         .select("*")
+        .eq("organisation_id", orgId)
         .order("created_at", { ascending: false });
 
       if (error) {

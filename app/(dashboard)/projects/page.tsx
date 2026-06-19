@@ -138,12 +138,22 @@ export default function ProjectDirectory() {
             objective_summary: form.objective_summary,
             description: form.description,
             category: form.category,
-            members: form.members || null,
+
+            members: form.members
+              ? form.members.split(",").map((m) => m.trim())
+              : null,
+
             start_date: form.start_date || null,
             due_date: form.due_date || null,
-            budget: form.budget && !isNaN(Number(form.budget)) ? Number(form.budget) : null,
+
+            budget:
+              form.budget && !isNaN(Number(form.budget))
+                ? Number(form.budget)
+                : 0,
+
             health: form.health,
-            organisation_id: orgId ?? organisationId
+
+            organisation_id: orgId
           }
         ])
         .select()

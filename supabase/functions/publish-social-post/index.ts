@@ -1,163 +1,120 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std/http/server.ts";
 
-console.log("🔥 publish-social-post (FIXED PRODUCTION)");
+serve(async (req) => {
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
 
-Deno.serve(async (req) => {
-  // CORS (required for frontend + edge safety)
   if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-      },
-    });
+    return new Response("ok", { headers });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
-
   try {
-    const { post_id } = await req.json();
+    const body = await req.json();
+    const { platform, content, media, access_token } = body;
 
-    if (!post_id) {
-      return new Response("Missing post_id", { status: 400 });
+    if (!platform || !content) {
+      return new Response(JSON.stringify({ error: "Missing fields" }), {
+        status: 400,
+        headers,
+      });
     }
 
-    // 1. GET POST
-    const { data: post, error: postError } = await supabase
-      .from("scheduled_posts")
-      .select("*")
-      .eq("id", post_id)
-      .single();
+    // =========================
+    // FACEBOOK / META PAGE POST
+    // =========================
+    if (platform === "meta" || platform === "facebook") {
+      const pageId = media?.pageId;
 
-    if (postError || !post) {
-      return new Response("Post not found", { status: 404 });
+      const params = new URLSearchParams();
+      params.append("message", content);
+      params.append("access_token", access_token);
+
+      const res = await fetch(
+        `https://graph.facebook.com/v23.0/${pageId}/feed`,
+        {
+          method: "POST",
+          body: params,
+        }
+      );
+
+      const data = await res.json();
+
+      return new Response(JSON.stringify(data), {
+        headers,
+      });
     }
 
-    // 2. GET SOCIAL ACCOUNT
-    const { data: account, error: accountError } = await supabase
-      .from("social_accounts")
-      .select("*")
-      .eq("id", post.account_id)
-      .single();
+    // =========================
+    // INSTAGRAM POST (BUSINESS ACCOUNT)
+    // =========================
+    if (platform === "instagram") {
+      const igUserId = media?.igUserId;
+      const imageUrl = media?.image_url || media?.media_url;
 
-    if (accountError || !account) {
-      await supabase
-        .from("scheduled_posts")
-        .update({ status: "failed", error_message: "No account" })
-        .eq("id", post_id);
-
-      return new Response("Account not found", { status: 400 });
-    }
-
-    // 3. PLATFORM ROUTING (future-proof)
-    if (account.platform !== "instagram") {
-      return new Response("Unsupported platform", { status: 400 });
-    }
-
-    if (!account.access_token || !account.platform_user_id) {
-      await supabase
-        .from("scheduled_posts")
-        .update({
-          status: "failed",
-          error_message: "Missing Instagram credentials",
-        })
-        .eq("id", post_id);
-
-      return new Response("Missing credentials", { status: 400 });
-    }
-
-    // 4. CREATE MEDIA CONTAINER
-    const containerRes = await fetch(
-      `https://graph.facebook.com/v19.0/${account.platform_user_id}/media`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          image_url: post.media_url,
-          caption: post.caption || "",
-          access_token: account.access_token,
-        }),
+      if (!igUserId || !imageUrl) {
+        return new Response(
+          JSON.stringify({ error: "Missing Instagram media data" }),
+          { status: 400, headers }
+        );
       }
-    );
 
-    const containerData = await containerRes.json();
+      // Step 1: Create media container
+      const createRes = await fetch(
+        `https://graph.facebook.com/v23.0/${igUserId}/media`,
+        {
+          method: "POST",
+          body: new URLSearchParams({
+            image_url: imageUrl,
+            caption: content,
+            access_token,
+          }),
+        }
+      );
 
-    if (!containerData.id) {
-      await supabase
-        .from("scheduled_posts")
-        .update({
-          status: "failed",
-          error_message: JSON.stringify(containerData),
-        })
-        .eq("id", post_id);
+      const createData = await createRes.json();
 
-      return new Response("Container failed", { status: 400 });
-    }
-
-    // 5. PUBLISH POST
-    const publishRes = await fetch(
-      `https://graph.facebook.com/v19.0/${account.platform_user_id}/media_publish`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          creation_id: containerData.id,
-          access_token: account.access_token,
-        }),
+      if (!createData.id) {
+        return new Response(JSON.stringify(createData), {
+          status: 400,
+          headers,
+        });
       }
-    );
 
-    const publishData = await publishRes.json();
+      // Step 2: Publish container
+      const publishRes = await fetch(
+        `https://graph.facebook.com/v23.0/${igUserId}/media_publish`,
+        {
+          method: "POST",
+          body: new URLSearchParams({
+            creation_id: createData.id,
+            access_token,
+          }),
+        }
+      );
 
-    if (!publishData.id) {
-      await supabase
-        .from("scheduled_posts")
-        .update({
-          status: "failed",
-          error_message: JSON.stringify(publishData),
-        })
-        .eq("id", post_id);
+      const publishData = await publishRes.json();
 
-      return new Response("Publish failed", { status: 400 });
+      return new Response(JSON.stringify(publishData), {
+        headers,
+      });
     }
 
-    // 6. SUCCESS UPDATE
-    await supabase
-      .from("scheduled_posts")
-      .update({
-        status: "published",
-        published_at: new Date().toISOString(),
-        platform_post_id: publishData.id,
-      })
-      .eq("id", post_id);
-
+    // =========================
+    // LINKEDIN / TIKTOK PLACEHOLDERS
+    // =========================
     return new Response(
-      JSON.stringify({
-        success: true,
-        platform: "instagram",
-        post_id: publishData.id,
-      }),
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
+      JSON.stringify({ success: true, platform }),
+      { headers }
     );
-  } catch (err) {
-    console.error("Publish error:", err);
-    const errorMessage = err instanceof Error ? err.message : String(err);
 
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: errorMessage,
-      }),
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers,
+    });
   }
 });

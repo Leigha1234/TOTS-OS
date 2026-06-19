@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect, useRef, useCallback, type FormEvent, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import {
   Users,
@@ -167,34 +167,21 @@ const exchangeOAuthCode = async (platform: string, code: string, state: string) 
     if (!user) throw new Error("Not authenticated");
     if (!isMountedRef.current) return false;
 
-    // Validate state binding (CRITICAL SECURITY CHECK)
-    const storedState = sessionStorage.getItem("oauth_state");
-    // ENHANCED STATE VALIDATION (ALIGN WITH NEW FORMAT)
-    const parts = (state || "").split(":");
-    const statePlatform = parts[0];
-    const stateUserId = parts[2];
+    let parsedState: any;
 
-    if (!statePlatform || !stateUserId) {
-      throw new Error("Malformed OAuth state");
-    }
+try {
+  parsedState = JSON.parse(decodeURIComponent(state));
+} catch {
+  throw new Error("Invalid OAuth state format");
+}
 
-    if (!storedState) {
-      throw new Error("Missing OAuth state - session expired");
-    }
+if (parsedState.userId !== user.id) {
+  throw new Error("OAuth user mismatch - potential CSRF risk");
+}
 
-    if (storedState !== state) {
-      throw new Error("OAuth state mismatch - potential CSRF risk");
-    }
-
-    if (stateUserId !== user.id) {
-      throw new Error("OAuth user mismatch - potential CSRF risk");
-    }
-
-    // STORE PLATFORM SAFETY CHECK (PREVENT MISASSIGNMENT)
-    if (statePlatform !== platform) {
-      throw new Error("OAuth platform mismatch detected");
-    }
-
+if (parsedState.platform !== platform) {
+  throw new Error("OAuth platform mismatch detected");
+}
     // Call backend token exchange endpoint (Edge Function / API route)
     const res = await fetch("/api/oauth/exchange", {
       method: "POST",
@@ -238,7 +225,6 @@ const exchangeOAuthCode = async (platform: string, code: string, state: string) 
     }
 
     // Cleanup OAuth session state
-    sessionStorage.removeItem("oauth_state");
     sessionStorage.removeItem(`oauth_pending_${platform}`);
     sessionStorage.removeItem("oauth_started_at");
 
@@ -620,23 +606,36 @@ const retryFailedPosts = async () => {
     };
   }, [router]);
 
-  const searchParams = useSearchParams();
 
   useEffect(() => {
-    const code = searchParams.get("code");
-    const state = searchParams.get("state");
+    if (typeof window === "undefined") return;
+
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
 
     if (!code || !state) return;
 
-    const handleOAuthCallback = async () => {
-      try {
-        const platform =
-          state.includes("meta") ? "meta" :
-          state.includes("linkedin") ? "linkedin" :
-          state.includes("tiktok") ? "tiktok" :
-          null;
+    let isProcessing = false;
 
-        if (!platform) return;
+    const handleOAuthCallback = async () => {
+      if (isProcessing) return;
+      isProcessing = true;
+
+      try {
+        let parsed: any;
+
+        try {
+          parsed = JSON.parse(decodeURIComponent(state));
+        } catch {
+          console.error("Invalid OAuth state format");
+          return;
+        }
+
+        const platform = parsed.platform;
+        const userId = parsed.userId;
+
+        if (!platform || !userId) return;
 
         const success = await exchangeOAuthCode(platform, code, state);
 
@@ -649,8 +648,8 @@ const retryFailedPosts = async () => {
           setConnectedPlatformModal(platform);
           setShowConnectedModal(true);
 
-          // clean URL so it doesn't re-trigger
-          router.replace("/settings");
+          // Clean URL so callback does not re-trigger
+          window.history.replaceState({}, document.title, "/settings");
         }
       } catch (err) {
         console.warn("OAuth callback handling failed:", err);
@@ -658,7 +657,7 @@ const retryFailedPosts = async () => {
     };
 
     handleOAuthCallback();
-  }, [searchParams]);
+  }, []);
 
   // -- 5. HANDLERS --
   const handleSave = async () => {
@@ -707,8 +706,13 @@ const connectSocialPlatform = async (platform: string): Promise<void> => {
   toast.info(`Redirecting to ${platform} authorization...`);
 
   // 1) Strengthen OAuth state (security + user binding)
-  const state = `${platform}:${crypto.randomUUID()}:${user.id}`;
-  sessionStorage.setItem("oauth_state", state);
+  const stateObj = {
+  platform,
+  userId: user.id,
+  nonce: crypto.randomUUID(),
+};
+
+const state = encodeURIComponent(JSON.stringify(stateObj));
   // 2) Improve OAuth session tracking (engine reliability)
   sessionStorage.setItem("oauth_started_at", Date.now().toString());
 

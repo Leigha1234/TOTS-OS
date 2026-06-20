@@ -20,7 +20,7 @@ export default function CRMDirectory() {
   const { organisationId } = useSettings(); // 2. Pull the active Org UUID
   const [contacts, setContacts] = useState<any[]>([]);
   const [lists, setLists] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -38,25 +38,23 @@ export default function CRMDirectory() {
     list_id: "" 
   });
 
-  // 3. Effect waits for the organisationId to be loaded from SettingsContext
- useEffect(() => {
-  async function loadOrg() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    setResolvedOrganisationId(user.user_metadata?.organisation_id ?? null);
-  }
-
-  loadOrg();
-}, []);
+  // 3. Instantly resolve organisation from SettingsContext
+  useEffect(() => {
+    if (!organisationId) return;
+    setResolvedOrganisationId(organisationId);
+  }, [organisationId]);
 useEffect(() => {
-  if (resolvedOrganisationId) {
-    loadData();
-  }
+  if (!resolvedOrganisationId) return;
+  loadData();
 }, [resolvedOrganisationId]);
 
 async function loadData() {
-  if (!resolvedOrganisationId) return;
+  if (!resolvedOrganisationId) {
+    console.warn("loadData blocked: missing organisationId");
+    setError("Organisation not loaded. Please refresh or re-login.");
+    setLoading(false);
+    return;
+  }
 
   setLoading(true);
   setError(null);
@@ -68,10 +66,14 @@ async function loadData() {
       .eq("organisation_id", resolvedOrganisationId)
       .order("created_at", { ascending: false });
 
-    if (contactsError) throw contactsError;
+    if (contactsError) {
+      console.error("loadData contactsError:", contactsError);
+      throw contactsError;
+    }
 
     setContacts(contacts || []);
   } catch (err: any) {
+    console.error("loadData error:", err);
     setError(err.message || "Failed to load contacts.");
   } finally {
     setLoading(false);
@@ -84,11 +86,10 @@ async function loadData() {
     setError(null);
 
     if (!resolvedOrganisationId) {
-  setError("Organisation not ready. Please wait a moment.");
-  setSaving(false);
-  return;
-}
-
+      setError("Organisation not ready. Please refresh the page.");
+      setSaving(false);
+      return;
+    }
 
     try {
       // 4. Inject organisation_id into the insertion
@@ -130,7 +131,8 @@ async function loadData() {
       });
       setShowModal(false);
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred during page loading.");
+      console.error("addcontact error:", err);
+      setError(err.message || "An unexpected error occurred during contact creation.");
     } finally {
       setSaving(false);
     }

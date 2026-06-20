@@ -154,13 +154,13 @@ Deno.serve(async (req) => {
             id: fbJson.id,
           };
         }
-      } catch (err) {
-        failureCount++;
-        results.facebook = {
-          success: false,
-          error: err?.message || String(err),
-        };
-      }
+      } catch (err: unknown) {
+  failureCount++;
+  results.facebook = {
+    success: false,
+    error: err instanceof Error ? err.message : String(err),
+  };
+}
     }
 
     // =====================================================
@@ -247,13 +247,14 @@ Deno.serve(async (req) => {
             };
           }
         }
-      } catch (err) {
-        failureCount++;
-        results.instagram = {
-          success: false,
-          error: err?.message || String(err),
-        };
-      }
+      } catch (err: unknown) {
+  failureCount++;
+  results.facebook = {
+    success: false,
+    error: err instanceof Error ? err.message : String(err),
+  };
+}
+      
     }
 
     // -------------------------

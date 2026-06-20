@@ -29,7 +29,7 @@ import { useSettings } from "@/app/context/SettingsContext";
 
 export default function AccountProfilePage() {
   const params = useParams();
-  const profileId = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const contactId = Array.isArray(params?.id) ? params.id[0] : params?.id;
 
   const router = useRouter();
   const { organisationId } = useSettings();
@@ -37,7 +37,7 @@ export default function AccountProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const [profile, setProfile] = useState<any>(null);
+  const [contact, setContact] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<"info" | "tasks" | "email" | "overview">("info");
@@ -65,12 +65,12 @@ export default function AccountProfilePage() {
     return map;
   }, [projects]);
   const fetchProfileLists = async () => {
-    if (!profileId) return;
+    if (!contactId) return;
 
     const { data, error } = await supabase
       .from("profile_subscriber_lists")
       .select("*")
-      .eq("profile_id", profileId);
+      .eq("contact_id", contactId);
 
     if (error) {
       console.error("Profile subscriber lists error:", error);
@@ -106,7 +106,7 @@ export default function AccountProfilePage() {
   });
 
 
-  const safeProfile = profile ?? {};
+  const safeProfile = contact ?? {};
 
   const canManageInbox =
     safeProfile.role === "admin" || safeProfile.role === "manager";
@@ -130,25 +130,25 @@ export default function AccountProfilePage() {
 
   /* ---------------- FETCH PROFILE ---------------- */
   const fetchProfile = async () => {
-    if (!profileId || !organisationId) return;
+    if (!contactId || !organisationId) return;
 
     setLoading(true);
 
     const { data, error } = await supabase
-      .from("profiles")
+      .from("contacts")
       .select("*")
-      .eq("id", profileId)
+      .eq("id", contactId)
       .eq("organisation_id", organisationId)
       .maybeSingle();
 
     if (error) {
       console.error(error);
-      setProfile(null);
+      setContact(null);
       setLoading(false);
       return;
     }
 
-    setProfile(data);
+    setContact(data);
 
     setEditForm({
       name: data?.name || "",
@@ -168,7 +168,7 @@ export default function AccountProfilePage() {
     const { data } = await supabase
       .from("tasks")
       .select("*")
-      .eq("profile_id", profileId);
+      .eq("contact_id", contactId);
 
     setTasks(data || []);
   };
@@ -274,7 +274,7 @@ export default function AccountProfilePage() {
       .from("task_comments")
       .insert({
         task_id: taskId,
-        profile_id: profileId,
+        contact_id: contactId,
         organisation_id: organisationId,
         content: content.trim()
       });
@@ -291,7 +291,7 @@ export default function AccountProfilePage() {
     const { data } = await supabase
       .from("email_threads")
       .select("*")
-      .eq("profile_id", profileId);
+      .eq("contact_id", contactId);
 
     setThreads(data || []);
   };
@@ -321,13 +321,14 @@ export default function AccountProfilePage() {
   };
 
   const fetchNotes = async () => {
-    if (!profileId) return;
+    if (!contactId || !organisationId) return;
 
     try {
       const { data, error } = await supabase
         .from("notes")
         .select("*")
-        .eq("user_id", profileId)
+        .eq("contact_id", contactId)
+        .eq("organisation_id", organisationId)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -346,7 +347,7 @@ export default function AccountProfilePage() {
 
   /* ---------------- INIT ---------------- */
   useEffect(() => {
-    if (profileId) {
+    if (contactId) {
       fetchProfile();
       fetchTasks();
       fetchThreads();
@@ -355,7 +356,7 @@ export default function AccountProfilePage() {
       fetchProfileLists();
       fetchProjects();
     }
-  }, [profileId, organisationId]);
+  }, [contactId, organisationId]);
 
   useEffect(() => {
     if (threads.length && !activeThread) {
@@ -367,7 +368,7 @@ export default function AccountProfilePage() {
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail.subject || !newEmail.body || emailSaving) return;
-    if (!profile?.email) {
+    if (!contact?.email) {
       alert('This contact does not have an email address.');
       return;
     }
@@ -379,7 +380,7 @@ export default function AccountProfilePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: profile.email,
+          to: contact.email,
           subject: newEmail.subject.trim(),
           body: newEmail.body.trim()
         })
@@ -398,7 +399,7 @@ export default function AccountProfilePage() {
         const { data, error } = await supabase
           .from("email_threads")
           .insert({
-            profile_id: profileId,
+            contact_id: contactId,
             organisation_id: organisationId,
             subject: newEmail.subject
           })
@@ -413,7 +414,7 @@ export default function AccountProfilePage() {
 
       await supabase.from("email_messages").insert({
         thread_id: threadId,
-        profile_id: profileId,
+        contact_id: contactId,
         organisation_id: organisationId,
         direction: "outbound",
         subject: newEmail.subject,
@@ -437,11 +438,11 @@ export default function AccountProfilePage() {
     setIsSaving(true);
 
     await supabase
-      .from("profiles")
+      .from("contacts")
       .update(editForm)
-      .eq("id", profileId);
+      .eq("id", contactId);
 
-    setProfile({ ...profile, ...editForm });
+    setContact({ ...contact, ...editForm });
     setIsEditing(false);
 
     setIsSaving(false);
@@ -493,7 +494,7 @@ export default function AccountProfilePage() {
     );
   }
 
-  if (!profile) {
+  if (!contact) {
     return (
       <div className="h-screen flex items-center justify-center text-stone-400">
         Contact not found
@@ -722,7 +723,7 @@ export default function AccountProfilePage() {
                 onSubmit={async (e) => {
                   e.preventDefault();
 
-                  if (!profileId || !organisationId) return;
+                  if (!contactId || !organisationId) return;
 
                   const { data, error } = await supabase
                     .from("tasks")
@@ -730,7 +731,7 @@ export default function AccountProfilePage() {
                       title: newTask.title,
                       description: newTask.description,
                       status: "todo",
-                      profile_id: profileId,
+                      contact_id: contactId,
                       organisation_id: organisationId,
                       project_id: newTask.project_id || null
                     })
@@ -1093,7 +1094,7 @@ export default function AccountProfilePage() {
                   if (!noteForm.content) return;
 
                   const { data } = await supabase.from("notes").insert({
-                    profile_id: profileId,
+                    contact_id: contactId,
                     organisation_id: organisationId,
                     type: noteForm.type,
                     content: noteForm.content
@@ -1156,14 +1157,14 @@ export default function AccountProfilePage() {
                         disabled={!organisationId}
                         onClick={
                           async () => {
-                            if (!organisationId || !profileId) return;
+                            if (!organisationId || !contactId) return;
 
                             try {
                               if (isMember) {
                                 const { error } = await supabase
                                   .from("profile_subscriber_lists")
                                   .delete()
-                                  .eq("profile_id", profileId)
+                                  .eq("contact_id", contactId)
                                   .eq("subscriber_list_id", list.id);
 
                                 if (error) console.error("Remove list error:", error);
@@ -1171,7 +1172,7 @@ export default function AccountProfilePage() {
                                 const { error } = await supabase
                                   .from("profile_subscriber_lists")
                                   .insert({
-                                    profile_id: profileId,
+                                    contact_id: contactId,
                                     subscriber_list_id: list.id,
                                     organisation_id: organisationId
                                   });

@@ -23,20 +23,21 @@ const platforms = [
 
 export default function SocialConnections() {
   const {
-    connectedPlatforms = [],
-    loadingPlatforms = [],
-    connectSocialPlatform,
-    disconnectSocialPlatform,
+    connections,
+    loading,
+    connect,
+    disconnect,
+    isConnected,
   } = useSocialConnections();
 
   const safeConnect = (platformId: string) => {
-    if (!connectSocialPlatform) return;
-    connectSocialPlatform(platformId);
+    if (!connect) return;
+    connect(platformId as any);
   };
 
   const safeDisconnect = (platformId: string) => {
-    if (!disconnectSocialPlatform) return;
-    disconnectSocialPlatform(platformId);
+    if (!disconnect) return;
+    disconnect(platformId as any);
   };
 
   const sageGreen = "#A3B18A";
@@ -52,8 +53,8 @@ export default function SocialConnections() {
 
       <div className="grid gap-4">
         {platforms.map((platform) => {
-          const connected = connectedPlatforms.includes(platform.id);
-          const isLoading = loadingPlatforms.includes(platform.id);
+          const connected = isConnected(platform.id as any);
+          const isLoading = loading;
 
           return (
             <div

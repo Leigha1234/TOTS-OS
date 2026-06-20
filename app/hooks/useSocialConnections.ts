@@ -128,25 +128,60 @@ export function useSocialConnections() {
     [refreshConnections]
   );
 
+  const handleOAuthCallback = useCallback(async () => {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+
+    if (!code || !state) return;
+
+    try {
+      const parsed = JSON.parse(decodeURIComponent(state));
+      const platform = parsed.platform;
+
+      if (!platform) return;
+
+      await exchangeOAuthCode(platform, code, state);
+
+      // Prevent re-triggering on refresh
+      window.history.replaceState({}, document.title, "/settings");
+    } catch (err) {
+      console.error("OAuth callback failed:", err);
+    }
+  }, [exchangeOAuthCode]);
+
   const connectSocialPlatform = useCallback(
     async (platform: string) => {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) return;
+      try {
+        setLoading(platform, true);
 
-      setLoading(platform, true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast.error("You must be logged in to connect accounts");
+          return;
+        }
 
-      const stateObj = {
-        platform,
-        userId: user.data.user.id,
-        timestamp: Date.now(),
-      };
+        if (platform !== "meta") {
+          toast.error(`${platform} OAuth is not configured yet`);
+          return;
+        }
 
-      const state = encodeURIComponent(JSON.stringify(stateObj));
+        const stateObj = {
+          platform,
+          userId: user.id,
+          timestamp: Date.now(),
+        };
 
-      const metaClientId = process.env.NEXT_PUBLIC_META_CLIENT_ID!;
-      const redirectUri = `${window.location.origin}/settings`;
+        const state = encodeURIComponent(JSON.stringify(stateObj));
 
-      if (platform === "meta") {
+        const metaClientId = process.env.NEXT_PUBLIC_META_CLIENT_ID;
+        const redirectUri = `${window.location.origin}/settings`;
+
+        if (!metaClientId) {
+          toast.error("Missing Meta Client ID environment variable");
+          return;
+        }
+
         sessionStorage.setItem(getOAuthStorageKey("meta"), "true");
 
         const url =
@@ -157,12 +192,17 @@ export function useSocialConnections() {
           `&scope=pages_show_list,pages_manage_posts,pages_read_engagement` +
           `&state=${state}`;
 
+        // IMPORTANT: redirect immediately
         window.location.href = url;
+        return;
+      } catch (err: any) {
+        console.error(err);
+        toast.error(err.message || "Failed to start OAuth flow");
+      } finally {
+        setLoading(platform, false);
       }
-
-      setLoading(platform, false);
     },
-    []
+    [] // supabase usage is stable, safe to omit from deps
   );
 
   const disconnectSocialPlatform = useCallback(
@@ -207,10 +247,11 @@ export function useSocialConnections() {
 
   useEffect(() => {
     handleFocus();
+    handleOAuthCallback();
 
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, [handleFocus]);
+  }, [handleFocus, handleOAuthCallback]);
 
   return {
     connectedPlatforms,

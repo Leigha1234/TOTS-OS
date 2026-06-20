@@ -1,5 +1,6 @@
 import "./globals.css"; // The design system foundation
 import { SettingsProvider } from "@/app/context/SettingsContext";
+import { Toaster } from "react-hot-toast";
 import { Inter, Poppins } from "next/font/google";
 
 // Pre-loading fonts to prevent layout shift
@@ -25,6 +26,8 @@ export default function RootLayout({
         <SettingsProvider>
           {children}
         </SettingsProvider>
+
+        <Toaster />
       </body>
     </html>
   );

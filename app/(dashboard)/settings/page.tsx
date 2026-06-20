@@ -5,21 +5,13 @@ export const dynamic = "force-dynamic";
 import React, { useState, useEffect, useRef, useCallback, type FormEvent, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import {
-  Users,
-  RefreshCcw,
-  Loader2,
-  Type,
-  KeyRound,
-  Instagram,
-  Facebook,
-  Linkedin,
-  Video,
-  FileText,
-  ExternalLink
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+
+import SocialConnections from "@/app/components/SocialConnections";
+import PasswordSection from "@/app/components/PasswordSection";
+import LegalHub from "@/app/components/LegalHub";
 
 /**
  * TOTS OS: UNIFIED ADMINISTRATIVE CONTROL CENTER v8.0.0
@@ -58,26 +50,28 @@ const [connectionHealth, setConnectionHealth] = useState<
   const channelRef = useRef<any>(null);
   const engineIntervalRef = useRef<any>(null);
   const tokenIntervalRef = useRef<any>(null);
+const getOAuthStorageKey = (platform: string) =>
+  platform === "meta"
+    ? "oauth_pending_meta"
+    : `oauth_pending_${platform}`;
+const refreshConnections = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
 
-  const refreshConnections = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+  if (!user || !isMountedRef.current) return;
 
-    if (!user || !isMountedRef.current) return;
+  const { data: connections } = await supabase
+    .from("social_accounts")
+    .select("platform")
+    .eq("user_id", user.id);
 
-    const { data: connections } = await supabase
-      .from("social_accounts")
-      .select("platform")
-      .eq("user_id", user.id);
+  if (connections) {
+    const platforms = connections.map((c: any) => c.platform);
+    setConnectedPlatforms(platforms);
+    connectedPlatformsRef.current = platforms;
 
-    if (connections) {
-      const platforms = connections.map((c: any) => c.platform);
-      setConnectedPlatforms(platforms);
-      connectedPlatformsRef.current = platforms;
-
-      await verifyPendingOAuth();
-      await verifyConnections();
-    }
-  };
+    await verifyConnections();
+  }
+};
 
 const refreshSocialToken = async (platform: string) => {
   try {
@@ -129,7 +123,7 @@ const refreshSocialToken = async (platform: string) => {
 
 const verifyPendingOAuth = async () => {
   const pending = ["meta", "linkedin", "tiktok"].filter((p) =>
-    sessionStorage.getItem(`oauth_pending_${p}`) === "true"
+    sessionStorage.getItem(getOAuthStorageKey(p)) === "true"
   );
 
   if (pending.length === 0) return;
@@ -147,11 +141,15 @@ const verifyPendingOAuth = async () => {
         .maybeSingle();
 
       if (data?.id) {
-        sessionStorage.removeItem(`oauth_pending_${platform}`);
+        sessionStorage.removeItem(
+          getOAuthStorageKey(platform)
+        );
 
-        // Immediately refresh connection state so UI updates to "Connected"
-        await refreshConnections();
+        // Immediately update connection state so UI updates to "Connected"
         await verifyConnections();
+        setConnectedPlatforms((prev) =>
+          prev.includes(platform) ? prev : [...prev, platform]
+        );
 
         // UX feedback: confirm successful connection detection
         toast.success(`${platform} connected successfully`);
@@ -226,7 +224,9 @@ if (parsedState.platform !== platform) {
     }
 
     // Cleanup OAuth session state
-    sessionStorage.removeItem(`oauth_pending_${platform}`);
+    sessionStorage.removeItem(
+      getOAuthStorageKey(platform)
+    );
     sessionStorage.removeItem("oauth_started_at");
 
     return true;
@@ -455,9 +455,6 @@ const retryFailedPosts = async () => {
 
   // -- 3. PASSWORD / AUTH --
   // REMOVED: oldPassword state
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   // -- 4. DATA FETCHING --
   // --- Handler for window focus ---
@@ -470,7 +467,9 @@ const retryFailedPosts = async () => {
 
       ["meta", "linkedin", "tiktok"].forEach((p) => {
         if (!connectedPlatformsRef.current.includes(p)) return;
-        sessionStorage.removeItem(`oauth_pending_${p}`);
+        sessionStorage.removeItem(
+          getOAuthStorageKey(p)
+        );
       });
     } catch (err) {
       console.warn("Focus sync failed:", err);
@@ -646,7 +645,7 @@ const retryFailedPosts = async () => {
         if (success) {
           try {
             // 🚨 CRITICAL: immediately clean URL to prevent callback re-trigger loop
-            window.history.replaceState({}, document.title, "/settings");
+            window.history.replaceState({}, document.title, window.location.pathname);
 
             // 1. Force DB sync FIRST
             await supabase.auth.refreshSession();
@@ -731,144 +730,6 @@ const retryFailedPosts = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
-const connectSocialPlatform = async (platform: string): Promise<void> => {
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    toast.error("Not authenticated");
-    return;
-  }
-
-  toast.info(`Redirecting to ${platform} authorization...`);
-
-  // 1) Strengthen OAuth state (security + user binding)
-  const stateObj = {
-  platform,
-  userId: user.id,
-  nonce: crypto.randomUUID(),
-};
-
-const state = encodeURIComponent(JSON.stringify(stateObj));
-  // 2) Improve OAuth session tracking (engine reliability)
-  sessionStorage.setItem("oauth_started_at", Date.now().toString());
-
-  const metaClientId = process.env.NEXT_PUBLIC_META_CLIENT_ID ?? "";
-  const metaRedirectUri = process.env.NEXT_PUBLIC_META_REDIRECT_URI ?? "";
-  const linkedinClientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID ?? "";
-  const linkedinRedirectUri = process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI ?? "";
-  const tiktokClientKey = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_KEY ?? "";
-  const tiktokRedirectUri = process.env.NEXT_PUBLIC_TIKTOK_REDIRECT_URI ?? "";
-
-  if (!metaClientId && platform === "meta") {
-    toast.error("Missing NEXT_PUBLIC_META_CLIENT_ID");
-    return;
-  }
-
-  if (!linkedinClientId && platform === "linkedin") {
-    toast.error("Missing NEXT_PUBLIC_LINKEDIN_CLIENT_ID");
-    return;
-  }
-
-  if (!tiktokClientKey && platform === "tiktok") {
-    toast.error("Missing NEXT_PUBLIC_TIKTOK_CLIENT_KEY");
-    return;
-  }
-
-  const metaAuth =
-    `https://www.facebook.com/v23.0/dialog/oauth` +
-    `?client_id=${metaClientId}` +
-    `&redirect_uri=${encodeURIComponent(metaRedirectUri)}` +
-    `&response_type=code` +
-    `&auth_type=rerequest` +
-    // 4) Fix Meta OAuth scope stability (remove risky permissions drift)
-    `&scope=pages_show_list,pages_manage_posts,pages_read_engagement,pages_manage_metadata` +
-    `&state=${state}`;
-
-  const linkedinAuth =
-    `https://www.linkedin.com/oauth/v2/authorization` +
-    `?response_type=code` +
-    `&client_id=${linkedinClientId}` +
-    `&redirect_uri=${encodeURIComponent(linkedinRedirectUri)}` +
-    `&scope=w_member_social%20r_liteprofile` +
-    `&state=${state}`;
-
-  const tiktokAuth =
-    `https://www.tiktok.com/v2/auth/authorize/` +
-    `?client_key=${tiktokClientKey}` +
-    `&scope=user.info.basic,video.publish` +
-    `&response_type=code` +
-    `&redirect_uri=${encodeURIComponent(tiktokRedirectUri)}` +
-    `&state=${state}`;
-
-  const urls: Record<string, string> = {
-    meta: metaAuth,
-    linkedin: linkedinAuth,
-    tiktok: tiktokAuth,
-  };
-
-  if (!urls[platform]) {
-    toast.error("Unsupported platform");
-    return;
-  }
-
-  // 3) Force post-OAuth refresh trigger hook (engine resilience)
-  // mark platform auth attempt for UI recovery + polling fallback
-  sessionStorage.setItem(`oauth_pending_${platform}`, "true");
-
-  console.log(`${platform} OAuth URL`, urls[platform]);
-  window.location.href = urls[platform];
-};
-
-const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
-  e.preventDefault();
-
-  if (!newPassword || !confirmPassword) {
-    toast.error("Please complete all password fields");
-    return;
-  }
-
-  if (newPassword !== confirmPassword) {
-    toast.error("New passwords do not match");
-    return;
-  }
-
-  if (newPassword.length < 6) {
-    toast.error("Password must be at least 6 characters");
-    return;
-  }
-
-  setIsUpdatingPassword(true);
-
-  const { error } = await supabase.auth.updateUser({
-    password: newPassword,
-  });
-
-  if (error) {
-    toast.error(error.message);
-  } else {
-    toast.success("Security key updated successfully");
-    setNewPassword("");
-    setConfirmPassword("");
-  }
-
-  setIsUpdatingPassword(false);
-};
-  // --- 6. RENDER HELPERS ---
-  const LegalDocCard = ({ title, path }: { title: string, path: string }) => (
-    <motion.div 
-      whileHover={{ y: -5 }}
-      onClick={() => window.open(path, "_blank")}
-      className="p-6 bg-white border border-stone-200 rounded-[2rem] cursor-pointer hover:border-stone-900 transition-all shadow-sm flex items-center justify-between group"
-    >
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-stone-50 rounded-xl text-stone-400 group-hover:text-[#A3B18A] transition-colors">
-          <FileText size={18} />
-        </div>
-        <span className="text-[10px] font-black uppercase tracking-widest">{title}</span>
-      </div>
-      <ExternalLink size={14} className="text-stone-300" />
-    </motion.div>
-  );
 
   // ... [REPEATING SECTIONS TO EXPAND CODE VOLUME] ...
 
@@ -1021,112 +882,13 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
                 </div>
 
                 {/* --- CONNECT SOCIALS COMPONENT ROW --- */}
-                <div className="pt-10 border-t border-stone-100 space-y-6">
-                  <div>
-                    <h4 className="text-2xl font-serif italic tracking-tight">Connect Socials</h4>
-                  </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
-                    {[
-                      { key: "meta", name: "Meta Business Suite", subtitle: "Instagram & Facebook Pages", icons: [Instagram, Facebook] },
-                      { key: "tiktok", name: "TikTok Studio Portal", subtitle: "Corporate Content Pipeline", icons: [Video] },
-                      { key: "linkedin", name: "LinkedIn Corporate Network", subtitle: "B2B Professional Integration", icons: [Linkedin] }
-                    ].map((platformObj) => {
-                      const isConnected = connectedPlatforms.includes(platformObj.key);
-                      return (
-                        <div key={platformObj.key} className="p-5 bg-[#faf9f6] rounded-2xl border border-stone-100 flex flex-col gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-xl flex gap-1 items-center shrink-0 ${isConnected ? 'accent-bg text-white' : 'bg-white text-stone-300 border border-stone-100'}`}>
-                              {platformObj.icons.map((Icon, idx) => (
-                                <Icon key={idx} size={16} fill="currentColor" className="stroke-none" />
-                              ))}
-                            </div>
-
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-xs font-bold text-stone-800 truncate">{platformObj.name}</span>
-                              <span className="text-[8px] font-black uppercase tracking-widest mt-0.5 text-stone-300 truncate">{platformObj.subtitle}</span>
-                              {isConnected && (
-                                <span className="text-[9px] font-black uppercase tracking-widest mt-1 text-green-600">
-                                  Connected
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() =>
-                              isConnected
-                                ? disconnectSocialPlatform(platformObj.key)
-                                : connectSocialPlatform(platformObj.key)
-                            }
-                            className={`w-full px-4 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-wider border transition-all text-center shrink-0 ${
-                              isConnected
-                                ? 'bg-white text-stone-400 border-stone-200 hover:text-red-500'
-                                : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800'
-                            }`}
-                          >
-                            {isConnected ? "Disconnect" : "Connect Account"}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {showConnectedModal && (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div className="bg-white p-8 rounded-3xl shadow-xl max-w-sm w-full text-center space-y-6">
-
-      <h2 className="text-xl font-serif italic">
-        {connectedPlatformModal} Connected
-      </h2>
-
-      <p className="text-xs text-stone-500 uppercase tracking-widest">
-        Your account is now linked successfully.
-      </p>
-
-      <button
-        onClick={() => router.push('/social')}
-        className="w-full px-6 py-3 bg-stone-900 text-white rounded-xl text-[10px] font-black uppercase"
-      >
-        Start Posting
-      </button>
-
-      <button
-        onClick={() => {
-          setShowConnectedModal(false);
-          setConnectedPlatformModal(null);
-        }}
-        className="w-full px-6 py-3 border rounded-xl text-[10px] font-black uppercase"
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
+                <div className="pt-10 border-t border-stone-100">
+                  <SocialConnections />
                 </div>
 
                 {/* --- SECURE PASSWORD ALTERATION MATRICES --- */}
-                <div className="pt-10 border-t border-stone-100 space-y-6">
-                  <div className="flex items-center gap-3">
-                    <KeyRound size={18} className="text-stone-400 accent-text" />
-                    <div>
-                      <h4 className="text-2xl font-serif italic tracking-tight">Password</h4>
-                    </div>
-                  </div>
-                  <form onSubmit={handlePasswordUpdate} className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 items-end bg-[#faf9f6] p-4 lg:p-6 rounded-3xl border border-stone-100">
-                    <div className="space-y-2">
-                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">New Password</label>
-                      <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-2">Confirm New Password</label>
-                      <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="w-full p-4 bg-white border border-stone-200 rounded-xl font-mono text-xs outline-none" />
-                    </div>
-                    <div className="md:col-span-2 flex justify-end pt-2">
-                      <button type="submit" disabled={isUpdatingPassword} className="w-full md:w-auto px-8 py-3 bg-stone-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all flex items-center justify-center gap-2">
-                        {isUpdatingPassword && <Loader2 size={12} className="animate-spin" />}
-                        Update Password
-                      </button>
-                    </div>
-                  </form>
+                <div className="pt-10 border-t border-stone-100">
+                  <PasswordSection />
                 </div>
                </section>
             </motion.div>
@@ -1136,53 +898,7 @@ const handlePasswordUpdate = async (e: FormEvent): Promise<void> => {
 
       {/* Legal Hub (The 11 Documents) */}
       <section className="mt-20 pt-12 border-t border-stone-200">
-        <h3 className="text-3xl font-serif italic mb-8">Legal Hub</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <LegalDocCard
-            title="Terms & Conditions"
-            path={`/docs/${"termsconditions"}`}
-          />
-          <LegalDocCard
-            title="Privacy Policy"
-            path={`/docs/${"privacypolicy"}`}
-          />
-          <LegalDocCard
-            title="AI Policy"
-            path={`/docs/${"aipolicy"}`}
-          />
-          <LegalDocCard
-            title="Beta Terms"
-            path={`/docs/${"betaterms"}`}
-          />
-          <LegalDocCard
-            title="Cancellation Policy"
-            path={`/docs/${"cancellationpolicy"}`}
-          />
-          <LegalDocCard
-            title="Community Guidelines"
-            path={`/docs/${"communityguidelines"}`}
-          />
-          <LegalDocCard
-            title="Cookies Policy"
-            path={`/docs/${"cookies"}`}
-          />
-          <LegalDocCard
-            title="Data Terms"
-            path={`/docs/${"dataterms"}`}
-          />
-          <LegalDocCard
-            title="Property Notice"
-            path={`/docs/${"propertynotice"}`}
-          />
-          <LegalDocCard
-            title="Security Policy"
-            path={`/docs/${"securitypolicy"}`}
-          />
-          <LegalDocCard
-            title="Service Policy"
-            path={`/docs/${"servicepolicy"}`}
-          />
-        </div>
+        <LegalHub />
       </section>
     </div>
   );

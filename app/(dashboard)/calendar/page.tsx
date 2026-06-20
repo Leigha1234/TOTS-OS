@@ -79,6 +79,7 @@ const [formRepeat, setFormRepeat] = useState("none");
   const [formDescription, setFormDescription] = useState("");
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,10 +108,33 @@ const [formRepeat, setFormRepeat] = useState("none");
         .eq("id", user.id)
         .maybeSingle();
 
-      const { data, error } = await supabase
+      // Fetch events
+      const eventsPromise = supabase
         .from("events")
         .select("*")
         .eq("user_id", user.id);
+
+      // Fetch tasks created by the user
+      const tasksOwnedPromise = supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", user.id);
+
+      // Fetch tasks assigned to the user
+      const tasksAssignedPromise = supabase
+        .from("tasks")
+        .select("*")
+        .eq("assigned_to", user.id);
+
+      const [eventsRes, tasksOwnedRes, tasksAssignedRes] = await Promise.all([
+        eventsPromise,
+        tasksOwnedPromise,
+        tasksAssignedPromise,
+      ]);
+
+      const { data: data, error } = eventsRes;
+      const { data: tasksOwned } = tasksOwnedRes;
+      const { data: tasksAssigned } = tasksAssignedRes;
 
       if (error) {
         console.error("SYNC CALENDAR ERROR:", error);
@@ -119,7 +143,32 @@ const [formRepeat, setFormRepeat] = useState("none");
         return;
       }
 
-      setEvents((data || []).map(normaliseEvent));
+      // Merge events and tasks (de-duplicate by id)
+      const taskRows = [...(tasksOwned || []), ...(tasksAssigned || [])];
+
+      const normalisedTasks = taskRows
+        // filter out nulls and duplicates by task id
+        .filter(Boolean)
+        .map((t: any) => {
+          const startRaw = t.due_date || t.start_time || t.created_at;
+          return {
+            ...t,
+            id: `task-${t.id}`,
+            title: t.title || t.name || "Task",
+            description: t.description || t.content || "",
+            tags: t.tags || "",
+            user_id: t.user_id || t.assigned_to || user.id,
+            startAt: startRaw && isValid(new Date(startRaw)) ? new Date(startRaw) : null,
+            endAt: null,
+          } as CalendarEvent;
+        });
+
+      const normalisedEvents = (data || []).map(normaliseEvent);
+
+      // Combine, preferring real events over task placeholders if ids clash
+      const combined = [...normalisedEvents, ...normalisedTasks];
+
+      setEvents(combined);
       setIsLoading(false);
     } catch (err: any) {
       console.error("Sync error:", err);
@@ -183,32 +232,57 @@ setFormRepeat("none");
   };
 
   const deleteEvent = async (eventId: string) => {
+    if (!confirm("Delete this event?")) return;
+
+    setIsDeleting(true);
+
+    // Optimistically remove from UI
+    const removed = events.find(e => e.id === eventId) || null;
+    setEvents(prev => prev.filter(e => e.id !== eventId));
+    setSelectedEvent(null);
+    setIsModalOpen(false);
+
     try {
-      if (!confirm("Delete this event?")) return;
-
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { error: eventError } = await supabase
-        .from("events")
-        .delete()
-        .eq("id", eventId)
-        .eq("user_id", user.id);
-
-      if (eventError) {
-        console.error("DELETE FAILED (events):", eventError);
-        setError(eventError.message || "Failed to delete event");
+      if (!user) {
+        // rollback by re-syncing from server
+        await syncCalendar();
+        setIsDeleting(false);
         return;
       }
 
-      setEvents(prev => prev.filter(e => e.id !== eventId));
-      setSelectedEvent(null);
-      setIsModalOpen(false);
+      if (String(eventId).startsWith("task-")) {
+        // deleting a task
+        const taskId = String(eventId).replace("task-", "");
+        const { error: taskError } = await supabase
+          .from("tasks")
+          .delete()
+          .eq("id", taskId);
 
-      await syncCalendar();
+        if (taskError) {
+          console.error("DELETE FAILED (tasks):", taskError);
+          setError(taskError.message || "Failed to delete task");
+          await syncCalendar();
+        }
+      } else {
+        const { error: eventError } = await supabase
+          .from("events")
+          .delete()
+          .eq("id", eventId)
+          .eq("user_id", user.id);
 
+        if (eventError) {
+          console.error("DELETE FAILED (events):", eventError);
+          setError(eventError.message || "Failed to delete event");
+          // rollback by re-syncing
+          await syncCalendar();
+        }
+      }
     } catch (err) {
       console.error("Delete error:", err);
+      await syncCalendar();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -250,7 +324,7 @@ setFormRepeat("none");
         ${formInternalTeam ? `\n\n[Internal Team: ${formInternalTeam}]` : ""}
         ${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ""}`;
 
-      const { error } = await supabase
+      const { data: insertedEvent, error } = await supabase
         .from("events")
         .insert([
           {
@@ -267,13 +341,21 @@ setFormRepeat("none");
             organisation_id: profile?.organisation_id || null,
             source: "calendar"
           }
-        ]);
+        ])
+        .select("*")
+        .maybeSingle();
 
       if (error) {
         console.error("EVENT SAVE FAILED:", error);
         setError(error.message || "Failed to save event");
         setIsSubmitting(false);
         return;
+      }
+
+      // Optimistically update UI with the inserted row instead of full re-sync
+      if (insertedEvent) {
+        const newEvent = normaliseEvent(insertedEvent);
+        setEvents(prev => [newEvent, ...prev]);
       }
 
       setFormTitle("");
@@ -287,8 +369,6 @@ setFormRepeat("none");
       setAttachedFileName(null);
 
       setIsModalOpen(false);
-
-      await syncCalendar();
 
     } catch (err) {
       console.error("Save error:", err);
@@ -420,10 +500,12 @@ setFormRepeat("none");
                       )}
                       <button
   onClick={() => selectedEvent && deleteEvent(selectedEvent.id)}
-  className="w-full mt-6 bg-red-500 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-all"
+  disabled={isDeleting}
+  className={`w-full mt-6 bg-red-500 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-all ${isDeleting ? 'opacity-60 pointer-events-none' : ''}`}
 >
-  Delete Event
+  {isDeleting ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Delete Event"}
 </button>
+
                    </div>
                    
                    

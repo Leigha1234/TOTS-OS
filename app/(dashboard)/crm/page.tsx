@@ -25,6 +25,7 @@ export default function CRMDirectory() {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedOrganisationId, setResolvedOrganisationId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -38,51 +39,59 @@ export default function CRMDirectory() {
   });
 
   // 3. Effect waits for the organisationId to be loaded from SettingsContext
-  useEffect(() => {
-    if (organisationId) {
-      loadData();
-    }
-  }, [organisationId]);
+ useEffect(() => {
+  async function loadOrg() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-  async function loadData() {
-    try {
-      setLoading(true);
-      setError(null);
+    const { data } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", user.id)
+      .single();
 
-      // Fetch only data belonging to this specific organisation
-      const [profileRes, listRes] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("*")
-          .eq("organisation_id", organisationId)
-          .order("name", { ascending: true }),
-
-        supabase
-          .from("subscriber_lists")
-          .select("*")
-          .eq("organisation_id", organisationId)
-      ]);
-
-      if (profileRes.error) throw profileRes.error;
-      if (listRes.error) throw listRes.error;
-
-      setProfiles(profileRes.data || []);
-      setLists(listRes.data || []);
-    } catch (err: any) {
-      setError("Failed to sync");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    setResolvedOrganisationId(data?.organisation_id ?? null);
   }
+
+  loadOrg();
+}, []);
+
+useEffect(() => {
+  if (resolvedOrganisationId) {
+    loadData();
+  }
+}, [resolvedOrganisationId]);
+
+async function loadData() {
+  setLoading(true);
+  try {
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select()
+      .eq("organisation_id", resolvedOrganisationId)
+      .order("created_at", { ascending: false });
+
+    if (profilesError) throw profilesError;
+
+    setProfiles(profiles || []);
+    setLoading(false);
+  } catch (err: any) {
+    setError(err.message || "Failed to load contacts.");
+    setLoading(false);
+  }
+}
 
   async function addProfile(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
 
-    console.log("ORG ID:", organisationId);
-console.log("FORM:", form);
+    if (!resolvedOrganisationId) {
+  setError("Organisation not ready. Please wait a moment.");
+  setSaving(false);
+  return;
+}
+
 
     try {
       // 4. Inject organisation_id into the insertion
@@ -96,7 +105,7 @@ console.log("FORM:", form);
           company_name: form.company_name,
           company_details: form.company_details,
           role: form.role,
-          organisation_id: organisationId // Ties the node to TOTS-OS
+          organisation_id: resolvedOrganisationId // Ties the node to TOTS-OS
         }])
         .select()
         .single();

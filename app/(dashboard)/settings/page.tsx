@@ -894,6 +894,13 @@ const retryFailedPosts = async () => {
                   </div>
                 </div>
 
+{/* MAINTENANCE NOTICE */}
+<div className="mb-6 p-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800">
+  <p className="text-[10px] font-black uppercase tracking-widest">
+    Social Connections is currently in maintenance
+  </p>
+</div>
+
                 {/* --- CONNECT SOCIALS COMPONENT ROW --- */}
                 <div className="pt-10 border-t border-stone-100">
                   <SocialConnections />

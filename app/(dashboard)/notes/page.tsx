@@ -1588,6 +1588,10 @@ const NoteModal = ({
               </div>
             </div>
           )}
+
+          <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-amber-600">
+  Comments are currently under maintenance
+</div>
           <p className="text-[10px] font-black uppercase text-stone-400">Comments</p>
 
           <div className="space-y-2 max-h-48 overflow-y-auto">

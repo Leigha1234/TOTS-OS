@@ -17,9 +17,17 @@ export async function POST(req: Request) {
     const email = session.customer_details?.email;
     const fullName = session.metadata?.fullName;
 
+    if (!email || !fullName) {
+      return NextResponse.json({ error: "Missing customer email or name" }, { status: 400 });
+    }
+
     // 2. Check if user already exists in Supabase Auth
-    const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
-    const isUserRegistered = listData.users.find((u) => u.email === email);
+    const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) {
+      throw listError;
+    }
+
+    const isUserRegistered = listData?.users.find((u) => u.email === email);
 
     let userId: string;
 
@@ -28,8 +36,7 @@ export async function POST(req: Request) {
       userId = isUserRegistered.id;
       
       // Update their tier
-      await supabaseAdmin
-        .from("profiles")
+      await (supabaseAdmin.from("profiles") as any)
         .update({ subscription_tier: "unpaid" })
         .eq("id", userId);
     } else {
@@ -44,8 +51,7 @@ export async function POST(req: Request) {
       userId = userData.user.id;
 
       // 4. Update the profile with the paid tier
-      const { error: updateError } = await supabaseAdmin
-        .from("profiles")
+      const { error: updateError } = await (supabaseAdmin.from("profiles") as any)
         .update({ subscription_tier: "unpaid" })
         .eq("id", userId);
 

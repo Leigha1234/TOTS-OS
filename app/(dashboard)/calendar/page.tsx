@@ -44,11 +44,22 @@ const TAG_PALETTE = [
   { bg: "bg-rose-100", text: "text-rose-700" },     
 ];
 
+const getTagStyle = (tag: string) => {
+  const index = tag.length % TAG_PALETTE.length;
+  return TAG_PALETTE[index];
+};
+
 export default function Calendar() {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+  );
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTagFilter, setActiveTagFilter] = useState("ALL");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -89,36 +100,67 @@ const [formRepeat, setFormRepeat] = useState("none");
     };
   };
 
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
-
   const syncCalendar = useCallback(async () => {
-  setIsLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", user.id)
+      .single();
 
-  const [{ data: tasksData }, { data: eventsData }] = await Promise.all([
-    supabase.from("tasks").select("*").eq("user_id", user.id),
-    supabase.from("events").select("*").eq("user_id", user.id)
-  ]);
+    const { data, error } = await supabase
+      .from("events")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("organisation_id", profile?.organisation_id);
 
-  const combined = [...(tasksData || []), ...(eventsData || [])];
-
-  setEvents(combined.map(normaliseEvent));
+    if (error) {
+  console.error("SYNC CALENDAR ERROR:", error);
+  setError(error.message || "Failed to sync calendar");
   setIsLoading(false);
-}, [supabase]);
+  return;
+}
 
-  useEffect(() => { syncCalendar(); }, [syncCalendar]);
+    setEvents((data || []).map(normaliseEvent));
+    setIsLoading(false);
+  }, []);
 
-  const getTagStyle = (tag: string) => {
-    const cleanTag = tag.trim().toUpperCase();
-    if (cleanTag === "URGENT") return TAG_PALETTE[3];
-    const index = Math.abs(cleanTag.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % TAG_PALETTE.length;
-    return TAG_PALETTE[index];
-  };
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .single();
+
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("organisation_id", profile?.organisation_id);
+
+      if (error) {
+  console.error("EVENT LOAD ERROR:", error);
+  setError(error.message || "Failed to load events");
+  setIsLoading(false);
+  return;
+}
+
+      setEvents((data || []).map(normaliseEvent));
+      setIsLoading(false);
+    };
+
+    load();
+  }, []);
+
+
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -168,74 +210,146 @@ setFormRepeat("none");
       setAttachedFileName(e.target.files[0].name);
     }
   };
+
 const deleteEvent = async (eventId: string) => {
   try {
-    if (!confirm("Are you sure you want to delete this event?")) return;
+    if (!confirm("Delete this event?")) return;
 
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-    const { error } = await supabase
+    // delete from events FIRST
+    const { error: eventError } = await supabase
       .from("events")
       .delete()
       .eq("id", eventId)
-      .eq("user_id", user?.id);
+      .eq("user_id", user.id);
 
-    if (error) {
-      console.error("Delete event error:", error);
-      return;
-    }
+    // fallback delete from tasks (legacy safety only)
+    await supabase
+      .from("tasks")
+      .delete()
+      .eq("id", eventId)
+      .eq("user_id", user.id);
 
-    setIsModalOpen(false);
+    if (eventError) {
+  console.error("DELETE FAILED (events):", eventError);
+  setError(eventError.message || "Failed to delete event");
+  return;
+}
+
+    setEvents(prev => prev.filter(e => e.id !== eventId));
     setSelectedEvent(null);
-    syncCalendar();
+    setIsModalOpen(false);
+
+    await syncCalendar();
+
   } catch (err) {
-    console.error("Unexpected delete error:", err);
+    console.error("Delete error:", err);
   }
 };
+
   const saveEntry = async () => {
-    if (!formTitle || isSubmitting) return;
-    setIsSubmitting(true);
+  if (!formTitle || isSubmitting) return;
+
+  setIsSubmitting(true);
+
+  try {
     const { data: { user } } = await supabase.auth.getUser();
-    
-    const combinedDescription = `${formDescription}${formInternalTeam ? `\n\n[Internal Team: ${formInternalTeam}]` : ''}${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ''}`;
 
-    const startISO = new Date(`${formDate}T${formTime}:00`).toISOString();
+if (!user) {
+  console.error("No logged in user");
+  return;
+}
 
-const endISO =
-  formEndDate && formEndTime
-    ? new Date(`${formEndDate}T${formEndTime}:00`).toISOString()
-    : null;
 
-    
+const { data: profile, error: profileError } = await supabase
+.from("profiles")
+.select("organisation_id")
+.eq("id", user.id)
+.single();
 
-const { error } = await supabase.from("events").insert([{
-  title: formTitle,
-  description: combinedDescription,
-  location: formLocation,
-  meeting_link: formLink,
-  guests: formGuests,
-  tags: formTags,
-  start_time: startISO,
-  end_time: endISO,
-  repeat: formRepeat,
-  user_id: user?.id
-}]);
 
-    if (!error) {
-      setFormTitle("");
-      setFormTags("");
-      setFormGuests("");
-      setFormInternalTeam("");
-      setAttachedFileName(null);
-      setIsModalOpen(false);
-      syncCalendar();
-    }
+if(profileError){
+ console.error(
+   "PROFILE ERROR:",
+   profileError
+ );
+}
+
+    const startISO = new Date(
+      `${formDate}T${formTime}:00`
+    ).toISOString();
+
+    const endISO =
+      formEndDate && formEndTime
+        ? new Date(`${formEndDate}T${formEndTime}:00`).toISOString()
+        : null;
+
+
+    const combinedDescription =
+      `${formDescription}
+      ${formInternalTeam ? `\n\n[Internal Team: ${formInternalTeam}]` : ""}
+      ${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ""}`;
+
+
+    const { error } = await supabase
+      .from("events")
+      .insert([
+        {
+          title: formTitle,
+          description: combinedDescription,
+          location: formLocation,
+          meeting_link: formLink,
+          guests: formGuests,
+          tags: formTags,
+          start_time: startISO,
+          end_time: endISO,
+          repeat: formRepeat,
+          user_id: user.id,
+organisation_id: profile?.organisation_id || null,
+source: "calendar"
+        }
+      ]);
+
+
+    if (error) {
+  console.error("EVENT SAVE FAILED:", error);
+  setError(error.message || "Failed to save event");
+  setIsSubmitting(false);
+  return;
+}
+
+
+    setFormTitle("");
+    setFormDescription("");
+    setFormTags("");
+    setFormGuests("");
+    setFormInternalTeam("");
+    setFormEndDate("");
+    setFormEndTime("");
+    setFormRepeat("none");
+    setAttachedFileName(null);
+
+    setIsModalOpen(false);
+
+    await syncCalendar();
+
+
+  } catch (err) {
+    console.error("Save error:", err);
+  } finally {
     setIsSubmitting(false);
-  };
+  }
+};
 
   return (
     <div className="min-h-screen bg-[#F9F9F7] text-stone-900 font-sans p-3 sm:p-4 lg:p-10 flex flex-col relative overflow-x-hidden">
-      
+      {error && (
+  <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-black z-[2000]">
+    {error}
+  </div>
+)}
       {/* SETTINGS OVERLAY */}
       <AnimatePresence>
         {isSettingsOpen && (

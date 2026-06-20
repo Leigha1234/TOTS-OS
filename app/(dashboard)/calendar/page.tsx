@@ -666,7 +666,7 @@ setFormRepeat("none");
                       const primaryTag = e.tags?.split(',')[0] || '';
                       const style = primaryTag ? getTagStyle(primaryTag) : { bg: 'bg-stone-50', text: 'text-stone-500' };
                       return (
-                        <div key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
+                        <div key={`${e.id}-${e.startAt?.getTime?.() ?? 0}`} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
                           className={`px-2 py-1 rounded-lg border border-stone-100 text-[7px] font-black uppercase truncate transition-all ${style.bg} ${style.text}`}
                         >
                           {e.title}
@@ -718,7 +718,7 @@ setFormRepeat("none");
 
           <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
             {getDayEvents(selectedDay).map(e => (
-              <div key={e.id} onClick={() => { setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
+              <div key={`${e.id}-${e.startAt?.getTime?.() ?? 0}`} onClick={() => { setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
                 className="p-5 rounded-3xl bg-stone-50 border border-stone-100 hover:shadow-2xl transition-all cursor-pointer group"
               >
                 <div className="flex justify-between items-center mb-1">
@@ -736,7 +736,7 @@ setFormRepeat("none");
             {getDayEvents(selectedDay).length === 0 && (
               <div className="py-20 text-center opacity-10">
                 <Shield size={40} className="mx-auto mb-2" />
-                <p className="text-[8px] font-black uppercase tracking-widest">Protocol Clear</p>
+                <p className="text-[8px] font-black uppercase tracking-widest">Calendar Clear</p>
               </div>
             )}
           </div>

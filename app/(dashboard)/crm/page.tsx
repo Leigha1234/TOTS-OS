@@ -81,6 +81,9 @@ export default function CRMDirectory() {
     setSaving(true);
     setError(null);
 
+    console.log("ORG ID:", organisationId);
+console.log("FORM:", form);
+
     try {
       // 4. Inject organisation_id into the insertion
       const { data: newProfile, error: profileError } = await supabase

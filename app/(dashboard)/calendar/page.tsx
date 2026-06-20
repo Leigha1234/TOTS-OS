@@ -80,6 +80,8 @@ const [formRepeat, setFormRepeat] = useState("none");
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentProfile, setCurrentProfile] = useState<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,6 +109,9 @@ const [formRepeat, setFormRepeat] = useState("none");
         .select("organisation_id")
         .eq("id", user.id)
         .maybeSingle();
+
+      setCurrentUser(user);
+      setCurrentProfile(profile);
 
       // Fetch events
       const eventsPromise = supabase
@@ -310,9 +315,7 @@ setFormRepeat("none");
         console.error("PROFILE ERROR:", profileError);
       }
 
-      const startISO = new Date(
-        `${formDate}T${formTime}:00`
-      ).toISOString();
+      const startISO = new Date(`${formDate}T${formTime}:00`).toISOString();
 
       const endISO =
         formEndDate && formEndTime
@@ -324,51 +327,76 @@ setFormRepeat("none");
         ${formInternalTeam ? `\n\n[Internal Team: ${formInternalTeam}]` : ""}
         ${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ""}`;
 
-      const { data: insertedEvent, error } = await supabase
-        .from("events")
-        .insert([
-          {
-            title: formTitle,
-            description: combinedDescription,
-            location: formLocation,
-            meeting_link: formLink,
-            guests: formGuests,
-            tags: formTags,
-            start_time: startISO,
-            end_time: endISO,
-            repeat: formRepeat,
-            user_id: user.id,
-            organisation_id: profile?.organisation_id || null,
-            source: "calendar"
-          }
-        ])
-        .select("*")
-        .maybeSingle();
+      // Use cached user/profile when available to avoid extra network calls
+      const userObj = currentUser || user;
+      const orgId = currentProfile?.organisation_id ?? profile?.organisation_id ?? null;
 
-      if (error) {
-        console.error("EVENT SAVE FAILED:", error);
-        setError(error.message || "Failed to save event");
-        setIsSubmitting(false);
-        return;
-      }
+      // Create a temporary optimistic event and show it immediately
+      const tempId = `temp-${Date.now()}`;
+      const tempEvent: CalendarEvent = {
+        id: tempId,
+        title: formTitle,
+        description: combinedDescription,
+        location: formLocation,
+        meeting_link: formLink,
+        guests: formGuests,
+        tags: formTags,
+        user_id: userObj.id,
+        startAt: startISO ? new Date(startISO) : null,
+        endAt: endISO ? new Date(endISO) : null,
+        repeat: formRepeat,
+      };
 
-      // Optimistically update UI with the inserted row instead of full re-sync
-      if (insertedEvent) {
-        const newEvent = normaliseEvent(insertedEvent);
-        setEvents(prev => [newEvent, ...prev]);
-      }
-
-      setFormTitle("");
-      setFormDescription("");
-      setFormTags("");
-      setFormGuests("");
-      setFormInternalTeam("");
-      setFormEndDate("");
-      setFormEndTime("");
-      setFormRepeat("none");
-      setAttachedFileName(null);
-
+      setEvents(prev => [tempEvent, ...prev]);
+      // close modal immediately for snappy UX
       setIsModalOpen(false);
+
+      // Perform the insert in background; replace temp item on success or rollback on failure
+      try {
+        const { data: insertedEvent, error: insertError } = await supabase
+          .from("events")
+          .insert([
+            {
+              title: formTitle,
+              description: combinedDescription,
+              location: formLocation,
+              meeting_link: formLink,
+              guests: formGuests,
+              tags: formTags,
+              start_time: startISO,
+              end_time: endISO,
+              repeat: formRepeat,
+              user_id: userObj.id,
+              organisation_id: orgId,
+              source: "calendar"
+            }
+          ])
+          .select("*")
+          .maybeSingle();
+
+        if (insertError) {
+          console.error("EVENT SAVE FAILED:", insertError);
+          setError(insertError.message || "Failed to save event");
+          // rollback optimistic
+          setEvents(prev => prev.filter(e => e.id !== tempId));
+        } else if (insertedEvent) {
+          const newEvent = normaliseEvent(insertedEvent);
+          setEvents(prev => prev.map(e => e.id === tempId ? newEvent : e));
+        }
+      } catch (err) {
+        console.error("Save error:", err);
+        setEvents(prev => prev.filter(e => e.id !== tempId));
+      } finally {
+        setFormTitle("");
+        setFormDescription("");
+        setFormTags("");
+        setFormGuests("");
+        setFormInternalTeam("");
+        setFormEndDate("");
+        setFormEndTime("");
+        setFormRepeat("none");
+        setAttachedFileName(null);
+      }
 
     } catch (err) {
       console.error("Save error:", err);

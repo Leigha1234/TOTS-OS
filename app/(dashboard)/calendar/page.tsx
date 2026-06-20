@@ -156,19 +156,19 @@ const [formRepeat, setFormRepeat] = useState("none");
       const { data: data, error } = eventsRes;
       const { data: tasksOwned } = tasksOwnedRes;
       const { data: tasksAssigned } = tasksAssignedRes;
-      // notes fetch may fail if assigned_to filter doesn't match column type — handle gracefully
-      const { data: notesOwned, error: notesOwnedError } = notesOwnedRes || { data: null, error: null } as any;
-      const { data: notesAssigned, error: notesAssignedError } = notesAssignedRes || { data: null, error: null } as any;
+      const { data: notesOwned, error: notesOwnedError } = notesOwnedRes;
+const { data: notesAssigned, error: notesAssignedError } = notesAssignedRes;
 
-      if (notesOwnedError) {
-        console.warn("Notes owned fetch error:", notesOwnedError);
-      }
-      if (notesAssignedError) {
-        console.warn("Notes assigned fetch error (ignored):", notesAssignedError);
-      }
+if (notesOwnedError) {
+  console.warn("Notes owned fetch error:", notesOwnedError);
+}
+
+if (notesAssignedError) {
+  console.warn("Notes assigned fetch error:", notesAssignedError);
+}
 
       const safeNotesOwned = notesOwned || [];
-      const safeNotesAssigned = (notesAssignedError ? [] : (notesAssigned || []));
+      const safeNotesAssigned = notesAssigned || [];
 
       if (error) {
         console.error("SYNC CALENDAR ERROR:", error);
@@ -184,7 +184,11 @@ const [formRepeat, setFormRepeat] = useState("none");
         // filter out nulls and duplicates by task id
         .filter(Boolean)
         .map((t: any) => {
-          const startRaw = t.due_date || t.start_time || t.created_at;
+          const startRaw =
+  t?.due_date ||
+  t?.start_time ||
+  t?.created_at ||
+  null;
           return {
             ...t,
             id: `task-${t.id}`,
@@ -198,11 +202,23 @@ const [formRepeat, setFormRepeat] = useState("none");
         });
 
       // Normalise notes (show notes that have dates like due_date or created_at)
-      const noteRows = [...safeNotesOwned, ...safeNotesAssigned];
+      const noteMap = new Map();
+
+      [...(safeNotesOwned || []), ...(safeNotesAssigned || [])]
+        .filter(Boolean)
+        .forEach((n: any) => {
+          noteMap.set(n.id, n);
+        });
+
+      const noteRows = Array.from(noteMap.values());
       const normalisedNotes = noteRows
         .filter(Boolean)
         .map((n: any) => {
-          const startRaw = n.due_date || n.start_time || n.created_at;
+          const startRaw =
+  n?.due_date ||
+  n?.start_time ||
+  n?.created_at ||
+  null;
           const title = (n.content && String(n.content).slice(0, 80)) || n.title || n.category || "Note";
           return {
             ...n,
@@ -252,7 +268,10 @@ const [formRepeat, setFormRepeat] = useState("none");
   const getDayEvents = useCallback((date: Date) => {
     return events.filter(e => {
       const d = e.startAt;
-      const matchesDate = d && isValid(d) && isSameDay(d, date);
+      const matchesDate =
+  d instanceof Date &&
+  !isNaN(d.getTime()) &&
+  isSameDay(d, date);
       const matchesTag =
         activeTagFilter === "ALL" ||
         (e.tags && e.tags.toUpperCase().includes(activeTagFilter));
@@ -286,60 +305,73 @@ setFormRepeat("none");
   };
 
   const deleteEvent = async (eventId: string) => {
-    if (!confirm("Delete this event?")) return;
+  if (!confirm("Delete this item?")) return;
 
-    setIsDeleting(true);
+  setIsDeleting(true);
 
-    // Optimistically remove from UI
-    const removed = events.find(e => e.id === eventId) || null;
-    setEvents(prev => prev.filter(e => e.id !== eventId));
-    setSelectedEvent(null);
-    setIsModalOpen(false);
+  setEvents(prev => prev.filter(e => e.id !== eventId));
+  setSelectedEvent(null);
+  setIsModalOpen(false);
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        // rollback by re-syncing from server
-        await syncCalendar();
-        setIsDeleting(false);
-        return;
-      }
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
 
-      if (String(eventId).startsWith("task-")) {
-        // deleting a task
-        const taskId = String(eventId).replace("task-", "");
-        const { error: taskError } = await supabase
-          .from("tasks")
-          .delete()
-          .eq("id", taskId);
-
-        if (taskError) {
-          console.error("DELETE FAILED (tasks):", taskError);
-          setError(taskError.message || "Failed to delete task");
-          await syncCalendar();
-        }
-      } else {
-        const { error: eventError } = await supabase
-          .from("events")
-          .delete()
-          .eq("id", eventId)
-          .eq("user_id", user.id);
-
-        if (eventError) {
-          console.error("DELETE FAILED (events):", eventError);
-          setError(eventError.message || "Failed to delete event");
-          // rollback by re-syncing
-          await syncCalendar();
-        }
-      }
-    } catch (err) {
-      console.error("Delete error:", err);
+    if (!user) {
       await syncCalendar();
-    } finally {
-      setIsDeleting(false);
+      return;
     }
-  };
 
+    // TASKS
+    if (String(eventId).startsWith("task-")) {
+      const taskId = String(eventId).replace("task-", "");
+
+      const { error } = await supabase
+        .from("tasks")
+        .delete()
+        .eq("id", taskId);
+
+      if (error) {
+        console.error("DELETE FAILED (tasks):", error);
+        setError(error.message || "Failed to delete task");
+        await syncCalendar();
+      }
+
+    // NOTES
+    } else if (String(eventId).startsWith("note-")) {
+      const noteId = String(eventId).replace("note-", "");
+
+      const { error } = await supabase
+        .from("notes")
+        .delete()
+        .eq("id", noteId);
+
+      if (error) {
+        console.error("DELETE FAILED (notes):", error);
+        setError(error.message || "Failed to delete note");
+        await syncCalendar();
+      }
+
+    // EVENTS (real UUIDs only)
+    } else {
+      const { error } = await supabase
+        .from("events")
+        .delete()
+        .eq("id", eventId)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("DELETE FAILED (events):", error);
+        setError(error.message || "Failed to delete event");
+        await syncCalendar();
+      }
+    }
+  } catch (err) {
+    console.error("Delete error:", err);
+    await syncCalendar();
+  } finally {
+    setIsDeleting(false);
+  }
+};
   const saveEntry = async () => {
     if (!formTitle || isSubmitting) return;
 
@@ -696,7 +728,7 @@ setFormRepeat("none");
                       return <span key={t} className={`text-[7px] font-black ${style.text} uppercase`}>{t.trim()}</span>
                     })}
                   </div>
-                  <span className="text-[9px] font-bold text-stone-300">{e.startAt ? format(e.startAt, "HH:mm") : ""}</span>
+                  <span className="text-[9px] font-bold text-stone-300">{e.startAt && isValid(e.startAt) ? format(e.startAt, "HH:mm") : ""}</span>
                 </div>
                 <p className="text-[11px] font-black text-stone-800 uppercase truncate group-hover:text-[#A3B18A] transition-colors">{e.title}</p>
               </div>

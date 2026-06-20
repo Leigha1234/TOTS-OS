@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { supabase } from "@/lib/supabase";
 import { 
   ChevronLeft, ChevronRight, Plus, X, Loader2, 
   MapPin, Video, Shield, RefreshCw, Settings, Tag, ChevronDown, Paperclip, Link, Users, Mail
@@ -27,11 +27,12 @@ interface CalendarEvent {
   meeting_link?: string;
   guests?: string;
   tags?: string;
+
   user_id: string;
+
   startAt?: Date | null;
   endAt?: Date | null;
   repeat?: string;
-  organisation_id?: string;
 }
 
 const TAG_PALETTE = [
@@ -49,10 +50,6 @@ const getTagStyle = (tag: string) => {
 };
 
 export default function Calendar() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-  );
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date());
@@ -66,9 +63,7 @@ export default function Calendar() {
   // Modal & Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  type PanelMode = 'DAY_OVERVIEW' | 'EVENT_VIEW' | 'CREATE_EVENT';
-
-const [viewMode, setViewMode] = useState<PanelMode>('DAY_OVERVIEW');
+  const [viewMode, setViewMode] = useState<'VIEW' | 'CREATE'>('CREATE');
   
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -88,78 +83,53 @@ const [formRepeat, setFormRepeat] = useState("none");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const normaliseEvent = (e: any): CalendarEvent => {
-    const raw =
-      e?.start_at ||
-      e?.start_date ||
-      e?.start_time ||
-      e?.date ||
-      e?.created_at;
+    const raw = e?.start_time || e?.start_at || e?.created_at;
 
     return {
       ...e,
       startAt: raw && isValid(new Date(raw)) ? new Date(raw) : null,
+      endAt: (e?.end_time || e?.end_at) && isValid(new Date(e?.end_time || e?.end_at)) ? new Date(e?.end_time || e?.end_at) : null,
     };
   };
 
-const syncCalendar = useCallback(async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organisation_id")
-    .eq("id", user.id)
-    .single();
-
-  const { data, error } = await supabase
-    .from("events")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("organisation_id", profile?.organisation_id || "");
-
-  if (error) {
-    console.error("SYNC CALENDAR ERROR:", error);
-    setError(error.message || "Failed to sync calendar");
-    setIsLoading(false);
-    return;
-  }
-
-  setEvents((data || []).map(normaliseEvent));
-  setIsLoading(false);
-}, []);
-
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-
+  const syncCalendar = useCallback(async () => {
+    setIsLoading(true);
+    try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("organisation_id")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       const { data, error } = await supabase
         .from("events")
         .select("*")
-        .eq("user_id", user.id)
-        .eq("organisation_id", profile?.organisation_id);
+        .eq("user_id", user.id);
 
       if (error) {
-  console.error("EVENT LOAD ERROR:", error);
-  setError(error.message || "Failed to load events");
-  setIsLoading(false);
-  return;
-}
+        console.error("SYNC CALENDAR ERROR:", error);
+        setError(error.message || "Failed to sync calendar");
+        setIsLoading(false);
+        return;
+      }
 
       setEvents((data || []).map(normaliseEvent));
       setIsLoading(false);
-    };
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      setIsLoading(false);
+    }
+  }, [normaliseEvent]);
 
-    load();
-  }, []);
+  useEffect(() => {
+    syncCalendar();
+  }, [syncCalendar]);
 
 
 
@@ -199,7 +169,7 @@ const syncCalendar = useCallback(async () => {
     setFormGuests("");
     setFormInternalTeam("");
     setAttachedFileName(null);
-    setViewMode('DAY_OVERVIEW');
+    setViewMode('CREATE');
     setIsModalOpen(true);
     setFormEndDate("");
 setFormEndTime("");
@@ -212,148 +182,120 @@ setFormRepeat("none");
     }
   };
 
-const deleteEvent = async (eventId: string) => {
-  try {
-    if (!confirm("Delete this event?")) return;
+  const deleteEvent = async (eventId: string) => {
+    try {
+      if (!confirm("Delete this event?")) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setError("You must be logged in to delete events");
-      return;
-    }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    // Optimistic UI update
-    setEvents(prev => prev.filter(e => e.id !== eventId));
+      const { error: eventError } = await supabase
+        .from("events")
+        .delete()
+        .eq("id", eventId)
+        .eq("user_id", user.id);
 
-    const { error: eventError } = await supabase
-  .from("events")
-  .delete()
-  .eq("id", eventId)
-  .eq("user_id", user.id);
+      if (eventError) {
+        console.error("DELETE FAILED (events):", eventError);
+        setError(eventError.message || "Failed to delete event");
+        return;
+      }
 
-    if (eventError) {
-      console.error("DELETE FAILED (events):", eventError);
+      setEvents(prev => prev.filter(e => e.id !== eventId));
+      setSelectedEvent(null);
+      setIsModalOpen(false);
 
-      // revert optimistic update on failure
       await syncCalendar();
 
-      setError(eventError.message || "Failed to delete event");
-      return;
+    } catch (err) {
+      console.error("Delete error:", err);
     }
-
-    // legacy cleanup (safe ignore)
-await supabase
-  .from("tasks")
-  .delete()
-  .eq("id", eventId)
-  .eq("user_id", user.id)
-  .throwOnError?.();
-
-    setSelectedEvent(null);
-    setIsModalOpen(false);
-
-    await syncCalendar();
-
-  } catch (err: any) {
-    console.error("Delete error:", err);
-    setError(err?.message || "Unexpected delete error");
-    await syncCalendar();
-  }
-};
+  };
 
   const saveEntry = async () => {
-  if (!formTitle || isSubmitting) return;
+    if (!formTitle || isSubmitting) return;
 
-  setIsSubmitting(true);
+    setIsSubmitting(true);
 
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
 
-if (!user) {
-  console.error("No logged in user");
-  return;
-}
+      if (!user) {
+        console.error("No logged in user");
+        setIsSubmitting(false);
+        return;
+      }
 
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .maybeSingle();
 
-const { data: profile, error: profileError } = await supabase
-.from("profiles")
-.select("organisation_id")
-.eq("id", user.id)
-.single();
+      if (profileError) {
+        console.error("PROFILE ERROR:", profileError);
+      }
 
+      const startISO = new Date(
+        `${formDate}T${formTime}:00`
+      ).toISOString();
 
-if(profileError){
- console.error(
-   "PROFILE ERROR:",
-   profileError
- );
-}
+      const endISO =
+        formEndDate && formEndTime
+          ? new Date(`${formEndDate}T${formEndTime}:00`).toISOString()
+          : null;
 
-    const startISO = new Date(
-      `${formDate}T${formTime}:00`
-    ).toISOString();
+      const combinedDescription =
+        `${formDescription}
+        ${formInternalTeam ? `\n\n[Internal Team: ${formInternalTeam}]` : ""}
+        ${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ""}`;
 
-    const endISO =
-      formEndDate && formEndTime
-        ? new Date(`${formEndDate}T${formEndTime}:00`).toISOString()
-        : null;
+      const { error } = await supabase
+        .from("events")
+        .insert([
+          {
+            title: formTitle,
+            description: combinedDescription,
+            location: formLocation,
+            meeting_link: formLink,
+            guests: formGuests,
+            tags: formTags,
+            start_time: startISO,
+            end_time: endISO,
+            repeat: formRepeat,
+            user_id: user.id,
+            organisation_id: profile?.organisation_id || null,
+            source: "calendar"
+          }
+        ]);
 
+      if (error) {
+        console.error("EVENT SAVE FAILED:", error);
+        setError(error.message || "Failed to save event");
+        setIsSubmitting(false);
+        return;
+      }
 
-    const combinedDescription =
-      `${formDescription}
-      ${formInternalTeam ? `\n\n[Internal Team: ${formInternalTeam}]` : ""}
-      ${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ""}`;
+      setFormTitle("");
+      setFormDescription("");
+      setFormTags("");
+      setFormGuests("");
+      setFormInternalTeam("");
+      setFormEndDate("");
+      setFormEndTime("");
+      setFormRepeat("none");
+      setAttachedFileName(null);
 
+      setIsModalOpen(false);
 
-    const { error } = await supabase
-      .from("events")
-      .insert([
-        {
-          title: formTitle,
-          description: combinedDescription,
-          location: formLocation,
-          meeting_link: formLink,
-          guests: formGuests,
-          tags: formTags,
-          start_time: startISO,
-          end_time: endISO,
-          repeat: formRepeat,
-          user_id: user.id,
-organisation_id: profile?.organisation_id || null,
-source: "calendar"
-        }
-      ]);
+      await syncCalendar();
 
-
-    if (error) {
-  console.error("EVENT SAVE FAILED:", error);
-  setError(error.message || "Failed to save event");
-  setIsSubmitting(false);
-  return;
-}
-
-
-    setFormTitle("");
-    setFormDescription("");
-    setFormTags("");
-    setFormGuests("");
-    setFormInternalTeam("");
-    setFormEndDate("");
-    setFormEndTime("");
-    setFormRepeat("none");
-    setAttachedFileName(null);
-
-    setIsModalOpen(false);
-
-    await syncCalendar();
-
-
-  } catch (err) {
-    console.error("Save error:", err);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    } catch (err) {
+      console.error("Save error:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F9F9F7] text-stone-900 font-sans p-3 sm:p-4 lg:p-10 flex flex-col relative overflow-x-hidden">
@@ -388,11 +330,11 @@ source: "calendar"
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-stone-900/5 backdrop-blur-md" />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-[1.5rem] lg:rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col">
                <div className="p-8 pb-4 flex justify-between items-center">
-                 <h2 className="text-2xl font-serif italic">{viewMode === 'CREATE_EVENT' ? 'New Entry' : 'Event Name'}</h2>
+                 <h2 className="text-2xl font-serif italic">{viewMode === 'CREATE' ? 'New Entry' : 'Event Name'}</h2>
                  <button onClick={() => setIsModalOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={18}/></button>
                </div>
                <div className="p-4 lg:p-8 pt-2 space-y-4 overflow-y-auto max-h-[75vh] no-scrollbar">
-                 {viewMode === 'CREATE_EVENT' ? (
+                 {viewMode === 'CREATE' ? (
                    <>
                     <input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Entry Title" className="w-full bg-stone-50 rounded-xl p-4 text-sm outline-none border-none ring-1 ring-stone-100" />
                     <div className="flex gap-2">
@@ -533,7 +475,7 @@ source: "calendar"
                       const primaryTag = e.tags?.split(',')[0] || '';
                       const style = primaryTag ? getTagStyle(primaryTag) : { bg: 'bg-stone-50', text: 'text-stone-500' };
                       return (
-                        <div key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('EVENT_VIEW'); setIsModalOpen(true); }}
+                        <div key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
                           className={`px-2 py-1 rounded-lg border border-stone-100 text-[7px] font-black uppercase truncate transition-all ${style.bg} ${style.text}`}
                         >
                           {e.title}
@@ -585,7 +527,7 @@ source: "calendar"
 
           <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
             {getDayEvents(selectedDay).map(e => (
-              <div key={e.id} onClick={() => { setSelectedEvent(e); setViewMode('EVENT_VIEW'); setIsModalOpen(true); }}
+              <div key={e.id} onClick={() => { setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
                 className="p-5 rounded-3xl bg-stone-50 border border-stone-100 hover:shadow-2xl transition-all cursor-pointer group"
               >
                 <div className="flex justify-between items-center mb-1">

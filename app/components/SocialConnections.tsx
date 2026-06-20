@@ -23,11 +23,13 @@ const platforms = [
 
 export default function SocialConnections() {
   const {
-    connectedPlatforms,
-    loadingPlatforms,
+    connectedPlatforms = [],
+    loadingPlatforms = [],
     connectSocialPlatform,
     disconnectSocialPlatform,
   } = useSocialConnections();
+
+  const sageGreen = "#A3B18A";
 
   return (
     <section className="space-y-6">
@@ -46,7 +48,7 @@ export default function SocialConnections() {
           return (
             <div
               key={platform.id}
-              className="flex items-center justify-between p-4 border rounded-lg"
+              className="flex items-center justify-between p-4 border rounded-lg bg-white"
             >
               <div>
                 <h3 className="font-medium">{platform.name}</h3>
@@ -61,7 +63,8 @@ export default function SocialConnections() {
                     type="button"
                     disabled={isLoading}
                     onClick={() => disconnectSocialPlatform(platform.id)}
-                    className="px-3 py-1 text-sm rounded bg-red-600 text-white disabled:opacity-50"
+                    style={{ backgroundColor: sageGreen }}
+                    className="px-3 py-1 text-sm rounded text-white disabled:opacity-50"
                   >
                     {isLoading ? "Disconnecting..." : "Disconnect"}
                   </button>
@@ -70,7 +73,8 @@ export default function SocialConnections() {
                     type="button"
                     disabled={isLoading}
                     onClick={() => connectSocialPlatform(platform.id)}
-                    className="px-3 py-1 text-sm rounded bg-blue-600 text-white disabled:opacity-50"
+                    style={{ backgroundColor: sageGreen }}
+                    className="px-3 py-1 text-sm rounded text-white disabled:opacity-50"
                   >
                     {isLoading ? "Connecting..." : `Connect ${platform.name}`}
                   </button>

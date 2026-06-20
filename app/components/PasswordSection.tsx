@@ -72,7 +72,7 @@ export default function PasswordSection() {
       <button
         onClick={handleUpdatePassword}
         disabled={loading || !password || !confirmPassword}
-        className="w-full px-4 py-3 bg-black text-white rounded-lg disabled:opacity-50"
+        className="w-full px-4 py-3 bg-[#A3B18A] text-white rounded-lg disabled:opacity-50"
       >
         {loading ? "Updating..." : "Update Password"}
       </button>

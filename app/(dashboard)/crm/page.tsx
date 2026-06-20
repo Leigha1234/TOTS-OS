@@ -18,7 +18,7 @@ export default function CRMDirectory() {
     );
   }, []);
   const { organisationId } = useSettings(); // 2. Pull the active Org UUID
-  const [profiles, setProfiles] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [lists, setLists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -44,18 +44,11 @@ export default function CRMDirectory() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("id", user.id)
-      .single();
-
-    setResolvedOrganisationId(data?.organisation_id ?? null);
+    setResolvedOrganisationId(user.user_metadata?.organisation_id ?? null);
   }
 
   loadOrg();
 }, []);
-
 useEffect(() => {
   if (resolvedOrganisationId) {
     loadData();
@@ -63,25 +56,29 @@ useEffect(() => {
 }, [resolvedOrganisationId]);
 
 async function loadData() {
+  if (!resolvedOrganisationId) return;
+
   setLoading(true);
+  setError(null);
+
   try {
-    const { data: profiles, error: profilesError } = await supabase
-      .from("profiles")
+    const { data: contacts, error: contactsError } = await supabase
+      .from("contacts")
       .select()
       .eq("organisation_id", resolvedOrganisationId)
       .order("created_at", { ascending: false });
 
-    if (profilesError) throw profilesError;
+    if (contactsError) throw contactsError;
 
-    setProfiles(profiles || []);
-    setLoading(false);
+    setContacts(contacts || []);
   } catch (err: any) {
     setError(err.message || "Failed to load contacts.");
+  } finally {
     setLoading(false);
   }
 }
 
-  async function addProfile(e: React.FormEvent) {
+  async function addcontact(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
@@ -95,8 +92,8 @@ async function loadData() {
 
     try {
       // 4. Inject organisation_id into the insertion
-      const { data: newProfile, error: profileError } = await supabase
-        .from("profiles")
+      const { data: newcontact, error: contactError } = await supabase
+        .from("contacts")
         .insert([{
           name: form.name,
           email: form.email,
@@ -110,15 +107,15 @@ async function loadData() {
         .select()
         .single();
 
-      if (profileError) throw profileError;
+      if (contactError) throw contactError;
 
       // Handle Campaign Synchronisation
-      if (form.list_id && newProfile) {
+      if (form.list_id && newcontact) {
         const { error: listError } = await supabase
           .from("list_subscribers")
           .insert([{
             list_id: form.list_id,
-            profile_id: newProfile.id
+            contact_id: newcontact.id
           }]);
         
         if (listError) {
@@ -126,7 +123,7 @@ async function loadData() {
         }
       }
 
-      setProfiles((prev) => [newProfile, ...prev]);
+      setContacts((prev) => [newcontact, ...prev]);
       setForm({ 
         name: "", email: "", phone: "", address: "", 
         company_name: "", company_details: "", role: "client", list_id: "" 
@@ -139,7 +136,7 @@ async function loadData() {
     }
   }
 
-  const filtered = profiles.filter((p) =>
+  const filtered = contacts.filter((p) =>
     p.name?.toLowerCase().includes(search.toLowerCase()) ||
     p.company_name?.toLowerCase().includes(search.toLowerCase())
   );
@@ -184,23 +181,23 @@ async function loadData() {
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300">Loading Database...</p>
             </div>
           ) : filtered.length > 0 ? (
-            filtered.map((profile) => (
+            filtered.map((contact) => (
               <Link 
-                href={`/crm/${profile.id}`} 
-                key={profile.id}
+                href={`/crm/${contact.id}`} 
+                key={contact.id}
                 className="group relative bg-white border border-stone-100 rounded-[2rem] p-6 flex items-center justify-between hover:border-[#a9b897] hover:shadow-2xl hover:shadow-[#a9b897]/10 transition-all duration-500"
               >
                 <div className="flex items-center gap-6">
                   <div className="w-16 h-16 rounded-2xl bg-stone-50 text-stone-400 group-hover:bg-[#a9b897] group-hover:text-white transition-all duration-500 flex items-center justify-center shrink-0 border border-stone-100">
-                    <Radio size={24} className={profile.role === 'lead' ? 'animate-pulse' : ''} />
+                    <Radio size={24} className={contact.role === 'lead' ? 'animate-pulse' : ''} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-stone-800 group-hover:text-[#a9b897] transition-colors">{profile.name}</h3>
+                    <h3 className="text-xl font-bold text-stone-800 group-hover:text-[#a9b897] transition-colors">{contact.name}</h3>
                     <div className="flex items-center gap-3 mt-1">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">{profile.company_name }</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">{contact.company_name }</span>
                       <div className="w-1 h-1 rounded-full bg-stone-200" />
                       <span className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] bg-[#a9b897]/10 px-2 py-0.5 rounded italic">
-                        {profile.role === 'client' ? 'Client' : profile.role === 'lead' ? 'Active Lead' : 'Strategic Partner'}
+                        {contact.role === 'client' ? 'Client' : contact.role === 'lead' ? 'Active Lead' : 'Strategic Partner'}
                       </span>
                     </div>
                   </div>
@@ -239,7 +236,7 @@ async function loadData() {
                 </div>
               )}
 
-              <form onSubmit={addProfile} className="space-y-5">
+              <form onSubmit={addcontact} className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
                         <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Full Name</label>

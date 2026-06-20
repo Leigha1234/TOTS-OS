@@ -297,12 +297,11 @@ setFormRepeat("none");
     setIsSubmitting(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
+      // Use cached user when possible. Don't block UI on auth lookup — defer to background for the insert.
+      let user = currentUser;
+      let userPromise: Promise<any> | null = null;
       if (!user) {
-        console.error("No logged in user");
-        setIsSubmitting(false);
-        return;
+        userPromise = supabase.auth.getUser();
       }
 
       const { data: profile, error: profileError } = await supabase
@@ -328,7 +327,8 @@ setFormRepeat("none");
         ${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ""}`;
 
       // Use cached user/profile when available to avoid extra network calls
-      const userObj = currentUser || user;
+      // Resolve user for the eventual insert (do not await before showing temp event)
+      const resolvedUser = currentUser || (userPromise ? (await userPromise).data?.user : null) || null;
       const orgId = currentProfile?.organisation_id ?? profile?.organisation_id ?? null;
 
       // Create a temporary optimistic event and show it immediately
@@ -341,7 +341,7 @@ setFormRepeat("none");
         meeting_link: formLink,
         guests: formGuests,
         tags: formTags,
-        user_id: userObj.id,
+        user_id: currentUser?.id ?? null,
         startAt: startISO ? new Date(startISO) : null,
         endAt: endISO ? new Date(endISO) : null,
         repeat: formRepeat,
@@ -366,7 +366,7 @@ setFormRepeat("none");
               start_time: startISO,
               end_time: endISO,
               repeat: formRepeat,
-              user_id: userObj.id,
+              user_id: resolvedUser?.id || null,
               organisation_id: orgId,
               source: "calendar"
             }

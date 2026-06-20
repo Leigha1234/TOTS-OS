@@ -125,11 +125,11 @@ const [formRepeat, setFormRepeat] = useState("none");
         .select("*")
         .eq("user_id", user.id);
 
-      // Fetch tasks assigned to the user
+      // Fetch tasks assigned to the user (many-to-one fix)
       const tasksAssignedPromise = supabase
         .from("tasks")
         .select("*")
-        .contains("assigned_to", [user.id]);
+        .eq("assigned_to", user.id);
 
       // Fetch notes created by the user
       const notesOwnedPromise = supabase
@@ -137,11 +137,11 @@ const [formRepeat, setFormRepeat] = useState("none");
         .select("*")
         .eq("user_id", user.id);
 
-      // Fetch notes assigned to the user
+      // Fetch notes assigned to the user (many-to-one fix)
       const notesAssignedPromise = supabase
         .from("notes")
         .select("*")
-        .contains("assigned_to", [user.id]);
+        .eq("assigned_to", user.id);
 
       const [eventsRes, tasksOwnedRes, tasksAssignedRes, notesOwnedRes, notesAssignedRes] = await Promise.all([
         eventsPromise,

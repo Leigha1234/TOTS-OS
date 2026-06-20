@@ -131,15 +131,31 @@ const [formRepeat, setFormRepeat] = useState("none");
         .select("*")
         .eq("assigned_to", user.id);
 
-      const [eventsRes, tasksOwnedRes, tasksAssignedRes] = await Promise.all([
+      // Fetch notes created by the user
+      const notesOwnedPromise = supabase
+        .from("notes")
+        .select("*")
+        .eq("user_id", user.id);
+
+      // Fetch notes assigned to the user
+      const notesAssignedPromise = supabase
+        .from("notes")
+        .select("*")
+        .eq("assigned_to", user.id);
+
+      const [eventsRes, tasksOwnedRes, tasksAssignedRes, notesOwnedRes, notesAssignedRes] = await Promise.all([
         eventsPromise,
         tasksOwnedPromise,
         tasksAssignedPromise,
+        notesOwnedPromise,
+        notesAssignedPromise,
       ]);
 
       const { data: data, error } = eventsRes;
       const { data: tasksOwned } = tasksOwnedRes;
       const { data: tasksAssigned } = tasksAssignedRes;
+      const { data: notesOwned } = notesOwnedRes;
+      const { data: notesAssigned } = notesAssignedRes;
 
       if (error) {
         console.error("SYNC CALENDAR ERROR:", error);
@@ -168,10 +184,30 @@ const [formRepeat, setFormRepeat] = useState("none");
           } as CalendarEvent;
         });
 
+      // Normalise notes (show notes that have dates like due_date or created_at)
+      const noteRows = [...(notesOwned || []), ...(notesAssigned || [])];
+      const normalisedNotes = noteRows
+        .filter(Boolean)
+        .map((n: any) => {
+          const startRaw = n.due_date || n.start_time || n.created_at;
+          const title = (n.content && String(n.content).slice(0, 80)) || n.title || n.category || "Note";
+          return {
+            ...n,
+            id: `note-${n.id}`,
+            title,
+            description: n.content || n.description || "",
+            tags: n.tags || n.category || "",
+            user_id: n.user_id || n.assigned_to || user.id,
+            startAt: startRaw && isValid(new Date(startRaw)) ? new Date(startRaw) : null,
+            endAt: null,
+          } as CalendarEvent;
+        });
+
       const normalisedEvents = (data || []).map(normaliseEvent);
 
       // Combine, preferring real events over task placeholders if ids clash
-      const combined = [...normalisedEvents, ...normalisedTasks];
+      // Combine events, tasks and notes. Real events first so they take precedence.
+      const combined = [...normalisedEvents, ...normalisedTasks, ...normalisedNotes];
 
       setEvents(combined);
       setIsLoading(false);

@@ -27,9 +27,10 @@ interface CalendarEvent {
   meeting_link?: string;
   guests?: string;
   tags?: string;
-  user_id: string;
-  startAt?: Date | null;
 
+  user_id: string;
+
+  startAt?: Date | null;
   endAt?: Date | null;
   repeat?: string;
 }
@@ -94,13 +95,21 @@ const [formRepeat, setFormRepeat] = useState("none");
   ), []);
 
   const syncCalendar = useCallback(async () => {
-    setIsLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from("tasks").select("*").eq("user_id", user.id);
-    setEvents((data || []).map(normaliseEvent));
-    setIsLoading(false);
-  }, [supabase]);
+  setIsLoading(true);
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const [{ data: tasksData }, { data: eventsData }] = await Promise.all([
+    supabase.from("tasks").select("*").eq("user_id", user.id),
+    supabase.from("events").select("*").eq("user_id", user.id)
+  ]);
+
+  const combined = [...(tasksData || []), ...(eventsData || [])];
+
+  setEvents(combined.map(normaliseEvent));
+  setIsLoading(false);
+}, [supabase]);
 
   useEffect(() => { syncCalendar(); }, [syncCalendar]);
 
@@ -159,7 +168,30 @@ setFormRepeat("none");
       setAttachedFileName(e.target.files[0].name);
     }
   };
+const deleteEvent = async (eventId: string) => {
+  try {
+    if (!confirm("Are you sure you want to delete this event?")) return;
 
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { error } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", eventId)
+      .eq("user_id", user?.id);
+
+    if (error) {
+      console.error("Delete event error:", error);
+      return;
+    }
+
+    setIsModalOpen(false);
+    setSelectedEvent(null);
+    syncCalendar();
+  } catch (err) {
+    console.error("Unexpected delete error:", err);
+  }
+};
   const saveEntry = async () => {
     if (!formTitle || isSubmitting) return;
     setIsSubmitting(true);
@@ -167,16 +199,27 @@ setFormRepeat("none");
     
     const combinedDescription = `${formDescription}${formInternalTeam ? `\n\n[Internal Team: ${formInternalTeam}]` : ''}${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ''}`;
 
-    const { error } = await supabase.from("tasks").insert([{
-      title: formTitle,
-      description: combinedDescription,
-      location: formLocation,
-      meeting_link: formLink,
-      guests: formGuests,
-      tags: formTags,
-      created_at: new Date(`${formDate}T${formTime}:00`).toISOString(),
-      user_id: user?.id
-    }]);
+    const startISO = new Date(`${formDate}T${formTime}:00`).toISOString();
+
+const endISO =
+  formEndDate && formEndTime
+    ? new Date(`${formEndDate}T${formEndTime}:00`).toISOString()
+    : null;
+
+    
+
+const { error } = await supabase.from("events").insert([{
+  title: formTitle,
+  description: combinedDescription,
+  location: formLocation,
+  meeting_link: formLink,
+  guests: formGuests,
+  tags: formTags,
+  start_time: startISO,
+  end_time: endISO,
+  repeat: formRepeat,
+  user_id: user?.id
+}]);
 
     if (!error) {
       setFormTitle("");
@@ -203,11 +246,11 @@ setFormRepeat("none");
               <h3 className="text-xl font-serif italic">Settings</h3>
               <button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={16}/></button>
             </div>
-            <div className="space-y-6 text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
-              <div className="pt-6 border-t border-stone-50 mt-auto">
-                <button onClick={() => supabase.auth.signOut()} className="text-rose-400">Delete Event</button>
-              </div>
-            </div>
+            <div className="pt-6 border-t border-stone-50 mt-auto">
+  <p className="text-[9px] text-stone-300 uppercase tracking-widest">
+    Event actions are available in event view
+  </p>
+</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -305,8 +348,17 @@ setFormRepeat("none");
                         <a href={selectedEvent.meeting_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
                           <Video size={14} /> Join Meeting Route
                         </a>
+                        
                       )}
+                      <button
+  onClick={() => selectedEvent && deleteEvent(selectedEvent.id)}
+  className="w-full mt-6 bg-red-500 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-all"
+>
+  Delete Event
+</button>
                    </div>
+                   
+                   
                  )}
                </div>
             </motion.div>
@@ -360,6 +412,8 @@ setFormRepeat("none");
                         >
                           {e.title}
                         </div>
+
+                        
                       );
                     })}
                   </div>

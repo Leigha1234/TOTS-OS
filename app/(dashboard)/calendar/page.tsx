@@ -154,8 +154,19 @@ const [formRepeat, setFormRepeat] = useState("none");
       const { data: data, error } = eventsRes;
       const { data: tasksOwned } = tasksOwnedRes;
       const { data: tasksAssigned } = tasksAssignedRes;
-      const { data: notesOwned } = notesOwnedRes;
-      const { data: notesAssigned } = notesAssignedRes;
+      // notes fetch may fail if assigned_to filter doesn't match column type — handle gracefully
+      const { data: notesOwned, error: notesOwnedError } = notesOwnedRes || { data: null, error: null } as any;
+      const { data: notesAssigned, error: notesAssignedError } = notesAssignedRes || { data: null, error: null } as any;
+
+      if (notesOwnedError) {
+        console.warn("Notes owned fetch error:", notesOwnedError);
+      }
+      if (notesAssignedError) {
+        console.warn("Notes assigned fetch error (ignored):", notesAssignedError);
+      }
+
+      const safeNotesOwned = notesOwned || [];
+      const safeNotesAssigned = (notesAssignedError ? [] : (notesAssigned || []));
 
       if (error) {
         console.error("SYNC CALENDAR ERROR:", error);
@@ -185,7 +196,7 @@ const [formRepeat, setFormRepeat] = useState("none");
         });
 
       // Normalise notes (show notes that have dates like due_date or created_at)
-      const noteRows = [...(notesOwned || []), ...(notesAssigned || [])];
+      const noteRows = [...safeNotesOwned, ...safeNotesAssigned];
       const normalisedNotes = noteRows
         .filter(Boolean)
         .map((n: any) => {

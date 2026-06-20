@@ -34,7 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   const pinnedMobileLinks = allLinks.filter(link => 
-    mobileNav.includes(link.href)
+    mobileNav?.includes(link.href)
   ).slice(0, 3);
 
   useEffect(() => {

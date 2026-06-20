@@ -48,6 +48,7 @@ const [connectionHealth, setConnectionHealth] = useState<
 
   // --- REFS FOR SOCIAL ENGINE ---
   const channelRef = useRef<any>(null);
+  const subscribedRef = useRef(false);
   const engineIntervalRef = useRef<any>(null);
   const tokenIntervalRef = useRef<any>(null);
 const getOAuthStorageKey = (platform: string) =>
@@ -542,9 +543,19 @@ const retryFailedPosts = async () => {
     // ===============================
     const setupRealtime = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || !isMountedRef.current) return;
 
-      channelRef.current = supabase
+      // Prevent duplicate subscriptions (React StrictMode / re-renders safe)
+      if (subscribedRef.current) return;
+      subscribedRef.current = true;
+
+      // Cleanup any existing channel before creating a new one
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+
+      const channel = supabase
         .channel(`social_accounts_${user.id}`)
         .on(
           "postgres_changes",
@@ -555,12 +566,13 @@ const retryFailedPosts = async () => {
             filter: `user_id=eq.${user.id}`,
           },
           async () => {
-            // instantly sync UI when DB changes (connect/disconnect/token refresh)
             await refreshConnections();
             await verifyConnections();
           }
-        )
-        .subscribe();
+        );
+
+      channel.subscribe();
+      channelRef.current = channel;
     };
 
     setupRealtime();
@@ -603,6 +615,7 @@ const retryFailedPosts = async () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
+      subscribedRef.current = false;
     };
   }, [router]);
 

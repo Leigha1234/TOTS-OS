@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-// Initialize a service role client to securely write token assets
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 type RouteContext = {
   params: Promise<{ platform: string }>;
@@ -29,7 +23,12 @@ export async function GET(request: Request, context: RouteContext) {
     // grab the first available test profile row to ensure the query resolves.
     let targetUserId = user?.id;
     if (!targetUserId) {
-      const { data: fallbackUser } = await supabaseAdmin.from("profiles").select("id").limit(1).single();
+      const fallbackResponse = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .limit(1)
+        .single<{ id: string }>();
+      const fallbackUser = fallbackResponse.data;
       targetUserId = fallbackUser?.id;
     }
 
@@ -42,7 +41,7 @@ export async function GET(request: Request, context: RouteContext) {
         user_id: targetUserId,
         platform: platform || "unknown",
         token_data: { access_token: mockToken, synced_at: new Date().toISOString() },
-      }, { onConflict: "user_id,platform" });
+      } as any, { onConflict: "user_id,platform" });
 
     if (dbError) throw dbError;
 

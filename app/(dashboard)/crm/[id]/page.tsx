@@ -327,7 +327,7 @@ export default function AccountProfilePage() {
       const { data, error } = await supabase
         .from("notes")
         .select("*")
-        .eq("profile_id", profileId)
+        .eq("user_id", profileId)
         .order("created_at", { ascending: false });
 
       if (error) {

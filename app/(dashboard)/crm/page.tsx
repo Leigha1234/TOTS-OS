@@ -1,12 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 import { 
   Plus, Search, User, X, ChevronRight, Loader2, 
   Building2, Mail, Phone, MapPin, Hash, AlertCircle, Radio, Database
@@ -16,6 +11,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSettings } from "@/app/context/SettingsContext"; // 1. Access global state
 
 export default function CRMDirectory() {
+  const supabase = useMemo(() => {
+    return createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }, []);
   const { organisationId } = useSettings(); // 2. Pull the active Org UUID
   const [profiles, setProfiles] = useState<any[]>([]);
   const [lists, setLists] = useState<any[]>([]);

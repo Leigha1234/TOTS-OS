@@ -118,6 +118,7 @@ function VaultContent() {
   const contentChannelRef = useRef<any>(null);
   const noteOpsChannelRef = useRef<any>(null);
   const channelRef = useRef<any>(null);
+  const initRef = useRef(false);
   const typingChannelRef = useRef<any>(null);
   const [noteOps, setNoteOps] = useState<Record<string, any[]>>({});
 
@@ -377,7 +378,10 @@ function VaultContent() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (initRef.current) return;
+      initRef.current = true;
+
+  const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
       setUser(authUser);
       // Get orgId for multi-tenancy
@@ -397,13 +401,48 @@ function VaultContent() {
       setOrganisationId(orgId);
       await fetchTeamMembers(orgId);
       if (orgId) await fetchNotes(orgId, authUser.id);
+// HARD RESET OLD CHANNELS (prevents realtime duplicate subscribe errors)
+if (channelRef.current) {
+  supabase.removeChannel(channelRef.current);
+  channelRef.current = null;
+}
 
-      const mainChannel = supabase.channel("vault_desk", {
+if (typingChannelRef.current) {
+  supabase.removeChannel(typingChannelRef.current);
+  typingChannelRef.current = null;
+}
+
+if (presenceChannelRef.current) {
+  supabase.removeChannel(presenceChannelRef.current);
+  presenceChannelRef.current = null;
+}
+
+if (cursorChannelRef.current) {
+  supabase.removeChannel(cursorChannelRef.current);
+  cursorChannelRef.current = null;
+}
+
+if (selectionChannelRef.current) {
+  supabase.removeChannel(selectionChannelRef.current);
+  selectionChannelRef.current = null;
+}
+
+if (contentChannelRef.current) {
+  supabase.removeChannel(contentChannelRef.current);
+  contentChannelRef.current = null;
+}
+
+if (noteOpsChannelRef.current) {
+  supabase.removeChannel(noteOpsChannelRef.current);
+  noteOpsChannelRef.current = null;
+}
+if (!orgId) return;
+      const mainChannel = supabase.channel(`vault_desk_${orgId}`, {
+        
         config: {
           presence: { key: authUser.id }
         }
       });
-
       mainChannel
         .on('postgres_changes', {
           event: '*',
@@ -614,15 +653,15 @@ function VaultContent() {
     };
     init();
     return () => {
-      if (channelRef.current) supabase.removeChannel(channelRef.current);
-      if (typingChannelRef.current) supabase.removeChannel(typingChannelRef.current);
-      if (presenceChannelRef.current) supabase.removeChannel(presenceChannelRef.current);
-      if (cursorChannelRef.current) supabase.removeChannel(cursorChannelRef.current);
-      if (selectionChannelRef.current) supabase.removeChannel(selectionChannelRef.current);
-      if (contentChannelRef.current) supabase.removeChannel(contentChannelRef.current);
       if (noteOpsChannelRef.current) supabase.removeChannel(noteOpsChannelRef.current);
-    };
-  }, [fetchNotes, fetchTeamMembers]);
+if (contentChannelRef.current) supabase.removeChannel(contentChannelRef.current);
+if (selectionChannelRef.current) supabase.removeChannel(selectionChannelRef.current);
+if (cursorChannelRef.current) supabase.removeChannel(cursorChannelRef.current);
+if (presenceChannelRef.current) supabase.removeChannel(presenceChannelRef.current);
+if (typingChannelRef.current) supabase.removeChannel(typingChannelRef.current);
+if (channelRef.current) supabase.removeChannel(channelRef.current);
+};
+}, []);
   
   // Speech Recognition Initializer
   useEffect(() => {

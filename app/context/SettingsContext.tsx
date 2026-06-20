@@ -1,54 +1,47 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createContext, useContext, useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
 
-interface SettingsState {
-  brandColor: string;
-  secondaryColor: string;
-  fontFamily: string;
-  logoUrl: string;
-  mobileNav: string[];
+export type SettingsState = {
+  brandColor: string | null;
+  secondaryColor: string | null;
+  fontFamily: string | null;
+  logoUrl: string | null;
+  mobileNav: string[] | null;
   organisationId: string | null;
   loading: boolean;
   refreshSettings: () => Promise<void>;
-}
+};
 
 const defaultSettings: SettingsState = {
-  brandColor: "#a9b897",
-  secondaryColor: "#1c1917",
-  fontFamily: "Inter",
-  logoUrl: "",
-  mobileNav: ["/dashboard", "/clarity", "/calendar"],
+  brandColor: null,
+  secondaryColor: null,
+  fontFamily: null,
+  logoUrl: null,
+  mobileNav: null,
   organisationId: null,
   loading: true,
-  refreshSettings: async () => {}
+  refreshSettings: async () => {},
 };
 
 const SettingsContext = createContext<SettingsState>(defaultSettings);
 
-export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  // Initialize once outside or via useMemo to prevent re-creation
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
-
-  const [brandColor, setBrandColor] = useState(defaultSettings.brandColor);
-  const [secondaryColor, setSecondaryColor] = useState(defaultSettings.secondaryColor);
-  const [fontFamily, setFontFamily] = useState(defaultSettings.fontFamily);
-  const [logoUrl, setLogoUrl] = useState(defaultSettings.logoUrl);
-  const [mobileNav, setMobileNav] = useState<string[]>(defaultSettings.mobileNav);
+export const SettingsProvider = ({ children }: { children: React.ReactNode }) => {
+  const [brandColor, setBrandColor] = useState<string | null>(null);
+  const [secondaryColor, setSecondaryColor] = useState<string | null>(null);
+  const [fontFamily, setFontFamily] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [mobileNav, setMobileNav] = useState<string[] | null>(null);
   const [organisationId, setOrganisationId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const refreshSettings = useCallback(async () => {
-    setLoading(true); // Ensure loading is true while fetching
+  const refreshSettings = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        // Reset to defaults if no user is found
+
+      if (!user?.id) {
+        console.log("No authenticated user yet - skipping settings load");
         setOrganisationId(null);
         setLoading(false);
         return;
@@ -60,57 +53,45 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         .eq("id", user.id)
         .maybeSingle();
 
-      if (error) throw error;
-
-      if (p) {
-        if (p.brand_color) setBrandColor(p.brand_color);
-        if (p.secondary_color) setSecondaryColor(p.secondary_color);
-        if (p.font_family) setFontFamily(p.font_family);
-        if (p.logo_url) setLogoUrl(p.logo_url);
-        if (p.mobile_nav_config) setMobileNav(p.mobile_nav_config);
-        if (p.organisation_id) setOrganisationId(p.organisation_id);
+      if (error) {
+        console.error("Profile fetch error:", JSON.stringify(error, null, 2));
+        return;
       }
+
+      if (!p) {
+        console.warn("No profile found for user:", user.id);
+        return;
+      }
+
+      if (p.brand_color) setBrandColor(p.brand_color);
+      if (p.secondary_color) setSecondaryColor(p.secondary_color);
+      if (p.font_family) setFontFamily(p.font_family);
+      if (p.logo_url) setLogoUrl(p.logo_url);
+      if (p.mobile_nav_config) setMobileNav(p.mobile_nav_config as string[]);
+      if (p.organisation_id) setOrganisationId(p.organisation_id);
     } catch (err) {
-      console.error("Error refreshing system settings:", err);
+      console.error(
+        "Error refreshing system settings:",
+        JSON.stringify(err, null, 2)
+      );
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  };
 
-  // Listen for Auth changes (Login/Logout)
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        refreshSettings();
-      }
-      if (event === "SIGNED_OUT") {
-        setOrganisationId(null);
-        setLoading(false);
-      }
-    });
-
     refreshSettings();
 
-    return () => subscription.unsubscribe();
-  }, [supabase, refreshSettings]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      refreshSettings();
+    });
 
-  // Inject CSS Variables
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const root = document.documentElement;
-      root.style.setProperty("--brand-primary", brandColor);
-      root.style.setProperty("--brand-secondary", secondaryColor);
-      
-      // Clean font name for CSS
-      const cleanFont = fontFamily.replace(/['"]/g, "");
-      root.style.setProperty("--font-main", `'${cleanFont}', sans-serif`);
-      
-      document.body.style.fontFamily = `var(--font-main)`;
-      root.setAttribute("data-theme-loaded", "true");
-    }
-  }, [brandColor, secondaryColor, fontFamily]);
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
-  const value = useMemo(() => ({
+  const value: SettingsState = {
     brandColor,
     secondaryColor,
     fontFamily,
@@ -118,15 +99,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     mobileNav,
     organisationId,
     loading,
-    refreshSettings
-  }), [brandColor, secondaryColor, fontFamily, logoUrl, mobileNav, organisationId, loading, refreshSettings]);
+    refreshSettings,
+  };
 
   return (
     <SettingsContext.Provider value={value}>
       {children}
     </SettingsContext.Provider>
   );
-}
+};
 
 export const useSettings = () => {
   const context = useContext(SettingsContext);

@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -13,10 +13,6 @@ export async function GET(req: Request) {
 
   const userId = state;
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
 
   try {
     // 1. Exchange code for access token
@@ -68,18 +64,25 @@ export async function GET(req: Request) {
     const profile = userData?.data?.user;
 
     // 3. Store in Supabase
-    await supabase.from("social_accounts").upsert({
-      user_id: userId,
-      platform: "tiktok",
-      access_token: accessToken,
-      refresh_token: tokenData.data.refresh_token || null,
-      platform_user_id: profile?.open_id,
-      platform_username: profile?.display_name,
-      expires_at: new Date(
-        Date.now() + tokenData.data.expires_in * 1000
-      ).toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    await (supabaseAdmin as any)
+      .from("social_accounts")
+      .upsert(
+        {
+          user_id: userId,
+          platform: "tiktok",
+          access_token: accessToken,
+          refresh_token: tokenData.data.refresh_token || null,
+          platform_user_id: profile?.open_id,
+          platform_username: profile?.display_name,
+          expires_at: new Date(
+            Date.now() + tokenData.data.expires_in * 1000
+          ).toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,platform",
+        }
+      );
 
     // 4. Redirect back
     return Response.redirect(

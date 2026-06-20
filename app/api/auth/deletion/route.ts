@@ -1,14 +1,9 @@
 // app/api/auth/deletion/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
     // Parse the data payload sent by the request
     const body = await request.json();
     const platformAccountId = body.user_id || body.signed_request; 
@@ -18,7 +13,7 @@ export async function POST(request: Request) {
     }
 
     // Purge the oauth token mapping records for this specific social profile link completely
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('social_tokens')
       .delete()
       .eq('platform_account_id', platformAccountId);

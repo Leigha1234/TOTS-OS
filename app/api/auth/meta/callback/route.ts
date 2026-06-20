@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -13,10 +13,6 @@ export async function GET(req: Request) {
 
   const userId = state;
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
 
   try {
     // 1. Exchange code for short-lived token
@@ -85,18 +81,20 @@ export async function GET(req: Request) {
     }
 
     // 6. Store in Supabase
-    await supabase.from("social_accounts").upsert({
-      user_id: userId,
-      platform: "meta",
-      platform_user_id: me.id,
-      platform_username: me.name,
-      access_token: accessToken,
-      page_id: pageId,
-      page_access_token: pageAccessToken,
-      instagram_business_account_id: instagramBusinessAccountId,
-      expires_at: null,
-      updated_at: new Date().toISOString(),
-    });
+    await (supabaseAdmin as any)
+      .from("social_accounts")
+      .upsert({
+        user_id: userId,
+        platform: "meta",
+        platform_user_id: me.id,
+        platform_username: me.name,
+        access_token: accessToken,
+        page_id: pageId,
+        page_access_token: pageAccessToken,
+        instagram_business_account_id: instagramBusinessAccountId,
+        expires_at: null,
+        updated_at: new Date().toISOString(),
+      });
 
     // 7. Redirect back to app
     return Response.redirect(

@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function GET(req: Request) {
   try {
@@ -33,12 +28,14 @@ export async function GET(req: Request) {
 
     // log open event (best effort)
     try {
-      await supabaseAdmin.from("campaigns_open").insert({
-        campaign_id: campaignId,
-        profile_id: profileId || null,
-        user_agent: userAgent,
-        ip: ip
-      });
+      await (supabaseAdmin as any)
+        .from("campaigns_open")
+        .insert({
+          campaign_id: campaignId,
+          profile_id: profileId || null,
+          user_agent: userAgent,
+          ip: ip
+        });
     } catch (e) {
       console.error("campaigns_open insert error:", e);
     }

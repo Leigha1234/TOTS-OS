@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useEffect, useState } from "react";
+import { supabase } from "../../../lib/supabase";
 import { 
   Plus, Search, Folder, ChevronRight, Loader2, 
   Layers, Clock, Hash, Database, ArrowUpRight,
@@ -31,11 +31,6 @@ export default function ProjectDirectory() {
     health: "good"
   });
 
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
-
   useEffect(() => {
     if (organisationId) {
       loadProjects();
@@ -55,15 +50,22 @@ export default function ProjectDirectory() {
         .from("profiles")
         .select("organisation_id")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        console.error("Org load error:", error);
+        console.error("Org load error (profiles query failed):", error);
         setLoading(false);
         return;
       }
 
-      if (!profile?.organisation_id) {
+      if (!profile) {
+        console.warn("No profile found for user:", user.id);
+        toast.error("User profile not found");
+        setLoading(false);
+        return;
+      }
+
+      if (!profile || !profile.organisation_id) {
         console.warn("No organisation_id found on profile");
         toast.error("No organisation assigned to account");
         setLoading(false);
@@ -82,6 +84,7 @@ export default function ProjectDirectory() {
       if (!organisationId) return;
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
+console.log("AUTH USER:", user?.id);
 
       if (!user?.id) {
         toast.error("Not authenticated");
@@ -94,130 +97,139 @@ export default function ProjectDirectory() {
         .from("projects")
         .select("*")
         .eq("organisation_id", organisationId)
-        .or(`user_id.eq.${user.id},members.cs.{${user.id}}`);
+.eq("user_id", user.id);
 
       if (error) {
-        console.error("Load projects error:", error);
-        toast.error("Failed to load projects");
-        return;
-      }
-      setProjects(data || []);
+  console.error("Load projects error:", error);
+  toast.error("Failed to load projects");
+  return;
+}
+      setProjects(Array.isArray(data) ? data : []);
     } finally {
       setLoading(false);
     }
   }
 
   async function establishProject(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
+  e.preventDefault();
+  setSaving(true);
 
-    try {
-      if (!form.name?.trim()) {
-        toast.error("Project name required");
-        setSaving(false);
-        return;
-      }
+  try {
+    if (!form.name?.trim()) {
+      toast.error("Project name required");
+      return;
+    }
 
-      // Always resolve organisation from DB to avoid stale state issues
-      const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-      if (!user?.id) {
-        toast.error("Not authenticated");
-        setSaving(false);
-        return;
-      }
+    if (userError || !user?.id) {
+      console.error("Auth error:", userError);
+      toast.error("Not authenticated");
+      return;
+    }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("id", user.id)
-        .single();
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", user.id)
+      .maybeSingle();
 
-      if (profileError || !profile?.organisation_id) {
-        console.error("Organisation lookup error:", profileError);
-        toast.error("Organisation not found");
-        setSaving(false);
-        return;
-      }
+    if (profileError) {
+      console.error("Profile fetch error:", profileError);
+      toast.error("Failed to load profile");
+      return;
+    }
 
-      const orgId = profile.organisation_id || null;
-      if (!orgId) {
-        console.error("Missing organisation_id on profile");
-        toast.error("No organisation linked to your account");
-        setSaving(false);
-        return;
-      }
+    if (!profile?.organisation_id) {
+      console.error("Missing organisation_id");
+      toast.error("No organisation linked to account");
+      return;
+    }
 
-      const payload = {
-        name: form.name.trim(),
-        objective_summary: form.objective_summary || null,
-        description: form.description || null,
-        category: form.category,
-        members:
-          typeof form.members === "string" && form.members.trim().length > 0
-            ? form.members.split(",").map(m => m.trim()).filter(Boolean)
-            : [],
-        start_date: form.start_date || null,
-        due_date: form.due_date || null,
-        budget:
-          form.budget !== "" && !isNaN(Number(form.budget))
-            ? Number(form.budget)
-            : 0,
-        health: "good",
-        organisation_id: orgId,
-        user_id: user.id,
-      };
-      console.log("Creating project payload:", payload);
-      console.log("Organisation ID used:", orgId);
+    const orgId = profile.organisation_id;
 
-      const { data: inserted, error: insertError } = await supabase
-        .from("projects")
-        .insert([payload])
-        .select()
-        .single();
+    const payload = {
+      name: form.name.trim(),
+      objective_summary: form.objective_summary || null,
+      description: form.description || null,
+      category: form.category,
+      status: "live",
+      priority: "Medium",
+      health: "good",
 
-      if (insertError) {
-        console.error("Supabase insert error:", insertError);
-        toast.error(insertError.message || "Failed to create project");
-        setSaving(false);
-        return;
-      }
+      members: Array.isArray(form.members)
+        ? form.members
+        : typeof form.members === "string" && form.members.trim().length > 0
+        ? form.members.split(",").map((m) => m.trim()).filter(Boolean)
+        : [],
 
-      if (!inserted) {
-        console.error("Insert returned no data");
-        toast.error("Project created but no data returned");
-        setSaving(false);
-        return;
-      }
+      start_date: form.start_date || null,
+      due_date: form.due_date || null,
 
-      setProjects((prev) => [inserted, ...prev]);
-      setShowModal(false);
+      budget:
+        form.budget !== "" && !isNaN(Number(form.budget))
+          ? Number(form.budget)
+          : 0,
 
-      setForm({
-        name: "",
-        objective_summary: "",
-        description: "",
-        category: "Strategic",
-        members: "",
-        start_date: "",
-        due_date: "",
-        budget: "",
-        health: "good",
+      organisation_id: orgId,
+      user_id: user.id,
+    };
+
+    console.log("INSERT PAYLOAD:", payload);
+
+    const { data, error: insertError } = await supabase
+      .from("projects")
+      .insert(payload)
+      .select("*");
+
+    if (insertError) {
+      console.error("Supabase insert error FULL:", insertError);
+      console.error("Supabase insert error context:", {
+        payload,
+        organisationId: orgId,
+        userId: user.id,
       });
 
-      toast.success("Project Created");
-    } catch (err: any) {
-      console.error("Project creation error (uncaught):", err);
-      console.error("Payload at crash:", form);
-
-      toast.error(
-        err?.message ||
-        "Unexpected error creating project"
-      );
-    } finally {
-      setSaving(false);
+      toast.error(insertError.message || "Failed to create project");
+      return;
     }
+
+    if (!Array.isArray(data) || data.length === 0) {
+      console.error("Supabase insert returned no rows", {
+        payload,
+        response: data,
+      });
+      toast.error("Project created but no response row returned");
+      return;
+    }
+
+    const inserted = data[0];
+    setProjects((prev) => [inserted, ...prev]);
+    setShowModal(false);
+
+    setForm({
+      name: "",
+      objective_summary: "",
+      description: "",
+      category: "Strategic",
+      members: "",
+      start_date: "",
+      due_date: "",
+      budget: "",
+      health: "good",
+    });
+
+    toast.success("Project Created");
+  } catch (err: any) {
+    console.error("Unexpected error:", err);
+    toast.error(err?.message || "Unexpected error creating project");
+  } finally {
+    setSaving(false);
   }
+}
 
   const filtered = projects.filter((p) =>
     (p.name || "").toLowerCase().includes(search.toLowerCase())
@@ -228,11 +240,8 @@ export default function ProjectDirectory() {
       <div className="max-w-5xl mx-auto">
         
         <header className="flex flex-col md:flex-row md:justify-between md:items-end mb-16 gap-6">
-          <div className="space-y-2">
             <div className="flex items-center gap-2 text-[#a9b897]">
-              <div className="w-8 h-[1px] bg-[#a9b897]" />
-              <p className="text-[10px] uppercase tracking-[0.4em] font-black">Assets</p>
-            </div>
+              
             <h1 className="text-6xl md:text-8xl font-serif italic text-stone-800 tracking-tighter">Projects</h1>
           </div>
 

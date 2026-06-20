@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -13,10 +13,6 @@ export async function GET(req: Request) {
 
   const userId = state;
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
 
   try {
     // 1. Exchange code for access token
@@ -37,6 +33,14 @@ export async function GET(req: Request) {
       }
     );
 
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      return Response.json(
+        { error: "LinkedIn token request failed", details: errText },
+        { status: 400 }
+      );
+    }
+
     const tokenData = await tokenRes.json();
 
     if (!tokenData.access_token) {
@@ -53,22 +57,38 @@ export async function GET(req: Request) {
       },
     });
 
+    if (!profileRes.ok) {
+      const errText = await profileRes.text();
+      return Response.json(
+        { error: "LinkedIn profile request failed", details: errText },
+        { status: 400 }
+      );
+    }
+
     const profile = await profileRes.json();
 
     // 3. Store in Supabase
-    await supabase.from("social_accounts").upsert({
-      user_id: userId,
-      platform: "linkedin",
-      access_token: tokenData.access_token,
-      refresh_token: null,
-      platform_user_id: profile.id,
-      platform_username:
-        profile.localizedFirstName + " " + profile.localizedLastName,
-      expires_at: new Date(
-        Date.now() + tokenData.expires_in * 1000
-      ).toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    await (supabaseAdmin as any)
+      .from("social_accounts")
+      .upsert(
+        {
+          user_id: userId,
+          platform: "linkedin",
+          access_token: tokenData.access_token,
+          refresh_token: null,
+          platform_user_id: profile.id,
+          platform_username:
+            (profile.localizedFirstName || "") + " " +
+            (profile.localizedLastName || ""),
+          expires_at: new Date(
+            Date.now() + (tokenData.expires_in || 0) * 1000
+          ).toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,platform",
+        }
+      );
 
     // 4. Redirect back
     return Response.redirect(

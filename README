@@ -1,77 +1,36 @@
--- =========================================
--- 1. CREATE ORG IF NOT EXISTS
--- =========================================
-insert into organisations (id, name)
-select gen_random_uuid(), 'DP Leadership'
-where not exists (
-  select 1 from organisations where name = 'DP Leadership'
-);
-
-
--- =========================================
--- 2. LINK DAVE TO ORG + UPSERT PROFILE
--- =========================================
 with org as (
   select id
   from organisations
-  where name = 'DP Leadership'
+  where name = :organisation_name
   limit 1
+),
+
+upsert_user as (
+  insert into profiles (
+    id,
+    name,
+    email,
+    organisation_id
+  )
+  values (
+    gen_random_uuid(),
+    :name,
+    :email,
+    (select id from org)
+  )
+  on conflict (email)
+  do update set
+    name = excluded.name,
+    organisation_id = excluded.organisation_id
+  returning *
 )
 
-insert into profiles (id, organisation_id)
 select
-  '4fc0093f-50cd-4950-9c0c-99733841c095'::uuid,
-  org.id
-from org
-on conflict (id)
-do update set
-  organisation_id = excluded.organisation_id;
-
-
--- =========================================
--- 3. VERIFY
--- =========================================
-select
-  p.id,
-  p.organisation_id,
-  o.name
-from profiles p
-join organisations o on o.id = p.organisation_id
-where p.id = '4fc0093f-50cd-4950-9c0c-99733841c095';
-
-
-
--- =========================================
--- 1. USE EXISTING ORG (DP Leadership)
--- =========================================
-with org as (
-  select id
-  from organisations
-  where name = 'DP Leadership'
-  limit 1
-)
-
--- =========================================
--- 2. UPSERT DAVE PROFILE INTO ORG
--- =========================================
-insert into profiles (id, organisation_id)
-select
-  '4fc0093f-50cd-4950-9c0c-99733841c095'::uuid,
-  org.id
-from org
-
-on conflict (id)
-do update set
-  organisation_id = excluded.organisation_id;
-
-
--- =========================================
--- 3. VERIFY RESULT
--- =========================================
-select
-  p.id,
+  p.id as user_id,
+  p.name,
+  p.email,
   p.organisation_id,
   o.name as organisation_name
-from profiles p
-join organisations o on o.id = p.organisation_id
-where p.id = '4fc0093f-50cd-4950-9c0c-99733841c095';
+from upsert_user p
+left join organisations o
+  on o.id = p.organisation_id;

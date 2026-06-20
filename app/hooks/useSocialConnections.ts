@@ -1,270 +1,131 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { toast } from "react-hot-toast";
 
-import { supabase } from "@/app/lib/supabaseClient";
+type SocialPlatform = "meta" | "instagram" | "tiktok" | "linkedin";
+
+type SocialConnection = {
+  id: string;
+  user_id: string;
+  platform: SocialPlatform;
+  access_token: string | null;
+  refresh_token?: string | null;
+  expires_at?: string | null;
+  connected: boolean;
+};
 
 const getOAuthStorageKey = (platform: string) =>
   platform === "meta"
-    ? "oauth_pending_meta"
-    : `oauth_pending_${platform}`;
+    ? "meta_oauth_state"
+    : `${platform}_oauth_state`;
 
-export function useSocialConnections() {
-  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
-  const [loadingPlatforms, setLoadingPlatforms] = useState<string[]>([]);
+export const useSocialConnections = (userId?: string) => {
+  const [connections, setConnections] = useState<SocialConnection[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const isMountedRef = useRef(true);
-  const connectedRef = useRef<string[]>([]);
+  /**
+   * Fetch all social connections for user
+   */
+  const fetchConnections = useCallback(async () => {
+    if (!userId) return;
 
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+    setLoading(true);
 
-  const setLoading = (platform: string, loading: boolean) => {
-    setLoadingPlatforms((prev) => {
-      if (loading) return [...prev, platform];
-      return prev.filter((p) => p !== platform);
-    });
-  };
-
-  const refreshConnections = useCallback(async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    const user = session?.user;
-    if (!user || !isMountedRef.current) return;
-
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("social_accounts")
-      .select("platform")
-      .eq("user_id", user.id);
+      .select("*")
+      .eq("user_id", userId);
 
-    const platforms = data?.map((d: any) => d.platform) || [];
-
-    setConnectedPlatforms(platforms);
-    connectedRef.current = platforms;
-  }, []);
-
-  const verifyConnections = useCallback(async () => {
-    // placeholder for your existing logic if needed
-    return;
-  }, []);
-
-  const verifyPendingOAuth = useCallback(async () => {
-    const pending = ["meta", "linkedin", "tiktok"].filter(
-      (p) => sessionStorage.getItem(getOAuthStorageKey(p)) === "true"
-    );
-
-    if (pending.length === 0) return;
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user;
-
-    if (!user) return;
-
-    for (const platform of pending) {
-      try {
-        const { data } = await supabase
-          .from("social_accounts")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("platform", platform)
-          .maybeSingle();
-
-        if (data?.id) {
-          sessionStorage.removeItem(getOAuthStorageKey(platform));
-
-          await refreshConnections();
-
-          setConnectedPlatforms((prev) =>
-            prev.includes(platform) ? prev : [...prev, platform]
-          );
-
-          toast.success(`${platform} connected successfully`);
-        }
-      } catch (err) {
-        console.warn("OAuth verify failed:", platform, err);
-      }
+    if (error) {
+      console.error("Fetch connections error:", error);
+      toast.error("Failed to load social connections");
+      setLoading(false);
+      return;
     }
-  }, [refreshConnections]);
 
-  const exchangeOAuthCode = useCallback(
-    async (platform: string, code: string, state: string) => {
-      try {
-        setLoading(platform, true);
+    setConnections(data || []);
+    setLoading(false);
+  }, [userId]);
 
-        const res = await fetch("/api/oauth/exchange", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ platform, code, state }),
-        });
+  /**
+   * Disconnect platform
+   */
+  const disconnect = useCallback(
+    async (platform: SocialPlatform) => {
+      if (!userId) return;
 
-        const data = await res.json();
+      const { error } = await supabase
+        .from("social_accounts")
+        .delete()
+        .eq("user_id", userId)
+        .eq("platform", platform);
 
-        if (!res.ok) throw new Error(data?.error || "OAuth failed");
-
-        sessionStorage.removeItem(getOAuthStorageKey(platform));
-
-        await refreshConnections();
-
-        toast.success(`${platform} connected`);
-        return true;
-      } catch (err: any) {
-        console.error(err);
-        toast.error(err.message || "Connection failed");
-        return false;
-      } finally {
-        setLoading(platform, false);
-      }
-    },
-    [refreshConnections]
-  );
-
-  const handleOAuthCallback = useCallback(async () => {
-    const url = new URL(window.location.href);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
-
-    if (!code || !state) return;
-
-    try {
-      const parsed = JSON.parse(decodeURIComponent(state));
-      const platform = parsed.platform;
-
-      if (!platform) return;
-
-      await exchangeOAuthCode(platform, code, state);
-
-      // Prevent re-triggering on refresh
-      window.history.replaceState({}, document.title, "/settings");
-    } catch (err) {
-      console.error("OAuth callback failed:", err);
-    }
-  }, [exchangeOAuthCode]);
-
-  const connectSocialPlatform = useCallback(
-    async (platform: string) => {
-      try {
-        setLoading(platform, true);
-
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const user = session?.user;
-        if (!user) {
-          toast.error("You must be logged in to connect accounts");
-          return;
-        }
-
-        if (platform !== "meta") {
-          toast.error(`${platform} OAuth is not configured yet`);
-          return;
-        }
-
-        const stateObj = {
-          platform,
-          userId: user.id,
-          timestamp: Date.now(),
-        };
-
-        const state = encodeURIComponent(JSON.stringify(stateObj));
-
-        const metaClientId = process.env.NEXT_PUBLIC_META_CLIENT_ID;
-        const redirectUri = `${window.location.origin}/settings`;
-
-        if (!metaClientId) {
-          toast.error("Missing Meta Client ID environment variable");
-          return;
-        }
-
-        sessionStorage.setItem(getOAuthStorageKey("meta"), "true");
-
-        const url =
-          `https://www.facebook.com/v23.0/dialog/oauth` +
-          `?client_id=${metaClientId}` +
-          `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-          `&response_type=code` +
-          `&scope=pages_show_list,pages_manage_posts,pages_read_engagement` +
-          `&state=${state}`;
-
-        // IMPORTANT: redirect immediately
-        window.location.href = url;
+      if (error) {
+        toast.error("Failed to disconnect");
         return;
-      } catch (err: any) {
-        console.error(err);
-        toast.error(err.message || "Failed to start OAuth flow");
-      } finally {
-        setLoading(platform, false);
       }
+
+      toast.success("Disconnected successfully");
+      fetchConnections();
     },
-    [] // supabase usage is stable, safe to omit from deps
+    [userId, fetchConnections]
   );
 
-  const disconnectSocialPlatform = useCallback(
-    async (platform: string) => {
-      try {
-        setLoading(platform, true);
-
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const user = session?.user;
-        if (!user) return;
-
-        const { error } = await supabase
-          .from("social_accounts")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("platform", platform);
-
-        if (error) throw error;
-
-        sessionStorage.removeItem(getOAuthStorageKey(platform));
-
-        await refreshConnections();
-
-        toast.success(`${platform} disconnected`);
-      } catch (err: any) {
-        console.error(err);
-        toast.error(err.message || "Failed to disconnect");
-      } finally {
-        setLoading(platform, false);
-      }
-    },
-    [refreshConnections]
-  );
-
-  const handleFocus = useCallback(async () => {
+  /**
+   * Start OAuth flow
+   */
+  const connect = useCallback((platform: SocialPlatform) => {
     try {
-      await refreshConnections();
-      await verifyPendingOAuth();
+      const state = crypto.randomUUID();
+
+      sessionStorage.setItem(getOAuthStorageKey(platform), state);
+
+      let authUrl = "";
+
+      switch (platform) {
+        case "meta":
+          authUrl = `/api/oauth/meta?state=${state}`;
+          break;
+        case "instagram":
+          authUrl = `/api/oauth/meta?state=${state}`;
+          break;
+        case "tiktok":
+          authUrl = `/api/oauth/tiktok?state=${state}`;
+          break;
+        case "linkedin":
+          authUrl = `/api/oauth/linkedin?state=${state}`;
+          break;
+      }
+
+      window.location.href = authUrl;
     } catch (err) {
-      console.warn("Focus sync failed:", err);
+      console.error(err);
+      toast.error("Failed to start connection");
     }
-  }, [refreshConnections, verifyPendingOAuth]);
+  }, []);
+
+  /**
+   * Check if connected
+   */
+  const isConnected = useCallback(
+    (platform: SocialPlatform) => {
+      return connections.some((c) => c.platform === platform && c.connected);
+    },
+    [connections]
+  );
 
   useEffect(() => {
-    handleFocus();
-    handleOAuthCallback();
-
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, [handleFocus, handleOAuthCallback]);
+    fetchConnections();
+  }, [fetchConnections]);
 
   return {
-    connectedPlatforms,
-    loadingPlatforms,
-    connectSocialPlatform,
-    disconnectSocialPlatform,
-    refreshConnections,
-    verifyPendingOAuth,
-    exchangeOAuthCode,
-    setConnectedPlatforms,
+    connections,
+    loading,
+    fetchConnections,
+    connect,
+    disconnect,
+    isConnected,
   };
-}
+};

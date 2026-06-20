@@ -26,9 +26,12 @@ interface CalendarEvent {
   location?: string;
   meeting_link?: string;
   guests?: string;
-  tags?: string; 
+  tags?: string;
   user_id: string;
   startAt?: Date | null;
+
+  endAt?: Date | null;
+  repeat?: string;
 }
 
 const TAG_PALETTE = [
@@ -57,6 +60,9 @@ export default function Calendar() {
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [formTime, setFormTime] = useState("09:00");
+  const [formEndDate, setFormEndDate] = useState("");
+const [formEndTime, setFormEndTime] = useState("");
+const [formRepeat, setFormRepeat] = useState("none");
   const [formLocation, setFormLocation] = useState("");
   const [formLink, setFormLink] = useState("");
   const [formGuests, setFormGuests] = useState("");
@@ -143,6 +149,9 @@ export default function Calendar() {
     setAttachedFileName(null);
     setViewMode('CREATE');
     setIsModalOpen(true);
+    setFormEndDate("");
+setFormEndTime("");
+setFormRepeat("none");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,10 +204,8 @@ export default function Calendar() {
               <button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={16}/></button>
             </div>
             <div className="space-y-6 text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
-              <p className="hover:text-stone-900 cursor-pointer flex justify-between">Database Status <span className="text-[#A3B18A]">Online</span></p>
-              <p className="hover:text-stone-900 cursor-pointer">Protocol: TOTS-OS v11.0</p>
               <div className="pt-6 border-t border-stone-50 mt-auto">
-                <button onClick={() => supabase.auth.signOut()} className="text-rose-400">Terminate Protocol</button>
+                <button onClick={() => supabase.auth.signOut()} className="text-rose-400">Delete Event</button>
               </div>
             </div>
           </motion.div>
@@ -223,6 +230,33 @@ export default function Calendar() {
                       <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none ring-1 ring-stone-100" />
                       <input type="time" value={formTime} onChange={e => setFormTime(e.target.value)} className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none ring-1 ring-stone-100" />
                     </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        value={formEndDate}
+                        onChange={e => setFormEndDate(e.target.value)}
+                        className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none ring-1 ring-stone-100"
+                      />
+
+                      <input
+                        type="time"
+                        value={formEndTime}
+                        onChange={e => setFormEndTime(e.target.value)}
+                        className="flex-1 bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none ring-1 ring-stone-100"
+                      />
+                    </div>
+
+                    <select
+                      value={formRepeat}
+                      onChange={e => setFormRepeat(e.target.value)}
+                      className="w-full bg-stone-50 rounded-xl p-4 text-xs font-bold outline-none border-none ring-1 ring-stone-100"
+                    >
+                      <option value="none">No Repeat</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
                     
                     <div className="relative">
                       <Link size={14} className="absolute left-4 top-4 text-stone-300" />

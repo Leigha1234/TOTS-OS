@@ -85,15 +85,17 @@ const [formRepeat, setFormRepeat] = useState("none");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const normaliseEvent = (e: any): CalendarEvent => {
+  const normaliseEvent = useCallback((e: any): CalendarEvent => {
     const raw = e?.start_time || e?.start_at || e?.created_at;
 
     return {
       ...e,
       startAt: raw && isValid(new Date(raw)) ? new Date(raw) : null,
-      endAt: (e?.end_time || e?.end_at) && isValid(new Date(e?.end_time || e?.end_at)) ? new Date(e?.end_time || e?.end_at) : null,
+      endAt: (e?.end_time || e?.end_at) && isValid(new Date(e?.end_time || e?.end_at))
+        ? new Date(e?.end_time || e?.end_at)
+        : null,
     };
-  };
+  }, []);
 
   const syncCalendar = useCallback(async () => {
     setIsLoading(true);
@@ -226,11 +228,11 @@ const [formRepeat, setFormRepeat] = useState("none");
       console.error("Sync error:", err);
       setIsLoading(false);
     }
-  }, [normaliseEvent]);
+  }, []);
 
   useEffect(() => {
     syncCalendar();
-  }, [syncCalendar]);
+  }, []);
 
 
 

@@ -27,12 +27,11 @@ interface CalendarEvent {
   meeting_link?: string;
   guests?: string;
   tags?: string;
-
   user_id: string;
-
   startAt?: Date | null;
   endAt?: Date | null;
   repeat?: string;
+  organisation_id?: string;
 }
 
 const TAG_PALETTE = [
@@ -67,7 +66,9 @@ export default function Calendar() {
   // Modal & Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [viewMode, setViewMode] = useState<'VIEW' | 'CREATE'>('CREATE');
+  type PanelMode = 'DAY_OVERVIEW' | 'EVENT_VIEW' | 'CREATE_EVENT';
+
+const [viewMode, setViewMode] = useState<PanelMode>('DAY_OVERVIEW');
   
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -100,32 +101,32 @@ const [formRepeat, setFormRepeat] = useState("none");
     };
   };
 
-  const syncCalendar = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+const syncCalendar = useCallback(async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("id", user.id)
-      .single();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
 
-    const { data, error } = await supabase
-      .from("events")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("organisation_id", profile?.organisation_id);
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("organisation_id", profile?.organisation_id || "");
 
-    if (error) {
-  console.error("SYNC CALENDAR ERROR:", error);
-  setError(error.message || "Failed to sync calendar");
-  setIsLoading(false);
-  return;
-}
-
-    setEvents((data || []).map(normaliseEvent));
+  if (error) {
+    console.error("SYNC CALENDAR ERROR:", error);
+    setError(error.message || "Failed to sync calendar");
     setIsLoading(false);
-  }, []);
+    return;
+  }
+
+  setEvents((data || []).map(normaliseEvent));
+  setIsLoading(false);
+}, []);
 
   useEffect(() => {
     const load = async () => {
@@ -198,7 +199,7 @@ const [formRepeat, setFormRepeat] = useState("none");
     setFormGuests("");
     setFormInternalTeam("");
     setAttachedFileName(null);
-    setViewMode('CREATE');
+    setViewMode('DAY_OVERVIEW');
     setIsModalOpen(true);
     setFormEndDate("");
 setFormEndTime("");
@@ -216,36 +217,47 @@ const deleteEvent = async (eventId: string) => {
     if (!confirm("Delete this event?")) return;
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setError("You must be logged in to delete events");
+      return;
+    }
 
-    // delete from events FIRST
+    // Optimistic UI update
+    setEvents(prev => prev.filter(e => e.id !== eventId));
+
     const { error: eventError } = await supabase
-      .from("events")
-      .delete()
-      .eq("id", eventId)
-      .eq("user_id", user.id);
-
-    // fallback delete from tasks (legacy safety only)
-    await supabase
-      .from("tasks")
-      .delete()
-      .eq("id", eventId)
-      .eq("user_id", user.id);
+  .from("events")
+  .delete()
+  .eq("id", eventId)
+  .eq("user_id", user.id);
 
     if (eventError) {
-  console.error("DELETE FAILED (events):", eventError);
-  setError(eventError.message || "Failed to delete event");
-  return;
-}
+      console.error("DELETE FAILED (events):", eventError);
 
-    setEvents(prev => prev.filter(e => e.id !== eventId));
+      // revert optimistic update on failure
+      await syncCalendar();
+
+      setError(eventError.message || "Failed to delete event");
+      return;
+    }
+
+    // legacy cleanup (safe ignore)
+await supabase
+  .from("tasks")
+  .delete()
+  .eq("id", eventId)
+  .eq("user_id", user.id)
+  .throwOnError?.();
+
     setSelectedEvent(null);
     setIsModalOpen(false);
 
     await syncCalendar();
 
-  } catch (err) {
+  } catch (err: any) {
     console.error("Delete error:", err);
+    setError(err?.message || "Unexpected delete error");
+    await syncCalendar();
   }
 };
 
@@ -376,11 +388,11 @@ source: "calendar"
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-stone-900/5 backdrop-blur-md" />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-[1.5rem] lg:rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col">
                <div className="p-8 pb-4 flex justify-between items-center">
-                 <h2 className="text-2xl font-serif italic">{viewMode === 'CREATE' ? 'New Entry' : 'Event Name'}</h2>
+                 <h2 className="text-2xl font-serif italic">{viewMode === 'CREATE_EVENT' ? 'New Entry' : 'Event Name'}</h2>
                  <button onClick={() => setIsModalOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={18}/></button>
                </div>
                <div className="p-4 lg:p-8 pt-2 space-y-4 overflow-y-auto max-h-[75vh] no-scrollbar">
-                 {viewMode === 'CREATE' ? (
+                 {viewMode === 'CREATE_EVENT' ? (
                    <>
                     <input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Entry Title" className="w-full bg-stone-50 rounded-xl p-4 text-sm outline-none border-none ring-1 ring-stone-100" />
                     <div className="flex gap-2">
@@ -521,7 +533,7 @@ source: "calendar"
                       const primaryTag = e.tags?.split(',')[0] || '';
                       const style = primaryTag ? getTagStyle(primaryTag) : { bg: 'bg-stone-50', text: 'text-stone-500' };
                       return (
-                        <div key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
+                        <div key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('EVENT_VIEW'); setIsModalOpen(true); }}
                           className={`px-2 py-1 rounded-lg border border-stone-100 text-[7px] font-black uppercase truncate transition-all ${style.bg} ${style.text}`}
                         >
                           {e.title}
@@ -573,7 +585,7 @@ source: "calendar"
 
           <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
             {getDayEvents(selectedDay).map(e => (
-              <div key={e.id} onClick={() => { setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
+              <div key={e.id} onClick={() => { setSelectedEvent(e); setViewMode('EVENT_VIEW'); setIsModalOpen(true); }}
                 className="p-5 rounded-3xl bg-stone-50 border border-stone-100 hover:shadow-2xl transition-all cursor-pointer group"
               >
                 <div className="flex justify-between items-center mb-1">

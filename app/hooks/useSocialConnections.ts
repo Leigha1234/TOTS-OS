@@ -1,13 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { toast } from "react-hot-toast";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from "@/app/lib/supabaseClient";
 
 const getOAuthStorageKey = (platform: string) =>
   platform === "meta"
@@ -36,9 +32,10 @@ export function useSocialConnections() {
 
   const refreshConnections = useCallback(async () => {
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
 
+    const user = session?.user;
     if (!user || !isMountedRef.current) return;
 
     const { data } = await supabase
@@ -65,8 +62,9 @@ export function useSocialConnections() {
     if (pending.length === 0) return;
 
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
 
     if (!user) return;
 
@@ -155,7 +153,10 @@ export function useSocialConnections() {
       try {
         setLoading(platform, true);
 
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const user = session?.user;
         if (!user) {
           toast.error("You must be logged in to connect accounts");
           return;
@@ -210,7 +211,10 @@ export function useSocialConnections() {
       try {
         setLoading(platform, true);
 
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const user = session?.user;
         if (!user) return;
 
         const { error } = await supabase

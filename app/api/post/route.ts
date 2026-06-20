@@ -37,6 +37,10 @@ export async function POST(req: Request) {
         result = await postToLinkedIn(post, account);
       }
 
+      if (platform === "instagram") {
+        result = await postToInstagram(post, account);
+      }
+
       if (platform === "tiktok") {
         result = await postToTikTok(post, account);
       }
@@ -77,22 +81,21 @@ async function postToMeta(post: any, account: any) {
   const token = account.access_token;
 
   if (!pageId || !token) {
-    throw new Error("Missing Meta page_id or access_token");
+    throw new Error(`Missing Meta credentials: pageId=${!!pageId}, token=${!!token}`);
   }
 
   const res = await fetch(
     `https://graph.facebook.com/v23.0/${pageId}/feed`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      body: new URLSearchParams({
         message: post.content,
         access_token: token,
       }),
     }
   );
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
     throw new Error(JSON.stringify(data));
@@ -150,5 +153,66 @@ async function postToTikTok(post: any, account: any) {
     success: true,
     message: "TikTok posting not yet implemented (API approval required)",
     content: post.content,
+  };
+}
+
+async function postToInstagram(post: any, account: any) {
+  const igUserId = account.ig_user_id || account.platform_user_id;
+  const token = account.access_token;
+
+  if (!igUserId || !token) {
+    throw new Error(`Missing Instagram credentials: igUserId=${!!igUserId}, token=${!!token}`);
+  }
+
+  const caption = post.content || "";
+  const imageUrl = post.media_url;
+
+  if (!imageUrl) {
+    throw new Error("Instagram requires an image_url (media_url missing)");
+  }
+
+  // Step 1: Create media container
+  const containerRes = await fetch(
+    `https://graph.facebook.com/v23.0/${igUserId}/media`,
+    {
+      method: "POST",
+      body: new URLSearchParams({
+        image_url: imageUrl,
+        caption,
+        access_token: token,
+      }),
+    }
+  );
+
+  const containerData = await containerRes.json().catch(() => ({}));
+
+  if (!containerRes.ok || !containerData.id) {
+    throw new Error(JSON.stringify(containerData));
+  }
+
+  const creationId = containerData.id;
+
+  // Step 2: Publish media
+  const publishRes = await fetch(
+    `https://graph.facebook.com/v23.0/${igUserId}/media_publish`,
+    {
+      method: "POST",
+      body: new URLSearchParams({
+        creation_id: creationId,
+        access_token: token,
+      }),
+    }
+  );
+
+  const publishData = await publishRes.json().catch(() => ({}));
+
+  if (!publishRes.ok) {
+    throw new Error(JSON.stringify(publishData));
+  }
+
+  return {
+    success: true,
+    creationId,
+    publishData,
   };
 }

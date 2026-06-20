@@ -29,6 +29,16 @@ export default function SocialConnections() {
     disconnectSocialPlatform,
   } = useSocialConnections();
 
+  const safeConnect = (platformId: string) => {
+    if (!connectSocialPlatform) return;
+    connectSocialPlatform(platformId);
+  };
+
+  const safeDisconnect = (platformId: string) => {
+    if (!disconnectSocialPlatform) return;
+    disconnectSocialPlatform(platformId);
+  };
+
   const sageGreen = "#A3B18A";
 
   return (
@@ -62,9 +72,9 @@ export default function SocialConnections() {
                   <button
                     type="button"
                     disabled={isLoading}
-                    onClick={() => disconnectSocialPlatform(platform.id)}
+                    onClick={() => safeDisconnect(platform.id)}
                     style={{ backgroundColor: sageGreen }}
-                    className="px-3 py-1 text-sm rounded text-white disabled:opacity-50"
+                    className="px-3 py-1 text-sm rounded text-white disabled:opacity-50 cursor-pointer"
                   >
                     {isLoading ? "Disconnecting..." : "Disconnect"}
                   </button>
@@ -72,9 +82,9 @@ export default function SocialConnections() {
                   <button
                     type="button"
                     disabled={isLoading}
-                    onClick={() => connectSocialPlatform(platform.id)}
+                    onClick={() => safeConnect(platform.id)}
                     style={{ backgroundColor: sageGreen }}
-                    className="px-3 py-1 text-sm rounded text-white disabled:opacity-50"
+                    className="px-3 py-1 text-sm rounded text-white disabled:opacity-50 cursor-pointer"
                   >
                     {isLoading ? "Connecting..." : `Connect ${platform.name}`}
                   </button>

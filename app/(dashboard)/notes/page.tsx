@@ -738,44 +738,57 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
         return;
       }
 
-      const { error, status: responseStatus, statusText } = await supabase
-        .from("notes")
-        .insert([
-          {
-            content,
-            user_id: user.id,
-            organisation_id: orgId,
-            color: isUrgent ? "#4f4a46" : theme.bg,
-            category: tag || "General",
-            project: project || null,
-            assigned_to: assignedTo.length ? assignedTo : [],
-            due_date: isReminder && reminderDateTime ? reminderDateTime : null,
-            is_reminder: isReminder,
-            status,
-            is_urgent: isUrgent,
-            type: status === "todo" ? "task" : "note",
-          },
-        ]);
+      const notePayload = {
+        content,
+        organisation_id: orgId,
+        color: isUrgent ? "#4f4a46" : theme.bg,
+        category: tag || "General",
+        project: project || null,
+        assigned_to: assignedTo.length > 0 && assignedTo[0] ? assignedTo[0] : null,
+        due_date: isReminder && reminderDateTime ? reminderDateTime : null,
+        is_reminder: isReminder,
+        status,
+        is_urgent: isUrgent,
+        visibility,
+        type: status === "todo" ? "task" : "note",
+      };
 
-      if (error) {
-        console.error("Supabase note insert error:", {
-          error,
-          status: responseStatus,
-          statusText,
-          payload: {
-            content,
-            user_id: user.id,
-            category: tag || "General",
-            project,
-            assigned_to: assignedTo,
-            due_date: reminderDateTime,
-            is_reminder: isReminder,
-            status,
-          }
-        });
-        throw new Error(error.message || `Insert failed (${responseStatus})`);
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session?.access_token) {
+        throw new Error("Unable to authenticate request. Please sign in again.");
       }
-      
+
+      const response = await fetch("/api/notes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify(notePayload)
+      });
+
+      const responseBody = await response.json();
+
+      if (!response.ok || responseBody.error) {
+        console.error("Notes API create error:", responseBody);
+        throw new Error(responseBody.error || "Note creation failed");
+      }
+
+      const insertedNote = responseBody.data;
+      if (!insertedNote) {
+        throw new Error("No note returned from API");
+      }
+
+      const normalizedNote = {
+        ...insertedNote,
+        type: insertedNote.type ?? (insertedNote.status === "todo" ? "task" : "note"),
+      };
+
+      setNotes(prev => [normalizedNote, ...prev]);
+      if (normalizedNote.project) {
+        setProjectsList(prev => Array.from(new Set([normalizedNote.project, ...prev])));
+      }
+
       setContent("");
       setTag("");
       setIsUrgent(false);
@@ -787,7 +800,7 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
       setShowModal(false);
       
       toast.success("Note pinned to desk.");
-      fetchNotes(orgIdRef.current ?? organisationId, user.id);
+      await fetchNotes(orgIdRef.current ?? organisationId, user.id);
     } catch (e) {
       toast.error("Unexpected error creating note. Please try again.");
       console.error("Create note error:", e);
@@ -920,10 +933,16 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
 
 
   const renderNoteCard = (note: any) => {
-    const assignedTeamMember = Array.isArray(note.assigned_to)
-      ? teamMembers.find(m => (note.assigned_to || []).includes(m.id))
-      : teamMembers.find(m => m.id === note.assigned_to);
-    // Only return the normal card (non-expanded version)
+  const assignedIds = Array.isArray(note.assigned_to)
+    ? note.assigned_to
+    : note.assigned_to
+      ? [note.assigned_to]
+      : [];
+
+  const assignedTeamMembers = teamMembers.filter(m =>
+    assignedIds.includes(m.id)
+  );
+  const assignedLead = assignedTeamMembers[0] || null;
     return (
       <motion.div
         key={note.id}
@@ -971,7 +990,7 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
         {/* BOTTOM METADATA PINNED CONTAINER */}
         <div className="space-y-4 mt-auto">
           {/* CONTEXT DATA HOOKS */}
-          {(note.project || assignedTeamMember || note.due_date) && (
+          {(note.project || assignedLead || note.due_date) && (
             <div className="space-y-2 pt-3 border-t border-black/[0.05] opacity-80">
               {note.project && (
                 <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
@@ -979,10 +998,10 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
                   <span className="truncate">Project: {note.project}</span>
                 </div>
               )}
-              {assignedTeamMember && (
+              {assignedLead && (
                 <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
                   <User size={11} className="opacity-40" />
-                  <span className="truncate">Lead: {assignedTeamMember.name}</span>
+                  <span className="truncate">Lead: {assignedLead.name}</span>
                 </div>
               )}
               {note.due_date && (
@@ -1280,7 +1299,7 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
                   <select
                     multiple
                     className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer"
-                    value={assignedTo as any}
+                    value={assignedTo}
                     onChange={(e) => {
                       const values = Array.from(e.target.selectedOptions).map(o => o.value);
                       setAssignedTo(values);

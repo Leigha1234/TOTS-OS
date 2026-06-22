@@ -925,7 +925,7 @@ export default function DashboardPage() {
   if (isInitializing) return (
     <div className="h-screen flex flex-col items-center justify-center gap-4 bg-[#faf9f6]">
       <Loader2 className="animate-spin text-[#A3B18A]" size={32} />
-      <p className="font-black uppercase tracking-[0.4em] text-[10px] text-stone-400">Initialising Workspace Nodes...</p>
+      <p className="font-black uppercase tracking-[0.4em] text-[10px] text-stone-400">Loading...</p>
     </div>
   );
 

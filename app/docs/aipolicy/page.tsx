@@ -129,7 +129,7 @@ export default function AiUsagePolicy() {
       icon: Mail,
       content: (
         <div className="p-6 bg-[#faf9f6] border border-stone-100 rounded-3xl text-xs space-y-1">
-          <p className="font-black uppercase tracking-widest text-[9px] text-stone-400">Algorithmic Guardrail Operations Node:</p>
+          <p className="font-black uppercase tracking-widest text-[9px] text-stone-400">Algorithmic Guardrail Operations:</p>
           <p className="font-bold underline text-stone-900">theorganisedtypes@gmail.com</p>
         </div>
       )

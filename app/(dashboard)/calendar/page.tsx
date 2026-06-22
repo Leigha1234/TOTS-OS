@@ -855,7 +855,6 @@ setFormRepeat("none");
       </div>
 
       <footer className="mt-4 lg:mt-6 flex flex-col gap-2 lg:flex-row justify-between items-center opacity-50 px-2">
-        <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">TOTS OS Infrastructure v11.0</p>
         <div className="flex gap-4 text-stone-300">
           <RefreshCw size={14} onClick={syncCalendar} className={`cursor-pointer ${isLoading ? 'animate-spin' : ''}`} />
           <Settings size={14} onClick={() => setIsSettingsOpen(true)} className="cursor-pointer hover:text-stone-800 transition-all" />

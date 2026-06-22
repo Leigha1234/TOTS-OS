@@ -1,23 +1,262 @@
-const { data: profile, error } = await supabase
-  .from("profiles")
-  .select("organisation_id")
-  .eq("id", user.id)
-  .maybeSingle();
+-- =========================
+-- TOTS-OS ORGANISATION SETUP TEMPLATE
+-- =========================
 
-if (error) {
-  console.warn("Profile fetch failed, retrying once...", error);
+DO $$
 
-  const retry = await supabase
-    .from("profiles")
-    .select("organisation_id")
-    .eq("id", user.id)
-    .maybeSingle();
+DECLARE
+    org_id uuid := 'REPLACE_ORG_ID_HERE';
+    usr_id uuid := 'REPLACE_USER_ID_HERE';
+    org_name text := 'REPLACE_ORG_NAME_HERE';
 
-  if (!retry.data?.organisation_id) {
-    toast.error("Profile not ready yet. Try again.");
-    return;
-  }
+BEGIN
 
-  setOrganisationId(retry.data.organisation_id);
-  return;
-}
+-- 1. Ensure organisation exists
+INSERT INTO organisations (id, name)
+VALUES (org_id, org_name)
+ON CONFLICT (id)
+DO UPDATE SET name = EXCLUDED.name;
+
+
+-- 2. Link auth user → profile
+INSERT INTO profiles (id, organisation_id)
+VALUES (usr_id, org_id)
+ON CONFLICT (id)
+DO UPDATE SET organisation_id = org_id;
+
+
+-- 3. User ↔ organisation mapping table
+INSERT INTO user_organisations (user_id, organisation_id)
+VALUES (usr_id, org_id)
+ON CONFLICT DO NOTHING;
+
+
+-- 4. Team membership
+INSERT INTO team_members (user_id, organisation_id)
+VALUES (usr_id, org_id)
+ON CONFLICT DO NOTHING;
+
+
+-- 5. Settings bootstrap
+INSERT INTO settings (organisation_id)
+VALUES (org_id)
+ON CONFLICT DO NOTHING;
+
+
+-- =========================
+-- 6. GENERIC SAFE MULTI-TENANT UPDATE BLOCK
+-- (Only runs if column exists)
+-- =========================
+
+-- helper function to safely update a table if column exists
+-- avoids your previous "column does not exist" errors
+
+DO $inner$
+
+DECLARE r record;
+
+BEGIN
+
+FOR r IN
+    SELECT table_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND column_name = 'organisation_id'
+GROUP BY table_name
+LOOP
+
+    EXECUTE format(
+        'UPDATE %I SET organisation_id = $1 WHERE organisation_id IS NULL',
+        r.table_name
+    )
+    USING org_id;
+
+END LOOP;
+
+END $inner$;
+
+
+-- =========================
+-- 7. USER-OWNED TABLES (NO org_id)
+-- =========================
+
+-- scheduled posts ONLY use user_id
+UPDATE scheduled_posts
+SET user_id = usr_id
+WHERE user_id IS NULL;
+
+
+-- =========================
+-- DONE
+-- =========================
+
+RAISE NOTICE 'Organisation setup completed for %', org_name;
+
+END $$;
+
+
+
+
+
+
+
+
+
+
+-- ==========================================
+-- TOTS-OS ONE CLICK TENANT BOOTSTRAP (ELITE)
+-- ==========================================
+
+DO $$
+
+DECLARE
+    org_id uuid := 'REPLACE_ORG_ID';
+    usr_id uuid := 'REPLACE_USER_ID';
+    org_name text := 'REPLACE_ORG_NAME';
+
+BEGIN
+
+-- =========================
+-- 1. ORGANISATION CREATION
+-- =========================
+INSERT INTO organisations (id, name, subscription_tier)
+VALUES (org_id, org_name, 'elite')
+ON CONFLICT (id)
+DO UPDATE SET
+    name = EXCLUDED.name,
+    subscription_tier = 'elite';
+
+
+-- =========================
+-- 2. LINK AUTH USER → PROFILE
+-- =========================
+INSERT INTO profiles (id, organisation_id, subscription_tier)
+VALUES (usr_id, org_id, 'elite')
+ON CONFLICT (id)
+DO UPDATE SET
+    organisation_id = org_id,
+    subscription_tier = 'elite';
+
+
+-- =========================
+-- 3. USER ↔ ORGANISATION LINK
+-- =========================
+INSERT INTO user_organisations (user_id, organisation_id)
+VALUES (usr_id, org_id)
+ON CONFLICT DO NOTHING;
+
+
+-- =========================
+-- 4. TEAM MEMBERSHIP (OWNER)
+-- =========================
+INSERT INTO team_members (user_id, organisation_id, role)
+VALUES (usr_id, org_id, 'owner')
+ON CONFLICT DO NOTHING;
+
+
+-- =========================
+-- 5. DEFAULT SETTINGS (ELITE CONFIG)
+-- =========================
+INSERT INTO settings (
+    organisation_id,
+    plan,
+    ai_enabled,
+    automation_enabled,
+    analytics_enabled
+)
+VALUES (
+    org_id,
+    'elite',
+    true,
+    true,
+    true
+)
+ON CONFLICT (organisation_id)
+DO UPDATE SET
+    plan = 'elite',
+    ai_enabled = true,
+    automation_enabled = true,
+    analytics_enabled = true;
+
+
+-- =========================
+-- 6. SUBSCRIPTION STATE
+-- =========================
+INSERT INTO subscriptions (
+    organisation_id,
+    tier,
+    status
+)
+VALUES (
+    org_id,
+    'elite',
+    'active'
+)
+ON CONFLICT (organisation_id)
+DO UPDATE SET
+    tier = 'elite',
+    status = 'active';
+
+
+-- =========================
+-- 7. AUTO-SEED DEFAULT PERMISSIONS
+-- =========================
+INSERT INTO permissions (user_id, organisation_id, role)
+VALUES (usr_id, org_id, 'owner')
+ON CONFLICT DO NOTHING;
+
+
+-- =========================
+-- 8. SAFE MULTI-TABLE ORG ASSIGNMENT
+-- (ONLY TABLES THAT ACTUALLY HAVE organisation_id)
+-- =========================
+DO $inner$
+
+DECLARE r record;
+
+BEGIN
+
+FOR r IN
+    SELECT table_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND column_name = 'organisation_id'
+    GROUP BY table_name
+LOOP
+
+    EXECUTE format(
+        'UPDATE %I SET organisation_id = $1 WHERE organisation_id IS NULL',
+        r.table_name
+    )
+    USING org_id;
+
+END LOOP;
+
+END $inner$;
+
+
+-- =========================
+-- 9. USER-LEVEL TABLE FIXES
+-- =========================
+
+-- Only tables that are user-scoped (NOT org-scoped)
+UPDATE scheduled_posts
+SET user_id = usr_id
+WHERE user_id IS NULL;
+
+
+-- =========================
+-- 10. FINALISE PROFILE STATE
+-- =========================
+UPDATE profiles
+SET subscription_tier = 'elite',
+    organisation_id = org_id
+WHERE id = usr_id;
+
+
+-- =========================
+-- DONE
+-- =========================
+RAISE NOTICE 'ELITE TENANT BOOTSTRAP COMPLETE: %', org_name;
+
+END $$;

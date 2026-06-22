@@ -97,6 +97,15 @@ const [formRepeat, setFormRepeat] = useState("none");
     };
   }, []);
 
+  const dedupeById = (items: any[]) => {
+  const map = new Map();
+  for (const item of items) {
+    if (!item?.id) continue;
+    map.set(item.id, item);
+  }
+  return Array.from(map.values());
+};
+
   const syncCalendar = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -177,8 +186,15 @@ if (notesAssignedError) {
         return;
       }
 
-      // Merge events and tasks (de-duplicate by id)
-      const taskRows = [...(tasksOwned || []), ...(tasksAssigned || [])];
+      const taskMap = new Map();
+
+[...(tasksOwned || []), ...(tasksAssigned || [])]
+  .filter(Boolean)
+  .forEach((t: any) => {
+    taskMap.set(t.id, t);
+  });
+
+const taskRows = Array.from(taskMap.values());
 
       const normalisedTasks = taskRows
         // filter out nulls and duplicates by task id
@@ -236,9 +252,23 @@ if (notesAssignedError) {
 
       // Combine, preferring real events over task placeholders if ids clash
       // Combine events, tasks and notes. Real events first so they take precedence.
-      const combined = [...normalisedEvents, ...normalisedTasks, ...normalisedNotes];
+      const combinedRaw = [
+  ...normalisedEvents,
+  ...normalisedTasks,
+  ...normalisedNotes
+];
 
-      setEvents(combined);
+// 1. dedupe within each type + across merged dataset
+const combined = dedupeById(combinedRaw);
+
+// 2. final sort (optional but recommended)
+combined.sort((a, b) => {
+  const aTime = a.startAt?.getTime?.() ?? 0;
+  const bTime = b.startAt?.getTime?.() ?? 0;
+  return aTime - bTime;
+});
+
+setEvents(combined);
       setIsLoading(false);
     } catch (err: any) {
       console.error("Sync error:", err);

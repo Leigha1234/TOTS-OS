@@ -801,7 +801,6 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
       setShowModal(false);
       
       toast.success("Note pinned to desk.");
-      await fetchNotes(orgIdRef.current ?? organisationId, user.id);
     } catch (e) {
       toast.error("Unexpected error creating note. Please try again.");
       console.error("Create note error:", e);

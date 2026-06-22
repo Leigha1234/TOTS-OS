@@ -1422,9 +1422,8 @@ const NoteModal = ({
   noteOps,
   noteOpsChannel,
 }: any) => {
-  if (!note) return null;
 
-  const [draftContent, setDraftContent] = useState(note.content);
+  const [draftContent, setDraftContent] = useState(note?.content || "");
   const [blocks, setBlocks] = useState(
     (note.content || "").split("\n").map((text: string, idx: number) => ({
       id: `${note.id}-block-${idx}`,

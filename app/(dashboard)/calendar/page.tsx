@@ -268,9 +268,14 @@ if (notesAssignedError) {
   const getDayEvents = useCallback((date: Date) => {
   return events.filter(e => {
     const start = e.startAt;
-    const end = e.endAt || e.startAt;
 
     if (!(start instanceof Date) || isNaN(start.getTime())) return false;
+
+    // IMPORTANT: treat single-day events as same-day range
+    const end =
+      e.endAt && isValid(e.endAt)
+        ? e.endAt
+        : start;
 
     const dayStart = new Date(date);
     dayStart.setHours(0, 0, 0, 0);
@@ -278,9 +283,9 @@ if (notesAssignedError) {
     const dayEnd = new Date(date);
     dayEnd.setHours(23, 59, 59, 999);
 
+    // Google Calendar-style overlap check
     const matchesDate =
       start <= dayEnd &&
-      end &&
       end >= dayStart;
 
     const matchesTag =
@@ -290,6 +295,27 @@ if (notesAssignedError) {
     return matchesDate && matchesTag;
   });
 }, [events, activeTagFilter]);
+  const eventSpans = useMemo(() => {
+    return events
+      .filter(e => e.startAt && isValid(e.startAt))
+      .map(e => {
+        const start = e.startAt!;
+        const end = e.endAt && isValid(e.endAt) ? e.endAt : start;
+
+       const startIndex = daysGrid.findIndex(d => isSameDay(d, start) || d >= start);
+const endIndex = [...daysGrid]
+  .map((d, i) => ({ d, i }))
+  .filter(x => x.d >= start && x.d <= end)
+  .at(-1)?.i ?? startIndex;
+
+        return {
+          ...e,
+          startIndex,
+          endIndex: endIndex === -1 ? startIndex : endIndex,
+        };
+      })
+      .filter(e => e.startIndex !== -1);
+  }, [events, daysGrid]);
 
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
@@ -608,6 +634,7 @@ setFormRepeat("none");
                         {selectedEvent?.tags?.split(',').map(t => {
                           const style = getTagStyle(t);
                           return <span key={t} className={`px-2 py-1 ${style.bg} ${style.text} text-[8px] font-black rounded-md uppercase`}>{t.trim()}</span>
+                        
                         })}
                       </div>
                       <h3 className="text-3xl font-serif italic">{selectedEvent?.title}</h3>
@@ -656,7 +683,37 @@ setFormRepeat("none");
               <div key={d} className="py-4 text-center text-[8px] font-black uppercase tracking-[0.3em] text-stone-300">{d}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7 flex-1 overflow-y-auto no-scrollbar">
+          <div className="relative grid grid-cols-7 flex-1 overflow-y-auto no-scrollbar">
+            {/* MULTI-DAY EVENT BARS */}
+<div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+  {eventSpans.map((e) => {
+    if (e.startIndex === -1 || e.endIndex === -1) return null;
+
+    const startCol = (e.startIndex % 7) + 1;
+    const endCol = (e.endIndex % 7) + 1;
+
+    const startRow = Math.floor(e.startIndex / 7) + 1;
+
+    const spanCols =
+      e.startIndex === e.endIndex
+        ? 1
+        : Math.min(7 - (startCol - 1), e.endIndex - e.startIndex + 1);
+
+    const style = getTagStyle(e.tags?.split(",")[0] || "");
+
+    return (
+      <div
+        key={`span-${e.id}`}
+        className={`absolute h-4 rounded-md ${style.bg} opacity-80`}
+        style={{
+  gridColumnStart: startCol,
+  gridColumnEnd: `span ${spanCols}`,
+  gridRowStart: startRow,
+}}
+      />
+    );
+  })}
+</div>
             {daysGrid.map((day, idx) => {
               const dayEvents = getDayEvents(day);
               const isToday = isSameDay(day, new Date());
@@ -677,7 +734,7 @@ setFormRepeat("none");
                       const primaryTag = e.tags?.split(',')[0] || '';
                       const style = primaryTag ? getTagStyle(primaryTag) : { bg: 'bg-stone-50', text: 'text-stone-500' };
                       return (
-                        <div key={`${e.id}-${selectedDay.toISOString()}`} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
+                        <div key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
                           className={`px-2 py-1 rounded-lg border border-stone-100 text-[7px] font-black uppercase truncate transition-all ${style.bg} ${style.text}`}
                         >
                           {e.title}
@@ -729,7 +786,7 @@ setFormRepeat("none");
 
           <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
             {getDayEvents(selectedDay).map(e => (
-              <div key={`${e.id}-${selectedDay.toISOString()}`} onClick={() => { setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
+              <div key={e.id} onClick={() => { setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
                 className="p-5 rounded-3xl bg-stone-50 border border-stone-100 hover:shadow-2xl transition-all cursor-pointer group"
               >
                 <div className="flex justify-between items-center mb-1">

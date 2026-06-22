@@ -312,6 +312,40 @@ export default function PaymentsPage() {
             </button>
           </div>
         </header>
+        {/* FINANCIAL CONTROL CENTRE */}
+        <section className="bg-stone-900 text-white rounded-[2.5rem] p-8 shadow-xl mb-6">
+          <h2 className="text-2xl font-serif italic mb-6">Financial Control Centre</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div>
+              <p className="text-[8px] uppercase tracking-widest text-stone-400">Net Position</p>
+              <p className="text-2xl font-mono mt-2">
+                £{(metrics.revYtd - metrics.operatingCosts).toLocaleString()}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[8px] uppercase tracking-widest text-stone-400">Monthly Burn</p>
+              <p className="text-2xl font-mono mt-2">
+                £{(metrics.operatingCosts / 12).toLocaleString()}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[8px] uppercase tracking-widest text-stone-400">Tax Exposure</p>
+              <p className="text-2xl font-mono mt-2">
+                £{metrics.taxDue.toLocaleString()}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[8px] uppercase tracking-widest text-stone-400">Cash Health</p>
+              <p className="text-2xl font-mono mt-2">
+                {metrics.revYtd > metrics.operatingCosts ? "STABLE" : "RISK"}
+              </p>
+            </div>
+          </div>
+        </section>
 
         {activeTab === "payments" && (
           <>
@@ -322,7 +356,32 @@ export default function PaymentsPage() {
               <MetricCard label="VAT Escrow" value={metrics.vatPool} sub="Lock Active" icon={<Landmark />} />
               <MetricCard label="Fiscal Prov" value={metrics.taxDue} sub="FY26 Est." icon={<Receipt />} />
             </section>
-            
+
+            {/* ACTION REQUIRED ENGINE */}
+            <section className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm mt-6">
+              <h3 className="text-3xl font-serif italic mb-6">Action Required</h3>
+
+              <div className="space-y-3">
+                {[
+                  metrics.taxDue > 0 && "Prepare tax provision",
+                  metrics.vatPool > metrics.revYtd * 0.2 && "VAT exposure high",
+                  metrics.revYtd < metrics.operatingCosts && "Operating loss detected",
+                  timesheets.length === 0 && "No workforce data available",
+                  clarityBrain.riskSignals?.length > 0 && "Risk signals detected"
+                ]
+                  .filter(Boolean)
+                  .map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-xl"
+                    >
+                      <span className="text-sm font-bold text-red-600">{item}</span>
+                      <span className="text-[8px] uppercase tracking-widest text-red-400">Priority</span>
+                    </div>
+                  ))}
+              </div>
+            </section>
+
             {/* LEDGER ARCHIVE */}
             <section className="bg-white border border-stone-100 rounded-[2.5rem] overflow-hidden shadow-lg">
               <div className="p-8 border-b border-stone-50 flex flex-col xl:flex-row justify-between items-center gap-6">

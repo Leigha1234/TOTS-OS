@@ -387,7 +387,13 @@ async function handleSave() {
                   { title: 'Payslips', id: 'payslips', icon: <Receipt size={18} /> },
                   { title: 'Appraisals', id: 'appraisals', icon: <ClipboardCheck size={18} /> },
                   { title: 'Holiday Requests', id: 'holiday-requests', icon: <Umbrella size={18} /> },
-                  { title: 'Sick Pay', id: 'sick-pay', icon: <HeartPulse size={18} /> }
+                  { title: 'Sick Pay', id: 'sick-pay', icon: <HeartPulse size={18} /> },
+
+                  { title: 'Expenses', id: 'expenses', icon: <FileText size={18} /> },
+                  { title: 'Compliance', id: 'compliance', icon: <ShieldCheck size={18} /> },
+                  { title: 'Training', id: 'training', icon: <Activity size={18} /> },
+                  { title: 'Employees', id: 'employees', icon: <Briefcase size={18} /> },
+                  { title: 'Documents', id: 'documents', icon: <FileText size={18} /> }
                 ].map((card) => (
                   <motion.button
                     key={card.title}

@@ -1402,6 +1402,7 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
 }
 
 const NoteModal = ({
+  
   note,
   teamMembers,
   commentsByNoteId,
@@ -1423,10 +1424,12 @@ const NoteModal = ({
   noteOpsChannel,
 }: any) => {
 
+  if (!note) return null;
+
   const [draftContent, setDraftContent] = useState(note?.content || "");
   const [blocks, setBlocks] = useState(
-    (note.content || "").split("\n").map((text: string, idx: number) => ({
-      id: `${note.id}-block-${idx}`,
+    (note?.content || "").split("\n").map((text: string, idx: number) => ({
+      id: `${note?.id}-block-${idx}`,
       text
     }))
   );
@@ -1442,7 +1445,7 @@ const NoteModal = ({
         text
       }))
     );
-  }, [note.id, note.content]);
+  }, [note?.id, note?.content]);
 
   const presentIds = notePresence?.[note.id] || [];
   const presentMembers = teamMembers?.filter((m: any) => presentIds.includes(m.id)) || [];

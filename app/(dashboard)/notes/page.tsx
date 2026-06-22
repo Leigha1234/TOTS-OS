@@ -781,9 +781,12 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
       }
 
       const normalizedNote = {
-        ...insertedNote,
-        type: insertedNote.type ?? (insertedNote.status === "todo" ? "task" : "note"),
-      };
+  ...insertedNote,
+  user_id: insertedNote.user_id ?? user.id,
+  organisation_id: insertedNote.organisation_id ?? orgId,
+  visibility: insertedNote.visibility ?? visibility,
+  type: insertedNote.type ?? (insertedNote.status === "todo" ? "task" : "note"),
+};
 
       setNotes(prev => [normalizedNote, ...prev]);
       if (normalizedNote.project) {

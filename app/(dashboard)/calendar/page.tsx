@@ -266,19 +266,30 @@ if (notesAssignedError) {
   }), [currentMonth]);
 
   const getDayEvents = useCallback((date: Date) => {
-    return events.filter(e => {
-      const d = e.startAt;
-      const matchesDate =
-  d instanceof Date &&
-  !isNaN(d.getTime()) &&
-  isSameDay(d, date);
-      const matchesTag =
-        activeTagFilter === "ALL" ||
-        (e.tags && e.tags.toUpperCase().includes(activeTagFilter));
+  return events.filter(e => {
+    const start = e.startAt;
+    const end = e.endAt || e.startAt;
 
-      return matchesDate && matchesTag;
-    });
-  }, [events, activeTagFilter]);
+    if (!(start instanceof Date) || isNaN(start.getTime())) return false;
+
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const matchesDate =
+      start <= dayEnd &&
+      end &&
+      end >= dayStart;
+
+    const matchesTag =
+      activeTagFilter === "ALL" ||
+      (e.tags && e.tags.toUpperCase().includes(activeTagFilter));
+
+    return matchesDate && matchesTag;
+  });
+}, [events, activeTagFilter]);
 
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
@@ -662,11 +673,11 @@ setFormRepeat("none");
                     {format(day, "d")}
                   </span>
                   <div className="space-y-1">
-                    {dayEvents.slice(0, 3).map(e => {
+                    {dayEvents.map(e => {
                       const primaryTag = e.tags?.split(',')[0] || '';
                       const style = primaryTag ? getTagStyle(primaryTag) : { bg: 'bg-stone-50', text: 'text-stone-500' };
                       return (
-                        <div key={`${e.id}-${e.startAt?.getTime?.() ?? 0}`} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
+                        <div key={`${e.id}-${selectedDay.toISOString()}`} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
                           className={`px-2 py-1 rounded-lg border border-stone-100 text-[7px] font-black uppercase truncate transition-all ${style.bg} ${style.text}`}
                         >
                           {e.title}
@@ -718,7 +729,7 @@ setFormRepeat("none");
 
           <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
             {getDayEvents(selectedDay).map(e => (
-              <div key={`${e.id}-${e.startAt?.getTime?.() ?? 0}`} onClick={() => { setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
+              <div key={`${e.id}-${selectedDay.toISOString()}`} onClick={() => { setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
                 className="p-5 rounded-3xl bg-stone-50 border border-stone-100 hover:shadow-2xl transition-all cursor-pointer group"
               >
                 <div className="flex justify-between items-center mb-1">

@@ -44,7 +44,10 @@ export async function POST(req: NextRequest) {
       .from("profiles")
       .select("organisation_id")
       .eq("id", user.id)
-      .maybeSingle();
+      .maybeSingle() as {
+        data: { organisation_id: string | null } | null;
+        error: any;
+      };
 
     if (profileError) {
       return NextResponse.json({ error: "Unable to verify profile" }, { status: 500 });
@@ -75,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("notes")
-      .insert([noteData])
+      .insert([noteData] as any)
       .select("*")
       .maybeSingle();
 

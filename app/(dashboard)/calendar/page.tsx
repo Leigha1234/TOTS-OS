@@ -415,17 +415,23 @@ setFormRepeat("none");
     setIsSubmitting(true);
 
     try {
-      // Use cached user when possible. Don't block UI on auth lookup — defer to background for the insert.
-      let user = currentUser;
-      let userPromise: Promise<any> | null = null;
-      if (!user) {
-        userPromise = supabase.auth.getUser();
+      // New user/auth logic
+      const authResult = currentUser
+        ? { data: { user: currentUser } }
+        : await supabase.auth.getUser();
+
+      const authUser = authResult?.data?.user;
+
+      if (!authUser) {
+        setError("No authenticated user.");
+        setIsSubmitting(false);
+        return;
       }
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organisation_id")
-        .eq("id", user.id)
+        .eq("id", authUser.id)
         .maybeSingle();
 
       if (profileError) {
@@ -446,7 +452,7 @@ setFormRepeat("none");
 
       // Use cached user/profile when available to avoid extra network calls
       // Resolve user for the eventual insert (do not await before showing temp event)
-      const resolvedUser = currentUser || (userPromise ? (await userPromise).data?.user : null) || null;
+      const resolvedUser = authUser;
       const orgId = currentProfile?.organisation_id ?? profile?.organisation_id ?? null;
 
       // Create a temporary optimistic event and show it immediately
@@ -459,7 +465,7 @@ setFormRepeat("none");
         meeting_link: formLink,
         guests: formGuests,
         tags: formTags,
-        user_id: currentUser?.id ?? null,
+        user_id: authUser.id,
         startAt: startISO ? new Date(startISO) : null,
         endAt: endISO ? new Date(endISO) : null,
         repeat: formRepeat,

@@ -738,20 +738,21 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
         return;
       }
 
-      const notePayload = {
-        content,
-        organisation_id: orgId,
-        color: isUrgent ? "#4f4a46" : theme.bg,
-        category: tag || "General",
-        project: project || null,
-        assigned_to: assignedTo.length > 0 && assignedTo[0] ? assignedTo[0] : null,
-        due_date: isReminder && reminderDateTime ? reminderDateTime : null,
-        is_reminder: isReminder,
-        status,
-        is_urgent: isUrgent,
-        visibility,
-        type: status === "todo" ? "task" : "note",
-      };
+     const notePayload = {
+  content,
+  user_id: user.id,
+  organisation_id: orgId,
+  color: isUrgent ? "#4f4a46" : theme.bg,
+  category: tag || "General",
+  project: project || null,
+  assigned_to: assignedTo.length > 0 ? assignedTo[0] : null,
+  due_date: isReminder && reminderDateTime ? reminderDateTime : null,
+  is_reminder: isReminder,
+  status,
+  is_urgent: isUrgent,
+  visibility,
+  type: status === "todo" ? "task" : "note",
+};
 
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData?.session?.access_token) {

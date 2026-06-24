@@ -212,10 +212,7 @@ default:
     const safeNotes = (data || [])
       .filter((n: any) => n && n.id)
       .filter((n: any) => canViewNote(n, userId))
-      .map((n: any) => ({
-  ...n,
-  type: ["todo", "in_progress", "done"].includes(n.status) ? "task" : "note"
-}));
+      .map((n: any) => n);
 
     setNotes(safeNotes);
 
@@ -791,7 +788,6 @@ const userId = user.id;
   status,
   is_urgent: isUrgent,
   visibility,
-  type: status === "todo" ? "task" : "note",
 };
 
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -821,12 +817,10 @@ const userId = user.id;
       }
 
       const normalizedNote = {
-        
   ...insertedNote,
   user_id: insertedNote.user_id ?? user.id,
   organisation_id: insertedNote.organisation_id ?? orgId,
   visibility: insertedNote.visibility ?? visibility,
-  type: insertedNote.type ?? (insertedNote.status === "todo" ? "task" : "note"),
 };
 
 setNotes(prev => [
@@ -950,13 +944,13 @@ setNotes(prev => [
     );
   });
 
-  const taskNotes = filteredNotes.filter(
-    (n) => n.type === "task"
-  );
+ const taskNotes = filteredNotes.filter(
+  (n) => ["todo", "in_progress", "done"].includes(n.status)
+);
 
-  const regularNotes = filteredNotes.filter(
-    (n) => n.type === "note"
-  );
+const regularNotes = filteredNotes.filter(
+  (n) => !["todo", "in_progress", "done"].includes(n.status)
+);
 
   // DND-KIT SENSORS/HANDLERS
   const sensors = useSensors(
@@ -993,7 +987,6 @@ setNotes(prev => [
 .update({
   status: newStatus,
   completed: newStatus === "done",
-  type: ["todo", "in_progress", "done"].includes(newStatus) ? "task" : "note"
 })
       .eq("id", taskId)
       ;
@@ -1125,7 +1118,7 @@ if (error) {
     note.is_urgent ? 'text-white font-bold' : 'text-stone-700'
   }`}
 >
-                {note.type === "task" ? (
+                {["todo", "in_progress", "done"].includes(note.status) ? (
                   <>
                     <option value="todo">To Do</option>
                     <option value="in_progress">In Progress</option>

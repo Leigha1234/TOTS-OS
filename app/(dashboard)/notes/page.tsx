@@ -994,6 +994,18 @@ setNotes(prev => [
       .eq("id", taskId)
       ;
 
+
+      // take this out once tested and working
+console.log("UPDATING NOTE:", {
+  taskId,
+  newStatus,
+  orgId: orgIdRef.current
+});
+if (error) {
+  console.error("RLS/UPDATE FAILED:", error);
+}
+
+
     if (error) {
       toast.error("Failed to update task status");
       console.error(error);

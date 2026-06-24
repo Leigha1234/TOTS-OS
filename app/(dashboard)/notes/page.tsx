@@ -1233,21 +1233,7 @@ const regularNotes = filteredNotes.filter(
                 <span>Clear</span>
               </button>
 
-              {/* DELETE ICON BUTTON */}
-              <button
-  onClick={(e) => {
-    e.stopPropagation();
-    deleteNote(note.id);
-  }}
-  className={`flex items-center justify-center h-8 w-8 rounded-full transition-all border border-transparent
-    hover:scale-105 active:scale-95 ${
-                  note.is_urgent
-                    ? 'hover:bg-white/10 text-white/60 hover:text-white'
-                    : 'hover:bg-red-50 text-stone-400 hover:text-red-600'
-                }`}
-              >
-                <Trash2 size={13} />
-              </button>
+              
             </div>
           </div>
         </div>

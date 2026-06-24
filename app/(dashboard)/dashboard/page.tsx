@@ -162,7 +162,7 @@ function DashboardContent() {
 
         supabase
           .from("notes")
-          .select("id, title, content, completed, status, type")
+          .select("id, content, completed, status, type")
           .eq("organisation_id", activeOrganisationId)
           .limit(5),
 

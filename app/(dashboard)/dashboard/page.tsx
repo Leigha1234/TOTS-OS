@@ -164,7 +164,7 @@ function DashboardContent() {
           .from("notes")
           .select("id, content, completed, status, type")
           .eq("organisation_id", activeOrganisationId)
-          .limit(5),
+          .order("created_at", { ascending: false }),
 
         supabase
           .from("events")

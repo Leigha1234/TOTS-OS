@@ -786,6 +786,7 @@ const userId = user.id;
   due_date: isReminder && reminderDateTime ? reminderDateTime : null,
   is_reminder: isReminder,
   status,
+  type: status === "todo" ? "task" : "note",
   is_urgent: isUrgent,
   visibility,
 };
@@ -861,6 +862,10 @@ setNotes(prev => [
       setShowModal(false);
       setSelectedColor(null);
       
+      const currentOrgId = orgIdRef.current ?? organisationId;
+      if (currentOrgId) {
+        await fetchNotes(currentOrgId, user.id);
+      }
       toast.success("Note pinned to desk.");
      } catch (e) {
   console.error("Create note error:", e);

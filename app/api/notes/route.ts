@@ -175,3 +175,68 @@ export async function PUT(req: NextRequest) {
     );
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const supabase = createSupabaseClientWithToken(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = await req.json();
+    const { id, organisation_id: orgId } = payload;
+
+    if (!id || !orgId) {
+      return NextResponse.json(
+        { error: "Missing id or organisation_id" },
+        { status: 400 }
+      );
+    }
+
+    const admin = supabaseAdmin as any;
+    // Verify user belongs to organisation
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      return NextResponse.json({ error: "Unable to verify profile" }, { status: 500 });
+    }
+
+    if (!profile || profile.organisation_id !== orgId) {
+      return NextResponse.json({ error: "Organisation mismatch" }, { status: 403 });
+    }
+
+    // Delete the note
+    const { error } = await admin
+      .from("notes")
+      .delete()
+      .eq("id", id)
+      .eq("organisation_id", orgId);
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message || "Failed to delete note" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error?.message || "Unexpected server error" },
+      { status: 500 }
+    );
+  }
+}

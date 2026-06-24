@@ -934,25 +934,51 @@ setNotes(prev => [
       toast.error("Invalid note ID.");
       return;
     }
-    const { error, status, statusText } = await supabase
-      .from("notes")
-      .delete()
-      .eq("id", id)
-      .select();
 
-    if (error) {
-      console.error("Delete note error:", {
-        error,
-        status,
-        statusText,
-        noteId: id,
-      });
-      toast.error(error.message || `Delete failed (${status})`);
-      return;
-    }
-
+    // optimistic UI update
     setNotes(prev => prev.filter(n => n.id !== id));
-    toast.success("Note cleared.");
+
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session?.access_token) {
+        throw new Error("Unable to authenticate. Please sign in again.");
+      }
+
+      const response = await fetch("/api/notes", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({
+          id,
+          organisation_id: orgIdRef.current,
+        })
+      });
+
+      const responseBody = await response.json();
+
+      if (!response.ok || responseBody.error) {
+        console.error("Delete note error:", responseBody.error);
+        toast.error(responseBody.error || "Delete failed");
+        
+        // rollback on error
+        if (orgIdRef.current && user?.id) {
+          fetchNotes(orgIdRef.current, user.id);
+        }
+        return;
+      }
+
+      toast.success("Note cleared.");
+    } catch (err: any) {
+      console.error("Delete note error:", err);
+      toast.error(err?.message || "Delete failed");
+
+      // rollback on error
+      if (orgIdRef.current && user?.id) {
+        fetchNotes(orgIdRef.current, user.id);
+      }
+    }
   };
 
   const filteredNotes = notes.filter((n) => {

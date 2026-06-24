@@ -134,6 +134,11 @@ function DashboardContent() {
       }
 
       const activeOrganisationId = organisationId || profile?.organisation_id;
+      console.log("ORG CHECK", {
+  settingsOrg: organisationId,
+  profileOrg: profile?.organisation_id,
+  activeOrg: activeOrganisationId
+});
 
       // Guard for Missing OrgID - critical to prevent unauthorized 403s
       if (!activeOrganisationId || activeOrganisationId === "undefined") {
@@ -181,6 +186,13 @@ function DashboardContent() {
           .limit(5)
       ]);
 
+      console.log("Dashboard Results", {
+  projects: projectsRes.data,
+  notes: notesRes.data,
+  projectError: projectsRes.error,
+  notesError: notesRes.error,
+});
+
       // Logic calculations
       const invData = (invoicesRes.data as any[]) || [];
       const totalProfit = invData.reduce((acc, inv) => inv.status === 'paid' ? acc + (inv.amount || 0) : acc, 0);
@@ -210,14 +222,18 @@ function DashboardContent() {
       };
 
       setTodos(((notesRes.data as any[]) || [])
-        .filter((n: any) => n.type === "task")
-        .map((n: any) => ({
-          id: n.id,
-          text: n.content || n.title || "Untitled Task",
-          completed: Boolean(n.completed),
-          status: normaliseStatus(n),
-        }))
-      );
+  .filter((n: any) => {
+    const type = String(n.type || "").toLowerCase();
+    return type === "task" || type === "todo";
+  })
+  .map((n: any) => ({
+    id: n.id,
+    text: n.content || n.title || "Untitled Task",
+    completed: Boolean(n.completed),
+    status: normaliseStatus(n),
+  }))
+);
+        
       setEvents(((eventsRes.data as any[]) || []).map(normaliseEvent));
       setEmails((emailsRes.data as any[]) || []);
       setProjects((projectsRes.data as any[]) || []);
@@ -748,18 +764,43 @@ function DashboardContent() {
 
               const allEvents = events;
 
-              const sorted = [...allEvents].sort((a: any, b: any) => {
-                const aTime = a.startAt?.getTime?.() ?? Infinity;
-                const bTime = b.startAt?.getTime?.() ?? Infinity;
-                return aTime - bTime;
-              });
+              
 
-              const todayEvents = sorted.filter(e => e.startAt && isToday(e.startAt));
-              const tomorrowEvents = sorted.filter(e => e.startAt && isTomorrow(e.startAt));
-              const upcomingEvents = sorted.filter(
-                e => e.startAt && !isToday(e.startAt) && !isTomorrow(e.startAt)
-              );
-              const unscheduledEvents = sorted.filter(e => !e.startAt);
+              const startOfToday = new Date(now);
+startOfToday.setHours(0, 0, 0, 0);
+
+const endOfWeek = new Date(now);
+endOfWeek.setDate(now.getDate() + 7);
+endOfWeek.setHours(23, 59, 59, 999);
+
+const sorted = [...allEvents].sort((a: any, b: any) => {
+  const aTime = a.startAt?.getTime?.() ?? Infinity;
+  const bTime = b.startAt?.getTime?.() ?? Infinity;
+  return aTime - bTime;
+});
+
+const todayEvents = sorted.filter(
+  e =>
+    e.startAt &&
+    e.startAt >= startOfToday &&
+    e.startAt.toDateString() === now.toDateString()
+);
+
+const tomorrowEvents = sorted.filter(e => {
+  const t = new Date(now);
+  t.setDate(now.getDate() + 1);
+  return e.startAt && e.startAt.toDateString() === t.toDateString();
+});
+
+const upcomingEvents = sorted.filter(e => {
+  return (
+    e.startAt &&
+    e.startAt > new Date(now.setHours(23, 59, 59, 999)) &&
+    e.startAt <= endOfWeek
+  );
+});
+
+const unscheduledEvents = sorted.filter(e => !e.startAt);
 
               const renderEvent = (e: any, idx: number) => (
                 <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">

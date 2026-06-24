@@ -116,6 +116,7 @@ function VaultContent() {
   // Modal & Input States
   const [showModal, setShowModal] = useState(false);
   const [content, setContent] = useState("");
+  const [title, setTitle] = useState("");
   const [tag, setTag] = useState("");
   const [isUrgent, setIsUrgent] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -128,6 +129,7 @@ function VaultContent() {
   const [isReminder, setIsReminder] = useState(false);
   const [status, setStatus] = useState("todo");
   const [visibility, setVisibility] = useState("private");
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
 
   // Voice Note State
   const [isListening, setIsListening] = useState(false);
@@ -751,7 +753,8 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
       return;
     }
     setIsSyncing(true);
-    const theme = STICKY_THEMES[notes.length % STICKY_THEMES.length];
+    const theme =
+  STICKY_THEMES[user.id.charCodeAt(0) % STICKY_THEMES.length];
 
     try {
       const { data: profileData, error: profileError } = await supabase
@@ -776,9 +779,10 @@ const userId = user.id;
 
      const notePayload = {
   content,
+  title: title || null,
   user_id: user.id,
   organisation_id: orgId,
-  color: isUrgent ? "#4f4a46" : theme.bg,
+  color: isUrgent ? "#4f4a46" : (selectedColor || theme.bg),
   category: tag || "General",
   project: project || null,
   assigned_to: assignedTo.length > 0 ? assignedTo : null,
@@ -844,6 +848,7 @@ const userId = user.id;
 }
 
       setContent("");
+      setTitle("");
       setTag("");
       setIsUrgent(false);
       setProject("");
@@ -852,6 +857,7 @@ const userId = user.id;
       setIsReminder(false);
       setStatus("todo");
       setShowModal(false);
+      setSelectedColor(null);
       
       toast.success("Note pinned to desk.");
     } catch (e) {
@@ -1010,7 +1016,12 @@ const userId = user.id;
         exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
         whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
         className={`p-3 lg:p-5 min-h-[260px] lg:min-h-[320px] w-full min-w-0 md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${note.is_urgent ? 'text-white' : 'text-stone-800'}`}
-        style={{ background: note.color || '#FFF9E6' }}
+        style={{
+  background:
+    note.color && note.color !== "undefined"
+      ? note.color
+      : "#FFF9E6"
+}}
         onClick={() => {
           setExpandedNote(note.id);
           setLastViewed(prev => ({
@@ -1040,9 +1051,15 @@ const userId = user.id;
             </div>
           </div>
 
-          <p className="text-base lg:text-xl font-serif italic leading-snug tracking-tight mb-4 lg:mb-6 line-clamp-4 break-words whitespace-pre-wrap">
-            {note.content}
-          </p>
+          {note.title && (
+  <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">
+    {note.title}
+  </p>
+)}
+
+<p className="text-base lg:text-xl font-serif italic leading-snug tracking-tight mb-4 lg:mb-6 line-clamp-4 break-words whitespace-pre-wrap">
+  {note.content}
+</p>
         </div>
 
         {/* BOTTOM METADATA PINNED CONTAINER */}
@@ -1314,6 +1331,12 @@ const userId = user.id;
 
               {/* RECORD & DICTATION CAPTURE BOX */}
               <div className="relative bg-stone-50 rounded-xl p-4">
+                <input
+  value={title}
+  onChange={(e) => setTitle(e.target.value)}
+  placeholder="Optional title..."
+  className="w-full mb-3 bg-transparent text-sm font-black uppercase tracking-widest text-stone-500 outline-none placeholder:text-stone-300"
+/>
                 <textarea 
                   autoFocus
                   className="w-full min-h-[110px] bg-transparent text-xl font-serif italic outline-none resize-none placeholder:text-stone-200 text-stone-800 pr-10"
@@ -1394,6 +1417,35 @@ const userId = user.id;
                   </select>
                 </div>
               </div>
+
+              {/* STICKY NOTE COLOR SELECTOR */}
+<div className="flex flex-wrap gap-2 pt-2 pb-1">
+  <button
+    type="button"
+    onClick={() => setSelectedColor(null)}
+    className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border transition-all ${
+      selectedColor === null
+        ? "bg-stone-900 text-white border-stone-900"
+        : "bg-stone-50 text-stone-500 border-stone-200"
+    }`}
+  >
+    Auto
+  </button>
+
+  {STICKY_THEMES.map((theme) => (
+    <button
+      key={theme.bg}
+      type="button"
+      onClick={() => setSelectedColor(theme.bg)}
+      className={`w-6 h-6 rounded-full border transition-all ${
+        selectedColor === theme.bg
+          ? "border-stone-900 scale-110"
+          : "border-stone-200"
+      }`}
+      style={{ backgroundColor: theme.bg }}
+    />
+  ))}
+</div>
 
               {/* TIMED REMINDER SCHEDULER */}
               <div className="space-y-2.5 border-t border-stone-100 pt-4">

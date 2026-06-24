@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense, useRef } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  Suspense,
+  useRef
+} from "react";
 import {
   DndContext,
   closestCenter,
@@ -28,6 +34,12 @@ import { format } from "date-fns";
 // DND-KIT COLUMN DROPPABLE
 const TaskColumn = ({ id, children }: any) => {
   const { setNodeRef, isOver } = useDroppable({ id });
+
+  useEffect(() => {
+    if (isOver) {
+      console.log("OVER COLUMN:", id);
+    }
+  }, [isOver, id]);
 
   return (
     <div
@@ -938,9 +950,14 @@ const userId = user.id;
   );
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
+  const { active, over } = event;
 
-    if (!over) return;
+  console.log("DRAG END", {
+    active: active?.id,
+    over: over?.id
+  });
+
+  if (!over) return;
 
     const taskId = active.id as string;
     const newStatus = over.id as string;
@@ -1059,12 +1076,14 @@ const userId = user.id;
             <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
               <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Progress</span>
               <select
-                value={note.status || (note.type === "task" ? "todo" : "active")}
-                onChange={(e) => updateNoteStatus(note.id, e.target.value)}
-                className={`text-[9px] font-black uppercase bg-transparent outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none text-right pr-1 ${
-                  note.is_urgent ? 'text-white font-bold' : 'text-stone-700'
-                }`}
-              >
+  value={note.status || (note.type === "task" ? "todo" : "active")}
+  onChange={(e) => updateNoteStatus(note.id, e.target.value)}
+  onClick={(e) => e.stopPropagation()}
+  onPointerDown={(e) => e.stopPropagation()}
+  className={`text-[9px] font-black uppercase bg-transparent outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none text-right pr-1 ${
+    note.is_urgent ? 'text-white font-bold' : 'text-stone-700'
+  }`}
+>
                 {note.type === "task" ? (
                   <>
                     <option value="todo">To Do</option>
@@ -1083,10 +1102,13 @@ const userId = user.id;
 
             <div className="flex items-center gap-2">
               {/* CLEAR / COMPLETE ACTION */}
-              <button
-                onClick={() => deleteNote(note.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all border shadow-sm ${
-                  note.is_urgent
+              
+                <button
+  onClick={(e) => {
+    e.stopPropagation();
+    deleteNote(note.id);
+  }}
+  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all border shadow-sm ${note.is_urgent
                     ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white'
                     : 'bg-white/70 border-black/[0.05] hover:bg-white text-stone-700 hover:text-green-700'
                 }`}
@@ -1097,9 +1119,12 @@ const userId = user.id;
 
               {/* DELETE ICON BUTTON */}
               <button
-                onClick={() => deleteNote(note.id)}
-                className={`flex items-center justify-center h-8 w-8 rounded-full transition-all border border-transparent
-                  hover:scale-105 active:scale-95 ${
+  onClick={(e) => {
+    e.stopPropagation();
+    deleteNote(note.id);
+  }}
+  className={`flex items-center justify-center h-8 w-8 rounded-full transition-all border border-transparent
+    hover:scale-105 active:scale-95 ${
                   note.is_urgent
                     ? 'hover:bg-white/10 text-white/60 hover:text-white'
                     : 'hover:bg-red-50 text-stone-400 hover:text-red-600'

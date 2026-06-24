@@ -78,7 +78,27 @@ function VaultContent() {
   const [comments, setComments] = useState<any[]>([]);
   const commentsByNoteId = useRef<Record<string, any[]>>({});
   const [activeComments, setActiveComments] = useState<Record<string, any[]>>({});
-  const [projectsList, setProjectsList] = useState<string[]>([]);
+  const [projectsList, setProjectsList] = useState<any[]>([]);
+  const fetchProjects = useCallback(async (orgId?: string) => {
+  try {
+    if (!orgId) return;
+
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id, name")
+      .eq("organisation_id", orgId)
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Projects fetch error:", error);
+      return;
+    }
+
+    setProjectsList(data || []);
+  } catch (e) {
+    console.error("Error fetching projects:", e);
+  }
+}, []);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal & Input States
@@ -123,114 +143,106 @@ function VaultContent() {
   const [noteOps, setNoteOps] = useState<Record<string, any[]>>({});
 
   // Strict per-user/org/shared/assigned note visibility guard
-  const canViewNote = (note: any, userId: string, orgId: string | null) => {
-    if (!note || !userId || !orgId) return false;
+  const canViewNote = (note: any, userId: string) => {
+  if (!note || !userId) return false;
 
-    const assigned = Array.isArray(note.assigned_to)
-      ? note.assigned_to
-      : note.assigned_to
-        ? [note.assigned_to]
-        : [];
+  const assigned = Array.isArray(note.assigned_to)
+    ? note.assigned_to
+    : note.assigned_to
+      ? [note.assigned_to]
+      : [];
 
-    switch (note.visibility) {
-      case "private":
-        return note.user_id === userId;
+  switch (note.visibility) {
+    case "private":
+      return note.user_id === userId;
 
-      case "org":
-        return note.organisation_id === orgId;
+    case "shared":
+      return note.user_id === userId || assigned.includes(userId);
 
-      case "shared":
-        return (
-          note.user_id === userId ||
-          assigned.includes(userId) ||
-          note.organisation_id === orgId
-        );
+     case "assigned":
+  return assigned.includes(userId);
 
-      case "assigned":
-        return assigned.includes(userId);
+case "org":
+  return true;
 
-      default:
-        return note.organisation_id === orgId;
-    }
-  };
+default:
+  return note.user_id === userId;
+  }
+};
 
-  const fetchNotes = useCallback(async (_orgId: string | null, userId: string) => {
-    try {
-      if (!userId) {
-        setNotes([]);
-        setIsLoading(false);
-        return;
-      }
+   
 
-      const effectiveOrgId = _orgId ?? orgIdRef.current;
+  const fetchNotes = useCallback(async (orgId: string, userId: string) => {
+  try {
+    const effectiveOrgId = orgId || orgIdRef.current;
 
-      if (!effectiveOrgId || !userId) {
-        setNotes([]);
-        setIsLoading(false);
-        return;
-      }
-
-      let query = supabase
-        .from("notes")
-        .select("*")
-        .eq("organisation_id", effectiveOrgId);
-
-      const { data, error } = await query.order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Supabase notes fetch error:", error);
-        toast.error("Failed to load notes from server.");
-        throw error;
-      }
-
-      const safeNotes = (data || [])
-        .filter((n: any) => n && typeof n === "object" && n.id)
-        .filter((n: any) => canViewNote(n, userId, effectiveOrgId))
-        .map((n: any) => ({
-          ...n,
-          type: n.type ?? (n.status === "todo" ? "task" : "note")
-        }));
-
-      setNotes(safeNotes);
-
-      const uniqueProjects = Array.from(
-        new Set(
-          safeNotes
-            .map((n: any) => n?.project)
-            .filter((p: any) => typeof p === "string" && p.trim())
-        )
-      ) as string[];
-
-      setProjectsList(uniqueProjects);
-
-      const noteIds = (data || []).filter((n: any) => n && typeof n === "object" && n.id).map((n: any) => n.id);
-
-      if (noteIds.length) {
-        const { data: commentData } = await supabase
-          .from("note_comments")
-          .select("*")
-          .in("note_id", noteIds)
-          .order("created_at", { ascending: true });
-
-        if (commentData) {
-          setComments(commentData);
-
-          const map: Record<string, any[]> = {};
-          commentData.forEach((c: any) => {
-            if (!map[c.note_id]) map[c.note_id] = [];
-            map[c.note_id].push(c);
-          });
-
-          commentsByNoteId.current = map;
-        }
-      }
-    } catch (e) {
-      console.error("Notes Fetch Error:", e);
-      toast.error("Notes load failed.");
-    } finally {
+    if (!userId || !effectiveOrgId) {
+      console.warn("fetchNotes skipped", { userId, effectiveOrgId });
+      setNotes([]);
       setIsLoading(false);
+      return;
     }
-  }, []);
+
+    const { data, error } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("organisation_id", effectiveOrgId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Supabase notes fetch error:", error);
+      toast.error("Failed to load notes from server.");
+      return;
+    }
+
+    const safeNotes = (data || [])
+      .filter((n: any) => n && n.id)
+      .filter((n: any) => canViewNote(n, userId))
+      .map((n: any) => ({
+        ...n,
+        type: n.type ?? (n.status === "todo" ? "task" : "note")
+      }));
+
+    setNotes(safeNotes);
+
+
+    const noteIds = safeNotes.map((n: any) => n.id);
+
+    if (noteIds.length) {
+      const { data: commentData } = await supabase
+        .from("note_comments")
+        .select("*")
+        .in("note_id", noteIds)
+        .order("created_at", { ascending: true });
+
+
+      if (commentData) {
+        setComments(commentData);
+
+        const map: Record<string, any[]> = {};
+
+        commentData.forEach((c: any) => {
+          if (!map[c.note_id]) map[c.note_id] = [];
+          map[c.note_id].push(c);
+        });
+
+        commentsByNoteId.current = map;
+      }
+    }
+
+  } catch (e) {
+    console.error("Notes Fetch Error:", e);
+    toast.error("Notes load failed.");
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
+
+     
+
+     
+
+     
 
   const fetchTeamMembers = useCallback(async (orgId?: string) => {
     try {
@@ -344,7 +356,9 @@ function VaultContent() {
       ]);
     }
 
-    fetchNotes(orgIdRef.current ?? organisationId, user.id);
+    if (orgIdRef.current) {
+  fetchNotes(orgIdRef.current, user.id);
+}
   };
 
   const addReaction = async (commentId: string, type: string = "like") => {
@@ -400,7 +414,8 @@ function VaultContent() {
       orgIdRef.current = orgId;
       setOrganisationId(orgId);
       await fetchTeamMembers(orgId);
-      if (orgId) await fetchNotes(orgId, authUser.id);
+if (orgId) await fetchProjects(orgId);
+if (orgId) await fetchNotes(orgId, authUser.id);
 // HARD RESET OLD CHANNELS (prevents realtime duplicate subscribe errors)
 if (channelRef.current) {
   supabase.removeChannel(channelRef.current);
@@ -445,11 +460,15 @@ if (!orgId) return;
       });
       mainChannel
         .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'notes',
-          filter: `organisation_id=eq.${orgId}`
-        }, () => fetchNotes(orgIdRef.current ?? organisationId, authUser.id))
+  event: '*',
+  schema: 'public',
+  table: 'notes',
+  filter: `organisation_id=eq.${orgId}`
+}, () => {
+  if (orgIdRef.current && user?.id) {
+    fetchNotes(orgIdRef.current, user.id);
+  }
+})
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -505,10 +524,14 @@ if (!orgId) return;
           });
         })
         .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'note_comment_reactions'
-        }, () => fetchNotes(orgIdRef.current ?? organisationId, authUser.id))
+  event: '*',
+  schema: 'public',
+  table: 'note_comment_reactions'
+}, () => {
+  if (orgIdRef.current && user?.id) {
+  fetchNotes(orgIdRef.current, user.id);
+}
+})
         .subscribe();
 
       channelRef.current = mainChannel;
@@ -729,11 +752,12 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
         console.error("Profile fetch error (create note):", JSON.stringify(profileError));
       }
 
-      const orgId = orgIdRef.current;
+const orgId = orgIdRef.current;
+const userId = user.id;
 
-      if (!orgId) {
-        console.error("Missing organisation_id during note creation:", user.id, profileData);
-        toast.error("Your account is missing an organisation. Please refresh or contact support.");
+      if (!orgId || !userId) {
+        console.error("Missing organisation_id or user_id during note creation:", user.id, profileData);
+        toast.error("Your account is missing an organisation or user ID. Please refresh or contact support.");
         setIsSyncing(false);
         return;
       }
@@ -745,7 +769,7 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
   color: isUrgent ? "#4f4a46" : theme.bg,
   category: tag || "General",
   project: project || null,
-  assigned_to: assignedTo.length > 0 ? assignedTo[0] : null,
+  assigned_to: assignedTo.length > 0 ? assignedTo : null,
   due_date: isReminder && reminderDateTime ? reminderDateTime : null,
   is_reminder: isReminder,
   status,
@@ -781,6 +805,7 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
       }
 
       const normalizedNote = {
+        
   ...insertedNote,
   user_id: insertedNote.user_id ?? user.id,
   organisation_id: insertedNote.organisation_id ?? orgId,
@@ -788,10 +813,23 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
   type: insertedNote.type ?? (insertedNote.status === "todo" ? "task" : "note"),
 };
 
-      setNotes(prev => [normalizedNote, ...prev]);
       if (normalizedNote.project) {
-        setProjectsList(prev => Array.from(new Set([normalizedNote.project, ...prev])));
+  setProjectsList(prev => {
+    const exists = prev.some(
+      p => p.name === normalizedNote.project
+    );
+
+    if (exists) return prev;
+
+    return [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        name: normalizedNote.project
       }
+    ];
+  });
+}
 
       setContent("");
       setTag("");
@@ -1285,16 +1323,18 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
                 <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100">
                   <Briefcase size={12} className="text-stone-400 mr-2" />
                   <select
-                    className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer appearance-none bg-[none]"
-                    value={project}
-                    onChange={(e) => setProject(e.target.value)}
-                  >
-                    <option value="">Assign Project...</option>
-                    {projectsList.map((pName, idx) => (
-                      <option key={idx} value={pName}>{pName}</option>
-                    ))}
-                    <option value="project">Project</option>
-                  </select>
+  className="bg-transparent..."
+  value={project}
+  onChange={(e) => setProject(e.target.value)}
+>
+  <option value="">No project</option>
+
+  {projectsList.map((projectItem) => (
+    <option key={projectItem.id} value={projectItem.name}>
+      {projectItem.name}
+    </option>
+  ))}
+</select>
                 </div>
 
                 <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100 col-span-2">

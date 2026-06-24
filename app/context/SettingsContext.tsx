@@ -38,7 +38,13 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
 
   const refreshSettings = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.warn("Auth state check failed (may be transient):", authError.message);
+        setLoading(false);
+        return;
+      }
 
       if (!user?.id) {
         console.log("No authenticated user yet - skipping settings load");
@@ -54,12 +60,14 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
         .maybeSingle();
 
       if (error) {
-        console.error("Profile fetch error:", JSON.stringify(error, null, 2));
+        console.warn("Profile fetch returned error (RLS or network):", error.message);
+        setLoading(false);
         return;
       }
 
       if (!p) {
         console.warn("No profile found for user:", user.id);
+        setLoading(false);
         return;
       }
 
@@ -69,10 +77,10 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
       if (p.logo_url) setLogoUrl(p.logo_url);
       if (p.mobile_nav_config) setMobileNav(p.mobile_nav_config as string[]);
       if (p.organisation_id) setOrganisationId(p.organisation_id);
-    } catch (err) {
-      console.error(
-        "Error refreshing system settings:",
-        JSON.stringify(err, null, 2)
+    } catch (err: any) {
+      console.warn(
+        "Error refreshing system settings (non-blocking):",
+        err?.message || "Unknown error"
       );
     } finally {
       setLoading(false);

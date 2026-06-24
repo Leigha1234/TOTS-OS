@@ -887,35 +887,46 @@ setNotes(prev => [
     }
     const completed = nextStatus === "done";
 
-    const { error, status, statusText } = await supabase
-      .from("notes")
-      .update({
-        status: nextStatus,
-        completed
-      })
-      .eq("id", id)
-      .select();
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session?.access_token) {
+        throw new Error("Unable to authenticate. Please sign in again.");
+      }
 
-    if (error) {
-      console.error("Update note status error:", {
-        error,
-        status,
-        statusText,
-        noteId: id,
-        nextStatus,
+      const response = await fetch("/api/notes", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({
+          id,
+          organisation_id: orgIdRef.current,
+          status: nextStatus,
+          completed
+        })
       });
-      toast.error(error.message || `Update failed (${status})`);
-      return;
-    }
 
-    setNotes(prev =>
-      prev.map(n =>
-        n.id === id
-          ? { ...n, status: nextStatus, completed: nextStatus === "done" }
-          : n
-      )
-    );
-    toast.success(`Note updated.`);
+      const responseBody = await response.json();
+
+      if (!response.ok || responseBody.error) {
+        console.error("Update note status error:", responseBody.error);
+        toast.error(responseBody.error || "Update failed");
+        return;
+      }
+
+      setNotes(prev =>
+        prev.map(n =>
+          n.id === id
+            ? { ...n, status: nextStatus, completed: nextStatus === "done" }
+            : n
+        )
+      );
+      toast.success(`Note updated.`);
+    } catch (err: any) {
+      console.error("Update note status error:", err);
+      toast.error(err?.message || "Update failed");
+    }
   };
 
   const deleteNote = async (id: string) => {
@@ -991,29 +1002,42 @@ const regularNotes = filteredNotes.filter(
     );
 
     try {
-      const { data, error: updateError } = await supabase
-        .from("notes")
-        .update({
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session?.access_token) {
+        throw new Error("Unable to authenticate. Please sign in again.");
+      }
+
+      const response = await fetch("/api/notes", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({
+          id: taskId,
+          organisation_id: orgIdRef.current,
           status: newStatus,
           completed: newStatus === "done",
         })
-        .eq("id", taskId)
-        .select();
+      });
 
-      console.log("DRAG UPDATE RESULT:", { data, updateError });
+      const responseBody = await response.json();
 
-      if (updateError) {
-        console.error("Drag update failed:", updateError);
-        toast.error(updateError.message || "Failed to update task");
+      console.log("DRAG UPDATE RESULT:", { data: responseBody.data, error: responseBody.error });
 
-        // rollback from DB to prevent UI drift
+      if (!response.ok || responseBody.error) {
+        console.error("Drag update failed:", responseBody.error);
+        toast.error(responseBody.error || "Failed to update task");
+
+        // rollback on failure
         if (orgIdRef.current && user?.id) {
           fetchNotes(orgIdRef.current, user.id);
         }
         return;
       }
 
-      if (!data || data.length === 0) {
+      const updatedNote = responseBody.data;
+      if (!updatedNote) {
         console.error("Drag update returned no rows (possible RLS issue)");
         toast.error("Update blocked by server rules");
 
@@ -1023,11 +1047,11 @@ const regularNotes = filteredNotes.filter(
         return;
       }
 
-      // Sync UI with DB response (source of truth)
+      // Sync UI with API response
       setNotes(prev =>
         prev.map(n =>
           n.id === taskId
-            ? { ...n, ...data[0] }
+            ? { ...n, ...updatedNote }
             : n
         )
       );

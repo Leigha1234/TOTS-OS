@@ -213,9 +213,9 @@ default:
       .filter((n: any) => n && n.id)
       .filter((n: any) => canViewNote(n, userId))
       .map((n: any) => ({
-        ...n,
-        type: n.type ?? (n.status === "todo" ? "task" : "note")
-      }));
+  ...n,
+  type: ["todo", "in_progress", "done"].includes(n.status) ? "task" : "note"
+}));
 
     setNotes(safeNotes);
 
@@ -989,8 +989,12 @@ setNotes(prev => [
 
     // persist to Supabase
     const { error } = await supabase
-      .from("notes")
-      .update({ status: newStatus, completed: newStatus === "done" })
+     .from("notes")
+.update({
+  status: newStatus,
+  completed: newStatus === "done",
+  type: ["todo", "in_progress", "done"].includes(newStatus) ? "task" : "note"
+})
       .eq("id", taskId)
       ;
 
@@ -1113,7 +1117,7 @@ if (error) {
             <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
               <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Progress</span>
               <select
-  value={note.status || (note.type === "task" ? "todo" : "active")}
+  value={note.status}
   onChange={(e) => updateNoteStatus(note.id, e.target.value)}
   onClick={(e) => e.stopPropagation()}
   onPointerDown={(e) => e.stopPropagation()}
@@ -1245,7 +1249,7 @@ if (error) {
 
               {(["todo", "in_progress", "done"] as const).map((statusKey) => {
                 const columnTasks = taskNotes.filter(
-                  (t: any) => (t.status || "todo") === statusKey
+                  (t: any) => t.status === statusKey
                 );
 
                 return (

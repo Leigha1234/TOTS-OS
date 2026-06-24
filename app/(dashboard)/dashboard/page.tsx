@@ -194,14 +194,28 @@ function DashboardContent() {
       });
 
       setTeamMembers((membersRes.data as any[]) || []);
+      const normaliseStatus = (n: any) => {
+        if (n.completed) return "done";
+        if (!n.status) return "todo";
+
+        const s = String(n.status).toLowerCase().trim();
+
+        if (["todo", "in_progress", "blocked", "done"].includes(s)) {
+          return s;
+        }
+
+        return "todo";
+      };
+
       setTodos(((notesRes.data as any[]) || [])
         .filter((n: any) => n.type === "task")
         .map((n: any) => ({
           id: n.id,
-          text: n.title || n.content?.substring(0, 40) || "Priority Task",
+          text: n.content || n.title || "Untitled Task",
           completed: Boolean(n.completed),
-          status: n.status || (n.completed ? "done" : "todo")
-        })));
+          status: normaliseStatus(n),
+        }))
+      );
       setEvents(((eventsRes.data as any[]) || []).map(normaliseEvent));
       setEmails((emailsRes.data as any[]) || []);
       setProjects((projectsRes.data as any[]) || []);

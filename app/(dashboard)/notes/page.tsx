@@ -829,6 +829,14 @@ const userId = user.id;
   type: insertedNote.type ?? (insertedNote.status === "todo" ? "task" : "note"),
 };
 
+setNotes(prev => [
+  {
+    ...normalizedNote,
+    type: normalizedNote.type ?? (normalizedNote.status === "todo" ? "task" : "note"),
+  },
+  ...prev
+]);
+
       if (normalizedNote.project) {
   setProjectsList(prev => {
     const exists = prev.some(

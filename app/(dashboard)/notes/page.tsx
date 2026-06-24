@@ -862,11 +862,15 @@ setNotes(prev => [
       setSelectedColor(null);
       
       toast.success("Note pinned to desk.");
-    } catch (e) {
-      toast.error("Unexpected error creating note. Please try again.");
-      console.error("Create note error:", e);
-      toast.error((e as any)?.message || "Failed to pin note.");
-    } finally {
+     } catch (e) {
+  console.error("Create note error:", e);
+
+  const message =
+    (e as any)?.message ||
+    "Unexpected error creating note. Please try again.";
+
+  toast.error(message);
+} finally {
       setIsSyncing(false);
     }
   };
@@ -960,56 +964,55 @@ const regularNotes = filteredNotes.filter(
   const handleDragEnd = async (event: DragEndEvent) => {
   const { active, over } = event;
 
-  console.log("DRAG END", {
-    active: active?.id,
-    over: over?.id
-  });
+  if (!over || !active) return;
 
-  if (!over) return;
+  const taskId = active.id as string;
+  const newStatus = over.id as string;
 
-    const taskId = active.id as string;
-    const newStatus = over.id as string;
+  if (!taskId || !newStatus) {
+    toast.error("Invalid drag operation");
+    return;
+  }
 
-    if (!taskId || !newStatus) return;
+  // optimistic UI update
+  setNotes(prev =>
+    prev.map(n =>
+      n.id === taskId
+        ? { ...n, status: newStatus, completed: newStatus === "done" }
+        : n
+    )
+  );
 
-    // update UI immediately
-    setNotes(prev =>
-      prev.map(n =>
-        n.id === taskId
-          ? { ...n, status: newStatus, completed: newStatus === "done" }
-          : n
-      )
-    );
+  try {
+    const { error: updateError } = await supabase
+      .from("notes")
+      .update({
+        status: newStatus,
+        completed: newStatus === "done",
+      })
+      .eq("id", taskId);
 
-    // persist to Supabase
-    const { error } = await supabase
-     .from("notes")
-.update({
-  status: newStatus,
-  completed: newStatus === "done",
-})
-      .eq("id", taskId)
-      ;
+    if (updateError) {
+      console.error("Drag update failed:", updateError);
+      toast.error(updateError.message || "Failed to update task");
 
-
-      // take this out once tested and working
-console.log("UPDATING NOTE:", {
-  taskId,
-  newStatus,
-  orgId: orgIdRef.current
-});
-if (error) {
-  console.error("RLS/UPDATE FAILED:", error);
+      // rollback from DB to prevent UI drift
+      if (orgIdRef.current && user?.id) {
+  fetchNotes(orgIdRef.current, user.id);
 }
-
-
-    if (error) {
-      toast.error("Failed to update task status");
-      console.error(error);
-    } else {
-      toast.success("Task moved");
+      return;
     }
-  };
+
+    toast.success("Task moved");
+  } catch (err: any) {
+    console.error("Unexpected drag error:", err);
+    toast.error(err?.message || "Unexpected error");
+
+    if (orgIdRef.current && user?.id) {
+      fetchNotes(orgIdRef.current, user.id);
+    }
+  }
+};
 
 
 

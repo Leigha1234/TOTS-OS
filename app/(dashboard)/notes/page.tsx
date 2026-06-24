@@ -962,57 +962,81 @@ const regularNotes = filteredNotes.filter(
   );
 
   const handleDragEnd = async (event: DragEndEvent) => {
-  const { active, over } = event;
+    const { active, over } = event;
 
-  if (!over || !active) return;
+    if (!over || !active) return;
 
-  const taskId = active.id as string;
-  const newStatus = over.id as string;
+    const taskId = active.id as string;
+    const newStatus = over.id as string;
 
-  if (!taskId || !newStatus) {
-    toast.error("Invalid drag operation");
-    return;
-  }
+    const allowedStatuses = ["todo", "in_progress", "done"];
 
-  // optimistic UI update
-  setNotes(prev =>
-    prev.map(n =>
-      n.id === taskId
-        ? { ...n, status: newStatus, completed: newStatus === "done" }
-        : n
-    )
-  );
-
-  try {
-    const { error: updateError } = await supabase
-      .from("notes")
-      .update({
-        status: newStatus,
-        completed: newStatus === "done",
-      })
-      .eq("id", taskId);
-
-    if (updateError) {
-      console.error("Drag update failed:", updateError);
-      toast.error(updateError.message || "Failed to update task");
-
-      // rollback from DB to prevent UI drift
-      if (orgIdRef.current && user?.id) {
-  fetchNotes(orgIdRef.current, user.id);
-}
+    if (!taskId || !newStatus || !allowedStatuses.includes(newStatus)) {
+      toast.error("Invalid drag operation");
       return;
     }
 
-    toast.success("Task moved");
-  } catch (err: any) {
-    console.error("Unexpected drag error:", err);
-    toast.error(err?.message || "Unexpected error");
+    // optimistic UI update
+    setNotes(prev =>
+      prev.map(n =>
+        n.id === taskId
+          ? { ...n, status: newStatus, completed: newStatus === "done" }
+          : n
+      )
+    );
 
-    if (orgIdRef.current && user?.id) {
-      fetchNotes(orgIdRef.current, user.id);
+    try {
+      const { data, error: updateError } = await supabase
+        .from("notes")
+        .update({
+          status: newStatus,
+          completed: newStatus === "done",
+        })
+        .eq("id", taskId)
+        .select();
+
+      console.log("DRAG UPDATE RESULT:", { data, updateError });
+
+      if (updateError) {
+        console.error("Drag update failed:", updateError);
+        toast.error(updateError.message || "Failed to update task");
+
+        // rollback from DB to prevent UI drift
+        if (orgIdRef.current && user?.id) {
+          fetchNotes(orgIdRef.current, user.id);
+        }
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        console.error("Drag update returned no rows (possible RLS issue)");
+        toast.error("Update blocked by server rules");
+
+        if (orgIdRef.current && user?.id) {
+          fetchNotes(orgIdRef.current, user.id);
+        }
+        return;
+      }
+
+      // Sync UI with DB response (source of truth)
+      setNotes(prev =>
+        prev.map(n =>
+          n.id === taskId
+            ? { ...n, ...data[0] }
+            : n
+        )
+      );
+
+      toast.success("Task moved");
+    } catch (err: any) {
+      console.error("Unexpected drag error:", err);
+      toast.error(err?.message || "Unexpected error");
+
+      if (orgIdRef.current && user?.id) {
+        fetchNotes(orgIdRef.current, user.id);
+      }
     }
-  }
-};
+  };
 
 
 

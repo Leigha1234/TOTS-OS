@@ -67,6 +67,7 @@ function DashboardContent() {
   const [events, setEvents] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
   const [aiSummary, setAiSummary] = useState<string>("");
   const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high">("low");
   const [aiActions, setAiActions] = useState<string[]>([]);
@@ -194,6 +195,7 @@ function DashboardContent() {
       });
 
       setTeamMembers((membersRes.data as any[]) || []);
+      setNotes((notesRes.data as any[]) || []);
       const normaliseStatus = (n: any) => {
         if (n.completed) return "done";
         if (!n.status) return "todo";
@@ -863,18 +865,20 @@ function DashboardContent() {
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 max-h-[260px] overflow-y-auto pr-1">
-            {todos.slice(0,6).map((t:any) => (
-              <div key={t.id} className="p-2 lg:p-3 rounded-2xl border bg-[#faf9f6] min-w-0">
-                <p className="text-[10px] font-bold uppercase truncate max-w-full">{t.text}</p>
-                <div className="flex items-center justify-between mt-2 gap-2">
-                  <p className="text-[10px] text-stone-400">{t.completed ? "Completed" : "Pending"}</p>
-                  <button
-                    type="button"
-                    onClick={() => toggleTodo(t.id, t.completed)}
-                    className="px-2 py-1 rounded-lg border text-[9px] font-bold uppercase tracking-wide hover:bg-stone-100 transition"
-                  >
-                    Clear
-                  </button>
+            {notes.slice(0, 20).map((note: any) => (
+              <div
+                key={note.id}
+                onClick={() => router.push(`/notes/${note.id}`)}
+                className="p-3 lg:p-4 rounded-2xl border bg-[#faf9f6] min-w-0 hover:bg-stone-100 transition cursor-pointer"
+              >
+                <p className="text-[10px] font-bold uppercase truncate max-w-full">
+                  {note.content || note.title || "Untitled Note"}
+                </p>
+
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[10px] text-stone-400 uppercase">
+                    {note.status || "note"}
+                  </p>
                 </div>
               </div>
             ))}

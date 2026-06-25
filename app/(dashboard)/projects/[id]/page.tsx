@@ -15,12 +15,12 @@ import { toast } from "sonner";
 
 export default function ProjectEngine() {
   const { id } = useParams();
-  const projectId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
-
-if (!projectId) {
-  toast.error("Project not ready yet");
-  return;
-}
+  const projectId =
+  typeof id === "string"
+    ? id
+    : Array.isArray(id)
+    ? id[0]
+    : null;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("Tasks"); // Tasks, assets, Project Settings
   const [project, setProject] = useState<any>(null);
@@ -189,28 +189,24 @@ setComments([]);
   const addTask = async () => {
   if (!taskInput) return;
 
-  const projectId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
-
-if (!projectId) {
-  toast.error("Project not ready yet");
-  return;
-}
-
-  if (!projectId) {
-    toast.error("Missing project ID");
-    return;
-  }
+ 
 
   const { data: taskData, error } = await supabase
     .from("tasks")
-    .insert([
-      {
-        project_id: projectId,
-        title: taskInput,
-        status: "todo",
-        assigned_to: taskAssignee || null
-      }
-    ])
+   
+      .insert([
+  {
+    project_id: projectId,
+    title: taskInput,
+    status: "todo",
+    assigned_to: taskAssignee || null,
+
+    // 🔥 CRITICAL FOR RLS
+    user_id: (await supabase.auth.getUser()).data.user?.id,
+    organisation_id: project?.organisation_id || null
+  }
+])
+    
     .select()
     .single();
 
@@ -492,6 +488,9 @@ return (
                             >
                               {openComments[t.id] ? "Hide Comments" : "View Comments"}
                             </button>
+                            <p className="text-[9px] text-amber-500 font-black uppercase tracking-widest mt-1">
+  Comments on tasks are in maintenance
+</p>
 
                             {openComments[t.id] && (
                               <div className="space-y-2">

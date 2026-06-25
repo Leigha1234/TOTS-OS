@@ -15,7 +15,12 @@ import { toast } from "sonner";
 
 export default function ProjectEngine() {
   const { id } = useParams();
-  const projectId = Array.isArray(id) ? id[0] : id;
+  const projectId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
+
+if (!projectId) {
+  toast.error("Project not ready yet");
+  return;
+}
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("Tasks"); // Tasks, assets, Project Settings
   const [project, setProject] = useState<any>(null);
@@ -112,13 +117,13 @@ if (projectTasksError) {
 
     
 
-      const normalisedProjectTasks = (projectTasks || []).map((t: any) => ({
+     const normalisedProjectTasks = (projectTasks || []).map((t: any) => ({
   id: t.id,
-  name: t.title || t.name || "Untitled Task",
+  title: t.title || "Untitled Task",
   status: t.status || "todo",
-  source: "tasks",
   assigned_to: t.assigned_to || null,
-  created_at: t.created_at
+  created_at: t.created_at,
+  source: "tasks"
 }));
 setComments([]);
 
@@ -184,7 +189,12 @@ setComments([]);
   const addTask = async () => {
   if (!taskInput) return;
 
-  const projectId = Array.isArray(id) ? id[0] : id;
+  const projectId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
+
+if (!projectId) {
+  toast.error("Project not ready yet");
+  return;
+}
 
   if (!projectId) {
     toast.error("Missing project ID");
@@ -454,7 +464,7 @@ return (
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-sm font-bold text-stone-700">
-  {t.name || "Untitled Task"}
+  {t.title || "Untitled Task"}
 </span>
                                 {t.assigned_to && (
                                   <span className="text-[10px] text-stone-400">

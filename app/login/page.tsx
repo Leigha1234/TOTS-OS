@@ -20,6 +20,10 @@ function LoginForm() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,6 +57,27 @@ function LoginForm() {
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
+
+    if (isRegister) {
+      const passwordRules = [
+        password.length >= 8,
+        /\d/.test(password),
+        /[A-Z]/.test(password),
+        /[a-z]/.test(password),
+      ];
+
+      if (!passwordRules.every(Boolean)) {
+        setPasswordError("Password must be at least 8 characters and include uppercase, lowercase, and a number.");
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setPasswordError("Passwords do not match.");
+        return;
+      }
+
+      setPasswordError(null);
+    }
     
     setAuthLoading(true);
 
@@ -225,31 +250,80 @@ function LoginForm() {
           <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#a9b897] transition-all">
             <Fingerprint size={16} className="text-stone-300" />
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="bg-transparent text-xs outline-none w-full font-bold"
               required
             />
-          </div>
-          {!isRegister && (
             <button
               type="button"
-              onClick={handleForgotPassword}
-              disabled={resetLoading}
-              className="mt-2 text-[9px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-800 transition-colors flex items-center gap-2"
+              onClick={() => setShowPassword(!showPassword)}
+              className="text-[9px] font-black uppercase tracking-widest text-stone-400"
             >
-              {resetLoading ? "Sending..." : "Forgot password?"}
+              {showPassword ? "Hide" : "Show"}
             </button>
+          </div>
+          {isRegister && (
+            <div className="mt-2 space-y-1">
+              <p className="text-[9px] uppercase tracking-widest text-stone-400">
+                Password must contain:
+              </p>
+              <p className="text-[9px] text-stone-400">• 8+ characters</p>
+              <p className="text-[9px] text-stone-400">• At least 1 uppercase letter</p>
+              <p className="text-[9px] text-stone-400">• At least 1 lowercase letter</p>
+              <p className="text-[9px] text-stone-400">• At least 1 number</p>
+            </div>
           )}
 
-          {resetSent && (
-            <p className="text-[9px] uppercase tracking-widest text-[#a9b897] mt-2">
-              Reset link sent — check your email
+          {passwordError && (
+            <p className="text-[9px] uppercase tracking-widest text-red-500 mt-2">
+              {passwordError}
             </p>
           )}
         </div>
+
+        {isRegister && (
+          <div className="space-y-2">
+            <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Confirm Password</label>
+            <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#a9b897] transition-all">
+              <Fingerprint size={16} className="text-stone-300" />
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="bg-transparent text-xs outline-none w-full font-bold"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="text-[9px] font-black uppercase tracking-widest text-stone-400"
+              >
+                {showConfirmPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isRegister && (
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            disabled={resetLoading}
+            className="mt-2 text-[9px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-800 transition-colors flex items-center gap-2"
+          >
+            {resetLoading ? "Sending..." : "Forgot password?"}
+          </button>
+        )}
+
+        {resetSent && (
+          <p className="text-[9px] uppercase tracking-widest text-[#a9b897] mt-2">
+            Reset link sent — check your email
+          </p>
+        )}
       </div>
 
       <button

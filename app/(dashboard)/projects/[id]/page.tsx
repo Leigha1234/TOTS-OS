@@ -91,10 +91,15 @@ export default function ProjectEngine() {
         .eq("id", id)
         .single();
 
-      const { data: projectTasks } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("project_id", id);
+     const { data: projectTasks, error: projectTasksError } = await supabase
+  .from("tasks")
+  .select("*")
+  .eq("project_id", id)
+  .order("created_at", { ascending: true });
+
+if (projectTasksError) {
+  console.error("Failed to load tasks:", projectTasksError);
+}
 
       const { data: notesTasks } = await supabase
         .from("notes")
@@ -117,12 +122,13 @@ export default function ProjectEngine() {
       }));
 
       const normalisedProjectTasks = (projectTasks || []).map((t: any) => ({
-        id: t.id,
-        name: t.title || t.name,
-        status: t.status,
-        source: "tasks",
-        assigned_to: t.assigned_to || null
-      }));
+  id: t.id,
+  name: t.title || t.name || "Untitled Task",
+  status: t.status || "todo",
+  source: "tasks",
+  assigned_to: t.assigned_to || null,
+  created_at: t.created_at
+}));
 
       // --- PHASE 3: FETCH COMMENTS ---
       const { data: taskComments } = await supabase
@@ -132,7 +138,7 @@ export default function ProjectEngine() {
       setComments(taskComments || []);
 
       setProject(p);
-      setTasks([...normalisedProjectTasks, ...normalisedNotes]);
+      setTasks([...normalisedProjectTasks, ...normalisedNotes].filter(Boolean));
       // Auto-suggest least busy user for task assignment
       if (!taskAssignee && leastBusyUser?.id) {
         setTaskAssignee(leastBusyUser.id);
@@ -206,17 +212,7 @@ export default function ProjectEngine() {
       .select()
       .single();
 
-    await supabase
-      .from("notes")
-      .insert([
-        {
-          project_id: id,
-          title: taskInput,
-          content: taskInput,
-          type: "todo",
-          completed: false
-        }
-      ]);
+   
 
     if (taskData) {
       const normalizedTask = {
@@ -478,7 +474,9 @@ return (
                                 />
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-sm font-bold text-stone-700">{t.name}</span>
+                                <span className="text-sm font-bold text-stone-700">
+  {t.name || "Untitled Task"}
+</span>
                                 {t.assigned_to && (
                                   <span className="text-[10px] text-stone-400">
                                     Assigned

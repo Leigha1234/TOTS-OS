@@ -57,33 +57,58 @@ export default function Calendar() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTagFilter, setActiveTagFilter] = useState("ALL");
+  const [activeColorFilter, setActiveColorFilter] = useState("ALL");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Modal & Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [viewMode, setViewMode] = useState<'VIEW' | 'CREATE'>('CREATE');
-  
+  const [viewMode, setViewMode] = useState<'VIEW' | 'CREATE' | 'EDIT'>('CREATE');
+
   const [formTitle, setFormTitle] = useState("");
   const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [formTime, setFormTime] = useState("09:00");
   const [formEndDate, setFormEndDate] = useState("");
-const [formEndTime, setFormEndTime] = useState("");
-const [formRepeat, setFormRepeat] = useState("none");
+  const [formEndTime, setFormEndTime] = useState("");
+  const [formRepeat, setFormRepeat] = useState("none");
   const [formLocation, setFormLocation] = useState("");
   const [formLink, setFormLink] = useState("");
   const [formGuests, setFormGuests] = useState("");
   const [formInternalTeam, setFormInternalTeam] = useState("");
-  const [formTags, setFormTags] = useState(""); 
+  const [formTags, setFormTags] = useState("");
+  const [formTagColor, setFormTagColor] = useState("#A3B18A");
   const [formDescription, setFormDescription] = useState("");
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentProfile, setCurrentProfile] = useState<any>(null);
+  const [tagColorMap, setTagColorMap] = useState<Record<string, string>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("tots-calendar-tag-colors");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          setTagColorMap(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed reading calendar tag colors", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tots-calendar-tag-colors", JSON.stringify(tagColorMap));
+    } catch (e) {
+      console.warn("Failed persisting calendar tag colors", e);
+    }
+  }, [tagColorMap]);
 
   const normaliseEvent = useCallback((e: any): CalendarEvent => {
     const raw = e?.start_time || e?.start_at || e?.created_at;
@@ -96,6 +121,16 @@ const [formRepeat, setFormRepeat] = useState("none");
         : null,
     };
   }, []);
+
+  const resolveTagStyle = useCallback((tag: string) => {
+    const key = String(tag || "").trim().toLowerCase();
+    const custom = tagColorMap[key];
+    if (custom) {
+      return { bg: "", text: "text-stone-800", customBg: custom };
+    }
+    const fallback = getTagStyle(tag || "");
+    return { ...fallback, customBg: null as string | null };
+  }, [tagColorMap]);
 
   const dedupeById = (items: any[]) => {
   const map = new Map();
@@ -290,6 +325,17 @@ setEvents(combined);
     return ["ALL", ...Array.from(tags)];
   }, [events]);
 
+  const allColors = useMemo(() => {
+    const colors = new Set<string>();
+    events.forEach(e => {
+      const firstTag = e.tags?.split(",")?.[0]?.trim()?.toLowerCase();
+      if (firstTag && tagColorMap[firstTag]) {
+        colors.add(tagColorMap[firstTag].toUpperCase());
+      }
+    });
+    return ["ALL", ...Array.from(colors)];
+  }, [events, tagColorMap]);
+
   const daysGrid = useMemo(() => eachDayOfInterval({
     start: startOfWeek(startOfMonth(currentMonth)),
     end: endOfWeek(endOfMonth(currentMonth))
@@ -322,9 +368,15 @@ setEvents(combined);
       activeTagFilter === "ALL" ||
       (e.tags && e.tags.toUpperCase().includes(activeTagFilter));
 
-    return matchesDate && matchesTag;
+    const firstTag = e.tags?.split(",")?.[0]?.trim()?.toLowerCase();
+    const mappedColor = firstTag ? (tagColorMap[firstTag] || "") : "";
+    const matchesColor =
+      activeColorFilter === "ALL" ||
+      mappedColor.toUpperCase() === activeColorFilter.toUpperCase();
+
+    return matchesDate && matchesTag && matchesColor;
   });
-}, [events, activeTagFilter]);
+}, [events, activeTagFilter, activeColorFilter, tagColorMap]);
   const eventSpans = useMemo(() => {
     return events
       .filter(e => e.startAt && isValid(e.startAt))
@@ -363,6 +415,26 @@ const endIndex = [...daysGrid]
     setFormEndDate("");
 setFormEndTime("");
 setFormRepeat("none");
+    setFormTagColor("#A3B18A");
+  };
+
+  const startEditEntry = () => {
+    if (!selectedEvent) return;
+
+    setFormTitle(selectedEvent.title || "");
+    setFormDescription(selectedEvent.description || "");
+    setFormLocation(selectedEvent.location || "");
+    setFormLink(selectedEvent.meeting_link || "");
+    setFormGuests(selectedEvent.guests || "");
+    setFormTags(selectedEvent.tags || "");
+    setFormDate(selectedEvent.startAt ? format(selectedEvent.startAt, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"));
+    setFormTime(selectedEvent.startAt ? format(selectedEvent.startAt, "HH:mm") : "09:00");
+    setFormEndDate(selectedEvent.endAt ? format(selectedEvent.endAt, "yyyy-MM-dd") : "");
+    setFormEndTime(selectedEvent.endAt ? format(selectedEvent.endAt, "HH:mm") : "");
+    setViewMode("EDIT");
+
+    const firstTag = selectedEvent.tags?.split(",")?.[0]?.trim()?.toLowerCase();
+    setFormTagColor(firstTag && tagColorMap[firstTag] ? tagColorMap[firstTag] : "#A3B18A");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -480,10 +552,99 @@ setFormRepeat("none");
         ${formInternalTeam ? `\n\n[Internal Team: ${formInternalTeam}]` : ""}
         ${attachedFileName ? `\n[Attachment: ${attachedFileName}]` : ""}`;
 
+      const enteredTags = (formTags || "")
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      if (enteredTags.length > 0) {
+        setTagColorMap(prev => {
+          const next = { ...prev };
+          enteredTags.forEach((t) => {
+            next[t.toLowerCase()] = formTagColor;
+          });
+          return next;
+        });
+      }
+
       // Use cached user/profile when available to avoid extra network calls
       // Resolve user for the eventual insert (do not await before showing temp event)
       const resolvedUser = authUser;
       const orgId = currentProfile?.organisation_id ?? profile?.organisation_id ?? null;
+
+      if (viewMode === "EDIT" && selectedEvent) {
+        if (String(selectedEvent.id).startsWith("task-")) {
+          const taskId = String(selectedEvent.id).replace("task-", "");
+          const { error: taskError } = await supabase
+            .from("tasks")
+            .update({
+              title: formTitle,
+              description: formDescription,
+              due_date: startISO,
+              tags: formTags,
+            })
+            .eq("id", taskId);
+
+          if (taskError) {
+            throw taskError;
+          }
+        } else if (String(selectedEvent.id).startsWith("note-")) {
+          const noteId = String(selectedEvent.id).replace("note-", "");
+          if (!orgId) {
+            throw new Error("Missing organisation context");
+          }
+
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError || !sessionData?.session?.access_token) {
+            throw new Error("Unable to authenticate note update");
+          }
+
+          const response = await fetch("/api/notes", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${sessionData.session.access_token}`,
+            },
+            body: JSON.stringify({
+              id: noteId,
+              organisation_id: orgId,
+              content: formDescription || formTitle,
+              due_date: startISO,
+              category: formTags || undefined,
+            }),
+          });
+
+          const body = await response.json();
+          if (!response.ok || body.error) {
+            throw new Error(body.error || "Failed to update note");
+          }
+        } else {
+          const { error: eventUpdateError } = await supabase
+            .from("events")
+            .update({
+              title: formTitle,
+              description: combinedDescription,
+              location: formLocation,
+              meeting_link: formLink,
+              guests: formGuests,
+              tags: formTags,
+              start_time: startISO,
+              end_time: endISO,
+              repeat: formRepeat,
+            })
+            .eq("id", selectedEvent.id)
+            .eq("user_id", authUser.id);
+
+          if (eventUpdateError) {
+            throw eventUpdateError;
+          }
+        }
+
+        await syncCalendar();
+        setIsModalOpen(false);
+        setViewMode("VIEW");
+        return;
+      }
 
       // Create a temporary optimistic event and show it immediately
       const tempId = `temp-${Date.now()}`;
@@ -592,11 +753,11 @@ setFormRepeat("none");
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-stone-900/5 backdrop-blur-md" />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-[1.5rem] lg:rounded-[2.5rem] shadow-4xl overflow-hidden flex flex-col">
                <div className="p-8 pb-4 flex justify-between items-center">
-                 <h2 className="text-2xl font-serif italic">{viewMode === 'CREATE' ? 'New Entry' : 'Event Name'}</h2>
+                 <h2 className="text-2xl font-serif italic">{viewMode === 'CREATE' ? 'New Entry' : viewMode === 'EDIT' ? 'Edit Entry' : 'Event Name'}</h2>
                  <button onClick={() => setIsModalOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={18}/></button>
                </div>
                <div className="p-4 lg:p-8 pt-2 space-y-4 overflow-y-auto max-h-[75vh] no-scrollbar">
-                 {viewMode === 'CREATE' ? (
+                 {viewMode === 'CREATE' || viewMode === 'EDIT' ? (
                    <>
                     <input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Entry Title" className="w-full bg-stone-50 rounded-xl p-4 text-sm outline-none border-none ring-1 ring-stone-100" />
                     <div className="flex gap-2">
@@ -650,6 +811,17 @@ setFormRepeat("none");
                       <Tag size={14} className="absolute left-4 top-4 text-stone-300" />
                       <input value={formTags} onChange={e => setFormTags(e.target.value)} placeholder="Tags (Urgent, Uni, Work...)" className="w-full bg-stone-50 rounded-xl p-4 pl-10 text-xs outline-none border-none ring-1 ring-stone-100" />
                     </div>
+
+                    <div className="flex items-center gap-3 bg-stone-50 rounded-xl p-4 ring-1 ring-stone-100">
+                      <Tag size={14} className="text-stone-300" />
+                      <span className="text-[10px] font-black uppercase tracking-wider text-stone-400">Tag Color</span>
+                      <input
+                        type="color"
+                        value={formTagColor}
+                        onChange={(e) => setFormTagColor(e.target.value)}
+                        className="h-8 w-12 rounded border border-stone-200"
+                      />
+                    </div>
                     
                     <div className="w-full">
                       <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
@@ -661,15 +833,15 @@ setFormRepeat("none");
 
                     <textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Notes..." className="w-full bg-stone-50 rounded-xl p-4 text-xs h-24 outline-none border-none resize-none ring-1 ring-stone-100" />
                     <button onClick={saveEntry} className="w-full bg-stone-900 text-[#A3B18A] py-5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all">
-                      {isSubmitting ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Add"}
+                      {isSubmitting ? <Loader2 className="animate-spin mx-auto" size={16} /> : viewMode === 'EDIT' ? "Save Changes" : "Add"}
                     </button>
                    </>
                  ) : (
                    <div className="space-y-4">
                       <div className="flex flex-wrap gap-2">
                         {selectedEvent?.tags?.split(',').map(t => {
-                          const style = getTagStyle(t);
-                          return <span key={t} className={`px-2 py-1 ${style.bg} ${style.text} text-[8px] font-black rounded-md uppercase`}>{t.trim()}</span>
+                          const style = resolveTagStyle(t);
+                          return <span key={t} className={`px-2 py-1 ${style.bg} ${style.text} text-[8px] font-black rounded-md uppercase`} style={style.customBg ? { backgroundColor: style.customBg } : undefined}>{t.trim()}</span>
                         
                         })}
                       </div>
@@ -681,6 +853,12 @@ setFormRepeat("none");
                         </a>
                         
                       )}
+                      <button
+                        onClick={startEditEntry}
+                        className="w-full mt-4 bg-stone-900 text-[#A3B18A] py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all"
+                      >
+                        Edit Entry
+                      </button>
                       <button
   onClick={() => selectedEvent && deleteEvent(selectedEvent.id)}
   disabled={isDeleting}
@@ -735,13 +913,14 @@ setFormRepeat("none");
         ? 1
         : Math.min(7 - (startCol - 1), e.endIndex - e.startIndex + 1);
 
-    const style = getTagStyle(e.tags?.split(",")[0] || "");
+    const style = resolveTagStyle(e.tags?.split(",")[0] || "");
 
     return (
       <div
         key={`span-${e.id}`}
-        className={`absolute h-4 rounded-md ${style.bg} opacity-80`}
+          className={`absolute h-4 rounded-md ${style.bg} opacity-80`}
         style={{
+        ...(style.customBg ? { backgroundColor: style.customBg } : {}),
   gridColumnStart: startCol,
   gridColumnEnd: `span ${spanCols}`,
   gridRowStart: startRow,
@@ -768,10 +947,11 @@ setFormRepeat("none");
                   <div className="space-y-1">
                     {dayEvents.map(e => {
                       const primaryTag = e.tags?.split(',')[0] || '';
-                      const style = primaryTag ? getTagStyle(primaryTag) : { bg: 'bg-stone-50', text: 'text-stone-500' };
+                      const style = primaryTag ? resolveTagStyle(primaryTag) : { bg: 'bg-stone-50', text: 'text-stone-500', customBg: null };
                       return (
                         <div key={e.id} onClick={(ev) => { ev.stopPropagation(); setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
                           className={`px-2 py-1 rounded-lg border border-stone-100 text-[7px] font-black uppercase truncate transition-all ${style.bg} ${style.text}`}
+                          style={style.customBg ? { backgroundColor: style.customBg } : undefined}
                         >
                           {e.title}
                         </div>
@@ -793,7 +973,7 @@ setFormRepeat("none");
             <h2 className="text-3xl lg:text-5xl font-serif italic text-stone-800 leading-[0.8] capitalize">{format(selectedDay, "do MMM")}</h2>
           </div>
 
-          <div className="relative mb-6 z-[100]">
+          <div className="relative mb-2 z-[100]">
             <button onClick={() => setIsFilterOpen(!isFilterOpen)} 
               className="w-full p-4 bg-stone-50 rounded-2xl flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-800 transition-all shadow-inner"
             >
@@ -820,6 +1000,21 @@ setFormRepeat("none");
             </AnimatePresence>
           </div>
 
+          <div className="mb-6">
+            <select
+              value={activeColorFilter}
+              onChange={(e) => setActiveColorFilter(e.target.value)}
+              className="w-full p-4 bg-stone-50 rounded-2xl text-[9px] font-black uppercase tracking-widest text-stone-500 border border-stone-100"
+            >
+              <option value="ALL">COLOR: ALL</option>
+              {allColors.filter(c => c !== "ALL").map((colorValue) => (
+                <option key={colorValue} value={colorValue}>
+                  {colorValue}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
             {getDayEvents(selectedDay).map(e => (
               <div key={e.id} onClick={() => { setSelectedEvent(e); setViewMode('VIEW'); setIsModalOpen(true); }}
@@ -828,7 +1023,7 @@ setFormRepeat("none");
                 <div className="flex justify-between items-center mb-1">
                   <div className="flex gap-1">
                     {e.tags?.split(',').map(t => {
-                      const style = getTagStyle(t);
+                      const style = resolveTagStyle(t);
                       return <span key={t} className={`text-[7px] font-black ${style.text} uppercase`}>{t.trim()}</span>
                     })}
                   </div>

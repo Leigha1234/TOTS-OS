@@ -147,7 +147,13 @@ function LoginForm() {
       const result = await res.json();
 
       if (!res.ok || result?.error) {
-        throw new Error(result?.error || "Failed to send reset email");
+        const fallback = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/set-password`,
+        });
+
+        if (fallback.error) {
+          throw new Error(result?.error || fallback.error.message || "Failed to send reset email");
+        }
       }
 
       setResetSent(true);

@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       type: "recovery",
       email,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/set-password`,
       },
     });
 

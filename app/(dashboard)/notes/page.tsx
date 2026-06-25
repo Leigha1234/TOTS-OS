@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useMemo,
   Suspense,
   useRef
 } from "react";
@@ -121,6 +122,10 @@ function VaultContent() {
   const [isUrgent, setIsUrgent] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [search, setSearch] = useState("");
+  const [selectedTagFilter, setSelectedTagFilter] = useState("ALL");
+  const [selectedColorFilter, setSelectedColorFilter] = useState("ALL");
+  const [tagColor, setTagColor] = useState("#A9B897");
+  const [tagColorMap, setTagColorMap] = useState<Record<string, string>>({});
 
   // Custom Metadata Fields
   const [project, setProject] = useState("");
@@ -155,6 +160,28 @@ function VaultContent() {
   const initRef = useRef(false);
   const typingChannelRef = useRef<any>(null);
   const [noteOps, setNoteOps] = useState<Record<string, any[]>>({});
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("tots-note-tag-colors");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          setTagColorMap(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to read tag colors", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tots-note-tag-colors", JSON.stringify(tagColorMap));
+    } catch (e) {
+      console.warn("Failed to persist tag colors", e);
+    }
+  }, [tagColorMap]);
 
   // Strict per-user/org/shared/assigned note visibility guard
   const canViewNote = (note: any, userId: string) => {
@@ -298,6 +325,10 @@ default:
 
   const addComment = async (noteId: string, text: string, parentId?: string) => {
     if (!text.trim() || !user?.id) return;
+    if (!orgIdRef.current) {
+      toast.error("Missing organisation context");
+      return;
+    }
 
     const { data: inserted, error } = await supabase
       .from("note_comments")
@@ -306,7 +337,8 @@ default:
           note_id: noteId,
           user_id: user.id,
           content: text.replace(/@(\w+)/g, "$1"),
-          parent_id: parentId || null
+          parent_id: parentId || null,
+          organisation_id: orgIdRef.current,
         }
       ])
       .select("*")
@@ -824,6 +856,13 @@ const userId = user.id;
   visibility: insertedNote.visibility ?? visibility,
 };
 
+      if (tag.trim()) {
+        setTagColorMap(prev => ({
+          ...prev,
+          [tag.trim().toLowerCase()]: tagColor,
+        }));
+      }
+
 setNotes(prev => [
   {
     ...normalizedNote,
@@ -981,13 +1020,39 @@ setNotes(prev => [
     }
   };
 
+  const availableTags = useMemo(() => {
+    const tags = new Set<string>();
+    notes.forEach((n: any) => {
+      if (n?.category) tags.add(String(n.category));
+    });
+    return ["ALL", ...Array.from(tags).sort((a, b) => a.localeCompare(b))];
+  }, [notes]);
+
+  const availableColors = useMemo(() => {
+    const colors = new Set<string>();
+    notes.forEach((n: any) => {
+      if (n?.color) colors.add(String(n.color));
+    });
+    return ["ALL", ...Array.from(colors)];
+  }, [notes]);
+
   const filteredNotes = notes.filter((n) => {
     const q = search.toLowerCase();
-    return (
+    const matchesSearch =
       n?.content?.toLowerCase?.().includes(q) ||
       n?.category?.toLowerCase?.().includes(q) ||
-      n?.project?.toLowerCase?.().includes(q)
-    );
+      n?.project?.toLowerCase?.().includes(q);
+
+    const matchesTag =
+      selectedTagFilter === "ALL" ||
+      String(n?.category || "").toLowerCase() === selectedTagFilter.toLowerCase();
+
+    const noteColor = String(n?.color || "").toLowerCase();
+    const matchesColor =
+      selectedColorFilter === "ALL" ||
+      noteColor === selectedColorFilter.toLowerCase();
+
+    return matchesSearch && matchesTag && matchesColor;
   });
 
  const taskNotes = filteredNotes.filter(
@@ -1093,6 +1158,48 @@ const regularNotes = filteredNotes.filter(
     }
   };
 
+  const saveNoteEdits = async (noteId: string, updates: { content: string; project?: string | null }) => {
+    if (!noteId || !orgIdRef.current || !user?.id) {
+      toast.error("Unable to save note");
+      return false;
+    }
+
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session?.access_token) {
+        throw new Error("Unable to authenticate. Please sign in again.");
+      }
+
+      const response = await fetch("/api/notes", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({
+          id: noteId,
+          organisation_id: orgIdRef.current,
+          content: updates.content,
+          project: updates.project ?? null,
+        }),
+      });
+
+      const body = await response.json();
+      if (!response.ok || body.error) {
+        throw new Error(body.error || "Failed to save note changes");
+      }
+
+      if (body.data) {
+        setNotes(prev => prev.map(n => (n.id === noteId ? { ...n, ...body.data } : n)));
+      }
+
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save note");
+      return false;
+    }
+  };
+
 
 
   const renderNoteCard = (note: any) => {
@@ -1135,7 +1242,13 @@ const regularNotes = filteredNotes.filter(
         {/* UPPER CONTENT AREA */}
         <div>
           <div className="flex justify-between items-center mb-5">
-            <span className="text-[9px] font-black uppercase tracking-widest opacity-40">
+            <span
+              className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full"
+              style={{
+                backgroundColor: `${tagColorMap[String(note.category || "").toLowerCase()] || "#00000010"}`,
+                color: note.is_urgent ? "#fff" : "#374151",
+              }}
+            >
               {note.category || 'General'}
             </span>
             {/* UNREAD INDICATOR */}
@@ -1284,6 +1397,32 @@ const regularNotes = filteredNotes.filter(
         <div>
           <h1 className="text-5xl sm:text-6xl lg:text-8xl font-serif italic tracking-tighter capitalize leading-none text-[#4f4a46]">Notes</h1>
           <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400 mt-4 ml-1">Your Digital Notepad</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <select
+              value={selectedTagFilter}
+              onChange={(e) => setSelectedTagFilter(e.target.value)}
+              className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-[9px] font-black uppercase tracking-wider text-stone-500"
+            >
+              {availableTags.map((tagValue: string) => (
+                <option key={tagValue} value={tagValue}>
+                  Tag: {tagValue}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedColorFilter}
+              onChange={(e) => setSelectedColorFilter(e.target.value)}
+              className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-[9px] font-black uppercase tracking-wider text-stone-500"
+            >
+              <option value="ALL">Color: ALL</option>
+              {availableColors.filter((c: string) => c !== "ALL").map((colorValue: string) => (
+                <option key={colorValue} value={colorValue}>
+                  {colorValue}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="relative group w-full lg:w-64">
           <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
@@ -1379,10 +1518,12 @@ const regularNotes = filteredNotes.filter(
             <NoteModal
               note={notes.find((n: any) => n.id === expandedNote)}
               teamMembers={teamMembers}
+              projectsList={projectsList}
               commentsByNoteId={commentsByNoteId.current}
               reactions={reactions}
               addComment={addComment}
               addReaction={addReaction}
+              onSaveNoteEdits={saveNoteEdits}
               setExpandedNote={setExpandedNote}
               user={user}
               typingChannel={typingChannelRef.current}
@@ -1463,6 +1604,17 @@ const regularNotes = filteredNotes.filter(
                     placeholder="CATEGORY TAG"
                     value={tag}
                     onChange={(e) => setTag(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100">
+                  <Tag size={12} className="text-stone-400 mr-2" />
+                  <label className="text-[9px] font-black uppercase tracking-wider text-stone-400 mr-2">Tag Color</label>
+                  <input
+                    type="color"
+                    value={tagColor}
+                    onChange={(e) => setTagColor(e.target.value)}
+                    className="h-7 w-10 rounded border border-stone-200 bg-transparent p-0"
                   />
                 </div>
 
@@ -1621,10 +1773,12 @@ const NoteModal = ({
   
   note,
   teamMembers,
+  projectsList,
   commentsByNoteId,
   reactions,
   addComment,
   addReaction,
+  onSaveNoteEdits,
   setExpandedNote,
   user,
   typingChannel,
@@ -1643,6 +1797,9 @@ const NoteModal = ({
   if (!note) return null;
 
   const [draftContent, setDraftContent] = useState(note?.content || "");
+  const [projectValue, setProjectValue] = useState(note?.project || "");
+  const [isSavingEdits, setIsSavingEdits] = useState(false);
+  const [subTaskInput, setSubTaskInput] = useState("");
   const [blocks, setBlocks] = useState(
     (note?.content || "").split("\n").map((text: string, idx: number) => ({
       id: `${note?.id}-block-${idx}`,
@@ -1654,6 +1811,7 @@ const NoteModal = ({
     const lines = (note.content || "").split("\n");
 
     setDraftContent(note.content);
+    setProjectValue(note.project || "");
 
     setBlocks(
       lines.map((text: string, idx: number) => ({
@@ -1662,6 +1820,43 @@ const NoteModal = ({
       }))
     );
   }, [note?.id, note?.content]);
+
+  const parsedSubTasks = useMemo(() => {
+    return (draftContent || "")
+      .split("\n")
+      .map((line: string) => {
+        const trimmed = line.trim();
+        const done = /^-\s\[[xX]\]\s+/.test(trimmed);
+        const todo = /^-\s\[\s\]\s+/.test(trimmed);
+        if (!done && !todo) return null;
+        return {
+          raw: line,
+          text: trimmed.replace(/^-\s\[[xX\s]\]\s+/, ""),
+          done,
+        };
+      })
+      .filter(Boolean) as Array<{ raw: string; text: string; done: boolean }>;
+  }, [draftContent]);
+
+  const toggleSubTask = (targetRaw: string) => {
+    const lines = (draftContent || "").split("\n");
+    const updated = lines.map((line: string) => {
+      if (line !== targetRaw) return line;
+      if (/^-\s\[[xX]\]\s+/.test(line.trim())) {
+        return line.replace(/^-\s\[[xX]\]\s+/, "- [ ] ");
+      }
+      return line.replace(/^-\s\[\s\]\s+/, "- [x] ");
+    });
+    setDraftContent(updated.join("\n"));
+  };
+
+  const addSubTaskLine = () => {
+    const value = subTaskInput.trim();
+    if (!value) return;
+    const next = `${draftContent?.trim() ? `${draftContent}\n` : ""}- [ ] ${value}`;
+    setDraftContent(next);
+    setSubTaskInput("");
+  };
 
   const presentIds = notePresence?.[note.id] || [];
   const presentMembers = teamMembers?.filter((m: any) => presentIds.includes(m.id)) || [];
@@ -1789,8 +1984,74 @@ const NoteModal = ({
         </div>
 
         <div className="mt-6 space-y-2 text-[10px] uppercase font-black text-stone-500">
-          {note.project && <p>Project: {note.project}</p>}
+          <div className="flex items-center gap-2">
+            <span>Project:</span>
+            <select
+              value={projectValue}
+              onChange={(e) => setProjectValue(e.target.value)}
+              className="bg-stone-50 border border-stone-200 rounded-md px-2 py-1 text-[10px] font-black uppercase text-stone-600"
+            >
+              <option value="">No project</option>
+              {(projectsList || []).map((projectItem: any) => (
+                <option key={projectItem.id} value={projectItem.name}>
+                  {projectItem.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {projectValue && <p>Current: {projectValue}</p>}
           {note.due_date && <p>Due: {format(new Date(note.due_date), "MMM d, p")}</p>}
+        </div>
+
+        <div className="mt-4 border-t pt-4 space-y-2">
+          <p className="text-[10px] font-black uppercase text-stone-400">Sub Tasks</p>
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {parsedSubTasks.map((sub: { raw: string; text: string; done: boolean }, idx: number) => (
+              <button
+                key={`${sub.raw}-${idx}`}
+                onClick={() => toggleSubTask(sub.raw)}
+                className="w-full text-left text-[11px] px-2 py-1 rounded bg-stone-50 hover:bg-stone-100 text-stone-700"
+              >
+                {sub.done ? "[x]" : "[ ]"} {sub.text}
+              </button>
+            ))}
+            {parsedSubTasks.length === 0 && (
+              <p className="text-[10px] text-stone-400">No subtasks yet</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={subTaskInput}
+              onChange={(e) => setSubTaskInput(e.target.value)}
+              placeholder="Add sub task..."
+              className="flex-1 bg-stone-100 rounded-lg px-3 py-2 text-sm outline-none"
+            />
+            <button
+              onClick={addSubTaskLine}
+              className="px-3 py-2 bg-stone-900 text-white text-xs rounded-full font-black uppercase tracking-wider"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <button
+            onClick={async () => {
+              setIsSavingEdits(true);
+              const ok = await onSaveNoteEdits(note.id, {
+                content: draftContent,
+                project: projectValue || null,
+              });
+              setIsSavingEdits(false);
+              if (ok) {
+                toast.success("Note updated");
+              }
+            }}
+            className="w-full bg-stone-900 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all"
+          >
+            {isSavingEdits ? "Saving..." : "Save Note Changes"}
+          </button>
         </div>
 
         <div className="mt-6 border-t pt-4 space-y-2">
@@ -1829,9 +2090,6 @@ const NoteModal = ({
             </div>
           )}
 
-          <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-amber-600">
-  Comments are currently under maintenance
-</div>
           <p className="text-[10px] font-black uppercase text-stone-400">Comments</p>
 
           <div className="space-y-2 max-h-48 overflow-y-auto">

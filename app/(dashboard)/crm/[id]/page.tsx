@@ -117,6 +117,7 @@ export default function AccountProfilePage() {
     email: "",
     phone: "",
     address: "",
+    website: "",
     company_name: "",
     company_details: "",
     email_list: false
@@ -156,6 +157,7 @@ export default function AccountProfilePage() {
       email: data?.email || "",
       phone: data?.phone || "",
       address: data?.address || "",
+      website: data?.website || "",
       company_name: data?.company_name || "",
       company_details: data?.company_details || "",
       email_list: data?.email_list || false
@@ -437,10 +439,18 @@ export default function AccountProfilePage() {
   const handleUpdate = async () => {
     setIsSaving(true);
 
-    await supabase
+    const { error } = await supabase
       .from("contacts")
       .update(editForm)
-      .eq("id", contactId);
+      .eq("id", contactId)
+      .eq("organisation_id", organisationId);
+
+    if (error) {
+      console.error("Contact update error:", error);
+      alert(error.message || "Failed to save contact");
+      setIsSaving(false);
+      return;
+    }
 
     setContact({ ...contact, ...editForm });
     setIsEditing(false);
@@ -618,12 +628,22 @@ export default function AccountProfilePage() {
       }
       placeholder="Address"
     />
+
+    <input
+      className="w-full p-3 border border-[#d8d0c2] rounded-xl bg-[#faf9f6]"
+      value={editForm.website}
+      onChange={(e) =>
+        setEditForm({ ...editForm, website: e.target.value })
+      }
+      placeholder="Website"
+    />
   </>
 ) : (
   <>
     <p><strong>Email Address:</strong> {safeProfile.email || "Not provided"}</p>
     <p><strong>Phone Number:</strong> {safeProfile.phone || "Not provided"}</p>
     <p><strong>Address:</strong> {safeProfile.address || "Not provided"}</p>
+    <p><strong>Website:</strong> {safeProfile.website || "Not provided"}</p>
   </>
 )}
  </div>

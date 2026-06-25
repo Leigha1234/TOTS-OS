@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
   Plus, Search, User, X, ChevronRight, Loader2, 
-  Building2, Mail, Phone, MapPin, Hash, AlertCircle, Radio, Database
+  Building2, Mail, Phone, MapPin, Hash, AlertCircle, Radio, Database, Paperclip
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -32,11 +32,13 @@ export default function CRMDirectory() {
     email: "",
     phone: "",
     address: "",
+    website: "",
     company_name: "",
     company_details: "",
     role: "client",
     list_id: "" 
   });
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   // 3. Instantly resolve organisation from SettingsContext
   useEffect(() => {
@@ -92,6 +94,24 @@ async function loadData() {
     }
 
     try {
+      let attachmentUrl: string | null = null;
+      if (attachmentFile && resolvedOrganisationId) {
+        const safeName = attachmentFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `${resolvedOrganisationId}/${Date.now()}-${safeName}`;
+        const { error: uploadError } = await supabase.storage
+          .from("crm-attachments")
+          .upload(path, attachmentFile, { upsert: false });
+
+        if (!uploadError) {
+          const { data: publicData } = supabase.storage
+            .from("crm-attachments")
+            .getPublicUrl(path);
+          attachmentUrl = publicData?.publicUrl || null;
+        } else {
+          console.warn("Attachment upload failed:", uploadError.message);
+        }
+      }
+
       // 4. Inject organisation_id into the insertion
       const { data: newcontact, error: contactError } = await supabase
         .from("contacts")
@@ -100,8 +120,14 @@ async function loadData() {
           email: form.email,
           phone: form.phone,
           address: form.address,
+          website: form.website || null,
           company_name: form.company_name,
-          company_details: form.company_details,
+          company_details: [
+            form.company_details,
+            attachmentUrl ? `Attachment: ${attachmentUrl}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
           role: form.role,
           organisation_id: resolvedOrganisationId // Ties the node to TOTS-OS
         }])
@@ -127,8 +153,9 @@ async function loadData() {
       setContacts((prev) => [newcontact, ...prev]);
       setForm({ 
         name: "", email: "", phone: "", address: "", 
-        company_name: "", company_details: "", role: "client", list_id: "" 
+        website: "", company_name: "", company_details: "", role: "client", list_id: "" 
       });
+      setAttachmentFile(null);
       setShowModal(false);
     } catch (err: any) {
       console.error("addcontact error:", err);
@@ -256,6 +283,10 @@ async function loadData() {
                         <div className="relative"><Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="+00..." /></div>
                     </div>
                     <div className="space-y-1">
+                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Website</label>
+                      <div className="relative"><Hash size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="https://example.com" /></div>
+                    </div>
+                    <div className="space-y-1">
                         <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Type of Contact</label>
                         <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs outline-none appearance-none cursor-pointer">
                             <option value="client">Client</option>
@@ -271,6 +302,18 @@ async function loadData() {
                     <div className="relative"><Building2 size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Company Name" /></div>
                     <div className="relative"><MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" /><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 pl-11 text-xs outline-none focus:border-[#a9b897]" placeholder="Company Address" /></div>
                     <textarea value={form.company_details} onChange={(e) => setForm({ ...form, company_details: e.target.value })} className="w-full bg-stone-50 border border-stone-100 rounded-xl p-4 text-xs outline-none focus:border-[#a9b897] h-20 resize-none" placeholder="Company Overview" />
+                    <div className="w-full">
+                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 ml-1">Attachment</label>
+                      <label className="mt-1 w-full bg-stone-50 hover:bg-stone-100 text-stone-500 rounded-xl p-4 text-xs font-bold transition-all border border-dashed border-stone-200 flex items-center justify-center gap-2 cursor-pointer">
+                        <Paperclip size={14} />
+                        {attachmentFile ? attachmentFile.name : "Add Attachment"}
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
+                        />
+                      </label>
+                    </div>
                 </div>
 
                 <div className="pt-4 border-t border-stone-100">

@@ -35,17 +35,19 @@ export default function ProjectEngine() {
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
 
   // --- CLARITY TEAM INTELLIGENCE ENGINE ---
-  const workloadByUser = useMemo(() => {
-    const map: Record<string, number> = {};
+const workloadByUser = useMemo(() => {
+  const map: Record<string, number> = {};
 
-    tasks.forEach(t => {
-      if (t.assigned_to) {
-        map[t.assigned_to] = (map[t.assigned_to] || 0) + 1;
-      }
-    });
+  tasks.forEach(t => {
+    const assignee = t.assigned_to || t.user_id;
 
-    return map;
-  }, [tasks]);
+    if (assignee) {
+      map[assignee] = (map[assignee] || 0) + 1;
+    }
+  });
+
+  return map;
+}, [tasks]);
 
   const leastBusyUser = useMemo(() => {
     if (!contacts.length) return null;
@@ -63,11 +65,11 @@ export default function ProjectEngine() {
   }, [tasks]);
 
   const assignedCount = useMemo(() => {
-    return tasks.filter(t => t.assigned_to).length;
+    return tasks.filter(t => t.assigned_to || t.user_id).length;
   }, [tasks]);
 
   const unassignedCount = useMemo(() => {
-    return tasks.filter(t => !t.assigned_to).length;
+    return tasks.filter(t => !t.assigned_to && !t.user_id).length;
   }, [tasks]);
 
   const membersList = useMemo(() => {
@@ -122,8 +124,9 @@ if (projectTasksError) {
   title: t.title || "Untitled Task",
   status: t.status || "todo",
   assigned_to: t.assigned_to || null,
-  created_at: t.created_at,
-  source: "tasks"
+user_id: t.user_id || null,
+created_at: t.created_at,
+source: "tasks"
 }));
 setComments([]);
 
@@ -194,17 +197,20 @@ setComments([]);
   const { data: taskData, error } = await supabase
     .from("tasks")
    
-      .insert([
+  .insert([
   {
-    project_id: projectId,
-    title: taskInput,
-    status: "todo",
-    assigned_to: taskAssignee || null,
+  project_id: projectId,
+  title: taskInput,
+  status: "todo",
 
-    // 🔥 CRITICAL FOR RLS
-    user_id: (await supabase.auth.getUser()).data.user?.id,
-    organisation_id: project?.organisation_id || null
-  }
+  // creator
+  user_id: (await supabase.auth.getUser()).data.user?.id,
+
+  // additional assignee only
+  assigned_to: taskAssignee || null,
+
+  organisation_id: project?.organisation_id || null
+}
 ])
     
     .select()
@@ -222,7 +228,8 @@ setComments([]);
       name: taskData.title,
       status: taskData.status,
       source: "tasks",
-      assigned_to: taskData.assigned_to || null
+      assigned_to: taskData.assigned_to || null,
+user_id: taskData.user_id || null
     };
 
     setTasks(prev => [...prev, normalizedTask]);
@@ -462,11 +469,13 @@ return (
                                 <span className="text-sm font-bold text-stone-700">
   {t.title || "Untitled Task"}
 </span>
-                                {t.assigned_to && (
-                                  <span className="text-[10px] text-stone-400">
-                                    Assigned
-                                  </span>
-                                )}
+                               {(t.assigned_to || t.user_id) && (
+  <span className="text-[10px] text-stone-400">
+    {t.assigned_to && t.user_id && t.assigned_to !== t.user_id
+      ? "Assigned + Creator"
+      : "Creator"}
+  </span>
+)}
                               </div>
                             </div>
                             <Trash2

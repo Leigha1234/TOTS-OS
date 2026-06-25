@@ -101,11 +101,7 @@ if (projectTasksError) {
   console.error("Failed to load tasks:", projectTasksError);
 }
 
-      const { data: notesTasks } = await supabase
-        .from("notes")
-        .select("*")
-        .eq("project_id", id)
-        .eq("type", "todo");
+     const notesTasks: any[] = [];
 
       // Fetch contacts (profiles)
       const { data: profiles } = await supabase
@@ -129,13 +125,7 @@ if (projectTasksError) {
   assigned_to: t.assigned_to || null,
   created_at: t.created_at
 }));
-
-      // --- PHASE 3: FETCH COMMENTS ---
-      const { data: taskComments } = await supabase
-        .from("task_comments")
-        .select("*")
-        .eq("project_id", id);
-      setComments(taskComments || []);
+setComments([]);
 
       setProject(p);
       setTasks([...normalisedProjectTasks, ...normalisedNotes].filter(Boolean));
@@ -176,14 +166,14 @@ if (projectTasksError) {
   const addComment = async (taskId: string, text: string) => {
     if (!text) return;
 
-    const { data } = await supabase.from("task_comments").insert([
-      {
-        task_id: taskId,
-        project_id: id,
-        content: text,
-        user_id: (await supabase.auth.getUser()).data?.user?.id
-      }
-    ]);
+    setComments(prev => [
+  ...prev,
+  {
+    id: crypto.randomUUID(),
+    task_id: taskId,
+    content: text
+  }
+]);
 
     setCommentInput(prev => ({ ...prev, [taskId]: "" }));
 
@@ -275,28 +265,8 @@ if (projectTasksError) {
   };
 
   useEffect(() => {
-    // --- PHASE 3: REALTIME COMMENTS CHANNEL ---
-    const commentsChannel = supabase
-      .channel("task_comments_room")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "task_comments" },
-        (payload: any) => {
-          setComments((prev) => {
-            if (!payload.new) return prev;
-            const filtered = prev.filter(c => c.id !== payload.new.id);
-            return [payload.new, ...filtered];
-          });
-          // OS EVENT HOOK (notification-ready layer)
-          toast.success("New task activity");
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(commentsChannel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase]);
+  return () => {};
+}, []);
 
   const updateProject = async (updates: any) => {
     const { error } = await supabase.from("projects").update(updates).eq("id", id);

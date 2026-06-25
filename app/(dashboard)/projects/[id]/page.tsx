@@ -33,6 +33,7 @@ export default function ProjectEngine() {
   const [comments, setComments] = useState<any[]>([]);
   const [commentInput, setCommentInput] = useState<Record<string, string>>({});
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const [organisationId, setOrganisationId] = useState<string | null>(null);
 
   // --- CLARITY TEAM INTELLIGENCE ENGINE ---
 const workloadByUser = useMemo(() => {
@@ -93,9 +94,36 @@ const workloadByUser = useMemo(() => {
     async function load() {
       setLoading(true);
 
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user?.id) {
+        console.error("Project engine auth error:", authError);
+        setLoading(false);
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError || !profile?.organisation_id) {
+        console.error("Project engine profile error:", profileError);
+        setLoading(false);
+        return;
+      }
+
+      const orgId = profile.organisation_id;
+      setOrganisationId(orgId);
+
       const { data: p } = await supabase
         .from("projects")
         .select("*")
+        .eq("organisation_id", orgId)
         .eq("id", projectId)
         .single();
 
@@ -103,6 +131,7 @@ const workloadByUser = useMemo(() => {
   .from("tasks")
   .select("*")
   .eq("project_id", projectId)
+  .eq("organisation_id", orgId)
   .order("created_at", { ascending: true });
 
 if (projectTasksError) {
@@ -113,11 +142,21 @@ if (projectTasksError) {
       // Fetch contacts (profiles)
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, email, full_name");
+        .select("id, email, full_name")
+        .eq("organisation_id", orgId);
+
+      const { data: taskComments } = await supabase
+        .from("task_comments")
+        .select("*")
+        .eq("organisation_id", orgId)
+        .in(
+          "task_id",
+          (projectTasks || []).map((task: any) => task.id)
+        )
+        .order("created_at", { ascending: true });
 
       setContacts(profiles || []);
 
-    
 
      const normalisedProjectTasks = (projectTasks || []).map((t: any) => ({
   id: t.id,
@@ -128,7 +167,7 @@ user_id: t.user_id || null,
 created_at: t.created_at,
 source: "tasks"
 }));
-setComments([]);
+      setComments(taskComments || []);
 
       setProject(p);
       setTasks(normalisedProjectTasks);
@@ -167,32 +206,60 @@ setComments([]);
 
   // --- PHASE 3: ADD COMMENT FUNCTION ---
   const addComment = async (taskId: string, text: string) => {
-    if (!text) return;
+  if (!text.trim()) return;
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-    setComments(prev => [
-  ...prev,
-  {
-    id: crypto.randomUUID(),
-    task_id: taskId,
-    content: text
+  if (authError || !user?.id || !organisationId) {
+    toast.error("Unable to save comment");
+    return;
   }
-]);
 
-    setCommentInput(prev => ({ ...prev, [taskId]: "" }));
+  const { data, error } = await supabase
+    .from("task_comments")
+    .insert({
+      task_id: taskId,
+      content: text,
+      user_id: user.id,
+      organisation_id: organisationId,
+    })
+    .select()
+    .single();
 
-    // Notification hook placeholder (email system already exists in OS)
-    toast.success("Comment sent to team");
-    await sendEmailNotification({
-      type: "task_comment",
-      taskId,
-      content: text
-    });
-  };
+
+  if (error) {
+    console.error(error);
+    toast.error("Failed to save comment");
+    return;
+  }
+
+
+  setComments(prev => [...prev, data]);
+
+  setCommentInput(prev => ({
+    ...prev,
+    [taskId]: ""
+  }));
+
+  toast.success("Comment saved");
+};
 
   const addTask = async () => {
   if (!taskInput) return;
 
  
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user?.id || !organisationId) {
+    toast.error("Unable to create task");
+    return;
+  }
 
   const { data: taskData, error } = await supabase
     .from("tasks")
@@ -204,12 +271,12 @@ setComments([]);
   status: "todo",
 
   // creator
-  user_id: (await supabase.auth.getUser()).data.user?.id,
+  user_id: user.id,
 
   // additional assignee only
   assigned_to: taskAssignee || null,
 
-  organisation_id: project?.organisation_id || null
+  organisation_id: organisationId || project?.organisation_id || null
 }
 ])
     
@@ -225,7 +292,7 @@ setComments([]);
   if (taskData) {
     const normalizedTask = {
       id: taskData.id,
-      name: taskData.title,
+      title: taskData.title,
       status: taskData.status,
       source: "tasks",
       assigned_to: taskData.assigned_to || null,
@@ -257,7 +324,11 @@ user_id: taskData.user_id || null
 
   const deleteTask = async (taskId: string) => {
     try {
-      await supabase.from("tasks").delete().eq("id", taskId);
+      await supabase
+        .from("tasks")
+        .delete()
+        .eq("id", taskId)
+        .eq("organisation_id", organisationId);
       setTasks(prev => prev.filter(t => t.id !== taskId));
       toast.success("Task removed");
     } catch (err) {
@@ -272,7 +343,8 @@ user_id: taskData.user_id || null
       await supabase
         .from("tasks")
         .update({ status: newStatus })
-        .eq("id", task.id);
+        .eq("id", task.id)
+        .eq("organisation_id", organisationId);
     }
 
     setTasks(prev =>
@@ -291,7 +363,11 @@ user_id: taskData.user_id || null
 }, []);
 
   const updateProject = async (updates: any) => {
-    const { error } = await supabase.from("projects").update(updates).eq("id", projectId);
+    const { error } = await supabase
+      .from("projects")
+      .update(updates)
+      .eq("id", projectId)
+      .eq("organisation_id", organisationId);
     if (!error) {
       setProject({ ...project, ...updates });
       toast.success("System Parameters Updated");
@@ -305,7 +381,8 @@ user_id: taskData.user_id || null
     const { error } = await supabase
       .from("projects")
       .delete()
-      .eq("id", projectId);
+        .eq("id", projectId)
+        .eq("organisation_id", organisationId);
 
     if (!error) {
       toast.success("Project deleted");

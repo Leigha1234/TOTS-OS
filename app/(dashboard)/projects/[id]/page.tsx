@@ -32,8 +32,17 @@ export default function ProjectEngine() {
   const [taskAssignee, setTaskAssignee] = useState<string>("");
   const [comments, setComments] = useState<any[]>([]);
   const [commentInput, setCommentInput] = useState<Record<string, string>>({});
-  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [organisationId, setOrganisationId] = useState<string | null>(null);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [subProjects, setSubProjects] = useState<any[]>([]);
+  const [subProjectName, setSubProjectName] = useState("");
+  const [subProjectSummary, setSubProjectSummary] = useState("");
+  const [subProjectDueDate, setSubProjectDueDate] = useState("");
+
+  const subProjectMarker = useMemo(
+    () => (projectId ? `SUBPROJECT_OF:${projectId}` : ""),
+    [projectId]
+  );
 
   // --- CLARITY TEAM INTELLIGENCE ENGINE ---
 const workloadByUser = useMemo(() => {
@@ -127,6 +136,13 @@ const workloadByUser = useMemo(() => {
         .eq("id", projectId)
         .single();
 
+      const { data: childProjects, error: childProjectsError } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("organisation_id", orgId)
+        .eq("parent_project_id", projectId)
+        .order("created_at", { ascending: true });
+
      const { data: projectTasks, error: projectTasksError } = await supabase
   .from("tasks")
   .select("*")
@@ -145,15 +161,19 @@ if (projectTasksError) {
         .select("id, email, full_name")
         .eq("organisation_id", orgId);
 
-      const { data: taskComments } = await supabase
-        .from("task_comments")
-        .select("*")
-        .eq("organisation_id", orgId)
-        .in(
-          "task_id",
-          (projectTasks || []).map((task: any) => task.id)
-        )
-        .order("created_at", { ascending: true });
+      const taskIds = (projectTasks || []).map((task: any) => task.id);
+      let taskComments: any[] = [];
+
+      if (taskIds.length > 0) {
+        const { data: commentRows } = await supabase
+          .from("task_comments")
+          .select("*")
+          .eq("organisation_id", orgId)
+          .in("task_id", taskIds)
+          .order("created_at", { ascending: true });
+
+        taskComments = commentRows || [];
+      }
 
       setContacts(profiles || []);
 
@@ -161,12 +181,27 @@ if (projectTasksError) {
      const normalisedProjectTasks = (projectTasks || []).map((t: any) => ({
   id: t.id,
   title: t.title || "Untitled Task",
+  description: t.description || "",
   status: t.status || "todo",
   assigned_to: t.assigned_to || null,
 user_id: t.user_id || null,
 created_at: t.created_at,
 source: "tasks"
 }));
+
+      if (!childProjectsError) {
+        setSubProjects(childProjects || []);
+      } else {
+        const { data: fallbackSubProjects } = await supabase
+          .from("projects")
+          .select("*")
+          .eq("organisation_id", orgId)
+          .ilike("objective_summary", `%${subProjectMarker}%`)
+          .order("created_at", { ascending: true });
+
+        setSubProjects(fallbackSubProjects || []);
+      }
+
       setComments(taskComments || []);
 
       setProject(p);
@@ -321,6 +356,78 @@ user_id: taskData.user_id || null
     content: taskInput
   });
 };
+
+  const addSubProject = async () => {
+    if (!subProjectName.trim() || !organisationId || !projectId) {
+      toast.error("Sub-project name is required");
+      return;
+    }
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user?.id) {
+      toast.error("Unable to create sub-project");
+      return;
+    }
+
+    const basePayload = {
+      name: subProjectName.trim(),
+      objective_summary: `${subProjectMarker}${subProjectSummary ? ` ${subProjectSummary.trim()}` : ""}`,
+      description: subProjectSummary.trim() || null,
+      category: "Sub-project",
+      status: "live",
+      priority: "Medium",
+      health: "good",
+      members: [],
+      start_date: new Date().toISOString().slice(0, 10),
+      due_date: subProjectDueDate || null,
+      budget: 0,
+      organisation_id: organisationId,
+      user_id: user.id,
+    };
+
+    let inserted: any = null;
+
+    const withParentPayload = {
+      ...basePayload,
+      parent_project_id: projectId,
+    };
+
+    const firstAttempt = await supabase
+      .from("projects")
+      .insert(withParentPayload)
+      .select("*")
+      .single();
+
+    if (!firstAttempt.error) {
+      inserted = firstAttempt.data;
+    } else {
+      const fallbackAttempt = await supabase
+        .from("projects")
+        .insert(basePayload)
+        .select("*")
+        .single();
+
+      if (fallbackAttempt.error) {
+        console.error("Sub-project create error:", fallbackAttempt.error);
+        toast.error("Failed to create sub-project");
+        return;
+      }
+
+      inserted = fallbackAttempt.data;
+    }
+
+    if (inserted) {
+      setSubProjects((prev) => [inserted, ...prev]);
+      setSubProjectName("");
+      setSubProjectSummary("");
+      setSubProjectDueDate("");
+      toast.success("Sub-project created");
+    }
+  };
 
   const deleteTask = async (taskId: string) => {
     try {
@@ -525,94 +632,118 @@ return (
                         <div className="text-center py-10 text-[10px] font-black uppercase tracking-widest text-stone-300">
                           No tasks yet. Add your first objective.
                         </div>
-                      ) : tasks.map(t => (
-                        <div key={t.id}>
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5 hover:bg-stone-50 rounded-2xl transition-all group border border-transparent hover:border-stone-100">
-                            <div className="flex items-center gap-5">
-                              <div
-  onClick={() => toggleTaskComplete(t)}
-  className="w-6 h-6 rounded-lg border-2 border-stone-100 flex items-center justify-center group-hover:border-[#a9b897] transition-all cursor-pointer"
->
-                                <Check
-                                  size={12}
-                                  className={
-                                    t.status === "completed"
-                                      ? "text-[#a9b897]"
-                                      : "text-transparent group-hover:text-[#a9b897]"
-                                  }
+                      ) : tasks.map(t => {
+                        const assignedUser = contacts.find((c) => c.id === (t.assigned_to || t.user_id));
+                        const taskComments = comments.filter((c) => c.task_id === t.id);
+                        const isExpanded = expandedTaskId === t.id;
+
+                        return (
+                          <div key={t.id} className="border border-stone-100 rounded-2xl bg-stone-50/60 overflow-hidden">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5 hover:bg-stone-50 transition-all group">
+                              <div className="flex items-start gap-4">
+                                <button
+                                  onClick={() => toggleTaskComplete(t)}
+                                  className="w-7 h-7 rounded-lg border-2 border-stone-100 flex items-center justify-center group-hover:border-[#a9b897] transition-all cursor-pointer"
+                                >
+                                  <Check
+                                    size={13}
+                                    className={
+                                      t.status === "completed"
+                                        ? "text-[#a9b897]"
+                                        : "text-transparent group-hover:text-[#a9b897]"
+                                    }
+                                  />
+                                </button>
+
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-bold text-stone-700">
+                                    {t.title || "Untitled Task"}
+                                  </span>
+                                  <span className="text-[10px] text-stone-400 mt-1">
+                                    {assignedUser ? `Assigned: ${assignedUser.full_name || assignedUser.email}` : "Unassigned"}
+                                    {t.created_at ? ` • ${new Date(t.created_at).toLocaleDateString()}` : ""}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => setExpandedTaskId((prev) => (prev === t.id ? null : t.id))}
+                                  className="text-[9px] font-black uppercase text-stone-500 border border-stone-200 px-3 py-2 rounded-lg hover:border-stone-400 transition-colors"
+                                >
+                                  {isExpanded ? "Collapse" : "Expand"}
+                                </button>
+                                <Trash2
+                                  size={14}
+                                  onClick={() => deleteTask(t.id)}
+                                  className="text-stone-300 hover:text-red-400 cursor-pointer transition-colors"
                                 />
                               </div>
-                              <div className="flex flex-col">
-                                <span className="text-sm font-bold text-stone-700">
-  {t.title || "Untitled Task"}
-</span>
-                               {(t.assigned_to || t.user_id) && (
-  <span className="text-[10px] text-stone-400">
-    {t.assigned_to && t.user_id && t.assigned_to !== t.user_id
-      ? "Assigned + Creator"
-      : "Creator"}
-  </span>
-)}
-                              </div>
                             </div>
-                            <Trash2
-  size={14}
-  onClick={() => deleteTask(t.id)}
-  className="text-stone-100 hover:text-red-400 cursor-pointer transition-colors"
-/>
-                          </div>
-                          {/* PHASE 3: COMMENTS UI */}
-                          <div className="ml-11 mt-2 space-y-2">
-                            <button
-                              onClick={() =>
-                                setOpenComments(prev => ({
-                                  ...prev,
-                                  [t.id]: !prev[t.id]
-                                }))
-                              }
-                              className="text-[9px] font-black uppercase text-stone-400 hover:text-stone-600"
-                            >
-                              {openComments[t.id] ? "Hide Comments" : "View Comments"}
-                            </button>
-                            <p className="text-[9px] text-amber-500 font-black uppercase tracking-widest mt-1">
-  Comments on tasks are in maintenance
-</p>
 
-                            {openComments[t.id] && (
-                              <div className="space-y-2">
-                                {(comments.filter(c => c.task_id === t.id)).map((c) => (
-                                  <div key={c.id} className="text-[10px] bg-stone-50 p-2 rounded-lg">
-                                    {c.content}
+                            {isExpanded && (
+                              <div className="border-t border-stone-100 bg-white p-5 space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div className="rounded-xl bg-stone-50 p-3">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Status</p>
+                                    <p className="text-[11px] text-stone-700 mt-1">{t.status || "todo"}</p>
                                   </div>
-                                ))}
+                                  <div className="rounded-xl bg-stone-50 p-3">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Assigned To</p>
+                                    <p className="text-[11px] text-stone-700 mt-1">{assignedUser ? assignedUser.full_name || assignedUser.email : "Unassigned"}</p>
+                                  </div>
+                                </div>
 
-                                <div className="flex gap-2">
-                                  <input
-                                    value={commentInput[t.id] || ""}
-                                    onChange={(e) =>
-                                      setCommentInput(prev => ({
-                                        ...prev,
-                                        [t.id]: e.target.value
-                                      }))
-                                    }
-                                    placeholder="Write a comment..."
-                                    className="flex-1 bg-stone-50 p-2 rounded-lg text-[10px]"
-                                  />
+                                <div className="rounded-xl bg-stone-50 p-3">
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Task Details</p>
+                                  <p className="text-[11px] text-stone-700 mt-1 whitespace-pre-wrap">
+                                    {t.description?.trim() ? t.description : "No additional task details available."}
+                                  </p>
+                                </div>
 
-                                  <button
-                                    onClick={() =>
-                                      addComment(t.id, commentInput[t.id])
-                                    }
-                                    className="text-[9px] font-black uppercase bg-stone-900 text-white px-3 rounded-lg"
-                                  >
-                                    Send
-                                  </button>
+                                <div className="space-y-2">
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                                    Comments ({taskComments.length})
+                                  </p>
+
+                                  {taskComments.map((c) => (
+                                    <div key={c.id} className="text-[10px] bg-stone-50 p-2 rounded-lg">
+                                      {c.content}
+                                    </div>
+                                  ))}
+
+                                  {taskComments.length === 0 && (
+                                    <div className="text-[10px] text-stone-400 bg-stone-50 p-2 rounded-lg">
+                                      No comments yet.
+                                    </div>
+                                  )}
+
+                                  <div className="flex gap-2">
+                                    <input
+                                      value={commentInput[t.id] || ""}
+                                      onChange={(e) =>
+                                        setCommentInput((prev) => ({
+                                          ...prev,
+                                          [t.id]: e.target.value
+                                        }))
+                                      }
+                                      placeholder="Write a comment..."
+                                      className="flex-1 bg-stone-50 p-2 rounded-lg text-[10px]"
+                                    />
+
+                                    <button
+                                      onClick={() => addComment(t.id, commentInput[t.id] || "")}
+                                      className="text-[9px] font-black uppercase bg-stone-900 text-white px-3 rounded-lg"
+                                    >
+                                      Send
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -747,6 +878,56 @@ return (
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="bg-white border border-stone-100 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] shadow-sm space-y-4">
+            <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">Sub-Projects</h3>
+
+            <div className="space-y-2">
+              <input
+                value={subProjectName}
+                onChange={(e) => setSubProjectName(e.target.value)}
+                placeholder="Sub-project name"
+                className="w-full bg-stone-50 p-3 rounded-xl text-[11px] outline-none border border-stone-100"
+              />
+              <textarea
+                value={subProjectSummary}
+                onChange={(e) => setSubProjectSummary(e.target.value)}
+                placeholder="Summary / scope"
+                className="w-full bg-stone-50 p-3 rounded-xl text-[11px] outline-none border border-stone-100 min-h-[80px]"
+              />
+              <input
+                type="date"
+                value={subProjectDueDate}
+                onChange={(e) => setSubProjectDueDate(e.target.value)}
+                className="w-full bg-stone-50 p-3 rounded-xl text-[11px] outline-none border border-stone-100"
+              />
+              <button
+                onClick={addSubProject}
+                className="w-full bg-stone-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#a9b897] transition-all"
+              >
+                Add Sub-Project
+              </button>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              {subProjects.length === 0 ? (
+                <p className="text-[10px] text-stone-400">No sub-projects yet.</p>
+              ) : (
+                subProjects.map((sp) => (
+                  <Link
+                    key={sp.id}
+                    href={`/projects/${sp.id}`}
+                    className="block p-3 rounded-xl bg-stone-50 hover:bg-stone-100 transition-colors"
+                  >
+                    <p className="text-[11px] font-bold text-stone-700">{sp.name || "Untitled Sub-project"}</p>
+                    <p className="text-[10px] text-stone-400 mt-1">
+                      {sp.due_date ? `Due ${sp.due_date}` : "No due date"}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
           </div>
 
           

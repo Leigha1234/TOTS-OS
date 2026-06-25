@@ -15,6 +15,7 @@ import { toast } from "sonner";
 
 export default function ProjectEngine() {
   const { id } = useParams();
+  const projectId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("Tasks"); // Tasks, assets, Project Settings
   const [project, setProject] = useState<any>(null);
@@ -53,7 +54,7 @@ export default function ProjectEngine() {
   }, [contacts, workloadByUser]);
 
   const completedCount = useMemo(() => {
-    return tasks.filter(t => t.status === "Completed").length;
+    return tasks.filter(t => t.status === "completed").length;
   }, [tasks]);
 
   const assignedCount = useMemo(() => {
@@ -88,20 +89,19 @@ export default function ProjectEngine() {
       const { data: p } = await supabase
         .from("projects")
         .select("*")
-        .eq("id", id)
+        .eq("id", projectId)
         .single();
 
      const { data: projectTasks, error: projectTasksError } = await supabase
   .from("tasks")
   .select("*")
-  .eq("project_id", id)
+  .eq("project_id", projectId)
   .order("created_at", { ascending: true });
 
 if (projectTasksError) {
   console.error("Failed to load tasks:", projectTasksError);
 }
 
-     const notesTasks: any[] = [];
 
       // Fetch contacts (profiles)
       const { data: profiles } = await supabase
@@ -110,12 +110,7 @@ if (projectTasksError) {
 
       setContacts(profiles || []);
 
-      const normalisedNotes = (notesTasks || []).map((n: any) => ({
-        id: n.id,
-        name: n.title || n.content || "Task",
-        status: n.completed ? "Completed" : "Active",
-        source: "notes"
-      }));
+    
 
       const normalisedProjectTasks = (projectTasks || []).map((t: any) => ({
   id: t.id,
@@ -128,7 +123,7 @@ if (projectTasksError) {
 setComments([]);
 
       setProject(p);
-      setTasks([...normalisedProjectTasks, ...normalisedNotes].filter(Boolean));
+      setTasks(normalisedProjectTasks);
       // Auto-suggest least busy user for task assignment
       if (!taskAssignee && leastBusyUser?.id) {
         setTaskAssignee(leastBusyUser.id);
@@ -187,51 +182,65 @@ setComments([]);
   };
 
   const addTask = async () => {
-    if (!taskInput) return;
+  if (!taskInput) return;
 
-    const { data: taskData } = await supabase
-      .from("tasks")
-      .insert([
-        {
-          project_id: id,
-          title: taskInput,
-          status: "todo",
-          assigned_to: taskAssignee || null
-        }
-      ])
-      .select()
-      .single();
+  const projectId = Array.isArray(id) ? id[0] : id;
 
-   
+  if (!projectId) {
+    toast.error("Missing project ID");
+    return;
+  }
 
-    if (taskData) {
-      const normalizedTask = {
-        id: taskData.id,
-        name: taskData.title,
-        status: taskData.status,
-        source: "tasks",
-        assigned_to: taskData.assigned_to || null
-      };
-      setTasks(prev => [...prev, normalizedTask]);
-      // OPTIONAL SAFETY: EMAIL ONLY IF ASSIGNED
-      if (taskData?.assigned_to) {
-        await sendEmailNotification({
-          type: "task_assigned",
-          taskId: taskData.id,
-          content: taskInput
-        });
+  const { data: taskData, error } = await supabase
+    .from("tasks")
+    .insert([
+      {
+        project_id: projectId,
+        title: taskInput,
+        status: "todo",
+        assigned_to: taskAssignee || null
       }
-    }
-    setTaskInput("");
-    setTaskAssignee("");
+    ])
+    .select()
+    .single();
 
-    toast.success("Task assigned and synced across Clarity OS");
-    await sendEmailNotification({
-      type: "task_created",
-      taskId: taskData?.id,
-      content: taskInput
-    });
-  };
+  if (error) {
+    console.error(error);
+    toast.error("Failed to create task");
+    return;
+  }
+
+  if (taskData) {
+    const normalizedTask = {
+      id: taskData.id,
+      name: taskData.title,
+      status: taskData.status,
+      source: "tasks",
+      assigned_to: taskData.assigned_to || null
+    };
+
+    setTasks(prev => [...prev, normalizedTask]);
+
+    if (taskData?.assigned_to) {
+      await sendEmailNotification({
+        type: "task_assigned",
+        taskId: taskData.id,
+        content: taskInput
+      });
+    }
+  }
+
+  setTaskInput("");
+  setTaskAssignee("");
+
+  toast.success("Task created successfully");
+
+  await sendEmailNotification({
+    type: "task_created",
+    taskId: taskData?.id,
+    content: taskInput
+  });
+};
 
   const deleteTask = async (taskId: string) => {
     try {
@@ -244,7 +253,7 @@ setComments([]);
   };
 
   const toggleTaskComplete = async (task: any) => {
-    const newStatus = task.status === "Completed" ? "todo" : "Completed";
+    const newStatus = task.status === "completed" ? "todo" : "completed";
 
     if (task.source === "tasks") {
       await supabase
@@ -260,8 +269,8 @@ setComments([]);
     );
 
     toast.success(
-      newStatus === "Completed" ? "Task completed" : "Task reopened"
-    );
+  newStatus === "completed" ? "Task completed" : "Task reopened"
+);
   };
 
   useEffect(() => {
@@ -269,7 +278,7 @@ setComments([]);
 }, []);
 
   const updateProject = async (updates: any) => {
-    const { error } = await supabase.from("projects").update(updates).eq("id", id);
+    const { error } = await supabase.from("projects").update(updates).eq("id", projectId);
     if (!error) {
       setProject({ ...project, ...updates });
       toast.success("System Parameters Updated");
@@ -283,7 +292,7 @@ setComments([]);
     const { error } = await supabase
       .from("projects")
       .delete()
-      .eq("id", id);
+      .eq("id", projectId);
 
     if (!error) {
       toast.success("Project deleted");
@@ -437,7 +446,7 @@ return (
                                 <Check
                                   size={12}
                                   className={
-                                    t.status === "Completed"
+                                    t.status === "completed"
                                       ? "text-[#a9b897]"
                                       : "text-transparent group-hover:text-[#a9b897]"
                                   }

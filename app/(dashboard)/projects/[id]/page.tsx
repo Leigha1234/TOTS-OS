@@ -166,11 +166,10 @@ if (projectTasksError) {
 
       if (taskIds.length > 0) {
         const { data: commentRows } = await supabase
-          .from("task_comments")
-          .select("*")
-          .eq("organisation_id", orgId)
-          .in("task_id", taskIds)
-          .order("created_at", { ascending: true });
+  .from("task_comments")
+  .select("*")
+  .in("task_id", taskIds)
+  .order("created_at", { ascending: true });
 
         taskComments = commentRows || [];
       }

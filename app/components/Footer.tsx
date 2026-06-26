@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Copy, Check, X } from "lucide-react";
+import Link from "next/link";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,13 @@ export default function Footer() {
   const [email, setEmail] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [copied, setCopied] = useState(false);
+  const [footerLinks, setFooterLinks] = useState<Array<{ title: string; href: string }>>([]);
+
+  const defaultFooterLinks = [
+    { title: "Privacy Policy", href: "/docs/privacypolicy" },
+    { title: "Terms & Conditions", href: "/docs/termsconditions" },
+    { title: "Service Policy", href: "/docs/servicepolicy" },
+  ];
 
   useEffect(() => {
     // ✅ FIX: Small delay prevents "Lock stolen" errors by letting 
@@ -23,6 +31,75 @@ export default function Footer() {
     }, 500);
 
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("tots-custom-legal-docs");
+      if (!raw) {
+        setFooterLinks(defaultFooterLinks);
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        setFooterLinks(defaultFooterLinks);
+        return;
+      }
+
+      const custom = parsed
+        .filter((d: any) => d?.title)
+        .slice(0, 6)
+        .map((d: any) => ({
+          title: String(d.title),
+          href: "/settings",
+        }));
+
+      setFooterLinks([...defaultFooterLinks, ...custom]);
+    } catch {
+      setFooterLinks(defaultFooterLinks);
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadOrgFooterLinks = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        const user = auth.user;
+        if (!user) return;
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("organisation_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (!profile?.organisation_id) return;
+
+        const { data: settingsData } = await supabase
+          .from("settings")
+          .select("social_links")
+          .eq("organisation_id", profile.organisation_id)
+          .maybeSingle();
+
+        const docs = (settingsData?.social_links as any)?.legal_docs;
+        if (!Array.isArray(docs) || docs.length === 0) return;
+
+        const custom = docs
+          .filter((d: any) => d?.title)
+          .slice(0, 6)
+          .map((d: any) => ({
+            title: String(d.title),
+            href: "/settings",
+          }));
+
+        setFooterLinks([...defaultFooterLinks, ...custom]);
+      } catch {
+        // Keep current footer links as fallback
+      }
+    };
+
+    void loadOrgFooterLinks();
   }, []);
 
   async function load() {
@@ -114,6 +191,17 @@ export default function Footer() {
               </div>
               <div className="text-stone-500 text-xs">
                 Built for calm, clarity & control • © {new Date().getFullYear()}
+              </div>
+              <div className="flex flex-wrap gap-2 pt-2">
+                {footerLinks.map((item) => (
+                  <Link
+                    key={`${item.title}-${item.href}`}
+                    href={item.href}
+                    className="text-[10px] px-2 py-1 rounded-md border border-white/10 text-stone-300 hover:text-white hover:border-white/30 transition"
+                  >
+                    {item.title}
+                  </Link>
+                ))}
               </div>
             </div>
 

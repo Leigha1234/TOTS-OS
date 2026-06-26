@@ -5,9 +5,10 @@ export const dynamic = "force-dynamic";
 import React, { useState, useEffect, useRef, useCallback, type FormEvent, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload, Image as ImageIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { useSettings } from "@/app/context/SettingsContext";
 
 import SocialConnections from "@/app/components/SocialConnections";
 import PasswordSection from "@/app/components/PasswordSection";
@@ -21,6 +22,7 @@ import LegalHub from "@/app/components/LegalHub";
 function SettingsInner() {
   const isMountedRef = useRef(true);
  const router = useRouter();
+ const { refreshSettings } = useSettings();
   
   // -- 1. STATE MANAGEMENT --
   const [activeTab, setActiveTab] = useState<"account" | "brand">("account");
@@ -37,6 +39,8 @@ function SettingsInner() {
   const [fontPreference, setFontPreference] = useState("serif-heavy");
   const [, setUserOrgId] = useState<string | null>(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
   const connectedPlatformsRef = useRef<string[]>([]);
   const isOAuthProcessingRef = useRef(false);
 const [connectionHealth, setConnectionHealth] = useState<
@@ -507,7 +511,7 @@ const retryFailedPosts = async () => {
       setEmail(user.email || "");
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, bio, organisation_id")
+        .select("full_name, bio, organisation_id, logo_url")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -515,6 +519,7 @@ const retryFailedPosts = async () => {
         setUserName((profile.full_name || "OPERATOR").toUpperCase());
         setDisplayName(profile.full_name || "");
         setBio(profile.bio || "");
+        setLogoUrl(profile.logo_url || "");
         setUserOrgId(profile.organisation_id ?? null);
 
         // Prevent unsafe execution if component unmounted
@@ -724,10 +729,13 @@ const retryFailedPosts = async () => {
         .update({
           full_name: displayName,
           bio,
+          logo_url: logoUrl || null,
         })
         .eq("id", user.id);
 
       if (error) throw error;
+
+      await refreshSettings();
 
       toast.success("Settings saved successfully");
     } catch (error: any) {
@@ -742,6 +750,46 @@ const retryFailedPosts = async () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
+  };
+
+  const uploadLogo = async (file: File) => {
+    setLogoUploading(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
+      if (!user) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const ext = file.name.split(".").pop() || "png";
+      const safeName = `${user.id}-${Date.now()}.${ext}`;
+      const filePath = `logos/${safeName}`;
+
+      const uploadResult = await supabase.storage
+        .from("branding-assets")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadResult.error) {
+        throw uploadResult.error;
+      }
+
+      const { data: publicData } = supabase.storage
+        .from("branding-assets")
+        .getPublicUrl(filePath);
+
+      if (!publicData?.publicUrl) {
+        throw new Error("Failed to resolve uploaded logo URL");
+      }
+
+      setLogoUrl(publicData.publicUrl);
+      toast.success("Logo uploaded. Click Save Changes to persist.");
+    } catch (error: any) {
+      console.error("Logo upload failed:", error);
+      toast.error(error?.message || "Logo upload failed");
+    } finally {
+      setLogoUploading(false);
+    }
   };
 
   // ... [REPEATING SECTIONS TO EXPAND CODE VOLUME] ...
@@ -890,6 +938,44 @@ const retryFailedPosts = async () => {
                     <div className="space-y-2">
                       <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Administrative Summary</label>
                       <textarea value={bio} onChange={(e) => setBio(e.target.value)} className="w-full p-6 bg-[#faf9f6] border border-stone-200 rounded-3xl font-serif italic text-xl min-h-[120px] outline-none" />
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Company Logo</label>
+                      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                        <div className="w-16 h-16 rounded-2xl border border-stone-200 bg-[#faf9f6] flex items-center justify-center overflow-hidden">
+                          {logoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                          ) : (
+                            <ImageIcon size={20} className="text-stone-300" />
+                          )}
+                        </div>
+
+                        <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-stone-200 bg-white text-xs font-semibold cursor-pointer hover:bg-stone-50">
+                          <Upload size={14} />
+                          {logoUploading ? "Uploading..." : "Upload Logo"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={logoUploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                void uploadLogo(file);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+
+                      <input
+                        value={logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                        placeholder="Or paste a logo URL"
+                        className="w-full p-4 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs outline-none"
+                      />
                     </div>
                   </div>
                 </div>

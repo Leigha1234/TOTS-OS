@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Sidebar from "@/app/components/Sidebar";
+import Footer from "@/app/components/Footer";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSettings } from "@/app/context/SettingsContext";
@@ -55,6 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="flex-1 flex flex-col min-w-0 h-full relative">
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 pb-32 md:pb-12">
           {children}
+          <Footer />
         </div>
 
         {/* MOBILE BOTTOM NAV */}

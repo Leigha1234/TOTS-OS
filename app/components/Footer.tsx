@@ -143,16 +143,19 @@ export default function Footer() {
       });
 
       if (insertError) {
-        if (insertError.code === "23505") {
-          // already subscribed
-          setEmail("");
-          setOpen(false);
-          return;
-        }
+  if (insertError.code === "23505" || insertError.code === "409") {
+    // already subscribed → treat as success
+    setEmail("");
+    setOpen(false);
+    console.log("Already subscribed:", normalizedEmail);
+    return;
+  }
 
-        console.error("Newsletter signup failed:", insertError.message);
-        return;
-      }
+  console.error("Newsletter signup failed:", insertError.message);
+  return;
+}
+
+        
 
       // Trigger welcome email via Edge Function (best-effort)
       try {

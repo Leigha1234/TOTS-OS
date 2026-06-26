@@ -18,22 +18,26 @@ const resend = new Resend(process.env.RESEND_API_KEY!);
 export async function POST(req: Request) {
   try {
     const { email } = await req.json();
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
-    if (!email) {
+    if (!normalizedEmail) {
       return NextResponse.json(
         { error: "Email is required" },
         { status: 400 }
       );
     }
 
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "TOTS OS Security <onboarding@resend.dev>";
+
     // -----------------------------
     // 1. Generate Supabase reset link (server-side)
     // -----------------------------
     const { data, error } = await supabase.auth.admin.generateLink({
       type: "recovery",
-      email,
+      email: normalizedEmail,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/set-password`,
+        redirectTo: `${siteUrl}/set-password`,
       },
     });
 
@@ -56,9 +60,9 @@ export async function POST(req: Request) {
     // -----------------------------
     // 2. Send email via Resend (TOTS OS branded)
     // -----------------------------
-    await resend.emails.send({
-      from: "TOTS OS Security <no-reply@yourdomain.com>",
-      to: email,
+    const { data: resendData, error: resendError } = await resend.emails.send({
+      from: fromEmail,
+      to: [normalizedEmail],
       subject: "Reset your TOTS OS password",
 
       html: `
@@ -103,10 +107,18 @@ export async function POST(req: Request) {
       `,
     });
 
+    if (resendError) {
+      console.error("Resend send-reset error:", resendError);
+      return NextResponse.json(
+        { error: resendError.message || "Password reset email could not be delivered" },
+        { status: 502 }
+      );
+    }
+
     // -----------------------------
     // 3. Done
     // -----------------------------
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, id: resendData?.id || null });
 
   } catch (err: any) {
     return NextResponse.json(

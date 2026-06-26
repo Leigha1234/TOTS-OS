@@ -590,17 +590,18 @@ default:
       if (initRef.current) return;
       initRef.current = true;
 
-  const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
       setUser(authUser);
+
       // Get orgId for multi-tenancy
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
         .select("organisation_id")
         .eq("id", authUser.id)
         .maybeSingle();
-      const orgId = profile?.organisation_id;
 
+      const orgId = profile?.organisation_id;
       if (!orgId) {
         console.error("Missing organisation_id for user:", authUser.id);
         return;
@@ -609,8 +610,8 @@ default:
       orgIdRef.current = orgId;
       setOrganisationId(orgId);
       await fetchTeamMembers(orgId);
-if (orgId) await fetchProjects(orgId);
-if (orgId) await fetchNotes(orgId, authUser.id);
+      if (orgId) await fetchProjects(orgId);
+      if (orgId) await fetchNotes(orgId, authUser.id);
 // HARD RESET OLD CHANNELS (prevents realtime duplicate subscribe errors)
 if (channelRef.current) {
   supabase.removeChannel(channelRef.current);

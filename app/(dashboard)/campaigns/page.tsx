@@ -398,20 +398,30 @@ function useCampaigns(supabase: any) {
 
   // Load list subscribers
   const loadListSubscribers = async (listId: string) => {
-    if (!listId || !organisationId) return;
+  if (!listId || !organisationId) return [];
 
-    const { data, error } = await supabase
-      .from("profile_subscriber_lists")
-      .select("profile_id, profiles(*)")
-      .eq("list_id", listId);
+  const { data, error } = await supabase
+    .from("profile_subscriber_lists")
+    .select("profile_id, profiles:profiles(id, name, full_name, email)")
+    .eq("list_id", listId);
 
-    if (error) {
-      console.error("Load subscribers error:", error);
-      return [];
-    }
+  if (error) {
+    console.error("Load subscribers error:", error);
+    return [];
+  }
 
-    return data || [];
-  };
+  const rows = data || [];
+
+  return rows.map((row: any, index: number) => ({
+    profile_id: row.profile_id ?? `missing-${index}`,
+    profiles: row.profiles ?? {
+      id: null,
+      name: null,
+      full_name: null,
+      email: null,
+    },
+  }));
+};
 
   const updateCampaign = async (form: any, id: string) => {
     const updated = await service.updateCampaign(id, {
@@ -1282,9 +1292,9 @@ export default function CampaignsPage() {
                   <p className="text-stone-400 text-sm italic">No subscribers found.</p>
                 )}
 
-                {listSubscribers.map((s: any) => (
+                {listSubscribers.map((s: any, idx: number) => (
                   <div
-                    key={s.profile_id}
+                    key={`${s.profile_id}-${idx}`}
                     className="p-4 bg-stone-50 rounded-xl border border-stone-100 flex justify-between items-center"
                   >
                     <div>

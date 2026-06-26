@@ -104,6 +104,13 @@ function getNoteAttachmentUrl(attachment: NoteAttachment) {
   return attachment.file_url || "#";
 }
 
+function isImageAttachment(attachment: NoteAttachment) {
+  const type = attachment.file_type?.toLowerCase() || "";
+  const name = attachment.file_name?.toLowerCase() || "";
+
+  return type.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
+}
+
 function VaultContent() {
   const orgIdRef = useRef<string | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -2231,18 +2238,36 @@ const NoteModal = ({
           <div className="space-y-2 max-h-40 overflow-y-auto">
             {noteAttachments.length > 0 ? (
               noteAttachments.map((attachment) => (
-                <a
-                  key={attachment.id}
-                  href={getNoteAttachmentUrl(attachment)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2 text-[11px] text-stone-700 hover:bg-stone-100"
-                >
-                  <span className="truncate pr-3">{attachment.file_name || "Attachment"}</span>
-                  <span className="text-[9px] font-black uppercase text-stone-400">
-                    {attachment.file_size ? `${Math.max(1, Math.round(attachment.file_size / 1024))} KB` : "Open"}
-                  </span>
-                </a>
+                <div key={attachment.id} className="rounded-lg bg-stone-50 p-3 space-y-2">
+                  {isImageAttachment(attachment) ? (
+                    <a href={getNoteAttachmentUrl(attachment)} target="_blank" rel="noreferrer">
+                      <img
+                        src={getNoteAttachmentUrl(attachment)}
+                        alt={attachment.file_name || "Attachment preview"}
+                        className="h-40 w-full rounded-md object-cover border border-stone-200"
+                      />
+                    </a>
+                  ) : (
+                    <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-[11px] text-stone-700 border border-stone-200">
+                      <span className="truncate pr-3">{attachment.file_name || "Attachment"}</span>
+                      <a
+                        href={getNoteAttachmentUrl(attachment)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[9px] font-black uppercase text-stone-400 hover:text-stone-700"
+                      >
+                        Open
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-3 text-[10px] text-stone-500">
+                    <span className="truncate">{attachment.file_name || "Attachment"}</span>
+                    <span className="font-black uppercase text-stone-400">
+                      {attachment.file_size ? `${Math.max(1, Math.round(attachment.file_size / 1024))} KB` : "File"}
+                    </span>
+                  </div>
+                </div>
               ))
             ) : (
               <p className="text-[10px] text-stone-400">No attachments yet</p>

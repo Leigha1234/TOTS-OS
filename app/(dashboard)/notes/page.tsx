@@ -21,7 +21,7 @@ import {
 import { supabase } from "../../../lib/supabase";
 import { 
   Trash2, Search, Loader2, Plus, X, 
-  CheckCircle2, Tag, AlertCircle, Calendar, User, Briefcase, Mic, MicOff, Bell, BellOff, Clock
+  CheckCircle2, Tag, AlertCircle, Calendar, User, Briefcase, Mic, MicOff, Bell, BellOff, Clock, Paperclip, Upload
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -82,6 +82,16 @@ const STICKY_THEMES = [
   { bg: "#FFF0F0", text: "#7f1d1d", rotation: "-2deg" }
 ];
 
+type NoteAttachment = {
+  id: string;
+  note_id: string;
+  file_name: string | null;
+  file_url: string;
+  file_type: string | null;
+  file_size: number | null;
+  created_at: string | null;
+};
+
 function VaultContent() {
   const orgIdRef = useRef<string | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -89,6 +99,7 @@ function VaultContent() {
   const [notes, setNotes] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [comments, setComments] = useState<any[]>([]);
+  const [attachmentsByNoteId, setAttachmentsByNoteId] = useState<Record<string, NoteAttachment[]>>({});
   const commentsByNoteId = useRef<Record<string, any[]>>({});
   const [activeComments, setActiveComments] = useState<Record<string, any[]>>({});
   const [projectsList, setProjectsList] = useState<any[]>([]);
@@ -135,6 +146,7 @@ function VaultContent() {
   const [status, setStatus] = useState("todo");
   const [visibility, setVisibility] = useState("private");
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
 
   // Voice Note State
   const [isListening, setIsListening] = useState(false);
@@ -253,6 +265,12 @@ default:
         .in("note_id", noteIds)
         .order("created_at", { ascending: true });
 
+      const { data: attachmentData, error: attachmentError } = await supabase
+        .from("note_attachments")
+        .select("*")
+        .in("note_id", noteIds)
+        .order("created_at", { ascending: true });
+
 
       if (commentData) {
         setComments(commentData);
@@ -266,6 +284,23 @@ default:
 
         commentsByNoteId.current = map;
       }
+
+      if (attachmentError) {
+        console.error("Attachment fetch error:", attachmentError);
+      } else {
+        const attachmentMap: Record<string, NoteAttachment[]> = {};
+
+        (attachmentData || []).forEach((attachment: NoteAttachment) => {
+          if (!attachmentMap[attachment.note_id]) attachmentMap[attachment.note_id] = [];
+          attachmentMap[attachment.note_id].push(attachment);
+        });
+
+        setAttachmentsByNoteId(attachmentMap);
+      }
+    } else {
+      setComments([]);
+      commentsByNoteId.current = {};
+      setAttachmentsByNoteId({});
     }
 
   } catch (e) {
@@ -275,6 +310,57 @@ default:
     setIsLoading(false);
   }
 }, []);
+
+  const uploadAttachmentsForNote = useCallback(async (noteId: string, files: File[], orgId: string) => {
+    const uploads = files.filter(Boolean);
+    if (!noteId || !orgId || uploads.length === 0) {
+      return [] as NoteAttachment[];
+    }
+
+    const createdAttachments: NoteAttachment[] = [];
+
+    for (const file of uploads) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `note-attachments/${orgId}/${noteId}/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("vault")
+        .upload(path, file, { upsert: false });
+
+      if (uploadError) {
+        throw new Error(uploadError.message || `Failed to upload ${file.name}`);
+      }
+
+      const { data: publicData } = supabase.storage.from("vault").getPublicUrl(path);
+
+      const { data: attachmentRecord, error: insertError } = await supabase
+        .from("note_attachments")
+        .insert({
+          note_id: noteId,
+          file_name: file.name,
+          file_url: publicData.publicUrl,
+          file_type: file.type || null,
+          file_size: file.size,
+        })
+        .select("*")
+        .single();
+
+      if (insertError) {
+        throw new Error(insertError.message || `Failed to save attachment ${file.name}`);
+      }
+
+      if (attachmentRecord) {
+        createdAttachments.push(attachmentRecord as NoteAttachment);
+      }
+    }
+
+    setAttachmentsByNoteId(prev => ({
+      ...prev,
+      [noteId]: [...(prev[noteId] || []), ...createdAttachments],
+    }));
+
+    return createdAttachments;
+  }, []);
 
      
 
@@ -849,6 +935,10 @@ const userId = user.id;
         throw new Error("No note returned from API");
       }
 
+      if (pendingAttachments.length > 0) {
+        await uploadAttachmentsForNote(insertedNote.id, pendingAttachments, orgId);
+      }
+
       const normalizedNote = {
   ...insertedNote,
   user_id: insertedNote.user_id ?? user.id,
@@ -898,6 +988,7 @@ setNotes(prev => [
       setReminderDateTime("");
       setIsReminder(false);
       setStatus("todo");
+      setPendingAttachments([]);
       setShowModal(false);
       setSelectedColor(null);
       
@@ -918,6 +1009,23 @@ setNotes(prev => [
       setIsSyncing(false);
     }
   };
+
+  const addAttachmentsToExistingNote = useCallback(async (noteId: string, files: File[]) => {
+    const orgId = orgIdRef.current;
+
+    if (!noteId || !orgId) {
+      toast.error("Missing organisation context");
+      return false;
+    }
+
+    try {
+      await uploadAttachmentsForNote(noteId, files, orgId);
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to upload attachment");
+      return false;
+    }
+  }, [uploadAttachmentsForNote]);
 
   const updateNoteStatus = async (id: string, nextStatus: string) => {
     if (!id || !nextStatus) {
@@ -1213,6 +1321,7 @@ const regularNotes = filteredNotes.filter(
     assignedIds.includes(m.id)
   );
   const assignedLead = assignedTeamMembers[0] || null;
+  const attachmentCount = attachmentsByNoteId[note.id]?.length || 0;
     return (
       <motion.div
         key={note.id}
@@ -1277,8 +1386,14 @@ const regularNotes = filteredNotes.filter(
         {/* BOTTOM METADATA PINNED CONTAINER */}
         <div className="space-y-4 mt-auto">
           {/* CONTEXT DATA HOOKS */}
-          {(note.project || assignedLead || note.due_date) && (
+          {(attachmentCount > 0 || note.project || assignedLead || note.due_date) && (
             <div className="space-y-2 pt-3 border-t border-black/[0.05] opacity-80">
+              {attachmentCount > 0 && (
+                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
+                  <Paperclip size={11} className="opacity-40" />
+                  <span className="truncate">Attachments: {attachmentCount}</span>
+                </div>
+              )}
               {note.project && (
                 <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
                   <Briefcase size={11} className="opacity-40" />
@@ -1519,10 +1634,12 @@ const regularNotes = filteredNotes.filter(
               note={notes.find((n: any) => n.id === expandedNote)}
               teamMembers={teamMembers}
               projectsList={projectsList}
+              attachments={attachmentsByNoteId}
               commentsByNoteId={commentsByNoteId.current}
               reactions={reactions}
               addComment={addComment}
               addReaction={addReaction}
+              onUploadAttachments={addAttachmentsToExistingNote}
               onSaveNoteEdits={saveNoteEdits}
               setExpandedNote={setExpandedNote}
               user={user}
@@ -1667,6 +1784,46 @@ const regularNotes = filteredNotes.filter(
                     <option value="assigned">Assigned</option>
                   </select>
                 </div>
+
+                <div className="col-span-2 rounded-lg border border-dashed border-stone-200 bg-stone-50 px-3 py-3">
+                  <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-500">
+                    <Paperclip size={12} />
+                    <span>Attachments</span>
+                  </div>
+                  <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wider text-stone-600 hover:border-stone-300 hover:text-stone-900">
+                    <Upload size={12} />
+                    <span>Add Files</span>
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        if (!files.length) return;
+                        setPendingAttachments(prev => [...prev, ...files]);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <div className="mt-3 space-y-2">
+                    {pendingAttachments.length > 0 ? (
+                      pendingAttachments.map((file, index) => (
+                        <div key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-[10px] text-stone-600">
+                          <span className="truncate pr-3">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setPendingAttachments(prev => prev.filter((_, itemIndex) => itemIndex !== index))}
+                            className="text-stone-400 hover:text-red-600"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[10px] text-stone-400">No files selected</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* STICKY NOTE COLOR SELECTOR */}
@@ -1774,10 +1931,12 @@ const NoteModal = ({
   note,
   teamMembers,
   projectsList,
+  attachments,
   commentsByNoteId,
   reactions,
   addComment,
   addReaction,
+  onUploadAttachments,
   onSaveNoteEdits,
   setExpandedNote,
   user,
@@ -1799,6 +1958,7 @@ const NoteModal = ({
   const [draftContent, setDraftContent] = useState(note?.content || "");
   const [projectValue, setProjectValue] = useState(note?.project || "");
   const [isSavingEdits, setIsSavingEdits] = useState(false);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [subTaskInput, setSubTaskInput] = useState("");
   const [blocks, setBlocks] = useState(
     (note?.content || "").split("\n").map((text: string, idx: number) => ({
@@ -1862,6 +2022,7 @@ const NoteModal = ({
   const presentMembers = teamMembers?.filter((m: any) => presentIds.includes(m.id)) || [];
 
   const noteComments = (commentsByNoteId?.[note.id] || []);
+  const noteAttachments = (attachments?.[note.id] || []) as NoteAttachment[];
 
   const opsFeed = (noteOps?.[note.id] || []).slice(-20).map((op: any, idx: number) => ({
     id: `op-${idx}`,
@@ -2001,6 +2162,56 @@ const NoteModal = ({
           </div>
           {projectValue && <p>Current: {projectValue}</p>}
           {note.due_date && <p>Due: {format(new Date(note.due_date), "MMM d, p")}</p>}
+        </div>
+
+        <div className="mt-4 border-t pt-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-black uppercase text-stone-400">Attachments</p>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-stone-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-stone-600 hover:border-stone-300 hover:text-stone-900">
+              <Upload size={12} />
+              <span>{isUploadingAttachments ? "Uploading..." : "Add Files"}</span>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                disabled={isUploadingAttachments}
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (!files.length) return;
+
+                  setIsUploadingAttachments(true);
+                  const ok = await onUploadAttachments(note.id, files);
+                  setIsUploadingAttachments(false);
+                  e.target.value = "";
+
+                  if (ok) {
+                    toast.success("Attachments uploaded");
+                  }
+                }}
+              />
+            </label>
+          </div>
+
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {noteAttachments.length > 0 ? (
+              noteAttachments.map((attachment) => (
+                <a
+                  key={attachment.id}
+                  href={attachment.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2 text-[11px] text-stone-700 hover:bg-stone-100"
+                >
+                  <span className="truncate pr-3">{attachment.file_name || "Attachment"}</span>
+                  <span className="text-[9px] font-black uppercase text-stone-400">
+                    {attachment.file_size ? `${Math.max(1, Math.round(attachment.file_size / 1024))} KB` : "Open"}
+                  </span>
+                </a>
+              ))
+            ) : (
+              <p className="text-[10px] text-stone-400">No attachments yet</p>
+            )}
+          </div>
         </div>
 
         <div className="mt-4 border-t pt-4 space-y-2">

@@ -98,6 +98,7 @@ export default function AccountProfilePage() {
   const [selectedListId, setSelectedListId] = useState("");
 
   const [notes, setNotes] = useState<any[]>([]);
+  const [timelineEntries, setTimelineEntries] = useState<any[]>([]);
   const [noteForm, setNoteForm] = useState({ type: "internal", content: "" });
   const [timelineEntry, setTimelineEntry] = useState("");
   const [newTask, setNewTask] = useState({
@@ -347,6 +348,30 @@ export default function AccountProfilePage() {
     }
   };
 
+  const fetchTimelineEntries = async () => {
+    if (!contactId || !organisationId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("contact_timeline")
+        .select("*")
+        .eq("contact_id", contactId)
+        .eq("organisation_id", organisationId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Timeline fetch error:", error);
+        setTimelineEntries([]);
+        return;
+      }
+
+      setTimelineEntries(data || []);
+    } catch (err) {
+      console.error("Timeline fetch exception:", err);
+      setTimelineEntries([]);
+    }
+  };
+
 
   /* ---------------- INIT ---------------- */
   useEffect(() => {
@@ -356,6 +381,7 @@ export default function AccountProfilePage() {
       fetchThreads();
       fetchSubscriberLists();
       fetchNotes();
+      fetchTimelineEntries();
       fetchProfileLists();
       fetchProjects();
     }
@@ -488,6 +514,12 @@ export default function AccountProfilePage() {
   })();
 
   const timelineEvents = [
+    ...(timelineEntries || []).map((t) => ({
+      type: t.type || "timeline",
+      created_at: t.created_at,
+      title: t.title || "Timeline Entry",
+      content: t.content || "",
+    })),
     ...(messages || []).map(m => ({
       type: "email",
       created_at: m.created_at,
@@ -1083,11 +1115,12 @@ export default function AccountProfilePage() {
                   if (!timelineEntry.trim() || !contactId || !organisationId) return;
 
                   const { data, error } = await supabase
-                    .from("notes")
+                    .from("contact_timeline")
                     .insert({
                       contact_id: contactId,
                       organisation_id: organisationId,
                       type: "timeline",
+                      title: "Manual timeline update",
                       content: timelineEntry.trim(),
                     })
                     .select()
@@ -1099,7 +1132,7 @@ export default function AccountProfilePage() {
                     return;
                   }
 
-                  setNotes((prev) => [data, ...prev]);
+                  setTimelineEntries((prev) => [data, ...prev]);
                   setTimelineEntry("");
                 }}
                 className="space-y-3"

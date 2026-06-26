@@ -111,6 +111,20 @@ function isImageAttachment(attachment: NoteAttachment) {
   return type.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
 }
 
+function normalizeAttachments(value: any): NoteAttachment[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter(Boolean).map((attachment: any) => ({
+    ...attachment,
+    file_path: attachment.file_path ?? null,
+    file_url: attachment.file_url ?? null,
+    file_type: attachment.file_type ?? null,
+    file_size: typeof attachment.file_size === "number" ? attachment.file_size : null,
+    user_id: attachment.user_id ?? null,
+    created_at: attachment.created_at ?? null,
+  }));
+}
+
 function VaultContent() {
   const orgIdRef = useRef<string | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -300,13 +314,15 @@ default:
 
       const attachmentMap: Record<string, NoteAttachment[]> = {};
 
-      (safeNotes || []).forEach((note: any) => {
-        if (Array.isArray(note.attachments) && note.attachments.length > 0) {
-          attachmentMap[note.id] = note.attachments as NoteAttachment[];
-        }
+      safeNotes.forEach((note: any) => {
+        attachmentMap[note.id] = normalizeAttachments(note.attachments).map((attachment) => ({
+          ...attachment,
+          note_id: note.id,
+        }));
       });
 
       setAttachmentsByNoteId(attachmentMap);
+      
     } else {
       setComments([]);
       commentsByNoteId.current = {};

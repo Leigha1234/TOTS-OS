@@ -1,6 +1,67 @@
+async function submit() {
+  if (!email) return;
+
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      console.warn("No authenticated user found for newsletter signup.");
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("Profile fetch error:", profileError.message);
+      return;
+    }
+
+    const organisationId = profile?.organisation_id;
+
+    if (!organisationId) {
+      console.warn("No organisation found for user.");
+      return;
+    }
+
+    const { data: list, error: listError } = await supabase
+      .from("subscriber_lists")
+      .select("id")
+      .eq("name", "newsletter")
+      .eq("organisation_id", organisationId)
+      .maybeSingle();
+
+    if (listError || !list?.id) {
+      console.error("Newsletter list not found for organisation.");
+      return;
+    }
+
+    const { error: insertError } = await supabase.from("subscribers").insert({
+      email,
+      list_id: list.id,
+      organisation_id: organisationId,
+      status: "subscribed",
+    });
+
+    if (insertError) {
+      console.error("Newsletter signup failed:", insertError.message);
+      return;
+    }
+
+    console.log("Subscribed to newsletter:", email);
+
+    setEmail("");
+    setOpen(false);
+  } catch (err) {
+    console.error("Unexpected newsletter signup error:", err);
+  }
+}
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Copy, Check, X } from "lucide-react";
 import Link from "next/link";
@@ -15,7 +76,9 @@ export default function Footer() {
   const [email, setEmail] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [copied, setCopied] = useState(false);
-  const [footerLinks, setFooterLinks] = useState<Array<{ title: string; href: string }>>([]);
+  const [footerLinks, setFooterLinks] = useState<
+    Array<{ title: string; href: string }>
+  >([]);
 
   const defaultFooterLinks = [
     { title: "Privacy Policy", href: "/docs/privacypolicy" },
@@ -24,8 +87,6 @@ export default function Footer() {
   ];
 
   useEffect(() => {
-    // ✅ FIX: Small delay prevents "Lock stolen" errors by letting 
-    // principal auth components (like AuthGuard) finish first.
     const timer = setTimeout(() => {
       load();
     }, 500);
@@ -95,7 +156,7 @@ export default function Footer() {
 
         setFooterLinks([...defaultFooterLinks, ...custom]);
       } catch {
-        // Keep current footer links as fallback
+        // ignore
       }
     };
 
@@ -104,21 +165,14 @@ export default function Footer() {
 
   async function load() {
     try {
-      // ✅ FIX: getSession is less aggressive than getUser and avoids lock collisions
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session?.user) return;
 
-      const { data: profile, error } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
         .select("referral_code")
         .eq("id", session.user.id)
         .maybeSingle();
-
-      if (error) {
-        console.error("Profile fetch error:", error.message);
-        return;
-      }
 
       if (profile?.referral_code) {
         setReferralCode(profile.referral_code);
@@ -128,12 +182,56 @@ export default function Footer() {
     }
   }
 
-  function submit() {
+  async function submit() {
     if (!email) return;
-    // Here you would typically integrate with loops.so or convertkit
-    console.log("Subscribed:", email);
-    setEmail("");
-    setOpen(false);
+
+    try {
+      const { data: { user }, error: userError } =
+        await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.warn("No authenticated user found for newsletter signup.");
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError || !profile?.organisation_id) return;
+
+      const organisationId = profile.organisation_id;
+
+      const { data: list, error: listError } = await supabase
+        .from("subscriber_lists")
+        .select("id")
+        .eq("name", "newsletter")
+        .eq("organisation_id", organisationId)
+        .maybeSingle();
+
+      if (listError || !list?.id) return;
+
+      const { error: insertError } = await supabase
+        .from("subscribers")
+        .insert({
+          email,
+          list_id: list.id,
+          organisation_id: organisationId,
+          status: "subscribed",
+        });
+
+      if (insertError) {
+        console.error("Newsletter signup failed:", insertError.message);
+        return;
+      }
+
+      setEmail("");
+      setOpen(false);
+    } catch (err) {
+      console.error("Unexpected newsletter signup error:", err);
+    }
   }
 
   function copyCode() {
@@ -145,89 +243,34 @@ export default function Footer() {
 
   return (
     <>
-      {/* 📬 NEWSLETTER POPUP */}
       {open && (
-        <div className="fixed bottom-6 right-6 w-80 p-5 bg-stone-900 border border-white/10 rounded-2xl shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <button 
-            onClick={() => setOpen(false)}
-            className="absolute top-3 right-3 text-stone-500 hover:text-white transition"
-          >
+        <div className="fixed bottom-6 right-6 w-80 p-5 bg-stone-900 border border-white/10 rounded-2xl shadow-2xl z-50">
+          <button onClick={() => setOpen(false)} className="absolute top-3 right-3">
             <X size={16} />
           </button>
-          
-          <p className="text-sm font-semibold mb-1 text-white">
-            Join the newsletter
-          </p>
-          <p className="text-xs text-stone-400 mb-4 leading-relaxed">
-            Exclusive insights on systems, growth, and digital clarity.
-          </p>
-          
-          <div className="space-y-2">
-            <input
-              type="email"
-              placeholder="Your email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-black/50 border border-white/10 p-2.5 rounded-xl text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition"
-            />
-            <button 
-              className="w-full bg-white text-black hover:bg-stone-200 py-2.5 rounded-xl text-sm transition font-bold" 
-              onClick={submit}
-            >
-              Subscribe
-            </button>
-          </div>
+
+          <p className="text-sm font-semibold mb-1 text-white">Join the newsletter</p>
+
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full p-2 rounded-xl"
+          />
+
+          <button onClick={submit} className="w-full mt-2 bg-white text-black p-2 rounded-xl">
+            Subscribe
+          </button>
         </div>
       )}
 
-      {/* 🦶 FOOTER */}
-      <footer className="mt-24 border-t border-stone-800/50 pt-12 pb-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
-            
-            <div className="space-y-2">
-              <div className="font-bold text-white tracking-tight">
-                The Organised Types
-              </div>
-              <div className="text-stone-500 text-xs">
-                Built for calm, clarity & control • © {new Date().getFullYear()}
-              </div>
-              <div className="flex flex-wrap gap-2 pt-2">
-                {footerLinks.map((item) => (
-                  <Link
-                    key={`${item.title}-${item.href}`}
-                    href={item.href}
-                    className="text-[10px] px-2 py-1 rounded-md border border-white/10 text-stone-300 hover:text-white hover:border-white/30 transition"
-                  >
-                    {item.title}
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {referralCode && (
-              <div className="group flex items-center gap-3 text-sm bg-stone-900/40 border border-white/5 pl-4 pr-2 py-2 rounded-2xl backdrop-blur-sm">
-                <span className="text-stone-500 text-xs font-medium uppercase tracking-widest">
-                  Referral:
-                </span>
-                <span className="font-mono font-bold text-blue-400">
-                  {referralCode}
-                </span>
-                <button
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                    copied ? "bg-green-500/20 text-green-400" : "bg-white/5 hover:bg-white/10 text-white"
-                  }`}
-                  onClick={copyCode}
-                >
-                  {copied ? (
-                    <><Check size={12} /> Copied</>
-                  ) : (
-                    <><Copy size={12} /> Copy</>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
+      <footer className="mt-24">
+        <div className="flex flex-wrap gap-2">
+          {footerLinks.map((item) => (
+            <Link key={item.title} href={item.href}>
+              {item.title}
+            </Link>
+          ))}
         </div>
       </footer>
     </>

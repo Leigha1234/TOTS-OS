@@ -94,6 +94,37 @@ type NoteAttachment = {
   created_at: string | null;
 };
 
+type SupabaseErrorLike = {
+  message?: string;
+  code?: string;
+  details?: string;
+  hint?: string;
+  status?: number;
+  statusCode?: number | string;
+  error?: string;
+};
+
+function formatSupabaseError(context: string, err: unknown) {
+  const e = (err || {}) as SupabaseErrorLike;
+  const status = e.status ?? e.statusCode;
+  const code = e.code || e.error;
+  const details = [
+    status ? `status=${status}` : "",
+    code ? `code=${code}` : "",
+    e.details ? `details=${e.details}` : "",
+    e.hint ? `hint=${e.hint}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  const message = e.message || e.error || "Unknown error";
+  const userMessage = details
+    ? `${context}: ${message} (${details})`
+    : `${context}: ${message}`;
+
+  return { userMessage, raw: err };
+}
+
 function getNoteAttachmentUrl(attachment: NoteAttachment) {
   if (attachment.file_url) return attachment.file_url;
   if (!attachment.file_path) return "";
@@ -152,7 +183,8 @@ function VaultContent() {
       .order("name", { ascending: true });
 
     if (error) {
-      console.error("Projects fetch error:", error);
+      const formatted = formatSupabaseError("Projects fetch failed", error);
+      console.error(formatted.userMessage, formatted.raw);
       return;
     }
 
@@ -281,8 +313,9 @@ default:
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Supabase notes fetch error:", error);
-      toast.error("Failed to load notes from server.");
+      const formatted = formatSupabaseError("Failed to load notes", error);
+      console.error(formatted.userMessage, formatted.raw);
+      toast.error(formatted.userMessage);
       return;
     }
 
@@ -369,7 +402,8 @@ default:
         .upload(uploadPath, file);
 
       if (uploadError) {
-        throw new Error(uploadError.message || `Failed to upload ${file.name}`);
+        const formatted = formatSupabaseError(`Attachment upload failed for ${file.name}`, uploadError);
+        throw new Error(formatted.userMessage);
       }
 
       const filePath = data?.path;
@@ -416,7 +450,15 @@ default:
     const updateBody = await updateResponse.json().catch(() => null);
 
     if (!updateResponse.ok) {
-      throw new Error(updateBody?.error || "Failed to update note attachments");
+      const responseError = {
+        message: updateBody?.error || "Failed to update note attachments",
+        status: updateResponse.status,
+        details: updateBody?.details,
+        code: updateBody?.code,
+        hint: updateBody?.hint,
+      };
+      const formatted = formatSupabaseError("Attachment metadata update failed", responseError);
+      throw new Error(formatted.userMessage);
     }
 
 
@@ -590,20 +632,31 @@ default:
       if (initRef.current) return;
       initRef.current = true;
 
+      try {
+
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
       setUser(authUser);
 
       // Get orgId for multi-tenancy
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organisation_id")
         .eq("id", authUser.id)
         .maybeSingle();
 
+      if (profileError) {
+        const formatted = formatSupabaseError("Profile lookup failed during init", profileError);
+        console.error(formatted.userMessage, formatted.raw);
+        toast.error(formatted.userMessage);
+        return;
+      }
+
       const orgId = profile?.organisation_id;
       if (!orgId) {
-        console.error("Missing organisation_id for user:", authUser.id);
+        const message = `Missing organisation_id for user ${authUser.id}`;
+        console.error(message);
+        toast.error(message);
         return;
       }
 
@@ -869,6 +922,11 @@ if (!orgId) return;
         .subscribe();
 
       noteOpsChannelRef.current = opsChannel;
+      } catch (e) {
+        const formatted = formatSupabaseError("Notes page initialization failed", e);
+        console.error(formatted.userMessage, formatted.raw);
+        toast.error(formatted.userMessage);
+      }
     };
     init();
     return () => {
@@ -949,7 +1007,8 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
         .single();
 
       if (profileError) {
-        throw new Error(profileError.message || "Failed to resolve organisation");
+        const formatted = formatSupabaseError("Profile lookup failed before note creation", profileError);
+        throw new Error(formatted.userMessage);
       }
 
       const organisationId = profile?.organisation_id;
@@ -968,7 +1027,8 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
           .upload(uploadPath, file);
 
         if (uploadError) {
-          throw new Error(uploadError.message || `Failed to upload ${file.name}`);
+          const formatted = formatSupabaseError(`Attachment upload failed for ${file.name}`, uploadError);
+          throw new Error(formatted.userMessage);
         }
 
         const filePath = data?.path;
@@ -1019,7 +1079,8 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
         .single();
 
       if (insertError) {
-        throw new Error(insertError.message || "Note creation failed");
+        const formatted = formatSupabaseError("Note insert failed", insertError);
+        throw new Error(formatted.userMessage);
       }
 
       if (!insertedNote) {
@@ -1099,10 +1160,11 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
       }
       toast.success("Note pinned to desk.");
      } catch (e) {
-  console.error("Create note error:", e);
+  const formatted = formatSupabaseError("Create note error", e);
+  console.error(formatted.userMessage, formatted.raw);
 
   const message =
-    (e as any)?.message ||
+    formatted.userMessage ||
     "Unexpected error creating note. Please try again.";
 
   toast.error(message);

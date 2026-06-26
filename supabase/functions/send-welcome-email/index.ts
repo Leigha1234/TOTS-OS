@@ -1,55 +1,50 @@
-import "@supabase/functions-js/edge-runtime.d.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   try {
-    if (req.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
-    }
+    const { email } = await req.json();
 
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      return new Response("Missing RESEND_API_KEY", { status: 500 });
-    }
-
-    const body = await req.json();
-    const record = body?.record;
-
-    if (!record?.email) {
-      return new Response("Missing email", { status: 400 });
-    }
-
-    const email = String(record.email).trim().toLowerCase();
     if (!email) {
       return new Response("Missing email", { status: 400 });
     }
 
-    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "TOTS-OS <onboarding@resend.dev>";
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
-    const resendResponse = await fetch("https://api.resend.com/emails", {
+    if (!RESEND_API_KEY) {
+      return new Response("Missing RESEND_API_KEY", { status: 500 });
+    }
+
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${resendApiKey}`,
+        Authorization: `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: fromEmail,
-        to: [email],
+        from: "TOTS-OS <welcome@tots-os.co.uk>",
+        to: email,
         subject: "Welcome to TOTS-OS 👋",
         html: `
-          <h1>Welcome to TOTS-OS 👋</h1>
+          <h1>Welcome 👋</h1>
           <p>You’ve successfully joined the newsletter.</p>
         `,
       }),
     });
 
-    if (!resendResponse.ok) {
-      const resendText = await resendResponse.text();
-      return new Response(`Resend error: ${resendText}`, { status: 502 });
-    }
+    const data = await res.text();
 
-    return new Response("ok");
-  } catch (err: unknown) {
+    return new Response(data, {
+      status: res.status,
+    });
+  } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return new Response("Error: " + message, { status: 500 });
+
+    return new Response(
+      JSON.stringify({ error: message }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 });

@@ -121,97 +121,46 @@ export default function Footer() {
     if (!normalizedEmail) return;
 
     try {
-      // Get current user (needed to resolve organisation)
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        console.warn("No authenticated user found for newsletter signup.");
-        return;
-      }
-
-      // Get user's organisation
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      const organisationId = profile?.organisation_id;
-
-      if (!organisationId) {
-        console.warn("No organisation found for user.");
-        return;
-      }
-
-      // Resolve newsletter list, or create it if it does not exist yet.
-      const { data: existingList, error: existingListError } = await supabase
+      // Find newsletter list (PUBLIC signup - no auth required)
+      const { data: list, error: listError } = await supabase
         .from("subscriber_lists")
-        .select("id")
+        .select("id, organisation_id")
         .ilike("name", "newsletter")
-        .eq("organisation_id", organisationId)
         .limit(1)
         .maybeSingle();
 
-      if (existingListError) {
-        console.error("Failed loading newsletter list:", existingListError.message);
+      if (listError || !list?.id) {
+        console.error("Newsletter list not found:", listError?.message);
         return;
       }
 
-      let listId = existingList?.id as string | undefined;
-
-      if (!listId) {
-        const { data: createdList, error: createListError } = await supabase
-          .from("subscriber_lists")
-          .insert({
-            name: "Newsletter",
-            organisation_id: organisationId,
-          })
-          .select("id")
-          .single();
-
-        if (createListError) {
-          // Handle race conditions where another request creates the list first.
-          const { data: retryList, error: retryError } = await supabase
-            .from("subscriber_lists")
-            .select("id")
-            .ilike("name", "newsletter")
-            .eq("organisation_id", organisationId)
-            .limit(1)
-            .maybeSingle();
-
-          if (retryError || !retryList?.id) {
-            console.error("Newsletter list not available:", createListError.message);
-            return;
-          }
-
-          listId = retryList.id;
-        } else {
-          listId = createdList?.id;
-        }
-      }
-
-      if (!listId) {
-        console.error("Newsletter list not available for this organisation.");
-        return;
-      }
-
-      // Insert subscriber into correct list
+      // Insert subscriber
       const { error: insertError } = await supabase.from("subscribers").insert({
         email: normalizedEmail,
-        list_id: listId,
-        organisation_id: organisationId,
+        list_id: list.id,
+        organisation_id: list.organisation_id ?? null,
         status: "subscribed",
       });
 
       if (insertError) {
         if (insertError.code === "23505") {
-          // Already subscribed to this list.
+          // already subscribed
           setEmail("");
           setOpen(false);
           return;
         }
+
         console.error("Newsletter signup failed:", insertError.message);
         return;
+      }
+
+      // Trigger welcome email via Edge Function (best-effort)
+      try {
+        await supabase.functions.invoke("send-welcome-email", {
+          body: { email: normalizedEmail },
+        });
+      } catch (err) {
+        console.error("Welcome email failed:", err);
       }
 
       console.log("Subscribed to newsletter:", normalizedEmail);

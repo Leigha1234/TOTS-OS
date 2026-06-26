@@ -97,7 +97,7 @@ type NoteAttachment = {
 function getNoteAttachmentUrl(attachment: NoteAttachment) {
   if (attachment.file_path) {
     return supabase.storage
-      .from("note-attachments")
+      .from("note_attachments")
       .getPublicUrl(attachment.file_path).data.publicUrl;
   }
 
@@ -333,7 +333,7 @@ default:
 
     for (const file of uploads) {
       const { data, error: uploadError } = await supabase.storage
-        .from("note-attachments")
+        .from("note_attachments")
         .upload(`${noteId}/${file.name}`, file);
 
       if (uploadError) {

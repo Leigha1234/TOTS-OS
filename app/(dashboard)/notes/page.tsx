@@ -332,9 +332,12 @@ default:
     const createdAttachments: NoteAttachment[] = [];
 
     for (const file of uploads) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const uploadPath = `${noteId}/${Date.now()}-${safeName}`;
+
       const { data, error: uploadError } = await supabase.storage
         .from("notes-attachments")
-        .upload(`${noteId}/${file.name}`, file);
+        .upload(uploadPath, file);
 
       if (uploadError) {
         throw new Error(uploadError.message || `Failed to upload ${file.name}`);
@@ -346,22 +349,38 @@ default:
         throw new Error(`Upload returned no path for ${file.name}`);
       }
 
-      const { data: attachmentRecord, error: insertError } = await supabase
-        .from("note_attachments")
-        .insert({
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Unable to authenticate attachment save");
+      }
+
+      const attachmentResponse = await fetch("/api/note-attachments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
           note_id: noteId,
           file_name: file.name,
           file_path: filePath,
           file_type: file.type || null,
           file_size: file.size,
           user_id: userId,
-        })
-        .select("*")
-        .single();
+        }),
+      });
 
-      if (insertError) {
-        throw new Error(insertError.message || `Failed to save attachment ${file.name}`);
+      const attachmentBody = await attachmentResponse.json().catch(() => null);
+
+      if (!attachmentResponse.ok) {
+        throw new Error(
+          attachmentBody?.error || `Failed to save attachment ${file.name}`
+        );
       }
+
+      const attachmentRecord = attachmentBody?.data;
 
       if (attachmentRecord) {
         createdAttachments.push(attachmentRecord as NoteAttachment);
@@ -950,7 +969,12 @@ const userId = user.id;
       }
 
       if (pendingAttachments.length > 0) {
-        await uploadAttachmentsForNote(insertedNote.id, pendingAttachments, user.id);
+        try {
+          await uploadAttachmentsForNote(insertedNote.id, pendingAttachments, user.id);
+        } catch (attachmentError) {
+          console.warn("Attachment upload skipped:", attachmentError);
+          toast.error("Note saved, but one or more attachments failed to upload.");
+        }
       }
 
       const normalizedNote = {

@@ -1,64 +1,3 @@
-async function submit() {
-  if (!email) return;
-
-  try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.warn("No authenticated user found for newsletter signup.");
-      return;
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error("Profile fetch error:", profileError.message);
-      return;
-    }
-
-    const organisationId = profile?.organisation_id;
-
-    if (!organisationId) {
-      console.warn("No organisation found for user.");
-      return;
-    }
-
-    const { data: list, error: listError } = await supabase
-      .from("subscriber_lists")
-      .select("id")
-      .eq("name", "newsletter")
-      .eq("organisation_id", organisationId)
-      .maybeSingle();
-
-    if (listError || !list?.id) {
-      console.error("Newsletter list not found for organisation.");
-      return;
-    }
-
-    const { error: insertError } = await supabase.from("subscribers").insert({
-      email,
-      list_id: list.id,
-      organisation_id: organisationId,
-      status: "subscribed",
-    });
-
-    if (insertError) {
-      console.error("Newsletter signup failed:", insertError.message);
-      return;
-    }
-
-    console.log("Subscribed to newsletter:", email);
-
-    setEmail("");
-    setOpen(false);
-  } catch (err) {
-    console.error("Unexpected newsletter signup error:", err);
-  }
-}
 "use client";
 
 import { useEffect, useState } from "react";
@@ -266,8 +205,8 @@ export default function Footer() {
 
       <footer className="mt-24">
         <div className="flex flex-wrap gap-2">
-          {footerLinks.map((item) => (
-            <Link key={item.title} href={item.href}>
+          {footerLinks.map((item, idx) => (
+            <Link key={`${item.title}-${item.href}-${idx}`} href={item.href}>
               {item.title}
             </Link>
           ))}

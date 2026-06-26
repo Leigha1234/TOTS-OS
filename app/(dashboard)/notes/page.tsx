@@ -95,13 +95,18 @@ type NoteAttachment = {
 };
 
 function getNoteAttachmentUrl(attachment: NoteAttachment) {
-  if (attachment.file_path) {
-    return supabase.storage
-      .from("notes-attachments")
-      .getPublicUrl(attachment.file_path).data.publicUrl;
-  }
+  if (attachment.file_url) return attachment.file_url;
+  if (!attachment.file_path) return "";
 
-  return attachment.file_url || "#";
+  try {
+    const { data } = supabase.storage
+      .from("notes-attachments")
+      .getPublicUrl(attachment.file_path);
+
+    return data?.publicUrl || "";
+  } catch {
+    return "";
+  }
 }
 
 function isImageAttachment(attachment: NoteAttachment) {
@@ -313,15 +318,15 @@ default:
       }
 
       const attachmentMap: Record<string, NoteAttachment[]> = {};
-
       safeNotes.forEach((note: any) => {
         attachmentMap[note.id] = normalizeAttachments(note.attachments).map((attachment) => ({
           ...attachment,
-          note_id: note.id,
+          note_id: attachment.note_id || note.id,
         }));
       });
 
       setAttachmentsByNoteId(attachmentMap);
+
       
     } else {
       setComments([]);
@@ -344,6 +349,16 @@ default:
     }
 
     const createdAttachments: NoteAttachment[] = [];
+    const normalizedCurrent = normalizeAttachments(currentAttachments).map((attachment) => ({
+      ...attachment,
+      note_id: attachment.note_id || noteId,
+    }));
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
+    if (!accessToken) {
+      throw new Error("Unable to authenticate attachment update");
+    }
 
     for (const file of uploads) {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -363,51 +378,27 @@ default:
         throw new Error(`Upload returned no path for ${file.name}`);
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      const { data: publicUrlData } = supabase.storage
+        .from("notes-attachments")
+        .getPublicUrl(filePath);
 
-      if (!accessToken) {
-        throw new Error("Unable to authenticate attachment save");
-      }
-
-      const attachmentResponse = await fetch("/api/note-attachments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          note_id: noteId,
-          file_name: file.name,
-          file_path: filePath,
-          file_type: file.type || null,
-          file_size: file.size,
-          user_id: userId,
-        }),
+      createdAttachments.push({
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${noteId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        note_id: noteId,
+        file_name: file.name,
+        file_path: filePath,
+        file_url: publicUrlData?.publicUrl || null,
+        file_type: file.type || null,
+        file_size: file.size,
+        user_id: userId,
+        created_at: new Date().toISOString(),
       });
-
-      const attachmentBody = await attachmentResponse.json().catch(() => null);
-
-      if (!attachmentResponse.ok) {
-        throw new Error(
-          attachmentBody?.error || `Failed to save attachment ${file.name}`
-        );
-      }
-
-      const attachmentRecord = attachmentBody?.data;
-
-      if (attachmentRecord) {
-        createdAttachments.push(attachmentRecord as NoteAttachment);
-      }
     }
 
-    const mergedAttachments = [...currentAttachments, ...createdAttachments];
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-
-    if (!accessToken) {
-      throw new Error("Unable to authenticate attachment update");
-    }
+    const mergedAttachments = [...normalizedCurrent, ...createdAttachments];
 
     const updateResponse = await fetch("/api/notes", {
       method: "PUT",
@@ -427,6 +418,7 @@ default:
     if (!updateResponse.ok) {
       throw new Error(updateBody?.error || "Failed to update note attachments");
     }
+
 
     setAttachmentsByNoteId(prev => ({
       ...prev,
@@ -1711,7 +1703,7 @@ const regularNotes = filteredNotes.filter(
               note={notes.find((n: any) => n.id === expandedNote)}
               teamMembers={teamMembers}
               projectsList={projectsList}
-              attachments={attachmentsByNoteId}
+              attachmentsByNoteId={attachmentsByNoteId}
               commentsByNoteId={commentsByNoteId.current}
               reactions={reactions}
               addComment={addComment}
@@ -2008,7 +2000,7 @@ const NoteModal = ({
   note,
   teamMembers,
   projectsList,
-  attachments,
+  attachmentsByNoteId,
   commentsByNoteId,
   reactions,
   addComment,
@@ -2099,7 +2091,9 @@ const NoteModal = ({
   const presentMembers = teamMembers?.filter((m: any) => presentIds.includes(m.id)) || [];
 
   const noteComments = (commentsByNoteId?.[note.id] || []);
-  const noteAttachments = (attachments?.[note.id] || []) as NoteAttachment[];
+  const noteAttachments = useMemo(() => {
+    return attachmentsByNoteId?.[note.id]?.filter((a: NoteAttachment) => a.file_path || a.file_url) || [];
+  }, [attachmentsByNoteId, note.id]);
 
   const opsFeed = (noteOps?.[note.id] || []).slice(-20).map((op: any, idx: number) => ({
     id: `op-${idx}`,
@@ -2271,7 +2265,7 @@ const NoteModal = ({
 
           <div className="space-y-2 max-h-40 overflow-y-auto">
             {noteAttachments.length > 0 ? (
-              noteAttachments.map((attachment) => (
+              noteAttachments.map((attachment: NoteAttachment) => (
                 <div key={attachment.id} className="rounded-lg bg-stone-50 p-3 space-y-2">
                   {isImageAttachment(attachment) ? (
                     <a href={getNoteAttachmentUrl(attachment)} target="_blank" rel="noreferrer">

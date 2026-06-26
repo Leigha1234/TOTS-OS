@@ -282,6 +282,20 @@ function useCampaigns(supabase: any) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.warn("Profile org lookup error:", profileError);
+      }
+
+      if (profile?.organisation_id) {
+        setOrganisationId(profile.organisation_id);
+      }
+
       const { data: team, error: teamError } = await supabase
         .from("team")
         .select("organisation_id, company_name, name")
@@ -291,9 +305,11 @@ function useCampaigns(supabase: any) {
       console.log("Team record:", team);
       console.log("Team error:", teamError);
 
-      if (team?.organisation_id) {
-        setCompanyName(team.company_name || team.name || "Your Company");
-        setOrganisationId(team.organisation_id);
+      if (team?.organisation_id || profile?.organisation_id) {
+        setCompanyName(team?.company_name || team?.name || "Your Company");
+        if (!profile?.organisation_id && team?.organisation_id) {
+          setOrganisationId(team.organisation_id);
+        }
       }
     };
 
@@ -329,12 +345,12 @@ function useCampaigns(supabase: any) {
     if (!organisationId) {
       console.error("Missing organisationId");
       alert("Organisation not loaded yet");
-      return;
+      return false;
     }
 
     if (!trimmed) {
       alert("List name cannot be empty");
-      return;
+      return false;
     }
 
     const { data, error } = await supabase
@@ -349,11 +365,12 @@ function useCampaigns(supabase: any) {
     if (error) {
       console.error("createList error:", error);
       alert(error.message || "Failed to create list");
-      return;
+      return false;
     }
 
     // update UI immediately without refetch
     setLists(prev => [...prev, data]);
+    return true;
   };
 
   const scheduleCampaign = async (form: any) => {
@@ -632,6 +649,7 @@ export default function CampaignsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+  const [campaignCompanyDetails, setCampaignCompanyDetails] = useState("");
 
   const sendCampaignNow = async (campaignId: string) => {
     // 1. Optimistic UI update
@@ -711,6 +729,13 @@ export default function CampaignsPage() {
   });
   const [showEmailPreview, setShowEmailPreview] = useState(false);
 
+  const withCompanyDetails = (content: string) => {
+    const details = campaignCompanyDetails.trim();
+    if (!details) return content;
+    if ((content || "").includes(details)) return content;
+    return `${content || ""}\n\n---\n${companyName}\n${details}`.trim();
+  };
+
   // AI generation helper
   const executeGeneration = () => {
     if (!clarityTopic) return;
@@ -763,6 +788,7 @@ export default function CampaignsPage() {
               scheduled_for: "",
               content: ""
             });
+            setCampaignCompanyDetails("");
             setShowModal(true);
           }}
           className="bg-stone-900 text-[var(--brand-primary)] w-full md:w-auto px-8 py-4 md:py-5 rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 shadow-xl hover:brightness-110 transition-all"
@@ -1008,7 +1034,8 @@ export default function CampaignsPage() {
                 <div className="flex gap-3">
                     <button
                       onClick={async () => {
-                        await createList(newListName);
+                        const created = await createList(newListName);
+                        if (!created) return;
                         setNewListName("");
                         setShowListModal(false);
                       }}
@@ -1044,6 +1071,16 @@ export default function CampaignsPage() {
                 <div className="mb-4 p-4 bg-white border border-stone-100 rounded-2xl">
                   <p className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-1">Company Name</p>
                   <p className="text-xs font-bold text-stone-800 uppercase tracking-tight truncate">{companyName}</p>
+                </div>
+
+                <div className="p-4 bg-white border border-stone-100 rounded-2xl">
+                  <label className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-1 block">Company Details</label>
+                  <textarea
+                    value={campaignCompanyDetails}
+                    onChange={(e) => setCampaignCompanyDetails(e.target.value)}
+                    placeholder="Address, registration info, contact details..."
+                    className="w-full p-3 min-h-[90px] bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
+                  />
                 </div>
               </div>
 
@@ -1104,6 +1141,9 @@ export default function CampaignsPage() {
                       {/* DYNAMIC FOOTER */}
                       <footer className="mt-16 pt-12 border-t border-stone-900/10 text-center">
                          <p className="text-[11px] font-black uppercase tracking-[0.5em] mb-3 text-stone-900">{companyName}</p>
+                         {campaignCompanyDetails && (
+                          <p className="text-[10px] text-stone-500 whitespace-pre-wrap mb-3">{campaignCompanyDetails}</p>
+                         )}
                          <p className="text-[8px] text-stone-400 uppercase tracking-[0.3em] font-medium italic">Powered by TOTS-OS</p>
                       </footer>
                     </div>
@@ -1158,10 +1198,15 @@ export default function CampaignsPage() {
                             return;
                           }
 
+                          const payload = {
+                            ...form,
+                            content: withCompanyDetails(form.content),
+                          };
+
                           if (editingCampaignId) {
-                            await updateCampaign(form, editingCampaignId);
+                            await updateCampaign(payload, editingCampaignId);
                           } else {
-                            await scheduleCampaign(form);
+                            await scheduleCampaign(payload);
                           }
 
                           setEditingCampaignId(null);

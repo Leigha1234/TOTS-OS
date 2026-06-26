@@ -40,7 +40,7 @@ export default function AccountProfilePage() {
   const [contact, setContact] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<"info" | "tasks" | "email" | "overview">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "tasks" | "email" | "timeline">("info");
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [threads, setThreads] = useState<any[]>([]);
@@ -99,6 +99,7 @@ export default function AccountProfilePage() {
 
   const [notes, setNotes] = useState<any[]>([]);
   const [noteForm, setNoteForm] = useState({ type: "internal", content: "" });
+  const [timelineEntry, setTimelineEntry] = useState("");
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
@@ -439,11 +440,18 @@ export default function AccountProfilePage() {
   const handleUpdate = async () => {
     setIsSaving(true);
 
-    const { error } = await supabase
+    const orgScope = organisationId || contact?.organisation_id || null;
+
+    let updateQuery = supabase
       .from("contacts")
       .update(editForm)
-      .eq("id", contactId)
-      .eq("organisation_id", organisationId);
+      .eq("id", contactId);
+
+    if (orgScope) {
+      updateQuery = updateQuery.eq("organisation_id", orgScope);
+    }
+
+    const { data, error } = await updateQuery.select("*").maybeSingle();
 
     if (error) {
       console.error("Contact update error:", error);
@@ -452,7 +460,13 @@ export default function AccountProfilePage() {
       return;
     }
 
-    setContact({ ...contact, ...editForm });
+    if (!data) {
+      alert("No contact record was updated. Please refresh and try again.");
+      setIsSaving(false);
+      return;
+    }
+
+    setContact(data);
     setIsEditing(false);
 
     setIsSaving(false);
@@ -1055,8 +1069,52 @@ export default function AccountProfilePage() {
         )}
 
         {/* TIMELINE */}
-        {activeTab === "overview" && (
+        {activeTab === "timeline" && (
           <div className="space-y-6">
+
+            <div className="bg-white/90 backdrop-blur p-4 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-stone-400 mb-4">
+                Add Timeline Entry
+              </h3>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!timelineEntry.trim() || !contactId || !organisationId) return;
+
+                  const { data, error } = await supabase
+                    .from("notes")
+                    .insert({
+                      contact_id: contactId,
+                      organisation_id: organisationId,
+                      type: "timeline",
+                      content: timelineEntry.trim(),
+                    })
+                    .select()
+                    .single();
+
+                  if (error) {
+                    console.error("Timeline entry error:", error);
+                    alert(error.message || "Failed to add timeline entry");
+                    return;
+                  }
+
+                  setNotes((prev) => [data, ...prev]);
+                  setTimelineEntry("");
+                }}
+                className="space-y-3"
+              >
+                <textarea
+                  className="w-full p-3 border rounded-xl bg-[#faf9f6]"
+                  placeholder="Add a timeline update..."
+                  value={timelineEntry}
+                  onChange={(e) => setTimelineEntry(e.target.value)}
+                />
+                <button className="px-4 py-2 bg-[#a9b897] text-white rounded-xl text-xs hover:opacity-90 transition">
+                  Add to Timeline
+                </button>
+              </form>
+            </div>
 
             {/* HEALTH SCORE */}
             <div className="bg-white/90 backdrop-blur p-4 lg:p-8 rounded-[1.5rem] lg:rounded-[2rem] border border-stone-200 shadow-sm">

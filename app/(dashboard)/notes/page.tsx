@@ -86,11 +86,23 @@ type NoteAttachment = {
   id: string;
   note_id: string;
   file_name: string | null;
-  file_url: string;
+  file_path?: string | null;
+  file_url?: string | null;
   file_type: string | null;
   file_size: number | null;
+  user_id?: string | null;
   created_at: string | null;
 };
+
+function getNoteAttachmentUrl(attachment: NoteAttachment) {
+  if (attachment.file_path) {
+    return supabase.storage
+      .from("note-attachments")
+      .getPublicUrl(attachment.file_path).data.publicUrl;
+  }
+
+  return attachment.file_url || "#";
+}
 
 function VaultContent() {
   const orgIdRef = useRef<string | null>(null);
@@ -311,36 +323,38 @@ default:
   }
 }, []);
 
-  const uploadAttachmentsForNote = useCallback(async (noteId: string, files: File[], orgId: string) => {
+  const uploadAttachmentsForNote = useCallback(async (noteId: string, files: File[], userId: string) => {
     const uploads = files.filter(Boolean);
-    if (!noteId || !orgId || uploads.length === 0) {
+    if (!noteId || !userId || uploads.length === 0) {
       return [] as NoteAttachment[];
     }
 
     const createdAttachments: NoteAttachment[] = [];
 
     for (const file of uploads) {
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const path = `note-attachments/${orgId}/${noteId}/${Date.now()}-${safeName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("vault")
-        .upload(path, file, { upsert: false });
+      const { data, error: uploadError } = await supabase.storage
+        .from("note-attachments")
+        .upload(`${noteId}/${file.name}`, file);
 
       if (uploadError) {
         throw new Error(uploadError.message || `Failed to upload ${file.name}`);
       }
 
-      const { data: publicData } = supabase.storage.from("vault").getPublicUrl(path);
+      const filePath = data?.path;
+
+      if (!filePath) {
+        throw new Error(`Upload returned no path for ${file.name}`);
+      }
 
       const { data: attachmentRecord, error: insertError } = await supabase
         .from("note_attachments")
         .insert({
           note_id: noteId,
           file_name: file.name,
-          file_url: publicData.publicUrl,
+          file_path: filePath,
           file_type: file.type || null,
           file_size: file.size,
+          user_id: userId,
         })
         .select("*")
         .single();
@@ -936,7 +950,7 @@ const userId = user.id;
       }
 
       if (pendingAttachments.length > 0) {
-        await uploadAttachmentsForNote(insertedNote.id, pendingAttachments, orgId);
+        await uploadAttachmentsForNote(insertedNote.id, pendingAttachments, user.id);
       }
 
       const normalizedNote = {
@@ -1011,21 +1025,19 @@ setNotes(prev => [
   };
 
   const addAttachmentsToExistingNote = useCallback(async (noteId: string, files: File[]) => {
-    const orgId = orgIdRef.current;
-
-    if (!noteId || !orgId) {
-      toast.error("Missing organisation context");
+    if (!noteId || !user?.id) {
+      toast.error("Missing user context");
       return false;
     }
 
     try {
-      await uploadAttachmentsForNote(noteId, files, orgId);
+      await uploadAttachmentsForNote(noteId, files, user.id);
       return true;
     } catch (err: any) {
       toast.error(err?.message || "Failed to upload attachment");
       return false;
     }
-  }, [uploadAttachmentsForNote]);
+  }, [uploadAttachmentsForNote, user?.id]);
 
   const updateNoteStatus = async (id: string, nextStatus: string) => {
     if (!id || !nextStatus) {
@@ -2197,7 +2209,7 @@ const NoteModal = ({
               noteAttachments.map((attachment) => (
                 <a
                   key={attachment.id}
-                  href={attachment.file_url}
+                  href={getNoteAttachmentUrl(attachment)}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2 text-[11px] text-stone-700 hover:bg-stone-100"

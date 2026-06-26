@@ -349,14 +349,15 @@ export default function AccountProfilePage() {
   };
 
   const fetchTimelineEntries = async () => {
-    if (!contactId || !organisationId) return;
+    const orgScope = organisationId || contact?.organisation_id || null;
+    if (!contactId || !orgScope) return;
 
     try {
       const { data, error } = await supabase
         .from("contact_timeline")
         .select("*")
         .eq("contact_id", contactId)
-        .eq("organisation_id", organisationId)
+        .eq("organisation_id", orgScope)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -386,6 +387,12 @@ export default function AccountProfilePage() {
       fetchProjects();
     }
   }, [contactId, organisationId]);
+
+  useEffect(() => {
+    if (contactId && (organisationId || contact?.organisation_id)) {
+      fetchTimelineEntries();
+    }
+  }, [contactId, organisationId, contact?.organisation_id]);
 
   useEffect(() => {
     if (threads.length && !activeThread) {
@@ -1112,13 +1119,23 @@ export default function AccountProfilePage() {
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  if (!timelineEntry.trim() || !contactId || !organisationId) return;
+                  const orgScope = organisationId || contact?.organisation_id || null;
+
+                  if (!timelineEntry.trim()) {
+                    alert("Please enter timeline content before saving.");
+                    return;
+                  }
+
+                  if (!contactId || !orgScope) {
+                    alert("Missing contact or organisation context. Refresh and try again.");
+                    return;
+                  }
 
                   const { data, error } = await supabase
                     .from("contact_timeline")
                     .insert({
                       contact_id: contactId,
-                      organisation_id: organisationId,
+                      organisation_id: orgScope,
                       type: "timeline",
                       title: "Manual timeline update",
                       content: timelineEntry.trim(),

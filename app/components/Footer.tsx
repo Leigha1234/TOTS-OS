@@ -125,7 +125,7 @@ export default function Footer() {
     if (!email) return;
 
     try {
-      // Find the newsletter list (public signup - no auth required)
+      // Find newsletter list (public signup - no auth required)
       const { data: list, error: listError } = await supabase
         .from("subscriber_lists")
         .select("id, organisation_id")
@@ -137,7 +137,7 @@ export default function Footer() {
         return;
       }
 
-      // Insert subscriber without requiring authentication
+      // Insert subscriber into correct list
       const { error: insertError } = await supabase.from("subscribers").insert({
         email,
         list_id: list.id,

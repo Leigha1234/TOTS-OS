@@ -929,93 +929,119 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
       return;
     }
 
-    if (!user?.id) {
-      toast.error("You must be logged in");
-      return;
-    }
     setIsSyncing(true);
-    const theme =
-  STICKY_THEMES[user.id.charCodeAt(0) % STICKY_THEMES.length];
 
     try {
-      const { data: profileData, error: profileError } = await supabase
+      const {
+        data: { user: authUser }
+      } = await supabase.auth.getUser();
+
+      if (!authUser) return;
+
+      const userId = authUser.id;
+      const theme = STICKY_THEMES[userId.charCodeAt(0) % STICKY_THEMES.length];
+
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organisation_id")
-        .eq("id", user.id)
-        .maybeSingle();
+        .eq("id", userId)
+        .single();
 
       if (profileError) {
-        console.error("Profile fetch error (create note):", JSON.stringify(profileError));
+        throw new Error(profileError.message || "Failed to resolve organisation");
       }
 
-const orgId = orgIdRef.current;
-const userId = user.id;
+      const organisationId = profile?.organisation_id;
 
-      if (!orgId || !userId) {
-        console.error("Missing organisation_id or user_id during note creation:", user.id, profileData);
-        toast.error("Your account is missing an organisation or user ID. Please refresh or contact support.");
-        setIsSyncing(false);
-        return;
+      if (!organisationId) {
+        throw new Error("Missing organisation_id");
       }
 
-     const notePayload = {
-  content,
-  title: title || null,
-  user_id: user.id,
-  organisation_id: orgId,
-  color: isUrgent ? "#4f4a46" : (selectedColor || theme.bg),
-  category: tag || "General",
-  project: project || null,
-  assigned_to: assignedTo.length > 0 ? assignedTo : null,
-  due_date: isReminder && reminderDateTime ? reminderDateTime : null,
-  is_reminder: isReminder,
-  status,
-  type: status === "todo" ? "task" : "note",
-  is_urgent: isUrgent,
-  visibility,
-};
+      const attachments: NoteAttachment[] = [];
+      for (const file of pendingAttachments) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const uploadPath = `${userId}/${Date.now()}-${safeName}`;
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !sessionData?.session?.access_token) {
-        throw new Error("Unable to authenticate request. Please sign in again.");
+        const { data, error: uploadError } = await supabase.storage
+          .from("notes-attachments")
+          .upload(uploadPath, file);
+
+        if (uploadError) {
+          throw new Error(uploadError.message || `Failed to upload ${file.name}`);
+        }
+
+        const filePath = data?.path;
+        if (!filePath) {
+          throw new Error(`Upload returned no path for ${file.name}`);
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("notes-attachments")
+          .getPublicUrl(filePath);
+
+        attachments.push({
+          id:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          note_id: "",
+          file_name: file.name,
+          file_path: filePath,
+          file_url: publicUrlData?.publicUrl || null,
+          file_type: file.type || null,
+          file_size: file.size,
+          user_id: userId,
+          created_at: new Date().toISOString(),
+        });
       }
 
-      const response = await fetch("/api/notes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify(notePayload)
-      });
+      const { data: insertedNote, error: insertError } = await supabase
+        .from("notes")
+        .insert({
+          user_id: userId,
+          organisation_id: organisationId,
+          content,
+          attachments,
+          title: title || null,
+          color: isUrgent ? "#4f4a46" : (selectedColor || theme.bg),
+          category: tag || "General",
+          project: project || null,
+          assigned_to: assignedTo.length > 0 ? assignedTo : null,
+          due_date: isReminder && reminderDateTime ? reminderDateTime : null,
+          is_reminder: isReminder,
+          status,
+          type: status === "todo" ? "task" : "note",
+          is_urgent: isUrgent,
+          visibility,
+        })
+        .select("*")
+        .single();
 
-      const responseBody = await response.json();
-
-      if (!response.ok || responseBody.error) {
-        console.error("Notes API create error:", responseBody);
-        throw new Error(responseBody.error || "Note creation failed");
+      if (insertError) {
+        throw new Error(insertError.message || "Note creation failed");
       }
 
-      const insertedNote = responseBody.data;
       if (!insertedNote) {
         throw new Error("No note returned from API");
       }
 
-      if (pendingAttachments.length > 0) {
-        try {
-          await uploadAttachmentsForNote(insertedNote.id, pendingAttachments, user.id, []);
-        } catch (attachmentError) {
-          console.warn("Attachment upload skipped:", attachmentError);
-          toast.error("Note saved, but one or more attachments failed to upload.");
-        }
-      }
+      const normalizedAttachments = normalizeAttachments(insertedNote.attachments ?? attachments).map((attachment) => ({
+        ...attachment,
+        note_id: attachment.note_id || insertedNote.id,
+      }));
+
+      setAttachmentsByNoteId((prev) => ({
+        ...prev,
+        [insertedNote.id]: normalizedAttachments,
+      }));
 
       const normalizedNote = {
-  ...insertedNote,
-  user_id: insertedNote.user_id ?? user.id,
-  organisation_id: insertedNote.organisation_id ?? orgId,
-  visibility: insertedNote.visibility ?? visibility,
-};
+        ...insertedNote,
+        user_id: insertedNote.user_id ?? userId,
+        organisation_id: insertedNote.organisation_id ?? organisationId,
+        visibility: insertedNote.visibility ?? visibility,
+        attachments: normalizedAttachments,
+      };
 
       if (tag.trim()) {
         setTagColorMap(prev => ({
@@ -1024,13 +1050,13 @@ const userId = user.id;
         }));
       }
 
-setNotes(prev => [
-  {
-    ...normalizedNote,
-    type: normalizedNote.type ?? (normalizedNote.status === "todo" ? "task" : "note"),
-  },
-  ...prev
-]);
+      setNotes(prev => [
+        {
+          ...normalizedNote,
+          type: normalizedNote.type ?? (normalizedNote.status === "todo" ? "task" : "note"),
+        },
+        ...prev
+      ]);
 
       if (normalizedNote.project) {
   setProjectsList(prev => {
@@ -1063,9 +1089,12 @@ setNotes(prev => [
       setShowModal(false);
       setSelectedColor(null);
       
+      orgIdRef.current = organisationId;
+      setOrganisationId(organisationId);
+
       const currentOrgId = orgIdRef.current ?? organisationId;
       if (currentOrgId) {
-        await fetchNotes(currentOrgId, user.id);
+        await fetchNotes(currentOrgId, userId);
       }
       toast.success("Note pinned to desk.");
      } catch (e) {

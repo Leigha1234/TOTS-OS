@@ -125,11 +125,34 @@ export default function Footer() {
     if (!email) return;
 
     try {
-      // Find newsletter list (public signup - no auth required)
+      // Get current user (needed to resolve organisation)
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.warn("No authenticated user found for newsletter signup.");
+        return;
+      }
+
+      // Get user's organisation
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const organisationId = profile?.organisation_id;
+
+      if (!organisationId) {
+        console.warn("No organisation found for user.");
+        return;
+      }
+
+      // Find newsletter list (case-insensitive + org-safe)
       const { data: list, error: listError } = await supabase
         .from("subscriber_lists")
         .select("id, organisation_id")
-        .eq("name", "newsletter")
+        .ilike("name", "newsletter")
+        .eq("organisation_id", organisationId)
         .maybeSingle();
 
       if (listError || !list?.id) {
@@ -141,7 +164,7 @@ export default function Footer() {
       const { error: insertError } = await supabase.from("subscribers").insert({
         email,
         list_id: list.id,
-        organisation_id: list.organisation_id ?? null,
+        organisation_id: organisationId,
         status: "subscribed",
       });
 

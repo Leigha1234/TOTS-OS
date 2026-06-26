@@ -284,12 +284,6 @@ default:
         .in("note_id", noteIds)
         .order("created_at", { ascending: true });
 
-      const { data: attachmentData, error: attachmentError } = await supabase
-        .from("note_attachments")
-        .select("*")
-        .in("note_id", noteIds)
-        .order("created_at", { ascending: true });
-
 
       if (commentData) {
         setComments(commentData);
@@ -304,18 +298,15 @@ default:
         commentsByNoteId.current = map;
       }
 
-      if (attachmentError) {
-        console.error("Attachment fetch error:", attachmentError);
-      } else {
-        const attachmentMap: Record<string, NoteAttachment[]> = {};
+      const attachmentMap: Record<string, NoteAttachment[]> = {};
 
-        (attachmentData || []).forEach((attachment: NoteAttachment) => {
-          if (!attachmentMap[attachment.note_id]) attachmentMap[attachment.note_id] = [];
-          attachmentMap[attachment.note_id].push(attachment);
-        });
+      (safeNotes || []).forEach((note: any) => {
+        if (Array.isArray(note.attachments) && note.attachments.length > 0) {
+          attachmentMap[note.id] = note.attachments as NoteAttachment[];
+        }
+      });
 
-        setAttachmentsByNoteId(attachmentMap);
-      }
+      setAttachmentsByNoteId(attachmentMap);
     } else {
       setComments([]);
       commentsByNoteId.current = {};
@@ -330,7 +321,7 @@ default:
   }
 }, []);
 
-  const uploadAttachmentsForNote = useCallback(async (noteId: string, files: File[], userId: string) => {
+  const uploadAttachmentsForNote = useCallback(async (noteId: string, files: File[], userId: string, currentAttachments: NoteAttachment[] = []) => {
     const uploads = files.filter(Boolean);
     if (!noteId || !userId || uploads.length === 0) {
       return [] as NoteAttachment[];
@@ -394,9 +385,36 @@ default:
       }
     }
 
+    const mergedAttachments = [...currentAttachments, ...createdAttachments];
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
+    if (!accessToken) {
+      throw new Error("Unable to authenticate attachment update");
+    }
+
+    const updateResponse = await fetch("/api/notes", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        id: noteId,
+        organisation_id: orgIdRef.current,
+        attachments: mergedAttachments,
+      }),
+    });
+
+    const updateBody = await updateResponse.json().catch(() => null);
+
+    if (!updateResponse.ok) {
+      throw new Error(updateBody?.error || "Failed to update note attachments");
+    }
+
     setAttachmentsByNoteId(prev => ({
       ...prev,
-      [noteId]: [...(prev[noteId] || []), ...createdAttachments],
+      [noteId]: mergedAttachments,
     }));
 
     return createdAttachments;
@@ -977,7 +995,7 @@ const userId = user.id;
 
       if (pendingAttachments.length > 0) {
         try {
-          await uploadAttachmentsForNote(insertedNote.id, pendingAttachments, user.id);
+          await uploadAttachmentsForNote(insertedNote.id, pendingAttachments, user.id, []);
         } catch (attachmentError) {
           console.warn("Attachment upload skipped:", attachmentError);
           toast.error("Note saved, but one or more attachments failed to upload.");
@@ -1062,13 +1080,13 @@ setNotes(prev => [
     }
 
     try {
-      await uploadAttachmentsForNote(noteId, files, user.id);
+      await uploadAttachmentsForNote(noteId, files, user.id, attachmentsByNoteId[noteId] || []);
       return true;
     } catch (err: any) {
       toast.error(err?.message || "Failed to upload attachment");
       return false;
     }
-  }, [uploadAttachmentsForNote, user?.id]);
+  }, [uploadAttachmentsForNote, user?.id, attachmentsByNoteId]);
 
   const updateNoteStatus = async (id: string, nextStatus: string) => {
     if (!id || !nextStatus) {

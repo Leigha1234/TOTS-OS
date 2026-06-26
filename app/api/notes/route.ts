@@ -74,6 +74,10 @@ export async function POST(req: NextRequest) {
       noteData.assigned_to = payload.assigned_to;
     }
 
+    if (payload.attachments !== undefined) {
+      noteData.attachments = payload.attachments;
+    }
+
     const { data, error } = await admin
       .from("notes")
       .insert([noteData])
@@ -151,6 +155,7 @@ export async function PUT(req: NextRequest) {
     if (payload.is_urgent !== undefined) updateData.is_urgent = payload.is_urgent;
     if (payload.visibility) updateData.visibility = payload.visibility;
     if (payload.assigned_to !== undefined) updateData.assigned_to = payload.assigned_to;
+    if (payload.attachments !== undefined) updateData.attachments = payload.attachments;
 
     const { data, error } = await admin
       .from("notes")

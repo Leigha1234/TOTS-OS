@@ -125,46 +125,32 @@ export default function Footer() {
     if (!email) return;
 
     try {
-      const { data: { user }, error: userError } =
-        await supabase.auth.getUser();
+      // Find the newsletter list (public signup - no auth required)
+      const { data: list, error: listError } = await supabase
+        .from("subscriber_lists")
+        .select("id, organisation_id")
+        .eq("name", "newsletter")
+        .maybeSingle();
 
-      if (userError || !user) {
-        console.warn("No authenticated user found for newsletter signup.");
+      if (listError || !list?.id) {
+        console.error("Newsletter list not found:", listError?.message);
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (profileError || !profile?.organisation_id) return;
-
-      const organisationId = profile.organisation_id;
-
-      const { data: list, error: listError } = await supabase
-        .from("subscriber_lists")
-        .select("id")
-        .eq("name", "newsletter")
-        .eq("organisation_id", organisationId)
-        .maybeSingle();
-
-      if (listError || !list?.id) return;
-
-      const { error: insertError } = await supabase
-        .from("subscribers")
-        .insert({
-          email,
-          list_id: list.id,
-          organisation_id: organisationId,
-          status: "subscribed",
-        });
+      // Insert subscriber without requiring authentication
+      const { error: insertError } = await supabase.from("subscribers").insert({
+        email,
+        list_id: list.id,
+        organisation_id: list.organisation_id ?? null,
+        status: "subscribed",
+      });
 
       if (insertError) {
         console.error("Newsletter signup failed:", insertError.message);
         return;
       }
+
+      console.log("Subscribed to newsletter:", email);
 
       setEmail("");
       setOpen(false);

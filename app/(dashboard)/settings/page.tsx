@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import React, { useState, useEffect, useRef, useCallback, type FormEvent, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { Loader2, Upload, Image as ImageIcon } from "lucide-react";
+import { Loader2, Upload, Image as ImageIcon, UserPlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useSettings } from "@/app/context/SettingsContext";
@@ -63,6 +63,7 @@ function SettingsInner() {
   const [allContacts, setAllContacts] = useState<TeamContactOption[]>([]);
   const [contactSearchQuery, setContactSearchQuery] = useState("");
   const [teamLoading, setTeamLoading] = useState(false);
+  const [addingContactId, setAddingContactId] = useState<string | null>(null);
   const connectedPlatformsRef = useRef<string[]>([]);
   const isOAuthProcessingRef = useRef(false);
 const [connectionHealth, setConnectionHealth] = useState<
@@ -587,6 +588,13 @@ const retryFailedPosts = async () => {
       if (!user) { router.push("/login"); return; }
       setCurrentUserId(user.id);
       setEmail(user.email || "");
+
+      // Restore logo from cache immediately so it never flashes blank on refresh
+      const cachedLogo = typeof window !== "undefined"
+        ? localStorage.getItem(`tots_logo_${user.id}`) || ""
+        : "";
+      if (cachedLogo) setLogoUrl(cachedLogo);
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
@@ -597,7 +605,18 @@ const retryFailedPosts = async () => {
         setUserName((profile.full_name || "OPERATOR").toUpperCase());
         setDisplayName(profile.full_name || "");
         setBio(profile.bio || "");
-        setLogoUrl(profile.logo_url || "");
+
+        // Always prefer DB value; keep cache in sync
+        const freshLogo = profile.logo_url || "";
+        setLogoUrl(freshLogo);
+        if (typeof window !== "undefined") {
+          if (freshLogo) {
+            localStorage.setItem(`tots_logo_${user.id}`, freshLogo);
+          } else {
+            localStorage.removeItem(`tots_logo_${user.id}`);
+          }
+        }
+
         setUserOrgId(profile.organisation_id ?? null);
 
         if (profile.organisation_id) {
@@ -872,6 +891,11 @@ const retryFailedPosts = async () => {
 
       setLogoUrl(body.publicUrl);
 
+      // Persist to localStorage so logo survives refresh before next DB load
+      if (typeof window !== "undefined" && currentUserId) {
+        localStorage.setItem(`tots_logo_${currentUserId}`, body.publicUrl);
+      }
+
       const { data: { user: logoUser } } = await supabase.auth.getUser();
       if (logoUser) {
         await supabase
@@ -934,6 +958,99 @@ const retryFailedPosts = async () => {
       return updated;
     });
     toast.success(`${key} disconnected`);
+  };
+
+  const handleAddContactToTeam = async (contact: TeamContactOption) => {
+    if (!userOrgId) {
+      toast.error("Organisation not loaded");
+      return;
+    }
+
+    const contactEmail = contact.email?.trim();
+    if (!contactEmail) {
+      toast.error("This contact has no email address");
+      return;
+    }
+
+    setAddingContactId(contact.id);
+    try {
+      // Find the profile matching this contact's email
+      const { data: matchedProfile, error: lookupError } = await supabase
+        .from("profiles")
+        .select("id, organisation_id")
+        .ilike("email", contactEmail)
+        .maybeSingle();
+
+      if (lookupError) throw lookupError;
+
+      if (!matchedProfile) {
+        toast.error("No account found for this email — they need to sign up first");
+        return;
+      }
+
+      // Add them to the current organisation
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ organisation_id: userOrgId })
+        .eq("id", matchedProfile.id);
+
+      if (updateError) throw updateError;
+
+      let autoGroupCount = 0;
+
+      // Auto-group: if contact has a company_name, find all contacts from same company
+      // and add their matching profiles to this organisation too
+      if (contact.company_name?.trim()) {
+        try {
+          const { data: sameCompanyContacts } = await supabase
+            .from("contacts")
+            .select("email, name")
+            .ilike("company_name", contact.company_name.trim());
+
+          const otherEmails = (sameCompanyContacts || [])
+            .map((c: any) => (c.email || "").trim().toLowerCase())
+            .filter((e: string) => Boolean(e) && e !== contactEmail.toLowerCase());
+
+          if (otherEmails.length > 0) {
+            // Look up profiles for each company colleague email
+            const { data: companyProfiles } = await supabase
+              .from("profiles")
+              .select("id, email, organisation_id")
+              .or(otherEmails.map((e: string) => `email.ilike.${e}`).join(","));
+
+            const profilesNotYetInOrg = (companyProfiles || []).filter(
+              (p: any) => p.organisation_id !== userOrgId
+            );
+
+            if (profilesNotYetInOrg.length > 0) {
+              const ids = profilesNotYetInOrg.map((p: any) => p.id);
+              await supabase
+                .from("profiles")
+                .update({ organisation_id: userOrgId })
+                .in("id", ids);
+              autoGroupCount = ids.length;
+            }
+          }
+        } catch (companyErr) {
+          console.warn("Company auto-group (non-fatal):", companyErr);
+        }
+      }
+
+      // Reload team to reflect new member
+      if (currentUserId && userOrgId) {
+        await loadOrganisationUsers(currentUserId, userOrgId);
+      }
+
+      const extraMsg = autoGroupCount > 0
+        ? ` (+${autoGroupCount} colleague${autoGroupCount > 1 ? "s" : ""} from ${contact.company_name} auto-added)`
+        : "";
+      toast.success(`${contact.name || contactEmail} added to team${extraMsg}`);
+    } catch (error: any) {
+      console.error("Add contact to team failed:", error);
+      toast.error(error?.message || "Failed to add to team");
+    } finally {
+      setAddingContactId(null);
+    }
   };
 
   const filteredContacts = allContacts.filter((person) => {
@@ -1134,12 +1251,24 @@ const retryFailedPosts = async () => {
                         ) : (
                           <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
                             {filteredContacts.slice(0, 100).map((contact) => (
-                              <div key={contact.id} className="px-3 py-2 bg-white border border-stone-200 rounded-xl">
-                                <span className="text-xs font-semibold text-stone-700">
+                              <div key={contact.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-white border border-stone-200 rounded-xl">
+                                <span className="text-xs font-semibold text-stone-700 truncate">
                                   {contact.name || "Unnamed contact"}
                                   {contact.email ? ` (${contact.email})` : ""}
                                   {contact.company_name ? ` — ${contact.company_name}` : ""}
                                 </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddContactToTeam(contact)}
+                                  disabled={addingContactId === contact.id || teamLoading}
+                                  title={contact.company_name ? `Add to team (auto-groups all ${contact.company_name} contacts)` : "Add to team"}
+                                  className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-900 text-white text-[10px] font-black uppercase tracking-wider disabled:opacity-40"
+                                >
+                                  {addingContactId === contact.id
+                                    ? <Loader2 size={11} className="animate-spin" />
+                                    : <UserPlus size={11} />}
+                                  {addingContactId === contact.id ? "Adding" : "Add"}
+                                </button>
                               </div>
                             ))}
                           </div>

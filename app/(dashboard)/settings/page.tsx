@@ -418,10 +418,7 @@ const loadTeamControlData = async (userId: string) => {
     if (contactsError) throw contactsError;
 
     const allContacts = (contactsData || []) as TeamContactOption[];
-    const availableForTeam = allContacts.filter((contact) => {
-      const emailValue = (contact.email || "").toLowerCase().trim();
-      return Boolean(emailValue) && !memberEmails.has(emailValue);
-    });
+    const availableForTeam = allContacts;
 
     if (!isMountedRef.current) return;
 
@@ -665,9 +662,11 @@ const retryFailedPosts = async () => {
         setLogoUrl(profile.logo_url || "");
         setUserOrgId(profile.organisation_id ?? null);
 
-        if (profile.organisation_id) {
-          await loadTeamControlData(user.id);
-        }
+        if (profile.organisation_id && user) {
+  setTimeout(() => {
+    loadTeamControlData(user.id);
+  }, 300);
+}
 
         // Prevent unsafe execution if component unmounted
         if (isMountedRef.current) {
@@ -936,6 +935,14 @@ const retryFailedPosts = async () => {
       }
 
       setLogoUrl(body.publicUrl);
+      const { data: { user } } = await supabase.auth.getUser();
+
+if (user) {
+  await supabase
+    .from("profiles")
+    .update({ logo_url: body.publicUrl })
+    .eq("id", user.id);
+}
       toast.success("Logo uploaded. Click Save Changes to persist.");
     } catch (error: any) {
       console.error("Logo upload failed:", error);
@@ -967,12 +974,12 @@ const retryFailedPosts = async () => {
     setAddingTeamMember(true);
     try {
       const { data: matchedProfile, error: profileLookupError } = await supabase
-        .from("profiles")
-        .select("id, email")
-        .ilike("email", selectedContactEmail)
-        .maybeSingle();
+  .from("profiles")
+  .select("id")
+  .eq("email", selectedContactEmail)
+  .maybeSingle();
 
-      if (profileLookupError) throw profileLookupError;
+if (profileLookupError) throw profileLookupError;
 
       if (matchedProfile?.id) {
         const { error } = await supabase.from("team_members").insert({
@@ -1056,9 +1063,10 @@ const retryFailedPosts = async () => {
   const selectablePeople = filteredAvailablePeople;
 
   const selectedContactStillVisible = selectablePeople.some((person) => person.id === selectedContactId);
-  const selectedContactValue = selectedContactStillVisible
-    ? selectedContactId
-    : (selectablePeople[0]?.id || "");
+  const selectedContactValue =
+  selectablePeople.find(p => p.id === selectedContactId)?.id ||
+  selectablePeople[0]?.id ||
+  "";
   return (
     <div className={`min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-3 sm:p-6 lg:p-12 max-w-[1500px] mx-auto overflow-x-hidden ${fontPreference === "serif-heavy" ? "font-serif" : "font-sans"}`}>
       <style jsx global>{`
@@ -1247,7 +1255,7 @@ const retryFailedPosts = async () => {
                       <button
                         type="button"
                         onClick={handleAddTeamMember}
-                        disabled={teamLoading || addingTeamMember || !selectedContactValue || selectablePeople.length === 0}
+                        disabled={teamLoading || addingTeamMember || !selectedContactValue}
                         className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold disabled:opacity-50"
                       >
                         {(teamLoading || addingTeamMember) && <Loader2 size={14} className="animate-spin" />}

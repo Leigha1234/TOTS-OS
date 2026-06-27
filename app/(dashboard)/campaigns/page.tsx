@@ -21,6 +21,7 @@ type Campaign = {
   sent_at?: string | null;
   sent_count?: number | null;
   open_count?: number | null;
+  click_count?: number | null;
   subscriber_lists?: {
     name: string | null;
   } | null;
@@ -232,6 +233,27 @@ function useCampaigns(supabase: any) {
     [supabase, organisationId]
   );
 
+  const loadClickCounts = async (campaignIds: string[]) => {
+    if (!campaignIds.length) return {} as Record<string, number>;
+
+    const { data, error } = await supabase
+      .from("campaign_clicks")
+      .select("campaign_id")
+      .in("campaign_id", campaignIds);
+
+    if (error || !data) {
+      console.error("loadClickCounts error:", error);
+      return {} as Record<string, number>;
+    }
+
+    const counts: Record<string, number> = {};
+    data.forEach((row: any) => {
+      counts[row.campaign_id] = (counts[row.campaign_id] || 0) + 1;
+    });
+
+    return counts;
+  };
+
   const refreshCampaigns = async () => {
     const now = Date.now();
 
@@ -258,8 +280,10 @@ function useCampaigns(supabase: any) {
       ts: now
     };
 
+    const incoming = data || [];
+    const clickCounts = await loadClickCounts(incoming.map((c: any) => c.id));
+
     setCampaigns(prev => {
-      const incoming = data || [];
 
       return incoming.map((c: any) => {
         const optimisticStatus = optimisticStatusRef.current[c.id];
@@ -267,11 +291,15 @@ function useCampaigns(supabase: any) {
         if (optimisticStatus) {
           return {
             ...c,
-            status: optimisticStatus
+            status: optimisticStatus,
+            click_count: clickCounts[c.id] || 0,
           };
         }
 
-        return c;
+        return {
+          ...c,
+          click_count: clickCounts[c.id] || 0,
+        };
       });
     });
   };
@@ -330,7 +358,13 @@ function useCampaigns(supabase: any) {
         service.subscriberCounts()
       ]);
 
-      setCampaigns(camps);
+      const clickCounts = await loadClickCounts((camps || []).map((c: any) => c.id));
+      setCampaigns(
+        (camps || []).map((c: any) => ({
+          ...c,
+          click_count: clickCounts[c.id] || 0,
+        }))
+      );
       setLists(listsData);
       setProfiles(profilesData);
       setSubscriberCounts(counts);
@@ -573,7 +607,6 @@ function useCampaigns(supabase: any) {
         "postgres_changes",
         { event: "*", schema: "public", table: "campaign_clicks" },
         () => {
-          // realtime click tracking updates
           refreshCampaigns();
         }
       )
@@ -842,7 +875,23 @@ export default function CampaignsPage() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  {/* Status badge and open rate removed */}
+                  <span className={`text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-wider ${
+                    c.status === "sent"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : c.status === "sending" || c.status === "processing"
+                      ? "bg-amber-100 text-amber-700"
+                      : c.status === "failed"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-stone-100 text-stone-500"
+                  }`}>
+                    {c.status || "queued"}
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-stone-400">
+                    Opens: {c.open_count || 0}
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-stone-400">
+                    Clicks: {c.click_count || 0}
+                  </span>
                 </div>
               </div>
             ))
@@ -945,7 +994,12 @@ export default function CampaignsPage() {
                       {selectedCampaign?.open_count || 0}
                     </p>
                   </div>
-                  {/* Open Rate metric card removed */}
+                  <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100">
+                    <p className="text-[9px] uppercase font-black text-stone-400">Clicks</p>
+                    <p className="text-xl font-bold">
+                      {selectedCampaign?.click_count || 0}
+                    </p>
+                  </div>
                 </div>
               </div>
 

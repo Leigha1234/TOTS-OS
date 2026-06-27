@@ -29,15 +29,26 @@ export async function GET(req: Request) {
     // log open event (best effort)
     try {
       await (supabaseAdmin as any)
-        .from("campaigns_open")
+        .from("campaign_opens")
         .insert({
           campaign_id: campaignId,
           profile_id: profileId || null,
           user_agent: userAgent,
           ip: ip
         });
+
+      // Keep denormalized counter on campaigns in sync for fast UI reads.
+      const { count } = await (supabaseAdmin as any)
+        .from("campaign_opens")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", campaignId);
+
+      await (supabaseAdmin as any)
+        .from("campaigns")
+        .update({ open_count: count || 0 })
+        .eq("id", campaignId);
     } catch (e) {
-      console.error("campaigns_open insert error:", e);
+      console.error("campaign_opens insert/update error:", e);
     }
 
     const pixel = Buffer.from(

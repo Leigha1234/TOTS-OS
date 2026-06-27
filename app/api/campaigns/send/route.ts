@@ -15,6 +15,7 @@ async function processCampaign({
   campaign,
   resend,
   fromEmail,
+  trackingBaseUrl,
 }: any) {
   const batchSize = 50;
   let sentCount = 0;
@@ -32,7 +33,7 @@ async function processCampaign({
             <div style="font-family:Arial,sans-serif;padding:24px;line-height:1.6;">
               <h2>${campaign.title ?? ''}</h2>
               <div>${campaign.content ?? ''}</div>
-              <img src="https://www.tots-os.co.uk/api/campaigns/open?campaignId=${campaignId}&profileId=${encodeURIComponent(subscriber.id)}" width="1" height="1" style="display:none;" />
+              <img src="${trackingBaseUrl}/api/campaigns/open?campaignId=${encodeURIComponent(campaignId)}&profileId=${encodeURIComponent(subscriber.id)}" width="1" height="1" style="display:none;" />
             </div>
           `,
         })
@@ -61,6 +62,11 @@ export async function POST(req: Request) {
   try {
     const resendKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.RESEND_FROM_EMAIL;
+    const trackingBaseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+      "https://www.tots-os.co.uk";
 
     if (!resendKey || !fromEmail) {
       console.error('Missing RESEND configuration');
@@ -152,6 +158,9 @@ export async function POST(req: Request) {
       campaign,
       resend,
       fromEmail,
+      trackingBaseUrl: trackingBaseUrl.startsWith("http")
+        ? trackingBaseUrl
+        : `https://${trackingBaseUrl}`,
     }).catch(async (err) => {
       console.error('Background campaign processing failed:', err);
 

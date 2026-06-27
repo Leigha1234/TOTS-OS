@@ -323,7 +323,7 @@ const verifyConnections = async () => {
 };
 
 const loadOrganisationUsers = async (userId: string, organisationId: string) => {
-  if (!isMountedRef.current) return;
+  if (!isMountedRef.current || !organisationId) return;
 
   setTeamLoading(true);
   try {
@@ -583,58 +583,56 @@ const retryFailedPosts = async () => {
     isMountedRef.current = true;
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
 
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
-      setCurrentUserId(user.id);
-      setEmail(user.email || "");
+   async function init() {
+  const { data: { user } } = await supabase.auth.getUser();
 
-      // Restore logo from cache immediately so it never flashes blank on refresh
-      const cachedLogo = typeof window !== "undefined"
-        ? localStorage.getItem(`tots_logo_${user.id}`) || ""
-        : "";
-      if (cachedLogo) setLogoUrl(cachedLogo);
+  if (!user) {
+    router.push("/login");
+    return;
+  }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
+  setCurrentUserId(user.id);
+  setEmail(user.email || "");
 
-      if (profile) {
-        setUserName((profile.full_name || "OPERATOR").toUpperCase());
-        setDisplayName(profile.full_name || "");
-        setBio(profile.bio || "");
+  // ✅ FIX: FETCH PROFILE (THIS WAS MISSING)
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, full_name, bio, logo_url, organisation_id")
+    .eq("id", user.id)
+    .maybeSingle();
 
-        // Always prefer DB value; keep cache in sync
-        const freshLogo = profile.logo_url || "";
-        setLogoUrl(freshLogo);
-        if (typeof window !== "undefined") {
-          if (freshLogo) {
-            localStorage.setItem(`tots_logo_${user.id}`, freshLogo);
-          } else {
-            localStorage.removeItem(`tots_logo_${user.id}`);
-          }
-        }
+  if (profileError) {
+    console.error("Profile load error:", profileError);
+  }
 
-        setUserOrgId(profile.organisation_id ?? null);
+  if (!profile) {
+    toast.error("Profile not found");
+    return;
+  }
 
-        if (profile.organisation_id) {
-          void loadOrganisationUsers(user.id, profile.organisation_id);
-        }
+  // PROFILE STATE
+  setDisplayName(profile.full_name || "");
+  setBio(profile.bio || "");
+  setUserOrgId(profile.organisation_id || null);
 
-        // Prevent unsafe execution if component unmounted
-        if (isMountedRef.current) {
-          try {
-            await refreshConnections();
-            await verifyPendingOAuth();
-          } catch (err) {
-            console.warn("Init connection refresh failed:", err);
-          }
-        }
-      }
-      setLoading(false);
-    }
+  // ✅ FIX: LOGO ALWAYS FROM DB
+  setLogoUrl(profile.logo_url || "");
+
+  // LOAD TEAM IF ORG EXISTS
+  if (profile.organisation_id) {
+    await loadOrganisationUsers(user.id, profile.organisation_id);
+  }
+
+  // SOCIAL CONNECTIONS SAFE LOAD
+  try {
+    await refreshConnections();
+    await verifyPendingOAuth();
+  } catch (err) {
+    console.warn("Init connection refresh failed:", err);
+  }
+
+  setLoading(false);
+}
     init();
     // Clean Meta OAuth redirect artifact (#_=_) on load
     if (typeof window !== "undefined" && window.location.hash === "#_=_") {
@@ -836,8 +834,6 @@ const retryFailedPosts = async () => {
 
       if (error) throw error;
 
-      await refreshSettings();
-
       toast.success("Settings saved successfully");
     } catch (error: any) {
       toast.error(error?.message || "Failed to save settings");
@@ -889,12 +885,8 @@ const retryFailedPosts = async () => {
         throw new Error(errorMessage);
       }
 
-      setLogoUrl(body.publicUrl);
+      setLogoUrl(logoUrl);
 
-      // Persist to localStorage so logo survives refresh before next DB load
-      if (typeof window !== "undefined" && currentUserId) {
-        localStorage.setItem(`tots_logo_${currentUserId}`, body.publicUrl);
-      }
 
       const { data: { user: logoUser } } = await supabase.auth.getUser();
       if (logoUser) {
@@ -904,7 +896,6 @@ const retryFailedPosts = async () => {
           .eq("id", logoUser.id);
       }
 
-      await refreshSettings();
       toast.success("Logo uploaded successfully.");
     } catch (error: any) {
       console.error("Logo upload failed:", error);
@@ -932,7 +923,6 @@ const retryFailedPosts = async () => {
     );
   }
 
-  // Move disconnectSocialPlatform out of map callback
   const disconnectSocialPlatform = async (key: string) => {
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -975,24 +965,42 @@ const retryFailedPosts = async () => {
     setAddingContactId(contact.id);
     try {
       // Find the profile matching this contact's email
-      const { data: matchedProfile, error: lookupError } = await supabase
+      const { data: matchedProfiles } = await supabase
         .from("profiles")
         .select("id, organisation_id")
-        .ilike("email", contactEmail)
+        .eq("email", contactEmail.toLowerCase())
         .maybeSingle();
 
-      if (lookupError) throw lookupError;
-
-      if (!matchedProfile) {
+      if (!matchedProfiles) {
         toast.error("No account found for this email — they need to sign up first");
         return;
       }
+
+      // Optimistic local update so UI reflects the change immediately
+      setTeamMembers((prev) => {
+        const exists = prev.some((member) => member.id === matchedProfiles.id);
+        if (exists) return prev.map((member) => (
+          member.id === matchedProfiles.id
+            ? { ...member, role: member.role || "member" }
+            : member
+        ));
+
+        return [
+          ...prev,
+          {
+            id: matchedProfiles.id,
+            full_name: contact.name || null,
+            email: contactEmail,
+            role: "member",
+          },
+        ];
+      });
 
       // Add them to the current organisation
       const { error: updateError } = await supabase
         .from("profiles")
         .update({ organisation_id: userOrgId })
-        .eq("id", matchedProfile.id);
+        .eq("id", matchedProfiles.id);
 
       if (updateError) throw updateError;
 
@@ -1012,23 +1020,37 @@ const retryFailedPosts = async () => {
             .filter((e: string) => Boolean(e) && e !== contactEmail.toLowerCase());
 
           if (otherEmails.length > 0) {
-            // Look up profiles for each company colleague email
             const { data: companyProfiles } = await supabase
               .from("profiles")
-              .select("id, email, organisation_id")
-              .or(otherEmails.map((e: string) => `email.ilike.${e}`).join(","));
+              .select("id, organisation_id, full_name, email")
+              .in("email", otherEmails);
 
-            const profilesNotYetInOrg = (companyProfiles || []).filter(
-              (p: any) => p.organisation_id !== userOrgId
-            );
+            const profilesNotYetInOrg = (companyProfiles || []).filter((p: any) => p.organisation_id !== userOrgId);
 
             if (profilesNotYetInOrg.length > 0) {
               const ids = profilesNotYetInOrg.map((p: any) => p.id);
-              await supabase
+              const { error: batchUpdateError } = await supabase
                 .from("profiles")
                 .update({ organisation_id: userOrgId })
                 .in("id", ids);
+
+              if (batchUpdateError) throw batchUpdateError;
               autoGroupCount = ids.length;
+
+              setTeamMembers((prev) => {
+                const updatedMembers = [...prev];
+                for (const profile of profilesNotYetInOrg) {
+                  if (!updatedMembers.some((member) => member.id === profile.id)) {
+                    updatedMembers.push({
+                      id: profile.id,
+                      full_name: profile.full_name || null,
+                      email: profile.email || null,
+                      role: "member",
+                    });
+                  }
+                }
+                return updatedMembers;
+              });
             }
           }
         } catch (companyErr) {
@@ -1036,9 +1058,8 @@ const retryFailedPosts = async () => {
         }
       }
 
-      // Reload team to reflect new member
       if (currentUserId && userOrgId) {
-        await loadOrganisationUsers(currentUserId, userOrgId);
+        void loadOrganisationUsers(currentUserId, userOrgId);
       }
 
       const extraMsg = autoGroupCount > 0

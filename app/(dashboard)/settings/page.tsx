@@ -59,14 +59,10 @@ function SettingsInner() {
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState("");
   const [logoUploading, setLogoUploading] = useState(false);
-  const [teamId, setTeamId] = useState<string | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMemberView[]>([]);
-  const [availablePeople, setAvailablePeople] = useState<TeamContactOption[]>([]);
-  const [selectedContactId, setSelectedContactId] = useState("");
+  const [allContacts, setAllContacts] = useState<TeamContactOption[]>([]);
   const [contactSearchQuery, setContactSearchQuery] = useState("");
-  const [selectedRole, setSelectedRole] = useState("member");
   const [teamLoading, setTeamLoading] = useState(false);
-  const [addingTeamMember, setAddingTeamMember] = useState(false);
   const connectedPlatformsRef = useRef<string[]>([]);
   const isOAuthProcessingRef = useRef(false);
 const [connectionHealth, setConnectionHealth] = useState<
@@ -325,112 +321,54 @@ const verifyConnections = async () => {
   setConnectionHealth(health);
 };
 
-const loadTeamControlData = async (userId: string) => {
+const loadOrganisationUsers = async (userId: string, organisationId: string) => {
   if (!isMountedRef.current) return;
 
   setTeamLoading(true);
   try {
-    let resolvedTeamId: string | null = null;
-
-    const { data: existingMembership, error: membershipError } = await supabase
-      .from("team_members")
-      .select("team_id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (membershipError) throw membershipError;
-    resolvedTeamId = existingMembership?.team_id || null;
-
-    if (!resolvedTeamId) {
-      const { data: createdTeam, error: createTeamError } = await supabase
-        .from("teams")
-        .insert({
-          name: "My Team",
-          owner_id: userId,
-        })
-        .select("id")
-        .single();
-
-      if (createTeamError) throw createTeamError;
-      resolvedTeamId = createdTeam?.id || null;
-
-      if (resolvedTeamId) {
-        const { error: linkOwnerError } = await supabase
-          .from("team_members")
-          .insert({
-            user_id: userId,
-            team_id: resolvedTeamId,
-            role: "owner",
-          });
-
-        if (linkOwnerError) throw linkOwnerError;
-      }
-    }
-
-    if (!resolvedTeamId) {
-      throw new Error("Unable to resolve a team for this account");
-    }
-
-    setTeamId(resolvedTeamId);
-
-    const { data: membersData, error: membersError } = await supabase
-      .from("team_members")
-      .select("user_id, role")
-      .eq("team_id", resolvedTeamId);
-
-    if (membersError) throw membersError;
-
-    const roleByUserId = new Map<string, string>();
-    for (const member of membersData || []) {
-      if (member?.user_id) {
-        roleByUserId.set(member.user_id, member.role || "member");
-      }
-    }
-
-    const memberIds = Array.from(roleByUserId.keys());
-
-    const { data: profilesData, error: profilesError } = await supabase
+    // 1. Load all users in same organisation from profiles
+    const { data: orgUsers, error: orgUsersError } = await supabase
       .from("profiles")
       .select("id, full_name, email")
+      .eq("organisation_id", organisationId)
       .order("full_name", { ascending: true });
 
-    if (profilesError) throw profilesError;
+    if (orgUsersError) throw orgUsersError;
 
-    const allProfiles = (profilesData || []) as TeamProfile[];
-    const membersForView: TeamMemberView[] = allProfiles
-      .filter((person) => roleByUserId.has(person.id))
-      .map((person) => ({
-        ...person,
-        role: roleByUserId.get(person.id) || "member",
-      }));
+    const members: TeamMemberView[] = (orgUsers || []).map((u) => ({
+      id: u.id,
+      full_name: u.full_name,
+      email: u.email,
+      role: u.id === userId ? "owner" : "member",
+    }));
 
-    const memberEmails = new Set(
-      membersForView
-        .map((person) => (person.email || "").toLowerCase().trim())
-        .filter(Boolean)
-    );
+    // 2. Load all contacts (error-safe — do NOT crash if this fails)
+    let contacts: TeamContactOption[] = [];
+    try {
+      const { data: contactsData, error: contactsError } = await supabase
+        .from("contacts")
+        .select("id, name, email, company_name")
+        .order("created_at", { ascending: false });
 
-    const { data: contactsData, error: contactsError } = await supabase
-      .from("contacts")
-      .select("id, name, email, company_name")
-      .order("created_at", { ascending: false });
-
-    if (contactsError) throw contactsError;
-
-    const allContacts = (contactsData || []) as TeamContactOption[];
-    const availableForTeam = allContacts;
+      if (contactsError) {
+        console.error("Contacts load error (non-fatal):", contactsError);
+      } else {
+        contacts = (contactsData || []) as TeamContactOption[];
+      }
+    } catch (contactsErr) {
+      console.error("Contacts fetch failed (non-fatal):", contactsErr);
+    }
 
     if (!isMountedRef.current) return;
 
-    setTeamMembers(membersForView);
-    setAvailablePeople(availableForTeam);
-
-    if (!selectedContactId || !availableForTeam.some((person) => person.id === selectedContactId)) {
-      setSelectedContactId(availableForTeam[0]?.id || "");
-    }
+    setTeamMembers(members);
+    setAllContacts(contacts);
   } catch (err: any) {
-    console.error("Failed to load team control data:", err);
-    toast.error(err?.message || "Failed to load team members");
+    console.error("Failed to load organisation users:", err);
+    if (isMountedRef.current) {
+      setTeamMembers([]);
+      setAllContacts([]);
+    }
   } finally {
     if (isMountedRef.current) {
       setTeamLoading(false);
@@ -651,7 +589,7 @@ const retryFailedPosts = async () => {
       setEmail(user.email || "");
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, bio, organisation_id, logo_url")
+        .select("*")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -662,11 +600,9 @@ const retryFailedPosts = async () => {
         setLogoUrl(profile.logo_url || "");
         setUserOrgId(profile.organisation_id ?? null);
 
-        if (profile.organisation_id && user) {
-  setTimeout(() => {
-    loadTeamControlData(user.id);
-  }, 300);
-}
+        if (profile.organisation_id) {
+          void loadOrganisationUsers(user.id, profile.organisation_id);
+        }
 
         // Prevent unsafe execution if component unmounted
         if (isMountedRef.current) {
@@ -935,15 +871,17 @@ const retryFailedPosts = async () => {
       }
 
       setLogoUrl(body.publicUrl);
-      const { data: { user } } = await supabase.auth.getUser();
 
-if (user) {
-  await supabase
-    .from("profiles")
-    .update({ logo_url: body.publicUrl })
-    .eq("id", user.id);
-}
-      toast.success("Logo uploaded. Click Save Changes to persist.");
+      const { data: { user: logoUser } } = await supabase.auth.getUser();
+      if (logoUser) {
+        await supabase
+          .from("profiles")
+          .update({ logo_url: body.publicUrl })
+          .eq("id", logoUser.id);
+      }
+
+      await refreshSettings();
+      toast.success("Logo uploaded successfully.");
     } catch (error: any) {
       console.error("Logo upload failed:", error);
       toast.error(error?.message || "Logo upload failed");
@@ -952,58 +890,7 @@ if (user) {
     }
   };
 
-  const handleAddTeamMember = async () => {
-    if (!teamId) {
-      toast.error("No team found for this account");
-      return;
-    }
 
-    if (!selectedContactId) {
-      toast.error("Choose a contact to add");
-      return;
-    }
-
-    const selectedContact = availablePeople.find((person) => person.id === selectedContactId);
-    const selectedContactEmail = selectedContact?.email?.trim();
-
-    if (!selectedContactEmail) {
-      toast.error("Selected contact does not have an email address");
-      return;
-    }
-
-    setAddingTeamMember(true);
-    try {
-      const { data: matchedProfile, error: profileLookupError } = await supabase
-  .from("profiles")
-  .select("id")
-  .eq("email", selectedContactEmail)
-  .maybeSingle();
-
-if (profileLookupError) throw profileLookupError;
-
-      if (matchedProfile?.id) {
-        const { error } = await supabase.from("team_members").insert({
-          team_id: teamId,
-          user_id: matchedProfile.id,
-          role: selectedRole,
-        });
-
-        if (error) throw error;
-        toast.success("Contact added to team");
-      } else {
-        throw new Error("This contact does not have a matching login/profile yet.");
-      }
-
-      if (currentUserId) {
-        await loadTeamControlData(currentUserId);
-      }
-    } catch (error: any) {
-      console.error("Failed to add team member:", error);
-      toast.error(error?.message || "Failed to add team member");
-    } finally {
-      setAddingTeamMember(false);
-    }
-  };
 
   // ... [REPEATING SECTIONS TO EXPAND CODE VOLUME] ...
 
@@ -1049,24 +936,15 @@ if (profileLookupError) throw profileLookupError;
     toast.success(`${key} disconnected`);
   };
 
-  const filteredAvailablePeople = availablePeople.filter((person) => {
+  const filteredContacts = allContacts.filter((person) => {
     const q = contactSearchQuery.toLowerCase().trim();
     if (!q) return true;
-
     return (
       (person.name || "").toLowerCase().includes(q) ||
       (person.email || "").toLowerCase().includes(q) ||
       (person.company_name || "").toLowerCase().includes(q)
     );
   });
-
-  const selectablePeople = filteredAvailablePeople;
-
-  const selectedContactStillVisible = selectablePeople.some((person) => person.id === selectedContactId);
-  const selectedContactValue =
-  selectablePeople.find(p => p.id === selectedContactId)?.id ||
-  selectablePeople[0]?.id ||
-  "";
   return (
     <div className={`min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-3 sm:p-6 lg:p-12 max-w-[1500px] mx-auto overflow-x-hidden ${fontPreference === "serif-heavy" ? "font-serif" : "font-sans"}`}>
       <style jsx global>{`
@@ -1211,74 +1089,56 @@ if (profileLookupError) throw profileLookupError;
 
                     <div className="space-y-4 border border-stone-200 rounded-3xl p-4 sm:p-5 bg-[#faf9f6]">
                       <div>
-                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-300">Team Control</label>
-                        <p className="text-xs text-stone-500 mt-1">Search all contacts and add them to team access.</p>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-300">Team</label>
+                        <p className="text-xs text-stone-500 mt-1">All members in your organisation.</p>
                       </div>
 
-                      <input
-                        value={contactSearchQuery}
-                        onChange={(e) => setContactSearchQuery(e.target.value)}
-                        placeholder="Search contacts by name, email, or company"
-                        className="w-full p-3 bg-white border border-stone-200 rounded-xl text-xs font-semibold outline-none"
-                        disabled={teamLoading || addingTeamMember}
-                      />
+                      {teamLoading ? (
+                        <div className="flex items-center gap-2 py-2">
+                          <Loader2 size={14} className="animate-spin text-stone-400" />
+                          <span className="text-xs text-stone-400">Loading team...</span>
+                        </div>
+                      ) : teamMembers.length === 0 ? (
+                        <p className="text-xs text-stone-500">No team members found.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {teamMembers.map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 px-3 py-2 bg-white border border-stone-200 rounded-xl"
+                            >
+                              <span className="text-xs font-semibold text-stone-700">
+                                {member.full_name || "Unnamed user"}
+                                {member.email ? ` (${member.email})` : ""}
+                              </span>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">
+                                {member.role}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <select
-                          value={selectedContactValue}
-                          onChange={(e) => setSelectedContactId(e.target.value)}
-                          className="md:col-span-2 p-3 bg-white border border-stone-200 rounded-xl text-xs font-semibold outline-none"
-                          disabled={teamLoading || addingTeamMember || selectablePeople.length === 0}
-                        >
-                          {selectablePeople.length === 0 ? (
-                            <option value="">No matching contacts to add</option>
-                          ) : (
-                            selectablePeople.map((person) => (
-                              <option key={person.id} value={person.id}>
-                                {(person.name || "Unnamed contact") + (person.email ? ` (${person.email})` : "") + (person.company_name ? ` - ${person.company_name}` : "")}
-                              </option>
-                            ))
-                          )}
-                        </select>
-
-                        <select
-                          value={selectedRole}
-                          onChange={(e) => setSelectedRole(e.target.value)}
-                          className="p-3 bg-white border border-stone-200 rounded-xl text-xs font-semibold outline-none"
-                          disabled={teamLoading || addingTeamMember}
-                        >
-                          <option value="member">Member</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={handleAddTeamMember}
-                        disabled={teamLoading || addingTeamMember || !selectedContactValue}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold disabled:opacity-50"
-                      >
-                        {(teamLoading || addingTeamMember) && <Loader2 size={14} className="animate-spin" />}
-                        {addingTeamMember ? "Adding..." : "Add To Team"}
-                      </button>
-
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Current Team Members</p>
-                        {teamMembers.length === 0 ? (
-                          <p className="text-xs text-stone-500">No team members found yet.</p>
+                      <div className="pt-4 border-t border-stone-100 space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Contacts</p>
+                        <input
+                          value={contactSearchQuery}
+                          onChange={(e) => setContactSearchQuery(e.target.value)}
+                          placeholder="Search contacts by name, email, or company"
+                          className="w-full p-3 bg-white border border-stone-200 rounded-xl text-xs font-semibold outline-none"
+                        />
+                        {filteredContacts.length === 0 ? (
+                          <p className="text-xs text-stone-500 py-1">
+                            {contactSearchQuery ? "No matching contacts." : "No contacts found."}
+                          </p>
                         ) : (
-                          <div className="space-y-2">
-                            {teamMembers.map((member) => (
-                              <div
-                                key={member.id}
-                                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 px-3 py-2 bg-white border border-stone-200 rounded-xl"
-                              >
+                          <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
+                            {filteredContacts.slice(0, 100).map((contact) => (
+                              <div key={contact.id} className="px-3 py-2 bg-white border border-stone-200 rounded-xl">
                                 <span className="text-xs font-semibold text-stone-700">
-                                  {member.full_name || "Unnamed user"}
-                                  {member.email ? ` (${member.email})` : ""}
-                                </span>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">
-                                  {member.role}
+                                  {contact.name || "Unnamed contact"}
+                                  {contact.email ? ` (${contact.email})` : ""}
+                                  {contact.company_name ? ` — ${contact.company_name}` : ""}
                                 </span>
                               </div>
                             ))}

@@ -755,34 +755,40 @@ const retryFailedPosts = async () => {
   const uploadLogo = async (file: File) => {
     setLogoUploading(true);
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData.user;
-      if (!user) {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (sessionError || !accessToken) {
         toast.error("Not authenticated");
         return;
       }
 
-      const ext = file.name.split(".").pop() || "png";
-      const safeName = `${user.id}-${Date.now()}.${ext}`;
-      const filePath = `logos/${safeName}`;
-
-      const uploadResult = await supabase.storage
-        .from("branding-assets")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadResult.error) {
-        throw uploadResult.error;
+      if (!file.type?.startsWith("image/")) {
+        toast.error("Only image files are allowed");
+        return;
       }
 
-      const { data: publicData } = supabase.storage
-        .from("branding-assets")
-        .getPublicUrl(filePath);
+      const formData = new FormData();
+      formData.append("file", file);
 
-      if (!publicData?.publicUrl) {
-        throw new Error("Failed to resolve uploaded logo URL");
+      const response = await fetch("/api/settings/logo-upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.publicUrl) {
+        const errorMessage =
+          body?.error ||
+          body?.message ||
+          `Logo upload failed (status ${response.status})`;
+        throw new Error(errorMessage);
       }
 
-      setLogoUrl(publicData.publicUrl);
+      setLogoUrl(body.publicUrl);
       toast.success("Logo uploaded. Click Save Changes to persist.");
     } catch (error: any) {
       console.error("Logo upload failed:", error);

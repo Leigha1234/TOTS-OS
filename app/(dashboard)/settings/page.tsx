@@ -885,7 +885,7 @@ const retryFailedPosts = async () => {
         throw new Error(errorMessage);
       }
 
-      setLogoUrl(logoUrl);
+      setLogoUrl(body.publicUrl);
 
 
       const { data: { user: logoUser } } = await supabase.auth.getUser();
@@ -968,7 +968,7 @@ const retryFailedPosts = async () => {
       const { data: matchedProfiles } = await supabase
         .from("profiles")
         .select("id, organisation_id")
-        .eq("email", contactEmail.toLowerCase())
+        .ilike("email", contactEmail.trim())
         .maybeSingle();
 
       if (!matchedProfiles) {

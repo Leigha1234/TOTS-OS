@@ -23,6 +23,16 @@ function SettingsInner() {
   const isMountedRef = useRef(true);
  const router = useRouter();
  const { refreshSettings } = useSettings();
+
+  type TeamProfile = {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+  };
+
+  type TeamMemberView = TeamProfile & {
+    role: string;
+  };
   
   // -- 1. STATE MANAGEMENT --
   const [activeTab, setActiveTab] = useState<"account" | "brand">("account");
@@ -37,10 +47,18 @@ function SettingsInner() {
   const [bio, setBio] = useState("");
   const [accentColor, setAccentColor] = useState("#A3B18A");
   const [fontPreference, setFontPreference] = useState("serif-heavy");
-  const [, setUserOrgId] = useState<string | null>(null);
+  const [userOrgId, setUserOrgId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState("");
   const [logoUploading, setLogoUploading] = useState(false);
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberView[]>([]);
+  const [availablePeople, setAvailablePeople] = useState<TeamProfile[]>([]);
+  const [selectedPersonId, setSelectedPersonId] = useState("");
+  const [selectedRole, setSelectedRole] = useState("member");
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [addingTeamMember, setAddingTeamMember] = useState(false);
   const connectedPlatformsRef = useRef<string[]>([]);
   const isOAuthProcessingRef = useRef(false);
 const [connectionHealth, setConnectionHealth] = useState<
@@ -299,6 +317,106 @@ const verifyConnections = async () => {
   setConnectionHealth(health);
 };
 
+const loadTeamControlData = async (userId: string, organisationId: string) => {
+  if (!isMountedRef.current) return;
+
+  setTeamLoading(true);
+  try {
+    let resolvedTeamId: string | null = null;
+
+    const { data: existingMembership, error: membershipError } = await supabase
+      .from("team_members")
+      .select("team_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (membershipError) throw membershipError;
+    resolvedTeamId = existingMembership?.team_id || null;
+
+    if (!resolvedTeamId) {
+      const { data: createdTeam, error: createTeamError } = await supabase
+        .from("teams")
+        .insert({
+          name: "My Team",
+          owner_id: userId,
+        })
+        .select("id")
+        .single();
+
+      if (createTeamError) throw createTeamError;
+      resolvedTeamId = createdTeam?.id || null;
+
+      if (resolvedTeamId) {
+        const { error: linkOwnerError } = await supabase
+          .from("team_members")
+          .insert({
+            user_id: userId,
+            team_id: resolvedTeamId,
+            role: "owner",
+          });
+
+        if (linkOwnerError) throw linkOwnerError;
+      }
+    }
+
+    if (!resolvedTeamId) {
+      throw new Error("Unable to resolve a team for this account");
+    }
+
+    setTeamId(resolvedTeamId);
+
+    const { data: membersData, error: membersError } = await supabase
+      .from("team_members")
+      .select("user_id, role")
+      .eq("team_id", resolvedTeamId);
+
+    if (membersError) throw membersError;
+
+    const roleByUserId = new Map<string, string>();
+    for (const member of membersData || []) {
+      if (member?.user_id) {
+        roleByUserId.set(member.user_id, member.role || "member");
+      }
+    }
+
+    const memberIds = Array.from(roleByUserId.keys());
+
+    const { data: profilesData, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("organisation_id", organisationId)
+      .order("full_name", { ascending: true });
+
+    if (profilesError) throw profilesError;
+
+    const allProfiles = (profilesData || []) as TeamProfile[];
+    const membersForView: TeamMemberView[] = allProfiles
+      .filter((person) => roleByUserId.has(person.id))
+      .map((person) => ({
+        ...person,
+        role: roleByUserId.get(person.id) || "member",
+      }));
+
+    const availableForTeam = allProfiles.filter((person) => !memberIds.includes(person.id));
+
+    if (!isMountedRef.current) return;
+
+    setTeamMembers(membersForView);
+    setAvailablePeople(availableForTeam);
+
+    if (!selectedPersonId || !availableForTeam.some((person) => person.id === selectedPersonId)) {
+      setSelectedPersonId(availableForTeam[0]?.id || "");
+    }
+  } catch (err: any) {
+    console.error("Failed to load team control data:", err);
+    toast.error(err?.message || "Failed to load team members");
+  } finally {
+    if (isMountedRef.current) {
+      setTeamLoading(false);
+    }
+  }
+};
+
 // ===============================
 // SOCIAL ENGINE v6 — POSTING CORE
 // ===============================
@@ -508,6 +626,7 @@ const retryFailedPosts = async () => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
+      setCurrentUserId(user.id);
       setEmail(user.email || "");
       const { data: profile } = await supabase
         .from("profiles")
@@ -521,6 +640,10 @@ const retryFailedPosts = async () => {
         setBio(profile.bio || "");
         setLogoUrl(profile.logo_url || "");
         setUserOrgId(profile.organisation_id ?? null);
+
+        if (profile.organisation_id) {
+          await loadTeamControlData(user.id, profile.organisation_id);
+        }
 
         // Prevent unsafe execution if component unmounted
         if (isMountedRef.current) {
@@ -798,6 +921,40 @@ const retryFailedPosts = async () => {
     }
   };
 
+  const handleAddTeamMember = async () => {
+    if (!teamId) {
+      toast.error("No team found for this account");
+      return;
+    }
+
+    if (!selectedPersonId) {
+      toast.error("Choose a person to add");
+      return;
+    }
+
+    setAddingTeamMember(true);
+    try {
+      const { error } = await supabase.from("team_members").insert({
+        team_id: teamId,
+        user_id: selectedPersonId,
+        role: selectedRole,
+      });
+
+      if (error) throw error;
+
+      if (currentUserId && userOrgId) {
+        await loadTeamControlData(currentUserId, userOrgId);
+      }
+
+      toast.success("Team member added");
+    } catch (error: any) {
+      console.error("Failed to add team member:", error);
+      toast.error(error?.message || "Failed to add team member");
+    } finally {
+      setAddingTeamMember(false);
+    }
+  };
+
   // ... [REPEATING SECTIONS TO EXPAND CODE VOLUME] ...
 
   // --- Loading Guard ---
@@ -979,6 +1136,76 @@ const retryFailedPosts = async () => {
                           <span className="inline-flex items-center px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
                             Uploaded
                           </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 border border-stone-200 rounded-3xl p-4 sm:p-5 bg-[#faf9f6]">
+                      <div>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-300">Team Control</label>
+                        <p className="text-xs text-stone-500 mt-1">Add people from your organisation into your team.</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <select
+                          value={selectedPersonId}
+                          onChange={(e) => setSelectedPersonId(e.target.value)}
+                          className="md:col-span-2 p-3 bg-white border border-stone-200 rounded-xl text-xs font-semibold outline-none"
+                          disabled={teamLoading || addingTeamMember || availablePeople.length === 0}
+                        >
+                          {availablePeople.length === 0 ? (
+                            <option value="">No available people to add</option>
+                          ) : (
+                            availablePeople.map((person) => (
+                              <option key={person.id} value={person.id}>
+                                {(person.full_name || "Unnamed user") + (person.email ? ` (${person.email})` : "")}
+                              </option>
+                            ))
+                          )}
+                        </select>
+
+                        <select
+                          value={selectedRole}
+                          onChange={(e) => setSelectedRole(e.target.value)}
+                          className="p-3 bg-white border border-stone-200 rounded-xl text-xs font-semibold outline-none"
+                          disabled={teamLoading || addingTeamMember}
+                        >
+                          <option value="member">Member</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleAddTeamMember}
+                        disabled={teamLoading || addingTeamMember || !selectedPersonId || availablePeople.length === 0}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold disabled:opacity-50"
+                      >
+                        {(teamLoading || addingTeamMember) && <Loader2 size={14} className="animate-spin" />}
+                        {addingTeamMember ? "Adding..." : "Add To Team"}
+                      </button>
+
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Current Team Members</p>
+                        {teamMembers.length === 0 ? (
+                          <p className="text-xs text-stone-500">No team members found yet.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {teamMembers.map((member) => (
+                              <div
+                                key={member.id}
+                                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 px-3 py-2 bg-white border border-stone-200 rounded-xl"
+                              >
+                                <span className="text-xs font-semibold text-stone-700">
+                                  {member.full_name || "Unnamed user"}
+                                  {member.email ? ` (${member.email})` : ""}
+                                </span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">
+                                  {member.role}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>

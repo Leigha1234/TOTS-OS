@@ -974,14 +974,13 @@ const retryFailedPosts = async () => {
                             }}
                           />
                         </label>
-                      </div>
 
-                      <input
-                        value={logoUrl}
-                        onChange={(e) => setLogoUrl(e.target.value)}
-                        placeholder="Or paste a logo URL"
-                        className="w-full p-4 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs outline-none"
-                      />
+                        {logoUrl && (
+                          <span className="inline-flex items-center px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
+                            Uploaded
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

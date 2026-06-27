@@ -325,7 +325,7 @@ const verifyConnections = async () => {
   setConnectionHealth(health);
 };
 
-const loadTeamControlData = async (userId: string, organisationId: string) => {
+const loadTeamControlData = async (userId: string) => {
   if (!isMountedRef.current) return;
 
   setTeamLoading(true);
@@ -392,7 +392,6 @@ const loadTeamControlData = async (userId: string, organisationId: string) => {
     const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
       .select("id, full_name, email")
-      .eq("organisation_id", organisationId)
       .order("full_name", { ascending: true });
 
     if (profilesError) throw profilesError;
@@ -414,7 +413,6 @@ const loadTeamControlData = async (userId: string, organisationId: string) => {
     const { data: contactsData, error: contactsError } = await supabase
       .from("contacts")
       .select("id, name, email, company_name")
-      .eq("organisation_id", organisationId)
       .order("created_at", { ascending: false });
 
     if (contactsError) throw contactsError;
@@ -668,7 +666,7 @@ const retryFailedPosts = async () => {
         setUserOrgId(profile.organisation_id ?? null);
 
         if (profile.organisation_id) {
-          await loadTeamControlData(user.id, profile.organisation_id);
+          await loadTeamControlData(user.id);
         }
 
         // Prevent unsafe execution if component unmounted
@@ -958,11 +956,6 @@ const retryFailedPosts = async () => {
       return;
     }
 
-    if (!userOrgId) {
-      toast.error("Organisation not loaded");
-      return;
-    }
-
     const selectedContact = availablePeople.find((person) => person.id === selectedContactId);
     const selectedContactEmail = selectedContact?.email?.trim();
 
@@ -976,7 +969,6 @@ const retryFailedPosts = async () => {
       const { data: matchedProfile, error: profileLookupError } = await supabase
         .from("profiles")
         .select("id, email")
-        .eq("organisation_id", userOrgId)
         .ilike("email", selectedContactEmail)
         .maybeSingle();
 
@@ -992,21 +984,11 @@ const retryFailedPosts = async () => {
         if (error) throw error;
         toast.success("Contact added to team");
       } else {
-        const { error: inviteError } = await supabase
-          .from("invites")
-          .insert([{ 
-            email: selectedContactEmail,
-            organisation_id: userOrgId,
-            role: selectedRole,
-            status: "pending",
-          }]);
-
-        if (inviteError) throw inviteError;
-        toast.success("Invite created for this contact");
+        throw new Error("This contact does not have a matching login/profile yet.");
       }
 
-      if (currentUserId && userOrgId) {
-        await loadTeamControlData(currentUserId, userOrgId);
+      if (currentUserId) {
+        await loadTeamControlData(currentUserId);
       }
     } catch (error: any) {
       console.error("Failed to add team member:", error);

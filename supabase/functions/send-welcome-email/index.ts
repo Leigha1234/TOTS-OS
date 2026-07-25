@@ -32,22 +32,6 @@ serve(async (req) => {
       });
     }
 
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "TOTS-OS <welcome@tots-os.co.uk>",
-        to: email,
-        subject: "Welcome to TOTS-OS 👋",
-        html: `
-          <h1>Welcome 👋</h1>
-          <p>You’ve successfully joined the newsletter.</p>
-        `,
-      }),
-    });
 
     return new Response(
       JSON.stringify({ success: true }),

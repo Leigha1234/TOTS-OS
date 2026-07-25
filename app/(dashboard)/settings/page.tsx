@@ -1084,8 +1084,9 @@ const retryFailedPosts = async () => {
     );
   });
   return (
-    <div className={`min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-3 sm:p-6 lg:p-12 max-w-[1500px] mx-auto overflow-x-hidden ${fontPreference === "serif-heavy" ? "font-serif" : "font-sans"}`}>
-      <style jsx global>{`
+    <div
+  className={`w-full min-w-0 min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-4 sm:p-6 lg:p-8 xl:p-10 overflow-x-hidden ...`}
+><style jsx global>{`
         :root { --accent: ${accentColor}; }
         .accent-text { color: var(--accent); }
         .accent-bg { background-color: var(--accent); }
@@ -1094,7 +1095,7 @@ const retryFailedPosts = async () => {
       {/* Header Section (100 lines of structure) */}
       <header className="flex flex-col lg:flex-row lg:justify-between gap-8 lg:items-end border-b border-stone-200 pb-10 mb-12">
         <div className="space-y-6">
-          <h1 className="text-5xl sm:text-6xl lg:text-8xl font-serif italic tracking-tighter break-words">Settings</h1>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-serif italic tracking-tighter break-words">Settings</h1>
          
          <nav className="flex flex-wrap gap-3">
   <button
@@ -1161,10 +1162,10 @@ const retryFailedPosts = async () => {
           {/* VIEW: ACCOUNT DETAILS */}
           {activeTab === "account" && (
             <motion.div key="account" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-12">
-              <section className="bg-white/90 backdrop-blur border border-stone-200 p-4 sm:p-8 lg:p-12 rounded-[2rem] lg:rounded-[4rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] space-y-10 lg:space-y-16">
+              <section className="bg-white/90 backdrop-blur border border-stone-200 p-4 sm:p-6 lg:p-8 rounded-[2rem] lg:rounded-[4rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] space-y-10 lg:space-y-16">
                 
                 {/* ADMINISTRATIVE DETAILS */}
-                <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+                <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 min-w-0">
                   <div className="shrink-0 mx-auto lg:mx-0">
                     <div className="w-28 h-28 sm:w-36 sm:h-36 lg:w-40 lg:h-40 rounded-[3rem] bg-[#faf9f6] border border-stone-100 flex items-center justify-center relative overflow-hidden">
                        <span className="text-4xl font-serif italic text-stone-200">
@@ -1172,7 +1173,7 @@ const retryFailedPosts = async () => {
                        </span>
                     </div>
                   </div>
-                  <div className="flex-grow space-y-8">
+                  <div className="flex-1 min-w-0 space-y-8">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Full Name</label>
@@ -1245,7 +1246,7 @@ const retryFailedPosts = async () => {
                               key={member.id}
                               className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 px-3 py-2 bg-white border border-stone-200 rounded-xl"
                             >
-                              <span className="text-xs font-semibold text-stone-700">
+                              <span className="text-xs font-semibold text-stone-700 break-all">
                                 {member.full_name || "Unnamed user"}
                                 {member.email ? ` (${member.email})` : ""}
                               </span>
@@ -1272,8 +1273,8 @@ const retryFailedPosts = async () => {
                         ) : (
                           <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
                             {filteredContacts.slice(0, 100).map((contact) => (
-                              <div key={contact.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-white border border-stone-200 rounded-xl">
-                                <span className="text-xs font-semibold text-stone-700 truncate">
+                              <div key={contact.id} className="flex items-center justify-between gap-2 min-w-0 gap-2 px-3 py-2 bg-white border border-stone-200 rounded-xl">
+                                <span className="flex-1 min-w-0 text-xs font-semibold text-stone-700 break-all truncate">
                                   {contact.name || "Unnamed contact"}
                                   {contact.email ? ` (${contact.email})` : ""}
                                   {contact.company_name ? ` — ${contact.company_name}` : ""}

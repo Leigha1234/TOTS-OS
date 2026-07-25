@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { supabase } from "@/lib/supabase";
 import { Mail, Fingerprint, Loader2, ShieldCheck } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 
@@ -25,10 +25,6 @@ function LoginForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
 
   useEffect(() => {
     if (inviteId) setIsRegister(true);
@@ -112,7 +108,13 @@ function LoginForm() {
         });
 
         if (error) throw error;
-        
+        console.log("LOGIN RESULT", data);
+        console.log("SESSION", data.session);
+
+        const session = await supabase.auth.getSession();
+        console.log("GET SESSION", session);
+        console.log("LOCAL STORAGE", localStorage.getItem("tots-os-auth"));
+
         if (data.session) {
           setIsRedirecting(true);
           window.location.href = "/dashboard";

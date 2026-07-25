@@ -21,6 +21,11 @@ import {
   X,
   UserPlus,
   Send,
+  FileText,
+  ArrowRight,
+  Repeat,
+  ShieldCheck,
+  ClipboardCheck,
 } from "lucide-react";
 
 const supabase = createBrowserClient(
@@ -29,9 +34,10 @@ const supabase = createBrowserClient(
 );
 
 /**
- * TOTS OS v8.0 - FINANCE (LIVE)
- * Wired to: quotes, invoices, customers, expenses, timesheets,
- *           payroll_employees, payslips, profiles, team_members
+ * TOTS OS v9.0 - FINANCE (SMALL BUSINESS SUITE)
+ * Tables: quotes, invoices, customers, expenses, receipts, vat_returns,
+ *         self_assessment, subscriptions, timesheets, payroll_employees,
+ *         payslips, profiles, team_members
  */
 
 // ---------- Types ----------
@@ -51,13 +57,24 @@ type LedgerEntry = {
   date: string;
 };
 
-type PayrollEmployee = {
+type SimpleRecord = {
   id: string;
-  name: string;
-  role: string | null;
-  salary_gross: number | null;
+  amount: number;
+  description: string | null;
+  date: string | null;
+  status: string | null;
 };
 
+type Subscription = {
+  id: string;
+  client_name: string | null;
+  amount: number | null;
+  interval: string | null;
+  next_run: string | null;
+  active: boolean | null;
+};
+
+type PayrollEmployee = { id: string; name: string; role: string | null; salary_gross: number | null };
 type Payslip = {
   id: string;
   employee_id: string;
@@ -110,10 +127,44 @@ const MetricCard = ({ label, value, sub, icon, isDark = false }: any) => (
 
 const statusStyle = (status: string) => {
   const s = (status || "").toLowerCase();
-  if (s === "paid" || s === "accepted") return "bg-green-50 text-green-600 border-green-100";
-  if (s === "overdue") return "bg-red-50 text-red-500 border-red-100";
+  if (["paid", "accepted", "converted", "submitted", "filed", "approved"].includes(s))
+    return "bg-green-50 text-green-600 border-green-100";
+  if (s === "overdue" || s === "rejected") return "bg-red-50 text-red-500 border-red-100";
   return "bg-stone-50 text-stone-400 border-stone-100";
 };
+
+const SectionShell = ({ title, subtitle, action, children }: any) => (
+  <section className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div>
+        <h3 className="text-3xl font-serif italic tracking-tighter">{title}</h3>
+        {subtitle && <p className="text-sm text-stone-500 mt-2 max-w-xl">{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+    {children}
+  </section>
+);
+
+const SimpleRecordRow = ({ r, onMark, markLabel }: { r: SimpleRecord; onMark?: () => void; markLabel?: string }) => (
+  <div className="flex items-center justify-between p-4 bg-[#faf9f6] rounded-xl gap-4">
+    <div className="min-w-0">
+      <p className="font-bold text-stone-900 truncate">{r.description || "Untitled"}</p>
+      <p className="text-[8px] font-mono uppercase tracking-widest text-stone-400">{r.date || "—"}</p>
+    </div>
+    <div className="flex items-center gap-3 shrink-0">
+      <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${statusStyle(r.status || "")}`}>
+        {r.status || "draft"}
+      </span>
+      <span className="font-mono font-bold">£{Number(r.amount || 0).toLocaleString()}</span>
+      {onMark && markLabel && !["submitted", "filed", "approved", "paid"].includes((r.status || "").toLowerCase()) && (
+        <button onClick={onMark} className="p-2 bg-green-50 text-green-600 rounded-full hover:bg-green-100" title={markLabel}>
+          <CheckCircle2 size={14} />
+        </button>
+      )}
+    </div>
+  </div>
+);
 
 // ---------- Main component ----------
 
@@ -125,8 +176,10 @@ export default function PaymentsPage() {
   const [orgId, setOrgId] = useState<string | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<string>("payments");
-  const [activeModal, setActiveModal] = useState<"dispatch" | "employee" | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("invoicing");
+  const [activeModal, setActiveModal] = useState<
+    "dispatch" | "employee" | "expense" | "vat" | "tax" | "subscription" | null
+  >(null);
   const [docType, setDocType] = useState<DocType>("Invoice");
   const [searchQuery, setSearchQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -140,7 +193,10 @@ export default function PaymentsPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [timesheets, setTimesheets] = useState<any[]>([]);
-  const [expensesTotal, setExpensesTotal] = useState(0);
+  const [expenses, setExpenses] = useState<SimpleRecord[]>([]);
+  const [vatReturns, setVatReturns] = useState<SimpleRecord[]>([]);
+  const [selfAssessments, setSelfAssessments] = useState<SimpleRecord[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [vatCollected, setVatCollected] = useState(0);
   const [payrollEmployees, setPayrollEmployees] = useState<PayrollEmployee[]>([]);
   const [payslips, setPayslips] = useState<Payslip[]>([]);
@@ -149,6 +205,12 @@ export default function PaymentsPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([{ id: Date.now(), desc: "", qty: 1, price: 0 }]);
 
   const [newEmployee, setNewEmployee] = useState({ name: "", role: "", salary_gross: "" });
+  const [newExpense, setNewExpense] = useState({ description: "", amount: "", date: new Date().toISOString().slice(0, 10), status: "pending" });
+  const [newSubscription, setNewSubscription] = useState({ client_name: "", amount: "", interval: "monthly", next_run: "" });
+  const [vatFormAmount, setVatFormAmount] = useState<string>("");
+  const [vatFormDesc, setVatFormDesc] = useState("");
+  const [taxFormAmount, setTaxFormAmount] = useState<string>("");
+  const [taxFormDesc, setTaxFormDesc] = useState("");
 
   const triggerNotify = (msg: string, type: "success" | "error" = "success") => {
     setNotification({ visible: true, msg, type });
@@ -165,12 +227,7 @@ export default function PaymentsPage() {
     }
     const uid = authData.user.id;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("id", uid)
-      .maybeSingle();
-
+    const { data: profile } = await supabase.from("profiles").select("organisation_id").eq("id", uid).maybeSingle();
     const { data: membership } = await supabase
       .from("team_members")
       .select("team_id, organisation_id")
@@ -194,21 +251,29 @@ export default function PaymentsPage() {
 
   const fetchAll = useCallback(async (org: string, team: string | null) => {
     setLoading(true);
-    const [quotesRes, invoicesRes, customersRes, expensesRes, timesheetsRes, employeesRes, payslipsRes] =
-      await Promise.all([
-        supabase.from("quotes").select("*").eq("organisation_id", org).order("date", { ascending: false }),
-        supabase.from("invoices").select("*").eq("organisation_id", org).order("created_at", { ascending: false }),
-        supabase.from("customers").select("id, name, email").eq("organisation_id", org).order("name"),
-        supabase.from("expenses").select("amount").eq("organisation_id", org),
-        supabase.from("timesheets").select("*").eq("organisation_id", org),
-        supabase.from("payroll_employees").select("*").eq("organisation_id", org),
-        supabase
-          .from("payslips")
-          .select("*")
-          .eq("organisation_id", org)
-          .order("period_end", { ascending: false })
-          .limit(20),
-      ]);
+    const [
+      quotesRes,
+      invoicesRes,
+      customersRes,
+      expensesRes,
+      timesheetsRes,
+      employeesRes,
+      payslipsRes,
+      vatRes,
+      selfAssessRes,
+      subsRes,
+    ] = await Promise.all([
+      supabase.from("quotes").select("*").eq("organisation_id", org).order("date", { ascending: false }),
+      supabase.from("invoices").select("*").eq("organisation_id", org).order("created_at", { ascending: false }),
+      supabase.from("customers").select("id, name, email").eq("organisation_id", org).order("name"),
+      supabase.from("expenses").select("*").eq("organisation_id", org).order("date", { ascending: false }),
+      supabase.from("timesheets").select("*").eq("organisation_id", org),
+      supabase.from("payroll_employees").select("*").eq("organisation_id", org),
+      supabase.from("payslips").select("*").eq("organisation_id", org).order("period_end", { ascending: false }).limit(20),
+      supabase.from("vat_returns").select("*").eq("organisation_id", org).order("date", { ascending: false }),
+      supabase.from("self_assessment").select("*").eq("organisation_id", org).order("date", { ascending: false }),
+      supabase.from("subscriptions").select("*").eq("organisation_id", org).order("next_run", { ascending: true }),
+    ]);
 
     const customerList: Customer[] = customersRes.data ?? [];
     setCustomers(customerList);
@@ -234,12 +299,40 @@ export default function PaymentsPage() {
 
     setLedger([...invoiceEntries, ...quoteEntries].sort((a, b) => (a.date < b.date ? 1 : -1)));
 
-    setExpensesTotal((expensesRes.data ?? []).reduce((a: number, e: any) => a + (Number(e.amount) || 0), 0));
+    setExpenses(
+      (expensesRes.data ?? []).map((e: any) => ({
+        id: e.id,
+        amount: Number(e.amount) || 0,
+        description: e.description || e.client_name,
+        date: e.date,
+        status: e.status,
+      }))
+    );
+
+    setVatReturns(
+      (vatRes.data ?? []).map((v: any) => ({
+        id: v.id,
+        amount: Number(v.amount) || 0,
+        description: v.description,
+        date: v.date,
+        status: v.status,
+      }))
+    );
+
+    setSelfAssessments(
+      (selfAssessRes.data ?? []).map((s: any) => ({
+        id: s.id,
+        amount: Number(s.amount) || 0,
+        description: s.description,
+        date: s.date,
+        status: s.status,
+      }))
+    );
+
+    setSubscriptions(subsRes.data ?? []);
 
     setVatCollected(
-      (invoicesRes.data ?? [])
-        .filter((i: any) => i.status === "paid")
-        .reduce((a: number, i: any) => a + (Number(i.tax) || 0), 0)
+      (invoicesRes.data ?? []).filter((i: any) => i.status === "paid").reduce((a: number, i: any) => a + (Number(i.tax) || 0), 0)
     );
 
     setTimesheets(timesheetsRes.data ?? []);
@@ -268,13 +361,20 @@ export default function PaymentsPage() {
     [ledger]
   );
 
+  const expensesTotal = useMemo(() => expenses.reduce((a, e) => a + e.amount, 0), [expenses]);
+
+  const vatAlreadyFiled = useMemo(
+    () => vatReturns.filter((v) => (v.status || "").toLowerCase() === "submitted").reduce((a, v) => a + v.amount, 0),
+    [vatReturns]
+  );
+
   const metrics = useMemo(() => {
     const rev = paidInvoiceRevenue;
     const costs = expensesTotal;
-    const vatPool = vatCollected || rev * 0.2;
+    const vatPool = Math.max(0, (vatCollected || rev * 0.2) - vatAlreadyFiled);
     const taxDue = Math.max(0, (rev - 12570) * 0.19);
     return { revYtd: rev, operatingCosts: costs, vatPool, taxDue };
-  }, [paidInvoiceRevenue, expensesTotal, vatCollected]);
+  }, [paidInvoiceRevenue, expensesTotal, vatCollected, vatAlreadyFiled]);
 
   const enrichedLedger = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -308,24 +408,12 @@ export default function PaymentsPage() {
     const totalHours = timesheets.reduce(
       (a: number, r: any) =>
         a +
-        (Number(r.mon || 0) +
-          Number(r.tue || 0) +
-          Number(r.wed || 0) +
-          Number(r.thu || 0) +
-          Number(r.fri || 0) +
-          Number(r.sat || 0) +
-          Number(r.sun || 0)),
+        (Number(r.mon || 0) + Number(r.tue || 0) + Number(r.wed || 0) + Number(r.thu || 0) + Number(r.fri || 0) + Number(r.sat || 0) + Number(r.sun || 0)),
       0
     );
     const labourCost = timesheets.reduce((a: number, r: any) => {
       const hrs =
-        Number(r.mon || 0) +
-        Number(r.tue || 0) +
-        Number(r.wed || 0) +
-        Number(r.thu || 0) +
-        Number(r.fri || 0) +
-        Number(r.sat || 0) +
-        Number(r.sun || 0);
+        Number(r.mon || 0) + Number(r.tue || 0) + Number(r.wed || 0) + Number(r.thu || 0) + Number(r.fri || 0) + Number(r.sat || 0) + Number(r.sun || 0);
       return a + hrs * (Number(r.hourly_rate) || 25);
     }, 0);
     const revenue = metrics.revYtd;
@@ -338,25 +426,15 @@ export default function PaymentsPage() {
     const riskSignals: string[] = [];
     if (crossTabMemory.burnVsOutput > 0.6) riskSignals.push("High labour cost vs revenue");
     if (crossTabMemory.efficiency < 50 && crossTabMemory.totalHours > 0) riskSignals.push("Low revenue per hour output");
-    if (metrics.vatPool > metrics.revYtd * 0.3) riskSignals.push("VAT exposure elevated");
+    if (metrics.vatPool > metrics.revYtd * 0.3) riskSignals.push("VAT return due soon");
     if (metrics.revYtd < metrics.operatingCosts) riskSignals.push("Negative operating margin");
     if (timesheets.length === 0) riskSignals.push("No workforce data available");
 
-    const healthScore = Math.max(
-      0,
-      Math.min(100, 100 - riskSignals.length * 18 + (crossTabMemory.efficiency > 100 ? 15 : 0))
-    );
-    return {
-      riskSignals,
-      healthScore,
-      status: healthScore > 70 ? "strong" : healthScore > 40 ? "stable" : "critical",
-    };
+    const healthScore = Math.max(0, Math.min(100, 100 - riskSignals.length * 18 + (crossTabMemory.efficiency > 100 ? 15 : 0)));
+    return { riskSignals, healthScore, status: healthScore > 70 ? "strong" : healthScore > 40 ? "stable" : "critical" };
   }, [crossTabMemory, metrics, timesheets]);
 
-  const totalPayrollMonthly = useMemo(
-    () => payrollEmployees.reduce((a, e) => a + (Number(e.salary_gross) || 0) / 12, 0),
-    [payrollEmployees]
-  );
+  const totalPayrollMonthly = useMemo(() => payrollEmployees.reduce((a, e) => a + (Number(e.salary_gross) || 0) / 12, 0), [payrollEmployees]);
 
   // ---------- Line item handlers ----------
 
@@ -364,8 +442,7 @@ export default function PaymentsPage() {
     setLineItems((items) => items.map((it) => (it.id === id ? { ...it, [field]: value } : it)));
   };
   const addLineItem = () => setLineItems((items) => [...items, { id: Date.now(), desc: "", qty: 1, price: 0 }]);
-  const removeLineItem = (id: number) =>
-    setLineItems((items) => (items.length > 1 ? items.filter((it) => it.id !== id) : items));
+  const removeLineItem = (id: number) => setLineItems((items) => (items.length > 1 ? items.filter((it) => it.id !== id) : items));
 
   const resetForm = () => {
     setFormData({ customerId: "", newClientName: "", dueDate: "" });
@@ -456,6 +533,189 @@ export default function PaymentsPage() {
     refresh();
   };
 
+  // Convert a quote into a real invoice: resolve/create the customer, copy the
+  // amount + description across as a line item, then mark the quote converted.
+  const convertToInvoice = async (entry: LedgerEntry) => {
+    if (entry.type !== "Quote" || !orgId) return;
+    setSubmitting(true);
+    try {
+      const { data: quoteRow, error: quoteErr } = await supabase.from("quotes").select("*").eq("id", entry.id).single();
+      if (quoteErr || !quoteRow) throw quoteErr || new Error("Quote not found");
+
+      let customerId = customers.find((c) => c.name.toLowerCase() === (quoteRow.client_name || "").toLowerCase())?.id;
+
+      if (!customerId) {
+        const { data: newCustomer, error: custErr } = await supabase
+          .from("customers")
+          .insert({ name: quoteRow.client_name, organisation_id: orgId, team_id: teamId })
+          .select("id")
+          .single();
+        if (custErr) throw custErr;
+        customerId = newCustomer.id;
+      }
+
+      const { error: invErr } = await supabase.from("invoices").insert({
+        customer_id: customerId,
+        amount: quoteRow.amount,
+        tax: Number(quoteRow.amount) - Number(quoteRow.amount) / 1.2,
+        items: [{ description: quoteRow.description || "Converted from quote", quantity: 1, unit_price: quoteRow.amount }],
+        status: "pending",
+        type: "invoice",
+        doc_type: "invoice",
+        organisation_id: orgId,
+        team_id: teamId,
+      });
+      if (invErr) throw invErr;
+
+      await supabase.from("quotes").update({ status: "converted" }).eq("id", entry.id);
+
+      triggerNotify("Quote converted to invoice");
+      refresh();
+    } catch (e: any) {
+      triggerNotify(e.message || "Conversion failed", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ---------- Expenses ----------
+
+  const addExpense = async () => {
+    if (!newExpense.description.trim() || !newExpense.amount) {
+      triggerNotify("Description and amount required", "error");
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.from("expenses").insert({
+      description: newExpense.description,
+      amount: Number(newExpense.amount),
+      date: newExpense.date,
+      status: newExpense.status,
+      organisation_id: orgId,
+      team_id: teamId,
+    });
+    setSubmitting(false);
+    if (error) {
+      triggerNotify(error.message, "error");
+      return;
+    }
+    triggerNotify("Expense logged");
+    setActiveModal(null);
+    setNewExpense({ description: "", amount: "", date: new Date().toISOString().slice(0, 10), status: "pending" });
+    refresh();
+  };
+
+  const approveExpense = async (id: string) => {
+    const { error } = await supabase.from("expenses").update({ status: "approved" }).eq("id", id);
+    if (error) {
+      triggerNotify(error.message, "error");
+      return;
+    }
+    triggerNotify("Expense approved");
+    refresh();
+  };
+
+  // ---------- VAT ----------
+
+  const openVatModal = () => {
+    setVatFormAmount(metrics.vatPool.toFixed(2));
+    setVatFormDesc(`VAT return — ${new Date().toLocaleString("default", { month: "long", year: "numeric" })}`);
+    setActiveModal("vat");
+  };
+
+  const fileVatReturn = async () => {
+    if (!vatFormAmount) {
+      triggerNotify("Enter an amount", "error");
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.from("vat_returns").insert({
+      amount: Number(vatFormAmount),
+      description: vatFormDesc,
+      date: new Date().toISOString().slice(0, 10),
+      status: "submitted",
+      organisation_id: orgId,
+      team_id: teamId,
+    });
+    setSubmitting(false);
+    if (error) {
+      triggerNotify(error.message, "error");
+      return;
+    }
+    triggerNotify("VAT return filed");
+    setActiveModal(null);
+    refresh();
+  };
+
+  // ---------- Self Assessment / Tax ----------
+
+  const openTaxModal = () => {
+    setTaxFormAmount(metrics.taxDue.toFixed(2));
+    setTaxFormDesc(`Tax return — FY ${new Date().getFullYear()}`);
+    setActiveModal("tax");
+  };
+
+  const fileTaxReturn = async () => {
+    if (!taxFormAmount) {
+      triggerNotify("Enter an amount", "error");
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.from("self_assessment").insert({
+      amount: Number(taxFormAmount),
+      description: taxFormDesc,
+      date: new Date().toISOString().slice(0, 10),
+      status: "filed",
+      organisation_id: orgId,
+      team_id: teamId,
+    });
+    setSubmitting(false);
+    if (error) {
+      triggerNotify(error.message, "error");
+      return;
+    }
+    triggerNotify("Return filed");
+    setActiveModal(null);
+    refresh();
+  };
+
+  // ---------- Recurring invoices (subscriptions) ----------
+
+  const addSubscription = async () => {
+    if (!newSubscription.client_name.trim() || !newSubscription.amount || !newSubscription.next_run) {
+      triggerNotify("Client, amount and next run date required", "error");
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.from("subscriptions").insert({
+      client_name: newSubscription.client_name,
+      amount: Number(newSubscription.amount),
+      interval: newSubscription.interval,
+      next_run: newSubscription.next_run,
+      active: true,
+      organisation_id: orgId,
+      team_id: teamId,
+    });
+    setSubmitting(false);
+    if (error) {
+      triggerNotify(error.message, "error");
+      return;
+    }
+    triggerNotify("Recurring invoice scheduled");
+    setActiveModal(null);
+    setNewSubscription({ client_name: "", amount: "", interval: "monthly", next_run: "" });
+    refresh();
+  };
+
+  const toggleSubscription = async (s: Subscription) => {
+    const { error } = await supabase.from("subscriptions").update({ active: !s.active }).eq("id", s.id);
+    if (error) {
+      triggerNotify(error.message, "error");
+      return;
+    }
+    refresh();
+  };
+
   // ---------- Payroll ----------
 
   const addEmployee = async () => {
@@ -484,6 +744,15 @@ export default function PaymentsPage() {
 
   if (!isMounted) return null;
 
+  const NAV_TABS = [
+    { key: "invoicing", label: "Invoices & Quotes" },
+    { key: "expenses", label: "Expenses" },
+    { key: "tax", label: "Tax & VAT" },
+    { key: "hr", label: "Payroll & HR" },
+    { key: "reports", label: "Reports" },
+    { key: "timesheets", label: "Timesheets" },
+  ];
+
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans selection:bg-[#a9b897] selection:text-white pb-12">
       {/* NOTIFICATIONS */}
@@ -495,11 +764,7 @@ export default function PaymentsPage() {
             exit={{ y: 20, opacity: 0 }}
             className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-stone-900 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3"
           >
-            {notification.type === "success" ? (
-              <CheckCircle2 size={12} className="text-[#a9b897]" />
-            ) : (
-              <AlertCircle size={12} className="text-red-500" />
-            )}
+            {notification.type === "success" ? <CheckCircle2 size={12} className="text-[#a9b897]" /> : <AlertCircle size={12} className="text-red-500" />}
             <p className="text-[8px] font-black uppercase tracking-[0.3em]">{notification.msg}</p>
           </motion.div>
         )}
@@ -517,23 +782,18 @@ export default function PaymentsPage() {
             </div>
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-serif italic tracking-tighter leading-none">Finance</h1>
             <p className="text-stone-500 text-sm max-w-xl mt-3">
-              Centralised financial operations, invoices, payroll visibility, timesheet intelligence and business
-              performance reporting.
+              Invoicing, quotes, expenses, VAT, tax filing, payroll and reporting — the full financial operations
+              stack for the business.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <nav className="flex flex-wrap items-center gap-1 bg-white p-1 rounded-2xl shadow-sm border border-stone-100">
-              {[
-                { key: "payments", label: "Payments" },
-                { key: "reports", label: "Financial Reports" },
-                { key: "hr", label: "HR & Payroll" },
-                { key: "timesheets", label: "Timesheets" },
-              ].map((t) => (
+              {NAV_TABS.map((t) => (
                 <button
                   key={t.key}
                   onClick={() => setActiveTab(t.key)}
-                  className={`px-3 sm:px-5 py-2 sm:py-2.5 rounded-full text-[8px] font-black uppercase tracking-[0.1em] transition-all ${
+                  className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[8px] font-black uppercase tracking-[0.1em] transition-all ${
                     activeTab === t.key ? "bg-stone-900 text-white" : "text-stone-300 hover:text-stone-900"
                   }`}
                 >
@@ -556,7 +816,6 @@ export default function PaymentsPage() {
           </div>
         </header>
 
-        {/* CONTEXT / LOADING STATES */}
         {contextError && (
           <div className="bg-red-50 border border-red-100 rounded-[2rem] p-6 flex items-center gap-3">
             <AlertCircle className="text-red-500" size={18} />
@@ -579,45 +838,38 @@ export default function PaymentsPage() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div>
                   <p className="text-[8px] uppercase tracking-widest text-stone-400">Net Position</p>
-                  <p className="text-2xl font-mono mt-2">
-                    £{(metrics.revYtd - metrics.operatingCosts).toLocaleString()}
-                  </p>
+                  <p className="text-2xl font-mono mt-2">£{(metrics.revYtd - metrics.operatingCosts).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-[8px] uppercase tracking-widest text-stone-400">Monthly Burn</p>
                   <p className="text-2xl font-mono mt-2">£{(metrics.operatingCosts / 12).toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] uppercase tracking-widest text-stone-400">Tax Exposure</p>
-                  <p className="text-2xl font-mono mt-2">£{metrics.taxDue.toLocaleString()}</p>
+                  <p className="text-[8px] uppercase tracking-widest text-stone-400">VAT Owed</p>
+                  <p className="text-2xl font-mono mt-2">£{metrics.vatPool.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] uppercase tracking-widest text-stone-400">Cash Health</p>
-                  <p className="text-2xl font-mono mt-2">{metrics.revYtd > metrics.operatingCosts ? "STABLE" : "RISK"}</p>
+                  <p className="text-[8px] uppercase tracking-widest text-stone-400">Tax Exposure</p>
+                  <p className="text-2xl font-mono mt-2">£{metrics.taxDue.toLocaleString()}</p>
                 </div>
               </div>
             </section>
 
-            {activeTab === "payments" && (
+            {/* ================= INVOICES & QUOTES ================= */}
+            {activeTab === "invoicing" && (
               <>
                 <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                   <MetricCard label="Gross Intake (Paid)" value={metrics.revYtd} sub="Invoices settled" icon={<TrendingUp />} isDark />
-                  <MetricCard
-                    label="Operational"
-                    value={metrics.revYtd - metrics.operatingCosts}
-                    sub="Flow: Clear"
-                    icon={<Database />}
-                  />
-                  <MetricCard label="VAT Escrow" value={metrics.vatPool} sub="Lock Active" icon={<Landmark />} />
+                  <MetricCard label="Operational" value={metrics.revYtd - metrics.operatingCosts} sub="Flow: Clear" icon={<Database />} />
+                  <MetricCard label="VAT Escrow" value={metrics.vatPool} sub="Owed, not yet filed" icon={<Landmark />} />
                   <MetricCard label="Fiscal Prov" value={metrics.taxDue} sub="FY Est." icon={<Receipt />} />
                 </section>
 
-                <section className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm mt-6">
-                  <h3 className="text-3xl font-serif italic mb-6">Action Required</h3>
+                <SectionShell title="Action Required">
                   <div className="space-y-3">
                     {[
                       metrics.taxDue > 0 && "Prepare tax provision",
-                      metrics.vatPool > metrics.revYtd * 0.2 && "VAT exposure high",
+                      metrics.vatPool > metrics.revYtd * 0.2 && "VAT return due soon",
                       metrics.revYtd < metrics.operatingCosts && "Operating loss detected",
                       timesheets.length === 0 && "No workforce data available",
                       clarityBrain.riskSignals?.length > 0 && "Risk signals detected",
@@ -637,15 +889,53 @@ export default function PaymentsPage() {
                       clarityBrain.riskSignals?.length > 0,
                     ].every((v) => !v) && <p className="text-sm text-stone-400">No action items — everything's clear.</p>}
                   </div>
-                </section>
+                </SectionShell>
 
+                {/* RECURRING INVOICES */}
+                <SectionShell
+                  title="Recurring Invoices"
+                  subtitle="Subscriptions and repeat billing scheduled to run automatically."
+                  action={
+                    <button
+                      onClick={() => setActiveModal("subscription")}
+                      className="bg-stone-900 text-white px-5 py-2.5 rounded-full flex items-center gap-2 text-[8px] font-black uppercase tracking-widest hover:bg-[#a9b897] hover:text-stone-900 transition-all"
+                    >
+                      <Repeat size={14} /> Schedule
+                    </button>
+                  }
+                >
+                  <div className="space-y-2">
+                    {subscriptions.length === 0 && <p className="text-sm text-stone-400">No recurring invoices scheduled.</p>}
+                    {subscriptions.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between p-4 bg-[#faf9f6] rounded-xl">
+                        <div>
+                          <p className="font-bold">{s.client_name}</p>
+                          <p className="text-[8px] font-mono uppercase tracking-widest text-stone-400">
+                            {s.interval} · next {s.next_run}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-bold">£{Number(s.amount || 0).toLocaleString()}</span>
+                          <button
+                            onClick={() => toggleSubscription(s)}
+                            className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
+                              s.active ? "bg-green-50 text-green-600 border-green-100" : "bg-stone-50 text-stone-400 border-stone-100"
+                            }`}
+                          >
+                            {s.active ? "Active" : "Paused"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </SectionShell>
+
+                {/* LEDGER */}
                 <section className="bg-white border border-stone-100 rounded-[2.5rem] overflow-hidden shadow-lg">
                   <div className="p-8 border-b border-stone-50 flex flex-col xl:flex-row justify-between items-center gap-6">
                     <div className="text-left w-full xl:w-auto">
                       <h3 className="text-4xl font-serif italic tracking-tighter">Transaction Logs</h3>
-                      <p className="text-sm text-stone-500 mt-2">
-                        Monitor invoices, quotes, payments and outstanding revenue across the business.
-                      </p>
+                      <p className="text-sm text-stone-500 mt-2">Invoices, quotes, payments and outstanding revenue across the business.</p>
                     </div>
                     <div className="flex items-center gap-3 w-full xl:w-auto">
                       <div className="relative flex-1 xl:w-72">
@@ -693,12 +983,8 @@ export default function PaymentsPage() {
                               </p>
                             </td>
                             <td className="px-4 sm:px-8 py-4 sm:py-6">
-                              <span
-                                className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${statusStyle(
-                                  inv.status
-                                )}`}
-                              >
-                                <div className={`w-1 h-1 rounded-full ${inv.status === "paid" || inv.status === "accepted" ? "bg-green-600" : "bg-stone-300"}`} />
+                              <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${statusStyle(inv.status)}`}>
+                                <div className={`w-1 h-1 rounded-full ${["paid", "accepted", "converted"].includes(inv.status) ? "bg-green-600" : "bg-stone-300"}`} />
                                 {inv.status}
                               </span>
                             </td>
@@ -707,20 +993,21 @@ export default function PaymentsPage() {
                             </td>
                             <td className="px-4 sm:px-8 py-4 sm:py-6">
                               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {inv.status !== "paid" && inv.status !== "accepted" && (
+                                {inv.type === "Quote" && inv.status !== "converted" && (
                                   <button
-                                    onClick={() => markPaid(inv)}
-                                    title={inv.type === "Invoice" ? "Mark paid" : "Mark accepted"}
-                                    className="p-2 bg-green-50 text-green-600 rounded-full hover:bg-green-100"
+                                    onClick={() => convertToInvoice(inv)}
+                                    title="Convert to invoice"
+                                    className="p-2 bg-[#a9b897]/20 text-stone-900 rounded-full hover:bg-[#a9b897]/40"
                                   >
+                                    <ArrowRight size={14} />
+                                  </button>
+                                )}
+                                {inv.status !== "paid" && inv.status !== "accepted" && (
+                                  <button onClick={() => markPaid(inv)} title={inv.type === "Invoice" ? "Mark paid" : "Mark accepted"} className="p-2 bg-green-50 text-green-600 rounded-full hover:bg-green-100">
                                     <CheckCircle2 size={14} />
                                   </button>
                                 )}
-                                <button
-                                  onClick={() => deleteEntry(inv)}
-                                  title="Delete"
-                                  className="p-2 bg-red-50 text-red-500 rounded-full hover:bg-red-100"
-                                >
+                                <button onClick={() => deleteEntry(inv)} title="Delete" className="p-2 bg-red-50 text-red-500 rounded-full hover:bg-red-100">
                                   <Trash2 size={14} />
                                 </button>
                               </div>
@@ -734,8 +1021,126 @@ export default function PaymentsPage() {
               </>
             )}
 
+            {/* ================= EXPENSES ================= */}
+            {activeTab === "expenses" && (
+              <SectionShell
+                title="Expenses"
+                subtitle={`Total logged: £${expensesTotal.toLocaleString()}`}
+                action={
+                  <button
+                    onClick={() => setActiveModal("expense")}
+                    className="bg-stone-900 text-white px-5 py-2.5 rounded-full flex items-center gap-2 text-[8px] font-black uppercase tracking-widest hover:bg-[#a9b897] hover:text-stone-900 transition-all"
+                  >
+                    <Plus size={14} /> Log Expense
+                  </button>
+                }
+              >
+                <div className="space-y-2">
+                  {expenses.length === 0 && <p className="text-sm text-stone-400">No expenses logged yet.</p>}
+                  {expenses.map((e) => (
+                    <SimpleRecordRow key={e.id} r={e} onMark={() => approveExpense(e.id)} markLabel="Approve" />
+                  ))}
+                </div>
+              </SectionShell>
+            )}
+
+            {/* ================= TAX & VAT ================= */}
+            {activeTab === "tax" && (
+              <div className="space-y-6">
+                <SectionShell
+                  title="VAT Returns"
+                  subtitle={`Estimated VAT currently owed: £${metrics.vatPool.toLocaleString()}`}
+                  action={
+                    <button
+                      onClick={openVatModal}
+                      className="bg-stone-900 text-white px-5 py-2.5 rounded-full flex items-center gap-2 text-[8px] font-black uppercase tracking-widest hover:bg-[#a9b897] hover:text-stone-900 transition-all"
+                    >
+                      <ShieldCheck size={14} /> File VAT Return
+                    </button>
+                  }
+                >
+                  <div className="space-y-2">
+                    {vatReturns.length === 0 && <p className="text-sm text-stone-400">No VAT returns filed yet.</p>}
+                    {vatReturns.map((v) => (
+                      <SimpleRecordRow key={v.id} r={v} />
+                    ))}
+                  </div>
+                </SectionShell>
+
+                <SectionShell
+                  title="Self Assessment / Tax Return"
+                  subtitle={`Estimated tax due this year: £${metrics.taxDue.toLocaleString()}`}
+                  action={
+                    <button
+                      onClick={openTaxModal}
+                      className="bg-stone-900 text-white px-5 py-2.5 rounded-full flex items-center gap-2 text-[8px] font-black uppercase tracking-widest hover:bg-[#a9b897] hover:text-stone-900 transition-all"
+                    >
+                      <ClipboardCheck size={14} /> File Return
+                    </button>
+                  }
+                >
+                  <div className="space-y-2">
+                    {selfAssessments.length === 0 && <p className="text-sm text-stone-400">No returns filed yet.</p>}
+                    {selfAssessments.map((s) => (
+                      <SimpleRecordRow key={s.id} r={s} />
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-stone-400 mt-4">
+                    Tax estimate is a simplified projection (revenue minus £12,570 allowance, at 19%) — check the actual
+                    figure with your accountant or HMRC before filing.
+                  </p>
+                </SectionShell>
+              </div>
+            )}
+
+            {/* ================= PAYROLL & HR ================= */}
+            {activeTab === "hr" && (
+              <div className="space-y-6">
+                <SectionShell
+                  title="HR & Payroll"
+                  subtitle={`Monthly payroll commitment: £${totalPayrollMonthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+                  action={
+                    <button
+                      onClick={() => setActiveModal("employee")}
+                      className="bg-stone-900 text-white px-5 py-2.5 rounded-full flex items-center gap-2 text-[8px] font-black uppercase tracking-widest hover:bg-[#a9b897] hover:text-stone-900 transition-all"
+                    >
+                      <UserPlus size={14} /> Add Employee
+                    </button>
+                  }
+                >
+                  <div className="space-y-2">
+                    {payrollEmployees.length === 0 && <p className="text-sm text-stone-400">No employees on file yet.</p>}
+                    {payrollEmployees.map((e) => (
+                      <div key={e.id} className="flex items-center justify-between p-4 bg-[#faf9f6] rounded-xl">
+                        <div>
+                          <p className="font-bold text-stone-900">{e.name}</p>
+                          <p className="text-[8px] uppercase tracking-widest text-stone-400">{e.role || "No role set"}</p>
+                        </div>
+                        <p className="font-mono font-bold">£{Number(e.salary_gross || 0).toLocaleString()} / yr</p>
+                      </div>
+                    ))}
+                  </div>
+                </SectionShell>
+
+                <SectionShell title="Recent Payslips">
+                  <div className="space-y-2">
+                    {payslips.length === 0 && <p className="text-sm text-stone-400">No payslips issued yet.</p>}
+                    {payslips.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between p-4 border border-stone-50 rounded-xl">
+                        <span className="text-[9px] font-mono text-stone-400">
+                          {p.period_start} → {p.period_end}
+                        </span>
+                        <span className="font-mono font-bold">£{Number(p.net || 0).toLocaleString()} net</span>
+                      </div>
+                    ))}
+                  </div>
+                </SectionShell>
+              </div>
+            )}
+
+            {/* ================= REPORTS ================= */}
             {activeTab === "reports" && (
-              <section className="space-y-6">
+              <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm">
                     <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-300">Projected Revenue (+15%)</p>
@@ -747,15 +1152,12 @@ export default function PaymentsPage() {
                   </div>
                   <div className="bg-stone-900 text-white rounded-[2rem] p-6 shadow-xl">
                     <p className="text-[8px] font-black uppercase tracking-[0.4em] text-stone-400">Projected Profit</p>
-                    <p className="text-2xl font-mono mt-3 text-[#a9b897]">
-                      £{clarityCFO.projectedProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                    </p>
+                    <p className="text-2xl font-mono mt-3 text-[#a9b897]">£{clarityCFO.projectedProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                     <p className="text-[8px] uppercase tracking-widest mt-2 text-stone-400">Risk: {clarityCFO.riskLevel}</p>
                   </div>
                 </div>
 
-                <div className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm">
-                  <h3 className="text-2xl font-serif italic mb-6">Clarity Health Signal</h3>
+                <SectionShell title="Clarity Health Signal">
                   <div className="flex items-center gap-6 mb-6">
                     <div className="relative w-24 h-24 shrink-0">
                       <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
@@ -768,9 +1170,7 @@ export default function PaymentsPage() {
                           strokeDasharray={`${clarityBrain.healthScore}, 100`}
                         />
                       </svg>
-                      <div className="absolute inset-0 flex items-center justify-center font-mono font-bold text-lg">
-                        {clarityBrain.healthScore}
-                      </div>
+                      <div className="absolute inset-0 flex items-center justify-center font-mono font-bold text-lg">{clarityBrain.healthScore}</div>
                     </div>
                     <div>
                       <p className="text-[8px] font-black uppercase tracking-widest text-stone-300">Status</p>
@@ -786,10 +1186,9 @@ export default function PaymentsPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </SectionShell>
 
-                <div className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm">
-                  <h3 className="text-2xl font-serif italic mb-6">Revenue vs Costs</h3>
+                <SectionShell title="Revenue vs Costs">
                   <div className="space-y-4">
                     <div>
                       <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-stone-400 mb-1">
@@ -797,10 +1196,7 @@ export default function PaymentsPage() {
                         <span>£{metrics.revYtd.toLocaleString()}</span>
                       </div>
                       <div className="h-3 bg-stone-50 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-[#a9b897]"
-                          style={{ width: `${Math.min(100, (metrics.revYtd / Math.max(metrics.revYtd, metrics.operatingCosts, 1)) * 100)}%` }}
-                        />
+                        <div className="h-full bg-[#a9b897]" style={{ width: `${Math.min(100, (metrics.revYtd / Math.max(metrics.revYtd, metrics.operatingCosts, 1)) * 100)}%` }} />
                       </div>
                     </div>
                     <div>
@@ -809,72 +1205,29 @@ export default function PaymentsPage() {
                         <span>£{metrics.operatingCosts.toLocaleString()}</span>
                       </div>
                       <div className="h-3 bg-stone-50 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-stone-900"
-                          style={{ width: `${Math.min(100, (metrics.operatingCosts / Math.max(metrics.revYtd, metrics.operatingCosts, 1)) * 100)}%` }}
-                        />
+                        <div className="h-full bg-stone-900" style={{ width: `${Math.min(100, (metrics.operatingCosts / Math.max(metrics.revYtd, metrics.operatingCosts, 1)) * 100)}%` }} />
                       </div>
                     </div>
                   </div>
-                </div>
-              </section>
-            )}
+                </SectionShell>
 
-            {activeTab === "hr" && (
-              <section className="space-y-6">
-                <div className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h3 className="text-3xl font-serif italic">HR & Payroll</h3>
-                      <p className="text-sm text-stone-500 mt-2">
-                        Monthly payroll commitment: <span className="font-mono font-bold">£{totalPayrollMonthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setActiveModal("employee")}
-                      className="bg-stone-900 text-white px-5 py-2.5 rounded-full flex items-center gap-2 text-[8px] font-black uppercase tracking-widest hover:bg-[#a9b897] hover:text-stone-900 transition-all"
-                    >
-                      <UserPlus size={14} /> Add Employee
-                    </button>
-                  </div>
-
+                <SectionShell title="Expense Breakdown">
                   <div className="space-y-2">
-                    {payrollEmployees.length === 0 && <p className="text-sm text-stone-400">No employees on file yet.</p>}
-                    {payrollEmployees.map((e) => (
-                      <div key={e.id} className="flex items-center justify-between p-4 bg-[#faf9f6] rounded-xl">
-                        <div>
-                          <p className="font-bold text-stone-900">{e.name}</p>
-                          <p className="text-[8px] uppercase tracking-widest text-stone-400">{e.role || "No role set"}</p>
-                        </div>
-                        <p className="font-mono font-bold">£{Number(e.salary_gross || 0).toLocaleString()} / yr</p>
+                    {expenses.length === 0 && <p className="text-sm text-stone-400">No expenses to report.</p>}
+                    {expenses.slice(0, 8).map((e) => (
+                      <div key={e.id} className="flex items-center justify-between text-sm p-2">
+                        <span className="text-stone-600 truncate">{e.description}</span>
+                        <span className="font-mono">£{e.amount.toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
-                </div>
-
-                <div className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm">
-                  <h3 className="text-2xl font-serif italic mb-6">Recent Payslips</h3>
-                  <div className="space-y-2">
-                    {payslips.length === 0 && <p className="text-sm text-stone-400">No payslips issued yet.</p>}
-                    {payslips.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between p-4 border border-stone-50 rounded-xl">
-                        <span className="text-[9px] font-mono text-stone-400">
-                          {p.period_start} → {p.period_end}
-                        </span>
-                        <span className="font-mono font-bold">£{Number(p.net || 0).toLocaleString()} net</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
+                </SectionShell>
+              </div>
             )}
 
+            {/* ================= TIMESHEETS ================= */}
             {activeTab === "timesheets" && (
-              <section className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm">
-                <div className="mb-6">
-                  <h3 className="text-3xl font-serif italic">Timesheets</h3>
-                  <p className="text-sm text-stone-500 mt-2">Track workforce utilisation, submitted hours and payroll activity.</p>
-                </div>
+              <SectionShell title="Timesheets" subtitle="Track workforce utilisation, submitted hours and payroll activity.">
                 <div className="space-y-3">
                   {timesheets.length === 0 && <p className="text-sm text-stone-400">No timesheet entries yet.</p>}
                   {timesheets.map((t: any) => {
@@ -890,29 +1243,19 @@ export default function PaymentsPage() {
                     );
                   })}
                 </div>
-              </section>
+              </SectionShell>
             )}
           </>
         )}
       </div>
 
-      {/* DISPATCH MODAL */}
+      {/* ================= MODALS ================= */}
+
+      {/* DISPATCH (Invoice / Quote) */}
       <AnimatePresence>
         {activeModal === "dispatch" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4"
-            onClick={() => setActiveModal(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-[2rem] w-full max-w-xl max-h-[90vh] overflow-y-auto p-8 space-y-6"
-            >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4" onClick={() => setActiveModal(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-[2rem] w-full max-w-xl max-h-[90vh] overflow-y-auto p-8 space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-serif italic">New Directive</h3>
                 <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-stone-50 rounded-full">
@@ -922,13 +1265,7 @@ export default function PaymentsPage() {
 
               <div className="flex gap-2 bg-[#faf9f6] p-1 rounded-full w-fit">
                 {(["Invoice", "Quote"] as DocType[]).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setDocType(t)}
-                    className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
-                      docType === t ? "bg-stone-900 text-white" : "text-stone-400"
-                    }`}
-                  >
+                  <button key={t} onClick={() => setDocType(t)} className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${docType === t ? "bg-stone-900 text-white" : "text-stone-400"}`}>
                     {t}
                   </button>
                 ))}
@@ -958,9 +1295,7 @@ export default function PaymentsPage() {
                   />
                 )}
                 {docType === "Invoice" && (
-                  <p className="text-[10px] text-stone-400">
-                    Invoices require an existing customer record (they're linked by ID). Add the customer first if they're not listed.
-                  </p>
+                  <p className="text-[10px] text-stone-400">Invoices require an existing customer record. Add the customer first if they're not listed.</p>
                 )}
 
                 {docType === "Invoice" && (
@@ -1015,12 +1350,8 @@ export default function PaymentsPage() {
               </div>
 
               <div className="border-t border-stone-100 pt-4 space-y-1 text-right">
-                <p className="text-[9px] uppercase tracking-widest text-stone-400">
-                  Net: £{netTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-[9px] uppercase tracking-widest text-stone-400">
-                  VAT (20%): £{vatTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
+                <p className="text-[9px] uppercase tracking-widest text-stone-400">Net: £{netTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                <p className="text-[9px] uppercase tracking-widest text-stone-400">VAT (20%): £{vatTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                 <p className="text-xl font-mono font-bold">£{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
               </div>
 
@@ -1037,55 +1368,128 @@ export default function PaymentsPage() {
         )}
       </AnimatePresence>
 
-      {/* ADD EMPLOYEE MODAL */}
+      {/* ADD EMPLOYEE */}
       <AnimatePresence>
         {activeModal === "employee" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4"
-            onClick={() => setActiveModal(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-[2rem] w-full max-w-md p-8 space-y-5"
-            >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4" onClick={() => setActiveModal(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-[2rem] w-full max-w-md p-8 space-y-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-serif italic">Add Employee</h3>
                 <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-stone-50 rounded-full">
                   <X size={18} />
                 </button>
               </div>
-              <input
-                placeholder="Full name"
-                value={newEmployee.name}
-                onChange={(e) => setNewEmployee((f) => ({ ...f, name: e.target.value }))}
-                className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900"
-              />
-              <input
-                placeholder="Role"
-                value={newEmployee.role}
-                onChange={(e) => setNewEmployee((f) => ({ ...f, role: e.target.value }))}
-                className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900"
-              />
-              <input
-                type="number"
-                placeholder="Gross annual salary"
-                value={newEmployee.salary_gross}
-                onChange={(e) => setNewEmployee((f) => ({ ...f, salary_gross: e.target.value }))}
-                className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900"
-              />
-              <button
-                onClick={addEmployee}
-                disabled={submitting}
-                className="w-full bg-stone-900 text-white py-4 rounded-full flex items-center justify-center gap-3 hover:bg-[#a9b897] hover:text-stone-900 transition-all disabled:opacity-50"
-              >
+              <input placeholder="Full name" value={newEmployee.name} onChange={(e) => setNewEmployee((f) => ({ ...f, name: e.target.value }))} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <input placeholder="Role" value={newEmployee.role} onChange={(e) => setNewEmployee((f) => ({ ...f, role: e.target.value }))} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <input type="number" placeholder="Gross annual salary" value={newEmployee.salary_gross} onChange={(e) => setNewEmployee((f) => ({ ...f, salary_gross: e.target.value }))} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <button onClick={addEmployee} disabled={submitting} className="w-full bg-stone-900 text-white py-4 rounded-full flex items-center justify-center gap-3 hover:bg-[#a9b897] hover:text-stone-900 transition-all disabled:opacity-50">
                 {submitting ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
                 <span className="text-[9px] font-black uppercase tracking-widest">Add Employee</span>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* LOG EXPENSE */}
+      <AnimatePresence>
+        {activeModal === "expense" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4" onClick={() => setActiveModal(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-[2rem] w-full max-w-md p-8 space-y-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-serif italic">Log Expense</h3>
+                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-stone-50 rounded-full">
+                  <X size={18} />
+                </button>
+              </div>
+              <input placeholder="Description" value={newExpense.description} onChange={(e) => setNewExpense((f) => ({ ...f, description: e.target.value }))} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <input type="number" placeholder="Amount" value={newExpense.amount} onChange={(e) => setNewExpense((f) => ({ ...f, amount: e.target.value }))} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <input type="date" value={newExpense.date} onChange={(e) => setNewExpense((f) => ({ ...f, date: e.target.value }))} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <select value={newExpense.status} onChange={(e) => setNewExpense((f) => ({ ...f, status: e.target.value }))} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900">
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="paid">Paid</option>
+              </select>
+              <button onClick={addExpense} disabled={submitting} className="w-full bg-stone-900 text-white py-4 rounded-full flex items-center justify-center gap-3 hover:bg-[#a9b897] hover:text-stone-900 transition-all disabled:opacity-50">
+                {submitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                <span className="text-[9px] font-black uppercase tracking-widest">Log Expense</span>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* FILE VAT RETURN */}
+      <AnimatePresence>
+        {activeModal === "vat" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4" onClick={() => setActiveModal(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-[2rem] w-full max-w-md p-8 space-y-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-serif italic">File VAT Return</h3>
+                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-stone-50 rounded-full">
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="text-[10px] text-stone-400">Amount is pre-filled from the current VAT owed estimate — adjust if needed before filing.</p>
+              <input placeholder="Description" value={vatFormDesc} onChange={(e) => setVatFormDesc(e.target.value)} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <input type="number" placeholder="Amount" value={vatFormAmount} onChange={(e) => setVatFormAmount(e.target.value)} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <button onClick={fileVatReturn} disabled={submitting} className="w-full bg-stone-900 text-white py-4 rounded-full flex items-center justify-center gap-3 hover:bg-[#a9b897] hover:text-stone-900 transition-all disabled:opacity-50">
+                {submitting ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                <span className="text-[9px] font-black uppercase tracking-widest">File Return</span>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* FILE TAX / SELF ASSESSMENT RETURN */}
+      <AnimatePresence>
+        {activeModal === "tax" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4" onClick={() => setActiveModal(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-[2rem] w-full max-w-md p-8 space-y-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-serif italic">File Tax Return</h3>
+                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-stone-50 rounded-full">
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="text-[10px] text-stone-400">This is a simplified estimate — confirm the real figure with your accountant before filing with HMRC.</p>
+              <input placeholder="Description" value={taxFormDesc} onChange={(e) => setTaxFormDesc(e.target.value)} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <input type="number" placeholder="Amount" value={taxFormAmount} onChange={(e) => setTaxFormAmount(e.target.value)} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <button onClick={fileTaxReturn} disabled={submitting} className="w-full bg-stone-900 text-white py-4 rounded-full flex items-center justify-center gap-3 hover:bg-[#a9b897] hover:text-stone-900 transition-all disabled:opacity-50">
+                {submitting ? <Loader2 size={14} className="animate-spin" /> : <ClipboardCheck size={14} />}
+                <span className="text-[9px] font-black uppercase tracking-widest">File Return</span>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SCHEDULE RECURRING INVOICE */}
+      <AnimatePresence>
+        {activeModal === "subscription" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4" onClick={() => setActiveModal(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-[2rem] w-full max-w-md p-8 space-y-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-serif italic">Schedule Recurring Invoice</h3>
+                <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-stone-50 rounded-full">
+                  <X size={18} />
+                </button>
+              </div>
+              <input placeholder="Client name" value={newSubscription.client_name} onChange={(e) => setNewSubscription((f) => ({ ...f, client_name: e.target.value }))} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <input type="number" placeholder="Amount" value={newSubscription.amount} onChange={(e) => setNewSubscription((f) => ({ ...f, amount: e.target.value }))} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              <select value={newSubscription.interval} onChange={(e) => setNewSubscription((f) => ({ ...f, interval: e.target.value }))} className="w-full px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900">
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+              <div>
+                <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">Next Run</label>
+                <input type="date" value={newSubscription.next_run} onChange={(e) => setNewSubscription((f) => ({ ...f, next_run: e.target.value }))} className="w-full mt-1 px-4 py-3 bg-[#faf9f6] border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-900" />
+              </div>
+              <button onClick={addSubscription} disabled={submitting} className="w-full bg-stone-900 text-white py-4 rounded-full flex items-center justify-center gap-3 hover:bg-[#a9b897] hover:text-stone-900 transition-all disabled:opacity-50">
+                {submitting ? <Loader2 size={14} className="animate-spin" /> : <Repeat size={14} />}
+                <span className="text-[9px] font-black uppercase tracking-widest">Schedule</span>
               </button>
             </motion.div>
           </motion.div>

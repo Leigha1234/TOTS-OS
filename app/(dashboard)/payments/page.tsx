@@ -811,7 +811,7 @@ export default function PaymentsPage() {
               className="bg-[#a9b897] text-stone-900 px-6 py-2.5 rounded-full flex items-center gap-3 hover:bg-stone-900 hover:text-white transition-all shadow-lg active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
             >
               <Plus size={14} />
-              <span className="text-[8px] font-black uppercase tracking-widest">Directive</span>
+              <span className="text-[8px] font-black uppercase tracking-widest">Invoice/Quote</span>
             </button>
           </div>
         </header>
@@ -1257,7 +1257,7 @@ export default function PaymentsPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4" onClick={() => setActiveModal(null)}>
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-[2rem] w-full max-w-xl max-h-[90vh] overflow-y-auto p-8 space-y-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-serif italic">New Directive</h3>
+                <h3 className="text-2xl font-serif italic">New Invoicce/Quote</h3>
                 <button onClick={() => setActiveModal(null)} className="p-2 hover:bg-stone-50 rounded-full">
                   <X size={18} />
                 </button>

@@ -102,21 +102,25 @@ export default function ClarityPage() {
     setIsAiTyping(true);
 
     try {
-      const res = await fetch("/api/clarity/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: trimmed,
-          projectName: activeProject.name,
-          projectFocus: activeProject.focus,
-          history: historyForApi,
-        }),
-      });
+      const response = await fetch("/api/clarity/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  credentials: "include", // 👈 This forces the browser to send the auth cookies
+  body: JSON.stringify({
+    query: trimmed,
+    projectName: activeProject.name,
+    projectFocus: activeProject.focus,
+    history: historyForApi,
+  }),
+});
+    
 
-      const payload = await res.json().catch(() => ({}));
+      const payload = await response.json().catch(() => ({}));
 
-      if (!res.ok) {
-        throw new Error(payload?.error || `Request failed (${res.status})`);
+      if (!response.ok) {
+        throw new Error(payload?.error || `Request failed (${response.status})`);
       }
 
       setAllSignals((prev) => [

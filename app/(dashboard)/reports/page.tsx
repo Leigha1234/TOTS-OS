@@ -2,37 +2,46 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { motion } from "framer-motion";
 import {
-  Zap, ShieldCheck, ArrowUpRight, Mail,
-  BarChart3, Share2, Download, Loader2,
-  TrendingUp, Activity, Target, AlertCircle, Cpu
+  Activity, AlertCircle, ArrowUpRight, BarChart3, Briefcase,
+  Cpu, Download, Hash, Loader2, Mail, ShieldCheck, Share2,
+  Target, TrendingUp, Users, Zap,
 } from "lucide-react";
+import {
+  ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+} from "recharts";
 
 // ---------- Types ----------
-
-type InvoiceStatus = "paid" | "unpaid" | "overdue" | "draft" | string;
 
 interface Invoice {
   id: string;
   team_id: string;
   amount: number;
   currency?: string;
-  status: InvoiceStatus;
+  status: string;
   due_date?: string | null;
+  client_name?: string | null; // optional — degrades gracefully if absent
+  created_at?: string | null;
 }
 
 interface Task {
   id: string;
   team_id: string;
   status: string;
+  title?: string;
+  assignee_id?: string | null; // optional
+  created_at?: string | null;
+  completed_at?: string | null;
 }
 
 interface Timesheet {
   id: string;
   team_id: string;
+  user_id?: string | null; // optional
   mon?: number; tue?: number; wed?: number; thu?: number;
   fri?: number; sat?: number; sun?: number;
+  week_start?: string | null;
 }
 
 interface Post {
@@ -41,55 +50,75 @@ interface Post {
   platform?: string;
   likes?: number;
   comments?: number;
+  created_at?: string | null;
 }
 
 interface EmailCampaign {
   id: string;
   team_id: string;
+  name?: string;
   sent_count?: number;
   open_count?: number;
   click_count?: number;
+  created_at?: string | null;
 }
 
-interface ReportData {
-  revenue: number;
-  totalHours: number;
-  overdueCount: number;
-  tasksDone: number;
-  social: { likes: number; comments: number; total: number };
-  trends: { instagram: number; linkedin: number; twitter: number; [key: string]: number };
-  email: { sent: number; opens: number; clicks: number };
+interface TeamMember {
+  id: string;
+  user_id?: string;
+  name?: string;
+  role?: string;
 }
 
-const EMPTY_DATA: ReportData = {
-  revenue: 0,
-  totalHours: 0,
-  overdueCount: 0,
-  tasksDone: 0,
-  social: { likes: 0, comments: 0, total: 0 },
-  trends: { instagram: 0, linkedin: 0, twitter: 0 },
-  email: { sent: 0, opens: 0, clicks: 0 },
-};
+type Tab = "overview" | "financial" | "productivity" | "marketing" | "team";
+
+const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+const PIE_COLORS = ["#a9b897", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#0891b2"];
 
 const currencyFmt = (value: number, currency = "GBP") =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
 
-// Escapes a CSV field: wraps in quotes and doubles any inner quotes if the
-// value contains a comma, quote, or newline.
 function csvEscape(value: unknown): string {
   const str = value === null || value === undefined ? "" : String(value);
-  if (/[",\n]/.test(str)) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
+  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
   return str;
 }
 
-export default function ReportsPage() {
-  const [data, setData] = useState<ReportData>(EMPTY_DATA);
-  const [invoiceData, setInvoiceData] = useState<Invoice[]>([]);
+function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
+  const body = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + body], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function monthLabel(dateStr: string) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+}
+
+function monthKey(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export default function FullReportsPage() {
+  const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unauthenticated, setUnauthenticated] = useState(false);
+
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [emails, setEmails] = useState<EmailCampaign[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
 
   const supabase = useMemo(
     () =>
@@ -100,233 +129,239 @@ export default function ReportsPage() {
     []
   );
 
-  const clarityGlobalBrain = useMemo(() => {
-    const revenue = data.revenue;
-    const hours = data.totalHours;
-    const tasks = data.tasksDone;
-    const overdue = data.overdueCount;
-
-    const emailSent = data.email.sent;
-    const emailOpenRate = emailSent > 0 ? data.email.opens / emailSent : 0;
-
-    const productivity = hours > 0 ? tasks / hours : 0;
-    const revenuePerHour = hours > 0 ? revenue / hours : 0;
-
-    const engagementScore = data.social.likes + data.social.comments;
-
-    const financialHealth = Math.min(100, (revenuePerHour / 100) * 100);
-    const operationalHealth = Math.min(100, productivity * 50);
-    const engagementHealth = Math.min(100, emailOpenRate * 100);
-    const workloadHealth = Math.max(0, 100 - overdue * 10);
-
-    const hasAnyData = revenue > 0 || hours > 0 || tasks > 0 || emailSent > 0;
-
-    const systemScore = hasAnyData
-      ? Math.round((financialHealth + operationalHealth + engagementHealth + workloadHealth) / 4)
-      : 0;
-
-    const risks: string[] = [];
-    if (overdue > 5) risks.push("System backlog increasing");
-    if (hours > 0 && revenuePerHour < 50) risks.push("Revenue efficiency degradation");
-    if (emailSent > 0 && emailOpenRate < 0.2) risks.push("Engagement decay detected");
-    if (hours > 0 && productivity < 0.5) risks.push("Operational throughput weak");
-
-    const systemState = !hasAnyData
-      ? "no data"
-      : systemScore > 75
-      ? "optimal"
-      : systemScore > 45
-      ? "stable"
-      : "critical";
-
-    return {
-      revenuePerHour,
-      productivity,
-      engagementScore,
-      emailOpenRate,
-      risks,
-      systemScore,
-      systemState,
-      financialHealth,
-      operationalHealth,
-      engagementHealth,
-      workloadHealth,
-    };
-  }, [data]);
-
   useEffect(() => {
     let cancelled = false;
 
-    async function init() {
+    async function load() {
       setLoading(true);
       setError(null);
       setUnauthenticated(false);
 
       try {
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError) throw authError;
 
         if (!user) {
-          if (!cancelled) {
-            setUnauthenticated(true);
-            setLoading(false);
-          }
+          if (!cancelled) { setUnauthenticated(true); setLoading(false); }
           return;
         }
 
         const { data: mem, error: memError } = await supabase
-          .from("team_members")
-          .select("team_id")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
+          .from("team_members").select("team_id").eq("user_id", user.id).maybeSingle();
         if (memError) throw memError;
 
         if (!mem?.team_id) {
-          if (!cancelled) {
-            setError("No team is associated with this account yet.");
-            setLoading(false);
-          }
+          if (!cancelled) { setError("No team is associated with this account yet."); setLoading(false); }
           return;
         }
 
         const teamId = mem.team_id;
 
-        const [inv, tks, ts, posts, emails] = await Promise.all([
-          supabase.from("invoices").select("*").eq("team_id", teamId),
-          supabase.from("tasks").select("*").eq("team_id", teamId),
-          supabase.from("timesheets").select("*").eq("team_id", teamId),
-          supabase.from("posts").select("*").eq("team_id", teamId),
-          supabase.from("email_campaigns").select("*").eq("team_id", teamId),
+        const [inv, tks, ts, pst, eml, tm] = await Promise.all([
+          supabase.from("invoices").select("*").eq("team_id", teamId).limit(1000),
+          supabase.from("tasks").select("*").eq("team_id", teamId).limit(1000),
+          supabase.from("timesheets").select("*").eq("team_id", teamId).limit(1000),
+          supabase.from("posts").select("*").eq("team_id", teamId).limit(500),
+          supabase.from("email_campaigns").select("*").eq("team_id", teamId).limit(500),
+          supabase.from("team_members").select("*").eq("team_id", teamId),
         ]);
 
-        for (const result of [inv, tks, ts, posts, emails]) {
-          if (result.error) throw result.error;
-        }
-
-        const invoices = (inv.data ?? []) as Invoice[];
-        const tasks = (tks.data ?? []) as Task[];
-        const timesheets = (ts.data ?? []) as Timesheet[];
-        const postsData = (posts.data ?? []) as Post[];
-        const emailCampaigns = (emails.data ?? []) as EmailCampaign[];
-
-        const rev = invoices
-          .filter((i) => i.status === "paid")
-          .reduce((s, i) => s + Number(i.amount || 0), 0);
-
-        const hrs = timesheets.reduce((s, t) => {
-          return (
-            s +
-            Number(t.mon || 0) +
-            Number(t.tue || 0) +
-            Number(t.wed || 0) +
-            Number(t.thu || 0) +
-            Number(t.fri || 0) +
-            Number(t.sat || 0) +
-            Number(t.sun || 0)
-          );
-        }, 0);
-
-        const socialStats = postsData.reduce(
-          (acc, post) => ({
-            likes: acc.likes + Number(post.likes || 0),
-            comments: acc.comments + Number(post.comments || 0),
-            total: acc.total + 1,
-          }),
-          { likes: 0, comments: 0, total: 0 }
-        );
-
-        const emailStats = emailCampaigns.reduce(
-          (acc, camp) => ({
-            sent: acc.sent + Number(camp.sent_count || 0),
-            opens: acc.opens + Number(camp.open_count || 0),
-            clicks: acc.clicks + Number(camp.click_count || 0),
-          }),
-          { sent: 0, opens: 0, clicks: 0 }
-        );
-
-        const platformTrends = postsData.reduce(
-          (acc: ReportData["trends"], post) => {
-            const p = post.platform?.toLowerCase() || "other";
-            const value = Number(post.likes || 0) + Number(post.comments || 0);
-            acc[p] = (acc[p] || 0) + value;
-            return acc;
-          },
-          { instagram: 0, linkedin: 0, twitter: 0 }
-        );
-
-        const now = new Date();
-        const overdueCount = invoices.filter(
-          (i) => i.due_date && new Date(i.due_date) < now && i.status !== "paid"
-        ).length;
+        for (const r of [inv, tks, ts, pst, eml, tm]) if (r.error) throw r.error;
 
         if (!cancelled) {
-          setInvoiceData(invoices);
-          setData({
-            revenue: rev,
-            totalHours: hrs,
-            overdueCount,
-            tasksDone: tasks.filter((t) => t.status === "done").length,
-            social: socialStats,
-            trends: platformTrends,
-            email: emailStats,
-          });
+          setInvoices((inv.data ?? []) as Invoice[]);
+          setTasks((tks.data ?? []) as Task[]);
+          setTimesheets((ts.data ?? []) as Timesheet[]);
+          setPosts((pst.data ?? []) as Post[]);
+          setEmails((eml.data ?? []) as EmailCampaign[]);
+          setMembers((tm.data ?? []) as TeamMember[]);
         }
       } catch (err) {
-        console.error("Intelligence report failure:", err);
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load reports.");
-        }
+        console.error("Reports load failure:", err);
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load reports.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    init();
-    return () => {
-      cancelled = true;
-    };
+    load();
+    return () => { cancelled = true; };
   }, [supabase]);
 
-  const downloadFinanceReport = () => {
-    if (!invoiceData.length) return;
-    const headers = ["Invoice ID", "Amount", "Currency", "Status", "Due Date"];
-    const rows = invoiceData.map((inv) => [
-      inv.id,
-      inv.amount,
-      inv.currency || "GBP",
-      inv.status,
-      inv.due_date || "N/A",
-    ]);
-    // BOM prefix keeps Excel from mangling special characters on Windows.
-    const csvBody = [headers, ...rows]
-      .map((row) => row.map(csvEscape).join(","))
-      .join("\r\n");
-    const blob = new Blob(["\uFEFF" + csvBody], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "finance_report.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  // ---------- FINANCIAL ----------
+  const financial = useMemo(() => {
+    const currency = invoices[0]?.currency || "GBP";
+    const paid = invoices.filter((i) => i.status === "paid");
+    const unpaid = invoices.filter((i) => i.status !== "paid");
+    const paidRevenue = paid.reduce((s, i) => s + Number(i.amount || 0), 0);
+    const outstanding = unpaid.reduce((s, i) => s + Number(i.amount || 0), 0);
+
+    // Monthly revenue (paid invoices, by created_at or due_date)
+    const monthly = new Map<string, number>();
+    paid.forEach((i) => {
+      const dateStr = i.created_at || i.due_date;
+      if (!dateStr) return;
+      const key = monthKey(dateStr);
+      monthly.set(key, (monthly.get(key) || 0) + Number(i.amount || 0));
+    });
+    const monthlyRevenue = Array.from(monthly.entries())
+      .sort(([a], [b]) => (a > b ? 1 : -1))
+      .slice(-12)
+      .map(([key, revenue]) => ({ month: monthLabel(key + "-01"), revenue }));
+
+    // Status breakdown
+    const statusMap = new Map<string, number>();
+    invoices.forEach((i) => statusMap.set(i.status, (statusMap.get(i.status) || 0) + 1));
+    const statusBreakdown = Array.from(statusMap.entries()).map(([name, value]) => ({ name, value }));
+
+    // AR aging
+    const now = new Date();
+    const buckets = { Current: 0, "1-30": 0, "31-60": 0, "61-90": 0, "90+": 0 };
+    unpaid.forEach((i) => {
+      if (!i.due_date) return;
+      const days = Math.floor((now.getTime() - new Date(i.due_date).getTime()) / 86400000);
+      const amt = Number(i.amount || 0);
+      if (days <= 0) buckets.Current += amt;
+      else if (days <= 30) buckets["1-30"] += amt;
+      else if (days <= 60) buckets["31-60"] += amt;
+      else if (days <= 90) buckets["61-90"] += amt;
+      else buckets["90+"] += amt;
+    });
+    const aging = Object.entries(buckets).map(([bucket, amount]) => ({ bucket, amount }));
+
+    // Top clients (only meaningful if client_name is tracked)
+    const hasClientField = invoices.some((i) => i.client_name);
+    const clientMap = new Map<string, number>();
+    paid.forEach((i) => {
+      const key = i.client_name || "Unknown";
+      clientMap.set(key, (clientMap.get(key) || 0) + Number(i.amount || 0));
+    });
+    const topClients = Array.from(clientMap.entries())
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([name, revenue]) => ({ name, revenue }));
+
+    return { currency, paidRevenue, outstanding, overdueCount: unpaid.filter((i) => {
+      if (!i.due_date) return false;
+      return new Date(i.due_date) < now;
+    }).length, monthlyRevenue, statusBreakdown, aging, hasClientField, topClients };
+  }, [invoices]);
+
+  // ---------- PRODUCTIVITY ----------
+  const productivity = useMemo(() => {
+    const done = tasks.filter((t) => t.status === "done");
+    const statusMap = new Map<string, number>();
+    tasks.forEach((t) => statusMap.set(t.status, (statusMap.get(t.status) || 0) + 1));
+    const statusBreakdown = Array.from(statusMap.entries()).map(([name, value]) => ({ name, value }));
+
+    const completionByMonth = new Map<string, number>();
+    done.forEach((t) => {
+      const dateStr = t.completed_at || t.created_at;
+      if (!dateStr) return;
+      const key = monthKey(dateStr);
+      completionByMonth.set(key, (completionByMonth.get(key) || 0) + 1);
+    });
+    const monthlyCompletion = Array.from(completionByMonth.entries())
+      .sort(([a], [b]) => (a > b ? 1 : -1))
+      .slice(-12)
+      .map(([key, count]) => ({ month: monthLabel(key + "-01"), completed: count }));
+
+    const totalHours = timesheets.reduce(
+      (s, t) => s + WEEKDAYS.reduce((ws, d) => ws + Number(t[d] || 0), 0), 0
+    );
+
+    const hoursByWeek = new Map<string, number>();
+    timesheets.forEach((t) => {
+      if (!t.week_start) return;
+      const hrs = WEEKDAYS.reduce((s, d) => s + Number(t[d] || 0), 0);
+      hoursByWeek.set(t.week_start, (hoursByWeek.get(t.week_start) || 0) + hrs);
+    });
+    const weeklyHours = Array.from(hoursByWeek.entries())
+      .sort(([a], [b]) => (a > b ? 1 : -1))
+      .slice(-12)
+      .map(([week, hours]) => ({ week: monthLabel(week), hours }));
+
+    const hasAssigneeField = tasks.some((t) => t.assignee_id);
+    const tasksByAssignee = new Map<string, number>();
+    tasks.forEach((t) => {
+      if (!t.assignee_id) return;
+      tasksByAssignee.set(t.assignee_id, (tasksByAssignee.get(t.assignee_id) || 0) + 1);
+    });
+
+    return {
+      totalTasks: tasks.length,
+      doneCount: done.length,
+      openCount: tasks.length - done.length,
+      statusBreakdown, monthlyCompletion, totalHours, weeklyHours,
+      hasAssigneeField, tasksByAssignee,
+    };
+  }, [tasks, timesheets]);
+
+  // ---------- MARKETING ----------
+  const marketing = useMemo(() => {
+    const platformMap = new Map<string, number>();
+    posts.forEach((p) => {
+      const key = p.platform?.toLowerCase() || "other";
+      const score = Number(p.likes || 0) + Number(p.comments || 0);
+      platformMap.set(key, (platformMap.get(key) || 0) + score);
+    });
+    const platformBreakdown = Array.from(platformMap.entries()).map(([name, value]) => ({ name, value }));
+
+    const emailTotals = emails.reduce(
+      (acc, c) => ({
+        sent: acc.sent + Number(c.sent_count || 0),
+        opens: acc.opens + Number(c.open_count || 0),
+        clicks: acc.clicks + Number(c.click_count || 0),
+      }),
+      { sent: 0, opens: 0, clicks: 0 }
+    );
+    const funnel = [
+      { stage: "Sent", value: emailTotals.sent },
+      { stage: "Opened", value: emailTotals.opens },
+      { stage: "Clicked", value: emailTotals.clicks },
+    ];
+
+    const topPosts = [...posts]
+      .map((p) => ({ ...p, score: Number(p.likes || 0) + Number(p.comments || 0) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    const campaignRows = [...emails].sort(
+      (a, b) => Number(b.sent_count || 0) - Number(a.sent_count || 0)
+    ).slice(0, 8);
+
+    return { platformBreakdown, emailTotals, funnel, topPosts, campaignRows, totalPosts: posts.length };
+  }, [posts, emails]);
+
+  // ---------- TEAM ----------
+  const team = useMemo(() => {
+    const hasUserIdOnTimesheets = timesheets.some((t) => t.user_id);
+    const hoursByUser = new Map<string, number>();
+    timesheets.forEach((t) => {
+      if (!t.user_id) return;
+      const hrs = WEEKDAYS.reduce((s, d) => s + Number(t[d] || 0), 0);
+      hoursByUser.set(t.user_id, (hoursByUser.get(t.user_id) || 0) + hrs);
+    });
+
+    const rows = members.map((m) => ({
+      id: m.id,
+      name: m.name || "Unnamed",
+      role: m.role || "Member",
+      hours: m.user_id ? hoursByUser.get(m.user_id) || 0 : null,
+      tasks: m.user_id ? productivity.tasksByAssignee.get(m.user_id) || 0 : null,
+    }));
+
+    return { rows, hasUserIdOnTimesheets, hasAssigneeField: productivity.hasAssigneeField };
+  }, [members, timesheets, productivity.tasksByAssignee, productivity.hasAssigneeField]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
         <div className="text-center space-y-6">
           <Loader2 className="text-[#a9b897] animate-spin mx-auto" size={40} />
-          <p className="text-[#a9b897] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">
-            Loading Reports...
-          </p>
+          <p className="text-[#a9b897] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">Loading Reports...</p>
         </div>
-        <style dangerouslySetInnerHTML={{ __html: fontImport }} />
+        <FontImport />
       </div>
     );
   }
@@ -337,33 +372,26 @@ export default function ReportsPage() {
         <div className="text-center space-y-4 max-w-sm px-6">
           <ShieldCheck className="text-stone-300 mx-auto" size={40} />
           <p className="font-serif italic text-2xl text-stone-800">Sign in required</p>
-          <p className="text-[11px] text-stone-400 uppercase tracking-widest">
-            Please sign in to view your team&apos;s reports.
-          </p>
+          <p className="text-[11px] text-stone-400 uppercase tracking-widest">Please sign in to view your team&apos;s reports.</p>
         </div>
-        <style dangerouslySetInnerHTML={{ __html: fontImport }} />
+        <FontImport />
       </div>
     );
   }
 
-  return (
-    <div className="p-6 md:p-12 max-w-[1400px] mx-auto min-h-screen bg-stone-50 text-stone-900 space-y-12">
-      {/* MINIMAL HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-200 pb-12">
-        <div className="space-y-2">
-          <h1 className="text-7xl md:text-8xl font-serif italic tracking-tighter leading-none">Reports</h1>
-        </div>
+  const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: "overview", label: "Overview", icon: <Activity size={14} /> },
+    { id: "financial", label: "Financial", icon: <Briefcase size={14} /> },
+    { id: "productivity", label: "Productivity", icon: <Target size={14} /> },
+    { id: "marketing", label: "Marketing", icon: <Share2 size={14} /> },
+    { id: "team", label: "Team", icon: <Users size={14} /> },
+  ];
 
-        <div className="flex gap-3">
-          <button
-            onClick={downloadFinanceReport}
-            disabled={!invoiceData.length}
-            className="bg-stone-900 text-white hover:bg-[#a9b897] transition-all px-8 py-4 rounded-2xl flex items-center gap-3 active:scale-95 disabled:opacity-30 disabled:pointer-events-none"
-          >
-            <Download size={16} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Export reports</span>
-          </button>
-        </div>
+  return (
+    <div className="p-6 md:p-12 max-w-[1400px] mx-auto min-h-screen bg-stone-50 text-stone-900 space-y-10">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-200 pb-10">
+        <h1 className="text-7xl md:text-8xl font-serif italic tracking-tighter leading-none">Reports</h1>
       </div>
 
       {error && (
@@ -373,192 +401,358 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* CLARITY GLOBAL EXECUTIVE BRAIN OS */}
-      <div className="bg-black text-white rounded-[2.5rem] p-6 mb-10 relative overflow-hidden border border-stone-800">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">
-            Clarity Global Executive Brain OS
-          </h3>
-          <Cpu size={14} className="text-[#a9b897]" />
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[10px] font-mono">
-          <div>System Score: {clarityGlobalBrain.systemScore}</div>
-          <div>State: {clarityGlobalBrain.systemState}</div>
-          <div>Revenue/hr: {currencyFmt(clarityGlobalBrain.revenuePerHour)}</div>
-          <div>Productivity: {clarityGlobalBrain.productivity.toFixed(2)}</div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 text-[9px] uppercase tracking-widest text-stone-400">
-          <div>Finance: {clarityGlobalBrain.financialHealth.toFixed(0)}</div>
-          <div>Ops: {clarityGlobalBrain.operationalHealth.toFixed(0)}</div>
-          <div>Engagement: {clarityGlobalBrain.engagementHealth.toFixed(0)}</div>
-          <div>Workload: {clarityGlobalBrain.workloadHealth.toFixed(0)}</div>
-        </div>
-
-        {clarityGlobalBrain.risks.length > 0 && (
-          <div className="mt-4 text-[9px] uppercase tracking-widest text-red-300">
-            {clarityGlobalBrain.risks.join(" • ")}
-          </div>
-        )}
-      </div>
-
-      {/* CORE KPI GRID (2x2) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {[
-          {
-            label: "Aggregate Revenue",
-            val: currencyFmt(data.revenue),
-            trend: "Settled",
-            icon: <Activity />,
-            sub: "Net directive value",
-          },
-          {
-            label: "Execution Index",
-            val: `${data.tasksDone} Units`,
-            trend: "Operational",
-            icon: <Target />,
-            sub: "Completed nodes",
-          },
-          {
-            label: "Labor Allocation",
-            val: `${data.totalHours} Hrs`,
-            trend: "Resource",
-            icon: <Zap />,
-            sub: "Tracked temporal assets",
-          },
-          {
-            label: "Risk Exposure",
-            val: data.overdueCount,
-            trend: data.overdueCount > 0 ? "Action Req" : "Optimal",
-            icon: <AlertCircle />,
-            sub: "Delinquent entries",
-            critical: data.overdueCount > 0,
-          },
-        ].map((stat, i) => (
-          <div
-            key={i}
-            className="bg-white p-10 rounded-[2.5rem] border border-stone-100 shadow-sm group hover:border-[#a9b897] transition-all duration-500"
+      {/* TAB NAV */}
+      <div className="flex flex-wrap gap-2">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              tab === t.id ? "bg-stone-900 text-[#a9b897]" : "bg-white text-stone-400 border border-stone-100 hover:border-[#a9b897]"
+            }`}
           >
-            <div className="flex justify-between items-start mb-8">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">{stat.label}</p>
-                <p className="text-[10px] font-serif italic text-stone-300">{stat.sub}</p>
-              </div>
-              <div
-                className={`p-3 rounded-xl transition-all ${
-                  stat.critical
-                    ? "bg-red-50 text-red-400"
-                    : "bg-stone-50 text-stone-300 group-hover:bg-stone-900 group-hover:text-[#a9b897]"
-                }`}
-              >
-                {stat.icon}
-              </div>
-            </div>
-            <div className="flex items-end justify-between">
-              <p className="text-6xl font-serif italic text-stone-900 tracking-tighter">{stat.val}</p>
-              <div className="flex flex-col items-end gap-2">
-                <span
-                  className={`text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border ${
-                    stat.critical ? "border-red-100 text-red-400 bg-red-50" : "border-stone-100 text-[#a9b897]"
-                  }`}
-                >
-                  {stat.trend}
-                </span>
-                <ArrowUpRight
-                  size={16}
-                  className="text-stone-200 group-hover:text-[#a9b897] group-hover:translate-x-1 group-hover:-translate-y-1 transition-all"
-                />
-              </div>
-            </div>
-          </div>
+            {t.icon} {t.label}
+          </button>
         ))}
       </div>
 
-      {/* DETAILED ANALYTICS GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* EMAIL METRICS (8-wide) */}
-        <div className="lg:col-span-8 bg-stone-900 text-white p-12 rounded-[3rem] shadow-2xl relative overflow-hidden">
-          <div className="relative z-10 space-y-12">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-white/10 rounded-xl text-[#a9b897]">
-                <Mail size={20} />
-              </div>
-              <div>
-                <h2 className="text-[10px] font-black uppercase tracking-[0.4em]">Inbound Analytics</h2>
-                <p className="text-[9px] font-serif italic text-white/30">Email campaign performance</p>
-              </div>
-            </div>
+      {tab === "overview" && <OverviewTab financial={financial} productivity={productivity} marketing={marketing} />}
+      {tab === "financial" && <FinancialTab financial={financial} invoices={invoices} />}
+      {tab === "productivity" && <ProductivityTab productivity={productivity} />}
+      {tab === "marketing" && <MarketingTab marketing={marketing} />}
+      {tab === "team" && <TeamTab team={team} />}
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {[
-                { l: "Delivery", v: data.email.sent.toLocaleString() },
-                {
-                  l: "Open Rate",
-                  v: data.email.sent > 0 ? ((data.email.opens / data.email.sent) * 100).toFixed(1) + "%" : "0%",
-                },
-                { l: "Clicks", v: data.email.clicks.toLocaleString() },
-                {
-                  l: "Conversion",
-                  v: data.email.opens > 0 ? ((data.email.clicks / data.email.opens) * 100).toFixed(1) + "%" : "0%",
-                },
-              ].map((m, i) => (
-                <div key={i} className="border-l border-white/10 pl-6 space-y-2">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-white/20">{m.l}</p>
-                  <p className="text-4xl font-serif italic">{m.v}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <BarChart3 size={200} className="absolute -right-10 -bottom-10 opacity-[0.03]" />
-        </div>
-
-        {/* SOCIAL STACK (4-wide) */}
-        <div className="lg:col-span-4 bg-white border border-stone-100 p-10 rounded-[3rem] space-y-8">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-stone-50 rounded-xl text-[#a9b897]">
-              <Share2 size={20} />
-            </div>
-            <div>
-              <h2 className="text-[10px] font-black uppercase tracking-[0.4em]">Platform Flow</h2>
-              <p className="text-[9px] font-serif italic text-stone-400">Interaction weight</p>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            {(["instagram", "linkedin", "twitter"] as const).map((platform) => {
-              const score = data.trends[platform] || 0;
-              const maxScore = Math.max(...Object.values(data.trends).map((v) => Number(v)), 1);
-              const percentage = Math.min((score / maxScore) * 100, 100);
-
-              return (
-                <div key={platform} className="group">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-800">
-                      {platform}
-                    </span>
-                    <span className="text-[9px] font-mono text-stone-300">{score} PTS</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-stone-50 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${percentage}%` }}
-                      className="h-full bg-stone-900 group-hover:bg-[#a9b897] transition-colors"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <style dangerouslySetInnerHTML={{ __html: fontImport }} />
+      <FontImport />
     </div>
   );
 }
 
-const fontImport = `
-  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
-  .font-serif { font-family: 'Instrument Serif', serif; }
-`;
+// ---------- Shared bits ----------
+
+function FontImport() {
+  return (
+    <style dangerouslySetInnerHTML={{
+      __html: `
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
+        .font-serif { font-family: 'Instrument Serif', serif; }
+      `,
+    }} />
+  );
+}
+
+function Card({ title, sub, children, action }: { title: string; sub?: string; children: React.ReactNode; action?: React.ReactNode }) {
+  return (
+    <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-500">{title}</h3>
+          {sub && <p className="text-[10px] font-serif italic text-stone-300">{sub}</p>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function EmptyNote({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[10px] font-bold uppercase tracking-widest text-stone-300 py-8 text-center border border-dashed border-stone-200 rounded-2xl">
+      {children}
+    </div>
+  );
+}
+
+function KPI({ label, value, icon, critical }: { label: string; value: string | number; icon: React.ReactNode; critical?: boolean }) {
+  return (
+    <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm">
+      <div className="flex justify-between items-start mb-6">
+        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">{label}</p>
+        <div className={`p-2 rounded-lg ${critical ? "bg-red-50 text-red-400" : "bg-stone-50 text-stone-300"}`}>{icon}</div>
+      </div>
+      <p className="text-4xl font-serif italic tracking-tighter">{value}</p>
+    </div>
+  );
+}
+
+// ---------- Overview ----------
+
+function OverviewTab({ financial, productivity, marketing }: any) {
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+        <KPI label="Paid Revenue" value={currencyFmt(financial.paidRevenue, financial.currency)} icon={<Activity size={16} />} />
+        <KPI label="Outstanding" value={currencyFmt(financial.outstanding, financial.currency)} icon={<AlertCircle size={16} />} critical={financial.overdueCount > 0} />
+        <KPI label="Tasks Done" value={productivity.doneCount} icon={<Target size={16} />} />
+        <KPI label="Hours Logged" value={productivity.totalHours} icon={<Zap size={16} />} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card title="Revenue Trend" sub="Last 12 months, paid invoices">
+          {financial.monthlyRevenue.length ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={financial.monthlyRevenue}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0efec" />
+                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(v: number) => currencyFmt(v, financial.currency)} />
+                <Line type="monotone" dataKey="revenue" stroke="#a9b897" strokeWidth={3} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : <EmptyNote>No paid invoices with dates yet</EmptyNote>}
+        </Card>
+        <Card title="Email + Social Snapshot" sub="Engagement across channels">
+          <div className="grid grid-cols-2 gap-6 text-center py-6">
+            <div>
+              <p className="text-3xl font-serif italic">{marketing.emailTotals.sent.toLocaleString()}</p>
+              <p className="text-[9px] uppercase tracking-widest text-stone-400 mt-2">Emails Sent</p>
+            </div>
+            <div>
+              <p className="text-3xl font-serif italic">{marketing.totalPosts}</p>
+              <p className="text-[9px] uppercase tracking-widest text-stone-400 mt-2">Posts Published</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Financial ----------
+
+function FinancialTab({ financial, invoices }: any) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+        <KPI label="Paid Revenue" value={currencyFmt(financial.paidRevenue, financial.currency)} icon={<Activity size={16} />} />
+        <KPI label="Outstanding (AR)" value={currencyFmt(financial.outstanding, financial.currency)} icon={<AlertCircle size={16} />} critical={financial.overdueCount > 0} />
+        <KPI label="Overdue Invoices" value={financial.overdueCount} icon={<AlertCircle size={16} />} critical={financial.overdueCount > 0} />
+        <KPI label="Total Invoices" value={invoices.length} icon={<Briefcase size={16} />} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card
+          title="Monthly Revenue"
+          action={
+            <button onClick={() => downloadCsv("revenue_by_month.csv", ["Month", "Revenue"], financial.monthlyRevenue.map((r: any) => [r.month, r.revenue]))} className="text-stone-300 hover:text-[#a9b897]">
+              <Download size={16} />
+            </button>
+          }
+        >
+          {financial.monthlyRevenue.length ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={financial.monthlyRevenue}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0efec" />
+                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(v: number) => currencyFmt(v, financial.currency)} />
+                <Bar dataKey="revenue" fill="#a9b897" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <EmptyNote>No paid invoices with dates yet</EmptyNote>}
+        </Card>
+
+        <Card title="Invoice Status Breakdown">
+          {financial.statusBreakdown.length ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie data={financial.statusBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                  {financial.statusBreakdown.map((_: any, i: number) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : <EmptyNote>No invoices yet</EmptyNote>}
+        </Card>
+      </div>
+
+      <Card title="Accounts Receivable Aging" sub="Outstanding balance by days overdue">
+        <div className="grid grid-cols-5 gap-4 text-center">
+          {financial.aging.map((b: any) => (
+            <div key={b.bucket} className="p-4 bg-stone-50 rounded-2xl">
+              <p className="text-[9px] uppercase tracking-widest text-stone-400 mb-2">{b.bucket}</p>
+              <p className="text-lg font-serif italic">{currencyFmt(b.amount, financial.currency)}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Top Clients by Revenue" sub={!financial.hasClientField ? "Add a client_name column to invoices to enable this" : undefined}>
+        {financial.hasClientField && financial.topClients.length ? (
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={financial.topClients} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0efec" />
+              <XAxis type="number" tick={{ fontSize: 10 }} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={120} />
+              <Tooltip formatter={(v: number) => currencyFmt(v, financial.currency)} />
+              <Bar dataKey="revenue" fill="#a9b897" radius={[0, 6, 6, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <EmptyNote>Not tracked yet — invoices have no client_name field</EmptyNote>}
+      </Card>
+    </div>
+  );
+}
+
+// ---------- Productivity ----------
+
+function ProductivityTab({ productivity }: any) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+        <KPI label="Total Tasks" value={productivity.totalTasks} icon={<Target size={16} />} />
+        <KPI label="Completed" value={productivity.doneCount} icon={<Target size={16} />} />
+        <KPI label="Open" value={productivity.openCount} icon={<AlertCircle size={16} />} />
+        <KPI label="Hours Logged" value={productivity.totalHours} icon={<Zap size={16} />} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card title="Task Status Breakdown">
+          {productivity.statusBreakdown.length ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie data={productivity.statusBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                  {productivity.statusBreakdown.map((_: any, i: number) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : <EmptyNote>No tasks yet</EmptyNote>}
+        </Card>
+
+        <Card title="Tasks Completed / Month">
+          {productivity.monthlyCompletion.length ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={productivity.monthlyCompletion}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0efec" />
+                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Line type="monotone" dataKey="completed" stroke="#3b82f6" strokeWidth={3} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : <EmptyNote>No completed tasks with dates yet</EmptyNote>}
+        </Card>
+      </div>
+
+      <Card title="Weekly Hours Logged" sub={!productivity.weeklyHours.length ? "Requires week_start on timesheets" : undefined}>
+        {productivity.weeklyHours.length ? (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={productivity.weeklyHours}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0efec" />
+              <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip />
+              <Bar dataKey="hours" fill="#a9b897" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <EmptyNote>Not tracked yet — timesheets have no week_start field</EmptyNote>}
+      </Card>
+    </div>
+  );
+}
+
+// ---------- Marketing ----------
+
+function MarketingTab({ marketing }: any) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+        <KPI label="Emails Sent" value={marketing.emailTotals.sent} icon={<Mail size={16} />} />
+        <KPI label="Open Rate" value={marketing.emailTotals.sent ? `${((marketing.emailTotals.opens / marketing.emailTotals.sent) * 100).toFixed(1)}%` : "0%"} icon={<Mail size={16} />} />
+        <KPI label="Click Rate" value={marketing.emailTotals.opens ? `${((marketing.emailTotals.clicks / marketing.emailTotals.opens) * 100).toFixed(1)}%` : "0%"} icon={<Mail size={16} />} />
+        <KPI label="Posts Published" value={marketing.totalPosts} icon={<Share2 size={16} />} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card title="Engagement by Platform">
+          {marketing.platformBreakdown.length ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={marketing.platformBreakdown}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0efec" />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#a9b897" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <EmptyNote>No posts yet</EmptyNote>}
+        </Card>
+
+        <Card title="Email Funnel">
+          {marketing.emailTotals.sent ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={marketing.funnel} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0efec" />
+                <XAxis type="number" tick={{ fontSize: 10 }} />
+                <YAxis type="category" dataKey="stage" tick={{ fontSize: 10 }} width={70} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#3b82f6" radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <EmptyNote>No email campaigns yet</EmptyNote>}
+        </Card>
+      </div>
+
+      <Card title="Top Performing Posts">
+        {marketing.topPosts.length ? (
+          <table className="w-full text-left text-[11px]">
+            <thead>
+              <tr className="text-stone-400 uppercase tracking-widest text-[9px] border-b border-stone-100">
+                <th className="py-2">Platform</th><th>Likes</th><th>Comments</th><th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {marketing.topPosts.map((p: any) => (
+                <tr key={p.id} className="border-b border-stone-50">
+                  <td className="py-3 font-bold uppercase">{p.platform || "other"}</td>
+                  <td>{p.likes || 0}</td>
+                  <td>{p.comments || 0}</td>
+                  <td className="font-serif italic">{p.score}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyNote>No posts yet</EmptyNote>}
+      </Card>
+    </div>
+  );
+}
+
+// ---------- Team ----------
+
+function TeamTab({ team }: any) {
+  return (
+    <div className="space-y-6">
+      <Card title="Team Workload" sub="Hours and tasks per member">
+        {!team.hasUserIdOnTimesheets && !team.hasAssigneeField && (
+          <div className="mb-4">
+            <EmptyNote>Add user_id to timesheets and assignee_id to tasks to see per-member breakdowns</EmptyNote>
+          </div>
+        )}
+        <table className="w-full text-left text-[11px]">
+          <thead>
+            <tr className="text-stone-400 uppercase tracking-widest text-[9px] border-b border-stone-100">
+              <th className="py-2">Name</th><th>Role</th><th>Hours</th><th>Tasks Assigned</th>
+            </tr>
+          </thead>
+          <tbody>
+            {team.rows.map((r: any) => (
+              <tr key={r.id} className="border-b border-stone-50">
+                <td className="py-3 font-bold">{r.name}</td>
+                <td className="text-stone-400 uppercase text-[10px] tracking-widest">{r.role}</td>
+                <td>{r.hours === null ? "—" : r.hours}</td>
+                <td>{r.tasks === null ? "—" : r.tasks}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}

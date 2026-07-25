@@ -102,7 +102,7 @@ export default function ClarityPage() {
     setIsAiTyping(true);
 
     try {
-      const res = await fetch("/api/clarity", {
+      const res = await fetch("/api/clarity/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

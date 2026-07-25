@@ -12,11 +12,7 @@ export const supabase = (() => {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-
-        // ❌ IMPORTANT FIX: prevents auth loop + broken redirects
         detectSessionInUrl: false,
-
-        storageKey: "tots-os-auth",
       },
     }
   );

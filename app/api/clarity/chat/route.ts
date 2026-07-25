@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { runClarityChat, ClarityChatHistoryItem } from "../../../../lib/clarity";
 
@@ -16,17 +16,23 @@ export async function POST(req: NextRequest) {
     }
 
     // Session-scoped client — respects RLS, tied to the logged-in user.
-    // Deliberately NOT supabaseAdmin: that bypasses RLS and would let any
-    // logged-in user query every team's data through the chat box.
     const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {
-            // No-op: this route doesn't need to refresh auth cookies.
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                cookieStore.set(name, value, options);
+              });
+            } catch {
+              // Ignored when called from environments where cookies cannot be directly mutated.
+            }
           },
         },
       }

@@ -215,6 +215,18 @@ function useCampaigns(supabase: any) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [lists, setLists] = useState<any[]>([]);
   const [companyName, setCompanyName] = useState("Your Company");
+  const updateCompanyName = async (newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setCompanyName(trimmed);
+
+    if (organisationId) {
+      await supabase
+        .from("team")
+        .update({ company_name: trimmed })
+        .eq("organisation_id", organisationId);
+    }
+  };
   const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [subscriberCounts, setSubscriberCounts] = useState<Record<string, number>>({});
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -622,6 +634,7 @@ function useCampaigns(supabase: any) {
     campaigns,
     lists: Array.isArray(lists) ? lists : [],
     companyName,
+    updateCompanyName,
     organisationId,
     createList,
     scheduleCampaign,
@@ -652,6 +665,7 @@ export default function CampaignsPage() {
     setCampaigns,
     lists,
     companyName,
+    updateCompanyName,
     organisationId,
     createList,
     scheduleCampaign,
@@ -771,6 +785,11 @@ export default function CampaignsPage() {
     content: ""
   });
   const [showEmailPreview, setShowEmailPreview] = useState(false);
+  const [companyNameInput, setCompanyNameInput] = useState(companyName);
+
+useEffect(() => {
+  setCompanyNameInput(companyName);
+}, [companyName]);
 
   const withCompanyDetails = (content: string) => {
     const details = campaignCompanyDetails.trim();
@@ -965,8 +984,26 @@ export default function CampaignsPage() {
                     <p className="font-bold text-stone-800 flex items-center gap-2"><Clock size={14} className="text-stone-400" /> {formatScheduledDate(selectedCampaign.scheduled_for)}</p>
                   </div>
                   <div>
-                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Company Name</p>
-                    <p className="font-bold text-stone-800 flex items-center gap-2"><Users size={14} className="text-stone-400" /> {companyName}</p>
+                    <div className="mb-4 p-4 bg-white border border-stone-100 rounded-2xl">
+  <label className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-1 block">
+    Company Name
+  </label>
+
+ <input
+  value={companyNameInput}
+  onChange={(e) => setCompanyNameInput(e.target.value)}
+  placeholder="Your Company"
+  className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none"
+/>
+
+<button
+  onClick={() => updateCompanyName(companyNameInput)}
+  className="mt-3 w-full rounded-xl bg-stone-900 py-2 text-[10px] font-black uppercase text-[var(--brand-primary)]"
+>
+  Save Company Name
+</button>
+    
+</div>
                   </div>
                 </div>
 
@@ -1133,8 +1170,24 @@ export default function CampaignsPage() {
               <div className="w-full md:w-80 bg-stone-50 border-r border-stone-200 p-12 flex flex-col shrink-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mb-8">Campaign Control</p>
                 <div className="mb-4 p-4 bg-white border border-stone-100 rounded-2xl">
-                  <p className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-1">Company Name</p>
-                  <p className="text-xs font-bold text-stone-800 uppercase tracking-tight truncate">{companyName}</p>
+  <label className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-2 block">
+    Company Name
+  </label>
+
+  <input
+    value={companyNameInput}
+    onChange={(e) => setCompanyNameInput(e.target.value)}
+    placeholder="Your Company"
+    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none"
+  />
+
+  <button
+    onClick={() => updateCompanyName(companyNameInput)}
+    className="mt-3 w-full rounded-xl bg-stone-900 py-2 text-[10px] font-black uppercase text-[var(--brand-primary)]"
+  >
+    Save Company Name
+  </button>
+
                 </div>
 
                 <div className="p-4 bg-white border border-stone-100 rounded-2xl">

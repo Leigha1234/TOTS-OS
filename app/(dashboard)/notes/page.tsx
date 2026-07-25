@@ -213,6 +213,8 @@ function VaultContent() {
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
   const [reminderDateTime, setReminderDateTime] = useState("");
   const [isReminder, setIsReminder] = useState(false);
+  const [startDate, setStartDate] = useState(""); // <-- ADD THIS
+const [endDate, setEndDate] = useState("");     // <-- ADD THIS
   const [status, setStatus] = useState("todo");
   const [visibility, setVisibility] = useState("private");
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -1069,6 +1071,8 @@ if (channelRef.current) supabase.removeChannel(channelRef.current);
           project: project || null,
           assigned_to: assignedTo.length > 0 ? assignedTo : null,
           due_date: isReminder && reminderDateTime ? reminderDateTime : null,
+          start_date: startDate ? startDate : null, // <-- ADD THIS
+          end_date: endDate ? endDate : null,
           is_reminder: isReminder,
           status,
           type: status === "todo" ? "task" : "note",
@@ -1543,6 +1547,17 @@ const regularNotes = filteredNotes.filter(
   {note.content}
 </p>
         </div>
+
+        {(note.start_date || note.end_date) && (
+    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-stone-200/60 text-[11px] text-stone-500">
+      <Calendar className="w-3 h-3 text-stone-400 shrink-0" />
+      <span>
+        {note.start_date ? format(new Date(note.start_date), "MMM d, yyyy HH:mm") : "Open"} 
+        {" → "}
+        {note.end_date ? format(new Date(note.end_date), "MMM d, yyyy HH:mm") : "No deadline"}
+      </span>
+    </div>
+  )}
 
         {/* BOTTOM METADATA PINNED CONTAINER */}
         <div className="space-y-4 mt-auto">
@@ -2057,6 +2072,32 @@ const regularNotes = filteredNotes.filter(
                   </motion.div>
                 )}
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-3 border-t border-stone-200">
+  <div>
+    <label className="block text-xs font-semibold text-stone-600 mb-1 flex items-center gap-1.5">
+      <Calendar className="w-3.5 h-3.5 text-stone-400" /> Start Date / Time
+    </label>
+    <input
+      type="datetime-local"
+      value={startDate}
+      onChange={(e) => setStartDate(e.target.value)}
+      className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-stone-400"
+    />
+  </div>
+
+  <div>
+    <label className="block text-xs font-semibold text-stone-600 mb-1 flex items-center gap-1.5">
+      <Clock className="w-3.5 h-3.5 text-stone-400" /> End Date / Time
+    </label>
+    <input
+      type="datetime-local"
+      value={endDate}
+      onChange={(e) => setEndDate(e.target.value)}
+      className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-stone-400"
+    />
+  </div>
+</div>
 
               {/* PIPELINE DISPATCH OVERVIEW */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">

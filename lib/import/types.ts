@@ -2,7 +2,17 @@
 // 1. lib/import/types.ts
 // ==========================================
 
-export type ImportStatus = 'idle' | 'reading' | 'detecting' | 'validating' | 'checking_duplicates' | 'importing' | 'finishing' | 'success' | 'error';
+export type ImportStatus = 
+  | 'idle' 
+  | 'reading' 
+  | 'detecting' 
+  | 'validating' 
+  | 'checking_duplicates' 
+  | 'importing' 
+  | 'finishing' 
+  | 'success' 
+  | 'error' 
+  | 'processing'; // <-- Added here
 
 export type DuplicateResolutionStrategy = 'update' | 'skip' | 'create';
 

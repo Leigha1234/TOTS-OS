@@ -1,3 +1,7 @@
+// ==========================================
+// app/(dashboard)/settings/import/page.tsx
+// ==========================================
+
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -41,7 +45,7 @@ export default function ImportArchitecture() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // -- UI & Pipeline State --
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<string>("");
   const [status, setStatus] = useState<ImportStatus>('idle');
   const [file, setFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -67,7 +71,10 @@ export default function ImportArchitecture() {
   ];
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    setCurrentTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -211,7 +218,7 @@ export default function ImportArchitecture() {
             <div className="flex items-center gap-2">
               <Clock size={12} />
               <p className="font-black uppercase text-[9px] tracking-[0.4em]">
-                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {currentTime || "00:00"}
               </p>
             </div>
           </div>

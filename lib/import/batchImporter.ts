@@ -1,6 +1,6 @@
 // ==========================================
 // lib/import/batchImporter.ts
-// Production batch importer
+// Production batch importer (Bulletproof Edition)
 // ==========================================
 
 import {
@@ -25,6 +25,12 @@ export async function processBatches(
   let failed = 0;
 
   const failedRows: ProcessedRow[] = [];
+
+  // Define allowed columns per table to completely prevent schema cache 400 errors
+  const allowedColumns: Record<string, string[]> = {
+    organisations: ['name', 'email', 'phone', 'website', 'address', 'status', 'notes', 'date_closed', 'created_at'],
+    contacts: ['first_name', 'last_name', 'email', 'phone', 'position', 'organisation_id', 'created_at'],
+  };
 
   for (let i = 0; i < records.length; i += batchSize) {
     const batch = records.slice(i, i + batchSize);
@@ -96,13 +102,8 @@ export async function processBatches(
           delete payload.company_name;
         }
 
-
         /**
-         * Clean organisation payload.
-         *
-         * IMPORTANT:
-         * organisations.id is the organisation identifier.
-         * organisations does NOT have organisation_id.
+         * Clean organisation payload mappings.
          */
         if (targetTable === "organisations") {
           delete payload.organisation_id;
@@ -114,14 +115,21 @@ export async function processBatches(
           if (payload.date_created && !payload.created_at) {
             payload.created_at = payload.date_created;
           }
-
-          delete payload.company_name;
-          delete payload.date_created;
-          delete payload.opportunity_id;
-          delete payload.description;
-          delete payload.category; // Strip category column if not present in schema
         }
 
+        /**
+         * STRICT ALLOWLIST STRIPPING:
+         * Only keep keys that are explicitly valid for the target table. 
+         * This completely eliminates unexpected column errors.
+         */
+        if (allowedColumns[targetTable]) {
+          const validKeys = allowedColumns[targetTable];
+          Object.keys(payload).forEach((key) => {
+            if (!validKeys.includes(key)) {
+              delete payload[key];
+            }
+          });
+        }
 
         /**
          * Remove empty undefined values before sending.
@@ -136,7 +144,6 @@ export async function processBatches(
           }
         });
 
-
         /**
          * Determine conflict key.
          */
@@ -150,7 +157,6 @@ export async function processBatches(
           conflictColumn = "email";
         }
 
-
         /**
          * Upsert data.
          */
@@ -160,7 +166,6 @@ export async function processBatches(
             onConflict: conflictColumn,
             ignoreDuplicates: strategy === "skip",
           });
-
 
         if (error) {
           console.error(
@@ -185,18 +190,15 @@ export async function processBatches(
           });
 
         } else {
-
           if (strategy === "update") {
             updated++;
           } else {
             inserted++;
           }
-
         }
       }
 
     } catch (err: any) {
-
       console.error(
         "Batch Import Exception:",
         err
@@ -216,7 +218,6 @@ export async function processBatches(
       });
     }
 
-
     /**
      * Update progress.
      */
@@ -225,7 +226,6 @@ export async function processBatches(
       totalBatches
     );
   }
-
 
   return {
     inserted,

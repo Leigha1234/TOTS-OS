@@ -59,9 +59,14 @@ export async function processBatches(
           delete payload.company_name;
         }
 
-        // Perform Upsert or Insert based on strategy
-        const conflictColumn = targetTable === 'contacts' ? 'email' : 'id';
-        
+        // Dynamically assign conflict column based on table type (e.g. name for organisations, email for contacts)
+        let conflictColumn = 'id';
+        if (targetTable === 'organisations') {
+          conflictColumn = 'name';
+        } else if (targetTable === 'contacts') {
+          conflictColumn = 'email';
+        }
+
         const { error } = await supabase
           .from(targetTable)
           .upsert(payload, { 

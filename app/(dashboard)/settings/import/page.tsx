@@ -58,17 +58,17 @@ export default function ImportArchitecture() {
   const [progress, setProgress] = useState({ phase: 'idle', percent: 0, currentBatch: 0, totalBatches: 0, processedRows: 0, elapsedMs: 0, etaMs: 0 });
   const [previewRows, setPreviewRows] = useState<ProcessedRow[]>([]);
   const [invalidRows, setInvalidRows] = useState<ProcessedRow[]>([]);
-  const [processedLogRows, setProcessedLogRows] = useState<{ success: boolean; identifier: string; details: string }[]>([]);
+  const [processedLogRows, setProcessedLogRows] = useState<{ success: boolean; identifier: string; entity: string; details: string }[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [report, setReport] = useState<ImportReportType | null>(null);
 
-  const TARGET_TABLES: { id: TargetTableType; label: string; description: string }[] = [
-    { id: 'auto', label: 'Auto-Detect (Smart Route)', description: 'Multi-model weighted scoring across contacts, organisations, projects, tasks, invoices, expenses, employees, and notes' },
-    { id: 'contacts', label: 'Contacts & CRM', description: 'Maps to public.contacts with relationship auto-resolution' },
-    { id: 'organisations', label: 'Organisations', description: 'Maps to public.organisations with domain and registration matching' },
-    { id: 'invoices', label: 'Finance & Invoices', description: 'Maps to public.invoices with automatic parent record linking' },
-    { id: 'expenses', label: 'Expenses & Receipts', description: 'Maps to public.expenses with category tagging' },
-    { id: 'projects', label: 'Projects & Tasks', description: 'Maps to public.projects and public.tasks' },
+  const TARGET_TABLES: { id: TargetTableType; label: string; description: string; entityName: string }[] = [
+    { id: 'auto', label: 'Auto-Detect (Smart Route)', description: 'Multi-model weighted scoring across contacts, organisations, projects, tasks, invoices, expenses, employees, and notes', entityName: 'record' },
+    { id: 'contacts', label: 'Contacts & CRM', description: 'Maps to public.contacts with relationship auto-resolution', entityName: 'contact' },
+    { id: 'organisations', label: 'Organisations', description: 'Maps to public.organisations with domain and registration matching', entityName: 'organisation' },
+    { id: 'invoices', label: 'Finance & Invoices', description: 'Maps to public.invoices with automatic parent record linking', entityName: 'invoice' },
+    { id: 'expenses', label: 'Expenses & Receipts', description: 'Maps to public.expenses with category tagging', entityName: 'expense' },
+    { id: 'projects', label: 'Projects & Tasks', description: 'Maps to public.projects and public.tasks', entityName: 'project' },
   ];
 
   useEffect(() => {
@@ -177,25 +177,32 @@ export default function ImportArchitecture() {
         duplicateCount: duplicateResult.duplicates.length
       });
 
-      // Construct itemized audit log entries for user review
-      const auditEntries: { success: boolean; identifier: string; details: string }[] = [];
-      
-      // Successfully processed items from import result
-      for (let i = 0; i < importResult.inserted + importResult.updated; i++) {
+      // Construct customized itemized audit log entries using specific entity types and named identifiers
+      const auditEntries: { success: boolean; identifier: string; entity: string; details: string }[] = [];
+      const currentConfig = TARGET_TABLES.find(t => t.id === selectedTargetTable) || TARGET_TABLES[0];
+
+      // Successfully processed rows from duplicateResult or validated records
+      const successfulRows = duplicateResult.recordsToProcess;
+      successfulRows.forEach((row, idx) => {
+        const entityLabel = row.targetTable && row.targetTable !== 'auto' ? row.targetTable.slice(0, -1) : currentConfig.entityName;
+        const nameField = row.payload?.name || row.payload?.company_name || row.payload?.full_name || row.payload?.email || `Record #${idx + 1}`;
         auditEntries.push({
           success: true,
-          identifier: `Record Entry #${i + 1}`,
+          identifier: String(nameField),
+          entity: entityLabel,
           details: "Successfully processed and committed to database repository."
         });
-      }
+      });
 
       // Failed rows from validation or execution errors
       importResult.failedRows.forEach((row, idx) => {
-        const identifier = row.payload?.name || row.payload?.company_name || row.payload?.email || `Dataset Row #${idx + 1}`;
+        const entityLabel = row.targetTable && row.targetTable !== 'auto' ? row.targetTable.slice(0, -1) : currentConfig.entityName;
+        const nameField = row.payload?.name || row.payload?.company_name || row.payload?.full_name || row.payload?.email || `Dataset Row #${idx + 1}`;
         const issue = row.validationErrors?.[row.validationErrors.length - 1] || "Schema compliance violation";
         auditEntries.push({
           success: false,
-          identifier: String(identifier),
+          identifier: String(nameField),
+          entity: entityLabel,
           details: String(issue)
         });
       });
@@ -357,7 +364,7 @@ export default function ImportArchitecture() {
               </div>
             )}
 
-            {/* Comprehensive Itemized Import Activity Log */}
+            {/* Comprehensive Itemized Import Activity Log with Named Entity Feedback */}
             {processedLogRows.length > 0 && status === 'success' && (
               <div className="mt-6 w-full border border-stone-200 rounded-3xl p-6 bg-white text-left shadow-sm space-y-4" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between border-b border-stone-100 pb-3">
@@ -386,7 +393,9 @@ export default function ImportArchitecture() {
                           </div>
                         )}
                         <span className="font-bold tracking-tight">
-                          {entry.success ? `Successfully imported ${entry.identifier}` : `Failed to add ${entry.identifier}`}
+                          {entry.success 
+                            ? `Successfully made ${entry.identifier} a ${entry.entity}` 
+                            : `Failed to add ${entry.identifier} as a ${entry.entity}`}
                         </span>
                       </div>
                       <span className={`text-[10px] px-2.5 py-1 rounded-full font-mono ${entry.success ? 'bg-emerald-100/70 text-emerald-800' : 'bg-red-100/80 text-red-700'}`}>

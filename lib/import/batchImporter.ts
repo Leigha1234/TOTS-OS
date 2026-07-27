@@ -58,16 +58,19 @@ export async function processBatches(
           delete payload.company_name;
         }
 
-        // Map CSV fields to actual database columns for organisations
+        // Clean and map fields specifically for organisations
         if (targetTable === 'organisations') {
           if (payload.company_name && !payload.name) {
             payload.name = payload.company_name;
-            delete payload.company_name;
           }
           if (payload.date_created && !payload.created_at) {
             payload.created_at = payload.date_created;
-            delete payload.date_created;
           }
+          
+          // Remove fields that do not exist on the organisations table schema
+          delete payload.company_name;
+          delete payload.date_created;
+          delete payload.opportunity_id;
         }
 
         // Dynamically assign conflict column

@@ -36,7 +36,7 @@ const supabase = createBrowserClient(
 
 /**
  * TOTS OS: DATA INGESTION HUB v6.0
- * Enterprise Architecture: Decoupled Pipeline, Multi-table Relationship Resolution,
+ * Enterprise Architecture: Decoupled Pipeline, Multi-table Fan-Out Insertion,
  * Dynamic Target Routing, and Resilient Batch Upserting.
  */
 
@@ -133,16 +133,61 @@ export default function ImportArchitecture() {
         throw new Error("Dataset Exception: No valid records identified within the provided document.");
       }
 
-      // 3. Record Detection & Multi-Table Target Routing Mapping
-      // If user selected a specific table (e.g. 'contacts'), force all rows to map to that table
+      // 3. Record Detection & Multi-Table Fan-Out Mapping
+      // If the user picked a specific table (e.g. 'contacts'), we fan out each row 
+      // into BOTH the chosen table AND related parent/subsidiary tables (organisations, contacts, projects)
       tracker.update('detecting', 30, 0, 1);
-      let detectedRecords = detectRecords(rawRows, selectedTargetTable, orgId, user.id);
+      const baseDetected = detectRecords(rawRows, selectedTargetTable, orgId, user.id);
       
-      if (selectedTargetTable !== 'auto') {
-        detectedRecords = detectedRecords.map(row => ({
+      let detectedRecords: ProcessedRow[] = [];
+
+      if (selectedTargetTable === 'contacts') {
+        // Fan out: For every row, ensure both an organisation record and a contact record are created/linked
+        baseDetected.forEach(row => {
+          const orgName = row.payload.company_name || row.payload.organisation || row.payload.company || row.payload.name;
+          const contactName = row.payload.name || row.payload.full_name || row.payload.contact_name || row.payload.first_name;
+          const email = row.payload.email || row.payload.mail;
+          const phone = row.payload.phone || row.payload.telephone || row.payload.mobile;
+
+          // 1. Add Organisation entry if company name exists
+          if (orgName) {
+            detectedRecords.push({
+              ...row,
+              targetTable: 'organisations',
+              payload: {
+                name: orgName,
+                organisation_id: orgId,
+                created_by: user.id
+              }
+            });
+          }
+
+          // 2. Add Contact entry
+          detectedRecords.push({
+            ...row,
+            targetTable: 'contacts',
+            payload: {
+              name: contactName || orgName,
+              email: email,
+              phone: phone,
+              organisation_id: orgId,
+              created_by: user.id
+            }
+          });
+        });
+      } else if (selectedTargetTable !== 'auto') {
+        // Force override target table for all records to user's explicit selection
+        detectedRecords = baseDetected.map(row => ({
           ...row,
-          targetTable: selectedTargetTable
+          targetTable: selectedTargetTable,
+          payload: {
+            ...row.payload,
+            organisation_id: row.payload.organisation_id || orgId,
+            created_by: row.payload.created_by || user.id
+          }
         }));
+      } else {
+        detectedRecords = baseDetected;
       }
 
       // 4. Schema & Format Validation
@@ -376,7 +421,7 @@ export default function ImportArchitecture() {
               </div>
             )}
 
-            {/* Comprehensive Itemized Import Activity Log with Explicit Target Table Routing */}
+            {/* Comprehensive Itemized Import Activity Log with Fan-Out Routing Feedback */}
             {processedLogRows.length > 0 && status === 'success' && (
               <div className="mt-6 w-full border border-stone-200 rounded-3xl p-6 bg-white text-left shadow-sm space-y-4" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between border-b border-stone-100 pb-3">
@@ -461,7 +506,7 @@ export default function ImportArchitecture() {
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 className="mt-8 flex items-center gap-3 text-red-600 bg-red-50 px-6 py-4 rounded-2xl border border-red-200"
               >
-                <AlertCircle size={14} />
+                <AlertCircle />
                 <span className="text-[9px] font-black uppercase tracking-widest">{errorMessage}</span>
               </motion.div>
             )}

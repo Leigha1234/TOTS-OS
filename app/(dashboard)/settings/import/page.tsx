@@ -36,8 +36,8 @@ const supabase = createBrowserClient(
 
 /**
  * TOTS OS: DATA INGESTION HUB v6.0
- * Enterprise Architecture: Decoupled Pipeline, Fuzzy Mapping, Multi-format Parsing,
- * Relationship Resolution, and Resilient Batch Upserting.
+ * Enterprise Architecture: Decoupled Pipeline, Multi-table Relationship Resolution,
+ * Dynamic Target Routing, and Resilient Batch Upserting.
  */
 
 export default function ImportArchitecture() {
@@ -133,9 +133,17 @@ export default function ImportArchitecture() {
         throw new Error("Dataset Exception: No valid records identified within the provided document.");
       }
 
-      // 3. Record Detection & Fuzzy Field Mapping
+      // 3. Record Detection & Multi-Table Target Routing Mapping
+      // If user selected a specific table (e.g. 'contacts'), force all rows to map to that table
       tracker.update('detecting', 30, 0, 1);
-      const detectedRecords = detectRecords(rawRows, selectedTargetTable, orgId, user.id);
+      let detectedRecords = detectRecords(rawRows, selectedTargetTable, orgId, user.id);
+      
+      if (selectedTargetTable !== 'auto') {
+        detectedRecords = detectedRecords.map(row => ({
+          ...row,
+          targetTable: selectedTargetTable
+        }));
+      }
 
       // 4. Schema & Format Validation
       tracker.update('validating', 45, 0, 1);
@@ -151,7 +159,7 @@ export default function ImportArchitecture() {
       const duplicateResult = await checkDuplicates(validationResult.valid, supabase, orgId);
       setDuplicateCount(duplicateResult.duplicates.length);
 
-      // 6. Batch Upsert Processing with Relationship Resolution & Error Resilience
+      // 6. Batch Upsert Processing with Multi-Table Relationship Resolution
       tracker.update('importing', 75, 0, 1);
       const importResult = await processBatches(
         duplicateResult.recordsToProcess,
@@ -177,27 +185,31 @@ export default function ImportArchitecture() {
         duplicateCount: duplicateResult.duplicates.length
       });
 
-      // Construct customized itemized audit log entries using specific entity types and named identifiers
+      // Construct itemized audit log entries reflecting actual destination tables and entity names
       const auditEntries: { success: boolean; identifier: string; entity: string; details: string }[] = [];
-      const currentConfig = TARGET_TABLES.find(t => t.id === selectedTargetTable) || TARGET_TABLES[0];
-
-      // Successfully processed rows from duplicateResult or validated records
+      
       const successfulRows = duplicateResult.recordsToProcess;
       successfulRows.forEach((row, idx) => {
-        const entityLabel = row.targetTable && row.targetTable !== 'auto' ? row.targetTable.slice(0, -1) : currentConfig.entityName;
-        const nameField = row.payload?.name || row.payload?.company_name || row.payload?.full_name || row.payload?.email || `Record #${idx + 1}`;
+        const resolvedTable = row.targetTable && row.targetTable !== 'auto' ? row.targetTable : selectedTargetTable;
+        const configMatch = TARGET_TABLES.find(t => t.id === resolvedTable);
+        const entityLabel = configMatch ? configMatch.entityName : 'record';
+        
+        const nameField = row.payload?.name || row.payload?.full_name || row.payload?.company_name || row.payload?.email || `Record #${idx + 1}`;
         auditEntries.push({
           success: true,
           identifier: String(nameField),
           entity: entityLabel,
-          details: "Successfully processed and committed to database repository."
+          details: `Successfully committed to public.${resolvedTable || 'target_table'}`
         });
       });
 
       // Failed rows from validation or execution errors
       importResult.failedRows.forEach((row, idx) => {
-        const entityLabel = row.targetTable && row.targetTable !== 'auto' ? row.targetTable.slice(0, -1) : currentConfig.entityName;
-        const nameField = row.payload?.name || row.payload?.company_name || row.payload?.full_name || row.payload?.email || `Dataset Row #${idx + 1}`;
+        const resolvedTable = row.targetTable && row.targetTable !== 'auto' ? row.targetTable : selectedTargetTable;
+        const configMatch = TARGET_TABLES.find(t => t.id === resolvedTable);
+        const entityLabel = configMatch ? configMatch.entityName : 'record';
+
+        const nameField = row.payload?.name || row.payload?.full_name || row.payload?.company_name || row.payload?.email || `Dataset Row #${idx + 1}`;
         const issue = row.validationErrors?.[row.validationErrors.length - 1] || "Schema compliance violation";
         auditEntries.push({
           success: false,
@@ -364,7 +376,7 @@ export default function ImportArchitecture() {
               </div>
             )}
 
-            {/* Comprehensive Itemized Import Activity Log with Named Entity Feedback */}
+            {/* Comprehensive Itemized Import Activity Log with Explicit Target Table Routing */}
             {processedLogRows.length > 0 && status === 'success' && (
               <div className="mt-6 w-full border border-stone-200 rounded-3xl p-6 bg-white text-left shadow-sm space-y-4" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between border-b border-stone-100 pb-3">
@@ -432,7 +444,7 @@ export default function ImportArchitecture() {
                       <div className="flex items-center gap-3 truncate">
                         <FileText size={14} className="text-[#A3B18A] shrink-0" />
                         <span className="truncate">
-                          {row.payload.name || row.payload.company_name || row.payload.description || row.payload.email || `Record ID: ${idx + 1}`}
+                          {row.payload.name || row.payload.full_name || row.payload.company_name || row.payload.description || row.payload.email || `Record ID: ${idx + 1}`}
                         </span>
                       </div>
                       <span className="text-stone-400 text-[10px] uppercase font-bold shrink-0 ml-4">

@@ -131,18 +131,6 @@ export async function processBatches(
 
 
         /**
-         * Debug organisation imports.
-         * Remove later once confirmed working.
-         */
-        if (targetTable === "organisations") {
-          console.log(
-            "ORGANISATION IMPORT PAYLOAD:",
-            JSON.stringify(payload, null, 2)
-          );
-        }
-
-
-        /**
          * Determine conflict key.
          */
         let conflictColumn = "id";

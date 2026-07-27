@@ -58,13 +58,14 @@ export default function ImportArchitecture() {
   const [progress, setProgress] = useState({ phase: 'idle', percent: 0, currentBatch: 0, totalBatches: 0, processedRows: 0, elapsedMs: 0, etaMs: 0 });
   const [previewRows, setPreviewRows] = useState<ProcessedRow[]>([]);
   const [invalidRows, setInvalidRows] = useState<ProcessedRow[]>([]);
+  const [processedLogRows, setProcessedLogRows] = useState<{ success: boolean; identifier: string; details: string }[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [report, setReport] = useState<ImportReportType | null>(null);
 
   const TARGET_TABLES: { id: TargetTableType; label: string; description: string }[] = [
     { id: 'auto', label: 'Auto-Detect (Smart Route)', description: 'Multi-model weighted scoring across contacts, organisations, projects, tasks, invoices, expenses, employees, and notes' },
     { id: 'contacts', label: 'Contacts & CRM', description: 'Maps to public.contacts with relationship auto-resolution' },
-    { id: 'organisations', label: 'organisations', description: 'Maps to public.organisations with domain and registration matching' },
+    { id: 'organisations', label: 'Organisations', description: 'Maps to public.organisations with domain and registration matching' },
     { id: 'invoices', label: 'Finance & Invoices', description: 'Maps to public.invoices with automatic parent record linking' },
     { id: 'expenses', label: 'Expenses & Receipts', description: 'Maps to public.expenses with category tagging' },
     { id: 'projects', label: 'Projects & Tasks', description: 'Maps to public.projects and public.tasks' },
@@ -84,7 +85,7 @@ export default function ImportArchitecture() {
     if (selectedFile) {
       if (selectedFile.name.endsWith('.rtf')) {
         setStatus('error');
-        setErrorMessage("Format Error: RTF detected. Use CSV, XLSX, XLS, or TSV.");
+        setErrorMessage("Format Error: RTF format detected. Please provide a standard CSV, XLSX, XLS, or TSV dataset.");
         return;
       }
       setFile(selectedFile);
@@ -93,6 +94,7 @@ export default function ImportArchitecture() {
       setReport(null);
       setPreviewRows([]);
       setInvalidRows([]);
+      setProcessedLogRows([]);
     }
   };
 
@@ -102,6 +104,7 @@ export default function ImportArchitecture() {
     setStatus('processing');
     setErrorMessage("");
     setReport(null);
+    setProcessedLogRows([]);
 
     const tracker = new ProgressTracker((p) => {
       setProgress(p);
@@ -112,7 +115,7 @@ export default function ImportArchitecture() {
       tracker.update('reading', 5, 0, 1);
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
-        throw new Error("Clearance required: Session offline or unauthenticated.");
+        throw new Error("Authorization Required: Active user session offline or unauthenticated.");
       }
 
       const { data: profile } = await (supabase as any)
@@ -127,7 +130,7 @@ export default function ImportArchitecture() {
       tracker.update('reading', 15, 0, 1);
       const rawRows = await parseFile(file);
       if (!rawRows || rawRows.length === 0) {
-        throw new Error("Empty dataset: No records found in file.");
+        throw new Error("Dataset Exception: No valid records identified within the provided document.");
       }
 
       // 3. Record Detection & Fuzzy Field Mapping
@@ -139,8 +142,8 @@ export default function ImportArchitecture() {
       const validationResult = validateRows(detectedRecords);
       setInvalidRows(validationResult.invalid);
 
-      if (validationResult.valid.length === 0) {
-        throw new Error("No valid records found after running strict validation rules.");
+      if (validationResult.valid.length === 0 && validationResult.invalid.length === 0) {
+        throw new Error("Validation Exception: No structured records located for processing.");
       }
 
       // 5. Duplicate Detection (In-file & Supabase DB)
@@ -174,6 +177,30 @@ export default function ImportArchitecture() {
         duplicateCount: duplicateResult.duplicates.length
       });
 
+      // Construct itemized audit log entries for user review
+      const auditEntries: { success: boolean; identifier: string; details: string }[] = [];
+      
+      // Successfully processed items from import result
+      for (let i = 0; i < importResult.inserted + importResult.updated; i++) {
+        auditEntries.push({
+          success: true,
+          identifier: `Record Entry #${i + 1}`,
+          details: "Successfully processed and committed to database repository."
+        });
+      }
+
+      // Failed rows from validation or execution errors
+      importResult.failedRows.forEach((row, idx) => {
+        const identifier = row.payload?.name || row.payload?.company_name || row.payload?.email || `Dataset Row #${idx + 1}`;
+        const issue = row.validationErrors?.[row.validationErrors.length - 1] || "Schema compliance violation";
+        auditEntries.push({
+          success: false,
+          identifier: String(identifier),
+          details: String(issue)
+        });
+      });
+
+      setProcessedLogRows(auditEntries);
       setReport(finalReport);
       setPreviewRows(validationResult.valid.slice(0, 6));
       setStatus('success');
@@ -181,7 +208,7 @@ export default function ImportArchitecture() {
 
     } catch (err: any) {
       setStatus('error');
-      setErrorMessage(err.message || "An unexpected error occurred during pipeline execution.");
+      setErrorMessage(err.message || "An unexpected operational exception occurred during pipeline execution.");
     }
   };
 
@@ -213,7 +240,7 @@ export default function ImportArchitecture() {
           <div className="flex flex-wrap items-center gap-6 text-[#A3B18A]">
             <div className="flex items-center gap-2">
               <Database size={12} fill="currentColor" />
-              <span className="text-[9px] font-black uppercase tracking-[0.3em]">Enterprise Supabase Pipeline v6.0</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.3em]">Enterprise Database Integration Pipeline v6.0</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock size={12} />
@@ -222,7 +249,7 @@ export default function ImportArchitecture() {
               </p>
             </div>
           </div>
-          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none text-stone-900">Data Import Command Center</h1>
+          <h1 className="text-5xl md:text-7xl font-serif italic tracking-tighter leading-none text-stone-900">Data Ingestion Hub</h1>
           
           <nav className="flex items-center gap-4 pt-4">
             <button
@@ -230,7 +257,7 @@ export default function ImportArchitecture() {
               className="flex items-center gap-3 px-8 py-3.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-white border border-stone-200 text-stone-600 hover:text-stone-900 transition-all shadow-sm cursor-pointer"
             >
               <ArrowLeft size={12} />
-              Settings
+              Return to Settings
             </button>
           </nav>
         </div>
@@ -245,7 +272,7 @@ export default function ImportArchitecture() {
         >
           {status === 'processing' ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
           <span className="text-[10px] font-black uppercase tracking-[0.2em]">
-            {status === 'processing' ? `${progress.phase.toUpperCase()} (${progress.percent}%)` : "Execute Enterprise Migration"}
+            {status === 'processing' ? `${progress.phase.toUpperCase()} (${progress.percent}%)` : "Execute Data Ingestion"}
           </span>
         </motion.button>
       </header>
@@ -277,16 +304,16 @@ export default function ImportArchitecture() {
 
             <div className="space-y-4">
               <h3 className="text-3xl md:text-4xl font-serif italic text-stone-900 tracking-tight">
-                {status === 'success' ? 'Enterprise Migration Successful' : file ? file.name : "Select Multi-Format Manifest (CSV, XLSX, XLS, TSV)"}
+                {status === 'success' ? 'Data Ingestion Completed Successfully' : file ? file.name : "Select Source Dataset Manifest (CSV, XLSX, XLS, TSV)"}
               </h3>
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
                 {status === 'success' && report
-                  ? `${report.rowsInserted} Inserted | ${report.rowsUpdated} Updated | ${report.rowsSkipped} Skipped`
+                  ? `${report.rowsInserted} Records Inserted | ${report.rowsUpdated} Records Updated | ${report.rowsSkipped} Records Skipped`
                   : status === 'processing'
-                    ? `Phase: ${progress.phase.replace('_', ' ').toUpperCase()} — ${progress.percent}% Completed`
+                    ? `Current Phase: ${progress.phase.replace('_', ' ').toUpperCase()} — ${progress.percent}% Complete`
                     : file
-                      ? "File loaded. Ready for fuzzy mapping & weighted record scoring."
-                      : "Drop Spreadsheet or CSV for Automatic Schema Resolution"}
+                      ? "Source file loaded and staged for schema validation and synchronization."
+                      : "Upload business data spreadsheet for automated validation and ingestion."}
               </p>
             </div>
 
@@ -294,8 +321,8 @@ export default function ImportArchitecture() {
             {status === 'success' && report && (
               <div className="mt-8 w-full border border-stone-200 rounded-3xl p-6 bg-white text-left shadow-sm space-y-4" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#A3B18A]">Execution Report Summary</span>
-                  <span className="text-[9px] font-mono text-stone-400">Duration: {(report.durationMs / 1000).toFixed(2)}s</span>
+                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#A3B18A]">Execution Audit Summary</span>
+                  <span className="text-[9px] font-mono text-stone-400">Processing Time: {(report.durationMs / 1000).toFixed(2)}s</span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div className="bg-stone-50 p-3 rounded-2xl">
@@ -318,15 +345,56 @@ export default function ImportArchitecture() {
 
                 {invalidRows.length > 0 && (
                   <div className="pt-2 flex items-center justify-between">
-                    <span className="text-xs text-red-600 font-medium">{invalidRows.length} rows failed validation rules.</span>
+                    <span className="text-xs text-red-600 font-medium">{invalidRows.length} records failed business validation rules.</span>
                     <button 
                       onClick={downloadFailedRows}
                       className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
                     >
-                      <Download size={12} /> Download Failed CSV
+                      <Download size={12} /> Download Failed Records Report
                     </button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Comprehensive Itemized Import Activity Log */}
+            {processedLogRows.length > 0 && status === 'success' && (
+              <div className="mt-6 w-full border border-stone-200 rounded-3xl p-6 bg-white text-left shadow-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-700">Detailed Transaction Ledger</span>
+                  <span className="text-[9px] font-mono text-stone-400">Total Entries Logged: {processedLogRows.length}</span>
+                </div>
+                
+                <div className="max-h-80 overflow-y-auto space-y-2 pr-2">
+                  {processedLogRows.map((entry, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`flex flex-col md:flex-row items-start md:items-center justify-between p-3.5 rounded-2xl border text-xs gap-2 ${
+                        entry.success 
+                          ? 'bg-emerald-50/50 border-emerald-100 text-emerald-900' 
+                          : 'bg-red-50/50 border-red-100 text-red-900'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {entry.success ? (
+                          <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                            <Check size={12} />
+                          </div>
+                        ) : (
+                          <div className="w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                            <AlertCircle size={12} />
+                          </div>
+                        )}
+                        <span className="font-bold tracking-tight">
+                          {entry.success ? `Successfully imported ${entry.identifier}` : `Failed to add ${entry.identifier}`}
+                        </span>
+                      </div>
+                      <span className={`text-[10px] px-2.5 py-1 rounded-full font-mono ${entry.success ? 'bg-emerald-100/70 text-emerald-800' : 'bg-red-100/80 text-red-700'}`}>
+                        {entry.details}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -335,15 +403,15 @@ export default function ImportArchitecture() {
               <div className="mt-8 w-full border border-stone-200 rounded-3xl p-6 bg-white/90 text-left shadow-sm" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">
-                    Validated Preview Records ({previewRows.length})
+                    Validated Dataset Preview ({previewRows.length})
                   </p>
                   <div className="flex items-center gap-3">
                     <span className="text-[9px] font-mono bg-amber-50 text-amber-700 px-3 py-1 rounded-full">
-                      {duplicateCount} Duplicates Detected
+                      {duplicateCount} Duplicates Identified
                     </span>
                     {invalidRows.length > 0 && (
                       <span className="text-[9px] font-mono bg-red-50 text-red-600 px-3 py-1 rounded-full">
-                        {invalidRows.length} Invalid
+                        {invalidRows.length} Exceptions Found
                       </span>
                     )}
                   </div>
@@ -359,7 +427,7 @@ export default function ImportArchitecture() {
                         </span>
                       </div>
                       <span className="text-stone-400 text-[10px] uppercase font-bold shrink-0 ml-4">
-                        Table: {row.targetTable} {row.payload.amount ? `(£${row.payload.amount})` : ''}
+                        Destination: {row.targetTable} {row.payload.amount ? `(£${row.payload.amount})` : ''}
                       </span>
                     </div>
                   ))}
@@ -383,10 +451,10 @@ export default function ImportArchitecture() {
         <aside className="bg-white border border-stone-200 p-8 md:p-10 rounded-[3.5rem] shadow-sm lg:col-span-4 flex flex-col gap-6">
           <div className="space-y-2">
             <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">
-              Target Routing Engine
+              Destination Routing Parameters
             </h2>
             <p className="text-stone-500 text-xs">
-              Configure target destination tables and intelligent duplicate resolution strategies.
+              Configure target database repositories and automated record conflict resolution protocols.
             </p>
           </div>
 
@@ -443,10 +511,10 @@ export default function ImportArchitecture() {
           <div className="bg-stone-50 border border-stone-100 rounded-3xl p-5 space-y-2">
             <div className="flex items-center gap-2 text-stone-700">
               <RefreshCw size={14} className="text-[#A3B18A]" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Automatic Relationship Linking</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">Automated Relationship Mapping</span>
             </div>
             <p className="text-xs text-stone-500 leading-relaxed">
-              organisations, Contacts, Projects, Tasks, and Invoices are automatically linked using foreign key resolution protocols during batch insertion.
+              Organisations, contacts, projects, tasks, and invoices are automatically linked via relational foreign key association rules during batch insertion.
             </p>
           </div>
         </aside>

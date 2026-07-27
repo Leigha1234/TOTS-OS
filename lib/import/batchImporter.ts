@@ -58,12 +58,16 @@ export async function processBatches(
           delete payload.company_name;
         }
 
-        // If target table is organisations, ensure company_name maps to name if present
+        // Map CSV fields to actual database columns for organisations
         if (targetTable === 'organisations') {
           if (payload.company_name && !payload.name) {
             payload.name = payload.company_name;
+            delete payload.company_name;
           }
-          delete payload.company_name;
+          if (payload.date_created && !payload.created_at) {
+            payload.created_at = payload.date_created;
+            delete payload.date_created;
+          }
         }
 
         // Dynamically assign conflict column

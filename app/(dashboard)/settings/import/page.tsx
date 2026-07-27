@@ -352,7 +352,7 @@ export default function ImportArchitecture() {
                         </span>
                       </div>
                       <span className="text-stone-400 text-[10px] uppercase font-bold shrink-0 ml-4">
-                        Table: {row.targetTable} {row.amount ? `(£${row.amount})` : ''}
+                        Table: {row.targetTable} {row.payload.amount ? `(£${row.payload.amount})` : ''}
                       </span>
                     </div>
                   ))}

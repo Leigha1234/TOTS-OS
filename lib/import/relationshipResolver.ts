@@ -1,5 +1,5 @@
 // ==========================================
-// 8. lib/import/relationshipResolver.ts
+// lib/import/relationshipResolver.ts
 // ==========================================
 
 import { ProcessedRow } from "./types";
@@ -9,38 +9,106 @@ export async function resolveRelationships(
   supabase: any,
   orgId: string | null
 ): Promise<ProcessedRow[]> {
-  // Automatically ensure parent organisations or linked entities exist if referenced by name
+
   for (const row of rows) {
-    if (row.targetTable === 'contacts' && row.payload.company_name && orgId) {
+
+    /**
+     * Contacts can reference a company name.
+     * We need to find/create the organisation record,
+     * then attach its ID to the contact.
+     */
+    if (
+      row.targetTable === "contacts" &&
+      row.payload.company_name
+    ) {
+
       try {
-        // Check if company exists using maybeSingle() to avoid PGRST116 multiple rows / zero rows exceptions
-        const { data: existingCompany } = await supabase
-          .from('organisations')
-          .select('id')
-          .eq('company_name', row.payload.company_name)
-          .eq('organisation_id', orgId)
-          .maybeSingle();
 
-        if (!existingCompany) {
-          const { data: newCompany, error: insertError } = await supabase
-            .from('organisations')
-            .insert({
-              company_name: row.payload.company_name,
-              organisation_id: orgId
-            })
-            .select('id')
-            .single();
+        const companyName =
+          String(row.payload.company_name).trim();
 
-          if (!insertError && newCompany) {
-            row.payload.company_id = newCompany.id;
-          }
+
+        // Find existing organisation
+        const { data: existingCompany } =
+          await supabase
+            .from("organisations")
+            .select("id")
+            .eq("name", companyName)
+            .maybeSingle();
+
+
+
+        if (existingCompany) {
+
+          row.payload.organisation_id =
+            existingCompany.id;
+
+
         } else {
-          row.payload.company_id = existingCompany.id;
+
+
+          // Create organisation
+          const { data: newCompany, error } =
+            await supabase
+              .from("organisations")
+              .insert({
+                name: companyName
+              })
+              .select("id")
+              .single();
+
+
+          if (!error && newCompany) {
+
+            row.payload.organisation_id =
+              newCompany.id;
+
+          }
         }
+
+
+        // Remove temporary import field
+        delete row.payload.company_name;
+
+
       } catch (err) {
-        // Silent catch for soft FK auto-creation fallback
+
+        console.error(
+          "Relationship resolver error:",
+          err
+        );
+
       }
     }
+
+
+    /**
+     * Always attach the user's organisation
+     * to child tables only.
+     */
+    if (
+      orgId &&
+      row.targetTable !== "organisations" &&
+      !row.payload.organisation_id
+    ) {
+
+      row.payload.organisation_id = orgId;
+
+    }
+
+
+    /**
+     * Never allow organisations table
+     * to receive organisation_id.
+     */
+    if (row.targetTable === "organisations") {
+
+      delete row.payload.organisation_id;
+
+    }
+
   }
+
+
   return rows;
 }

@@ -1,8 +1,13 @@
 // ==========================================
 // lib/import/batchImporter.ts
+// Production batch importer
 // ==========================================
 
-import { ProcessedRow, DuplicateResolutionStrategy, BatchImportResult } from "./types";
+import {
+  ProcessedRow,
+  DuplicateResolutionStrategy,
+  BatchImportResult,
+} from "./types";
 
 export async function processBatches(
   records: ProcessedRow[],
@@ -13,11 +18,12 @@ export async function processBatches(
 ): Promise<BatchImportResult> {
   const batchSize = 50;
   const totalBatches = Math.ceil(records.length / batchSize) || 1;
-  
+
   let inserted = 0;
   let updated = 0;
   let skipped = 0;
   let failed = 0;
+
   const failedRows: ProcessedRow[] = [];
 
   for (let i = 0; i < records.length; i += batchSize) {
@@ -27,90 +33,209 @@ export async function processBatches(
     try {
       for (const row of batch) {
         const targetTable = row.targetTable;
-        let payload = { ...row.payload };
 
-        // Only attach organisation_id to tables that actually have the column.
-// The organisations table itself uses `id` as its primary key and does
-// not contain an organisation_id column.
-if (
-  orgId &&
-  targetTable !== "organisations" &&
-  !payload.organisation_id
-) {
-  payload.organisation_id = orgId;
-}
-        // Handle Organisation / Company Relationship Resolution for Contacts
-        if (targetTable === 'contacts' && payload.company_name && !payload.organisation_id) {
-          let { data: orgMatch } = await supabase
-            .from('organisations')
-            .select('id')
-            .eq('name', payload.company_name)
+        // Clone payload so original parsed data is untouched
+        let payload = {
+          ...row.payload,
+        };
+
+        /**
+         * Organisations are the root entity.
+         * They DO NOT contain organisation_id.
+         * Every other organisation-owned table does.
+         */
+        if (
+          orgId &&
+          targetTable !== "organisations" &&
+          !payload.organisation_id
+        ) {
+          payload.organisation_id = orgId;
+        }
+
+        /**
+         * Resolve company relationships for contacts.
+         */
+        if (
+          targetTable === "contacts" &&
+          payload.company_name &&
+          !payload.organisation_id
+        ) {
+          const { data: existingOrg } = await supabase
+            .from("organisations")
+            .select("id")
+            .eq("name", payload.company_name)
             .maybeSingle();
 
-          if (!orgMatch) {
-            const { data: newOrg, error: orgErr } = await supabase
-              .from('organisations')
-              .insert({ name: payload.company_name })
-              .select('id')
-              .single();
-
-            if (!orgErr && newOrg) {
-              payload.organisation_id = newOrg.id;
-            }
+          if (existingOrg) {
+            payload.organisation_id = existingOrg.id;
           } else {
-            payload.organisation_id = orgMatch.id;
+            const { data: createdOrg, error: createOrgError } =
+              await supabase
+                .from("organisations")
+                .upsert(
+                  {
+                    name: payload.company_name,
+                  },
+                  {
+                    onConflict: "name",
+                  }
+                )
+                .select("id")
+                .single();
+
+            if (!createOrgError && createdOrg) {
+              payload.organisation_id = createdOrg.id;
+            }
           }
+
           delete payload.company_name;
         }
 
-        // Clean and map fields specifically for organisations
-        if (targetTable === 'organisations') {
+
+        /**
+         * Clean organisation payload.
+         *
+         * IMPORTANT:
+         * organisations.id is the organisation identifier.
+         * organisations does NOT have organisation_id.
+         */
+        if (targetTable === "organisations") {
+          delete payload.organisation_id;
+
           if (payload.company_name && !payload.name) {
             payload.name = payload.company_name;
           }
+
           if (payload.date_created && !payload.created_at) {
             payload.created_at = payload.date_created;
           }
-          
-          // Remove fields that do not exist on the organisations table schema
+
           delete payload.company_name;
           delete payload.date_created;
           delete payload.opportunity_id;
         }
 
-        // Dynamically assign conflict column
-        let conflictColumn = 'id';
-        if (targetTable === 'organisations') {
-          conflictColumn = 'name';
-        } else if (targetTable === 'contacts') {
-          conflictColumn = 'email';
+
+        /**
+         * Remove empty undefined values before sending.
+         */
+        Object.keys(payload).forEach((key) => {
+          if (
+            payload[key] === undefined ||
+            payload[key] === null ||
+            payload[key] === ""
+          ) {
+            delete payload[key];
+          }
+        });
+
+
+        /**
+         * Debug organisation imports.
+         * Remove later once confirmed working.
+         */
+        if (targetTable === "organisations") {
+          console.log(
+            "ORGANISATION IMPORT PAYLOAD:",
+            JSON.stringify(payload, null, 2)
+          );
         }
 
+
+        /**
+         * Determine conflict key.
+         */
+        let conflictColumn = "id";
+
+        if (targetTable === "organisations") {
+          conflictColumn = "name";
+        }
+
+        if (targetTable === "contacts") {
+          conflictColumn = "email";
+        }
+
+
+        /**
+         * Upsert data.
+         */
         const { error } = await supabase
           .from(targetTable)
-          .upsert(payload, { 
+          .upsert(payload, {
             onConflict: conflictColumn,
-            ignoreDuplicates: strategy === 'skip' 
+            ignoreDuplicates: strategy === "skip",
           });
 
+
         if (error) {
-          console.error("Supabase Import Error Details:", error);
+          console.error(
+            "Supabase Import Error Details:",
+            {
+              table: targetTable,
+              payload,
+              error,
+            }
+          );
+
           failed++;
-          failedRows.push({ ...row, isValid: false, validationErrors: [...row.validationErrors, error.message] });
+
+          failedRows.push({
+            ...row,
+            isValid: false,
+            validationErrors: [
+              ...row.validationErrors,
+              error.message,
+            ],
+          });
+
         } else {
-          inserted++;
+
+          if (strategy === "update") {
+            updated++;
+          } else {
+            inserted++;
+          }
+
         }
       }
+
     } catch (err: any) {
-      console.error("Batch Import Exception:", err);
+
+      console.error(
+        "Batch Import Exception:",
+        err
+      );
+
       failed += batch.length;
-      batch.forEach(r => failedRows.push({ ...r, isValid: false, validationErrors: [...r.validationErrors, err.message] }));
+
+      batch.forEach((row) => {
+        failedRows.push({
+          ...row,
+          isValid: false,
+          validationErrors: [
+            ...row.validationErrors,
+            err.message,
+          ],
+        });
+      });
     }
 
-    if (onProgress) {
-      onProgress(batchNum, totalBatches);
-    }
+
+    /**
+     * Update progress.
+     */
+    onProgress?.(
+      batchNum,
+      totalBatches
+    );
   }
 
-  return { inserted, updated, skipped, failed, failedRows };
+
+  return {
+    inserted,
+    updated,
+    skipped,
+    failed,
+    failedRows,
+  };
 }

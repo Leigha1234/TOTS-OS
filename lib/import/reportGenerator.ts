@@ -2,7 +2,11 @@
 // 11. lib/import/reportGenerator.ts
 // ==========================================
 
-import { BatchImportResult, ImportReport } from "./types";
+import {
+  BatchImportResult,
+  ImportReport
+} from "./types";
+
 
 interface ReportOptions {
   supabase: any;
@@ -16,7 +20,11 @@ interface ReportOptions {
   duplicateCount: number;
 }
 
-export async function generateImportReport(options: ReportOptions): Promise<ImportReport> {
+
+export async function generateImportReport(
+  options: ReportOptions
+): Promise<ImportReport> {
+
   const {
     supabase,
     userId,
@@ -29,35 +37,107 @@ export async function generateImportReport(options: ReportOptions): Promise<Impo
     duplicateCount
   } = options;
 
+
+  const failedRows =
+    importResult.failed + invalidCount;
+
+
+  const status =
+    failedRows === 0
+      ? "success"
+      : importResult.inserted > 0
+        ? "partial"
+        : "failed";
+
+
   const report: ImportReport = {
+
     filename,
+
     durationMs,
-    rowsProcessed: rawRowsCount,
-    rowsInserted: importResult.inserted,
-    rowsUpdated: importResult.updated,
-    rowsSkipped: importResult.skipped,
-    rowsFailed: importResult.failed + invalidCount,
-    duplicatesFound: duplicateCount,
-    status: importResult.failed === 0 ? 'success' : 'partial'
+
+    rowsProcessed:
+      rawRowsCount,
+
+    rowsInserted:
+      importResult.inserted,
+
+    rowsUpdated:
+      importResult.updated,
+
+    rowsSkipped:
+      importResult.skipped,
+
+    rowsFailed:
+      failedRows,
+
+    duplicatesFound:
+      duplicateCount,
+
+    status
   };
 
-  // Persist import history to Supabase table if it exists
+
+  /**
+   * Save import history
+   */
   try {
-    await supabase.from('import_history').insert({
-      filename,
-      uploaded_by: userId,
-      organisation_id: organisationId,
-      upload_date: new Date().toISOString(),
-      duration: durationMs,
-      rows_processed: rawRowsCount,
-      rows_inserted: importResult.inserted,
-      rows_updated: importResult.updated,
-      rows_failed: importResult.failed + invalidCount,
-      import_status: report.status
-    });
+
+    const { error } =
+      await supabase
+        .from("import_history")
+        .insert({
+
+          filename,
+
+          uploaded_by:
+            userId,
+
+          organisation_id:
+            organisationId,
+
+          upload_date:
+            new Date().toISOString(),
+
+          duration:
+            durationMs,
+
+          rows_processed:
+            rawRowsCount,
+
+          rows_inserted:
+            importResult.inserted,
+
+          rows_updated:
+            importResult.updated,
+
+          rows_failed:
+            failedRows,
+
+          import_status:
+            status
+        });
+
+
+    if (error) {
+
+      console.warn(
+        "Import history save failed:",
+        error
+      );
+
+    }
+
+
   } catch (err) {
-    // Graceful fallback if import_history table hasn't been migrated yet
+
+    console.warn(
+      "Import history unavailable:",
+      err
+    );
+
   }
+
 
   return report;
 }

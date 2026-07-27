@@ -34,9 +34,8 @@ export async function processBatches(
           payload.organisation_id = orgId;
         }
 
-        // Handle Organisation / Company Relationship Resolution
+        // Handle Organisation / Company Relationship Resolution for Contacts
         if (targetTable === 'contacts' && payload.company_name && !payload.organisation_id) {
-          // Check if organisation exists or insert it
           let { data: orgMatch } = await supabase
             .from('organisations')
             .select('id')
@@ -59,7 +58,15 @@ export async function processBatches(
           delete payload.company_name;
         }
 
-        // Dynamically assign conflict column based on table type (e.g. name for organisations, email for contacts)
+        // If target table is organisations, ensure company_name maps to name if present
+        if (targetTable === 'organisations') {
+          if (payload.company_name && !payload.name) {
+            payload.name = payload.company_name;
+          }
+          delete payload.company_name;
+        }
+
+        // Dynamically assign conflict column
         let conflictColumn = 'id';
         if (targetTable === 'organisations') {
           conflictColumn = 'name';

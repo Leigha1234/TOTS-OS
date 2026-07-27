@@ -71,7 +71,7 @@ export const COLUMN_ALIASES: Record<string, string[]> = {
 
 export const UNIQUE_KEYS: Record<string, string[]> = {
   contacts: ['email'],
-  companies: ['company_name'],
+  organisations: ['company_name'],
   projects: ['name', 'organisation_id'],
   tasks: ['name'],
   invoices: ['invoice_number'],

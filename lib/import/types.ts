@@ -16,7 +16,7 @@ export type ImportStatus =
 
 export type DuplicateResolutionStrategy = 'update' | 'skip' | 'create';
 
-export type TargetTableType = 'auto' | 'contacts' | 'companies' | 'invoices' | 'expenses' | 'projects';
+export type TargetTableType = 'auto' | 'contacts' | 'organisations' | 'invoices' | 'expenses' | 'projects';
 
 export interface RawRow {
   [key: string]: any;

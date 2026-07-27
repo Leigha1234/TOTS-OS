@@ -9,13 +9,13 @@ export async function resolveRelationships(
   supabase: any,
   orgId: string | null
 ): Promise<ProcessedRow[]> {
-  // Automatically ensure parent companies or linked entities exist if referenced by name
+  // Automatically ensure parent organisations or linked entities exist if referenced by name
   for (const row of rows) {
     if (row.targetTable === 'contacts' && row.payload.company_name && orgId) {
       try {
         // Check if company exists using maybeSingle() to avoid PGRST116 multiple rows / zero rows exceptions
         const { data: existingCompany } = await supabase
-          .from('companies')
+          .from('organisations')
           .select('id')
           .eq('company_name', row.payload.company_name)
           .eq('organisation_id', orgId)
@@ -23,7 +23,7 @@ export async function resolveRelationships(
 
         if (!existingCompany) {
           const { data: newCompany, error: insertError } = await supabase
-            .from('companies')
+            .from('organisations')
             .insert({
               company_name: row.payload.company_name,
               organisation_id: orgId

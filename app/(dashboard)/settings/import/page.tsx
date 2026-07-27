@@ -62,9 +62,9 @@ export default function ImportArchitecture() {
   const [report, setReport] = useState<ImportReportType | null>(null);
 
   const TARGET_TABLES: { id: TargetTableType; label: string; description: string }[] = [
-    { id: 'auto', label: 'Auto-Detect (Smart Route)', description: 'Multi-model weighted scoring across contacts, companies, projects, tasks, invoices, expenses, employees, and notes' },
+    { id: 'auto', label: 'Auto-Detect (Smart Route)', description: 'Multi-model weighted scoring across contacts, organisations, projects, tasks, invoices, expenses, employees, and notes' },
     { id: 'contacts', label: 'Contacts & CRM', description: 'Maps to public.contacts with relationship auto-resolution' },
-    { id: 'companies', label: 'Companies', description: 'Maps to public.companies with domain and registration matching' },
+    { id: 'organisations', label: 'organisations', description: 'Maps to public.organisations with domain and registration matching' },
     { id: 'invoices', label: 'Finance & Invoices', description: 'Maps to public.invoices with automatic parent record linking' },
     { id: 'expenses', label: 'Expenses & Receipts', description: 'Maps to public.expenses with category tagging' },
     { id: 'projects', label: 'Projects & Tasks', description: 'Maps to public.projects and public.tasks' },
@@ -446,7 +446,7 @@ export default function ImportArchitecture() {
               <span className="text-[10px] font-black uppercase tracking-widest">Automatic Relationship Linking</span>
             </div>
             <p className="text-xs text-stone-500 leading-relaxed">
-              Companies, Contacts, Projects, Tasks, and Invoices are automatically linked using foreign key resolution protocols during batch insertion.
+              organisations, Contacts, Projects, Tasks, and Invoices are automatically linked using foreign key resolution protocols during batch insertion.
             </p>
           </div>
         </aside>

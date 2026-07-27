@@ -13,7 +13,7 @@ export function detectRecords(
   return rawRows.map((row, index) => {
     // Determine target table
     let targetTable = targetTableOverride;
-    if (targetTable === 'auto' || targetTable === 'companies') {
+    if (targetTable === 'auto' || targetTable === 'organisations') {
       const keys = Object.keys(row).map(k => k.toLowerCase());
       if (keys.some(k => k.includes('email') || k.includes('phone') || k.includes('name'))) {
         targetTable = 'contacts' as TargetTableType;
@@ -48,7 +48,7 @@ export function detectRecords(
 
     return {
       id: `row_${index + 1}`,
-      targetTable: targetTable === 'companies' ? 'organisations' : targetTable,
+      targetTable: targetTable === 'organisations' ? 'organisations' : targetTable,
       payload,
       rawPayload: row,
       isValid: true,

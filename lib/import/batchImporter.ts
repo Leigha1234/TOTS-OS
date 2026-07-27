@@ -32,12 +32,17 @@ export async function processBatches(
 
     try {
       for (const row of batch) {
-        const targetTable = row.targetTable;
+        let targetTable = row.targetTable;
 
         // Clone payload so original parsed data is untouched
         let payload = {
           ...row.payload,
         };
+
+        // SAFETY FIX: If a row was misrouted to 'contacts' but has organisation fields, fix the target table!
+        if (targetTable === "contacts" && (payload.website || payload.address || (payload.name && !payload.first_name && !payload.last_name))) {
+          targetTable = "organisations";
+        }
 
         /**
          * Organisations are the root entity.
@@ -113,6 +118,7 @@ export async function processBatches(
           delete payload.company_name;
           delete payload.date_created;
           delete payload.opportunity_id;
+          delete payload.description; // Remove unexpected description field if present
         }
 
 

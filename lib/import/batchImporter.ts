@@ -118,7 +118,8 @@ export async function processBatches(
           delete payload.company_name;
           delete payload.date_created;
           delete payload.opportunity_id;
-          delete payload.description; // Remove unexpected description field if present
+          delete payload.description;
+          delete payload.category; // Strip category column if not present in schema
         }
 
 
@@ -160,12 +161,17 @@ export async function processBatches(
             ignoreDuplicates: strategy === "skip",
           });
 
-if (error) {
-          console.error("Supabase Import Error Message:", error.message, {
-            table: targetTable,
-            payload,
-            error,
-          });
+
+        if (error) {
+          console.error(
+            "Supabase Import Error Message:",
+            error.message,
+            {
+              table: targetTable,
+              payload,
+              error,
+            }
+          );
 
           failed++;
 
@@ -177,9 +183,8 @@ if (error) {
               error.message,
             ],
           });
-        }
 
-           else {
+        } else {
 
           if (strategy === "update") {
             updated++;

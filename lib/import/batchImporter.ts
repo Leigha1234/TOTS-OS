@@ -75,6 +75,7 @@ export async function processBatches(
           });
 
         if (error) {
+          console.error("Supabase Import Error Details:", error);
           failed++;
           failedRows.push({ ...row, isValid: false, validationErrors: [...row.validationErrors, error.message] });
         } else {
@@ -82,6 +83,7 @@ export async function processBatches(
         }
       }
     } catch (err: any) {
+      console.error("Batch Import Exception:", err);
       failed += batch.length;
       batch.forEach(r => failedRows.push({ ...r, isValid: false, validationErrors: [...r.validationErrors, err.message] }));
     }

@@ -4,6 +4,7 @@
 
 import { ProcessedRow, DuplicateResult } from "./types";
 import { UNIQUE_KEYS } from "./constants";
+import { table } from "console";
 
 export async function checkDuplicates(
   rows: ProcessedRow[],
@@ -17,12 +18,11 @@ export async function checkDuplicates(
   const seenKeys = new Set<string>();
 
   for (const row of rows) {
-    const table = row.targetTable;
-    const keys = UNIQUE_KEYS[table] || ['name'];
+   const rawKeys = UNIQUE_KEYS[row.targetTable] || 'name';
+const keys = Array.isArray(rawKeys) ? rawKeys : [rawKeys];
+const fingerprint = keys.map(k => row.payload[k]).filter(Boolean).join('|').toLowerCase();
     
-    // Build unique lookup fingerprint
-    const fingerprint = keys.map(k => row.payload[k]).filter(Boolean).join('|').toLowerCase();
-
+    
     if (fingerprint && seenKeys.has(fingerprint)) {
       duplicates.push({ ...row, isDuplicate: true });
       recordsToProcess.push({ ...row, isDuplicate: true }); // Marked for strategy handling

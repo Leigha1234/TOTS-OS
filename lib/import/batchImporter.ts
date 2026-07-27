@@ -29,11 +29,16 @@ export async function processBatches(
         const targetTable = row.targetTable;
         let payload = { ...row.payload };
 
-        // Ensure organisation_id is attached if available
-        if (orgId && !payload.organisation_id) {
-          payload.organisation_id = orgId;
-        }
-
+        // Only attach organisation_id to tables that actually have the column.
+// The organisations table itself uses `id` as its primary key and does
+// not contain an organisation_id column.
+if (
+  orgId &&
+  targetTable !== "organisations" &&
+  !payload.organisation_id
+) {
+  payload.organisation_id = orgId;
+}
         // Handle Organisation / Company Relationship Resolution for Contacts
         if (targetTable === 'contacts' && payload.company_name && !payload.organisation_id) {
           let { data: orgMatch } = await supabase

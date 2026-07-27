@@ -160,16 +160,12 @@ export async function processBatches(
             ignoreDuplicates: strategy === "skip",
           });
 
-
-        if (error) {
-          console.error(
-            "Supabase Import Error Details:",
-            {
-              table: targetTable,
-              payload,
-              error,
-            }
-          );
+if (error) {
+          console.error("Supabase Import Error Message:", error.message, {
+            table: targetTable,
+            payload,
+            error,
+          });
 
           failed++;
 
@@ -181,8 +177,9 @@ export async function processBatches(
               error.message,
             ],
           });
+        }
 
-        } else {
+           else {
 
           if (strategy === "update") {
             updated++;

@@ -2,18 +2,26 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { 
-  Plus, X, Clock, Type, Image as ImageIcon, 
-  Wand2, Loader2, Check, Sparkles, Calendar as CalendarIcon, 
-  AlignLeft, Bold, Eye, Palette, Menu, Users, Hash, Radio, Zap,
-  Mail, FileText
+import {
+  Plus, X, Clock, Bold, Italic, AlignLeft, AlignCenter, AlignRight,
+  Link2, Heading2, Image as ImageIcon, Palette, Wand2, Loader2, Check,
+  Sparkles, Calendar as CalendarIcon, Eye, Menu, Users, Hash, Radio, Zap,
+  Mail, FileText, MousePointerClick, Share2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+type SocialLinks = {
+  twitter?: string;
+  facebook?: string;
+  instagram?: string;
+  linkedin?: string;
+};
 
 type Campaign = {
   id: string;
   title: string;
   subject: string | null;
+  preview_text?: string | null;
   content: string | null;
   list_id: string | null;
   scheduled_for: string | null;
@@ -22,11 +30,46 @@ type Campaign = {
   sent_count?: number | null;
   open_count?: number | null;
   click_count?: number | null;
+  sender_name?: string | null;
+  reply_to?: string | null;
+  header_image_url?: string | null;
+  brand_color?: string | null;
+  brand_font?: string | null;
+  cta_text?: string | null;
+  cta_url?: string | null;
+  social_links?: SocialLinks | null;
   subscriber_lists?: {
     name: string | null;
   } | null;
 };
 
+const FONT_OPTIONS = [
+  { label: "Serif (Georgia)", value: "Georgia, 'Times New Roman', serif" },
+  { label: "Classic Serif (Times)", value: "'Times New Roman', Times, serif" },
+  { label: "Sans (Helvetica)", value: "Helvetica, Arial, sans-serif" },
+  { label: "Sans (Verdana)", value: "Verdana, Geneva, sans-serif" },
+  { label: "Sans (Trebuchet)", value: "'Trebuchet MS', sans-serif" },
+  { label: "Mono (Courier)", value: "'Courier New', Courier, monospace" },
+];
+
+const DEFAULT_BRAND_COLOR = "#1c1917"; // stone-900, safe neutral default
+
+const emptyForm = () => ({
+  title: "",
+  subject: "",
+  preview_text: "",
+  list_id: "",
+  scheduled_for: "",
+  content: "",
+  sender_name: "",
+  reply_to: "",
+  header_image_url: "",
+  brand_color: DEFAULT_BRAND_COLOR,
+  brand_font: FONT_OPTIONS[0].value,
+  cta_text: "",
+  cta_url: "",
+  social_links: { twitter: "", facebook: "", instagram: "", linkedin: "" } as SocialLinks,
+});
 
 function createCampaignService(supabase: any, organisationId: string | null) {
   return {
@@ -707,6 +750,9 @@ export default function CampaignsPage() {
 
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
   const [campaignCompanyDetails, setCampaignCompanyDetails] = useState("");
+  const [showColorPicker, setShowColorPicker] = useState(false);
+
+  const contentEditableRef = useRef<HTMLDivElement>(null);
 
   const sendCampaignNow = async (campaignId: string) => {
     // 1. Optimistic UI update
@@ -777,13 +823,7 @@ export default function CampaignsPage() {
     }
   };
 
-  const [form, setForm] = useState({
-    title: "",
-    subject: "",
-    list_id: "",
-    scheduled_for: "",
-    content: ""
-  });
+  const [form, setForm] = useState<any>(emptyForm());
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [companyNameInput, setCompanyNameInput] = useState(companyName);
 
@@ -791,12 +831,70 @@ useEffect(() => {
   setCompanyNameInput(companyName);
 }, [companyName]);
 
-  const withCompanyDetails = (content: string) => {
+  // Sync the contentEditable DOM node whenever the modal opens or we switch
+  // which campaign is being edited / AI-generate new content. We deliberately
+  // do NOT do this on every keystroke, or the cursor would jump to the start.
+  useEffect(() => {
+    if (showModal && contentEditableRef.current) {
+      if (contentEditableRef.current.innerHTML !== (form.content || "")) {
+        contentEditableRef.current.innerHTML = form.content || "";
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal, editingCampaignId]);
+
+  const withCompanyDetails = (contentHtml: string) => {
     const details = campaignCompanyDetails.trim();
-    if (!details) return content;
-    if ((content || "").includes(details)) return content;
-    return `${content || ""}\n\n---\n${companyName}\n${details}`.trim();
+    if (!details) return contentHtml;
+    if ((contentHtml || "").includes(details)) return contentHtml;
+    const detailsHtml = details
+      .split("\n")
+      .map(line => `<p>${line}</p>`)
+      .join("");
+    return `${contentHtml || ""}<hr/><p><strong>${companyName}</strong></p>${detailsHtml}`;
   };
+
+  // Rich text toolbar commands
+  const applyFormat = (command: string, value?: string) => {
+    if (!contentEditableRef.current) return;
+    contentEditableRef.current.focus();
+    try {
+      document.execCommand(command, false, value);
+    } catch (err) {
+      console.error("Format command failed:", command, err);
+    }
+    setForm((prev: any) => ({
+      ...prev,
+      content: contentEditableRef.current?.innerHTML || ""
+    }));
+  };
+
+  const handleContentInput = () => {
+    if (!contentEditableRef.current) return;
+    setForm((prev: any) => ({
+      ...prev,
+      content: contentEditableRef.current!.innerHTML
+    }));
+  };
+
+  const handleInsertLink = () => {
+    const url = window.prompt("Link URL (include https://)");
+    if (!url) return;
+    applyFormat("createLink", url);
+  };
+
+  const handleInsertImage = () => {
+    const url = window.prompt("Image URL (include https://)");
+    if (!url) return;
+    applyFormat("insertImage", url);
+  };
+
+  const toggleHeading = () => {
+    // Toggle the current block between a heading and a paragraph
+    applyFormat("formatBlock", "H2");
+  };
+
+  const COLOR_SWATCHES = ["#1c1917", "#b91c1c", "#0f766e", "#7c3aed", "#c2410c", "#0369a1"];
 
   // AI generation helper
   const executeGeneration = () => {
@@ -804,14 +902,29 @@ useEffect(() => {
     setIsGenerating(true);
 
     setTimeout(() => {
-      setForm(prev => ({
+      const generatedSubject = `Update: ${clarityTopic.split(' ').slice(0, 3).join(' ')}`;
+      const generatedContent = `<p>Dear Team,</p><p>Following up on our campaign goals regarding ${clarityTopic}.</p>`;
+
+      setForm((prev: any) => ({
         ...prev,
-        subject: `Update: ${clarityTopic.split(' ').slice(0, 3).join(' ')}`,
-        content: `Dear Team,\n\nFollowing up on our campaign goals regarding ${clarityTopic}.`
+        subject: generatedSubject,
+        content: generatedContent
       }));
+
+      if (contentEditableRef.current) {
+        contentEditableRef.current.innerHTML = generatedContent;
+      }
+
       setIsGenerating(false);
       setShowClarityPrompt(false);
     }, 1500);
+  };
+
+  const updateSocialLink = (platform: keyof SocialLinks, value: string) => {
+    setForm((prev: any) => ({
+      ...prev,
+      social_links: { ...(prev.social_links || {}), [platform]: value }
+    }));
   };
 
   const formatScheduledDate = (dateString: string | null) => {
@@ -830,6 +943,9 @@ useEffect(() => {
     }
   };
 
+  const activeBrandColor = form.brand_color || DEFAULT_BRAND_COLOR;
+  const activeBrandFont = form.brand_font || FONT_OPTIONS[0].value;
+
   return (
     <div className="min-h-screen bg-[#faf9f6] p-4 md:p-12 text-stone-900 font-sans overflow-x-hidden">
       
@@ -843,13 +959,7 @@ useEffect(() => {
           onClick={() => {
             setEditingCampaignId(null);
             setStep('editor');
-            setForm({
-              title: "",
-              subject: "",
-              list_id: "",
-              scheduled_for: "",
-              content: ""
-            });
+            setForm(emptyForm());
             setCampaignCompanyDetails("");
             setShowModal(true);
           }}
@@ -875,7 +985,10 @@ useEffect(() => {
                 className="bg-white p-8 rounded-[3rem] border border-stone-100 flex flex-col md:flex-row md:items-center justify-between gap-6 group shadow-sm hover:shadow-md hover:border-stone-200 transition-all cursor-pointer"
               >
                 <div className="flex items-start gap-6 flex-1 min-w-0">
-                  <div className="p-5 bg-stone-50 rounded-2xl text-[var(--brand-primary)] shrink-0">
+                  <div
+                    className="p-5 bg-stone-50 rounded-2xl shrink-0"
+                    style={{ color: c.brand_color || "var(--brand-primary)" }}
+                  >
                     <Radio size={20} className="animate-pulse" />
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
@@ -884,10 +997,18 @@ useEffect(() => {
                       <span className="text-[9px] px-3 py-1 bg-stone-100 rounded-full font-black text-stone-500 uppercase tracking-wider">
                         {c.subscriber_lists?.name || 'Unassigned List'}
                       </span>
+                      {c.sender_name && (
+                        <span className="text-[9px] px-3 py-1 bg-stone-50 border border-stone-100 rounded-full font-black text-stone-400 uppercase tracking-wider">
+                          From: {c.sender_name}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs font-serif italic text-stone-500 truncate block">
                       Subject: {c.subject || "No Subject Specified"}
                     </p>
+                    {c.preview_text && (
+                      <p className="text-[11px] text-stone-400 truncate block">{c.preview_text}</p>
+                    )}
                     <div className="flex items-center gap-4 text-[10px] uppercase font-bold tracking-wider text-stone-400 pt-1">
                       <span className="flex items-center gap-1"><Clock size={12} /> {formatScheduledDate(c.scheduled_for)}</span>
                     </div>
@@ -979,9 +1100,23 @@ useEffect(() => {
               {/* DETAILS METADATA BODY */}
               <div className="p-8 md:p-12 overflow-y-auto no-scrollbar space-y-8 flex-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-stone-100 pb-6 text-xs">
-                  <div>
-                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Scheduled Time</p>
-                    <p className="font-bold text-stone-800 flex items-center gap-2"><Clock size={14} className="text-stone-400" /> {formatScheduledDate(selectedCampaign.scheduled_for)}</p>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Scheduled Time</p>
+                      <p className="font-bold text-stone-800 flex items-center gap-2"><Clock size={14} className="text-stone-400" /> {formatScheduledDate(selectedCampaign.scheduled_for)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Sender</p>
+                      <p className="font-bold text-stone-800">{selectedCampaign.sender_name || "Not set"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Reply-To</p>
+                      <p className="font-bold text-stone-800">{selectedCampaign.reply_to || "Not set"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-1">Preview Text</p>
+                      <p className="font-bold text-stone-800">{selectedCampaign.preview_text || "Not set"}</p>
+                    </div>
                   </div>
                   <div>
                     <div className="mb-4 p-4 bg-white border border-stone-100 rounded-2xl">
@@ -1016,9 +1151,28 @@ useEffect(() => {
 
                 <div>
                   <p className="text-[9px] font-black uppercase text-stone-400 tracking-wider mb-2">Email Content Output</p>
-                  <div className="p-8 md:p-10 bg-white rounded-[2.5rem] border border-stone-200 shadow-sm font-serif text-stone-800 leading-relaxed text-base whitespace-pre-wrap min-h-[200px]">
-                    {selectedCampaign.content || "Empty content payload."}
-                  </div>
+                  {selectedCampaign.header_image_url && (
+                    <img
+                      src={selectedCampaign.header_image_url}
+                      alt=""
+                      className="w-full h-40 object-cover rounded-2xl mb-4 border border-stone-200"
+                    />
+                  )}
+                  <div
+                    className="p-8 md:p-10 bg-white rounded-[2.5rem] border border-stone-200 shadow-sm leading-relaxed text-base min-h-[200px]"
+                    style={{ fontFamily: selectedCampaign.brand_font || undefined, color: "#292524" }}
+                    dangerouslySetInnerHTML={{ __html: selectedCampaign.content || "Empty content payload." }}
+                  />
+                  {selectedCampaign.cta_text && selectedCampaign.cta_url && (
+                    <div className="mt-4 text-center">
+                      <span
+                        className="inline-block px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-white"
+                        style={{ backgroundColor: selectedCampaign.brand_color || DEFAULT_BRAND_COLOR }}
+                      >
+                        {selectedCampaign.cta_text}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                   <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100">
@@ -1047,7 +1201,7 @@ useEffect(() => {
                 const isSending = currentCampaign?.status === 'sending';
                 const isSent = currentCampaign?.status === 'sent';
                 return (
-                  <div className="p-6 bg-stone-50 border-t border-stone-200 text-center flex justify-between">
+                  <div className="p-6 bg-stone-50 border-t border-stone-200 text-center flex flex-wrap justify-between gap-3">
                     <button
                       onClick={() => {
                         setShowViewModal(false);
@@ -1057,9 +1211,18 @@ useEffect(() => {
                         setForm({
                           title: selectedCampaign.title || "",
                           subject: selectedCampaign.subject || "",
+                          preview_text: selectedCampaign.preview_text || "",
                           list_id: selectedCampaign.list_id ? String(selectedCampaign.list_id) : "",
                           scheduled_for: selectedCampaign.scheduled_for || "",
-                          content: selectedCampaign.content || ""
+                          content: selectedCampaign.content || "",
+                          sender_name: selectedCampaign.sender_name || "",
+                          reply_to: selectedCampaign.reply_to || "",
+                          header_image_url: selectedCampaign.header_image_url || "",
+                          brand_color: selectedCampaign.brand_color || DEFAULT_BRAND_COLOR,
+                          brand_font: selectedCampaign.brand_font || FONT_OPTIONS[0].value,
+                          cta_text: selectedCampaign.cta_text || "",
+                          cta_url: selectedCampaign.cta_url || "",
+                          social_links: selectedCampaign.social_links || { twitter: "", facebook: "", instagram: "", linkedin: "" },
                         });
 
                         setShowModal(true);
@@ -1167,27 +1330,26 @@ useEffect(() => {
               </button>
 
               {/* ACTIONS SIDEBAR */}
-              <div className="w-full md:w-80 bg-stone-50 border-r border-stone-200 p-12 flex flex-col shrink-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mb-8">Campaign Control</p>
-                <div className="mb-4 p-4 bg-white border border-stone-100 rounded-2xl">
-  <label className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-2 block">
-    Company Name
-  </label>
+              <div className="w-full md:w-80 bg-stone-50 border-r border-stone-200 p-12 flex flex-col shrink-0 overflow-y-auto no-scrollbar space-y-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mb-2">Campaign Control</p>
 
-  <input
-    value={companyNameInput}
-    onChange={(e) => setCompanyNameInput(e.target.value)}
-    placeholder="Your Company"
-    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none"
-  />
-
-  <button
-    onClick={() => updateCompanyName(companyNameInput)}
-    className="mt-3 w-full rounded-xl bg-stone-900 py-2 text-[10px] font-black uppercase text-[var(--brand-primary)]"
-  >
-    Save Company Name
-  </button>
-
+                {/* Company name (global) */}
+                <div className="p-4 bg-white border border-stone-100 rounded-2xl">
+                  <label className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-2 block">
+                    Company Name
+                  </label>
+                  <input
+                    value={companyNameInput}
+                    onChange={(e) => setCompanyNameInput(e.target.value)}
+                    placeholder="Your Company"
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none"
+                  />
+                  <button
+                    onClick={() => updateCompanyName(companyNameInput)}
+                    className="mt-3 w-full rounded-xl bg-stone-900 py-2 text-[10px] font-black uppercase text-[var(--brand-primary)]"
+                  >
+                    Save Company Name
+                  </button>
                 </div>
 
                 <div className="p-4 bg-white border border-stone-100 rounded-2xl">
@@ -1196,7 +1358,138 @@ useEffect(() => {
                     value={campaignCompanyDetails}
                     onChange={(e) => setCampaignCompanyDetails(e.target.value)}
                     placeholder="Address, registration info, contact details..."
-                    className="w-full p-3 min-h-[90px] bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
+                    className="w-full p-3 min-h-[70px] bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
+                  />
+                </div>
+
+                {/* Sender & reply-to */}
+                <div className="p-4 bg-white border border-stone-100 rounded-2xl space-y-3">
+                  <p className="text-[8px] font-black uppercase text-stone-400 tracking-wider flex items-center gap-1">
+                    <Mail size={10} /> Sender
+                  </p>
+                  <input
+                    value={form.sender_name}
+                    onChange={(e) => setForm({ ...form, sender_name: e.target.value })}
+                    placeholder="Sender name (e.g. Jane at Acme)"
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none"
+                  />
+                  <input
+                    value={form.reply_to}
+                    onChange={(e) => setForm({ ...form, reply_to: e.target.value })}
+                    placeholder="Reply-to email"
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none"
+                  />
+                </div>
+
+                {/* Preview text */}
+                <div className="p-4 bg-white border border-stone-100 rounded-2xl">
+                  <label className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-2 block">
+                    Preview Text (inbox snippet)
+                  </label>
+                  <input
+                    value={form.preview_text}
+                    onChange={(e) => setForm({ ...form, preview_text: e.target.value })}
+                    placeholder="Shown next to the subject line in most inboxes"
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
+                  />
+                </div>
+
+                {/* Header image */}
+                <div className="p-4 bg-white border border-stone-100 rounded-2xl">
+                  <label className="text-[8px] font-black uppercase text-stone-400 tracking-wider mb-2 block flex items-center gap-1">
+                    <ImageIcon size={10} /> Header Image URL
+                  </label>
+                  <input
+                    value={form.header_image_url}
+                    onChange={(e) => setForm({ ...form, header_image_url: e.target.value })}
+                    placeholder="https://..."
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
+                  />
+                  {form.header_image_url && (
+                    <img
+                      src={form.header_image_url}
+                      alt=""
+                      className="mt-3 w-full h-20 object-cover rounded-xl border border-stone-100"
+                    />
+                  )}
+                </div>
+
+                {/* Brand color + font */}
+                <div className="p-4 bg-white border border-stone-100 rounded-2xl space-y-3">
+                  <p className="text-[8px] font-black uppercase text-stone-400 tracking-wider flex items-center gap-1">
+                    <Palette size={10} /> Brand Style
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={form.brand_color}
+                      onChange={(e) => setForm({ ...form, brand_color: e.target.value })}
+                      className="w-10 h-10 rounded-lg border border-stone-200 cursor-pointer"
+                    />
+                    <input
+                      value={form.brand_color}
+                      onChange={(e) => setForm({ ...form, brand_color: e.target.value })}
+                      className="flex-1 p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none"
+                    />
+                  </div>
+                  <select
+                    value={form.brand_font}
+                    onChange={(e) => setForm({ ...form, brand_font: e.target.value })}
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
+                  >
+                    {FONT_OPTIONS.map(f => (
+                      <option key={f.value} value={f.value}>{f.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* CTA button */}
+                <div className="p-4 bg-white border border-stone-100 rounded-2xl space-y-3">
+                  <p className="text-[8px] font-black uppercase text-stone-400 tracking-wider flex items-center gap-1">
+                    <MousePointerClick size={10} /> Call To Action
+                  </p>
+                  <input
+                    value={form.cta_text}
+                    onChange={(e) => setForm({ ...form, cta_text: e.target.value })}
+                    placeholder="Button text (e.g. Shop Now)"
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none"
+                  />
+                  <input
+                    value={form.cta_url}
+                    onChange={(e) => setForm({ ...form, cta_url: e.target.value })}
+                    placeholder="Button link URL"
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
+                  />
+                </div>
+
+                {/* Social links */}
+                <div className="p-4 bg-white border border-stone-100 rounded-2xl space-y-3">
+                  <p className="text-[8px] font-black uppercase text-stone-400 tracking-wider flex items-center gap-1">
+                    <Share2 size={10} /> Social Links
+                  </p>
+                  <input
+                    value={form.social_links?.twitter || ""}
+                    onChange={(e) => updateSocialLink("twitter", e.target.value)}
+                    placeholder="X / Twitter URL"
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
+                  />
+                  <input
+                    value={form.social_links?.facebook || ""}
+                    onChange={(e) => updateSocialLink("facebook", e.target.value)}
+                    placeholder="Facebook URL"
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
+                  />
+                  <input
+                    value={form.social_links?.instagram || ""}
+                    onChange={(e) => updateSocialLink("instagram", e.target.value)}
+                    placeholder="Instagram URL"
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
+                  />
+                  <input
+                    value={form.social_links?.linkedin || ""}
+                    onChange={(e) => updateSocialLink("linkedin", e.target.value)}
+                    placeholder="LinkedIn URL"
+                    className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs outline-none"
                   />
                 </div>
               </div>
@@ -1239,27 +1532,97 @@ useEffect(() => {
                     </AnimatePresence>
                     
                     <div className="w-full min-h-[800px] rounded-[4rem] p-12 md:p-24 flex flex-col shadow-2xl transition-all duration-500 border border-stone-200 bg-white text-stone-600">
+                      {form.header_image_url && (
+                        <img
+                          src={form.header_image_url}
+                          alt=""
+                          className="w-full h-48 object-cover rounded-3xl mb-10 -mt-4"
+                        />
+                      )}
+
                       <input 
                         placeholder="Campaign Title..." 
-                        className="text-xl font-bold outline-none mb-8 bg-transparent border-b border-stone-900/10 pb-4 placeholder:opacity-30 text-stone-900"
+                        className="text-xl font-bold outline-none mb-6 bg-transparent border-b border-stone-900/10 pb-4 placeholder:opacity-30 text-stone-900"
                         value={form.title} onChange={e => setForm({...form, title: e.target.value})}
                       />
+
+                      <input
+                        placeholder="Preview text (inbox snippet)..."
+                        className="text-xs italic outline-none mb-6 bg-transparent placeholder:opacity-30 text-stone-500"
+                        value={form.preview_text} onChange={e => setForm({...form, preview_text: e.target.value})}
+                      />
+
                       <textarea 
                         placeholder="Email Subject Line..." 
-                        className="text-3xl md:text-5xl font-serif italic outline-none mb-12 bg-transparent placeholder:opacity-20 border-b border-stone-900/10 pb-8 resize-none h-32 leading-tight text-stone-900"
+                        className="text-3xl md:text-5xl font-serif italic outline-none mb-8 bg-transparent placeholder:opacity-20 border-b border-stone-900/10 pb-8 resize-none h-32 leading-tight text-stone-900"
                         value={form.subject} onChange={e => setForm({...form, subject: e.target.value})}
                       />
-                      <textarea 
-                        placeholder="Compose your email content body here..."
-                        className="flex-1 text-xl font-serif italic leading-relaxed outline-none resize-none bg-transparent placeholder:opacity-20 min-h-[400px] text-stone-700"
-                        value={form.content} onChange={e => setForm({...form, content: e.target.value})}
+
+                      {/* RICH TEXT TOOLBAR */}
+                      <div className="flex flex-wrap items-center gap-1 mb-4 p-2 bg-stone-50 border border-stone-100 rounded-2xl w-fit">
+                        <button type="button" onClick={() => applyFormat("bold")} className="p-2 rounded-lg hover:bg-stone-200 text-stone-700" title="Bold"><Bold size={14} /></button>
+                        <button type="button" onClick={() => applyFormat("italic")} className="p-2 rounded-lg hover:bg-stone-200 text-stone-700" title="Italic"><Italic size={14} /></button>
+                        <button type="button" onClick={toggleHeading} className="p-2 rounded-lg hover:bg-stone-200 text-stone-700" title="Heading"><Heading2 size={14} /></button>
+                        <span className="w-px h-5 bg-stone-200 mx-1" />
+                        <button type="button" onClick={() => applyFormat("justifyLeft")} className="p-2 rounded-lg hover:bg-stone-200 text-stone-700" title="Align left"><AlignLeft size={14} /></button>
+                        <button type="button" onClick={() => applyFormat("justifyCenter")} className="p-2 rounded-lg hover:bg-stone-200 text-stone-700" title="Align center"><AlignCenter size={14} /></button>
+                        <button type="button" onClick={() => applyFormat("justifyRight")} className="p-2 rounded-lg hover:bg-stone-200 text-stone-700" title="Align right"><AlignRight size={14} /></button>
+                        <span className="w-px h-5 bg-stone-200 mx-1" />
+                        <button type="button" onClick={handleInsertLink} className="p-2 rounded-lg hover:bg-stone-200 text-stone-700" title="Insert link"><Link2 size={14} /></button>
+                        <button type="button" onClick={handleInsertImage} className="p-2 rounded-lg hover:bg-stone-200 text-stone-700" title="Insert image"><ImageIcon size={14} /></button>
+                        <div className="relative">
+                          <button type="button" onClick={() => setShowColorPicker(v => !v)} className="p-2 rounded-lg hover:bg-stone-200 text-stone-700" title="Text color"><Palette size={14} /></button>
+                          {showColorPicker && (
+                            <div className="absolute top-10 left-0 z-10 bg-white border border-stone-200 rounded-xl shadow-lg p-2 flex gap-1">
+                              {COLOR_SWATCHES.map(c => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => { applyFormat("foreColor", c); setShowColorPicker(false); }}
+                                  className="w-6 h-6 rounded-full border border-stone-200"
+                                  style={{ backgroundColor: c }}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div
+                        ref={contentEditableRef}
+                        contentEditable
+                        suppressContentEditableWarning
+                        onInput={handleContentInput}
+                        data-placeholder="Compose your email content body here..."
+                        className="flex-1 text-xl font-serif italic leading-relaxed outline-none min-h-[400px] text-stone-700 empty:before:content-[attr(data-placeholder)] empty:before:opacity-20"
+                        style={{ fontFamily: activeBrandFont }}
                       />
-                      
+
+                      {/* CTA PREVIEW */}
+                      {form.cta_text && (
+                        <div className="mt-12 text-center">
+                          <span
+                            className="inline-block px-10 py-5 rounded-xl text-[11px] font-black uppercase tracking-widest text-white"
+                            style={{ backgroundColor: activeBrandColor }}
+                          >
+                            {form.cta_text}
+                          </span>
+                        </div>
+                      )}
+
                       {/* DYNAMIC FOOTER */}
                       <footer className="mt-16 pt-12 border-t border-stone-900/10 text-center">
                          <p className="text-[11px] font-black uppercase tracking-[0.5em] mb-3 text-stone-900">{companyName}</p>
                          {campaignCompanyDetails && (
                           <p className="text-[10px] text-stone-500 whitespace-pre-wrap mb-3">{campaignCompanyDetails}</p>
+                         )}
+                         {(form.social_links?.twitter || form.social_links?.facebook || form.social_links?.instagram || form.social_links?.linkedin) && (
+                           <div className="flex justify-center gap-3 mb-3">
+                             {form.social_links?.twitter && <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">X</span>}
+                             {form.social_links?.facebook && <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Facebook</span>}
+                             {form.social_links?.instagram && <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Instagram</span>}
+                             {form.social_links?.linkedin && <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">LinkedIn</span>}
+                           </div>
                          )}
                          <p className="text-[8px] text-stone-400 uppercase tracking-[0.3em] font-medium italic">Powered by TOTS-OS</p>
                       </footer>
@@ -1346,21 +1709,54 @@ useEffect(() => {
       {/* EMAIL PREVIEW MODAL */}
       {showEmailPreview && selectedCampaign && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-stone-900/70 p-6">
-          <div className="bg-white max-w-3xl w-full rounded-[3rem] p-10 border border-stone-200 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
+          <div className="bg-white max-w-2xl w-full rounded-[3rem] overflow-hidden border border-stone-200 shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-8 border-b border-stone-100">
               <h2 className="text-xl font-serif italic">Email Preview</h2>
               <button onClick={() => setShowEmailPreview(false)}>
                 <X size={18} />
               </button>
             </div>
 
-            <div className="border border-stone-100 rounded-2xl p-8 bg-stone-50">
-              <p className="text-xs uppercase font-black text-stone-400 mb-2">Subject</p>
-              <p className="font-bold mb-6">{selectedCampaign.subject}</p>
+            <div className="overflow-y-auto no-scrollbar">
+              {/* Inbox-style header */}
+              <div className="p-6 bg-stone-50 border-b border-stone-100 text-xs">
+                <p className="text-stone-800"><span className="font-black">From:</span> {selectedCampaign.sender_name || companyName} {selectedCampaign.reply_to ? `<${selectedCampaign.reply_to}>` : ""}</p>
+                <p className="text-stone-800 font-bold mt-1">{selectedCampaign.subject}</p>
+                {selectedCampaign.preview_text && (
+                  <p className="text-stone-400 mt-1">{selectedCampaign.preview_text}</p>
+                )}
+              </div>
 
-              <p className="text-xs uppercase font-black text-stone-400 mb-2">Body</p>
-              <div className="whitespace-pre-wrap font-serif text-stone-700 leading-relaxed">
-                {selectedCampaign.content}
+              {/* Rendered body */}
+              <div style={{ fontFamily: selectedCampaign.brand_font || undefined }}>
+                {selectedCampaign.header_image_url && (
+                  <img src={selectedCampaign.header_image_url} alt="" className="w-full h-48 object-cover" />
+                )}
+                <div
+                  className="p-10 leading-relaxed text-stone-700"
+                  dangerouslySetInnerHTML={{ __html: selectedCampaign.content || "" }}
+                />
+                {selectedCampaign.cta_text && selectedCampaign.cta_url && (
+                  <div className="text-center pb-10">
+                    <span
+                      className="inline-block px-10 py-4 rounded-xl text-[11px] font-black uppercase tracking-widest text-white"
+                      style={{ backgroundColor: selectedCampaign.brand_color || DEFAULT_BRAND_COLOR }}
+                    >
+                      {selectedCampaign.cta_text}
+                    </span>
+                  </div>
+                )}
+                <div className="text-center py-8 border-t border-stone-100 bg-stone-50">
+                  <p className="text-[11px] font-black uppercase tracking-[0.5em] mb-2 text-stone-900">{companyName}</p>
+                  {(selectedCampaign.social_links?.twitter || selectedCampaign.social_links?.facebook || selectedCampaign.social_links?.instagram || selectedCampaign.social_links?.linkedin) && (
+                    <div className="flex justify-center gap-3">
+                      {selectedCampaign.social_links?.twitter && <a href={selectedCampaign.social_links.twitter} className="text-[9px] font-black uppercase tracking-widest text-stone-400">X</a>}
+                      {selectedCampaign.social_links?.facebook && <a href={selectedCampaign.social_links.facebook} className="text-[9px] font-black uppercase tracking-widest text-stone-400">Facebook</a>}
+                      {selectedCampaign.social_links?.instagram && <a href={selectedCampaign.social_links.instagram} className="text-[9px] font-black uppercase tracking-widest text-stone-400">Instagram</a>}
+                      {selectedCampaign.social_links?.linkedin && <a href={selectedCampaign.social_links.linkedin} className="text-[9px] font-black uppercase tracking-widest text-stone-400">LinkedIn</a>}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -3,48 +3,67 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
+import { 
+  UploadCloud, CheckCircle2, Loader2, Database, 
+  AlertCircle, ArrowLeft, Zap, Clock, FileText, Check, AlertTriangle, Download, RefreshCw
+} from "lucide-react";
+import { motion } from "framer-motion";
+
+// Import modules from the new robust import architecture
+import { parseFile } from "@/lib/import/fileParser";
+import { detectRecords } from "@/lib/import/recordDetector";
+import { validateRows } from "@/lib/import/validator";
+import { checkDuplicates } from "@/lib/import/duplicateChecker";
+import { processBatches } from "@/lib/import/batchImporter";
+import { ProgressTracker } from "@/lib/import/progressTracker";
+import { generateImportReport } from "@/lib/import/reportGenerator";
+import { 
+  ImportStatus, 
+  DuplicateResolutionStrategy, 
+  TargetTableType, 
+  ImportReport as ImportReportType,
+  ProcessedRow 
+} from "@/lib/import/types";
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-import Papa from "papaparse"; 
-import { 
-  UploadCloud, CheckCircle2, Loader2, Database, 
-  AlertCircle, ChevronRight, ArrowLeft, Zap, 
-  Clock, Shield, FileText, Layers, ArrowUpRight
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 
 /**
- * TOTS OS: DATA INGESTION HUB v5.3
- * Aesthetic: Organic Minimalist / Command Center Parity
- * Functionality: CSV-to-Supabase Pipeline
+ * TOTS OS: DATA INGESTION HUB v6.0
+ * Enterprise Architecture: Decoupled Pipeline, Fuzzy Mapping, Multi-format Parsing,
+ * Relationship Resolution, and Resilient Batch Upserting.
  */
 
 export default function ImportArchitecture() {
   const router = useRouter(); 
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // -- UI State --
+  // -- UI & Pipeline State --
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
-  
-  // -- Data State --
+  const [status, setStatus] = useState<ImportStatus>('idle');
   const [file, setFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [rowCount, setRowCount] = useState(0);
-  const [previewData, setPreviewData] = useState<any[]>([]);
-  const [invalidRows, setInvalidRows] = useState<any[]>([]);
-  const [isValidated, setIsValidated] = useState(false);
+  
+  // Configuration Options
+  const [selectedTargetTable, setSelectedTargetTable] = useState<TargetTableType>('auto');
+  const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateResolutionStrategy>('update');
 
-  // -- Business Data Schema (Import Contract) --
-  const REQUIRED_SCHEMA = [
-    { field: "Contacts", required: false, description: "Names, emails, phones, companies and CRM records" },
-    { field: "Finance", required: false, description: "Invoices, payments, revenue, costs and finance records" },
-    { field: "Projects", required: false, description: "Tasks, jobs, projects and workflow records" },
-    { field: "Notes & Files", required: false, description: "Documents, notes and uploaded information" },
-    { field: "HR & Team", required: false, description: "Employees, payroll, holiday, sick pay and HR records" },
+  // Engine Outputs & Preview Metrics
+  const [progress, setProgress] = useState({ phase: 'idle', percent: 0, currentBatch: 0, totalBatches: 0, processedRows: 0, elapsedMs: 0, etaMs: 0 });
+  const [previewRows, setPreviewRows] = useState<ProcessedRow[]>([]);
+  const [invalidRows, setInvalidRows] = useState<ProcessedRow[]>([]);
+  const [duplicateCount, setDuplicateCount] = useState(0);
+  const [report, setReport] = useState<ImportReportType | null>(null);
+
+  const TARGET_TABLES: { id: TargetTableType; label: string; description: string }[] = [
+    { id: 'auto', label: 'Auto-Detect (Smart Route)', description: 'Multi-model weighted scoring across contacts, companies, projects, tasks, invoices, expenses, employees, and notes' },
+    { id: 'contacts', label: 'Contacts & CRM', description: 'Maps to public.contacts with relationship auto-resolution' },
+    { id: 'companies', label: 'Companies', description: 'Maps to public.companies with domain and registration matching' },
+    { id: 'invoices', label: 'Finance & Invoices', description: 'Maps to public.invoices with automatic parent record linking' },
+    { id: 'expenses', label: 'Expenses & Receipts', description: 'Maps to public.expenses with category tagging' },
+    { id: 'projects', label: 'Projects & Tasks', description: 'Maps to public.projects and public.tasks' },
   ];
 
   useEffect(() => {
@@ -52,180 +71,124 @@ export default function ImportArchitecture() {
     return () => clearInterval(timer);
   }, []);
 
-  // -- Logic: File Selection --
+  // -- File Selection Handler --
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       if (selectedFile.name.endsWith('.rtf')) {
         setStatus('error');
-        setErrorMessage("Format Error: RTF detected. Use Plain Text CSV.");
+        setErrorMessage("Format Error: RTF detected. Use CSV, XLSX, XLS, or TSV.");
         return;
       }
       setFile(selectedFile);
       setStatus('idle');
       setErrorMessage("");
+      setReport(null);
+      setPreviewRows([]);
+      setInvalidRows([]);
     }
   };
 
-  // -- Business-Grade Helper: Chunk Insert --
-  const chunkArray = (arr: any[], size: number) => {
-    const chunks = [];
-    for (let i = 0; i < arr.length; i += size) {
-      chunks.push(arr.slice(i, i + size));
-    }
-    return chunks;
-  };
-
-  const normaliseKey = (value: string) =>
-    value?.toString().trim().toLowerCase().replace(/[_-]/g, ' ');
-
-  const FIELD_MAP: Record<string, string[]> = {
-    full_name: [
-      'full name', 'name', 'client name', 'customer name', 'contact name',
-      'employee name', 'staff name', 'entity', 'person', 'first name', 'lastname',
-      'last name', 'surname'
-    ],
-    first_name: ['first name', 'firstname', 'given name'],
-    last_name: ['last name', 'lastname', 'surname', 'family name'],
-    email: ['email', 'email address', 'mail'],
-    phone: ['phone', 'phone number', 'mobile', 'telephone'],
-    company: ['company', 'business', 'organisation', 'organization'],
-    role: ['role', 'job role', 'position', 'title'],
-    amount: ['amount', 'total', 'value', 'revenue', 'payment', 'price', 'cost'],
-    invoice_number: ['invoice', 'invoice number', 'invoice id'],
-    status: ['status', 'stage', 'state'],
-    date: ['date', 'created', 'due date', 'invoice date'],
-    notes: ['notes', 'description', 'comment', 'details']
-  };
-
-  const detectMappedValue = (row: any, aliases: string[]) => {
-    const keys = Object.keys(row || {});
-    const actualKey = keys.find((k) =>
-      aliases.some((a) => normaliseKey(a) === normaliseKey(k))
-    );
-
-    return actualKey ? row[actualKey] : null;
-  };
-
-  const inferRecordType = (row: any) => {
-    const keys = Object.keys(row).map(normaliseKey);
-
-    if (keys.some(k => ['invoice', 'payment', 'amount', 'revenue', 'cost'].includes(k))) {
-      return 'finance';
-    }
-
-    if (keys.some(k => ['employee', 'staff', 'payroll', 'holiday', 'sick pay'].includes(k))) {
-      return 'hr';
-    }
-
-    if (keys.some(k => ['task', 'project', 'job'].includes(k))) {
-      return 'project';
-    }
-
-    return 'contact';
-  };
-
-  // -- Logic: Ingestion Pipeline --
+  // -- Master Orchestration Pipeline Execution --
   const startMigration = async () => {
     if (!file) return;
     setStatus('processing');
-    setPreviewData([]);
-    setInvalidRows([]);
-    setIsValidated(false);
+    setErrorMessage("");
+    setReport(null);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        setStatus('error');
-        setErrorMessage("Clearance required: session offline.");
-        return;
-    }
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        const rawData = results.data;
-
-        if (!rawData || rawData.length === 0) {
-          setStatus('error');
-          setErrorMessage("Empty dataset: no records found in file.");
-          return;
-        }
-
-        const formattedData = rawData.map((row: any) => {
-          const firstName = detectMappedValue(row, FIELD_MAP.first_name);
-          const lastName = detectMappedValue(row, FIELD_MAP.last_name);
-
-          const fullName =
-            detectMappedValue(row, FIELD_MAP.full_name) ||
-            [firstName, lastName].filter(Boolean).join(' ') ||
-            null;
-
-          const mapped = {
-            full_name: fullName,
-            first_name: firstName || null,
-            last_name: lastName || null,
-            email: detectMappedValue(row, FIELD_MAP.email),
-            phone: detectMappedValue(row, FIELD_MAP.phone),
-            company: detectMappedValue(row, FIELD_MAP.company),
-            role: detectMappedValue(row, FIELD_MAP.role) || 'user',
-            amount: detectMappedValue(row, FIELD_MAP.amount),
-            invoice_number: detectMappedValue(row, FIELD_MAP.invoice_number),
-            status: detectMappedValue(row, FIELD_MAP.status),
-            date: detectMappedValue(row, FIELD_MAP.date),
-            notes: detectMappedValue(row, FIELD_MAP.notes),
-            raw_data: row,
-            record_type: inferRecordType(row),
-          };
-
-          return {
-            ...mapped,
-            _isValid: Object.values(mapped).some(v => v !== null && v !== '')
-          };
-        });
-
-        const validData = formattedData.filter(d => d._isValid);
-        const invalidData = formattedData.filter(d => !d._isValid);
-
-        setPreviewData(validData.slice(0, 5));
-        setInvalidRows(invalidData);
-        setIsValidated(true);
-
-        if (validData.length === 0) {
-          setStatus('error');
-          setErrorMessage("No usable data detected in file.");
-          return;
-        }
-
-        const batches = chunkArray(validData, 500);
-
-        let insertError = null;
-
-        for (const batch of batches) {
-          const { error } = await supabase
-            .from("imports")
-            .insert(batch);
-
-          if (error) {
-            insertError = error;
-            break;
-          }
-        }
-
-        if (insertError) {
-          setStatus('error');
-          setErrorMessage(insertError.message);
-        } else {
-          setRowCount(validData.length);
-          setStatus('success');
-          setIsValidated(false);
-        }
-      },
-      error: () => {
-        setStatus('error');
-        setErrorMessage("File structure unreadable.");
-      }
+    const tracker = new ProgressTracker((p) => {
+      setProgress(p);
     });
+
+    try {
+      // 1. Authentication & Organisation Context
+      tracker.update('reading', 5, 0, 1);
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error("Clearance required: Session offline or unauthenticated.");
+      }
+
+      const { data: profile } = await (supabase as any)
+        .from('profiles')
+        .select('organisation_id')
+        .eq('id', user.id)
+        .single();
+
+      const orgId = profile?.organisation_id || null;
+
+      // 2. Parse Multi-format File (CSV, XLSX, XLS, TSV)
+      tracker.update('reading', 15, 0, 1);
+      const rawRows = await parseFile(file);
+      if (!rawRows || rawRows.length === 0) {
+        throw new Error("Empty dataset: No records found in file.");
+      }
+
+      // 3. Record Detection & Fuzzy Field Mapping
+      tracker.update('detecting', 30, 0, 1);
+      const detectedRecords = detectRecords(rawRows, selectedTargetTable, orgId, user.id);
+
+      // 4. Schema & Format Validation
+      tracker.update('validating', 45, 0, 1);
+      const validationResult = validateRows(detectedRecords);
+      setInvalidRows(validationResult.invalid);
+
+      if (validationResult.valid.length === 0) {
+        throw new Error("No valid records found after running strict validation rules.");
+      }
+
+      // 5. Duplicate Detection (In-file & Supabase DB)
+      tracker.update('checking_duplicates', 60, 0, 1);
+      const duplicateResult = await checkDuplicates(validationResult.valid, supabase, orgId);
+      setDuplicateCount(duplicateResult.duplicates.length);
+
+      // 6. Batch Upsert Processing with Relationship Resolution & Error Resilience
+      tracker.update('importing', 75, 0, 1);
+      const importResult = await processBatches(
+        duplicateResult.recordsToProcess,
+        supabase,
+        orgId,
+        duplicateStrategy,
+        (batchNum, totalBatches) => {
+          tracker.update('importing', 75 + Math.floor((batchNum / totalBatches) * 20), batchNum, totalBatches);
+        }
+      );
+
+      // 7. Generate Import Report & Persist History
+      tracker.update('finishing', 95, 1, 1);
+      const finalReport = await generateImportReport({
+        supabase,
+        userId: user.id,
+        organisationId: orgId,
+        filename: file.name,
+        durationMs: tracker.getElapsedTime(),
+        rawRowsCount: rawRows.length,
+        importResult,
+        invalidCount: validationResult.invalid.length,
+        duplicateCount: duplicateResult.duplicates.length
+      });
+
+      setReport(finalReport);
+      setPreviewRows(validationResult.valid.slice(0, 6));
+      setStatus('success');
+      tracker.complete();
+
+    } catch (err: any) {
+      setStatus('error');
+      setErrorMessage(err.message || "An unexpected error occurred during pipeline execution.");
+    }
+  };
+
+  // -- Download Failed Rows Utility --
+  const downloadFailedRows = () => {
+    if (!invalidRows.length) return;
+    const headers = Object.keys(invalidRows[0].rawPayload || {}).join(",");
+    const rowsCSV = invalidRows.map(r => Object.values(r.rawPayload || {}).join(",")).join("\n");
+    const blob = new Blob([`${headers}\n${rowsCSV}`], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `failed_import_${file?.name || 'export'}.csv`;
+    a.click();
   };
 
   return (
@@ -243,6 +206,7 @@ export default function ImportArchitecture() {
           <div className="flex flex-wrap items-center gap-6 text-[#A3B18A]">
             <div className="flex items-center gap-2">
               <Database size={12} fill="currentColor" />
+              <span className="text-[9px] font-black uppercase tracking-[0.3em]">Enterprise Supabase Pipeline v6.0</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock size={12} />
@@ -256,7 +220,7 @@ export default function ImportArchitecture() {
           <nav className="flex items-center gap-4 pt-4">
             <button
               onClick={() => router.push('/settings')}
-              className="flex items-center gap-3 px-8 py-3.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-white border border-stone-100 text-stone-300 hover:text-stone-900 transition-all shadow-sm"
+              className="flex items-center gap-3 px-8 py-3.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-white border border-stone-200 text-stone-600 hover:text-stone-900 transition-all shadow-sm cursor-pointer"
             >
               <ArrowLeft size={12} />
               Settings
@@ -274,7 +238,7 @@ export default function ImportArchitecture() {
         >
           {status === 'processing' ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
           <span className="text-[10px] font-black uppercase tracking-[0.2em]">
-            {status === 'processing' ? "Importing Data..." : "Start Import"}
+            {status === 'processing' ? `${progress.phase.toUpperCase()} (${progress.percent}%)` : "Execute Enterprise Migration"}
           </span>
         </motion.button>
       </header>
@@ -282,49 +246,113 @@ export default function ImportArchitecture() {
       {/* --- PIPELINE CANVAS --- */}
       <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 items-start">
         
-        {/* Drop Zone */}
+        {/* Drop Zone & Live Engine Feed */}
         <section className="bg-white border border-stone-200 p-8 md:p-14 rounded-[3.5rem] shadow-sm lg:col-span-8 flex flex-col items-center justify-center min-h-[500px]">
           <div 
             onClick={() => status !== 'processing' && fileInputRef.current?.click()}
             className={`w-full h-full border-2 border-dashed rounded-[3rem] transition-all duration-700 flex flex-col items-center justify-center text-center p-10 md:p-20 cursor-pointer group
-              ${file ? 'border-[#A3B18A] bg-[#A3B18A]/5' : 'border-stone-100 hover:border-[#A3B18A]'}
+              ${file ? 'border-[#A3B18A] bg-[#A3B18A]/5' : 'border-stone-200 hover:border-[#A3B18A]'}
             `}
           >
-            <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept=".csv" />
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileSelect} 
+              className="hidden" 
+              accept=".csv, .xlsx, .xls, .tsv" 
+            />
             
             <div className={`w-24 h-24 rounded-[2.5rem] flex items-center justify-center transition-all duration-500 mb-8
-              ${status === 'success' ? 'bg-[#A3B18A] text-white' : 'bg-[#faf9f6] text-stone-200 group-hover:text-[#A3B18A]'}
+              ${status === 'success' ? 'bg-[#A3B18A] text-white' : 'bg-[#faf9f6] text-stone-300 group-hover:text-[#A3B18A]'}
             `}>
               {status === 'processing' ? <Loader2 className="animate-spin" size={32} /> : status === 'success' ? <CheckCircle2 size={32} /> : <UploadCloud size={32} />}
             </div>
 
             <div className="space-y-4">
               <h3 className="text-3xl md:text-4xl font-serif italic text-stone-900 tracking-tight">
-                {status === 'success' ? 'Migration Complete' : file ? file.name : "Select CSV Manifest"}
+                {status === 'success' ? 'Enterprise Migration Successful' : file ? file.name : "Select Multi-Format Manifest (CSV, XLSX, XLS, TSV)"}
               </h3>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">
-                {status === 'success'
-                  ? `${rowCount} Nodes Integrated`
-                  : file && isValidated
-                    ? `${previewData.length} Valid / ${invalidRows.length} Invalid`
-                    : "Drop Data Architecture"}
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
+                {status === 'success' && report
+                  ? `${report.rowsInserted} Inserted | ${report.rowsUpdated} Updated | ${report.rowsSkipped} Skipped`
+                  : status === 'processing'
+                    ? `Phase: ${progress.phase.replace('_', ' ').toUpperCase()} — ${progress.percent}% Completed`
+                    : file
+                      ? "File loaded. Ready for fuzzy mapping & weighted record scoring."
+                      : "Drop Spreadsheet or CSV for Automatic Schema Resolution"}
               </p>
             </div>
 
-            {isValidated && previewData.length > 0 && (
-              <div className="mt-8 w-full border border-stone-100 rounded-2xl p-6 bg-white/60">
-                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400 mb-4">
-                  Preview (Top 5 Valid Records)
-                </p>
+            {/* Success Report Card */}
+            {status === 'success' && report && (
+              <div className="mt-8 w-full border border-stone-200 rounded-3xl p-6 bg-white text-left shadow-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#A3B18A]">Execution Report Summary</span>
+                  <span className="text-[9px] font-mono text-stone-400">Duration: {(report.durationMs / 1000).toFixed(2)}s</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div className="bg-stone-50 p-3 rounded-2xl">
+                    <p className="text-xl font-bold text-stone-900">{report.rowsInserted}</p>
+                    <p className="text-[9px] font-black uppercase text-stone-400">Inserted</p>
+                  </div>
+                  <div className="bg-stone-50 p-3 rounded-2xl">
+                    <p className="text-xl font-bold text-stone-900">{report.rowsUpdated}</p>
+                    <p className="text-[9px] font-black uppercase text-stone-400">Updated</p>
+                  </div>
+                  <div className="bg-stone-50 p-3 rounded-2xl">
+                    <p className="text-xl font-bold text-stone-900">{report.duplicatesFound}</p>
+                    <p className="text-[9px] font-black uppercase text-stone-400">Duplicates</p>
+                  </div>
+                  <div className="bg-stone-50 p-3 rounded-2xl">
+                    <p className="text-xl font-bold text-red-600">{report.rowsFailed}</p>
+                    <p className="text-[9px] font-black uppercase text-stone-400">Failed</p>
+                  </div>
+                </div>
 
-                <div className="space-y-2">
-                  {previewData.map((row, idx) => (
-                    <div key={idx} className="flex justify-between text-xs text-stone-600 border-b border-stone-100 pb-2">
-                      <span>
-                        {row.full_name || row.company || row.invoice_number || 'Imported Record'}
+                {invalidRows.length > 0 && (
+                  <div className="pt-2 flex items-center justify-between">
+                    <span className="text-xs text-red-600 font-medium">{invalidRows.length} rows failed validation rules.</span>
+                    <button 
+                      onClick={downloadFailedRows}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                    >
+                      <Download size={12} /> Download Failed CSV
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Preview Matrix */}
+            {previewRows.length > 0 && status !== 'success' && (
+              <div className="mt-8 w-full border border-stone-200 rounded-3xl p-6 bg-white/90 text-left shadow-sm" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">
+                    Validated Preview Records ({previewRows.length})
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[9px] font-mono bg-amber-50 text-amber-700 px-3 py-1 rounded-full">
+                      {duplicateCount} Duplicates Detected
+                    </span>
+                    {invalidRows.length > 0 && (
+                      <span className="text-[9px] font-mono bg-red-50 text-red-600 px-3 py-1 rounded-full">
+                        {invalidRows.length} Invalid
                       </span>
-                      <span className="text-stone-400 uppercase">
-                        {row.record_type}
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {previewRows.map((row, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs text-stone-700 border-b border-stone-100 pb-2 font-mono">
+                      <div className="flex items-center gap-3 truncate">
+                        <FileText size={14} className="text-[#A3B18A] shrink-0" />
+                        <span className="truncate">
+                          {row.payload.name || row.payload.company_name || row.payload.description || row.payload.email || `Record ID: ${idx + 1}`}
+                        </span>
+                      </div>
+                      <span className="text-stone-400 text-[10px] uppercase font-bold shrink-0 ml-4">
+                        Table: {row.targetTable} {row.amount ? `(£${row.amount})` : ''}
                       </span>
                     </div>
                   ))}
@@ -335,7 +363,7 @@ export default function ImportArchitecture() {
             {status === 'error' && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                className="mt-8 flex items-center gap-3 text-red-500 bg-red-500/5 px-6 py-4 rounded-2xl border border-red-500/10"
+                className="mt-8 flex items-center gap-3 text-red-600 bg-red-50 px-6 py-4 rounded-2xl border border-red-200"
               >
                 <AlertCircle size={14} />
                 <span className="text-[9px] font-black uppercase tracking-widest">{errorMessage}</span>
@@ -344,29 +372,75 @@ export default function ImportArchitecture() {
           </div>
         </section>
 
-        {/* Schema Key Sidebar */}
+        {/* Enterprise Configuration Sidebar */}
         <aside className="bg-white border border-stone-200 p-8 md:p-10 rounded-[3.5rem] shadow-sm lg:col-span-4 flex flex-col gap-6">
           <div className="space-y-2">
             <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">
-              Import Schema Key
+              Target Routing Engine
             </h2>
             <p className="text-stone-500 text-xs">
-              Upload contacts, finance, CRM, HR, projects or mixed datasets. TOTS‑OS will automatically map recognised fields.
+              Configure target destination tables and intelligent duplicate resolution strategies.
             </p>
           </div>
 
-          <div className="space-y-4">
-            {REQUIRED_SCHEMA.map((item) => (
-              <div key={item.field} className="border border-stone-100 rounded-2xl p-4">
+          <div className="space-y-3">
+            {TARGET_TABLES.map((target) => (
+              <div 
+                key={target.id}
+                onClick={() => setSelectedTargetTable(target.id)}
+                className={`border rounded-3xl p-5 cursor-pointer transition-all ${
+                  selectedTargetTable === target.id 
+                    ? 'border-[#A3B18A] bg-[#A3B18A]/5 shadow-sm' 
+                    : 'border-stone-100 hover:border-stone-300 bg-stone-50/50'
+                }`}
+              >
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-stone-900">{item.field}</p>
-                  <span className={`text-[9px] font-black uppercase tracking-widest ${item.required ? 'text-red-400' : 'text-stone-400'}`}>
-                    {item.required ? 'required' : 'optional'}
-                  </span>
+                  <p className="text-sm font-bold text-stone-900">{target.label}</p>
+                  {selectedTargetTable === target.id && (
+                    <div className="w-5 h-5 rounded-full bg-[#A3B18A] text-white flex items-center justify-center">
+                      <Check size={12} />
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-stone-400 mt-1">{item.description}</p>
+                <p className="text-xs text-stone-500 mt-1">{target.description}</p>
               </div>
             ))}
+          </div>
+
+          {/* Duplicate Strategy Selection */}
+          <div className="space-y-3 pt-4 border-t border-stone-100">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">
+              Duplicate Conflict Resolution
+            </h2>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'update', label: 'Update' },
+                { id: 'skip', label: 'Skip' },
+                { id: 'create', label: 'Create' }
+              ].map((strat) => (
+                <button
+                  key={strat.id}
+                  onClick={() => setDuplicateStrategy(strat.id as DuplicateResolutionStrategy)}
+                  className={`py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                    duplicateStrategy === strat.id
+                      ? 'bg-stone-900 text-white border-stone-900 shadow-sm'
+                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:border-stone-300'
+                  }`}
+                >
+                  {strat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-stone-50 border border-stone-100 rounded-3xl p-5 space-y-2">
+            <div className="flex items-center gap-2 text-stone-700">
+              <RefreshCw size={14} className="text-[#A3B18A]" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Automatic Relationship Linking</span>
+            </div>
+            <p className="text-xs text-stone-500 leading-relaxed">
+              Companies, Contacts, Projects, Tasks, and Invoices are automatically linked using foreign key resolution protocols during batch insertion.
+            </p>
           </div>
         </aside>
 

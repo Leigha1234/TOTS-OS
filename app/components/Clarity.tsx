@@ -177,6 +177,12 @@ export default function Clarity() {
 
       const data = await res.json();
 
+      console.log("Clarity response:", data);
+
+      if (!data.answer && !data.message) {
+        throw new Error("Clarity returned no answer");
+      }
+
       if (data.metadata?.conversationId) {
         setConversationId(data.metadata.conversationId);
 
@@ -186,7 +192,9 @@ export default function Clarity() {
         );
       }
 
-      const answer = data.answer || "Clarity could not generate a response.";
+      const answer = String(
+        data.answer || data.message || "Clarity could not generate a response."
+      );
 
       let current = "";
       setMessages((prev) => [
@@ -211,6 +219,7 @@ export default function Clarity() {
 
       setStreaming(false);
       await loadConversations();
+      await loadBrief();
     } catch (error) {
       console.error("Clarity error", error);
 

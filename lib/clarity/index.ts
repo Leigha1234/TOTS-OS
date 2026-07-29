@@ -1,3 +1,3 @@
 
 
-export { runClarity } from "./chat";
+export { runClarityChat } from "./chat";

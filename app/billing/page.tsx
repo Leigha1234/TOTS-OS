@@ -14,6 +14,7 @@ const TIERS = [
     color: "#a9b897",
     description: "ESSENTIAL WORKSPACE ACCESS",
     features: ["Core system dashboard", "Task management", "Basic CRM tools", "Financial overview"],
+    priceId: process.env.NEXT_PUBLIC_STRIPE_STANDARD_PRICE_ID,
   },
   {
     name: "Professional",
@@ -22,6 +23,7 @@ const TIERS = [
     description: "SCALABLE GROWTH ARCHITECTURE",
     featured: true,
     features: ["Everything in Standard +", "Advanced CRM matrix", "Deeper automation tools", "Team management features", "Email integrations"],
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID,
   },
   {
     name: "Elite",
@@ -29,6 +31,7 @@ const TIERS = [
     color: "#b97e7e",
     description: "ENTERPRISE OS DEPLOYMENT",
     features: ["Everything in Professional +", "Full business OS build", "Hands-off automations", "Custom workflows", "Priority support"],
+    priceId: process.env.NEXT_PUBLIC_STRIPE_ELITE_PRICE_ID,
   },
 ];
 
@@ -55,19 +58,32 @@ export default function BillingPage() {
     getUser();
   }, []);
 
-  const handleCheckout = async (tier: string) => {
-    setLoading(tier);
+  const handleCheckout = async (tier: typeof TIERS[number]) => {
+    setLoading(tier.name);
+
     try {
+      if (!tier.priceId) {
+        throw new Error("This plan is not configured correctly.");
+      }
+
       const response = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier }),
+        body: JSON.stringify({
+          tier: tier.name,
+          priceId: tier.priceId,
+        }),
       });
-      
-      const { url, error } = await response.json();
-      if (error) throw new Error(error);
-      if (url) window.location.href = url;
-      
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Unable to create checkout session.");
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
     } catch (err: any) {
       toast.error("Unable to proceed to billing: " + err.message);
       setLoading(null);
@@ -132,7 +148,7 @@ export default function BillingPage() {
 
               <div className="pt-8 border-t border-stone-200 mt-auto">
                 <button 
-                  onClick={() => handleCheckout(tier.name)}
+                  onClick={() => handleCheckout(tier)}
                   disabled={!!loading}
                   className={`w-full flex items-center justify-between p-6 rounded-2xl transition-all uppercase text-[10px] font-black tracking-[0.2em] ${
                     tier.featured

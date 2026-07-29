@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { useSocialConnections } from "@/app/hooks/useSocialConnections";
 
 const platforms = [
@@ -26,13 +27,25 @@ type PlatformId = (typeof platforms)[number]["id"];
 export default function SocialConnections() {
   const [error, setError] = useState<string | null>(null);
   const [activePlatform, setActivePlatform] = useState<PlatformId | null>(null);
+  const [userId, setUserId] = useState<string | undefined>();
 
-  const {
-    loading,
-    connect,
-    disconnect,
-    isConnected,
-  } = useSocialConnections();
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+
+      if (error) {
+        console.error("Failed to load authenticated user:", error);
+        return;
+      }
+
+      setUserId(data.user?.id);
+    };
+
+    loadUser();
+  }, []);
+
+  const { loading, connect, disconnect, isConnected } =
+    useSocialConnections(userId);
 
   const safeConnect = async (platformId: PlatformId) => {
     try {
@@ -108,12 +121,16 @@ export default function SocialConnections() {
               ) : (
                 <button
                   type="button"
-                  disabled={buttonLoading}
+                  disabled={!userId || buttonLoading}
                   onClick={() => safeConnect(platform.id)}
                   style={{ backgroundColor: sageGreen }}
                   className="px-3 py-1 text-sm rounded text-white disabled:opacity-50 cursor-pointer"
                 >
-                  {buttonLoading ? "Connecting..." : `Connect ${platform.name}`}
+                  {buttonLoading
+                    ? "Connecting..."
+                    : !userId
+                    ? "Loading..."
+                    : `Connect ${platform.name}`}
                 </button>
               )}
             </div>

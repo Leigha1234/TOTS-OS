@@ -77,31 +77,43 @@ export const useSocialConnections = (userId?: string) => {
   /**
    * Start OAuth flow
    */
-  const connect = useCallback(async (platform: SocialPlatform) => {
-    try {
-      const state = crypto.randomUUID();
+  const connect = useCallback(
+    async (platform: SocialPlatform) => {
+      try {
+        if (!userId) {
+          throw new Error("Missing user id");
+        }
 
-      sessionStorage.setItem(getOAuthStorageKey(platform), state);
+        const state = encodeURIComponent(
+          JSON.stringify({
+            userId,
+            platform,
+          })
+        );
 
-      const routes: Record<SocialPlatform, string> = {
-        meta: `/api/oauth/meta?state=${state}`,
-        instagram: `/api/oauth/meta?state=${state}`,
-        tiktok: `/api/oauth/tiktok?state=${state}`,
-        linkedin: `/api/oauth/linkedin?state=${state}`,
-      };
+        sessionStorage.setItem(getOAuthStorageKey(platform), state);
 
-      const authUrl = routes[platform];
+        const routes: Record<SocialPlatform, string> = {
+          meta: `/api/oauth/meta?state=${state}`,
+          instagram: `/api/oauth/meta?state=${state}`,
+          tiktok: `/api/oauth/tiktok?state=${state}`,
+          linkedin: `/api/oauth/linkedin?state=${state}`,
+        };
 
-      if (!authUrl) {
-        throw new Error("Unsupported social platform");
+        const authUrl = routes[platform];
+
+        if (!authUrl) {
+          throw new Error("Unsupported social platform");
+        }
+
+        window.location.href = authUrl;
+      } catch (err) {
+        console.error("OAuth start error:", err);
+        toast.error("Failed to start connection");
       }
-
-      window.location.href = authUrl;
-    } catch (err) {
-      console.error("OAuth start error:", err);
-      toast.error("Failed to start connection");
-    }
-  }, []);
+    },
+    [userId]
+  );
 
   /**
    * Check if connected

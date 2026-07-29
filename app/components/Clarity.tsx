@@ -33,7 +33,6 @@ export default function Clarity() {
     const savedConversation = localStorage.getItem("clarity_conversation_id");
 
     if (savedConversation) {
-      setConversationId(savedConversation);
       loadConversation(savedConversation);
     }
 
@@ -84,7 +83,9 @@ export default function Clarity() {
 
   async function loadConversations() {
     try {
-      const res = await fetch("/api/clarity/conversations");
+      const res = await fetch("/api/clarity/conversations", {
+        cache: "no-store",
+      });
       if (!res.ok) {
         throw new Error("Failed to load conversations");
       }
@@ -105,7 +106,9 @@ export default function Clarity() {
         id
       );
 
-      const res = await fetch(`/api/clarity/conversations/${id}`);
+      const res = await fetch(`/api/clarity/conversations/${id}`, {
+        cache: "no-store",
+      });
       if (!res.ok) {
         localStorage.removeItem("clarity_conversation_id");
         setConversationId(null);
@@ -209,25 +212,37 @@ export default function Clarity() {
       );
 
       let current = "";
+      let index = 0;
+
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "" },
       ]);
 
-      for (const character of answer) {
-        current += character;
+      await new Promise<void>((resolve) => {
+        const typeNext = () => {
+          const chunk = answer.slice(index, index + 5);
+          current += chunk;
+          index += 5;
 
-        setMessages((prev) => {
-          const copy = [...prev];
-          copy[copy.length - 1] = {
-            role: "assistant",
-            content: current,
-          };
-          return copy;
-        });
+          setMessages((prev) => {
+            const copy = [...prev];
+            copy[copy.length - 1] = {
+              role: "assistant",
+              content: current,
+            };
+            return copy;
+          });
 
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      }
+          if (index < answer.length) {
+            requestAnimationFrame(typeNext);
+          } else {
+            resolve();
+          }
+        };
+
+        typeNext();
+      });
 
       setStreaming(false);
       await loadConversations();

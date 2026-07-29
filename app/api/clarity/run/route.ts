@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { runClarity } from "@/lib/clarity";
+import { runClarityChat as runClarity } from "@/lib/clarity";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -31,9 +31,11 @@ export async function GET() {
     // 3. EXECUTE CLARITY INTELLIGENCE
     // This calls your Gemini logic in @/lib/clarity
     const results = await runClarity({
-      invoices: invoicesRes.data || [],
-      tasks: tasksRes.data || [],
-      teamId: "system", // Ensure this matches your internal system ID
+      prompt: JSON.stringify({
+        invoices: invoicesRes.data || [],
+        tasks: tasksRes.data || [],
+      }),
+      teamId: "system",
     });
 
     // 4. SUCCESS RESPONSE

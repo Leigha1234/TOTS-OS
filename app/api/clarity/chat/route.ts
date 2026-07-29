@@ -110,6 +110,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    if (!result?.answer) {
+      return NextResponse.json(
+        { error: "Clarity did not return a response." },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({ answer: result.answer });
   } catch (error) {
     console.error("CLARITY CHAT ERROR:", error);

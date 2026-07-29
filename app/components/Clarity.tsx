@@ -36,6 +36,8 @@ export default function Clarity() {
       setConversationId(savedConversation);
       loadConversation(savedConversation);
     }
+
+    loadConversations();
   }, []);
 
   useEffect(() => {
@@ -105,6 +107,9 @@ export default function Clarity() {
 
       const res = await fetch(`/api/clarity/conversations/${id}`);
       if (!res.ok) {
+        localStorage.removeItem("clarity_conversation_id");
+        setConversationId(null);
+        setMessages([]);
         throw new Error("Failed to load conversation");
       }
 
@@ -126,9 +131,13 @@ export default function Clarity() {
 
   async function deleteConversation(id: string) {
     try {
-      await fetch(`/api/clarity/conversations/${id}`, {
+      const response = await fetch(`/api/clarity/conversations/${id}`, {
         method: "DELETE",
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete conversation");
+      }
 
       setConversations((current) =>
         current.filter((item) => item.id !== id)
@@ -183,12 +192,15 @@ export default function Clarity() {
         throw new Error("Clarity returned no answer");
       }
 
-      if (data.metadata?.conversationId) {
-        setConversationId(data.metadata.conversationId);
+      const returnedConversationId =
+        data.metadata?.conversationId || data.conversationId;
+
+      if (returnedConversationId) {
+        setConversationId(returnedConversationId);
 
         localStorage.setItem(
           "clarity_conversation_id",
-          data.metadata.conversationId
+          returnedConversationId
         );
       }
 
@@ -334,7 +346,7 @@ export default function Clarity() {
           </div>
 
           <div className="flex gap-2 mt-3">
-            <input
+            <textarea
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               onKeyDown={(event) => {
@@ -343,8 +355,9 @@ export default function Clarity() {
                   askClarity();
                 }
               }}
+              rows={1}
               placeholder="Ask Clarity anything about your business..."
-              className="flex-1 rounded-xl border px-3 py-2 text-xs"
+              className="flex-1 rounded-xl border px-3 py-2 text-xs resize-none outline-none focus:ring-2 focus:ring-stone-200"
             />
 
             <button

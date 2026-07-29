@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
       tasks,
       contacts,
       events,
+      memories,
     ] = await Promise.all([
       supabase.from("organisations").select("*").eq("id", organisationId).maybeSingle(),
       supabase.from("accounts").select("*").eq("organisation_id", organisationId).limit(100),
@@ -99,9 +100,14 @@ export async function POST(req: NextRequest) {
       supabase.from("tasks").select("*").eq("organisation_id", organisationId).limit(100),
       supabase.from("contacts").select("*").eq("organisation_id", organisationId).limit(100),
       supabase.from("calendar_events").select("*").eq("organisation_id", organisationId).limit(100),
+      supabase.from("clarity_memory").select("*").eq("organisation_id", organisationId).eq("is_active", true).order("importance", { ascending: false }).limit(50),
     ]);
 
     const compactHistory = history.slice(-8);
+
+    const memoryContext = (memories.data ?? [])
+      .map((memory) => `${memory.memory_key}: ${memory.memory_value}`)
+      .join("\n");
 
     // Streaming will be added after the conversation persistence layer is connected.
     // The frontend currently provides a smooth incremental rendering experience.
@@ -123,6 +129,9 @@ Prioritise:
 
 Use markdown where helpful and keep responses concise.
 
+Known Clarity memory:
+${memoryContext || "No stored memories available."}
+
 Additional client context:
 ${clientContext ? JSON.stringify(clientContext) : "No additional context supplied."}`,
       data: {
@@ -134,6 +143,7 @@ ${clientContext ? JSON.stringify(clientContext) : "No additional context supplie
         tasks: tasks.data ?? [],
         contacts: contacts.data ?? [],
         calendar: events.data ?? [],
+        memories: memories.data ?? [],
         clientContext,
       },
     });
@@ -155,6 +165,7 @@ ${clientContext ? JSON.stringify(clientContext) : "No additional context supplie
         .from("clarity_chats")
         .insert({
           organisation_id: organisationId,
+          user_id: user.id,
           title: query.length > 40 ? `${query.slice(0, 40)}...` : query,
         })
         .select("id")
@@ -166,26 +177,32 @@ ${clientContext ? JSON.stringify(clientContext) : "No additional context supplie
     }
 
     if (activeConversationId) {
-      await supabase.from("clarity_messages").insert([
-        {
-          chat_id: activeConversationId,
-          role: "user",
-          content: query,
-        },
-        {
-          chat_id: activeConversationId,
-          role: "assistant",
-          content: result.answer,
-        },
-      ]);
+      const { error: messageError } = await supabase
+        .from("clarity_messages")
+        .insert([
+          {
+            chat_id: activeConversationId,
+            role: "user",
+            content: query,
+          },
+          {
+            chat_id: activeConversationId,
+            role: "assistant",
+            content: result.answer,
+          },
+        ]);
 
-      await supabase
-        .from("clarity_chats")
-        .update({
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", activeConversationId);
+      if (messageError) {
+        console.error("CLARITY MESSAGE SAVE ERROR:", messageError);
+      }
     }
+
+    await supabase
+      .from("clarity_chats")
+      .update({
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", activeConversationId);
 
     return NextResponse.json({
       answer: result.answer,

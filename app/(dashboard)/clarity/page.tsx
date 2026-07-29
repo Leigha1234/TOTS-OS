@@ -48,7 +48,7 @@ export default function ClarityPage() {
   async function sendMessage(text = input) {
     if (!text.trim() || loading) return;
 
-    const updated = [...messages, { role: "user", content: text }];
+    const updated = [...messages.slice(-10), { role: "user", content: text }];
     setMessages(updated);
     setInput("");
     setLoading(true);
@@ -59,12 +59,14 @@ export default function ClarityPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: text,
-          history: updated,
+          history: updated.slice(-10),
           conversationId,
         }),
       });
 
       const data = await response.json();
+
+      console.log("CLARITY RESPONSE:", data);
 
       if (!response.ok) {
         throw new Error(data.error || "Clarity request failed");
@@ -74,7 +76,7 @@ export default function ClarityPage() {
         ...current,
         {
           role: "assistant",
-          content: data.message || data.response || data.error || "Clarity returned no response.",
+          content: data.message || data.response || data.content || data.reply || data.error || "Clarity did not return any text. Check the API response.",
         },
       ]);
 
@@ -85,7 +87,7 @@ export default function ClarityPage() {
           conversationId,
           messages: [...updated, {
             role: "assistant",
-            content: data.message || data.response || data.error || "Clarity returned no response.",
+            content: data.message || data.response || data.content || data.reply || data.error || "Clarity did not return any text. Check the API response.",
           }],
         }),
       });
@@ -94,12 +96,13 @@ export default function ClarityPage() {
         const saved = await saveResponse.json();
         if (saved.id) setConversationId(saved.id);
       }
-    } catch {
+    } catch (error) {
+      console.error("Clarity error:", error);
       setMessages((current) => [
         ...current,
         {
           role: "assistant",
-          content: "Unable to connect to Clarity right now.",
+          content: error instanceof Error ? error.message : "Unable to connect to Clarity right now.",
         },
       ]);
     } finally {

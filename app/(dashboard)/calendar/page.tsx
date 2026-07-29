@@ -166,6 +166,7 @@ export default function Calendar() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState(false);
   const [siteOrigin, setSiteOrigin] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -806,15 +807,24 @@ setFormRepeat("none");
 
   const shareBookingLink = async () => {
     if (!bookingLink) return;
+
+    const message = `Here is the link to book a meeting with me: ${bookingLink}`;
+    setShareMessage(message);
+
     if (navigator.share) {
       try {
-        await navigator.share({ title: bookingPage.title || "Book a meeting", url: bookingLink });
+        await navigator.share({
+          title: bookingPage.title || "Book a meeting",
+          text: "Here is the link to book a meeting with me:",
+          url: bookingLink,
+        });
         return;
       } catch (err) {
         // user cancelled share sheet — fall through to copy
       }
     }
-    copyToClipboard(bookingLink, "link");
+
+    copyToClipboard(message, "link");
   };
 
   const saveEntry = async () => {
@@ -1399,10 +1409,38 @@ setFormRepeat("none");
             </button>
 
             {bookingPageExists && bookingLink && (
-              <div className="lg:col-span-3 bg-stone-50 rounded-2xl p-4 flex flex-col lg:flex-row gap-3 items-center">
-                <input readOnly value={bookingLink} className="flex-1 bg-white rounded-xl p-3 text-xs" />
-                <button onClick={shareBookingLink} className="bg-stone-900 text-[#A3B18A] rounded-xl px-5 py-3 text-[10px] font-black uppercase">Share Link</button>
-              </div>
+              <>
+                <div className="lg:col-span-3 bg-stone-50 rounded-2xl p-4 flex flex-col lg:flex-row gap-3 items-center">
+                  <input readOnly value={bookingLink} className="flex-1 bg-white rounded-xl p-3 text-xs" />
+                  <button onClick={shareBookingLink} className="bg-stone-900 text-[#A3B18A] rounded-xl px-5 py-3 text-[10px] font-black uppercase">Share Link</button>
+                </div>
+
+                <div className="lg:col-span-3 bg-stone-50 rounded-2xl p-6 space-y-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-[#A3B18A] mb-2">Embed On Your Website</p>
+                    <p className="text-xs text-stone-400">Copy this code and paste it into your website to allow customers to book directly.</p>
+                  </div>
+
+                  <textarea
+                    readOnly
+                    value={bookingEmbedCode}
+                    className="w-full h-32 bg-white rounded-xl p-4 text-xs font-mono resize-none"
+                  />
+
+                  <button
+                    onClick={() => copyToClipboard(bookingEmbedCode, "embed")}
+                    className="bg-stone-900 text-[#A3B18A] rounded-xl px-5 py-3 text-[10px] font-black uppercase"
+                  >
+                    {copiedEmbed ? "Copied Embed" : "Copy Embed Code"}
+                  </button>
+                </div>
+
+                {shareMessage && (
+                  <div className="lg:col-span-3 text-xs text-stone-400 bg-stone-50 rounded-xl p-4">
+                    {shareMessage}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

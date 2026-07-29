@@ -1,66 +1,90 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createClient } from "@supabase/supabase-js";
+import { completeRegistration } from "@/lib/auth/completeRegistration";
 
+export const dynamic = "force-dynamic";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: Request) {
   try {
     const { sessionId } = await req.json();
 
-    // 1. Verify the session with Stripe to ensure it is authentic
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-    if (session.payment_status !== "paid") {
-      return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: "Missing Stripe session ID" },
+        { status: 400 }
+      );
     }
 
-    const email = session.customer_details?.email;
-    const fullName = session.metadata?.fullName;
+    const { data: registration, error } = await supabaseAdmin
+      .from("pending_registrations")
+      .select("*")
+      .eq("stripe_session_id", sessionId)
+      .single();
 
-    if (!email || !fullName) {
-      return NextResponse.json({ error: "Missing customer email or name" }, { status: 400 });
+    if (error || !registration) {
+      console.error("Registration lookup failed:", error);
+      return NextResponse.json(
+        { error: "Registration not found" },
+        { status: 404 }
+      );
     }
 
-    // 2. Check if user already exists in Supabase Auth
-    const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) {
-      throw listError;
+    if (registration.completed) {
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Account already created. You can sign in.",
+          userId: registration.user_id,
+          organisationId: registration.organisation_id,
+          email: registration.email,
+          recoveryLink: null,
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
     }
 
-    const isUserRegistered = listData?.users.find((u) => u.email === email);
+    const result = await completeRegistration(registration.id, {
+      stripe_session_id: sessionId,
+      stripe_customer_id: null,
+      stripe_subscription_id: null,
+      customer_email: registration.email,
+      payment_status: "paid",
+    });
 
-    let userId: string;
-
-    if (isUserRegistered) {
-      // If they exist, use their existing ID
-      userId = isUserRegistered.id;
-      
-      // Update their tier
-      await (supabaseAdmin.from("profiles") as any)
-        .update({ subscription_tier: "unpaid" })
-        .eq("id", userId);
-    } else {
-      // 3. Create the user in Supabase Auth if they don't exist
-      const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: email!,
-        email_confirm: true,
-        user_metadata: { full_name: fullName },
-      });
-
-      if (createError) throw createError;
-      userId = userData.user.id;
-
-      // 4. Update the profile with the paid tier
-      const { error: updateError } = await (supabaseAdmin.from("profiles") as any)
-        .update({ subscription_tier: "unpaid" })
-        .eq("id", userId);
-
-      if (updateError) throw updateError;
+    if (!result?.userId) {
+      throw new Error("User account was not created");
     }
 
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error("Finalisation error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: true,
+        userId: result.userId,
+        organisationId: result.organisationId,
+        email: registration.email,
+        recoveryLink: null,
+        message: "Account created successfully. You can now sign in.",
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error("Finalise registration error:", error);
+
+    return NextResponse.json(
+      { error: error.message || "Failed to complete registration" },
+      { status: 500 }
+    );
   }
 }

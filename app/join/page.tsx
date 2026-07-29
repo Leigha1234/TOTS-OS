@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { useSearchParams, useRouter } from "next/navigation";
 import { 
   Loader2, 
   ShieldCheck, 
@@ -77,25 +77,27 @@ async function verifyInvite() {
     setProcessing(true);
 
     try {
-      // 1. Create the Auth User with Metadata
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: inviteData.email,
-        password: password,
-        options: {
-          data: {
-            full_name: fullName,
-            organisation_id: inviteData.organisation_id,
-            role: inviteData.role,
-          }
-        }
+      const res = await fetch("/api/auth/accept-invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inviteId: inviteData.id,
+          token,
+          email: inviteData.email,
+          password,
+          fullName,
+        }),
       });
 
-      if (authError) throw authError;
+      const result = await res.json();
 
-      // 2. Clean up the used invitation
-      await supabase.from('invites').delete().eq('id', inviteData.id);
+      if (!res.ok) {
+        throw new Error(result.error || "Failed to join organization.");
+      }
 
-      toast.success("Account initialized successfully.");
+      toast.success("Account created successfully.");
       router.push("/dashboard");
     } catch (err: any) {
       toast.error(err.message || "Failed to join organization.");

@@ -16,27 +16,33 @@ function SuccessHandler() {
 
   useEffect(() => {
     if (!sessionId) return;
-    
-    const finaliseRegistration = async () => {
+
+    const checkRegistration = async () => {
       try {
-        // Calling your server-side route to finalise account creation
         const res = await fetch("/api/auth/finalise-registration", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId,
+          }),
         });
-        
-        if (res.ok) {
-          router.push("/dashboard");
-        } else {
-          console.error("Failed to finalise registration.");
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data?.error || "Registration could not be completed.");
         }
+
+        router.replace(`/login?registered=true&email=${encodeURIComponent(data.email || "")}`);
       } catch (err) {
-        console.error("Finalisation error:", err);
+        console.error("Registration finalisation error:", err);
+        router.replace("/login?registration_error=true");
       }
     };
-    
-    finaliseRegistration();
+
+    checkRegistration();
   }, [sessionId, router]);
 
   return <Loader2 className="animate-spin text-stone-400" size={48} />;
@@ -53,14 +59,14 @@ export default function SuccessPage() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-stone-300" size={48} />
           <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">
-            Starting your workspace...
+            Setting up your workspace...
           </p>
         </div>
       }>
         <SuccessHandler />
       </Suspense>
       <p className="mt-8 font-black uppercase tracking-[0.2em] text-[9px] text-stone-300">
-        Secure Hand-off in Progress
+        Payment confirmed - creating your workspace
       </p>
     </div>
   );

@@ -25,8 +25,14 @@ function LoginForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
+  const registered = searchParams.get("registered") === "true";
+  const registeredEmail = searchParams.get("email") || "";
 
   useEffect(() => {
+    if (searchParams.get("registered") === "true") {
+      return;
+    }
+
     if (inviteId) setIsRegister(true);
 
     let mounted = true;
@@ -37,9 +43,7 @@ function LoginForm() {
       if (!mounted) return;
 
       if (data.session?.user) {
-        setTimeout(() => {
-          router.replace("/dashboard");
-        }, 100);
+        router.replace("/dashboard");
       }
     };
 
@@ -48,7 +52,7 @@ function LoginForm() {
     return () => {
       mounted = false;
     };
-  }, [inviteId, router]);
+  }, [inviteId, router, searchParams]);
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +83,11 @@ function LoginForm() {
 
     try {
       if (isRegister) {
-        const res = await fetch("/api/send-signup", {
+        if (!companyName || !fullName || !email || !password) {
+          throw new Error("Please complete all required registration fields.");
+        }
+
+        const res = await fetch("/api/create-checkout-session", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -96,11 +104,18 @@ function LoginForm() {
 
         const result = await res.json();
 
-        if (!res.ok || result?.error) {
-          throw new Error(result?.error || "Signup failed");
+        if (!res.ok) {
+          throw new Error(result?.error || "Unable to start secure checkout.");
         }
 
-        alert("Registration successful. Please check your email to verify your account and complete setup.");
+        if (!result?.url) {
+          throw new Error("Checkout session was not created. Please try again.");
+        }
+
+        // Do not create a Supabase user here. The account should only be created by
+        // the finalise-registration endpoint after Stripe confirms payment.
+        window.location.assign(result.url);
+        return;
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -121,7 +136,8 @@ function LoginForm() {
         }
       }
     } catch (err: any) {
-      alert("Auth Error: " + err.message);
+      console.error("Authentication flow error:", err);
+      alert(err?.message || "Something went wrong. Please try again.");
     } finally {
       setAuthLoading(false);
     }
@@ -183,12 +199,14 @@ function LoginForm() {
     >
       <div className="space-y-3 text-center">
         <h1 className="text-4xl font-serif tracking-tight text-stone-800">
-          {isRegister ? "Create Your Account" : "Welcome Back"}
+          {registered ? "Account Ready" : isRegister ? "Create Your Account" : "Welcome Back"}
         </h1>
         <p className="text-sm text-stone-500 leading-relaxed">
-          {isRegister
-            ? "Set up your workspace and access TOTS-OS."
-            : "Sign in to access your TOTS-OS workspace."}
+          {registered
+            ? "Your payment was successful. Your workspace has been created. Sign in with the details you used during registration."
+            : isRegister
+              ? "Secure your workspace by completing payment before your account is activated."
+              : "Sign in to access your TOTS-OS workspace."}
         </p>
         <div className="flex items-center justify-center gap-2">
           <ShieldCheck size={12} className="text-[#a9b897]" />
@@ -238,6 +256,14 @@ function LoginForm() {
           </>
         )}
 
+        {registered && (
+          <div className="rounded-2xl bg-[#a9b897]/10 border border-[#a9b897]/20 p-4 text-center">
+            <p className="text-[10px] uppercase tracking-widest font-black text-stone-600">
+              Registration complete. Your account is ready. Sign in using the email and password you created during checkout.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2">
           <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Business Email</label>
           <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#a9b897] transition-all">
@@ -245,7 +271,7 @@ function LoginForm() {
             <input
               type="email"
               placeholder="you@company.com"
-              value={email}
+              value={email || registeredEmail}
               onChange={(e) => setEmail(e.target.value)}
               className="bg-transparent text-xs outline-none w-full font-bold"
               required
@@ -350,10 +376,16 @@ function LoginForm() {
 
       <button
         type="button"
-        onClick={() => setIsRegister(!isRegister)}
+        onClick={() => {
+          if (registered) {
+            router.replace("/login");
+            return;
+          }
+          setIsRegister(!isRegister);
+        }}
         className="w-full text-center text-[9px] font-black uppercase tracking-widest text-stone-300 hover:text-stone-800 transition-colors"
       >
-        {isRegister ? "Already have an account? Sign In" : "Create a new account"}
+        {registered ? "Return to Sign In" : isRegister ? "Already have an account? Sign In" : "Create a new account"}
       </button>
     </form>
   );

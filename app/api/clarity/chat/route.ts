@@ -1,22 +1,28 @@
+
+
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { runClarityChat, ClarityChatHistoryItem } from "../../../../lib/clarity";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { runClarityChat, type ClarityChatHistoryItem } from "@/lib/clarity/chat";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const query: string = body?.query;
-    const projectName: string = body?.projectName || "General";
-    const projectFocus: string = body?.projectFocus || "";
-    const history: ClarityChatHistoryItem[] = Array.isArray(body?.history) ? body.history : [];
 
-    if (!query || typeof query !== "string" || !query.trim()) {
-      return NextResponse.json({ error: "A query is required." }, { status: 400 });
+    const query = body?.query;
+    const history: ClarityChatHistoryItem[] = Array.isArray(body?.history)
+      ? body.history
+      : [];
+
+    if (!query || typeof query !== "string") {
+      return NextResponse.json(
+        { error: "A message is required." },
+        { status: 400 }
+      );
     }
 
-    // Session-scoped client — respects RLS, tied to the logged-in user.
     const cookieStore = await cookies();
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,13 +32,9 @@ export async function POST(req: NextRequest) {
             return cookieStore.getAll();
           },
           setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options);
-              });
-            } catch {
-              // Ignored when called from environments where cookies cannot be directly mutated.
-            }
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
           },
         },
       }
@@ -40,56 +42,81 @@ export async function POST(req: NextRequest) {
 
     const {
       data: { user },
-      error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json(
+        { error: "You must be signed in to use Clarity." },
+        { status: 401 }
+      );
     }
 
-    const { data: mem, error: memError } = await supabase
-      .from("team_members")
-      .select("team_id")
-      .eq("user_id", user.id)
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", user.id)
       .maybeSingle();
 
-    if (memError || !mem?.team_id) {
-      return NextResponse.json({ error: "No team found for this account." }, { status: 404 });
+    if (profileError) {
+      console.error("PROFILE ERROR:", profileError);
+      return NextResponse.json(
+        { error: "Unable to load your organisation." },
+        { status: 500 }
+      );
     }
 
-    const teamId = mem.team_id;
-
-    const [invoicesRes, tasksRes, timesheetsRes, postsRes, emailsRes, membersRes] =
-      await Promise.all([
-        supabase.from("invoices").select("*").eq("team_id", teamId).limit(200),
-        supabase.from("tasks").select("*").eq("team_id", teamId).limit(200),
-        supabase.from("timesheets").select("*").eq("team_id", teamId).limit(200),
-        supabase.from("posts").select("*").eq("team_id", teamId).limit(100),
-        supabase.from("email_campaigns").select("*").eq("team_id", teamId).limit(100),
-        supabase.from("team_members").select("*").eq("team_id", teamId),
-      ]);
-
-    for (const r of [invoicesRes, tasksRes, timesheetsRes, postsRes, emailsRes, membersRes]) {
-      if (r.error) throw r.error;
+    if (!profile?.organisation_id) {
+      return NextResponse.json(
+        { error: "No organisation linked to this account." },
+        { status: 404 }
+      );
     }
 
-    const { answer } = await runClarityChat({
+    const organisationId = profile.organisation_id;
+
+    const [
+      organisation,
+      accounts,
+      campaigns,
+      activities,
+      projects,
+      tasks,
+      contacts,
+      events,
+    ] = await Promise.all([
+      supabase.from("organisations").select("*").eq("id", organisationId).maybeSingle(),
+      supabase.from("accounts").select("*").eq("organisation_id", organisationId).limit(100),
+      supabase.from("campaigns").select("*").eq("organisation_id", organisationId).limit(100),
+      supabase.from("activity").select("*").eq("organisation_id", organisationId).limit(100),
+      supabase.from("projects").select("*").eq("organisation_id", organisationId).limit(100),
+      supabase.from("tasks").select("*").eq("organisation_id", organisationId).limit(100),
+      supabase.from("profiles").select("*").eq("organisation_id", organisationId).limit(100),
+      supabase.from("events").select("*").eq("organisation_id", organisationId).limit(100),
+    ]);
+
+    const result = await runClarityChat({
       query,
       history,
-      context: `${projectName}${projectFocus ? ` — ${projectFocus}` : ""}`,
+      context: "TOTS-OS business assistant",
       data: {
-        invoices: invoicesRes.data ?? [],
-        tasks: tasksRes.data ?? [],
-        timesheets: timesheetsRes.data ?? [],
-        posts: postsRes.data ?? [],
-        emails: emailsRes.data ?? [],
-        members: membersRes.data ?? [],
+        organisation: organisation.data,
+        accounts: accounts.data ?? [],
+        campaigns: campaigns.data ?? [],
+        activities: activities.data ?? [],
+        projects: projects.data ?? [],
+        tasks: tasks.data ?? [],
+        contacts: contacts.data ?? [],
+        calendar: events.data ?? [],
       },
     });
 
-    return NextResponse.json({ answer });
-  } catch (err) {
-    console.error("CLARITY_CHAT_FAILURE:", err);
-    return NextResponse.json({ error: "Failed to process request." }, { status: 500 });
+    return NextResponse.json({ answer: result.answer });
+  } catch (error) {
+    console.error("CLARITY CHAT ERROR:", error);
+
+    return NextResponse.json(
+      { error: "Something went wrong processing your request." },
+      { status: 500 }
+    );
   }
 }

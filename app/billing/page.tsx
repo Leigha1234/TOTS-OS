@@ -59,13 +59,10 @@ export default function BillingPage() {
   }, []);
 
   const handleCheckout = async (tier: typeof TIERS[number]) => {
+    console.log("Starting checkout for plan:", tier.name, tier.priceId);
     setLoading(tier.name);
 
     try {
-      if (!tier.priceId) {
-        throw new Error("This plan is not configured correctly.");
-      }
-
       const response = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -76,16 +73,20 @@ export default function BillingPage() {
       });
 
       const data = await response.json();
+      console.log("Checkout response:", data);
 
-      if (!response.ok || data.error) {
+      if (!response.ok) {
         throw new Error(data.error || "Unable to create checkout session.");
       }
 
-      if (data.url) {
-        window.location.href = data.url;
+      if (!data.url) {
+        throw new Error("No checkout URL returned from server.");
       }
+
+      window.location.assign(data.url);
     } catch (err: any) {
-      toast.error("Unable to proceed to billing: " + err.message);
+      console.error("Checkout failed:", err);
+      toast.error(err.message || "Unable to proceed to billing.");
       setLoading(null);
     }
   };
@@ -149,7 +150,7 @@ export default function BillingPage() {
               <div className="pt-8 border-t border-stone-200 mt-auto">
                 <button 
                   onClick={() => handleCheckout(tier)}
-                  disabled={!!loading}
+                  disabled={loading !== null}
                   className={`w-full flex items-center justify-between p-6 rounded-2xl transition-all uppercase text-[10px] font-black tracking-[0.2em] ${
                     tier.featured
                     ? 'bg-stone-900 text-white hover:bg-black'

@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
   ChevronLeft, ChevronRight, Plus, X, Loader2, 
-  MapPin, Video, Shield, RefreshCw, Settings, Tag, ChevronDown, Paperclip, Link, Users, Mail
+  MapPin, Video, Shield, RefreshCw, Settings, Tag, ChevronDown, Paperclip, Link, Users, Mail,
+  Copy, Clock, Check, Globe, Code2, Share2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -49,6 +50,75 @@ const getTagStyle = (tag: string) => {
   return TAG_PALETTE[index];
 };
 
+/** BOOKING SYSTEM: one public booking page per user (Calendly-style link/embed) */
+interface AvailabilityWindow {
+  start: string;
+  end: string;
+}
+type AvailabilityMap = Record<string, AvailabilityWindow[]>;
+
+interface BookingPage {
+  id?: string;
+  user_id?: string;
+  organisation_id?: string | null;
+  slug: string;
+  title: string;
+  description: string;
+  duration_minutes: number;
+  location_type: "video" | "phone" | "in_person" | "custom";
+  location_value: string;
+  buffer_before_minutes: number;
+  buffer_after_minutes: number;
+  min_notice_hours: number;
+  max_days_ahead: number;
+  timezone: string;
+  availability: AvailabilityMap;
+  is_active: boolean;
+}
+
+const WEEK_DAYS: { key: string; label: string }[] = [
+  { key: "mon", label: "Mon" },
+  { key: "tue", label: "Tue" },
+  { key: "wed", label: "Wed" },
+  { key: "thu", label: "Thu" },
+  { key: "fri", label: "Fri" },
+  { key: "sat", label: "Sat" },
+  { key: "sun", label: "Sun" },
+];
+
+const DEFAULT_BOOKING_PAGE: BookingPage = {
+  slug: "",
+  title: "Book a meeting",
+  description: "",
+  duration_minutes: 30,
+  location_type: "video",
+  location_value: "",
+  buffer_before_minutes: 0,
+  buffer_after_minutes: 0,
+  min_notice_hours: 4,
+  max_days_ahead: 30,
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/London",
+  availability: {
+    mon: [{ start: "09:00", end: "17:00" }],
+    tue: [{ start: "09:00", end: "17:00" }],
+    wed: [{ start: "09:00", end: "17:00" }],
+    thu: [{ start: "09:00", end: "17:00" }],
+    fri: [{ start: "09:00", end: "17:00" }],
+    sat: [],
+    sun: [],
+  },
+  is_active: true,
+};
+
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
 export default function Calendar() {
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -86,6 +156,17 @@ export default function Calendar() {
   const [currentProfile, setCurrentProfile] = useState<any>(null);
   const [tagColorMap, setTagColorMap] = useState<Record<string, string>>({});
 
+  // Booking page (Calendly-style link/embed) state
+  const [bookingPage, setBookingPage] = useState<BookingPage>(DEFAULT_BOOKING_PAGE);
+  const [bookingPageExists, setBookingPageExists] = useState(false);
+  const [isBookingLoading, setIsBookingLoading] = useState(false);
+  const [isBookingSaving, setIsBookingSaving] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [bookingSaved, setBookingSaved] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedEmbed, setCopiedEmbed] = useState(false);
+  const [siteOrigin, setSiteOrigin] = useState("");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -109,6 +190,12 @@ export default function Calendar() {
       console.warn("Failed persisting calendar tag colors", e);
     }
   }, [tagColorMap]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setSiteOrigin(window.location.origin);
+    }
+  }, []);
 
   const normaliseEvent = useCallback((e: any): CalendarEvent => {
     const raw = e?.start_time || e?.start_at || e?.created_at;
@@ -144,8 +231,14 @@ export default function Calendar() {
   const syncCalendar = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+
+      const calendarUser = user;
+
+      if (!calendarUser) {
+        setCurrentUser(null);
+        setCurrentProfile(null);
+        setEvents([]);
         setIsLoading(false);
         return;
       }
@@ -153,41 +246,41 @@ export default function Calendar() {
       const { data: profile } = await supabase
         .from("profiles")
         .select("organisation_id")
-        .eq("id", user.id)
+        .eq("id", calendarUser.id)
         .maybeSingle();
 
-      setCurrentUser(user);
+      setCurrentUser(calendarUser);
       setCurrentProfile(profile);
 
       // Fetch events
       const eventsPromise = supabase
         .from("events")
         .select("*")
-        .eq("user_id", user.id);
+        .eq("user_id", calendarUser.id);
 
       // Fetch tasks created by the user
       const tasksOwnedPromise = supabase
         .from("tasks")
         .select("*")
-        .eq("user_id", user.id);
+        .eq("user_id", calendarUser.id);
 
       // Fetch tasks assigned to the user (many-to-one fix)
       const tasksAssignedPromise = supabase
         .from("tasks")
         .select("*")
-        .eq("assigned_to", user.id);
+        .eq("assigned_to", calendarUser.id);
 
       // Fetch notes created by the user
       const notesOwnedPromise = supabase
         .from("notes")
         .select("*")
-        .eq("user_id", user.id);
+        .eq("user_id", calendarUser.id);
 
       // Fetch notes assigned to the user (many-to-one fix)
       const notesAssignedPromise = supabase
         .from("notes")
         .select("*")
-        .eq("assigned_to", user.id);
+        .eq("assigned_to", calendarUser.id);
 
       const [eventsRes, tasksOwnedRes, tasksAssignedRes, notesOwnedRes, notesAssignedRes] = await Promise.all([
         eventsPromise,
@@ -246,7 +339,7 @@ const taskRows = Array.from(taskMap.values());
             title: t.title || t.name || "Task",
             description: t.description || t.content || "",
             tags: t.tags || "",
-            user_id: t.user_id || t.assigned_to || user.id,
+            user_id: t.user_id || t.assigned_to || calendarUser.id,
             startAt: startRaw && isValid(new Date(startRaw)) ? new Date(startRaw) : null,
             endAt: null,
           } as CalendarEvent;
@@ -277,7 +370,7 @@ const taskRows = Array.from(taskMap.values());
             title,
             description: n.content || n.description || "",
             tags: n.tags || n.category || "",
-            user_id: n.user_id || n.assigned_to || user.id,
+            user_id: n.user_id || n.assigned_to || calendarUser.id,
             startAt: startRaw && isValid(new Date(startRaw)) ? new Date(startRaw) : null,
             endAt: null,
           } as CalendarEvent;
@@ -312,8 +405,82 @@ setEvents(combined);
   }, []);
 
   useEffect(() => {
-    syncCalendar();
+    const initialiseAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (data.session?.user) {
+        setCurrentUser(data.session.user);
+        syncCalendar();
+      } else {
+        console.warn("No active Supabase session found");
+        setIsLoading(false);
+      }
+    };
+
+    initialiseAuth();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setCurrentUser(session.user);
+      }
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, [syncCalendar]);
+
+  const loadBookingPage = useCallback(async (userId: string) => {
+    setIsBookingLoading(true);
+    setBookingError(null);
+    try {
+      const { data, error } = await supabase
+        .from("booking_pages")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Booking page fetch error:", error);
+      }
+
+      if (data) {
+        setBookingPage({
+          ...DEFAULT_BOOKING_PAGE,
+          ...data,
+          availability: data.availability || DEFAULT_BOOKING_PAGE.availability,
+        });
+        setBookingPageExists(true);
+      } else {
+        setBookingPage({
+          ...DEFAULT_BOOKING_PAGE,
+          slug: `book-${userId.slice(0, 8)}`,
+        });
+        setBookingPageExists(false);
+      }
+    } catch (err) {
+      console.error("Booking page load error:", err);
+    } finally {
+      setIsBookingLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    const resolveBookingUser = async () => {
+      if (currentUser?.id) {
+        loadBookingPage(currentUser.id);
+        return;
+      }
+
+      const { data } = await supabase.auth.getUser();
+      if (data.user?.id) {
+        setCurrentUser(data.user);
+        loadBookingPage(data.user.id);
+      }
+    };
+
+    resolveBookingUser();
+  }, [currentUser?.id, loadBookingPage]);
 
 
 
@@ -511,6 +678,145 @@ setFormRepeat("none");
     setIsDeleting(false);
   }
 };
+  const toggleBookingDay = (dayKey: string) => {
+    setBookingPage(prev => {
+      const isOn = (prev.availability[dayKey] || []).length > 0;
+      return {
+        ...prev,
+        availability: {
+          ...prev.availability,
+          [dayKey]: isOn ? [] : [{ start: "09:00", end: "17:00" }],
+        },
+      };
+    });
+  };
+
+  const updateBookingWindow = (dayKey: string, field: "start" | "end", value: string) => {
+    setBookingPage(prev => {
+      const existing = prev.availability[dayKey]?.[0] || { start: "09:00", end: "17:00" };
+      return {
+        ...prev,
+        availability: {
+          ...prev.availability,
+          [dayKey]: [{ ...existing, [field]: value }],
+        },
+      };
+    });
+  };
+
+  const saveBookingPage = async () => {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const activeUser = sessionData?.session?.user || currentUser;
+
+    if (sessionError) {
+      console.error("Auth session error:", sessionError);
+    }
+
+    if (!activeUser?.id) {
+      setBookingError("Your account session could not be found. Please sign in again.");
+      return;
+    }
+
+    setCurrentUser(activeUser);
+
+    setBookingError(null);
+    setBookingSaved(false);
+
+    const cleanSlug = slugify(bookingPage.slug || bookingPage.title || "");
+    if (!cleanSlug) {
+      setBookingError("Enter a link name for your booking page.");
+      return;
+    }
+
+    setIsBookingSaving(true);
+    setBookingError(null);
+    setBookingSaved(false);
+
+    try {
+      const payload = {
+        user_id: activeUser.id,
+        organisation_id: currentProfile?.organisation_id ?? null,
+        slug: cleanSlug,
+        title: bookingPage.title || "Book a meeting",
+        description: bookingPage.description || "",
+        duration_minutes: Number(bookingPage.duration_minutes) || 30,
+        location_type: bookingPage.location_type,
+        location_value: bookingPage.location_value || "",
+        buffer_before_minutes: Number(bookingPage.buffer_before_minutes) || 0,
+        buffer_after_minutes: Number(bookingPage.buffer_after_minutes) || 0,
+        min_notice_hours: Number(bookingPage.min_notice_hours) || 0,
+        max_days_ahead: Number(bookingPage.max_days_ahead) || 30,
+        timezone: bookingPage.timezone,
+        availability: bookingPage.availability,
+        is_active: bookingPage.is_active,
+      };
+
+      console.log("Saving booking page payload:", payload);
+      const { data, error } = await supabase
+        .from("booking_pages")
+        .upsert(payload, { onConflict: "user_id" })
+        .select("*")
+        .maybeSingle();
+
+      if (error) {
+        console.error("Booking page database error:", error);
+        setBookingError(error.message || "Unable to create booking page");
+        return;
+      }
+
+      if (data) {
+        setBookingPage({ ...bookingPage, ...data });
+        setBookingPageExists(true);
+      }
+      setBookingSaved(true);
+      setTimeout(() => setBookingSaved(false), 2500);
+    } catch (err: any) {
+      console.error("Booking page save error:", err);
+      setBookingError(
+        err?.code === "23505"
+          ? "That link name is already taken — try another."
+          : err?.message || "Failed to save booking page"
+      );
+    } finally {
+      setIsBookingSaving(false);
+    }
+  };
+
+  // Confirmed: the public booking route exists outside the dashboard layout.
+  // Do not change the booking URL format here unless the public route path changes.
+  const bookingLink = siteOrigin && bookingPage.slug ? `${siteOrigin}/book/${slugify(bookingPage.slug)}` : "";
+  const bookingEmbedCode = bookingLink
+    ? `<iframe src="${bookingLink}?embed=1" width="100%" height="720" frameborder="0" style="border:0;border-radius:16px;"></iframe>`
+    : "";
+
+  const copyToClipboard = async (text: string, which: "link" | "embed") => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (which === "link") {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+      } else {
+        setCopiedEmbed(true);
+        setTimeout(() => setCopiedEmbed(false), 2000);
+      }
+    } catch (err) {
+      console.warn("Clipboard copy failed", err);
+    }
+  };
+
+  const shareBookingLink = async () => {
+    if (!bookingLink) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: bookingPage.title || "Book a meeting", url: bookingLink });
+        return;
+      } catch (err) {
+        // user cancelled share sheet — fall through to copy
+      }
+    }
+    copyToClipboard(bookingLink, "link");
+  };
+
   const saveEntry = async () => {
     if (!formTitle || isSubmitting) return;
 
@@ -525,7 +831,7 @@ setFormRepeat("none");
       const authUser = authResult?.data?.user;
 
       if (!authUser) {
-        setError("No authenticated user.");
+        setError("Please sign in to save calendar entries.");
         setIsSubmitting(false);
         return;
       }
@@ -727,25 +1033,7 @@ setFormRepeat("none");
     {error}
   </div>
 )}
-      {/* SETTINGS OVERLAY */}
-      <AnimatePresence>
-        {isSettingsOpen && (
-          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}
-            className="fixed right-6 top-6 bottom-6 w-80 bg-white shadow-4xl z-[1001] rounded-[3rem] p-10 border border-stone-100 flex flex-col"
-          >
-            <div className="flex justify-between items-center mb-10">
-              <h3 className="text-xl font-serif italic">Settings</h3>
-              <button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={16}/></button>
-            </div>
-            <div className="pt-6 border-t border-stone-50 mt-auto">
-  <p className="text-[9px] text-stone-300 uppercase tracking-widest">
-    Event actions are available in event view
-  </p>
-</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+    
       {/* MODAL SYSTEM */}
       <AnimatePresence>
         {isModalOpen && (
@@ -1048,6 +1336,78 @@ setFormRepeat("none");
           </button>
         </aside>
       </div>
+
+        {/* SETTINGS OVERLAY */}
+      <AnimatePresence>
+        {isSettingsOpen && (
+          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}
+            className="fixed right-6 top-6 bottom-6 w-80 bg-white shadow-4xl z-[1001] rounded-[3rem] p-10 border border-stone-100 flex flex-col"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-serif italic">Settings</h3>
+              <button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-stone-50 rounded-full"><X size={16}/></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-1">
+              {/* Settings overlay content can be extended here */}
+            </div>
+
+            <div className="pt-4 border-t border-stone-50">
+              <p className="text-[9px] text-stone-300 uppercase tracking-widest">
+                Event actions are available in event view
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <section className="mt-6 bg-white rounded-[3rem] border border-stone-100 shadow-3xl p-8 lg:p-10">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#A3B18A] mb-2">Online Booking</p>
+            <h2 className="text-4xl lg:text-6xl font-serif italic text-stone-800 leading-none">Your booking page</h2>
+            <p className="text-sm text-stone-400 mt-3 max-w-xl">    Create a booking page that allows customers to choose a suitable time and schedule meetings with you automatically.</p>
+          </div>
+        </div>
+
+        {isBookingLoading ? (
+          <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-stone-300" size={20} /></div>
+        ) : (
+          <div className="grid lg:grid-cols-3 gap-4">
+            <input value={bookingPage.title} onChange={e => setBookingPage(prev => ({ ...prev, title: e.target.value }))} placeholder="Example: Discovery Call with Alex" className="bg-stone-50 rounded-xl p-4 text-xs ring-1 ring-stone-100 outline-none" />
+            <input value={bookingPage.slug} onChange={e => setBookingPage(prev => ({ ...prev, slug: e.target.value }))} placeholder="Example: alex-consultation" className="bg-stone-50 rounded-xl p-4 text-xs ring-1 ring-stone-100 outline-none" />
+            <select value={bookingPage.duration_minutes} onChange={e => setBookingPage(prev => ({ ...prev, duration_minutes: Number(e.target.value) }))} className="bg-stone-50 rounded-xl p-4 text-xs ring-1 ring-stone-100 outline-none">
+              <option value={15}>15 minutes</option>
+              <option value={30}>30 minutes</option>
+              <option value={45}>45 minutes</option>
+              <option value={60}>60 minutes</option>
+            </select>
+
+            <textarea value={bookingPage.description} onChange={e => setBookingPage(prev => ({ ...prev, description: e.target.value }))} placeholder="Example: Choose a suitable time for a consultation, project discussion or introductory call." className="lg:col-span-3 bg-stone-50 rounded-xl p-4 text-xs h-24 ring-1 ring-stone-100 outline-none resize-none" />
+
+            {bookingError && (
+              <p className="lg:col-span-3 text-xs text-red-500 font-bold">{bookingError}</p>
+            )}
+
+            {!bookingError && !bookingPageExists && (
+              <p className="lg:col-span-3 text-xs text-stone-400">
+                This will create your public booking page and generate a shareable customer link.
+              </p>
+            )}
+
+            <button onClick={saveBookingPage} disabled={isBookingSaving} className="lg:col-span-3 bg-stone-900 text-[#A3B18A] py-5 rounded-xl text-[10px] font-black uppercase tracking-widest">
+              {isBookingSaving ? <Loader2 className="animate-spin mx-auto" size={16} /> : bookingSaved ? "Saved" : bookingPageExists ? "Save Booking Page" : "Create Booking Page"}
+            </button>
+
+            {bookingPageExists && bookingLink && (
+              <div className="lg:col-span-3 bg-stone-50 rounded-2xl p-4 flex flex-col lg:flex-row gap-3 items-center">
+                <input readOnly value={bookingLink} className="flex-1 bg-white rounded-xl p-3 text-xs" />
+                <button onClick={shareBookingLink} className="bg-stone-900 text-[#A3B18A] rounded-xl px-5 py-3 text-[10px] font-black uppercase">Share Link</button>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
 
       <footer className="mt-4 lg:mt-6 flex flex-col gap-2 lg:flex-row justify-between items-center opacity-50 px-2">
         <div className="flex gap-4 text-stone-300">

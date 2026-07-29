@@ -38,28 +38,46 @@ const TIERS = [
 export default function BillingPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
+  const [registrationData, setRegistrationData] = useState<any>(null);
   const formatPounds = (value: number | string) =>
     (Math.round(Number(value) * 100) / 100).toFixed(2);
 
   useEffect(() => {
-    // Try to retrieve the authenticated user's email from a runtime endpoint.
-    // This avoids importing a supabase client at build time in this client component.
     const getUser = async () => {
       try {
         const res = await fetch('/api/auth/user');
-        if (!res.ok) return;
-        const data = await res.json();
-        const email = data?.user?.email ?? null;
-        if (email) setUserEmail(email);
+        if (res.ok) {
+          const data = await res.json();
+          const email = data?.user?.email ?? null;
+          if (email) setUserEmail(email);
+        }
       } catch (e) {
-        // ignore
+        console.error("Failed to get user:", e);
+      }
+
+      try {
+        const pending = sessionStorage.getItem("pendingRegistration");
+        if (pending) {
+          setRegistrationData(JSON.parse(pending));
+        }
+      } catch (e) {
+        console.error("Failed to load registration data:", e);
       }
     };
+
     getUser();
   }, []);
 
   const handleCheckout = async (tier: typeof TIERS[number]) => {
     console.log("Starting checkout for plan:", tier.name, tier.priceId);
+
+    const storedRegistration = registrationData || JSON.parse(sessionStorage.getItem("pendingRegistration") || "null");
+
+    if (!storedRegistration) {
+      toast.error("Registration details missing. Please restart signup.");
+      return;
+    }
+
     setLoading(tier.name);
 
     try {
@@ -67,6 +85,7 @@ export default function BillingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...storedRegistration,
           tier: tier.name,
           priceId: tier.priceId,
         }),

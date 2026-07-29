@@ -1,5 +1,3 @@
-
-
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
@@ -95,10 +93,14 @@ export async function POST(req: NextRequest) {
       supabase.from("events").select("*").eq("organisation_id", organisationId).limit(100),
     ]);
 
+    const compactHistory = history.slice(-8);
+
+    // TODO: Replace runClarityChat with a streaming implementation using the Responses API.
+    // The frontend popup is already prepared for incremental rendering.
     const result = await runClarityChat({
       query,
-      history,
-      context: "TOTS-OS business assistant",
+      history: compactHistory,
+      context: `You are Clarity, the AI operating system for TOTS-OS. Be concise, use markdown where appropriate, answer using the organisation's live data, proactively highlight trends, overdue work, risks and opportunities, and end with suggested next actions when useful.`,
       data: {
         organisation: organisation.data,
         accounts: accounts.data ?? [],
@@ -118,12 +120,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ answer: result.answer });
+    console.log("CLARITY TOKENS COMPLETE");
+    console.log("ANSWER LENGTH:", result.answer.length);
+
+    return NextResponse.json({
+      answer: result.answer,
+      suggestions: [
+        "Show my sales pipeline",
+        "What needs my attention today?",
+        "Summarise this week's activity",
+        "Which projects are overdue?"
+      ],
+      generatedAt: new Date().toISOString(),
+      conversationSummary: query.slice(0, 60),
+      metadata: {
+        model: "clarity",
+        streamed: false,
+      },
+    });
   } catch (error) {
     console.error("CLARITY CHAT ERROR:", error);
 
     return NextResponse.json(
-      { error: "Something went wrong processing your request." },
+      {
+        error: error instanceof Error ? error.message : "Something went wrong processing your request.",
+        suggestions: [
+          "Try asking about your projects",
+          "Show today's activity",
+          "View my sales performance"
+        ]
+      },
       { status: 500 }
     );
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bot, Send, Plus, MessageSquare, Sparkles, Search } from "lucide-react";
+import { Send, Plus, MessageSquare, Sparkles, Search, X } from "lucide-react";
 
 const quickPrompts = [
   "Show my sales performance",
@@ -22,6 +22,11 @@ export default function ClarityPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
+
+  const [search, setSearch] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [showPrompts, setShowPrompts] = useState(true);
 
   useEffect(() => {
     async function loadConversations() {
@@ -45,11 +50,40 @@ export default function ClarityPage() {
     loadConversations();
   }, []);
 
+  function startNewConversation() {
+    setConversationId(null);
+    setMessages([
+      {
+        role: "assistant",
+        content:
+          "Welcome to Clarity. Your TOTS-OS business intelligence assistant. Ask questions about your operations, sales, projects, or workflows.",
+      },
+    ]);
+    setShowPrompts(true);
+  }
+
+  async function deleteConversation(id: string) {
+    await fetch(`/api/clarity/conversations/${id}`, { method: "DELETE" });
+    setConversations((current) => current.filter((item) => item.id !== id));
+    if (conversationId === id) startNewConversation();
+  }
+
+  async function renameConversation(id: string) {
+    await fetch(`/api/clarity/conversations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: renameValue }),
+    });
+    setConversations((current) => current.map((item) => item.id === id ? { ...item, title: renameValue } : item));
+    setRenamingId(null);
+  }
+
   async function sendMessage(text = input) {
     if (!text.trim() || loading) return;
 
     const updated = [...messages.slice(-10), { role: "user", content: text }];
     setMessages(updated);
+    setShowPrompts(false);
     setInput("");
     setLoading(true);
 
@@ -76,7 +110,7 @@ export default function ClarityPage() {
         ...current,
         {
           role: "assistant",
-          content: data.message || data.response || data.content || data.reply || data.error || "Clarity did not return any text. Check the API response.",
+          content: data.answer || data.message || data.response || data.content || data.reply || data.error || "Clarity did not return any text. Check the API response.",
         },
       ]);
 
@@ -87,8 +121,10 @@ export default function ClarityPage() {
           conversationId,
           messages: [...updated, {
             role: "assistant",
-            content: data.message || data.response || data.content || data.reply || data.error || "Clarity did not return any text. Check the API response.",
+            content: data.answer || data.message || data.response || data.content || data.reply || data.error || "Clarity did not return any text. Check the API response.",
           }],
+          title: text.slice(0, 40),
+          pinned: false,
         }),
       });
 
@@ -114,83 +150,146 @@ export default function ClarityPage() {
     <>
       <button
         onClick={() => setOpen(!open)}
-        className="fixed top-6 right-6 z-50 w-12 h-12 rounded-full bg-stone-900 text-white shadow-xl flex items-center justify-center"
+        className="fixed top-6 right-6 z-50 w-14 h-14 rounded-full bg-stone-900 text-white shadow-xl flex items-center justify-center group"
       >
         <Sparkles size={18} />
+        <span className="absolute right-16 hidden group-hover:block bg-stone-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap">
+          Ask Clarity
+        </span>
       </button>
 
       {open && (
-        <div className="fixed top-20 right-6 z-50 w-[380px] h-[600px] bg-[#fdfbf8] border border-stone-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
-          <header className="h-14 px-6 flex items-center justify-between border-b border-stone-200">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-2xl bg-stone-900 text-white flex items-center justify-center">
-                <Sparkles size={18} />
-              </div>
-              <h1 className="font-serif italic text-lg">Clarity</h1>
-            </div>
+        <div className="fixed top-20 right-6 z-50 w-[95vw] sm:w-[520px] h-[80vh] sm:h-[650px] bg-[#fdfbf8] border border-stone-200 rounded-3xl shadow-2xl flex overflow-hidden">
+          <div className="w-44 border-r border-stone-200 p-3 flex flex-col gap-3">
             <button
-              onClick={() => setOpen(false)}
-              className="text-stone-500 hover:text-stone-900"
-              aria-label="Close Clarity"
+              onClick={startNewConversation}
+              className="w-full rounded-2xl bg-stone-900 text-white px-3 py-2 text-xs flex items-center gap-2"
             >
-              ✕
+              <Plus size={14} /> New Chat
             </button>
-          </header>
 
-          <section className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3">
-                {quickPrompts.map((prompt) => (
+            <div className="text-[10px] uppercase tracking-widest text-stone-400">
+              Previous Chats
+            </div>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search chats..."
+              className="rounded-xl border border-stone-200 px-3 py-2 text-xs bg-transparent"
+            />
+
+            <div className="space-y-2 overflow-y-auto">
+              {[...conversations]
+                .sort((a, b) => Number(b.pinned) - Number(a.pinned))
+                .filter((conversation) => (conversation.title || "Conversation").toLowerCase().includes(search.toLowerCase()))
+                .map((conversation) => (
                   <button
-                    key={prompt}
-                    onClick={() => sendMessage(prompt)}
-                    className="text-left bg-[#fdfbf8] border border-stone-200 rounded-2xl p-3 text-sm hover:border-stone-400 flex items-center gap-2"
+                    key={conversation.id}
+                    onClick={() => {
+                      setConversationId(conversation.id);
+                      setMessages(conversation.messages || []);
+                    }}
+                    className={`w-full text-left rounded-xl p-2 text-xs border ${conversation.id === conversationId ? "border-stone-900" : "border-stone-200"}`}
                   >
-                    <Search size={14} />
-                    {prompt}
+                    <div className="flex items-center justify-between gap-2">
+                      {renamingId === conversation.id ? (
+                        <input
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && renameConversation(conversation.id)}
+                          className="w-full text-xs bg-transparent"
+                          autoFocus
+                        />
+                      ) : (
+                        <span className="truncate">{conversation.title || "Conversation"}</span>
+                      )}
+                      <div className="flex gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); setRenamingId(conversation.id); setRenameValue(conversation.title || ""); }}>Edit</button>
+                        <button onClick={(e)=>{e.stopPropagation();setConversations(curr=>curr.map(item=>item.id===conversation.id?{...item,pinned:!item.pinned}:item));}}>📌</button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteConversation(conversation.id); }}>×</button>
+                      </div>
+                    </div>
                   </button>
                 ))}
+            </div>
+            <div className="mt-auto pt-3 border-t border-stone-200 text-[10px] text-stone-400">
+              Clarity AI • TOTS-OS
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col">
+            <header className="h-14 px-6 flex items-center justify-between border-b border-stone-200">
+              <div>
+                <h1 className="font-semibold">Clarity</h1>
+                <p className="text-xs text-stone-500">AI Business Assistant</p>
               </div>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-stone-500 hover:text-stone-900"
+                aria-label="Close Clarity"
+              >
+                <X size={16} />
+              </button>
+            </header>
 
-              {messages.map((message, index) => (
-                <div
-                  key={index}
-                  className={
-                    message.role === "user"
-                      ? "ml-auto max-w-[320px] bg-stone-900 text-white rounded-3xl p-4"
-                      : "max-w-[320px] bg-[#fdfbf8] border border-stone-200 rounded-3xl p-4"
-                  }
-                >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-                </div>
-              ))}
-
-              {loading && (
-                <div className="max-w-[320px] bg-[#fdfbf8] border border-stone-200 rounded-3xl p-4 text-sm text-stone-500">
-                  Clarity is analysing...
+            <section className="flex-1 overflow-y-auto p-4">
+              {showPrompts && (
+                <div className="grid grid-cols-1 gap-3">
+                  {quickPrompts.map((prompt) => (
+                    <button
+                      key={prompt}
+                      onClick={() => sendMessage(prompt)}
+                      className="text-left bg-[#fdfbf8] border border-stone-200 rounded-2xl p-3 text-sm hover:border-stone-400 flex items-center gap-2"
+                    >
+                      <Search size={14} />
+                      {prompt}
+                    </button>
+                  ))}
                 </div>
               )}
-            </div>
-          </section>
 
-          <footer className="p-4 border-t border-stone-200">
-            <div className="flex gap-2 bg-[#fdfbf8] rounded-2xl p-2 shadow-inner">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                placeholder="Ask Clarity about your business..."
-                className="flex-1 bg-transparent outline-none px-4 text-sm"
-              />
-              <button
-                onClick={() => sendMessage()}
-                className="w-10 h-10 rounded-2xl bg-stone-900 text-white flex items-center justify-center"
-                aria-label="Send message"
-              >
-                <Send size={17} />
-              </button>
-            </div>
-          </footer>
+              <div className="space-y-4 pb-4">
+                {messages.map((message, index) => (
+                  <div
+                    key={index}
+                    className={
+                      message.role === "user"
+                        ? "ml-auto max-w-[85%] shadow-sm bg-stone-900 text-white rounded-3xl p-4"
+                        : "max-w-[85%] shadow-sm bg-[#fdfbf8] border border-stone-200 rounded-3xl p-4"
+                    }
+                  >
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                ))}
+
+                {loading && (
+                  <div className="max-w-[320px] bg-[#fdfbf8] border border-stone-200 rounded-3xl p-4 text-sm text-stone-500">
+                    Clarity is thinking...
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <footer className="p-4 border-t border-stone-200">
+              <div className="flex gap-2 bg-[#fdfbf8] rounded-2xl p-2 shadow-inner">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                  placeholder="Ask about sales, projects, finance or customers..."
+                  className="flex-1 bg-transparent outline-none px-4 text-sm"
+                />
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={loading || !input.trim()}
+                  className="w-10 h-10 rounded-2xl bg-stone-900 text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Send message"
+                >
+                  <Send size={17} />
+                </button>
+              </div>
+            </footer>
+          </div>
         </div>
       )}
     </>

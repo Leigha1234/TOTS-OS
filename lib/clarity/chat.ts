@@ -40,8 +40,14 @@ export async function runClarityChat({
 
   const finalQuery = query || prompt || "Analyse this business data and provide useful insights.";
 
+  const compactHistory = history.slice(-8);
+
   const response = await openai.responses.create({
     model: "gpt-5",
+    reasoning: {
+      effort: "low",
+    },
+    max_output_tokens: 1200,
     instructions: `
 ${claritySystem}
 
@@ -52,10 +58,14 @@ Business intelligence:
 ${businessContext}
 
 Use the business intelligence above when answering TOTS-OS questions.
-Do not invent information that is not provided.
+Never invent information.
+If data is unavailable, explicitly say so.
+Use Markdown headings, bullet points and tables where appropriate.
+Keep answers concise.
+Where useful, finish with a short **Next actions** section.
 `,
     input: [
-      ...history.map((message) => ({
+      ...compactHistory.map((message) => ({
         role: message.role,
         content: message.content,
       })),
@@ -66,8 +76,12 @@ Do not invent information that is not provided.
     ],
   });
 
+  const answer = response.output_text?.trim() || "I couldn't generate a response.";
+
   return {
-    answer: response.output_text,
+    answer,
+    usage: response.usage,
+    id: response.id,
   };
 }
 

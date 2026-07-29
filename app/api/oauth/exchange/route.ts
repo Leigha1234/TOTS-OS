@@ -1,15 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // IMPORTANT: server-only key
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function POST(req: Request) {
+async function exchangeOAuth(
+  code: string,
+  state: string,
+  platformOverride?: string
+) {
   try {
-    const { code, state } = await req.json();
-
     if (!code || !state) {
       return NextResponse.json(
         { error: "Missing code or state" },
@@ -17,110 +19,215 @@ export async function POST(req: Request) {
       );
     }
 
-    const parsedState = JSON.parse(decodeURIComponent(state));
-    const { userId, platform } = parsedState;
+    let parsedState;
 
-    if (!userId || !platform) {
+    try {
+      parsedState = JSON.parse(decodeURIComponent(state));
+    } catch {
       return NextResponse.json(
-        { error: "Invalid state payload" },
+        { error: "Invalid OAuth state" },
         { status: 400 }
       );
     }
 
-    // -----------------------------------------
-    // 1. Exchange code for short-lived token
-    // -----------------------------------------
-    const tokenRes = await fetch(
-      `https://graph.facebook.com/v23.0/oauth/access_token` +
-        `?client_id=${process.env.NEXT_PUBLIC_META_CLIENT_ID}` +
-        `&redirect_uri=${encodeURIComponent(
-          `${process.env.NEXT_PUBLIC_SITE_URL}/settings`
-        )}` +
-        `&client_secret=${process.env.META_CLIENT_SECRET}` +
-        `&code=${code}`
-    );
+    const userId = parsedState.userId;
+    const platform = platformOverride || parsedState.platform;
 
-    const tokenData = await tokenRes.json();
-
-    if (!tokenData.access_token) {
+    if (!userId || !platform) {
       return NextResponse.json(
-        { error: "Failed to get access token", details: tokenData },
-        { status: 500 }
+        { error: "Invalid OAuth state payload" },
+        { status: 400 }
       );
     }
 
-    // -----------------------------------------
-    // 2. Exchange for long-lived token
-    // -----------------------------------------
-    const longTokenRes = await fetch(
-      `https://graph.facebook.com/v23.0/oauth/access_token` +
-        `?grant_type=fb_exchange_token` +
-        `&client_id=${process.env.NEXT_PUBLIC_META_CLIENT_ID}` +
-        `&client_secret=${process.env.META_CLIENT_SECRET}` +
-        `&fb_exchange_token=${tokenData.access_token}`
-    );
+    let accountData: any[] = [];
 
-    const longTokenData = await longTokenRes.json();
+    if (platform === "meta" || platform === "instagram") {
+      const tokenResponse = await fetch(
+        "https://graph.facebook.com/v23.0/oauth/access_token?" +
+          new URLSearchParams({
+            client_id: process.env.META_APP_ID!,
+            client_secret: process.env.META_APP_SECRET!,
+            redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/meta/callback`,
+            code,
+          })
+      );
 
-    const accessToken =
-      longTokenData.access_token || tokenData.access_token;
+      const tokenData = await tokenResponse.json();
 
-    // -----------------------------------------
-    // 3. Fetch Facebook Pages
-    // -----------------------------------------
-    const pagesRes = await fetch(
-      `https://graph.facebook.com/v23.0/me/accounts?access_token=${accessToken}`
-    );
+      if (!tokenData.access_token) {
+        return NextResponse.json(
+          { error: "Meta token exchange failed", details: tokenData },
+          { status: 500 }
+        );
+      }
 
-    const pagesData = await pagesRes.json();
+      const pagesResponse = await fetch(
+        `https://graph.facebook.com/v23.0/me/accounts?access_token=${tokenData.access_token}`
+      );
 
-    if (!pagesData?.data) {
+      const pagesData = await pagesResponse.json();
+
+      accountData = (pagesData.data || []).map((page: any) => ({
+        user_id: userId,
+        platform: "meta",
+        platform_user_id: page.id,
+        access_token: page.access_token || tokenData.access_token,
+        created_at: new Date().toISOString(),
+      }));
+    }
+
+    if (platform === "linkedin") {
+      const tokenResponse = await fetch(
+        "https://www.linkedin.com/oauth/v2/accessToken",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            grant_type: "authorization_code",
+            code,
+            client_id: process.env.LINKEDIN_CLIENT_ID!,
+            client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+            redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/linkedin/callback`,
+          }),
+        }
+      );
+
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenData.access_token) {
+        return NextResponse.json(
+          { error: "LinkedIn token exchange failed", details: tokenData },
+          { status: 500 }
+        );
+      }
+
+      const profileResponse = await fetch(
+        "https://api.linkedin.com/v2/userinfo",
+        {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        }
+      );
+
+      const profile = await profileResponse.json();
+
+      accountData = [
+        {
+          user_id: userId,
+          platform: "linkedin",
+          platform_user_id: profile.sub,
+          access_token: tokenData.access_token,
+          expires_at: tokenData.expires_in
+            ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+            : null,
+          created_at: new Date().toISOString(),
+        },
+      ];
+    }
+
+    if (platform === "tiktok") {
+      const tokenResponse = await fetch(
+        "https://open.tiktokapis.com/v2/oauth/token/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            client_key: process.env.TIKTOK_CLIENT_KEY!,
+            client_secret: process.env.TIKTOK_CLIENT_SECRET!,
+            code,
+            grant_type: "authorization_code",
+            redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/tiktok/callback`,
+          }),
+        }
+      );
+
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenData.access_token) {
+        return NextResponse.json(
+          { error: "TikTok token exchange failed", details: tokenData },
+          { status: 500 }
+        );
+      }
+
+      const userResponse = await fetch(
+        "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name",
+        {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        }
+      );
+
+      const userData = await userResponse.json();
+      const user = userData.data?.user;
+
+      accountData = [
+        {
+          user_id: userId,
+          platform: "tiktok",
+          platform_user_id: user?.open_id,
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token,
+          expires_at: tokenData.expires_in
+            ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+            : null,
+          created_at: new Date().toISOString(),
+        },
+      ];
+    }
+
+    if (!accountData.length) {
       return NextResponse.json(
-        { error: "Failed to fetch pages", details: pagesData },
+        { error: "No account data returned" },
         { status: 500 }
       );
     }
-
-    // -----------------------------------------
-    // 4. Store in Supabase
-    // -----------------------------------------
-    const inserts = pagesData.data.map((page: any) => ({
-      user_id: userId,
-      platform: "meta",
-      page_id: page.id,
-      page_name: page.name,
-      page_access_token: page.access_token,
-      access_token: accessToken,
-      created_at: new Date().toISOString(),
-    }));
 
     const { error } = await supabase
       .from("social_accounts")
-      .upsert(inserts, { onConflict: "user_id,platform,page_id" });
+      .upsert(accountData, { onConflict: "user_id,platform" });
 
     if (error) {
+      console.error("Social account save error:", error);
       return NextResponse.json(
-        { error: "Supabase insert failed", details: error.message },
+        { error: "Database save failed", details: error.message },
         { status: 500 }
       );
     }
 
-    // -----------------------------------------
-    // 5. Success response
-    // -----------------------------------------
     return NextResponse.json({
       success: true,
-      pages: pagesData.data.length,
+      platform,
     });
-  } catch (err: any) {
-    console.error("OAuth exchange error:", err);
+  } catch (error: any) {
+    console.error("OAuth exchange error:", error);
 
     return NextResponse.json(
-      {
-        error: "OAuth exchange failed",
-        message: err.message,
-      },
+      { error: "OAuth exchange failed", message: error.message },
       { status: 500 }
     );
   }
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+
+  return exchangeOAuth(body.code, body.state, body.platform);
+}
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+
+  return exchangeOAuth(
+    searchParams.get("code") || "",
+    searchParams.get("state") || "",
+    searchParams.get("platform") || undefined
+  );
 }

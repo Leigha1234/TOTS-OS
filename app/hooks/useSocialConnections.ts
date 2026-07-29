@@ -36,7 +36,8 @@ export const useSocialConnections = (userId?: string) => {
     const { data, error } = await supabase
       .from("social_accounts")
       .select("*")
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Fetch connections error:", error);
@@ -68,7 +69,7 @@ export const useSocialConnections = (userId?: string) => {
       }
 
       toast.success("Disconnected successfully");
-      fetchConnections();
+      await fetchConnections();
     },
     [userId, fetchConnections]
   );
@@ -76,32 +77,28 @@ export const useSocialConnections = (userId?: string) => {
   /**
    * Start OAuth flow
    */
-  const connect = useCallback((platform: SocialPlatform) => {
+  const connect = useCallback(async (platform: SocialPlatform) => {
     try {
       const state = crypto.randomUUID();
 
       sessionStorage.setItem(getOAuthStorageKey(platform), state);
 
-      let authUrl = "";
+      const routes: Record<SocialPlatform, string> = {
+        meta: `/api/oauth/meta?state=${state}`,
+        instagram: `/api/oauth/meta?state=${state}`,
+        tiktok: `/api/oauth/tiktok?state=${state}`,
+        linkedin: `/api/oauth/linkedin?state=${state}`,
+      };
 
-      switch (platform) {
-        case "meta":
-          authUrl = `/api/oauth/meta?state=${state}`;
-          break;
-        case "instagram":
-          authUrl = `/api/oauth/meta?state=${state}`;
-          break;
-        case "tiktok":
-          authUrl = `/api/oauth/tiktok?state=${state}`;
-          break;
-        case "linkedin":
-          authUrl = `/api/oauth/linkedin?state=${state}`;
-          break;
+      const authUrl = routes[platform];
+
+      if (!authUrl) {
+        throw new Error("Unsupported social platform");
       }
 
       window.location.href = authUrl;
     } catch (err) {
-      console.error(err);
+      console.error("OAuth start error:", err);
       toast.error("Failed to start connection");
     }
   }, []);
@@ -111,7 +108,9 @@ export const useSocialConnections = (userId?: string) => {
    */
   const isConnected = useCallback(
     (platform: SocialPlatform) => {
-      return connections.some((c) => c.platform === platform && c.connected);
+      return connections.some(
+        (c) => c.platform === platform && Boolean(c.access_token)
+      );
     },
     [connections]
   );

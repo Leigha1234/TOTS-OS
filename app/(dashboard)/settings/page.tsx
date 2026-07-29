@@ -83,21 +83,30 @@ const getOAuthStorageKey = (platform: string) =>
     ? "oauth_pending_meta"
     : `oauth_pending_${platform}`;
 const refreshConnections = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || !isMountedRef.current) return;
+    if (!user || !isMountedRef.current) return;
 
-  const { data: connections } = await supabase
-    .from("social_accounts")
-    .select("platform")
-    .eq("user_id", user.id);
+    const { data: connections, error } = await supabase
+      .from("social_accounts")
+      .select("platform")
+      .eq("user_id", user.id);
 
-  if (connections) {
-    const platforms = connections.map((c: any) => c.platform);
+    if (error) {
+      console.error("Social connections load error:", error);
+      setConnectedPlatforms([]);
+      connectedPlatformsRef.current = [];
+      return;
+    }
+
+    const platforms = (connections || []).map((c: any) => c.platform);
     setConnectedPlatforms(platforms);
     connectedPlatformsRef.current = platforms;
 
     await verifyConnections();
+  } catch (error) {
+    console.error("Refresh social connections failed:", error);
   }
 };
 
@@ -281,7 +290,7 @@ const verifyConnections = async () => {
 
   const { data: connections, error } = await supabase
     .from("social_accounts")
-    .select("platform, expires_at")
+    .select("platform, expires_at, access_token")
     .eq("user_id", user.id);
 
   if (error || !connections) {
@@ -296,6 +305,11 @@ const verifyConnections = async () => {
     const expiresAt = connection.expires_at ? new Date(connection.expires_at).getTime() : null;
 
     if (!platform) continue;
+
+    if (!connection.access_token) {
+      health[platform] = "expired";
+      continue;
+    }
 
     // expired token handling
     if (expiresAt && expiresAt < now) {
@@ -1300,10 +1314,13 @@ const retryFailedPosts = async () => {
                   </div>
                 </div>
 
-{/* MAINTENANCE NOTICE */}
-<div className="mb-6 p-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800">
+{/* SOCIAL CONNECTION STATUS */}
+<div className="mb-6 p-4 rounded-2xl border border-stone-200 bg-white text-stone-700">
   <p className="text-[10px] font-black uppercase tracking-widest">
-    Social Connections is currently in maintenance
+    Social Connections
+  </p>
+  <p className="text-xs mt-2 text-stone-500">
+    Connect your social accounts to publish and manage content directly from TOTS-OS.
   </p>
 </div>
 

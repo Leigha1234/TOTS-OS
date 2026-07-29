@@ -13,15 +13,22 @@ export interface ClarityChatHistoryItem {
 
 interface RunClarityChatProps {
   query: string;
-  history: ClarityChatHistoryItem[];
-  context: string;
+  history?: ClarityChatHistoryItem[];
+  context?: string;
   data: any;
+}
+
+interface RunClarityProps {
+  invoices?: any[];
+  tasks?: any[];
+  teamId?: string;
+  query?: string;
 }
 
 export async function runClarityChat({
   query,
-  history,
-  context,
+  history = [],
+  context = "",
   data,
 }: RunClarityChatProps) {
   const businessContext = buildClarityContext(data);
@@ -56,4 +63,31 @@ If the user asks a general question unrelated to TOTS-OS, answer normally.
   return {
     answer: response.output_text,
   };
+}
+
+
+/**
+ * Backwards compatibility wrapper
+ * Used by:
+ * - app/api/clarity/run/route.ts
+ * - app/api/cron/clarity/route.ts
+ * - portal/[token]/page.tsx
+ */
+export async function runClarity({
+  invoices = [],
+  tasks = [],
+  teamId = "system",
+  query = "Analyse this business data and provide useful insights.",
+}: RunClarityProps) {
+
+  return runClarityChat({
+    query,
+    history: [],
+    context: `Team ID: ${teamId}`,
+    data: {
+      invoices,
+      tasks,
+      teamId,
+    },
+  });
 }

@@ -48,14 +48,15 @@ export default function ClientDashboard() {
 
     // FIX: Changed to await because the new Clarity AI is an async Neural Engine
     try {
-      const result = await generateInsights({ 
-        invoices, 
-        tasks: [], 
-        context: "portal" 
-      });
-      
-      setInsights(result.insights || []);
-      setHeadline(result.headline || "Portal Status");
+      const result = await generateInsights({
+        invoices,
+        tasks: [],
+        context: "portal"
+      } as any);
+
+      const answer = result.answer || "Portal Status";
+      setInsights([answer]);
+      setHeadline("Portal Status");
     } catch (err) {
       console.error("Clarity sync failed:", err);
       setHeadline("System Online");

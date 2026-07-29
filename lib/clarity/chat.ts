@@ -11,27 +11,34 @@ export interface ClarityChatHistoryItem {
   content: string;
 }
 
-interface RunClarityChatProps {
-  query: string;
+export interface RunClarityChatProps {
+  query?: string;
   history?: ClarityChatHistoryItem[];
   context?: string;
-  data: any;
+  data?: any;
+  prompt?: string;
+  teamId?: string;
 }
 
-interface RunClarityProps {
+export interface RunClarityProps {
   invoices?: any[];
   tasks?: any[];
   teamId?: string;
   query?: string;
+  prompt?: string;
 }
 
 export async function runClarityChat({
-  query,
+  query = "",
   history = [],
   context = "",
-  data,
+  data = {},
+  prompt,
+  teamId,
 }: RunClarityChatProps) {
-  const businessContext = buildClarityContext(data);
+  const businessContext = buildClarityContext({ ...data, teamId });
+
+  const finalQuery = query || prompt || "Analyse this business data and provide useful insights.";
 
   const response = await openai.responses.create({
     model: "gpt-5",
@@ -46,7 +53,6 @@ ${businessContext}
 
 Use the business intelligence above when answering TOTS-OS questions.
 Do not invent information that is not provided.
-If the user asks a general question unrelated to TOTS-OS, answer normally.
 `,
     input: [
       ...history.map((message) => ({
@@ -55,7 +61,7 @@ If the user asks a general question unrelated to TOTS-OS, answer normally.
       })),
       {
         role: "user",
-        content: query,
+        content: finalQuery,
       },
     ],
   });
@@ -65,25 +71,18 @@ If the user asks a general question unrelated to TOTS-OS, answer normally.
   };
 }
 
-
-/**
- * Backwards compatibility wrapper
- * Used by:
- * - app/api/clarity/run/route.ts
- * - app/api/cron/clarity/route.ts
- * - portal/[token]/page.tsx
- */
 export async function runClarity({
   invoices = [],
   tasks = [],
   teamId = "system",
-  query = "Analyse this business data and provide useful insights.",
+  query,
+  prompt,
 }: RunClarityProps) {
-
   return runClarityChat({
-    query,
+    query: query || prompt || "Analyse this business data and provide useful insights.",
     history: [],
     context: `Team ID: ${teamId}`,
+    teamId,
     data: {
       invoices,
       tasks,

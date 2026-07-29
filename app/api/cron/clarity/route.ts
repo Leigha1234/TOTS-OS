@@ -10,11 +10,13 @@ export async function POST(req: Request) {
     const { data: tasks } = await supabaseAdmin.from("tasks").select("*").eq("team_id", teamId);
 
     const result = await runClarity({
-      invoices: invoices || [],
-      tasks: tasks || [],
-      teamId: teamId,
-      context: context // e.g. "finance", "tasks", "dashboard"
-    });
+      prompt: JSON.stringify({
+        invoices: invoices || [],
+        tasks: tasks || [],
+        context: context || "dashboard"
+      }),
+      teamId
+    } as any);
 
     return NextResponse.json(result);
   } catch (err) {

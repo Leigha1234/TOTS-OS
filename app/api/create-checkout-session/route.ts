@@ -12,15 +12,15 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const encryptionKey = process.env.REGISTRATION_ENCRYPTION_KEY;
+const registrationEncryptionKey: string = process.env.REGISTRATION_ENCRYPTION_KEY || "";
 
-if (!encryptionKey) {
+if (!registrationEncryptionKey) {
   throw new Error("REGISTRATION_ENCRYPTION_KEY is missing");
 }
 
 function encryptPassword(password: string) {
   const iv = crypto.randomBytes(16);
-  const key = crypto.createHash("sha256").update(encryptionKey).digest();
+  const key = crypto.createHash("sha256").update(registrationEncryptionKey).digest();
   const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
   const encrypted = Buffer.concat([
     cipher.update(password, "utf8"),

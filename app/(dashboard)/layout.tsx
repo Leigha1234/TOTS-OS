@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "@/app/components/Sidebar";
 import Footer from "@/app/components/Footer";
+import Clarity from "@/app/components/Clarity";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSettings } from "@/app/context/SettingsContext";
@@ -146,6 +147,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </motion.div>
           )}
         </AnimatePresence>
+
+        <Clarity />
       </main>
     </div>
   );

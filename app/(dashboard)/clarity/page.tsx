@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Send, Plus, MessageSquare, Sparkles, Search, X } from "lucide-react";
+import { Send, Plus, Sparkles, Search, X } from "lucide-react";
 
 const quickPrompts = [
   "Show my sales performance",
@@ -27,30 +27,50 @@ export default function ClarityPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [showPrompts, setShowPrompts] = useState(true);
+  const messagesEndRef = useState<HTMLDivElement | null>(null)[0];
+
+  async function loadConversationMessages(id: string) {
+    try {
+      const response = await fetch(`/api/clarity/conversations/${id}`);
+      if (!response.ok) return;
+
+      const data = await response.json();
+      setMessages(data.messages || [
+        {
+          role: "assistant",
+          content: "Welcome to Clarity. Your TOTS-OS business intelligence assistant. Ask questions about your operations, sales, projects, or workflows.",
+        },
+      ]);
+    } catch (error) {
+      console.error("Failed to load conversation messages:", error);
+    }
+  }
+
+  async function loadConversations(selectLatest = false) {
+    try {
+      const response = await fetch("/api/clarity/conversations");
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const loaded = data.conversations || [];
+
+      setConversations(loaded);
+
+      if (selectLatest && loaded.length) {
+        const latest = loaded[0];
+        setConversationId(latest.id);
+        await loadConversationMessages(latest.id);
+      }
+    } catch (error) {
+      console.error("Failed to load Clarity history:", error);
+    }
+  }
 
   useEffect(() => {
-    async function loadConversations() {
-      try {
-        const response = await fetch("/api/clarity/conversations");
-        if (!response.ok) return;
-
-        const data = await response.json();
-        setConversations(data.conversations || []);
-
-        if (data.conversations?.length) {
-          const latest = data.conversations[0];
-          setConversationId(latest.id);
-          setMessages(latest.messages || messages);
-        }
-      } catch (error) {
-        console.error("Failed to load Clarity history:", error);
-      }
-    }
-
-    loadConversations();
+    loadConversations(true);
   }, []);
 
-  function startNewConversation() {
+  async function startNewConversation() {
     setConversationId(null);
     setMessages([
       {
@@ -60,6 +80,7 @@ export default function ClarityPage() {
       },
     ]);
     setShowPrompts(true);
+    await loadConversations(false);
   }
 
   async function deleteConversation(id: string) {
@@ -123,14 +144,17 @@ export default function ClarityPage() {
             role: "assistant",
             content: data.answer || data.message || data.response || data.content || data.reply || data.error || "Clarity did not return any text. Check the API response.",
           }],
-          title: text.slice(0, 40),
+          title: text.length > 40 ? `${text.slice(0, 40)}...` : text,
           pinned: false,
         }),
       });
 
       if (saveResponse.ok) {
         const saved = await saveResponse.json();
-        if (saved.id) setConversationId(saved.id);
+        if (saved.id) {
+          setConversationId(saved.id);
+        }
+        await loadConversations(false);
       }
     } catch (error) {
       console.error("Clarity error:", error);
@@ -183,13 +207,13 @@ export default function ClarityPage() {
                 .sort((a, b) => Number(b.pinned) - Number(a.pinned))
                 .filter((conversation) => (conversation.title || "Conversation").toLowerCase().includes(search.toLowerCase()))
                 .map((conversation) => (
-                  <button
+                  <div
                     key={conversation.id}
                     onClick={() => {
                       setConversationId(conversation.id);
-                      setMessages(conversation.messages || []);
+                      loadConversationMessages(conversation.id);
                     }}
-                    className={`w-full text-left rounded-xl p-2 text-xs border ${conversation.id === conversationId ? "border-stone-900" : "border-stone-200"}`}
+                    className={`w-full cursor-pointer text-left rounded-xl p-2 text-xs border ${conversation.id === conversationId ? "border-stone-900" : "border-stone-200"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       {renamingId === conversation.id ? (
@@ -205,11 +229,32 @@ export default function ClarityPage() {
                       )}
                       <div className="flex gap-1">
                         <button onClick={(e) => { e.stopPropagation(); setRenamingId(conversation.id); setRenameValue(conversation.title || ""); }}>Edit</button>
-                        <button onClick={(e)=>{e.stopPropagation();setConversations(curr=>curr.map(item=>item.id===conversation.id?{...item,pinned:!item.pinned}:item));}}>📌</button>
+                        <button
+                          onClick={async (e)=>{
+                            e.stopPropagation();
+
+                            const updatedPinned = !conversation.pinned;
+
+                            await fetch(`/api/clarity/conversations/${conversation.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ pinned: updatedPinned }),
+                            });
+
+                            setConversations(curr => curr.map(item =>
+                              item.id === conversation.id
+                                ? { ...item, pinned: updatedPinned }
+                                : item
+                            ));
+                          }}
+                          className="text-xs"
+                        >
+                          📌
+                        </button>
                         <button onClick={(e) => { e.stopPropagation(); deleteConversation(conversation.id); }}>×</button>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
             </div>
             <div className="mt-auto pt-3 border-t border-stone-200 text-[10px] text-stone-400">
@@ -249,7 +294,7 @@ export default function ClarityPage() {
               )}
 
               <div className="space-y-4 pb-4">
-                {messages.map((message, index) => (
+                {messages.map((message: { role: string; content: string }, index) => (
                   <div
                     key={index}
                     className={
@@ -267,6 +312,9 @@ export default function ClarityPage() {
                     Clarity is thinking...
                   </div>
                 )}
+                <div ref={(element) => {
+                  if (element) element.scrollIntoView({ behavior: "smooth" });
+                }} />
               </div>
             </section>
 
@@ -276,7 +324,7 @@ export default function ClarityPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                  placeholder="Ask about sales, projects, finance or customers..."
+                  placeholder="Ask Clarity anything about your business..."
                   className="flex-1 bg-transparent outline-none px-4 text-sm"
                 />
                 <button

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { runClarity } from "@/lib/clarity";
+import { runClarityChat as runClarity } from "@/lib/clarity/chat";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/auth";
 // Refactored import to use the new Neural Engine while keeping the old variable name
-import { runClarity as generateInsights } from "@/lib/clarity";
+import { runClarityChat as generateInsights } from "@/lib/clarity/chat";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Sparkles, 

@@ -9,6 +9,8 @@ export async function POST(req: NextRequest) {
     console.log("CLARITY REQUEST BODY:", body);
 
     const query = body?.query ?? body?.message;
+    const clientContext = body?.context ?? null;
+    const conversationId = body?.conversationId ?? null;
     const history: ClarityChatHistoryItem[] = Array.isArray(body?.history)
       ? body.history
       : [];
@@ -95,12 +97,28 @@ export async function POST(req: NextRequest) {
 
     const compactHistory = history.slice(-8);
 
-    // TODO: Replace runClarityChat with a streaming implementation using the Responses API.
-    // The frontend popup is already prepared for incremental rendering.
+    // Streaming will be added after the conversation persistence layer is connected.
+    // The frontend currently provides a smooth incremental rendering experience.
     const result = await runClarityChat({
       query,
       history: compactHistory,
-      context: `You are Clarity, the AI operating system for TOTS-OS. Be concise, use markdown where appropriate, answer using the organisation's live data, proactively highlight trends, overdue work, risks and opportunities, and end with suggested next actions when useful.`,
+      context: `You are Clarity, the AI operating system for TOTS-OS.
+
+You have access to live business information. Answer as a business assistant, not a generic chatbot.
+
+Prioritise:
+- actionable insights
+- overdue items
+- risks
+- opportunities
+- sales performance
+- project progress
+- tasks requiring attention
+
+Use markdown where helpful and keep responses concise.
+
+Additional client context:
+${clientContext ? JSON.stringify(clientContext) : "No additional context supplied."}`,
       data: {
         organisation: organisation.data,
         accounts: accounts.data ?? [],
@@ -110,6 +128,7 @@ export async function POST(req: NextRequest) {
         tasks: tasks.data ?? [],
         contacts: contacts.data ?? [],
         calendar: events.data ?? [],
+        clientContext,
       },
     });
 
@@ -122,6 +141,45 @@ export async function POST(req: NextRequest) {
 
     console.log("CLARITY TOKENS COMPLETE");
     console.log("ANSWER LENGTH:", result.answer.length);
+
+    let activeConversationId = conversationId;
+
+    if (!activeConversationId) {
+      const { data: newConversation, error: conversationError } = await supabase
+        .from("clarity_chats")
+        .insert({
+          organisation_id: organisationId,
+          title: query.length > 40 ? `${query.slice(0, 40)}...` : query,
+        })
+        .select("id")
+        .single();
+
+      if (!conversationError && newConversation) {
+        activeConversationId = newConversation.id;
+      }
+    }
+
+    if (activeConversationId) {
+      await supabase.from("clarity_messages").insert([
+        {
+          chat_id: activeConversationId,
+          role: "user",
+          content: query,
+        },
+        {
+          chat_id: activeConversationId,
+          role: "assistant",
+          content: result.answer,
+        },
+      ]);
+
+      await supabase
+        .from("clarity_chats")
+        .update({
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", activeConversationId);
+    }
 
     return NextResponse.json({
       answer: result.answer,
@@ -136,6 +194,7 @@ export async function POST(req: NextRequest) {
       metadata: {
         model: "clarity",
         streamed: false,
+        conversationId: activeConversationId,
       },
     });
   } catch (error) {

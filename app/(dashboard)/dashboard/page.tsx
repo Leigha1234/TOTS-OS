@@ -9,9 +9,27 @@ import {
   ArrowRight, Briefcase, X, Loader2, Zap, FileText, 
   Share2, Mail, User as UserIcon, Clock, CheckSquare, 
   PoundSterling, Users, ShieldCheck, BarChart3, TrendingUp,
-  AlertCircle, Settings, LogOut, ChevronRight
+  AlertCircle, Settings, LogOut, ChevronRight, Sparkles
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+function ClarityFloatingButton({
+  open,
+  onClick,
+}: {
+  open: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="fixed top-6 right-6 z-40 h-12 w-12 rounded-full bg-stone-900 text-white shadow-xl flex items-center justify-center hover:scale-105 transition"
+      aria-label="Open Clarity"
+    >
+      <Sparkles size={18} />
+    </button>
+  );
+}
 
 
 
@@ -73,10 +91,82 @@ function DashboardContent() {
   const [aiActions, setAiActions] = useState<string[]>([]);
   const [clarityCommand, setClarityCommand] = useState<string>("");
   const [clarityResponse, setClarityResponse] = useState<string | null>(null);
+  const [clarityStreaming, setClarityStreaming] = useState(false);
+  const [clarityChatId, setClarityChatId] = useState<string | null>(null);
+  const [clarityMessages, setClarityMessages] = useState<
+    { id?: string; role: "user" | "assistant"; content: string; created_at?: string }[]
+  >([]);
+  const [clarityChats, setClarityChats] = useState<any[]>([]);
+  const [clarityMemory, setClarityMemory] = useState<any[]>([]);
+  const loadClarityChats = async () => {
+    if (!organisationId) return;
+
+    const { data, error } = await supabase
+      .from("clarity_chats")
+      .select("id, title, created_at")
+      .eq("organisation_id", organisationId)
+      .order("created_at", { ascending: false });
+
+    if (!error) {
+      setClarityChats(data || []);
+    }
+  };
+
+  const loadClarityMessages = async (chatId: string) => {
+    if (!chatId) return;
+
+    const { data, error } = await supabase
+      .from("clarity_messages")
+      .select("id, role, content, created_at")
+      .eq("chat_id", chatId)
+      .order("created_at", { ascending: true });
+
+    if (!error) {
+      setClarityMessages(data || []);
+    }
+  };
+
+  const loadClarityMemory = async () => {
+    if (!organisationId) return;
+
+    const { data, error } = await supabase
+      .from("clarity_memory")
+      .select("id, memory, created_at")
+      .eq("organisation_id", organisationId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (!error) setClarityMemory(data || []);
+  };
+
+  const startNewClarityChat = async () => {
+    if (!organisationId) return;
+
+    const { data, error } = await supabase
+      .from("clarity_chats")
+      .insert({
+        organisation_id: organisationId,
+        title: "New Clarity Conversation"
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      setClarityChatId(data.id);
+      localStorage.setItem("clarity_active_chat", data.id);
+      setClarityMessages([]);
+      setClarityResponse(null);
+      loadClarityChats();
+    }
+  };
+  const [showClarityWidget, setShowClarityWidget] = useState(false);
+  const [showBriefModal, setShowBriefModal] = useState(false);
   const [taskInput, setTaskInput] = useState<string>("");
   const [noteInput, setNoteInput] = useState<string>("");
   // Phase 5: Kernel event stream (runtime feed)
   const [eventStream, setEventStream] = useState<any[]>([]);
+  // Phase 7: Clarity proactive notifications
+  const [clarityNotifications, setClarityNotifications] = useState<string[]>([]);
 
   // ===============================
   // EVENT SYSTEM (STANDARDISED MODEL)
@@ -327,6 +417,26 @@ function DashboardContent() {
 
       setAiActions([...topPriorities, ...insights]);
 
+      const notifications: string[] = [];
+
+      if (taskLoad > 5) {
+        notifications.push("You have a growing task backlog requiring attention.");
+      }
+
+      if (emailLoad > 8) {
+        notifications.push("Inbox pressure is increasing. Consider prioritising responses.");
+      }
+
+      if (eventLoad > 5) {
+        notifications.push("Your calendar is becoming busy. Review upcoming commitments.");
+      }
+
+      if (risk === "low") {
+        notifications.push("Business operations are stable. Good time for strategic planning.");
+      }
+
+      setClarityNotifications(notifications);
+
     } catch (err) {
       console.error("Dashboard Sync Critical Error:", err);
     } finally {
@@ -528,41 +638,156 @@ function DashboardContent() {
   };
 
   // --- CLARITY COMMAND HANDLERS ---
-  const handleAskClarity = () => {
+  const handleAskClarity = async () => {
     if (!clarityCommand.trim()) return;
 
-    const query = clarityCommand.toLowerCase();
+    if (!clarityChatId) {
+      await startNewClarityChat();
+    }
 
-    // lightweight local reasoning layer (no backend dependency)
-    if (query.includes("task")) {
-      const incomplete = todos.filter(t => !t.completed).length;
-      setClarityResponse(`You have ${incomplete} incomplete tasks requiring attention.`);
-    } else if (query.includes("email")) {
-      setClarityResponse(`You currently have ${emails.length} recent emails in your system inbox.`);
-    } else if (query.includes("event")) {
-      setClarityResponse(`You have ${events.length} scheduled events loaded today.`);
-    } else if (query.includes("risk")) {
-      setClarityResponse(`System risk level is currently ${riskLevel}.`);
-    } else if (query.includes("summary")) {
-      setClarityResponse(aiSummary);
-    } else {
-      setClarityResponse(`Clarity received your query. Focus areas: tasks (${todos.length}), emails (${emails.length}), events (${events.length}).`);
+    const query = clarityCommand;
+
+    setClarityResponse("Clarity is analysing your business data...");
+    setClarityStreaming(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("clarity-chat", {
+        body: {
+          message: query,
+          context: {
+            tasks: todos.filter(t => !t.completed),
+            projects,
+            events,
+            emails,
+            notes,
+            finance: stats.currentProfit,
+            risk: riskLevel,
+            aiActions,
+            memory: clarityMemory,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.answer) {
+        const answer = String(data.answer);
+
+        setClarityResponse("");
+        setClarityStreaming(true);
+
+        let current = "";
+        for (const character of answer) {
+          current += character;
+          setClarityResponse(current);
+          await new Promise(resolve => setTimeout(resolve, 12));
+        }
+
+        setClarityStreaming(false);
+
+        const newMessages: {
+          id?: string;
+          role: "user" | "assistant";
+          content: string;
+          created_at?: string;
+        }[] = [
+          ...clarityMessages,
+          {
+            role: "user",
+            content: query,
+          },
+          {
+            role: "assistant",
+            content: answer,
+          },
+        ];
+
+        setClarityMessages(newMessages);
+
+        if (clarityChatId) {
+          await supabase
+            .from("clarity_messages")
+            .insert([
+              { chat_id: clarityChatId, role: "user", content: query },
+              { chat_id: clarityChatId, role: "assistant", content: answer }
+            ]);
+
+          await supabase
+            .from("clarity_memory")
+            .insert({
+              organisation_id: organisationId,
+              memory: `User asked: ${query}. Clarity answered: ${answer}`
+            });
+
+          loadClarityMemory();
+        }
+      } else {
+        setClarityResponse("Clarity could not generate a response.");
+      }
+    } catch (err) {
+      console.error("CLARITY AI ERROR:", err);
+      setClarityStreaming(false);
+      setClarityResponse(
+        `Clarity fallback summary:\n\nTasks requiring attention: ${todos.filter(t => !t.completed).length}\nActive projects: ${projects.length}\nUpcoming events: ${events.length}\nTracked revenue: £${stats.currentProfit.toLocaleString("en-GB")}`
+      );
     }
 
     setClarityCommand("");
+    setClarityStreaming(false);
   };
+  useEffect(() => {
+    if (!organisationId) return;
+
+    loadClarityChats();
+    loadClarityMemory();
+
+    const savedChatId = localStorage.getItem("clarity_active_chat");
+
+    if (savedChatId) {
+      setClarityChatId(savedChatId);
+      loadClarityMessages(savedChatId);
+    }
+  }, [organisationId]);
 
   const handleClarityBrief = () => {
-  // Quick create navigation for notes/tasks
-  
-    const brief = `CLARITY BRIEF:\n` +
-      `Risk: ${riskLevel}\n` +
-      `Tasks: ${todos.filter(t => !t.completed).length} pending\n` +
-      `Emails: ${emails.length} recent\n` +
-      `Events: ${events.length} scheduled\n` +
-      `Action: ${aiActions[0] || "Maintain operational focus"}`;
-
+    // Build formatted daily executive brief using current dashboard state
+    const now = new Date();
+    const dateStr = now.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" });
+    const incompleteTasks = todos.filter(t => !t.completed);
+    const incompleteTaskCount = incompleteTasks.length;
+    const incompleteTaskList = incompleteTasks.slice(0, 5).map((t, i) => `  - ${t.text}`).join("\n");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayEvents = events
+      .filter(e => e.startAt && e.startAt.toDateString() === now.toDateString())
+      .map(e => {
+        let time = "";
+        if (e.startAt) {
+          time = " @ " + e.startAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+        return `  - ${e.title}${time}`;
+      })
+      .join("\n");
+    const activeProjects = projects.map((p: any) => `  - ${p.name || p.title || "Project"}`).join("\n");
+    const profit = stats.currentProfit;
+    const aiSummaryText = aiSummary;
+    const aiActionsText = aiActions.length
+      ? aiActions.map((a: string) => `  - ${a}`).join("\n")
+      : "  - None";
+    const brief =
+      `CLARITY DAILY EXECUTIVE BRIEF\n\n` +
+      `Date: ${dateStr}\n\n` +
+      `Risk Level: ${riskLevel.toUpperCase()}\n` +
+      `AI Summary: ${aiSummaryText}\n\n` +
+      `Incomplete Tasks: ${incompleteTaskCount}\n` +
+      (incompleteTaskList ? `Tasks:\n${incompleteTaskList}\n\n` : "") +
+      `Today's Events:\n${todayEvents || "  - None"}\n\n` +
+      `Recent Emails: ${emails.length}\n\n` +
+      `Active Projects:\n${activeProjects || "  - None"}\n\n` +
+      `Current Profit: £${profit}\n\n` +
+      `AI Priority Actions:\n${aiActionsText}\n`;
     setClarityResponse(brief);
+    setShowBriefModal(true);
   };
 
   const runClarityScan = async () => {
@@ -594,62 +819,514 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-3 sm:p-6 lg:p-12 space-y-8 lg:space-y-12 max-w-[1600px] mx-auto font-sans overflow-x-hidden">
-      
+      {/* Floating Clarity Widget Button */}
+      <ClarityFloatingButton
+        open={showClarityWidget}
+        onClick={() => setShowClarityWidget(v => !v)}
+      />
+      {/* Floating Clarity Widget Popup */}
+      {showClarityWidget && (
+        <div className="fixed top-24 right-6 z-50 w-80 max-w-[90vw] bg-white border border-stone-200 rounded-2xl shadow-2xl p-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-bold text-stone-800">Clarity</h3>
+            <button
+              onClick={() => setShowClarityWidget(false)}
+              className="p-1 rounded hover:bg-stone-100"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <button
+            onClick={startNewClarityChat}
+            className="px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest"
+          >
+            New Chat
+          </button>
+
+          {clarityChats.length > 0 && (
+            <div className="max-h-24 overflow-y-auto space-y-1">
+              {clarityChats.slice(0, 5).map((chat) => (
+                <button
+                  key={chat.id}
+                  onClick={() => {
+                    setClarityChatId(chat.id);
+                    localStorage.setItem("clarity_active_chat", chat.id);
+                    loadClarityMessages(chat.id);
+                  }}
+                  className="w-full text-left p-2 rounded-lg bg-[#faf9f6] text-[9px] font-bold uppercase"
+                >
+                  {chat.title}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <input
+            value={clarityCommand}
+            onChange={e => setClarityCommand(e.target.value)}
+            placeholder="Ask Clarity anything about your business..."
+            className="p-2 rounded-xl border bg-[#faf9f6] text-[10px] uppercase tracking-wide"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleAskClarity}
+              className="flex-1 px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+            >
+              Analyse <Sparkles size={12} />
+            </button>
+            <button
+              onClick={handleClarityBrief}
+              className="flex-1 px-3 py-2 rounded-xl border border-stone-300 text-stone-700 text-[10px] font-black uppercase tracking-widest"
+            >
+              Daily Brief
+            </button>
+          </div>
+          <button
+            onClick={() => router.push('/clarity')}
+            className="w-full mt-1 px-3 py-2 rounded-xl bg-[#A3B18A] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#7b9462] transition"
+          >
+            Open Full Clarity
+          </button>
+          <div className="mb-3 pb-3 border-b">
+            <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+              Clarity Memory
+            </p>
+            {clarityMemory.length > 0 ? (
+              clarityMemory.slice(0, 3).map((item: any, index: number) => (
+                <div key={index} className="mt-2 p-2 rounded-lg bg-[#faf9f6]">
+                  <p className="text-[9px] font-bold">
+                    {item.memory}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-[10px] text-stone-400 mt-2">
+                No saved business memory yet.
+              </p>
+            )}
+          </div>
+          <div className="mb-3 pb-3 border-b">
+            <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+              Clarity Notifications
+            </p>
+            {clarityNotifications.length > 0 ? (
+              clarityNotifications.slice(0, 3).map((notification, index) => (
+                <div key={index} className="mt-2 p-2 rounded-lg bg-[#faf9f6]">
+                  <p className="text-[9px] font-bold">
+                    {notification}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-[10px] text-stone-400 mt-2">
+                No active notifications.
+              </p>
+            )}
+          </div>
+          {clarityMessages.length > 0 && (
+            <div className="mt-2 p-3 rounded-xl border bg-[#faf9f6] text-[10px] font-medium whitespace-pre-line max-h-64 overflow-y-auto space-y-2">
+              {clarityMessages.map((message: any, index: number) => (
+                <div
+                  key={message.id || index}
+                  className={message.role === "user" ? "text-right" : "text-left"}
+                >
+                  <p className="text-[8px] uppercase tracking-widest text-stone-400 mb-1">
+                    {message.role === "user" ? "You" : "Clarity"}
+                  </p>
+                  <div className="p-2 rounded-lg bg-white border">
+                    {message.content}
+                  </div>
+                </div>
+              ))}
+              {clarityStreaming && (
+                <span className="inline-block animate-pulse">▌</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Clarity Brief Modal */}
+      {showBriefModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full relative shadow-2xl">
+            <button
+              onClick={() => setShowBriefModal(false)}
+              className="absolute top-3 right-3 p-1 rounded hover:bg-stone-100"
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-bold mb-4">Today's Clarity Brief</h2>
+            <div className="whitespace-pre-wrap text-[11px] text-stone-800" style={{ wordBreak: 'break-word' }}>
+              {clarityResponse}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="flex flex-col lg:flex-row justify-between items-start border-b border-stone-200 pb-8 lg:pb-12 gap-6 lg:gap-8">
-        <div className="space-y-4">
+        <div className="space-y-5 w-full">
           <div className="flex items-center gap-4 text-[#A3B18A]">
             <UserIcon size={12} fill="currentColor" />
             <p className="font-black uppercase text-[9px] tracking-[0.4em]">User: {userName}</p>
           </div>
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-serif italic tracking-tighter break-words">Dashboard</h1>
+
+          <div>
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-serif italic tracking-tighter break-words">
+              Good {currentTime.getHours() < 12 ? "morning" : currentTime.getHours() < 18 ? "afternoon" : "evening"}, {userName}
+            </h1>
+            <p className="mt-3 text-xs uppercase tracking-[0.25em] text-stone-400">
+              Your business command centre is ready.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
+            <div className="bg-white border border-stone-200 rounded-3xl p-5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Business Health</p>
+              <p className="text-3xl font-serif italic mt-2">
+                {riskLevel === "low" ? "92%" : riskLevel === "medium" ? "74%" : "51%"}
+              </p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">{riskLevel} operational risk</p>
+            </div>
+
+            <div className="bg-white border border-stone-200 rounded-3xl p-5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Today's Tasks</p>
+              <p className="text-3xl font-serif italic mt-2">{todos.filter(t => !t.completed).length}</p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">requiring attention</p>
+            </div>
+
+            <div className="bg-white border border-stone-200 rounded-3xl p-5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Revenue</p>
+              <p className="text-3xl font-serif italic mt-2">£{stats.currentProfit.toLocaleString()}</p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">current tracked profit</p>
+            </div>
+          </div>
         </div>
       </header>
 
      
-      {/* CLARITY COMMAND SYSTEM */}
-      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-4 lg:p-8">
-        <div className="flex flex-col gap-4">
-
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
-              Ask Clarity
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              value={clarityCommand}
-              onChange={(e) => setClarityCommand(e.target.value)}
-              placeholder="Ask about tasks, emails, risk, summary..."
-              className="flex-1 p-3 rounded-xl border bg-[#faf9f6] text-[10px] uppercase tracking-wide"
-            />
-
-            <button
-              onClick={handleAskClarity}
-              className="px-4 py-3 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
-            >
-              Ask <ArrowRight size={12} />
-            </button>
+      {/* CLARITY DAILY EXECUTIVE BRIEF */}
+      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-5 lg:p-10">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
+                Clarity Daily Brief
+              </p>
+              <h2 className="text-3xl font-serif italic mt-2">
+                Today's Business Overview
+              </h2>
+            </div>
 
             <button
               onClick={handleClarityBrief}
-              className="px-4 py-3 rounded-xl border border-stone-300 text-stone-700 text-[10px] font-black uppercase tracking-widest"
+              className="px-5 py-3 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase tracking-widest"
             >
-              Clarity Brief
+              Open Full Brief
             </button>
           </div>
 
-          {clarityResponse && (
-            <div className="p-4 rounded-xl border bg-[#faf9f6] text-[10px] font-medium whitespace-pre-line">
-              {clarityResponse}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                AI Summary
+              </p>
+              <p className="text-sm font-medium mt-3 leading-relaxed">
+                {aiSummary || "Clarity is analysing your business activity."}
+              </p>
             </div>
-          )}
 
+            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Priority Actions
+              </p>
+              <div className="mt-3 space-y-2">
+                {aiActions.length > 0 ? (
+                  aiActions.slice(0, 3).map((action, index) => (
+                    <p key={index} className="text-xs font-medium">
+                      {index + 1}. {action}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-xs text-stone-400">No actions required.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Today's Activity
+              </p>
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-medium">
+                  {events.length} scheduled events
+                </p>
+                <p className="text-xs font-medium">
+                  {emails.length} recent emails
+                </p>
+                <p className="text-xs font-medium">
+                  {todos.filter(t => !t.completed).length} tasks requiring attention
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 rounded-2xl border border-[#A3B18A]/30 bg-[#A3B18A]/10">
+            <p className="text-[9px] font-black uppercase tracking-widest text-stone-500">
+              Clarity Recommendation
+            </p>
+            <p className="text-sm font-medium mt-2">
+              {aiActions[0] || "Your business operations are currently stable."}
+            </p>
+          </div>
         </div>
       </section>
 
       {/* Clarity Decision Engine */}
+
+      {/* BUSINESS HEALTH INTELLIGENCE */}
+      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-5 lg:p-10">
+        <div className="flex flex-col gap-6">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
+              Business Health Intelligence
+            </p>
+            <h2 className="text-3xl font-serif italic mt-2">
+              How your business is performing
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="rounded-2xl border p-5 bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Operational Health
+              </p>
+              <p className="text-3xl font-serif italic mt-3">
+                {riskLevel === "low" ? "92%" : riskLevel === "medium" ? "74%" : "51%"}
+              </p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">
+                {riskLevel} risk level
+              </p>
+            </div>
+
+            <div className="rounded-2xl border p-5 bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Project Delivery
+              </p>
+              <p className="text-3xl font-serif italic mt-3">
+                {stats.activeProjects}
+              </p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">
+                active projects
+              </p>
+            </div>
+
+            <div className="rounded-2xl border p-5 bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Revenue Position
+              </p>
+              <p className="text-3xl font-serif italic mt-3">
+                £{stats.currentProfit.toLocaleString("en-GB")}
+              </p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">
+                tracked paid revenue
+              </p>
+            </div>
+
+            <div className="rounded-2xl border p-5 bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Team Activity
+              </p>
+              <p className="text-3xl font-serif italic mt-3">
+                {teamMembers.length}
+              </p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">
+                active members
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#A3B18A]/30 bg-[#A3B18A]/10 p-5">
+            <p className="text-[9px] font-black uppercase tracking-widest text-stone-500">
+              Clarity Health Insight
+            </p>
+            <p className="text-sm font-medium mt-2 leading-relaxed">
+              {riskLevel === "high"
+                ? "Operational pressure is increasing. Review workload distribution and prioritise critical activities."
+                : riskLevel === "medium"
+                ? "Business activity is healthy, but prioritisation will help maintain momentum."
+                : "Operations are stable. This is a good opportunity to focus on growth and strategic improvements."}
+            </p>
+          </div>
+        </div>
+      </section>
+      {/* CLARITY PRIORITY ACTION BOARD */}
+      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-5 lg:p-10">
+        <div className="flex flex-col gap-6">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
+              CEO Action Board
+            </p>
+            <h2 className="text-3xl font-serif italic mt-2">
+              What needs your attention
+            </h2>
+          </div>
+
+          <div className="space-y-3">
+            {aiActions.length > 0 ? (
+              aiActions.slice(0, 5).map((action, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border bg-[#faf9f6]"
+                >
+                  <div className="h-8 w-8 rounded-full bg-stone-900 text-white flex items-center justify-center text-[10px] font-black">
+                    {index + 1}
+                  </div>
+
+                  <div className="flex-1">
+                    <p className="text-xs font-bold uppercase tracking-wide">
+                      {action}
+                    </p>
+                    <p className="text-[10px] text-stone-400 uppercase mt-1">
+                      Suggested by Clarity based on current business activity
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (action.toLowerCase().includes("task")) router.push("/notes");
+                      else if (action.toLowerCase().includes("email")) router.push("/campaigns");
+                      else if (action.toLowerCase().includes("project")) router.push("/projects");
+                    }}
+                    className="px-4 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest"
+                  >
+                    View
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="p-5 rounded-2xl border bg-[#faf9f6]">
+                <p className="text-xs uppercase text-stone-400">
+                  No priority actions detected. Operations are currently stable.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div className="p-4 rounded-2xl border">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Task Pressure
+              </p>
+              <p className="text-xl font-serif italic mt-2">
+                {todos.filter(t => !t.completed).length} open
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl border">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Inbox Pressure
+              </p>
+              <p className="text-xl font-serif italic mt-2">
+                {emails.length} emails
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl border">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Calendar Load
+              </p>
+              <p className="text-xl font-serif italic mt-2">
+                {events.length} events
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* LIVE BUSINESS INSIGHTS */}
+      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-5 lg:p-10">
+        <div className="flex flex-col gap-6">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
+              Live Business Insights
+            </p>
+            <h2 className="text-3xl font-serif italic mt-2">
+              Real-time operational signals
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Live Activity
+              </p>
+              <p className="text-3xl font-serif italic mt-3">
+                {eventStream.length}
+              </p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">
+                recent system events
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Task Momentum
+              </p>
+              <p className="text-3xl font-serif italic mt-3">
+                {todos.filter(t => t.completed).length}/{todos.length}
+              </p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">
+                completed tasks
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                Pipeline Activity
+              </p>
+              <p className="text-3xl font-serif italic mt-3">
+                {projects.length}
+              </p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">
+                active opportunities
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
+              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                AI Status
+              </p>
+              <p className="text-3xl font-serif italic mt-3">
+                {riskLevel === "high" ? "Alert" : riskLevel === "medium" ? "Watch" : "Stable"}
+              </p>
+              <p className="text-[10px] uppercase text-stone-500 mt-2">
+                Clarity monitoring
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#A3B18A]/30 bg-[#A3B18A]/10 p-5">
+            <p className="text-[9px] font-black uppercase tracking-widest text-stone-500">
+              Latest Clarity Signals
+            </p>
+            <div className="mt-3 space-y-2">
+              {eventStream.length > 0 ? (
+                eventStream.slice(0, 5).map((event: any, index: number) => (
+                  <p key={index} className="text-xs font-medium">
+                    {event.type.replace("_", " ")} detected
+                  </p>
+                ))
+              ) : (
+                <p className="text-xs font-medium">
+                  Clarity is monitoring your business activity.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Primary Overview Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-12">
@@ -948,46 +1625,7 @@ const unscheduledEvents = sorted.filter(e => !e.startAt);
   );
 }
 export default function DashboardPage() {
-  const [isInitializing, setIsInitializing] = useState(true);
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  useEffect(() => {
-    async function checkInit() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Poll the DB for the profile. 
-      // If organisation_id is null, it's still initializing via the SQL trigger.
-      let retries = 0;
-      while (retries < 10) { // Increased retries slightly for safety
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organisation_id')
-          .eq('id', user.id)
-          .single();
-
-        if (profile?.organisation_id) {
-          setIsInitializing(false);
-          break;
-        }
-        await new Promise(r => setTimeout(r, 1000)); // Wait 1s
-        retries++;
-      }
-      setIsInitializing(false); // Stop waiting even if null after retries
-    }
-    checkInit();
-  }, [supabase]);
-
-  if (isInitializing) return (
-    <div className="h-screen flex flex-col items-center justify-center gap-4 bg-[#faf9f6]">
-      <Loader2 className="animate-spin text-[#A3B18A]" size={32} />
-      <p className="font-black uppercase tracking-[0.4em] text-[10px] text-stone-400">Loading...</p>
-    </div>
-  );
-
+  const [isInitializing, setIsInitializing] = useState(false);
   return (
     <Suspense fallback={<div className="h-screen flex items-center justify-center">Loading...</div>}>
       <DashboardContent />

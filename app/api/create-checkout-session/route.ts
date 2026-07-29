@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       fullName,
       companyName,
       jobTitle,
+      priceId,
       // inviteId removed because pending_registrations does not contain an invite_id column
     } = body;
 
@@ -88,8 +89,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!process.env.STRIPE_PRICE_ELITE) {
-      throw new Error("STRIPE_PRICE_ELITE is missing");
+    const selectedPriceId = priceId || process.env.STRIPE_PRICE_ELITE;
+
+    if (!selectedPriceId) {
+      throw new Error("Stripe price ID is missing");
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -98,7 +101,7 @@ export async function POST(request: NextRequest) {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: process.env.STRIPE_PRICE_ELITE!,
+          price: selectedPriceId,
           quantity: 1,
         },
       ],
@@ -135,11 +138,11 @@ export async function POST(request: NextRequest) {
       .eq("id", pendingRegistration.id);
 
     return NextResponse.json({ url: session.url });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Checkout session error:", error);
 
     return NextResponse.json(
-      { error: "Unable to create checkout session." },
+      { error: error.message || "Unable to create checkout session." },
       { status: 500 }
     );
   }

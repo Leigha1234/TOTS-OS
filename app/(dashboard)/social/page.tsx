@@ -94,7 +94,7 @@ export default function SocialStudioUnified() {
   // Production Form State (Manual Edit / AI Apply Canvas)
   const [caption, setCaption] = useState("");
   const [hashtags, setHashtags] = useState("");
-  const [platforms, setPlatforms] = useState<string[]>(["meta"]);
+  const [platforms, setPlatforms] = useState<string[]>([]);
   const [format, setFormat] = useState("Post");
   const [scheduledTime, setScheduledTime] = useState("");
   const [metaScript, setMetaScript] = useState("");
@@ -172,30 +172,37 @@ export default function SocialStudioUnified() {
 
   useEffect(() => {
     const loadAccounts = async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setAccounts([]);
+        return;
+      }
 
       const { data, error } = await supabase
         .from("social_accounts")
-        .select("*")
+        .select("id, platform, platform_user_id, instagram_business_account_id")
         .eq("user_id", user.id);
 
-      if (!error) {
-        setAccounts(data || []);
-      } else {
+      if (error) {
         console.error("Account load error:", error);
+        toast.error("Could not load connected accounts");
+        return;
+      }
+
+      setAccounts(data || []);
+      if (!selectedAccountId && data?.length) {
+        setSelectedAccountId(data[0].id);
       }
     };
 
     loadAccounts();
-  }, [user, supabase]);
+  }, [user, supabase, selectedAccountId]);
 
   // Ensure selected account is set by default if not set and available (fixes IG/meta posting failures)
   useEffect(() => {
-    if (!selectedAccountId && accounts?.length > 0) {
-      const metaAccount = accounts.find(a => a.platform === "meta");
-      if (metaAccount) setSelectedAccountId(metaAccount.id);
+    if (!selectedAccountId && accounts.length > 0) {
+      setSelectedAccountId(accounts[0].id);
     }
-  }, [accounts]);
+  }, [accounts, selectedAccountId]);
 
   // --- REAL-TIME POST EXECUTION SYNC (PHASE 3 ENGINE HOOK) ---
   useEffect(() => {
@@ -324,8 +331,13 @@ export default function SocialStudioUnified() {
         return false;
       }
 
+      if (platforms.length === 0) {
+        toast.error("Please select at least one platform.");
+        return false;
+      }
+
       if (!selectedAccountId) {
-        toast.error("Please select a connected Meta account.");
+        toast.error("Please connect and select a social account.");
         return false;
       }
 
@@ -678,7 +690,7 @@ export default function SocialStudioUnified() {
                                   if (e.target.checked) {
                                     setPlatforms(prev => prev.includes(p) ? prev : [...prev, p]);
                                   } else {
-                                    setPlatforms(platforms.filter(x => x !== p));
+                                    setPlatforms(prev => prev.filter(x => x !== p));
                                   }
                                 }}
                               />
@@ -696,9 +708,7 @@ export default function SocialStudioUnified() {
                             className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100"
                           >
                             <option value="">Select account</option>
-                            {(accounts || [])
-  .filter(acc => acc?.platform === "meta")
-  .map((acc) => (
+                            {accounts.map((acc) => (
                               <option key={acc.id} value={acc.id}>
                                 {acc.platform} - {acc.name || acc.page_name || acc.platform_user_id || acc.id}
                               </option>
@@ -758,6 +768,11 @@ export default function SocialStudioUnified() {
                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
                    <div key={d} className="text-center text-[10px] font-black text-stone-200 uppercase tracking-[0.3em] mb-10">{d}</div>
                  ))}
+                 {posts.length === 0 && (
+                   <div className="col-span-full text-center py-10 text-stone-400 text-sm font-medium">
+                     No scheduled posts yet. Create your first post in Strategy Lab.
+                   </div>
+                 )}
                  {calendarDays.map((day, i) => {
                    const dayPosts = posts.filter(p =>
                      p.scheduled_for && isSameDay(p.scheduled_for, day, currentDate.getMonth(), currentDate.getFullYear())
@@ -832,7 +847,24 @@ export default function SocialStudioUnified() {
     Preview
   </button>
 
-  <button className="text-stone-200 hover:text-red-500 transition-colors">
+  <button
+    onClick={async () => {
+      const { error } = await supabase
+        .from("scheduled_posts")
+        .delete()
+        .eq("id", post.id);
+
+      if (error) {
+        toast.error("Failed to delete post");
+        return;
+      }
+
+      toast.success("Post deleted");
+      setSelectedDayPosts(prev => prev.filter(item => item.id !== post.id));
+      syncPosts();
+    }}
+    className="text-stone-200 hover:text-red-500 transition-colors"
+  >
     <Trash2 size={16}/>
   </button>
 </div>

@@ -6,13 +6,13 @@ export async function GET() {
   try {
     // 1. NEURAL LINK VERIFICATION
     // Check if the API key exists before even touching the database
-    if (!process.env.GEMINI_API_KEY) {
-      console.error("CRITICAL_ERROR: GEMINI_API_KEY is not defined in Vercel.");
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("CRITICAL_ERROR: OPENAI_API_KEY is not defined in Vercel.");
       return NextResponse.json(
-        { 
-          error: "Neural Link Offline", 
-          details: "Gemini API Key missing from environment configuration." 
-        }, 
+        {
+          error: "Neural Link Offline",
+          details: "OpenAI API Key missing from environment configuration."
+        },
         { status: 500 }
       );
     }
@@ -29,7 +29,7 @@ export async function GET() {
     }
 
     // 3. EXECUTE CLARITY INTELLIGENCE
-    // This calls your Gemini logic in @/lib/clarity
+    // This calls your OpenAI Clarity logic in @/lib/clarity/chat
     const results = await runClarity({
       prompt: JSON.stringify({
         invoices: invoicesRes.data || [],
@@ -39,10 +39,11 @@ export async function GET() {
     });
 
     // 4. SUCCESS RESPONSE
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       timestamp: new Date().toISOString(),
       status: "Neural analysis complete",
+      insights: results,
       nodeCount: (invoicesRes.data?.length || 0) + (tasksRes.data?.length || 0)
     });
 

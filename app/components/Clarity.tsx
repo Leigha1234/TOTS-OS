@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Sparkles, X, Send, Plus, MessageSquare, Trash2 } from "lucide-react";
 
 interface Message {
+  id?: string;
   role: "user" | "assistant";
   content: string;
+  created_at?: string;
 }
 
 interface Conversation {
@@ -81,6 +83,10 @@ export default function Clarity() {
   async function loadConversations() {
     try {
       const res = await fetch("/api/clarity/conversations");
+      if (!res.ok) {
+        throw new Error("Failed to load conversations");
+      }
+
       const data = await res.json();
       setConversations(data.conversations || []);
     } catch (error) {
@@ -98,6 +104,10 @@ export default function Clarity() {
       );
 
       const res = await fetch(`/api/clarity/conversations/${id}`);
+      if (!res.ok) {
+        throw new Error("Failed to load conversation");
+      }
+
       const data = await res.json();
 
       setMessages(data.messages || []);
@@ -156,10 +166,14 @@ export default function Clarity() {
         body: JSON.stringify({
           message: userMessage,
           conversationId,
-          history: messages,
+          history: updatedMessages,
           context: businessContext,
         }),
       });
+
+      if (!res.ok) {
+        throw new Error("Clarity request failed");
+      }
 
       const data = await res.json();
 
@@ -204,7 +218,7 @@ export default function Clarity() {
         ...prev,
         {
           role: "assistant",
-          content: "Unable to connect to Clarity.",
+          content: "Unable to connect to Clarity. Please try again.",
         },
       ]);
     } finally {
@@ -315,7 +329,10 @@ export default function Clarity() {
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Enter") askClarity();
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  askClarity();
+                }
               }}
               placeholder="Ask Clarity anything about your business..."
               className="flex-1 rounded-xl border px-3 py-2 text-xs"

@@ -32,7 +32,13 @@ export async function POST(req: NextRequest) {
           getAll() {
             return cookieStore.getAll();
           },
-          setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          setAll(
+            cookiesToSet: {
+              name: string;
+              value: string;
+              options?: CookieOptions;
+            }[]
+          ) {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
@@ -91,8 +97,8 @@ export async function POST(req: NextRequest) {
       supabase.from("activity").select("*").eq("organisation_id", organisationId).limit(100),
       supabase.from("projects").select("*").eq("organisation_id", organisationId).limit(100),
       supabase.from("tasks").select("*").eq("organisation_id", organisationId).limit(100),
-      supabase.from("profiles").select("*").eq("organisation_id", organisationId).limit(100),
-      supabase.from("events").select("*").eq("organisation_id", organisationId).limit(100),
+      supabase.from("contacts").select("*").eq("organisation_id", organisationId).limit(100),
+      supabase.from("calendar_events").select("*").eq("organisation_id", organisationId).limit(100),
     ]);
 
     const compactHistory = history.slice(-8);

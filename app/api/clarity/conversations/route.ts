@@ -17,7 +17,7 @@ async function createClient() {
           cookiesToSet: {
             name: string;
             value: string;
-            options?: any;
+            options?: Parameters<typeof cookieStore.set>[2];
           }[]
         ) {
           try {
@@ -43,6 +43,21 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", userData.user.id)
+      .single();
+
+    const organisationId = profile?.organisation_id;
+
+    if (!organisationId) {
+      return NextResponse.json(
+        { error: "Organisation not found" },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("clarity_conversations")
       .select(`
@@ -57,7 +72,7 @@ export async function GET() {
           created_at
         )
       `)
-      .eq("user_id", userData.user.id)
+      .eq("organisation_id", organisationId)
       .order("updated_at", { ascending: false });
 
     if (error) throw error;
@@ -88,6 +103,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", userData.user.id)
+      .single();
+
+    const organisationId = profile?.organisation_id;
+
+    if (!organisationId) {
+      return NextResponse.json(
+        { error: "Organisation not found" },
+        { status: 400 }
+      );
+    }
+
     const { conversationId, messages } = body;
 
     if (!Array.isArray(messages)) {
@@ -104,6 +134,7 @@ export async function POST(request: Request) {
         .from("clarity_conversations")
         .insert({
           user_id: userData.user.id,
+          organisation_id: organisationId,
           title:
             messages.find((message: any) => message.role === "user")?.content?.slice(0, 60) ||
             "New conversation",
@@ -116,15 +147,23 @@ export async function POST(request: Request) {
       id = conversation.id;
     }
 
-    await supabase
+    const { data: existingMessages } = await supabase
       .from("clarity_messages")
-      .delete()
+      .select("role, content")
       .eq("conversation_id", id);
+
+    const newMessages = messages.filter((message: any) => {
+      return !existingMessages?.some(
+        (existing: any) =>
+          existing.role === message.role &&
+          existing.content === message.content
+      );
+    });
 
     const { error: insertError } = await supabase
       .from("clarity_messages")
       .insert(
-        messages.map((message: any) => ({
+        newMessages.map((message: any) => ({
           conversation_id: id,
           role: message.role,
           content: message.content,

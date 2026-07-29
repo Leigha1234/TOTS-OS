@@ -1,5 +1,3 @@
-
-
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -42,13 +40,28 @@ export async function GET() {
       );
     }
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", user.id)
+      .single();
+
+    const organisationId = profile?.organisation_id;
+
+    if (!organisationId) {
+      return NextResponse.json(
+        { error: "Organisation not found" },
+        { status: 400 }
+      );
+    }
+
     const [projects, tasks, contacts, notes, events, campaigns] = await Promise.all([
-      supabase.from("projects").select("*").limit(50),
-      supabase.from("tasks").select("*").limit(50),
-      supabase.from("contacts").select("*").limit(50),
-      supabase.from("notes").select("*").limit(50),
-      supabase.from("calendar_events").select("*").limit(50),
-      supabase.from("campaigns").select("*").limit(50),
+      supabase.from("projects").select("*").eq("organisation_id", organisationId).limit(50),
+      supabase.from("tasks").select("*").eq("organisation_id", organisationId).limit(50),
+      supabase.from("contacts").select("*").eq("organisation_id", organisationId).limit(50),
+      supabase.from("notes").select("*").eq("organisation_id", organisationId).limit(50),
+      supabase.from("calendar_events").select("*").eq("organisation_id", organisationId).limit(50),
+      supabase.from("campaigns").select("*").eq("organisation_id", organisationId).limit(50),
     ]);
 
     return NextResponse.json({
@@ -57,6 +70,7 @@ export async function GET() {
           id: user.id,
           email: user.email,
         },
+        organisationId,
         projects: projects.data || [],
         tasks: tasks.data || [],
         contacts: contacts.data || [],

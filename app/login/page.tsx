@@ -87,34 +87,19 @@ function LoginForm() {
           throw new Error("Please complete all required registration fields.");
         }
 
-        const res = await fetch("/api/create-checkout-session", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        sessionStorage.setItem(
+          "pendingRegistration",
+          JSON.stringify({
             email,
             password,
             fullName,
             companyName,
             jobTitle,
             inviteId,
-          }),
-        });
+          })
+        );
 
-        const result = await res.json();
-
-        if (!res.ok) {
-          throw new Error(result?.error || "Unable to start secure checkout.");
-        }
-
-        if (!result?.url) {
-          throw new Error("Checkout session was not created. Please try again.");
-        }
-
-        // Do not create a Supabase user here. The account should only be created by
-        // the finalise-registration endpoint after Stripe confirms payment.
-        window.location.assign(result.url);
+        router.push("/billing");
         return;
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -205,7 +190,7 @@ function LoginForm() {
           {registered
             ? "Your payment was successful. Your workspace has been created. Sign in with the details you used during registration."
             : isRegister
-              ? "Secure your workspace by completing payment before your account is activated."
+              ? "Create your account, then choose your subscription on the next screen."
               : "Sign in to access your TOTS-OS workspace."}
         </p>
         <div className="flex items-center justify-center gap-2">
@@ -368,7 +353,7 @@ function LoginForm() {
         {authLoading ? (
           <Loader2 className="animate-spin" size={18} />
         ) : isRegister ? (
-          <>Continue to Payment</>
+          <>Continue</>
         ) : (
           <>Sign In</>
         )}

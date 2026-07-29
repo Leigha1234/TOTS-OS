@@ -58,7 +58,7 @@ export default function BillingPage() {
   const handleCheckout = async (tier: string) => {
     setLoading(tier);
     try {
-      const response = await fetch("/api/pay/stripe/checkout", {
+      const response = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tier }),

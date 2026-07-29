@@ -8,13 +8,14 @@ import { runClarityChat, type ClarityChatHistoryItem } from "@/lib/clarity/chat"
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log("CLARITY REQUEST BODY:", body);
 
-    const query = body?.query;
+    const query = body?.query ?? body?.message;
     const history: ClarityChatHistoryItem[] = Array.isArray(body?.history)
       ? body.history
       : [];
 
-    if (!query || typeof query !== "string") {
+    if (!query || typeof query !== "string" || !query.trim()) {
       return NextResponse.json(
         { error: "A message is required." },
         { status: 400 }

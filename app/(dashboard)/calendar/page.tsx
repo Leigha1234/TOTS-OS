@@ -997,7 +997,7 @@ setFormRepeat("none");
               start_time: startISO,
               end_time: endISO,
               repeat: formRepeat,
-              user_id: resolvedUser?.id || null,
+              user_id: authUser.id,
               organisation_id: orgId,
               source: "calendar"
             }

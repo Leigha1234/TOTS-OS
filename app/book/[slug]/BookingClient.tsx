@@ -27,10 +27,49 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
 
   useEffect(() => {
     setSelectedTime("");
   }, [selectedDate]);
+
+  useEffect(() => {
+    async function loadBookedTimes() {
+      if (!selectedDate) {
+        setBookedTimes([]);
+        return;
+      }
+
+      const supabase = createClient();
+
+      const startOfDay = new Date(`${selectedDate}T00:00:00`).toISOString();
+      const endOfDay = new Date(`${selectedDate}T23:59:59`).toISOString();
+
+      const { data, error } = await supabase
+        .from("events")
+        .select("start_time, end_time")
+        .eq("user_id", bookingPage.user_id)
+        .lt("start_time", endOfDay)
+        .gt("end_time", startOfDay);
+
+      if (error) {
+        console.error("LOAD BOOKED TIMES ERROR:", error);
+        setBookedTimes([]);
+        return;
+      }
+
+      setBookedTimes(
+        (data || []).map((event) =>
+          new Date(event.start_time).toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        )
+      );
+    }
+
+    loadBookedTimes();
+  }, [selectedDate, bookingPage.user_id]);
 
   const dates = useMemo(() => {
     const result: string[] = [];
@@ -81,14 +120,18 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
           .toString()
           .padStart(2, "0");
 
-        slots.push(`${hours}:${minutes}`);
+        const slotTime = `${hours}:${minutes}`;
+
+        if (!bookedTimes.includes(slotTime)) {
+          slots.push(slotTime);
+        }
 
         currentMinutes += bookingPage.duration_minutes;
       }
     });
 
     return [...new Set(slots)];
-  }, [selectedDate, bookingPage]);
+  }, [selectedDate, bookingPage, bookedTimes]);
 
   async function createBooking() {
     if (!selectedDate || !selectedTime || !name || !email) {

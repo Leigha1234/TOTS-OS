@@ -7,8 +7,8 @@ import { useSocialConnections } from "@/app/hooks/useSocialConnections";
 const platforms = [
   {
     id: "meta",
-    name: "Meta",
-    description: "Facebook Pages and Instagram publishing",
+    name: "Facebook",
+    description: "Facebook Pages and Instagram Business publishing",
   },
   {
     id: "linkedin",
@@ -28,6 +28,7 @@ export default function SocialConnections() {
   const [error, setError] = useState<string | null>(null);
   const [activePlatform, setActivePlatform] = useState<PlatformId | null>(null);
   const [userId, setUserId] = useState<string | undefined>();
+  const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -44,6 +45,26 @@ export default function SocialConnections() {
     loadUser();
   }, []);
 
+  const loadConnections = async () => {
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from("social_accounts")
+      .select("id, platform, page_name, instagram_business_account_id")
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Failed loading social accounts:", error);
+      return;
+    }
+
+    setConnectedAccounts(data || []);
+  };
+
+  useEffect(() => {
+    loadConnections();
+  }, [userId]);
+
   const { loading, connect, disconnect, isConnected } =
     useSocialConnections(userId);
 
@@ -53,9 +74,10 @@ export default function SocialConnections() {
       setActivePlatform(platformId);
 
       await connect(platformId);
+      await loadConnections();
     } catch (err) {
       console.error("Social connection failed:", err);
-      setError("Unable to connect this account. Please try again.");
+      setError(err instanceof Error ? err.message : "Unable to connect this account. Please try again.");
       setActivePlatform(null);
     }
   };
@@ -66,6 +88,7 @@ export default function SocialConnections() {
       setActivePlatform(platformId);
 
       await disconnect(platformId);
+      await loadConnections();
     } catch (err) {
       console.error("Social disconnect failed:", err);
       setError("Unable to disconnect this account. Please try again.");
@@ -137,6 +160,19 @@ export default function SocialConnections() {
           );
         })}
       </div>
+
+      {connectedAccounts.length > 0 && (
+        <div className="rounded-xl border bg-white p-4 space-y-2">
+          <h3 className="font-medium">Connected accounts</h3>
+          {connectedAccounts.map((account) => (
+            <div key={account.id} className="text-sm text-gray-600">
+              {account.platform}
+              {account.page_name ? ` - ${account.page_name}` : ""}
+              {account.instagram_business_account_id ? " (Instagram Business)" : ""}
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

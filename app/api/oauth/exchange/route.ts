@@ -55,6 +55,12 @@ async function exchangeOAuth(
 
       const tokenData = await tokenResponse.json();
 
+      if (!tokenResponse.ok) {
+        return NextResponse.json(
+          { error: "Meta OAuth request failed", details: tokenData },
+          { status: 500 }
+        );
+      }
       if (!tokenData.access_token) {
         return NextResponse.json(
           { error: "Meta token exchange failed", details: tokenData },
@@ -68,13 +74,39 @@ async function exchangeOAuth(
 
       const pagesData = await pagesResponse.json();
 
-      accountData = (pagesData.data || []).map((page: any) => ({
-        user_id: userId,
-        platform: "meta",
-        platform_user_id: page.id,
-        access_token: page.access_token || tokenData.access_token,
-        created_at: new Date().toISOString(),
-      }));
+      if (!pagesResponse.ok) {
+        return NextResponse.json(
+          { error: "Unable to fetch Meta pages", details: pagesData },
+          { status: 500 }
+        );
+      }
+
+      accountData = await Promise.all(
+        (pagesData.data || []).map(async (page: any) => {
+          const instagramResponse = await fetch(
+            `https://graph.facebook.com/v23.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
+          );
+
+          const instagramData = await instagramResponse.json();
+
+          return {
+            user_id: userId,
+            platform: platform === "instagram" ? "instagram" : "meta",
+            platform_user_id: page.id,
+            access_token: tokenData.access_token,
+            page_id: page.id,
+            page_name: page.name,
+            page_access_token: page.access_token,
+            instagram_business_account_id:
+              instagramData.instagram_business_account?.id || null,
+            created_at: new Date().toISOString(),
+            expires_at: tokenData.expires_in
+              ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+              : null,
+            updated_at: new Date().toISOString(),
+          };
+        })
+      );
     }
 
     if (platform === "linkedin") {
@@ -97,6 +129,12 @@ async function exchangeOAuth(
 
       const tokenData = await tokenResponse.json();
 
+      if (!tokenResponse.ok) {
+        return NextResponse.json(
+          { error: "LinkedIn OAuth request failed", details: tokenData },
+          { status: 500 }
+        );
+      }
       if (!tokenData.access_token) {
         return NextResponse.json(
           { error: "LinkedIn token exchange failed", details: tokenData },
@@ -125,6 +163,7 @@ async function exchangeOAuth(
             ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
             : null,
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
       ];
     }
@@ -149,6 +188,12 @@ async function exchangeOAuth(
 
       const tokenData = await tokenResponse.json();
 
+      if (!tokenResponse.ok) {
+        return NextResponse.json(
+          { error: "TikTok OAuth request failed", details: tokenData },
+          { status: 500 }
+        );
+      }
       if (!tokenData.access_token) {
         return NextResponse.json(
           { error: "TikTok token exchange failed", details: tokenData },
@@ -179,6 +224,7 @@ async function exchangeOAuth(
             ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
             : null,
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
       ];
     }

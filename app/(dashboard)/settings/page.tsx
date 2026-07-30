@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useSettings } from "@/app/context/SettingsContext";
 
 import SocialConnections from "@/app/components/SocialConnections";
+import SocialComposer from "@/app/components/SocialComposer";
 import PasswordSection from "@/app/components/PasswordSection";
 import LegalHub from "@/app/components/LegalHub";
 
@@ -57,6 +58,7 @@ function SettingsInner() {
   const [userOrgId, setUserOrgId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+  const [socialAccounts, setSocialAccounts] = useState<any[]>([]);
   const [logoUrl, setLogoUrl] = useState("");
   const [logoUploading, setLogoUploading] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMemberView[]>([]);
@@ -90,7 +92,7 @@ const refreshConnections = async () => {
 
     const { data: connections, error } = await supabase
       .from("social_accounts")
-      .select("platform")
+      .select("id, platform, page_name")
       .eq("user_id", user.id);
 
     if (error) {
@@ -101,6 +103,7 @@ const refreshConnections = async () => {
     }
 
     const platforms = (connections || []).map((c: any) => c.platform);
+    setSocialAccounts(connections || []);
     setConnectedPlatforms(platforms);
     connectedPlatformsRef.current = platforms;
 
@@ -1325,8 +1328,10 @@ const retryFailedPosts = async () => {
 </div>
 
                 {/* --- CONNECT SOCIALS COMPONENT ROW --- */}
-                <div className="pt-10 border-t border-stone-100">
+                <div className="pt-10 border-t border-stone-100 space-y-8">
                   <SocialConnections />
+
+                  <SocialComposer accounts={socialAccounts} />
                 </div>
 
                 {/* --- SECURE PASSWORD ALTERATION MATRICES --- */}

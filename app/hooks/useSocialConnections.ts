@@ -98,7 +98,9 @@ export const useSocialConnections = (userId?: string) => {
     (platform: SocialPlatform) =>
       connections.some(
         (connection) =>
-          connection.platform === platform && Boolean(connection.access_token)
+          (connection.platform === platform ||
+            (platform === "instagram" && connection.platform === "meta")) &&
+          Boolean(connection.access_token)
       ),
     [connections]
   );

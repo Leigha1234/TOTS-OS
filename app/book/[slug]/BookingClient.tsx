@@ -57,7 +57,8 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
   const availableTimes = useMemo(() => {
     if (!selectedDate) return [];
 
-    const day = new Date(selectedDate)
+    const selected = new Date(`${selectedDate}T00:00:00`);
+    const day = selected
       .toLocaleDateString("en-GB", { weekday: "short" })
       .toLowerCase()
       .slice(0, 3);
@@ -66,24 +67,27 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
     const ranges = bookingPage.availability?.[day] || [];
 
     ranges.forEach((range) => {
-      let current = new Date(`${selectedDate}T${range.start}`);
-      const end = new Date(`${selectedDate}T${range.end}`);
+      const [startHour, startMinute] = range.start.split(":").map(Number);
+      const [endHour, endMinute] = range.end.split(":").map(Number);
 
-      while (current < end) {
-        slots.push(
-          current.toLocaleTimeString("en-GB", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        );
+      let currentMinutes = startHour * 60 + startMinute;
+      const endMinutes = endHour * 60 + endMinute;
 
-        current = new Date(
-          current.getTime() + bookingPage.duration_minutes * 60000
-        );
+      while (currentMinutes + bookingPage.duration_minutes <= endMinutes) {
+        const hours = Math.floor(currentMinutes / 60)
+          .toString()
+          .padStart(2, "0");
+        const minutes = (currentMinutes % 60)
+          .toString()
+          .padStart(2, "0");
+
+        slots.push(`${hours}:${minutes}`);
+
+        currentMinutes += bookingPage.duration_minutes;
       }
     });
 
-    return slots;
+    return [...new Set(slots)];
   }, [selectedDate, bookingPage]);
 
   async function createBooking() {

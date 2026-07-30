@@ -65,8 +65,10 @@ interface BookingPage {
   title: string;
   description: string;
   duration_minutes: number;
-  location_type: "video" | "phone" | "in_person" | "custom";
+  location_type: "video" | "phone" | "in_person" | "custom" | "both";
   location_value: string;
+  video_provider: "zoom" | "teams" | "google_meet" | "custom" | "none";
+  video_link: string;
   buffer_before_minutes: number;
   buffer_after_minutes: number;
   min_notice_hours: number;
@@ -93,6 +95,8 @@ const DEFAULT_BOOKING_PAGE: BookingPage = {
   duration_minutes: 30,
   location_type: "video",
   location_value: "",
+  video_provider: "google_meet",
+  video_link: "",
   buffer_before_minutes: 0,
   buffer_after_minutes: 0,
   min_notice_hours: 4,
@@ -449,6 +453,8 @@ setEvents(combined);
         setBookingPage({
           ...DEFAULT_BOOKING_PAGE,
           ...data,
+          video_provider: data.video_provider || DEFAULT_BOOKING_PAGE.video_provider,
+          video_link: data.video_link || DEFAULT_BOOKING_PAGE.video_link,
           availability: data.availability || DEFAULT_BOOKING_PAGE.availability,
         });
         setBookingPageExists(true);
@@ -743,6 +749,8 @@ setFormRepeat("none");
         duration_minutes: Number(bookingPage.duration_minutes) || 30,
         location_type: bookingPage.location_type,
         location_value: bookingPage.location_value || "",
+        video_provider: bookingPage.video_provider || "none",
+        video_link: bookingPage.video_link || "",
         buffer_before_minutes: Number(bookingPage.buffer_before_minutes) || 0,
         buffer_after_minutes: Number(bookingPage.buffer_after_minutes) || 0,
         min_notice_hours: Number(bookingPage.min_notice_hours) || 0,
@@ -1391,6 +1399,59 @@ setFormRepeat("none");
               <option value={45}>45 minutes</option>
               <option value={60}>60 minutes</option>
             </select>
+
+            <select
+              value={bookingPage.location_type}
+              onChange={e =>
+                setBookingPage(prev => ({
+                  ...prev,
+                  location_type: e.target.value as BookingPage["location_type"]
+                }))
+              }
+              className="bg-stone-50 rounded-xl p-4 text-xs ring-1 ring-stone-100 outline-none"
+            >
+              <option value="video">Online meeting only</option>
+              <option value="in_person">In person only</option>
+              <option value="both">Customer chooses online or in person</option>
+              <option value="phone">Phone call</option>
+            </select>
+
+            {(bookingPage.location_type === "video" || bookingPage.location_type === "both") && (
+              <>
+                <select
+                  value={bookingPage.video_provider}
+                  onChange={e =>
+                    setBookingPage(prev => ({
+                      ...prev,
+                      video_provider: e.target.value as BookingPage["video_provider"]
+                    }))
+                  }
+                  className="bg-stone-50 rounded-xl p-4 text-xs ring-1 ring-stone-100 outline-none"
+                >
+                  <option value="google_meet">Google Meet</option>
+                  <option value="zoom">Zoom</option>
+                  <option value="teams">Microsoft Teams</option>
+                  <option value="custom">Custom Link</option>
+                  <option value="none">Add Later</option>
+                </select>
+
+                <input
+                  value={bookingPage.video_link}
+                  onChange={e => setBookingPage(prev => ({ ...prev, video_link: e.target.value }))}
+                  placeholder="Meeting link (Zoom, Teams, Google Meet)"
+                  className="bg-stone-50 rounded-xl p-4 text-xs ring-1 ring-stone-100 outline-none"
+                />
+              </>
+            )}
+
+            {(bookingPage.location_type === "in_person" || bookingPage.location_type === "both") && (
+              <input
+                value={bookingPage.location_value}
+                onChange={e => setBookingPage(prev => ({ ...prev, location_value: e.target.value }))}
+                placeholder="Office address or meeting location"
+                className="bg-stone-50 rounded-xl p-4 text-xs ring-1 ring-stone-100 outline-none"
+              />
+            )}
 
             <textarea value={bookingPage.description} onChange={e => setBookingPage(prev => ({ ...prev, description: e.target.value }))} placeholder="Example: Choose a suitable time for a consultation, project discussion or introductory call." className="lg:col-span-3 bg-stone-50 rounded-xl p-4 text-xs h-24 ring-1 ring-stone-100 outline-none resize-none" />
 

@@ -24,6 +24,8 @@ export default async function BookingPage({ params }: PageProps) {
       duration_minutes,
       location_type,
       location_value,
+      video_provider,
+      video_link,
       buffer_before_minutes,
       buffer_after_minutes,
       min_notice_hours,

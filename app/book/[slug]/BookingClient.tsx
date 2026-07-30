@@ -3,6 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/auth";
 
+function getMeetingProviderLabel(provider?: string | null) {
+  switch (provider) {
+    case "google_meet":
+      return "🟢 Google Meet";
+    case "zoom":
+      return "🔵 Zoom";
+    case "teams":
+      return "🟣 Microsoft Teams";
+    case "custom":
+      return "🔗 Online meeting";
+    default:
+      return "💻 Online meeting";
+  }
+}
+
 interface BookingClientProps {
   bookingPage: {
     id: string;
@@ -11,6 +26,8 @@ interface BookingClientProps {
     duration_minutes: number;
     location_type: string;
     location_value?: string | null;
+    video_provider?: string | null;
+    video_link?: string | null;
     availability: Record<string, { start: string; end: string }[]>;
     min_notice_hours: number;
     max_days_ahead: number;
@@ -23,6 +40,7 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
   const [selectedTime, setSelectedTime] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [meetingOption, setMeetingOption] = useState<"online" | "in_person">("online");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -156,7 +174,10 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
         description: `Booking requested by ${name} (${email})`,
         start_time: start.toISOString(),
         end_time: end.toISOString(),
-        location: bookingPage.location_value,
+        location:
+          meetingOption === "online"
+            ? `${getMeetingProviderLabel(bookingPage.video_provider)}: ${bookingPage.video_link || "Link will be provided"}`
+            : bookingPage.location_value,
       });
 
       if (bookingError) {
@@ -176,7 +197,10 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
           date: selectedDate,
           time: selectedTime,
           duration: bookingPage.duration_minutes,
-          location: bookingPage.location_value,
+          location:
+            meetingOption === "online"
+              ? `${getMeetingProviderLabel(bookingPage.video_provider)}: ${bookingPage.video_link || "Link will be provided"}`
+              : bookingPage.location_value,
           ownerUserId: bookingPage.user_id,
           startTime: start.toISOString(),
           endTime: end.toISOString(),
@@ -292,6 +316,41 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
             <p><strong>Date:</strong> {new Date(selectedDate).toLocaleDateString("en-GB")}</p>
             <p><strong>Time:</strong> {selectedTime}</p>
             <p><strong>Duration:</strong> {bookingPage.duration_minutes} minutes</p>
+            {(bookingPage.location_type === "both" || bookingPage.location_type === "video") && (
+              <div className="mt-4">
+                <p className="mb-2 font-semibold">Meeting type</p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMeetingOption("online")}
+                    className={`rounded-lg border px-4 py-2 ${meetingOption === "online" ? "border-black bg-black text-white" : ""}`}
+                  >
+                    Online
+                  </button>
+                  {bookingPage.location_type === "both" && (
+                    <button
+                      type="button"
+                      onClick={() => setMeetingOption("in_person")}
+                      className={`rounded-lg border px-4 py-2 ${meetingOption === "in_person" ? "border-black bg-black text-white" : ""}`}
+                    >
+                      In person
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {meetingOption === "online" && (
+              <p className="mt-3 text-sm text-neutral-600">
+                {getMeetingProviderLabel(bookingPage.video_provider)}
+              </p>
+            )}
+
+            {meetingOption === "in_person" && bookingPage.location_value && (
+              <p className="mt-3 text-sm text-neutral-600">
+                📍 {bookingPage.location_value}
+              </p>
+            )}
           </div>
         )}
 

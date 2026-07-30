@@ -26,6 +26,7 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
     setSelectedTime("");
@@ -33,11 +34,12 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
 
   const dates = useMemo(() => {
     const result: string[] = [];
-    const today = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() + weekOffset * 7);
 
-    for (let i = 0; i < bookingPage.max_days_ahead; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
 
       const day = date
         .toLocaleDateString("en-GB", { weekday: "short" })
@@ -50,7 +52,7 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
     }
 
     return result;
-  }, [bookingPage]);
+  }, [bookingPage, weekOffset]);
 
   const availableTimes = useMemo(() => {
     if (!selectedDate) return [];
@@ -129,6 +131,8 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
           duration: bookingPage.duration_minutes,
           location: bookingPage.location_value,
           ownerUserId: bookingPage.user_id,
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
         }),
       });
 
@@ -169,7 +173,25 @@ export default function BookingClient({ bookingPage }: BookingClientProps) {
   return (
     <div className="grid gap-8 md:grid-cols-2">
       <div>
-        <h2 className="mb-4 text-lg font-semibold">Choose a date</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Choose a date</h2>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setWeekOffset((value) => Math.max(0, value - 1))}
+              className="rounded-lg border px-3 py-1"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={() => setWeekOffset((value) => value + 1)}
+              className="rounded-lg border px-3 py-1"
+            >
+              →
+            </button>
+          </div>
+        </div>
         <div className="grid gap-3">
           {dates.map((date) => (
             <button

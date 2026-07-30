@@ -4,6 +4,34 @@ import { createClient } from "@/lib/auth";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+function createCalendarInvite({
+  title,
+  startTime,
+  endTime,
+  description,
+  location,
+}: {
+  title: string;
+  startTime: string;
+  endTime: string;
+  description: string;
+  location?: string;
+}) {
+  return `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//TOTS-OS//Booking//EN
+BEGIN:VEVENT
+UID:${crypto.randomUUID()}
+DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z
+DTSTART:${new Date(startTime).toISOString().replace(/[-:]/g, "").split(".")[0]}Z
+DTEND:${new Date(endTime).toISOString().replace(/[-:]/g, "").split(".")[0]}Z
+SUMMARY:${title}
+DESCRIPTION:${description}
+${location ? `LOCATION:${location}` : ""}
+END:VEVENT
+END:VCALENDAR`;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -17,9 +45,11 @@ export async function POST(request: Request) {
       duration,
       location,
       ownerUserId,
+      startTime,
+      endTime,
     } = body;
 
-    if (!customerEmail || !ownerUserId) {
+    if (!customerEmail || !ownerUserId || !startTime || !endTime) {
       return NextResponse.json(
         { error: "Missing booking email details" },
         { status: 400 }
@@ -47,10 +77,24 @@ export async function POST(request: Request) {
       year: "numeric",
     });
 
+    const calendarInvite = createCalendarInvite({
+      title: bookingTitle,
+      startTime,
+      endTime,
+      location,
+      description: `Booking with ${customerName}`,
+    });
+
+    const attachment = {
+      filename: "booking.ics",
+      content: Buffer.from(calendarInvite).toString("base64"),
+    };
+
     await resend.emails.send({
       from: "TOTS-OS Bookings <bookings@tots-os.co.uk>",
       to: customerEmail,
       subject: `Booking confirmed - ${bookingTitle}`,
+      attachments: [attachment],
       html: `
         <h2>Your booking is confirmed</h2>
         <p>Hi ${customerName},</p>
@@ -61,8 +105,7 @@ export async function POST(request: Request) {
         <p><strong>Time:</strong> ${time}</p>
         <p><strong>Duration:</strong> ${duration} minutes</p>
         ${location ? `<p><strong>Location:</strong> ${location}</p>` : ""}
-        <br />
-        <p>We look forward to speaking with you.</p>
+        <p>The calendar invite is attached.</p>
       `,
     });
 
@@ -71,6 +114,7 @@ export async function POST(request: Request) {
         from: "TOTS-OS Bookings <bookings@tots-os.co.uk>",
         to: ownerEmail,
         subject: `New booking received - ${bookingTitle}`,
+        attachments: [attachment],
         html: `
           <h2>New booking received</h2>
           <p>A new booking has been made.</p>
@@ -82,6 +126,7 @@ export async function POST(request: Request) {
           <p><strong>Time:</strong> ${time}</p>
           <p><strong>Duration:</strong> ${duration} minutes</p>
           ${location ? `<p><strong>Location:</strong> ${location}</p>` : ""}
+          <p>The calendar invite is attached.</p>
         `,
       });
     }

@@ -96,7 +96,7 @@ const DEFAULT_BOOKING_PAGE: BookingPage = {
   buffer_before_minutes: 0,
   buffer_after_minutes: 0,
   min_notice_hours: 4,
-  max_days_ahead: 30,
+  max_days_ahead: 7,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/London",
   availability: {
     mon: [{ start: "09:00", end: "17:00" }],

@@ -1,5 +1,3 @@
-
-
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -14,10 +12,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const appId = process.env.META_APP_ID;
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/meta/callback`;
+    const appId = process.env.META_CLIENT_ID;
+    const redirectUri = process.env.META_REDIRECT_URI;
 
-    if (!appId || !process.env.NEXT_PUBLIC_APP_URL) {
+    if (!appId || !redirectUri || !process.env.META_CLIENT_SECRET) {
       return NextResponse.json(
         { error: "Meta OAuth environment variables are missing" },
         { status: 500 }

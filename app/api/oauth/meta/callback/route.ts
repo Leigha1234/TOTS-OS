@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error("Meta OAuth error:", error);
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/settings?oauth=failed`
+        `${process.env.META_REDIRECT_URI?.replace("/api/oauth/meta/callback", "")}/settings?oauth=failed`
       );
     }
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     const exchangeUrl = new URL(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/exchange`
+      `${process.env.META_REDIRECT_URI?.replace("/api/oauth/meta/callback", "")}/api/oauth/exchange`
     );
 
     exchangeUrl.searchParams.set("code", code);
@@ -40,18 +40,18 @@ export async function GET(request: NextRequest) {
       console.error("Meta token exchange failed:", data);
 
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/settings?oauth=failed`
+        `${process.env.META_REDIRECT_URI?.replace("/api/oauth/meta/callback", "")}/settings?oauth=failed`
       );
     }
 
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/settings?oauth=success`
+      `${process.env.META_REDIRECT_URI?.replace("/api/oauth/meta/callback", "")}/settings?oauth=success`
     );
   } catch (error) {
     console.error("Meta OAuth callback error:", error);
 
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/settings?oauth=failed`
+      `${process.env.META_REDIRECT_URI?.replace("/api/oauth/meta/callback", "")}/settings?oauth=failed`
     );
   }
 }

@@ -46,9 +46,9 @@ async function exchangeOAuth(
       const tokenResponse = await fetch(
         "https://graph.facebook.com/v23.0/oauth/access_token?" +
           new URLSearchParams({
-            client_id: process.env.META_APP_ID!,
-            client_secret: process.env.META_APP_SECRET!,
-            redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/meta/callback`,
+            client_id: process.env.META_CLIENT_ID!,
+            client_secret: process.env.META_CLIENT_SECRET!,
+            redirect_uri: process.env.META_REDIRECT_URI!,
             code,
           })
       );
@@ -122,7 +122,7 @@ async function exchangeOAuth(
             code,
             client_id: process.env.LINKEDIN_CLIENT_ID!,
             client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
-            redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/linkedin/callback`,
+            redirect_uri: process.env.LINKEDIN_REDIRECT_URI!,
           }),
         }
       );
@@ -181,7 +181,7 @@ async function exchangeOAuth(
             client_secret: process.env.TIKTOK_CLIENT_SECRET!,
             code,
             grant_type: "authorization_code",
-            redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/oauth/tiktok/callback`,
+            redirect_uri: process.env.TIKTOK_REDIRECT_URI!,
           }),
         }
       );

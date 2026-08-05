@@ -1,48 +1,63 @@
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { NextRequest, NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-
-  const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state"); // user.id
-const error = url.searchParams.get("error");
-const errorDescription = url.searchParams.get("error_description");
-
-if (error) {
-  return Response.json(
-    {
-      error,
-      details: errorDescription,
-    },
-    { status: 400 }
-  );
-}
-
-if (!code || !state) {
-  return Response.json(
-    {
-      error: "Missing TikTok OAuth parameters",
-    },
-    { status: 400 }
-  );
-}
-
+export async function GET(request: NextRequest) {
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://www.tots-os.co.uk";
 
   try {
-    if (
-  !process.env.TIKTOK_CLIENT_KEY ||
-  !process.env.TIKTOK_CLIENT_SECRET ||
-  !process.env.TIKTOK_REDIRECT_URI
-) {
-  return Response.json(
-    {
-      error: "Missing TikTok environment variables",
-    },
-    { status: 500 }
-  );
-}
-    // 1. Exchange code for access token
-    const tokenRes = await fetch(
+    const { searchParams } = new URL(request.url);
+
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+    const error = searchParams.get("error");
+    const errorDescription =
+      searchParams.get("error_description");
+
+    // User rejected TikTok permissions
+    if (error) {
+      console.error("TikTok OAuth rejected:", {
+        error,
+        errorDescription,
+      });
+
+      return NextResponse.redirect(
+        `${appUrl}/settings?oauth=tiktok_failed`
+      );
+    }
+
+    if (!code || !state) {
+      console.error(
+        "Missing TikTok OAuth callback parameters"
+      );
+
+      return NextResponse.redirect(
+        `${appUrl}/settings?oauth=tiktok_failed&reason=missing_parameters`
+      );
+    }
+
+    const clientKey = process.env.TIKTOK_CLIENT_KEY;
+    const clientSecret =
+      process.env.TIKTOK_CLIENT_SECRET;
+    const redirectUri =
+      process.env.TIKTOK_REDIRECT_URI ||
+      `${appUrl}/api/auth/tiktok/callback`;
+
+    if (!clientKey || !clientSecret) {
+      console.error(
+        "Missing TikTok environment variables"
+      );
+
+      return NextResponse.redirect(
+        `${appUrl}/settings?oauth=tiktok_failed&reason=config`
+      );
+    }
+
+    /**
+     * Exchange authorization code for tokens
+     */
+    const tokenResponse = await fetch(
       "https://open.tiktokapis.com/v2/oauth/token/",
       {
         method: "POST",
@@ -50,99 +65,120 @@ if (!code || !state) {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-  client_key: process.env.TIKTOK_CLIENT_KEY!,
-  client_secret: process.env.TIKTOK_CLIENT_SECRET!,
-  code,
-  grant_type: "authorization_code",
-  redirect_uri: process.env.TIKTOK_REDIRECT_URI!,
-}),
-      }
-    );
-
-    const tokenData = await tokenRes.json();
-
-   if (!tokenRes.ok || !tokenData.access_token) {
-
-  console.error("TikTok token exchange failed:", tokenData);
-
-  return Response.json(
-    {
-      error: "No TikTok token",
-      details: tokenData
-    },
-    { status: 400 }
-  );
-}
-
-    const accessToken = tokenData.access_token;
-
-    // 2. Get TikTok user info
-    const userRes = await fetch(
-      "https://open.tiktokapis.com/v2/user/info/",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fields: ["open_id", "display_name", "avatar_url"],
+          client_key: clientKey,
+          client_secret: clientSecret,
+          code,
+          grant_type: "authorization_code",
+          redirect_uri: redirectUri,
         }),
       }
     );
 
-    const userData = await userRes.json();
+    const tokenData =
+      await tokenResponse.json();
 
-    const profile = userData?.data?.user;
-if (!profile?.open_id) {
-  return Response.json(
-    {
-      error: "TikTok profile lookup failed",
-      details: userData,
-    },
-    { status: 400 }
-  );
-}
- const { error: dbError } = await (supabaseAdmin as any)
-  .from("social_accounts")
-  .upsert(
-    {
-      user_id: state,
-      platform: "tiktok",
-      access_token: accessToken,
-      refresh_token: tokenData.refresh_token || null,
-      platform_user_id: profile.open_id,
-      platform_username: profile.display_name || null,
-      expires_at: new Date(
-        Date.now() + tokenData.expires_in * 1000
-      ).toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      onConflict: "user_id,platform",
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      console.error(
+        "TikTok token exchange failed:",
+        tokenData
+      );
+
+      return NextResponse.redirect(
+        `${appUrl}/settings?oauth=tiktok_failed&reason=token_exchange`
+      );
     }
-  );
 
-if (dbError) {
-  console.error("TikTok Supabase error:", dbError);
+    const accessToken =
+      tokenData.access_token;
 
-  return Response.json(
-    {
-      error: "Failed saving TikTok connection",
-      details: dbError,
-    },
-    { status: 500 }
-  );
-}
+    const refreshToken =
+      tokenData.refresh_token || null;
 
-    // 4. Redirect back
-    return Response.redirect(
-      `${process.env.APP_URL || "https://www.tots-os.co.uk"}/settings?connected=tiktok`
+    /**
+     * Get TikTok user information
+     */
+    const profileResponse = await fetch(
+      "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url",
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
     );
-  } catch (err: any) {
-    return Response.json(
-      { error: "TikTok callback error", details: String(err) },
-      { status: 500 }
+
+    const profileData =
+      await profileResponse.json();
+
+    if (
+      !profileResponse.ok ||
+      !profileData.data?.user
+    ) {
+      console.error(
+        "TikTok profile request failed:",
+        profileData
+      );
+
+      return NextResponse.redirect(
+        `${appUrl}/settings?oauth=tiktok_failed&reason=profile`
+      );
+    }
+
+    const profile =
+      profileData.data.user;
+
+    /**
+     * Save connection
+     */
+    const supabase = await createServerSupabaseClient();
+
+    const { error: dbError } = await supabase
+      .from("social_accounts")
+      .upsert(
+        {
+          user_id: state,
+          platform: "tiktok",
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          platform_user_id: profile.open_id,
+          expires_at: new Date(
+            Date.now() +
+              tokenData.expires_in * 1000
+          ).toISOString(),
+        },
+        {
+          onConflict: "user_id,platform",
+        }
+      );
+
+    if (dbError) {
+      console.error(
+        "TikTok Supabase save failed:",
+        dbError
+      );
+
+      return NextResponse.redirect(
+        `${appUrl}/settings?oauth=tiktok_failed&reason=database`
+      );
+    }
+
+    console.log(
+      "TikTok connected successfully:",
+      profile.open_id
+    );
+
+    return NextResponse.redirect(
+      `${appUrl}/settings?connected=tiktok`
+    );
+
+  } catch (error) {
+    console.error(
+      "TikTok callback error:",
+      error
+    );
+
+    return NextResponse.redirect(
+      `${appUrl}/settings?oauth=tiktok_failed`
     );
   }
 }

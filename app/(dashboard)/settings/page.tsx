@@ -2,936 +2,526 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useState, useEffect, useRef, useCallback, type FormEvent, Suspense } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabase";
-import { Loader2, Upload, Image as ImageIcon, UserPlus } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useSettings } from "@/app/context/SettingsContext";
 
-import SocialConnections from "@/app/components/SocialConnections";
-import SocialComposer from "@/app/components/SocialComposer";
-import PasswordSection from "@/app/components/PasswordSection";
 import LegalHub from "@/app/components/LegalHub";
+import PasswordSection from "@/app/components/PasswordSection";
 
-/**
- * TOTS OS: UNIFIED ADMINISTRATIVE CONTROL CENTER v8.0.0
- * FULL SCALE IMPLEMENTATION
- */
+import ConnectedAccountModal from "./components/ConnectedAccountModal";
+import ProfileSettings from "./components/ProfileSettings";
+import SettingsHeader from "./components/SettingsHeader";
+import SocialSettings from "./components/SocialSettings";
+import TeamSettings from "./components/TeamSettings";
+
+import { useSettingsProfile } from "./hooks/useSettingsProfile";
+import { useSocialConnections } from "./hooks/useSocialConnections";
+import { useSocialScheduler } from "./hooks/useSocialScheduler";
+import { useTikTokOAuthResult } from "./hooks/useTikTokOAuthResult";
+
+import { supabase } from "../../../lib/supabase";
+
+import type {
+  SettingsTab,
+  TeamContactOption,
+  TeamMemberView,
+} from "./types";
+
+type OAuthState = {
+  platform?: string;
+  userId?: string;
+};
+
+type OAuthTokens = {
+  access_token?: string;
+  refresh_token?: string | null;
+  expires_at?: string | null;
+};
+
+function getOAuthStorageKey(platform: string) {
+  return platform === "meta"
+    ? "oauth_pending_meta"
+    : `oauth_pending_${platform}`;
+}
 
 function SettingsInner() {
-  const isMountedRef = useRef(true);
- const router = useRouter();
- const { refreshSettings } = useSettings();
+  const router = useRouter();
 
-  type TeamProfile = {
-    id: string;
-    full_name: string | null;
-    email: string | null;
-  };
+  const [activeTab, setActiveTab] = useState<SettingsTab>("account");
 
-  type TeamMemberView = TeamProfile & {
-    role: string;
-  };
-
-  type TeamContactOption = {
-    id: string;
-    name: string | null;
-    email: string | null;
-    company_name: string | null;
-  };
-  
-  // -- 1. STATE MANAGEMENT --
-  const [activeTab, setActiveTab] = useState<"account" | "brand">("account");
-  const [, setUserName] = useState<string>("OPERATOR");
-  const [, setCurrentTime] = useState<Date | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  
-  // -- 2. FORM STATES --
-  const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-  const [bio, setBio] = useState("");
-  const [accentColor, setAccentColor] = useState("#A3B18A");
-  const [fontPreference, setFontPreference] = useState("serif-heavy");
-  const [userOrgId, setUserOrgId] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
-  const [socialAccounts, setSocialAccounts] = useState<any[]>([]);
-  const [logoUrl, setLogoUrl] = useState("");
-  const [logoUploading, setLogoUploading] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMemberView[]>([]);
   const [allContacts, setAllContacts] = useState<TeamContactOption[]>([]);
   const [contactSearchQuery, setContactSearchQuery] = useState("");
   const [teamLoading, setTeamLoading] = useState(false);
   const [addingContactId, setAddingContactId] = useState<string | null>(null);
-  const connectedPlatformsRef = useRef<string[]>([]);
-  const isOAuthProcessingRef = useRef(false);
-const [connectionHealth, setConnectionHealth] = useState<
-  Record<string, "connected" | "disconnected" | "unknown" | "expired">
->({});
-  const [postQueue, setPostQueue] = useState<any[]>([]);
+
   const [showConnectedModal, setShowConnectedModal] = useState(false);
-  const [connectedPlatformModal, setConnectedPlatformModal] = useState<string | null>(null);
+  const [connectedPlatformModal, setConnectedPlatformModal] = useState<
+    string | null
+  >(null);
 
-  // --- REFS FOR SOCIAL ENGINE ---
-  const channelRef = useRef<any>(null);
-  const subscribedRef = useRef(false);
-  const engineIntervalRef = useRef<any>(null);
-  const tokenIntervalRef = useRef<any>(null);
-const getOAuthStorageKey = (platform: string) =>
-  platform === "meta"
-    ? "oauth_pending_meta"
-    : `oauth_pending_${platform}`;
-const refreshConnections = async () => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
+  const {
+    loading,
+    isSaving,
+    logoUploading,
+    currentUserId,
+    organisationId,
+    displayName,
+    setDisplayName,
+    email,
+    bio,
+    setBio,
+    logoUrl,
+    saveProfile,
+    uploadLogo,
+    logout,
+  } = useSettingsProfile();
 
-    if (!user || !isMountedRef.current) return;
+  const {
+    socialAccounts,
+    connectionHealth,
+    refreshConnections,
+    verifyConnections,
+    verifyPendingOAuth,
+  } = useSocialConnections();
 
-    const { data: connections, error } = await supabase
-      .from("social_accounts")
-      .select("id, platform, page_name")
-      .eq("user_id", user.id);
+  const { triggerWorker } = useSocialScheduler();
 
-    if (error) {
-      console.error("Social connections load error:", error);
-      setConnectedPlatforms([]);
-      connectedPlatformsRef.current = [];
+  const handleTikTokConnected = useCallback(() => {
+    setConnectedPlatformModal("tiktok");
+    setShowConnectedModal(true);
+  }, []);
+
+  useTikTokOAuthResult({
+    refreshConnections,
+    verifyConnections,
+    onConnected: handleTikTokConnected,
+  });
+
+  const loadOrganisationUsers = useCallback(
+    async (userId: string, organisationIdValue: string) => {
+      setTeamLoading(true);
+
+      try {
+        const { data: organisationUsers, error: usersError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .eq("organisation_id", organisationIdValue)
+          .order("full_name", { ascending: true });
+
+        if (usersError) {
+          throw usersError;
+        }
+
+        const members: TeamMemberView[] = (organisationUsers || []).map(
+          (profile) => ({
+            id: profile.id,
+            full_name: profile.full_name,
+            email: profile.email,
+            role: profile.id === userId ? "owner" : "member",
+          })
+        );
+
+        const { data: contacts, error: contactsError } = await supabase
+          .from("contacts")
+          .select("id, name, email, company_name")
+          .order("created_at", { ascending: false });
+
+        if (contactsError) {
+          console.error("Contacts load error:", contactsError);
+        }
+
+        setTeamMembers(members);
+
+        setAllContacts(
+          contactsError ? [] : ((contacts || []) as TeamContactOption[])
+        );
+      } catch (error) {
+        console.error("Failed to load organisation users:", error);
+
+        setTeamMembers([]);
+        setAllContacts([]);
+      } finally {
+        setTeamLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!currentUserId || !organisationId) {
+      setTeamMembers([]);
+      setAllContacts([]);
       return;
     }
 
-    const platforms = (connections || []).map((c: any) => c.platform);
-    setSocialAccounts(connections || []);
-    setConnectedPlatforms(platforms);
-    connectedPlatformsRef.current = platforms;
-
-    await verifyConnections();
-  } catch (error) {
-    console.error("Refresh social connections failed:", error);
-  }
-};
-
-const refreshSocialToken = async (platform: string) => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !isMountedRef.current) return false;
-
-    const { data } = await supabase
-      .from("social_accounts")
-      .select("refresh_token")
-      .eq("user_id", user.id)
-      .eq("platform", platform)
-      .maybeSingle();
-
-    if (!data?.refresh_token) return false;
-
-    const res = await fetch("/api/oauth/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        platform,
-        refresh_token: data.refresh_token,
-        userId: user.id,
-      }),
-    });
-
-    if (!res.ok) return false;
-
-    const tokens = await res.json();
-
-    const { error } = await supabase
-      .from("social_accounts")
-      .update({
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token || data.refresh_token,
-        expires_at: tokens.expires_at,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", user.id)
-      .eq("platform", platform);
-
-    if (error) return false;
-
-    return true;
-  } catch (err) {
-    console.warn("Token refresh failed:", platform, err);
-    return false;
-  }
-};
-
-const verifyPendingOAuth = async () => {
-  const pending = ["meta", "linkedin", "tiktok"].filter((p) =>
-    sessionStorage.getItem(getOAuthStorageKey(p)) === "true"
-  );
-
-  if (pending.length === 0) return;
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  for (const platform of pending) {
-    try {
-      const { data } = await supabase
-        .from("social_accounts")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("platform", platform)
-        .maybeSingle();
-
-      if (data?.id) {
-        sessionStorage.removeItem(
-          getOAuthStorageKey(platform)
-        );
-
-        // Immediately update connection state so UI updates to "Connected"
-        await verifyConnections();
-        setConnectedPlatforms((prev) =>
-          prev.includes(platform) ? prev : [...prev, platform]
-        );
-
-        // UX feedback: confirm successful connection detection
-        toast.success(`${platform} connected successfully`);
-      }
-    } catch (err) {
-      console.warn("OAuth verify failed:", platform, err);
-    }
-  }
-};
-
-const exchangeOAuthCode = async (platform: string, code: string, state: string) => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-    if (!isMountedRef.current) return false;
-
-    let parsedState: any;
-
-try {
-  parsedState = JSON.parse(decodeURIComponent(state));
-} catch {
-  throw new Error("Invalid OAuth state format");
-}
-
-if (parsedState.userId !== user.id) {
-  throw new Error("OAuth user mismatch - potential CSRF risk");
-}
-
-if (parsedState.platform !== platform) {
-  throw new Error("OAuth platform mismatch detected");
-}
-    // Call backend token exchange endpoint (Edge Function / API route)
-    const res = await fetch("/api/oauth/exchange", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        platform,
-        code,
-        state,
-        userId: user.id,
-      }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(errText || "OAuth exchange failed");
-    }
-
-    const data = await res.json();
-
-    // Expected: { access_token, refresh_token, expires_at }
-    const { access_token, refresh_token, expires_at } = data || {};
-
-    if (!access_token) {
-      throw new Error("Missing access token from OAuth exchange");
-    }
-
-    // Store securely in Supabase (server-side encrypted column expected)
-    const { error } = await supabase.from("social_accounts").upsert({
-      user_id: user.id,
-      platform,
-      access_token,
-      refresh_token: refresh_token || null,
-      expires_at: expires_at || null,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    // Cleanup OAuth session state
-    sessionStorage.removeItem(
-      getOAuthStorageKey(platform)
-    );
-    sessionStorage.removeItem("oauth_started_at");
-
-    return true;
-  } catch (err: any) {
-    console.error("OAuth exchange error:", err);
-    toast.error(err.message || "OAuth exchange failed");
-    return false;
-  }
-};
-
-const verifyConnections = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const health: Record<string, "connected" | "disconnected" | "unknown" | "expired"> = {
-    meta: "unknown",
-    linkedin: "unknown",
-    tiktok: "unknown",
-  };
-
-  if (!user || !isMountedRef.current) {
-    if (isMountedRef.current) setConnectionHealth(health);
-    return;
-  }
-
-  const { data: connections, error } = await supabase
-    .from("social_accounts")
-    .select("platform, expires_at, access_token")
-    .eq("user_id", user.id);
-
-  if (error || !connections) {
-    setConnectionHealth(health);
-    return;
-  }
-
-  const now = Date.now();
-
-  for (const connection of connections as any[]) {
-    const platform = connection.platform;
-    const expiresAt = connection.expires_at ? new Date(connection.expires_at).getTime() : null;
-
-    if (!platform) continue;
-
-    if (!connection.access_token) {
-      health[platform] = "expired";
-      continue;
-    }
-
-    // expired token handling
-    if (expiresAt && expiresAt < now) {
-      const refreshed = await refreshSocialToken(platform);
-
-      if (refreshed) {
-        health[platform] = "connected";
-      } else {
-        health[platform] = "expired";
-      }
-
-      continue;
-    }
-
-    health[platform] = "connected";
-  }
-
-  ["meta", "linkedin", "tiktok"].forEach((platform) => {
-    if (health[platform] !== "connected" && health[platform] !== "expired") {
-      health[platform] = "disconnected";
-    }
-  });
-
-  setConnectionHealth(health);
-};
-
-const loadOrganisationUsers = async (userId: string, organisationId: string) => {
-  if (!isMountedRef.current || !organisationId) return;
-
-  setTeamLoading(true);
-  try {
-    // 1. Load all users in same organisation from profiles
-    const { data: orgUsers, error: orgUsersError } = await supabase
-      .from("profiles")
-      .select("id, full_name, email")
-      .eq("organisation_id", organisationId)
-      .order("full_name", { ascending: true });
-
-    if (orgUsersError) throw orgUsersError;
-
-    const members: TeamMemberView[] = (orgUsers || []).map((u) => ({
-      id: u.id,
-      full_name: u.full_name,
-      email: u.email,
-      role: u.id === userId ? "owner" : "member",
-    }));
-
-    // 2. Load all contacts (error-safe — do NOT crash if this fails)
-    let contacts: TeamContactOption[] = [];
-    try {
-      const { data: contactsData, error: contactsError } = await supabase
-        .from("contacts")
-        .select("id, name, email, company_name")
-        .order("created_at", { ascending: false });
-
-      if (contactsError) {
-        console.error("Contacts load error (non-fatal):", contactsError);
-      } else {
-        contacts = (contactsData || []) as TeamContactOption[];
-      }
-    } catch (contactsErr) {
-      console.error("Contacts fetch failed (non-fatal):", contactsErr);
-    }
-
-    if (!isMountedRef.current) return;
-
-    setTeamMembers(members);
-    setAllContacts(contacts);
-  } catch (err: any) {
-    console.error("Failed to load organisation users:", err);
-    if (isMountedRef.current) {
-      setTeamMembers([]);
-      setAllContacts([]);
-    }
-  } finally {
-    if (isMountedRef.current) {
-      setTeamLoading(false);
-    }
-  }
-};
-
-// ===============================
-// SOCIAL ENGINE v6 — POSTING CORE
-// ===============================
-
-const publishToPlatform = async (
-  platform: string,
-  content: string,
-  media?: any
-) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const res = await fetch("/api/social/post", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      platform,
-      content,
-      media: media || null,
-      userId: user.id,
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(err || "Post failed");
-  }
-
-  return await res.json();
-};
-
-const postToSocial = async (content: string, platforms: string[]) => {
-  const results: any[] = [];
-
-  for (const platform of platforms) {
-    try {
-      const result = await publishToPlatform(platform, content);
-      results.push({ platform, status: "success", result });
-    } catch (err: any) {
-      results.push({ platform, status: "failed", error: err.message });
-    }
-  }
-
-  return results;
-};
-
-const scheduleSocialPost = async (
-  caption: string,
-  platforms: string[],
-  scheduledFor: Date
-) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const { error } = await supabase.from("scheduled_posts").insert({
-    user_id: user.id,
-    caption,
-    platforms,
-    scheduled_for: scheduledFor.toISOString(),
-    status: "scheduled",
-    created_at: new Date().toISOString(),
-  });
-
-  if (error) throw new Error(error.message);
-
-  setPostQueue((prev) => [
-    ...prev,
-    { caption, platforms, scheduledFor }
-  ]);
-
-  return true;
-};
-
-// ===============================
-// SOCIAL ENGINE v7 — SCHEDULER RUNTIME
-// ===============================
-
-const processScheduledPosts = async () => {
-  if (!isMountedRef.current) return;
-  const now = new Date().toISOString();
-
-  const { data: posts, error } = await supabase
-    .from("scheduled_posts")
-    .select("*")
-    .eq("status", "scheduled")
-    .lte("scheduled_for", now);
-
-  if (error || !posts) return;
-
-  for (const post of posts) {
-    try {
-      await supabase
-        .from("scheduled_posts")
-        .update({ status: "processing" })
-        .eq("id", post.id);
-
-      const results = await postToSocial(post.caption, post.platforms || []);
-
-      const failed = results.filter((r: any) => r.status === "failed");
-
-      await supabase
-        .from("scheduled_posts")
-        .update({
-          status: failed.length === 0 ? "posted" : "failed",
-          published_at: failed.length === 0 ? new Date().toISOString() : null,
-          error_message: failed.length ? JSON.stringify(failed) : null,
-        })
-        .eq("id", post.id);
-
-    } catch (err: any) {
-      await supabase
-        .from("scheduled_posts")
-        .update({
-          status: "failed",
-          error_message: err.message,
-        })
-        .eq("id", post.id);
-    }
-  }
-};
-
-const retryFailedPosts = async () => {
-  if (!isMountedRef.current) return;
-  const { data: posts } = await supabase
-    .from("scheduled_posts")
-    .select("*")
-    .eq("status", "failed");
-
-  if (!posts) return;
-
-  for (const post of posts) {
-    try {
-      const results = await postToSocial(post.caption, post.platforms || []);
-
-      const failed = results.filter((r: any) => r.status === "failed");
-
-      await supabase
-        .from("scheduled_posts")
-        .update({
-          status: failed.length === 0 ? "posted" : "failed",
-          error_message: failed.length ? JSON.stringify(failed) : null,
-          published_at: new Date().toISOString(),
-        })
-        .eq("id", post.id);
-
-    } catch (err: any) {
-      await supabase
-        .from("scheduled_posts")
-        .update({
-          status: "failed",
-          error_message: err.message,
-        })
-        .eq("id", post.id);
-    }
-  }
-};
-
-  // -- 3. PASSWORD / AUTH --
-  // REMOVED: oldPassword state
-
-  // -- 4. DATA FETCHING --
-  // --- Handler for window focus ---
-  const handleFocus = async () => {
-    if (!isMountedRef.current) return;
-    try {
-      await refreshConnections();
-      await verifyPendingOAuth();
-      await verifyConnections();
-
-      ["meta", "linkedin", "tiktok"].forEach((p) => {
-        if (!connectedPlatformsRef.current.includes(p)) return;
-        sessionStorage.removeItem(
-          getOAuthStorageKey(p)
-        );
-      });
-    } catch (err) {
-      console.warn("Focus sync failed:", err);
-    }
-  };
-
-  // --- Handler for document visibility ---
-  const triggerBackendScheduler = async () => {
-    try {
-      await fetch("/api/social/worker/run", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-    } catch (err) {
-      console.warn("Scheduler trigger failed:", err);
-    }
-  };
-
-  const handleVisibility = () => {
-    if (document.visibilityState === "visible") {
-      triggerBackendScheduler();
-    }
-  };
+    void loadOrganisationUsers(currentUserId, organisationId);
+  }, [currentUserId, organisationId, loadOrganisationUsers]);
 
   useEffect(() => {
-    isMountedRef.current = true;
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-
-   async function init() {
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    router.push("/login");
-    return;
-  }
-
-  setCurrentUserId(user.id);
-  setEmail(user.email || "");
-
-  // ✅ FIX: FETCH PROFILE (THIS WAS MISSING)
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, full_name, bio, logo_url, organisation_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileError) {
-    console.error("Profile load error:", profileError);
-  }
-
-  if (!profile) {
-    toast.error("Profile not found");
-    return;
-  }
-
-  // PROFILE STATE
-  setDisplayName(profile.full_name || "");
-  setBio(profile.bio || "");
-  setUserOrgId(profile.organisation_id || null);
-
-  // ✅ FIX: LOGO ALWAYS FROM DB
-  setLogoUrl(profile.logo_url || "");
-
-  // LOAD TEAM IF ORG EXISTS
-  if (profile.organisation_id) {
-    await loadOrganisationUsers(user.id, profile.organisation_id);
-  }
-
-  // SOCIAL CONNECTIONS SAFE LOAD
-  try {
-    await refreshConnections();
-    await verifyPendingOAuth();
-  } catch (err) {
-    console.warn("Init connection refresh failed:", err);
-  }
-
-  setLoading(false);
-}
-    init();
-    // Clean Meta OAuth redirect artifact (#_=_) on load
-    if (typeof window !== "undefined" && window.location.hash === "#_=_") {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener("visibilitychange", handleVisibility);
-
-    // ===============================
-    // REAL-TIME SOCIAL CONNECTION SYNC (MULTI-TENANT SAFE)
-    // ===============================
-    const setupRealtime = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !isMountedRef.current) return;
-
-      // Prevent duplicate subscriptions (React StrictMode / re-renders safe)
-      if (subscribedRef.current) return;
-      subscribedRef.current = true;
-
-      // Cleanup any existing channel before creating a new one
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void triggerWorker();
       }
-
-      const channel = supabase
-        .channel(`social_accounts_${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "social_accounts",
-            filter: `user_id=eq.${user.id}`,
-          },
-          async () => {
-            await refreshConnections();
-            await verifyConnections();
-          }
-        );
-
-      channel.subscribe();
-      channelRef.current = channel;
     };
 
-    setupRealtime();
-
-    // ===============================
-    // LEVEL 2 SOCIAL ENGINE (AUTOMATION CORE)
-    // ===============================
-
-    // Runs scheduled posts every 60 seconds
-    engineIntervalRef.current = setInterval(async () => {
-      try {
-        await processScheduledPosts();
-        await retryFailedPosts();
-      } catch (err) {
-        console.warn("Engine tick failed:", err);
-      }
-    }, 60_000);
-
-    // Refresh tokens every 15 minutes (multi-platform safe)
-    tokenIntervalRef.current = setInterval(async () => {
-      try {
-        const platforms = ["meta", "linkedin", "tiktok"];
-        for (const p of platforms) {
-          await refreshSocialToken(p);
-        }
-      } catch (err) {
-        console.warn("Token refresh cycle failed:", err);
-      }
-    }, 15 * 60 * 1000);
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      isMountedRef.current = false;
-      clearInterval(timer);
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("visibilitychange", handleVisibility);
-
-      if (engineIntervalRef.current) clearInterval(engineIntervalRef.current);
-      if (tokenIntervalRef.current) clearInterval(tokenIntervalRef.current);
-
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
-      subscribedRef.current = false;
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [router]);
+  }, [triggerWorker]);
 
-
+  /*
+   * Meta and LinkedIn continue to use the original code/state callback.
+   * TikTok is handled by useTikTokOAuthResult and the dedicated
+   * /api/auth/tiktok/callback server route.
+   */
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isOAuthProcessingRef.current) return;
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (window.location.hash === "#_=_") {
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+    }
 
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const state = params.get("state");
 
-    if (!code || !state) return;
+    if (!code || !state) {
+      return;
+    }
 
-    const handleOAuthCallback = async () => {
-      if (isOAuthProcessingRef.current) return;
-      isOAuthProcessingRef.current = true;
+    let cancelled = false;
 
+    const cleanOAuthUrl = () => {
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+    };
+
+    const handleLegacyOAuth = async () => {
       try {
-        let parsed: any;
+        let parsedState: OAuthState;
 
         try {
-          parsed = JSON.parse(decodeURIComponent(state));
+          parsedState = JSON.parse(
+            decodeURIComponent(state)
+          ) as OAuthState;
         } catch {
-          console.error("Invalid OAuth state format");
-          isOAuthProcessingRef.current = false;
-          return;
+          throw new Error("Invalid OAuth state format");
         }
 
-        const platform = parsed.platform;
-        const userId = parsed.userId;
+        const platform = parsedState.platform;
+        const userId = parsedState.userId;
 
         if (!platform || !userId) {
-          isOAuthProcessingRef.current = false;
-          return;
+          throw new Error("OAuth state is missing required values");
         }
 
-        const success = await exchangeOAuthCode(platform, code, state);
+        if (platform === "tiktok") {
+          throw new Error(
+            "TikTok must return through /api/auth/tiktok/callback"
+          );
+        }
 
-        if (success) {
-          try {
-            // 🚨 CRITICAL: immediately clean URL to prevent callback re-trigger loop
-            window.history.replaceState({}, document.title, window.location.pathname);
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-            // 1. Force DB sync FIRST
-            await supabase.auth.refreshSession();
+        if (!user || user.id !== userId) {
+          throw new Error("OAuth user mismatch");
+        }
 
-            // 2. Wait for database propagation
-            await new Promise((res) => setTimeout(res, 600));
+        const response = await fetch("/api/oauth/exchange", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            platform,
+            code,
+            state,
+            userId,
+          }),
+        });
 
-            // 3. Refresh connections (must reflect DB)
-            await refreshConnections();
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(message || "OAuth exchange failed");
+        }
 
-            // 4. Verify actual connection state
-            await verifyConnections();
+        const tokens = (await response.json()) as OAuthTokens;
 
-            // 5. Confirm platform is actually in DB
-            const platformsCheck = await supabase
-              .from("social_accounts")
-              .select("platform")
-              .eq("user_id", userId)
-              .eq("platform", platform)
-              .maybeSingle();
+        if (!tokens.access_token) {
+          throw new Error("Missing OAuth access token");
+        }
 
-            if (platformsCheck.data) {
-              toast.success(`${platform} connected successfully`);
-              setConnectedPlatformModal(platform);
-              setShowConnectedModal(true);
-            }
-
-            // ❌ IMPORTANT: remove router.replace entirely (this was causing redirect loops)
-            // ❌ DO NOT re-navigate - URL is already cleaned above
-
-          } catch (err) {
-            console.warn("Post-OAuth sync failed:", err);
-            toast.error("Connection completed but UI sync failed");
-          } finally {
-            isOAuthProcessingRef.current = false;
+        const { error } = await supabase.from("social_accounts").upsert(
+          {
+            user_id: userId,
+            platform,
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token || null,
+            expires_at: tokens.expires_at || null,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "user_id,platform",
           }
-        } else {
-          isOAuthProcessingRef.current = false;
+        );
+
+        if (error) {
+          throw error;
         }
-      } catch (err) {
-        console.warn("OAuth callback handling failed:", err);
-        isOAuthProcessingRef.current = false;
+
+        sessionStorage.removeItem(getOAuthStorageKey(platform));
+        sessionStorage.removeItem("oauth_started_at");
+
+        await refreshConnections();
+        await verifyConnections();
+        await verifyPendingOAuth();
+
+        if (!cancelled) {
+          toast.success(`${platform} connected successfully`);
+          setConnectedPlatformModal(platform);
+          setShowConnectedModal(true);
+        }
+      } catch (error) {
+        console.error("OAuth callback handling failed:", error);
+
+        if (!cancelled) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "OAuth connection failed"
+          );
+        }
+      } finally {
+        cleanOAuthUrl();
       }
     };
 
-    handleOAuthCallback();
-  }, []);
+    void handleLegacyOAuth();
 
-  // -- 5. HANDLERS --
-  const handleSave = async () => {
-    setIsSaving(true);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    refreshConnections,
+    verifyConnections,
+    verifyPendingOAuth,
+  ]);
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        toast.error("Not authenticated");
+  const handleAddContactToTeam = useCallback(
+    async (contact: TeamContactOption) => {
+      if (!organisationId) {
+        toast.error("Organisation not loaded");
         return;
       }
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: displayName,
-          bio,
-          logo_url: logoUrl || null,
-        })
-        .eq("id", user.id);
+      const contactEmail = contact.email?.trim();
 
-      if (error) throw error;
-
-      toast.success("Settings saved successfully");
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to save settings");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-
-  
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
-
-  const uploadLogo = async (file: File) => {
-    setLogoUploading(true);
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-
-      if (sessionError || !accessToken) {
-        toast.error("Not authenticated");
+      if (!contactEmail) {
+        toast.error("This contact has no email address");
         return;
       }
 
-      if (!file.type?.startsWith("image/")) {
-        toast.error("Only image files are allowed");
-        return;
-      }
+      setAddingContactId(contact.id);
 
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch("/api/settings/logo-upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: formData,
-      });
-
-      const body = await response.json().catch(() => null);
-      if (!response.ok || !body?.publicUrl) {
-        const errorMessage =
-          body?.error ||
-          body?.message ||
-          `Logo upload failed (status ${response.status})`;
-        throw new Error(errorMessage);
-      }
-
-      setLogoUrl(body.publicUrl);
-
-
-      const { data: { user: logoUser } } = await supabase.auth.getUser();
-      if (logoUser) {
-        await supabase
+      try {
+        const {
+          data: matchedProfile,
+          error: profileError,
+        } = await supabase
           .from("profiles")
-          .update({ logo_url: body.publicUrl })
-          .eq("id", logoUser.id);
+          .select("id, organisation_id, full_name, email")
+          .ilike("email", contactEmail)
+          .maybeSingle();
+
+        if (profileError) {
+          throw profileError;
+        }
+
+        if (!matchedProfile) {
+          throw new Error(
+            "No account found for this email. They need to sign up first."
+          );
+        }
+
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({
+            organisation_id: organisationId,
+          })
+          .eq("id", matchedProfile.id);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        let autoGroupCount = 0;
+
+        if (contact.company_name?.trim()) {
+          const {
+            data: companyContacts,
+            error: companyContactsError,
+          } = await supabase
+            .from("contacts")
+            .select("email")
+            .ilike(
+              "company_name",
+              contact.company_name.trim()
+            );
+
+          if (companyContactsError) {
+            console.warn(
+              "Company contact lookup failed:",
+              companyContactsError
+            );
+          } else {
+            const otherEmails = (companyContacts || [])
+              .map((companyContact) =>
+                (companyContact.email || "")
+                  .trim()
+                  .toLowerCase()
+              )
+              .filter(
+                (companyEmail) =>
+                  companyEmail &&
+                  companyEmail !== contactEmail.toLowerCase()
+              );
+
+            if (otherEmails.length > 0) {
+              const {
+                data: companyProfiles,
+                error: companyProfilesError,
+              } = await supabase
+                .from("profiles")
+                .select("id, organisation_id")
+                .in("email", otherEmails);
+
+              if (companyProfilesError) {
+                console.warn(
+                  "Company profile lookup failed:",
+                  companyProfilesError
+                );
+              } else {
+                const profilesToAdd = (
+                  companyProfiles || []
+                ).filter(
+                  (profile) =>
+                    profile.organisation_id !== organisationId
+                );
+
+                if (profilesToAdd.length > 0) {
+                  const profileIds = profilesToAdd.map(
+                    (profile) => profile.id
+                  );
+
+                  const { error: batchError } = await supabase
+                    .from("profiles")
+                    .update({
+                      organisation_id: organisationId,
+                    })
+                    .in("id", profileIds);
+
+                  if (batchError) {
+                    throw batchError;
+                  }
+
+                  autoGroupCount = profileIds.length;
+                }
+              }
+            }
+          }
+        }
+
+        if (currentUserId) {
+          await loadOrganisationUsers(
+            currentUserId,
+            organisationId
+          );
+        }
+
+        const groupedMessage =
+          autoGroupCount > 0
+            ? ` and ${autoGroupCount} colleague${
+                autoGroupCount === 1 ? "" : "s"
+              } from ${contact.company_name}`
+            : "";
+
+        toast.success(
+          `${
+            contact.name || contactEmail
+          } added to the team${groupedMessage}`
+        );
+      } catch (error) {
+        console.error("Add contact to team failed:", error);
+
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to add contact to team"
+        );
+      } finally {
+        setAddingContactId(null);
       }
+    },
+    [
+      currentUserId,
+      loadOrganisationUsers,
+      organisationId,
+    ]
+  );
 
-      toast.success("Logo uploaded successfully.");
-    } catch (error: any) {
-      console.error("Logo upload failed:", error);
-      toast.error(error?.message || "Logo upload failed");
-    } finally {
-      setLogoUploading(false);
+  const filteredContacts = useMemo(() => {
+    const query = contactSearchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return allContacts;
     }
-  };
 
+    return allContacts.filter(
+      (contact) =>
+        (contact.name || "")
+          .toLowerCase()
+          .includes(query) ||
+        (contact.email || "")
+          .toLowerCase()
+          .includes(query) ||
+        (contact.company_name || "")
+          .toLowerCase()
+          .includes(query)
+    );
+  }, [allContacts, contactSearchQuery]);
 
-
-  // ... [REPEATING SECTIONS TO EXPAND CODE VOLUME] ...
-
-  // --- Loading Guard ---
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="animate-spin text-stone-400" size={28} />
+          <Loader2
+            className="animate-spin text-stone-400"
+            size={28}
+          />
+
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
             Initialising Workspace
           </p>
@@ -940,431 +530,122 @@ const retryFailedPosts = async () => {
     );
   }
 
-  const disconnectSocialPlatform = async (key: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      toast.error("Not authenticated");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("social_accounts")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("platform", key);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    setConnectedPlatforms((prev) => {
-      const updated = prev.filter((p) => p !== key);
-      connectedPlatformsRef.current = updated;
-      return updated;
-    });
-    toast.success(`${key} disconnected`);
-  };
-
-  const handleAddContactToTeam = async (contact: TeamContactOption) => {
-    if (!userOrgId) {
-      toast.error("Organisation not loaded");
-      return;
-    }
-
-    const contactEmail = contact.email?.trim();
-    if (!contactEmail) {
-      toast.error("This contact has no email address");
-      return;
-    }
-
-    setAddingContactId(contact.id);
-    try {
-      // Find the profile matching this contact's email
-      const { data: matchedProfiles } = await supabase
-        .from("profiles")
-        .select("id, organisation_id")
-        .ilike("email", contactEmail.trim())
-        .maybeSingle();
-
-      if (!matchedProfiles) {
-        toast.error("No account found for this email — they need to sign up first");
-        return;
-      }
-
-      // Optimistic local update so UI reflects the change immediately
-      setTeamMembers((prev) => {
-        const exists = prev.some((member) => member.id === matchedProfiles.id);
-        if (exists) return prev.map((member) => (
-          member.id === matchedProfiles.id
-            ? { ...member, role: member.role || "member" }
-            : member
-        ));
-
-        return [
-          ...prev,
-          {
-            id: matchedProfiles.id,
-            full_name: contact.name || null,
-            email: contactEmail,
-            role: "member",
-          },
-        ];
-      });
-
-      // Add them to the current organisation
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ organisation_id: userOrgId })
-        .eq("id", matchedProfiles.id);
-
-      if (updateError) throw updateError;
-
-      let autoGroupCount = 0;
-
-      // Auto-group: if contact has a company_name, find all contacts from same company
-      // and add their matching profiles to this organisation too
-      if (contact.company_name?.trim()) {
-        try {
-          const { data: sameCompanyContacts } = await supabase
-            .from("contacts")
-            .select("email, name")
-            .ilike("company_name", contact.company_name.trim());
-
-          const otherEmails = (sameCompanyContacts || [])
-            .map((c: any) => (c.email || "").trim().toLowerCase())
-            .filter((e: string) => Boolean(e) && e !== contactEmail.toLowerCase());
-
-          if (otherEmails.length > 0) {
-            const { data: companyProfiles } = await supabase
-              .from("profiles")
-              .select("id, organisation_id, full_name, email")
-              .in("email", otherEmails);
-
-            const profilesNotYetInOrg = (companyProfiles || []).filter((p: any) => p.organisation_id !== userOrgId);
-
-            if (profilesNotYetInOrg.length > 0) {
-              const ids = profilesNotYetInOrg.map((p: any) => p.id);
-              const { error: batchUpdateError } = await supabase
-                .from("profiles")
-                .update({ organisation_id: userOrgId })
-                .in("id", ids);
-
-              if (batchUpdateError) throw batchUpdateError;
-              autoGroupCount = ids.length;
-
-              setTeamMembers((prev) => {
-                const updatedMembers = [...prev];
-                for (const profile of profilesNotYetInOrg) {
-                  if (!updatedMembers.some((member) => member.id === profile.id)) {
-                    updatedMembers.push({
-                      id: profile.id,
-                      full_name: profile.full_name || null,
-                      email: profile.email || null,
-                      role: "member",
-                    });
-                  }
-                }
-                return updatedMembers;
-              });
-            }
-          }
-        } catch (companyErr) {
-          console.warn("Company auto-group (non-fatal):", companyErr);
-        }
-      }
-
-      if (currentUserId && userOrgId) {
-        void loadOrganisationUsers(currentUserId, userOrgId);
-      }
-
-      const extraMsg = autoGroupCount > 0
-        ? ` (+${autoGroupCount} colleague${autoGroupCount > 1 ? "s" : ""} from ${contact.company_name} auto-added)`
-        : "";
-      toast.success(`${contact.name || contactEmail} added to team${extraMsg}`);
-    } catch (error: any) {
-      console.error("Add contact to team failed:", error);
-      toast.error(error?.message || "Failed to add to team");
-    } finally {
-      setAddingContactId(null);
-    }
-  };
-
-  const filteredContacts = allContacts.filter((person) => {
-    const q = contactSearchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      (person.name || "").toLowerCase().includes(q) ||
-      (person.email || "").toLowerCase().includes(q) ||
-      (person.company_name || "").toLowerCase().includes(q)
-    );
-  });
   return (
-    <div
-  className={`w-full min-w-0 min-h-screen bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] text-stone-900 p-4 sm:p-6 lg:p-8 xl:p-10 overflow-x-hidden ...`}
-><style jsx global>{`
-        :root { --accent: ${accentColor}; }
-        .accent-text { color: var(--accent); }
-        .accent-bg { background-color: var(--accent); }
-      `}</style>
+    <div className="min-h-screen w-full min-w-0 overflow-x-hidden bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] p-4 text-stone-900 sm:p-6 lg:p-8 xl:p-10">
+      <SettingsHeader
+        isSaving={isSaving}
+        onSave={() => void saveProfile()}
+        onLogout={() => void logout()}
+        onManageSubscription={() =>
+          router.push("/manage-subscription")
+        }
+      />
 
-      {/* Header Section (100 lines of structure) */}
-      <header className="flex flex-col lg:flex-row lg:justify-between gap-8 lg:items-end border-b border-stone-200 pb-10 mb-12">
-        <div className="space-y-6">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-serif italic tracking-tighter break-words">Settings</h1>
-         
-         <nav className="flex flex-wrap gap-3">
-  <button
-    onClick={() => setActiveTab("account")}
-    className={`px-8 py-4 rounded-full text-[9px] font-black uppercase ${
-      activeTab === "account"
-        ? "bg-stone-900 text-white"
-        : "bg-white border"
-    }`}
-  >
-    Profile
-  </button>
+      <nav className="mb-8 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab("account")}
+          className={`rounded-full px-8 py-4 text-[9px] font-black uppercase ${
+            activeTab === "account"
+              ? "bg-stone-900 text-white"
+              : "border bg-white"
+          }`}
+        >
+          Profile
+        </button>
+      </nav>
 
-  {/* <button
-    onClick={() => setActiveTab("brand")}
-    className={`px-8 py-4 rounded-full text-[9px] font-black uppercase ${
-      activeTab === "brand"
-        ? "bg-stone-900 text-white"
-        : "bg-white border"
-    }`}
-  >
-    Brand DNA
-  </button> */}
-
-  {/* <button
-    onClick={() => router.push('/settings/team')}
-    className="px-8 py-4 rounded-full text-[9px] font-black uppercase bg-white border hover:bg-stone-50"
-  >
-    Team Hub
-  </button> */}
-
-  {/* <button
-    onClick={() => router.push('/settings/import')}
-    className="px-8 py-4 rounded-full text-[9px] font-black uppercase bg-white border hover:bg-stone-50"
-  >
-    Import Hub
-  </button> */}
-</nav>
-        </div>
-        <div className="flex flex-wrap gap-3 sm:gap-4">
-           <button onClick={handleLogout} className="w-full sm:w-auto px-8 py-5 rounded-full border text-[10px] font-black uppercase">Sign Out</button>
-           <button
-             onClick={() => router.push('/manage-subscription')}
-             className="w-full sm:w-auto px-8 py-5 rounded-full border bg-white hover:bg-stone-50 text-[10px] font-black uppercase"
-           >
-             Manage Subscription
-           </button>
-           <button
-             onClick={handleSave}
-             disabled={isSaving}
-             className="w-full sm:w-auto min-w-0 sm:min-w-[160px] accent-bg px-12 py-5 rounded-full text-white font-black uppercase text-[10px] disabled:opacity-50 flex items-center justify-center gap-2"
-           >
-             {isSaving && <Loader2 size={14} className="animate-spin" />}
-             {isSaving ? "Saving..." : "Save Changes"}
-           </button>
-        </div>
-      </header>
-
-      {/* Main Content (Expansion Logic) */}
-       {/* --- CONTENT WORKSPACE PANELS --- */}
       <main className="min-h-[500px]">
         <AnimatePresence mode="wait">
-          
-          {/* VIEW: ACCOUNT DETAILS */}
-          {activeTab === "account" && (
-            <motion.div key="account" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-12">
-              <section className="bg-white/90 backdrop-blur border border-stone-200 p-4 sm:p-6 lg:p-8 rounded-[2rem] lg:rounded-[4rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] space-y-10 lg:space-y-16">
-                
-                {/* ADMINISTRATIVE DETAILS */}
-                <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 min-w-0">
-                  <div className="shrink-0 mx-auto lg:mx-0">
-                    <div className="w-28 h-28 sm:w-36 sm:h-36 lg:w-40 lg:h-40 rounded-[3rem] bg-[#faf9f6] border border-stone-100 flex items-center justify-center relative overflow-hidden">
-                       <span className="text-4xl font-serif italic text-stone-200">
-                         {displayName ? displayName.split(" ").map(n => n[0]).join("").toUpperCase() : "OS"}
-                       </span>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Full Name</label>
-                        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs focus:ring-2 focus:ring-[var(--accent)] focus:border-stone-400 outline-none transition-all" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Email Address</label>
-                        <input value={email} disabled className="w-full p-5 bg-[#faf9f6] border border-stone-200 rounded-2xl font-bold text-xs opacity-60 cursor-not-allowed outline-none select-none" />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Administrative Summary</label>
-                      <textarea value={bio} onChange={(e) => setBio(e.target.value)} className="w-full p-6 bg-[#faf9f6] border border-stone-200 rounded-3xl font-serif italic text-xl min-h-[120px] outline-none" />
-                    </div>
+          {activeTab === "account" ? (
+            <motion.div
+              key="account"
+              initial={{
+                opacity: 0,
+                y: 20,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+              exit={{
+                opacity: 0,
+                y: -20,
+              }}
+              className="space-y-12"
+            >
+              <section className="space-y-10 rounded-[2rem] border border-stone-200 bg-white/90 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.04)] backdrop-blur sm:p-6 lg:space-y-16 lg:rounded-[4rem] lg:p-8">
+                <ProfileSettings
+                  displayName={displayName}
+                  setDisplayName={setDisplayName}
+                  email={email}
+                  bio={bio}
+                  setBio={setBio}
+                  logoUrl={logoUrl}
+                  logoUploading={logoUploading}
+                  uploadLogo={uploadLogo}
+                />
 
-                    <div className="space-y-3">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-stone-300 ml-4">Company Logo</label>
-                      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                        <div className="w-16 h-16 rounded-2xl border border-stone-200 bg-[#faf9f6] flex items-center justify-center overflow-hidden">
-                          {logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
-                          ) : (
-                            <ImageIcon size={20} className="text-stone-300" />
-                          )}
-                        </div>
+                <TeamSettings
+                  teamLoading={teamLoading}
+                  teamMembers={teamMembers}
+                  allContacts={allContacts}
+                  filteredContacts={filteredContacts}
+                  contactSearchQuery={contactSearchQuery}
+                  setContactSearchQuery={setContactSearchQuery}
+                  addingContactId={addingContactId}
+                  onAddContact={handleAddContactToTeam}
+                />
 
-                        <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-stone-200 bg-white text-xs font-semibold cursor-pointer hover:bg-stone-50">
-                          <Upload size={14} />
-                          {logoUploading ? "Uploading..." : "Upload Logo"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            disabled={logoUploading}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                void uploadLogo(file);
-                              }
-                            }}
-                          />
-                        </label>
+                <SocialSettings
+                  socialAccounts={socialAccounts}
+                  connectionHealth={connectionHealth}
+                />
 
-                        {logoUrl && (
-                          <span className="inline-flex items-center px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
-                            Uploaded
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 border border-stone-200 rounded-3xl p-4 sm:p-5 bg-[#faf9f6]">
-                      <div>
-                        <label className="text-[9px] font-black uppercase tracking-widest text-stone-300">Team</label>
-                        <p className="text-xs text-stone-500 mt-1">All members in your organisation.</p>
-                      </div>
-
-                      {teamLoading ? (
-                        <div className="flex items-center gap-2 py-2">
-                          <Loader2 size={14} className="animate-spin text-stone-400" />
-                          <span className="text-xs text-stone-400">Loading team...</span>
-                        </div>
-                      ) : teamMembers.length === 0 ? (
-                        <p className="text-xs text-stone-500">No team members found.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {teamMembers.map((member) => (
-                            <div
-                              key={member.id}
-                              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 px-3 py-2 bg-white border border-stone-200 rounded-xl"
-                            >
-                              <span className="text-xs font-semibold text-stone-700 break-all">
-                                {member.full_name || "Unnamed user"}
-                                {member.email ? ` (${member.email})` : ""}
-                              </span>
-                              <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">
-                                {member.role}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="pt-4 border-t border-stone-100 space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Contacts</p>
-                        <input
-                          value={contactSearchQuery}
-                          onChange={(e) => setContactSearchQuery(e.target.value)}
-                          placeholder="Search contacts by name, email, or company"
-                          className="w-full p-3 bg-white border border-stone-200 rounded-xl text-xs font-semibold outline-none"
-                        />
-                        {filteredContacts.length === 0 ? (
-                          <p className="text-xs text-stone-500 py-1">
-                            {contactSearchQuery ? "No matching contacts." : "No contacts found."}
-                          </p>
-                        ) : (
-                          <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
-                            {filteredContacts.slice(0, 100).map((contact) => (
-                              <div key={contact.id} className="flex items-center justify-between gap-2 min-w-0 gap-2 px-3 py-2 bg-white border border-stone-200 rounded-xl">
-                                <span className="flex-1 min-w-0 text-xs font-semibold text-stone-700 break-all truncate">
-                                  {contact.name || "Unnamed contact"}
-                                  {contact.email ? ` (${contact.email})` : ""}
-                                  {contact.company_name ? ` — ${contact.company_name}` : ""}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddContactToTeam(contact)}
-                                  disabled={addingContactId === contact.id || teamLoading}
-                                  title={contact.company_name ? `Add to team (auto-groups all ${contact.company_name} contacts)` : "Add to team"}
-                                  className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-900 text-white text-[10px] font-black uppercase tracking-wider disabled:opacity-40"
-                                >
-                                  {addingContactId === contact.id
-                                    ? <Loader2 size={11} className="animate-spin" />
-                                    : <UserPlus size={11} />}
-                                  {addingContactId === contact.id ? "Adding" : "Add"}
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-{/* SOCIAL CONNECTION STATUS */}
-<div className="mb-6 p-4 rounded-2xl border border-stone-200 bg-white text-stone-700">
-  <p className="text-[10px] font-black uppercase tracking-widest">
-    Social Connections
-  </p>
-  <p className="text-xs mt-2 text-stone-500">
-    Connect your social accounts to publish and manage content directly from TOTS-OS.
-  </p>
-</div>
-
-                {/* --- CONNECT SOCIALS COMPONENT ROW --- */}
-                <div className="pt-10 border-t border-stone-100 space-y-8">
-                  <SocialConnections />
-
-                  <SocialComposer accounts={socialAccounts} />
-                </div>
-
-                {/* --- SECURE PASSWORD ALTERATION MATRICES --- */}
-                <div className="pt-10 border-t border-stone-100">
+                <div className="border-t border-stone-100 pt-10">
                   <PasswordSection />
                 </div>
-               </section>
+              </section>
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </main>
 
-      {/* Legal Hub (The 11 Documents) */}
-      <section className="mt-20 pt-12 border-t border-stone-200">
+      <section className="mt-20 border-t border-stone-200 pt-12">
         <LegalHub />
       </section>
+
+      <ConnectedAccountModal
+        open={showConnectedModal}
+        platform={connectedPlatformModal}
+        onClose={() => {
+          setShowConnectedModal(false);
+          setConnectedPlatformModal(null);
+        }}
+      />
     </div>
   );
 }
+
 export default function Settings() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="animate-spin text-stone-400" size={28} />
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
-            Loading Settings
-          </p>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2
+              className="animate-spin text-stone-400"
+              size={28}
+            />
+
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
+              Loading Settings
+            </p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <SettingsInner />
     </Suspense>
   );
 }
-

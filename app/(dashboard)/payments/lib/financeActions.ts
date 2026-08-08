@@ -32,11 +32,17 @@ export type FinanceContext = {
   userId?: string | null;
 };
 
-export type ActionResult<T = null> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-};
+export type ActionResult<T = null> =
+  | {
+      success: true;
+      data: T;
+      error: null;
+    }
+  | {
+      success: false;
+      data: null;
+      error: string;
+    };
 
 export type CreateDocumentInput = {
   docType: DocType;
@@ -134,11 +140,30 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function actionError(error: unknown): ActionResult {
+function actionSuccess<T>(data: T): ActionResult<T> {
+  return {
+    success: true,
+    data,
+    error: null,
+  };
+}
+
+function actionSuccessEmpty(): ActionResult<null> {
+  return {
+    success: true,
+    data: null,
+    error: null,
+  };
+}
+
+function actionError<T = null>(
+  error: unknown
+): ActionResult<T> {
   console.error("Finance action error:", error);
 
   return {
     success: false,
+    data: null,
     error:
       error instanceof Error
         ? error.message
@@ -176,20 +201,19 @@ export async function createCustomer({
       .select("id, name, email")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-      data,
-    };
+    return actionSuccess(data as Customer);
   } catch (error) {
-    return actionError(error);
+    return actionError<Customer>(error);
   }
 }
 
 export async function deleteCustomer(
   customerId: string
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     if (!customerId) {
       throw new Error("Customer ID is required");
@@ -200,13 +224,13 @@ export async function deleteCustomer(
       .delete()
       .eq("id", customerId);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
@@ -243,11 +267,14 @@ export async function createFinanceDocument({
       throw new Error("Please complete all line items");
     }
 
-    const totals = calculateInvoiceTotals(lineItems);
+    const totals =
+      calculateInvoiceTotals(lineItems);
 
     if (docType === "Invoice") {
       if (!customerId) {
-        throw new Error("Select a customer before creating an invoice");
+        throw new Error(
+          "Select a customer before creating an invoice"
+        );
       }
 
       const { data, error } = await supabase
@@ -274,15 +301,15 @@ export async function createFinanceDocument({
         .select("*")
         .single();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      return {
-        success: true,
-        data,
-      };
+      return actionSuccess(data);
     }
 
-    let resolvedClientName = cleanString(newClientName);
+    let resolvedClientName =
+      cleanString(newClientName);
 
     if (customerId) {
       const customer = customers.find(
@@ -290,7 +317,8 @@ export async function createFinanceDocument({
       );
 
       if (customer?.name) {
-        resolvedClientName = customer.name;
+        resolvedClientName =
+          customer.name;
       }
     }
 
@@ -316,21 +344,20 @@ export async function createFinanceDocument({
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-      data,
-    };
+    return actionSuccess(data);
   } catch (error) {
-    return actionError(error);
+    return actionError<any>(error);
   }
 }
 
 export async function updateLedgerStatus(
   entry: LedgerEntry,
   status?: string
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     const table =
       entry.type === "Invoice"
@@ -351,7 +378,8 @@ export async function updateLedgerStatus(
       entry.type === "Invoice" &&
       nextStatus === "paid"
     ) {
-      payload.paid_at = new Date().toISOString();
+      payload.paid_at =
+        new Date().toISOString();
     }
 
     const { error } = await supabase
@@ -359,19 +387,19 @@ export async function updateLedgerStatus(
       .update(payload)
       .eq("id", entry.id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
 export async function deleteLedgerEntry(
   entry: LedgerEntry
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     const table =
       entry.type === "Invoice"
@@ -383,13 +411,13 @@ export async function deleteLedgerEntry(
       .delete()
       .eq("id", entry.id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
@@ -404,20 +432,28 @@ export async function convertQuoteToInvoice({
 }): Promise<ActionResult<any>> {
   try {
     if (entry.type !== "Quote") {
-      throw new Error("Only quotes can be converted");
+      throw new Error(
+        "Only quotes can be converted"
+      );
     }
 
-    const { data: quote, error: quoteError } =
-      await supabase
-        .from("quotes")
-        .select("*")
-        .eq("id", entry.id)
-        .single();
+    const {
+      data: quote,
+      error: quoteError,
+    } = await supabase
+      .from("quotes")
+      .select("*")
+      .eq("id", entry.id)
+      .single();
 
-    if (quoteError) throw quoteError;
+    if (quoteError) {
+      throw quoteError;
+    }
 
     if (!quote) {
-      throw new Error("Quote could not be found");
+      throw new Error(
+        "Quote could not be found"
+      );
     }
 
     const quoteClientName =
@@ -444,20 +480,19 @@ export async function convertQuoteToInvoice({
           context,
         });
 
-      if (
-        !customerResult.success ||
-        !customerResult.data
-      ) {
+      if (!customerResult.success) {
         throw new Error(
           customerResult.error ||
             "Unable to create customer"
         );
       }
 
-      customerId = customerResult.data.id;
+      customerId =
+        customerResult.data.id;
     }
 
-    const gross = toNumber(quote.amount);
+    const gross =
+      toNumber(quote.amount);
 
     const net =
       gross > 0
@@ -467,54 +502,70 @@ export async function convertQuoteToInvoice({
     const vat =
       gross - net;
 
-    const { data: invoice, error: invoiceError } =
-      await supabase
-        .from("invoices")
-        .insert({
-          customer_id: customerId,
-          amount: gross,
-          tax: vat,
+    const {
+      data: invoice,
+      error: invoiceError,
+    } = await supabase
+      .from("invoices")
+      .insert({
+        customer_id:
+          customerId,
 
-          items: [
-            {
-              description:
-                quote.description ||
-                "Converted from quote",
+        amount:
+          gross,
 
-              quantity: 1,
-              unit_price: net,
-            },
-          ],
+        tax:
+          vat,
 
-          status: "pending",
-          type: "invoice",
-          doc_type: "invoice",
+        items: [
+          {
+            description:
+              quote.description ||
+              "Converted from quote",
 
-          ...getContextFields(context),
-        })
-        .select("*")
-        .single();
+            quantity:
+              1,
 
-    if (invoiceError) throw invoiceError;
+            unit_price:
+              net,
+          },
+        ],
 
-    const { error: updateQuoteError } =
-      await supabase
-        .from("quotes")
-        .update({
-          status: "converted",
-        })
-        .eq("id", entry.id);
+        status:
+          "pending",
+
+        type:
+          "invoice",
+
+        doc_type:
+          "invoice",
+
+        ...getContextFields(context),
+      })
+      .select("*")
+      .single();
+
+    if (invoiceError) {
+      throw invoiceError;
+    }
+
+    const {
+      error: updateQuoteError,
+    } = await supabase
+      .from("quotes")
+      .update({
+        status:
+          "converted",
+      })
+      .eq("id", entry.id);
 
     if (updateQuoteError) {
       throw updateQuoteError;
     }
 
-    return {
-      success: true,
-      data: invoice,
-    };
+    return actionSuccess(invoice);
   } catch (error) {
-    return actionError(error);
+    return actionError<any>(error);
   }
 }
 
@@ -574,21 +625,20 @@ export async function createExpense({
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-      data,
-    };
+    return actionSuccess(data);
   } catch (error) {
-    return actionError(error);
+    return actionError<any>(error);
   }
 }
 
 export async function updateExpenseStatus(
   expenseId: string,
   status: string
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     const { error } = await supabase
       .from("expenses")
@@ -597,32 +647,32 @@ export async function updateExpenseStatus(
       })
       .eq("id", expenseId);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
 export async function deleteExpense(
   expenseId: string
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     const { error } = await supabase
       .from("expenses")
       .delete()
       .eq("id", expenseId);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
@@ -647,15 +697,18 @@ export async function createVatReturn({
     const { data, error } = await supabase
       .from("vat_returns")
       .insert({
-        amount: toNumber(amount),
+        amount:
+          toNumber(amount),
 
         description:
           cleanString(description) ||
           `VAT return — ${new Date().toLocaleString(
             "en-GB",
             {
-              month: "long",
-              year: "numeric",
+              month:
+                "long",
+              year:
+                "numeric",
             }
           )}`,
 
@@ -667,21 +720,20 @@ export async function createVatReturn({
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-      data,
-    };
+    return actionSuccess(data);
   } catch (error) {
-    return actionError(error);
+    return actionError<any>(error);
   }
 }
 
 export async function updateVatReturnStatus(
   id: string,
   status: string
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     const { error } = await supabase
       .from("vat_returns")
@@ -690,13 +742,13 @@ export async function updateVatReturnStatus(
       })
       .eq("id", id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
@@ -721,7 +773,8 @@ export async function createTaxReturn({
     const { data, error } = await supabase
       .from("self_assessment")
       .insert({
-        amount: toNumber(amount),
+        amount:
+          toNumber(amount),
 
         description:
           cleanString(description) ||
@@ -735,21 +788,20 @@ export async function createTaxReturn({
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-      data,
-    };
+    return actionSuccess(data);
   } catch (error) {
-    return actionError(error);
+    return actionError<any>(error);
   }
 }
 
 export async function updateTaxReturnStatus(
   id: string,
   status: string
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     const { error } = await supabase
       .from("self_assessment")
@@ -758,13 +810,13 @@ export async function updateTaxReturnStatus(
       })
       .eq("id", id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
@@ -786,7 +838,9 @@ export async function createRecurringInvoice({
       cleanString(clientName);
 
     if (!cleanedClientName) {
-      throw new Error("Client name is required");
+      throw new Error(
+        "Client name is required"
+      );
     }
 
     if (toNumber(amount) <= 0) {
@@ -796,59 +850,74 @@ export async function createRecurringInvoice({
     }
 
     if (!nextRun) {
-      throw new Error("Next run date is required");
+      throw new Error(
+        "Next run date is required"
+      );
     }
 
     const { data, error } = await supabase
       .from("subscriptions")
       .insert({
-        client_name: cleanedClientName,
-        amount: toNumber(amount),
+        client_name:
+          cleanedClientName,
+
+        amount:
+          toNumber(amount),
+
         interval:
-          cleanString(interval) || "monthly",
-        next_run: nextRun,
-        active: true,
+          cleanString(interval) ||
+          "monthly",
+
+        next_run:
+          nextRun,
+
+        active:
+          true,
 
         ...getContextFields(context),
       })
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-      data,
-    };
+    return actionSuccess(
+      data as Subscription
+    );
   } catch (error) {
-    return actionError(error);
+    return actionError<Subscription>(
+      error
+    );
   }
 }
 
 export async function toggleRecurringInvoice(
   subscription: Subscription
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     const { error } = await supabase
       .from("subscriptions")
       .update({
-        active: !subscription.active,
+        active:
+          !subscription.active,
       })
       .eq("id", subscription.id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
 export async function advanceRecurringInvoice(
   subscription: Subscription
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     if (!subscription.next_run) {
       throw new Error(
@@ -859,7 +928,8 @@ export async function advanceRecurringInvoice(
     const nextDate =
       getNextRecurringDate(
         subscription.next_run,
-        subscription.interval || "monthly"
+        subscription.interval ||
+          "monthly"
       );
 
     if (!nextDate) {
@@ -871,36 +941,37 @@ export async function advanceRecurringInvoice(
     const { error } = await supabase
       .from("subscriptions")
       .update({
-        next_run: nextDate,
+        next_run:
+          nextDate,
       })
       .eq("id", subscription.id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
 export async function deleteRecurringInvoice(
   id: string
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     const { error } = await supabase
       .from("subscriptions")
       .delete()
       .eq("id", id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
@@ -917,10 +988,13 @@ export async function createPayrollEmployee({
   ActionResult<PayrollEmployee>
 > {
   try {
-    const cleanedName = cleanString(name);
+    const cleanedName =
+      cleanString(name);
 
     if (!cleanedName) {
-      throw new Error("Employee name is required");
+      throw new Error(
+        "Employee name is required"
+      );
     }
 
     if (toNumber(salaryGross) <= 0) {
@@ -932,23 +1006,34 @@ export async function createPayrollEmployee({
     const { data, error } = await supabase
       .from("payroll_employees")
       .insert({
-        name: cleanedName,
-        role: cleanString(role) || null,
-        salary_gross: toNumber(salaryGross),
+        name:
+          cleanedName,
+
+        role:
+          cleanString(role) ||
+          null,
+
+        salary_gross:
+          toNumber(
+            salaryGross
+          ),
 
         ...getContextFields(context),
       })
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-      data,
-    };
+    return actionSuccess(
+      data as PayrollEmployee
+    );
   } catch (error) {
-    return actionError(error);
+    return actionError<PayrollEmployee>(
+      error
+    );
   }
 }
 
@@ -962,21 +1047,29 @@ export async function updatePayrollEmployee({
   name?: string;
   role?: string | null;
   salaryGross?: number | string;
-}): Promise<ActionResult> {
+}): Promise<ActionResult<null>> {
   try {
     const update: Record<string, unknown> = {};
 
     if (name !== undefined) {
-      update.name = cleanString(name);
+      update.name =
+        cleanString(name);
     }
 
     if (role !== undefined) {
-      update.role = cleanString(role) || null;
+      update.role =
+        cleanString(role) ||
+        null;
     }
 
-    if (salaryGross !== undefined) {
+    if (
+      salaryGross !==
+      undefined
+    ) {
       update.salary_gross =
-        toNumber(salaryGross);
+        toNumber(
+          salaryGross
+        );
     }
 
     const { error } = await supabase
@@ -984,32 +1077,32 @@ export async function updatePayrollEmployee({
       .update(update)
       .eq("id", id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
 export async function deletePayrollEmployee(
   id: string
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     const { error } = await supabase
       .from("payroll_employees")
       .delete()
       .eq("id", id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
@@ -1029,10 +1122,15 @@ export async function createPayslip({
 }: CreatePayslipInput): Promise<ActionResult<any>> {
   try {
     if (!employeeId) {
-      throw new Error("Employee is required");
+      throw new Error(
+        "Employee is required"
+      );
     }
 
-    if (!periodStart || !periodEnd) {
+    if (
+      !periodStart ||
+      !periodEnd
+    ) {
       throw new Error(
         "Payslip period is required"
       );
@@ -1041,46 +1139,58 @@ export async function createPayslip({
     const { data, error } = await supabase
       .from("payslips")
       .insert({
-        employee_id: employeeId,
-        gross: toNumber(gross),
-        net: toNumber(net),
-        tax: toNumber(tax),
-        ni: toNumber(ni),
-        period_start: periodStart,
-        period_end: periodEnd,
+        employee_id:
+          employeeId,
+
+        gross:
+          toNumber(gross),
+
+        net:
+          toNumber(net),
+
+        tax:
+          toNumber(tax),
+
+        ni:
+          toNumber(ni),
+
+        period_start:
+          periodStart,
+
+        period_end:
+          periodEnd,
 
         ...getContextFields(context),
       })
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-      data,
-    };
+    return actionSuccess(data);
   } catch (error) {
-    return actionError(error);
+    return actionError<any>(error);
   }
 }
 
 export async function deletePayslip(
   id: string
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
     const { error } = await supabase
       .from("payslips")
       .delete()
       .eq("id", id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
@@ -1109,21 +1219,41 @@ export async function createTimesheet({
     }
 
     const payload: Record<string, unknown> = {
-      user_id: userId,
-      mon,
-      tue,
-      wed,
-      thu,
-      fri,
-      sat,
-      sun,
-      hourly_rate: hourlyRate,
+      user_id:
+        userId,
+
+      mon:
+        toNumber(mon),
+
+      tue:
+        toNumber(tue),
+
+      wed:
+        toNumber(wed),
+
+      thu:
+        toNumber(thu),
+
+      fri:
+        toNumber(fri),
+
+      sat:
+        toNumber(sat),
+
+      sun:
+        toNumber(sun),
+
+      hourly_rate:
+        toNumber(
+          hourlyRate
+        ),
 
       ...getContextFields(context),
     };
 
     if (weekStart) {
-      payload.week_start = weekStart;
+      payload.week_start =
+        weekStart;
     }
 
     const { data, error } = await supabase
@@ -1132,14 +1262,13 @@ export async function createTimesheet({
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-      data,
-    };
+    return actionSuccess(data);
   } catch (error) {
-    return actionError(error);
+    return actionError<any>(error);
   }
 }
 
@@ -1159,38 +1288,50 @@ export async function updateTimesheet({
     hourly_rate: number;
     status: string;
   }>;
-}): Promise<ActionResult> {
+}): Promise<ActionResult<null>> {
   try {
+    if (!id) {
+      throw new Error(
+        "Timesheet ID is required"
+      );
+    }
+
     const { error } = await supabase
       .from("timesheets")
       .update(values)
       .eq("id", id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }
 
 export async function deleteTimesheet(
   id: string
-): Promise<ActionResult> {
+): Promise<ActionResult<null>> {
   try {
+    if (!id) {
+      throw new Error(
+        "Timesheet ID is required"
+      );
+    }
+
     const { error } = await supabase
       .from("timesheets")
       .delete()
       .eq("id", id);
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    return {
-      success: true,
-    };
+    return actionSuccessEmpty();
   } catch (error) {
-    return actionError(error);
+    return actionError<null>(error);
   }
 }

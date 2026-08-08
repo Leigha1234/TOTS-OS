@@ -326,7 +326,7 @@ export default function TotsOSLanding() {
                           <p>SYSTEM READY</p>
                         </motion.div>
                       </motion.div>
-                    </div>
+                    </div> 
                   </motion.div>
 
                   {/* LAPTOP BASE */}

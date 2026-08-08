@@ -197,7 +197,7 @@ if (isAdmin) {
         {!collapsed ? (
           <div className="flex items-center gap-3">
             <Image
-              src="/images/TOTS-favicon.jpeg"
+              src="/images/tots-os%20favicon.png"
               alt="logo"
               width={40}
               height={40}

@@ -7,8 +7,13 @@ import { Inter, Poppins } from "next/font/google";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata = {
-  title: "Tots OS",
+  title: "TOTS-OS",
   description: "Infrastructure for clarity and growth",
+  icons: {
+    icon: "/images/tots-os%20favicon.png",
+    shortcut: "/images/tots-os%20favicon.png",
+    apple: "/images/tots-os%20favicon.png",
+  },
 };
 
 export default function RootLayout({

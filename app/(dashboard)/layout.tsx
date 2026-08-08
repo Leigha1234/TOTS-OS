@@ -20,7 +20,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   
   const { 
     mobileNav = ["/dashboard", "/clarity", "/calendar"], 
-    logoUrl, 
     fontFamily = "Inter"
   } = useSettings();
 
@@ -94,22 +93,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="min-h-full p-8 pb-32">
                 <div className="flex justify-between items-start mb-12">
                   <div className="space-y-2">
-                    <p 
-                      className="text-[9px] font-black uppercase tracking-[0.4em]"
-                      style={{ color: 'var(--brand-primary)' }} // USE CSS VARIABLE
-                    >
-                      Infrastructure
-                    </p>
+                   
                     <div className="flex items-center gap-3">
-                      {logoUrl ? (
-                        <img src={logoUrl} alt="Logo" className="w-10 h-10 object-contain rounded-xl" />
-                      ) : (
-                        <div className="w-10 h-10 rounded-xl bg-stone-900 flex items-center justify-center text-white">
-                           <LayoutDashboard size={20} />
-                        </div>
-                      )}
-                      <span className="font-serif italic text-4xl tracking-tighter text-stone-900">Tots OS</span>
-                    </div>
+  <img
+    src="/images/tots-os%20favicon.png"
+    alt="TOTS-OS"
+    className="w-10 h-10 object-contain rounded-xl"
+  />
+  <span className="font-serif italic text-4xl tracking-tighter text-stone-900">
+    TOTS-OS
+  </span>
+</div>
                   </div>
                   <button 
                     onClick={() => setMobileMenuOpen(false)} 

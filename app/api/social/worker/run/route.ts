@@ -1,44 +1,71 @@
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST() {
-  const now = new Date().toISOString();
+export async function POST(request: NextRequest) {
+  try {
+    const cronSecret = process.env.CRON_SECRET;
 
-  // 1. Get due posts
-  const { data: posts } = await supabase
-    .from("scheduled_posts")
-    .select("*")
-    .eq("status", "scheduled")
-    .lte("scheduled_at", now);
-
-  if (!posts?.length) {
-    return NextResponse.json({ message: "No posts" });
-  }
-
-  for (const post of posts) {
-    try {
-      // 2. lock post
-      await supabase
-        .from("scheduled_posts")
-        .update({ status: "processing" })
-        .eq("id", post.id);
-
-      // 3. execute post
-      await fetch(`${process.env.NEXT_PUBLIC_URL}/api/post`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId: post.id }),
-      });
-
-    } catch (err) {
-      await supabase
-        .from("scheduled_posts")
-        .update({
-          status: "failed",
-        })
-        .eq("id", post.id);
+    if (!cronSecret) {
+      return NextResponse.json(
+        {
+          error: "Missing CRON_SECRET",
+        },
+        {
+          status: 500,
+        }
+      );
     }
-  }
 
-  return NextResponse.json({ success: true });
+    const origin = new URL(request.url).origin;
+
+    const response = await fetch(
+      `${origin}/api/cron/publish`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${cronSecret}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    const result = await response
+      .json()
+      .catch(() => null);
+
+    if (!response.ok) {
+      return NextResponse.json(
+        {
+          error:
+            result?.error ||
+            "Social publishing worker failed",
+          details: result,
+        },
+        {
+          status: response.status,
+        }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      result,
+    });
+  } catch (error) {
+    console.error(
+      "Social worker run error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to run social publishing worker",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }

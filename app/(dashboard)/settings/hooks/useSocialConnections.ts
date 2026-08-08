@@ -250,7 +250,7 @@ export function useSocialConnections() {
       if (!user) {
         return;
       }
-
+await refreshConnections();
       if (subscribedRef.current) {
         return;
       }

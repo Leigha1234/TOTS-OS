@@ -18,6 +18,7 @@ import {
   Settings,
   Loader2,
   LogOut,
+  CircleDollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -49,7 +50,9 @@ export default function Sidebar() {
 
   const tierLinks: Record<string, string[]> = {
     unpaid: [],
+    //basic crm and calendar
     starter: ["/dashboard", "/calendar", "/crm", "/notes", "/settings"],
+    // crm, calendar, campaigns, projects - no socials or finance
     professional: [
       "/dashboard",
       "/calendar",
@@ -59,6 +62,7 @@ export default function Sidebar() {
       "/projects",
       "/settings",
     ],
+    // crm, calendar, campaigns, projects, socials, finance
     elite: [
       "/dashboard",
       "/calendar",
@@ -67,6 +71,7 @@ export default function Sidebar() {
       "/notes",
       "/projects",
       "/social",
+       "/payments",
       "/settings",
     ],
   };
@@ -79,6 +84,7 @@ export default function Sidebar() {
     { href: "/notes", label: "Notes", icon: StickyNote },
     { href: "/projects", label: "Projects", icon: Briefcase },
     { href: "/social", label: "Social", icon: Globe },
+    { href: "/payments", label: "Finance", icon: CircleDollarSign },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 

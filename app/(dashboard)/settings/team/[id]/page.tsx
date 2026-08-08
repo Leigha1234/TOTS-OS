@@ -13,7 +13,19 @@ const supabase = createBrowserClient(
 );
 
 // List of all available modules in TOTS OS
-const MODULE_PAGES = ["Dashboard", "Calendar", "Campaigns", "Contacts", "Notes", "Finance", "Projects", "Reports", "Social", "Vault", "Settings"];
+const MODULE_PAGES = [
+  { label: "Dashboard", slug: "/dashboard" },
+  { label: "Calendar", slug: "/calendar" },
+  { label: "Campaigns", slug: "/campaigns" },
+  { label: "Contacts", slug: "/crm" },
+  { label: "Notes", slug: "/notes" },
+  { label: "Finance", slug: "/payments" },
+  { label: "Projects", slug: "/projects" },
+  { label: "Reports", slug: "/reports" },
+  { label: "Social", slug: "/social" },
+  { label: "Vault", slug: "/vault" },
+  { label: "Settings", slug: "/settings" },
+];
 
 export default function MemberSettingsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -83,16 +95,16 @@ const permMap = perms?.reduce((acc: Record<string, boolean>, p: Permission) => (
         </div>
 
         <div className="space-y-4">
-          {MODULE_PAGES.map((page) => (
-            <div key={page} className="flex items-center justify-between p-6 bg-[#faf9f6] rounded-2xl border border-stone-50 hover:border-stone-100 transition-all">
+          {MODULE_PAGES.map((modulePage) => (
+            <div key={modulePage.slug} className="flex items-center justify-between p-6 bg-[#faf9f6] rounded-2xl border border-stone-50 hover:border-stone-100 transition-all">
               <div className="flex items-center gap-4">
                 <div className="w-2 h-2 rounded-full bg-[#A3B18A]" />
-                <span className="text-[10px] font-black uppercase tracking-widest">{page}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">{modulePage.label}</span>
               </div>
               <AdminPermissionToggle 
                 memberId={params.id} 
-                pageSlug={page} 
-                initialAccess={permissions[page] || false} 
+                pageSlug={modulePage.slug} 
+                initialAccess={permissions[modulePage.slug] || false} 
               />
             </div>
           ))}

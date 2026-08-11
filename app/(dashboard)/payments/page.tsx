@@ -12,7 +12,6 @@ import FinanceExpenses from "./components/FinanceExpenses";
 import FinanceTax from "./components/FinanceTax";
 import FinancePayroll from "./components/FinancePayroll";
 import FinanceTimesheets from "./components/FinanceTimesheets";
-import FinanceBanking from "./components/FinanceBanking";
 
 import InvoiceQuoteModal from "./components/modals/InvoiceQuoteModal";
 import ExpenseModal from "./components/modals/ExpenseModal";
@@ -31,8 +30,7 @@ type FinanceTab =
   | "expenses"
   | "tax"
   | "payroll"
-  | "timesheets"
-  | "banking";
+  | "timesheets";
 
 type ModalType =
   | "invoiceQuote"
@@ -102,11 +100,6 @@ export default function PaymentsPage() {
     [finance.ledger]
   );
 
-  const bankTransactions = useMemo(
-    () => [],
-    []
-  );
-
   const metrics = useFinanceMetrics({
     invoices,
     quotes,
@@ -120,7 +113,7 @@ export default function PaymentsPage() {
     timesheets: finance.timesheets ?? [],
     subscriptions:
       finance.subscriptions ?? [],
-    bankTransactions,
+    bankTransactions: [],
   });
 
   const notify = (
@@ -297,26 +290,6 @@ export default function PaymentsPage() {
                 teamId={teamId}
                 userId={userId}
                 metrics={metrics}
-                refresh={finance.refresh}
-                notify={notify}
-              />
-            )}
-
-            {activeTab === "banking" && (
-              <FinanceBanking
-                transactions={
-                  bankTransactions
-                }
-                invoices={invoices}
-                expenses={
-                  finance.expenses
-                }
-                metrics={metrics}
-                organisationId={
-                  organisationId
-                }
-                teamId={teamId}
-                userId={userId}
                 refresh={finance.refresh}
                 notify={notify}
               />

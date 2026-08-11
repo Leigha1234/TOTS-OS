@@ -192,9 +192,9 @@ export default function PaymentsPage() {
                 onLogExpense={() =>
                   setActiveModal("expense")
                 }
-                onEmployee={() =>
-                  setActiveModal("employee")
-                }
+                onAddEmployee={() =>
+  setActiveModal("employee")
+}
                 onRecurring={() =>
                   setActiveModal("recurring")
                 }

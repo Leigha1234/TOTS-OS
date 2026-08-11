@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import FinanceHeader from "./components/FinanceHeader";
 import FinanceNav from "./components/FinanceNav";
@@ -61,40 +61,80 @@ export default function PaymentsPage() {
       type: "success",
     });
 
-  /*
-   * useFinanceContext returns `orgId`.
-   * Alias it locally to `organisationId`
-   * because the finance components use
-   * that prop name.
-   */
   const {
-    orgId: organisationId,
-    teamId,
-    userId,
+    orgId: contextOrgId,
+    teamId: contextTeamId,
+    userId: contextUserId,
     loading: contextLoading,
     error: contextError,
   } = useFinanceContext();
 
-  /*
-   * useFinanceData accepts no arguments.
-   * It resolves/loads its own finance data.
-   */
   const finance = useFinanceData();
 
+  /*
+   * Prefer the context hook values, but fall back to
+   * the values resolved by useFinanceData.
+   */
+  const organisationId =
+    contextOrgId ?? finance.orgId;
+
+  const teamId =
+    contextTeamId ?? finance.teamId;
+
+  const userId =
+    contextUserId ?? finance.userId;
+
+  /*
+   * useFinanceData provides one combined ledger.
+   * Split it into invoices and quotes for the
+   * existing finance components.
+   */
+  const invoices = useMemo(
+    () =>
+      finance.ledger.filter(
+        (entry) =>
+          String(entry.type ?? "")
+            .trim()
+            .toLowerCase() === "invoice"
+      ),
+    [finance.ledger]
+  );
+
+  const quotes = useMemo(
+    () =>
+      finance.ledger.filter(
+        (entry) =>
+          String(entry.type ?? "")
+            .trim()
+            .toLowerCase() === "quote"
+      ),
+    [finance.ledger]
+  );
+
+  /*
+   * useFinanceData currently does not load bank
+   * transactions, so provide an empty collection
+   * until banking data is added to the hook.
+   */
+  const bankTransactions = useMemo(
+    () => [],
+    []
+  );
+
   const metrics = useFinanceMetrics({
-    invoices: finance.invoices ?? [],
-    quotes: finance.quotes ?? [],
+    invoices,
+    quotes,
     expenses: finance.expenses ?? [],
     vatReturns: finance.vatReturns ?? [],
-    taxReturns: finance.taxReturns ?? [],
+    taxReturns:
+      finance.selfAssessments ?? [],
     payrollEmployees:
       finance.payrollEmployees ?? [],
     payslips: finance.payslips ?? [],
     timesheets: finance.timesheets ?? [],
     subscriptions:
       finance.subscriptions ?? [],
-    bankTransactions:
-      finance.bankTransactions ?? [],
+    bankTransactions,
   });
 
   const notify = (
@@ -118,11 +158,14 @@ export default function PaymentsPage() {
   const loading =
     contextLoading || finance.loading;
 
-  if (contextError) {
+  const error =
+    contextError || finance.error;
+
+  if (error) {
     return (
       <div className="min-h-screen bg-[#faf9f6] p-8">
         <p className="text-red-500">
-          {contextError}
+          {error}
         </p>
       </div>
     );
@@ -159,8 +202,8 @@ export default function PaymentsPage() {
             {activeTab === "overview" && (
               <FinanceOverview
                 metrics={metrics}
-                invoices={finance.invoices}
-                quotes={finance.quotes}
+                invoices={invoices}
+                quotes={quotes}
                 expenses={finance.expenses}
                 subscriptions={
                   finance.subscriptions
@@ -190,8 +233,8 @@ export default function PaymentsPage() {
 
             {activeTab === "sales" && (
               <FinanceSales
-                invoices={finance.invoices}
-                quotes={finance.quotes}
+                invoices={invoices}
+                quotes={quotes}
                 customers={finance.customers}
                 subscriptions={
                   finance.subscriptions
@@ -228,7 +271,7 @@ export default function PaymentsPage() {
                   finance.vatReturns
                 }
                 taxReturns={
-                  finance.taxReturns
+                  finance.selfAssessments
                 }
                 metrics={metrics}
                 refresh={finance.refresh}
@@ -279,11 +322,9 @@ export default function PaymentsPage() {
             {activeTab === "banking" && (
               <FinanceBanking
                 transactions={
-                  finance.bankTransactions
+                  bankTransactions
                 }
-                invoices={
-                  finance.invoices
-                }
+                invoices={invoices}
                 expenses={
                   finance.expenses
                 }
@@ -319,7 +360,9 @@ export default function PaymentsPage() {
       />
 
       <ExpenseModal
-        open={activeModal === "expense"}
+        open={
+          activeModal === "expense"
+        }
         organisationId={
           organisationId
         }
@@ -333,7 +376,9 @@ export default function PaymentsPage() {
       />
 
       <EmployeeModal
-        open={activeModal === "employee"}
+        open={
+          activeModal === "employee"
+        }
         organisationId={
           organisationId
         }

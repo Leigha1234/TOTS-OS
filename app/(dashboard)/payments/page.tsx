@@ -63,9 +63,9 @@ export default function PaymentsPage() {
 
   /*
    * useFinanceContext returns `orgId`.
-   * Alias it here to `organisationId` so the rest
-   * of the finance section can keep using the
-   * existing prop name.
+   * Alias it locally to `organisationId`
+   * because the finance components use
+   * that prop name.
    */
   const {
     orgId: organisationId,
@@ -75,10 +75,11 @@ export default function PaymentsPage() {
     error: contextError,
   } = useFinanceContext();
 
-  const finance = useFinanceData({
-    organisationId,
-    teamId,
-  });
+  /*
+   * useFinanceData accepts no arguments.
+   * It resolves/loads its own finance data.
+   */
+  const finance = useFinanceData();
 
   const metrics = useFinanceMetrics({
     invoices: finance.invoices ?? [],
@@ -119,7 +120,7 @@ export default function PaymentsPage() {
 
   if (contextError) {
     return (
-      <div className="p-8">
+      <div className="min-h-screen bg-[#faf9f6] p-8">
         <p className="text-red-500">
           {contextError}
         </p>
@@ -256,8 +257,7 @@ export default function PaymentsPage() {
               />
             )}
 
-            {activeTab ===
-              "timesheets" && (
+            {activeTab === "timesheets" && (
               <FinanceTimesheets
                 timesheets={
                   finance.timesheets
@@ -303,8 +303,7 @@ export default function PaymentsPage() {
 
       <InvoiceQuoteModal
         open={
-          activeModal ===
-          "invoiceQuote"
+          activeModal === "invoiceQuote"
         }
         organisationId={
           organisationId
@@ -320,9 +319,7 @@ export default function PaymentsPage() {
       />
 
       <ExpenseModal
-        open={
-          activeModal === "expense"
-        }
+        open={activeModal === "expense"}
         organisationId={
           organisationId
         }
@@ -336,9 +333,7 @@ export default function PaymentsPage() {
       />
 
       <EmployeeModal
-        open={
-          activeModal === "employee"
-        }
+        open={activeModal === "employee"}
         organisationId={
           organisationId
         }

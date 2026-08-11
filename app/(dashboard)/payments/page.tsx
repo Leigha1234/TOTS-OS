@@ -71,10 +71,6 @@ export default function PaymentsPage() {
 
   const finance = useFinanceData();
 
-  /*
-   * Prefer the context hook values, but fall back to
-   * the values resolved by useFinanceData.
-   */
   const organisationId =
     contextOrgId ?? finance.orgId;
 
@@ -84,11 +80,6 @@ export default function PaymentsPage() {
   const userId =
     contextUserId ?? finance.userId;
 
-  /*
-   * useFinanceData provides one combined ledger.
-   * Split it into invoices and quotes for the
-   * existing finance components.
-   */
   const invoices = useMemo(
     () =>
       finance.ledger.filter(
@@ -111,11 +102,6 @@ export default function PaymentsPage() {
     [finance.ledger]
   );
 
-  /*
-   * useFinanceData currently does not load bank
-   * transactions, so provide an empty collection
-   * until banking data is added to the hook.
-   */
   const bankTransactions = useMemo(
     () => [],
     []
@@ -182,9 +168,6 @@ export default function PaymentsPage() {
       <main className="mx-auto max-w-[1400px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
         <FinanceHeader
           loading={loading}
-          onCreate={() =>
-            setActiveModal("invoiceQuote")
-          }
           onRefresh={finance.refresh}
         />
 

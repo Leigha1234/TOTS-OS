@@ -189,7 +189,7 @@ export default function PaymentsPage() {
                     "invoiceQuote"
                   )
                 }
-                onExpense={() =>
+                onLogExpense={() =>
                   setActiveModal("expense")
                 }
                 onEmployee={() =>

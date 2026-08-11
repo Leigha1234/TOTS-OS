@@ -217,7 +217,6 @@ export default function PaymentsPage() {
                 }
                 metrics={metrics}
                 refresh={finance.refresh}
-                notify={notify}
                 onCreate={() =>
                   setActiveModal(
                     "invoiceQuote"

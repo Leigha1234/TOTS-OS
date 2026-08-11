@@ -84,7 +84,10 @@ export function toNumber(value: unknown): number {
   }
 
   if (typeof value === "string") {
-    const parsed = Number(value.replace(/,/g, "").trim());
+    const parsed = Number(
+      value.replace(/,/g, "").trim()
+    );
+
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
@@ -92,7 +95,11 @@ export function toNumber(value: unknown): number {
 }
 
 export function roundMoney(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  return (
+    Math.round(
+      (value + Number.EPSILON) * 100
+    ) / 100
+  );
 }
 
 export function formatCurrency(
@@ -119,7 +126,9 @@ export function formatCurrency(
   }).format(toNumber(value));
 }
 
-export function formatCompactCurrency(value: unknown): string {
+export function formatCompactCurrency(
+  value: unknown
+): string {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "GBP",
@@ -134,7 +143,10 @@ export function formatDate(
 ): string {
   if (!value) return fallback;
 
-  const date = value instanceof Date ? value : new Date(value);
+  const date =
+    value instanceof Date
+      ? value
+      : new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return fallback;
@@ -147,13 +159,17 @@ export function formatDate(
   }).format(date);
 }
 
-export function normaliseStatus(status: unknown): string {
+export function normaliseStatus(
+  status: unknown
+): string {
   return String(status ?? "draft")
     .trim()
     .toLowerCase();
 }
 
-export function isPositiveStatus(status: unknown): boolean {
+export function isPositiveStatus(
+  status: unknown
+): boolean {
   return [
     "paid",
     "accepted",
@@ -166,7 +182,9 @@ export function isPositiveStatus(status: unknown): boolean {
   ].includes(normaliseStatus(status));
 }
 
-export function isNegativeStatus(status: unknown): boolean {
+export function isNegativeStatus(
+  status: unknown
+): boolean {
   return [
     "overdue",
     "rejected",
@@ -176,7 +194,9 @@ export function isNegativeStatus(status: unknown): boolean {
   ].includes(normaliseStatus(status));
 }
 
-export function getStatusClasses(status: unknown): string {
+export function getStatusClasses(
+  status: unknown
+): string {
   const normalised = normaliseStatus(status);
 
   if (isPositiveStatus(normalised)) {
@@ -187,7 +207,11 @@ export function getStatusClasses(status: unknown): string {
     return "bg-red-50 text-red-500 border-red-100";
   }
 
-  if (["pending", "sent", "processing"].includes(normalised)) {
+  if (
+    ["pending", "sent", "processing"].includes(
+      normalised
+    )
+  ) {
     return "bg-amber-50 text-amber-600 border-amber-100";
   }
 
@@ -197,8 +221,13 @@ export function getStatusClasses(status: unknown): string {
 export function calculateLineItemNet(
   item: FinanceLineItemLike
 ): number {
-  const quantity = toNumber(item.qty ?? item.quantity ?? 0);
-  const price = toNumber(item.price ?? item.unit_price ?? 0);
+  const quantity = toNumber(
+    item.qty ?? item.quantity ?? 0
+  );
+
+  const price = toNumber(
+    item.price ?? item.unit_price ?? 0
+  );
 
   return roundMoney(quantity * price);
 }
@@ -208,13 +237,17 @@ export function calculateInvoiceTotals(
   vatRate = VAT_RATE
 ) {
   const net = roundMoney(
-    items.reduce(
-      (total, item) => total + calculateLineItemNet(item),
+    items.reduce<number>(
+      (total, item) =>
+        total + calculateLineItemNet(item),
       0
     )
   );
 
-  const vat = roundMoney(net * Math.max(0, vatRate));
+  const vat = roundMoney(
+    net * Math.max(0, vatRate)
+  );
+
   const gross = roundMoney(net + vat);
 
   return {
@@ -228,11 +261,19 @@ export function calculatePaidRevenue(
   ledger: FinanceLedgerEntryLike[]
 ): number {
   return roundMoney(
-    ledger.reduce((total, entry) => {
-      const type = String(entry.type ?? "").toLowerCase();
-      const status = normaliseStatus(entry.status);
+    ledger.reduce<number>((total, entry) => {
+      const type = String(
+        entry.type ?? ""
+      ).toLowerCase();
 
-      if (type === "invoice" && status === "paid") {
+      const status = normaliseStatus(
+        entry.status
+      );
+
+      if (
+        type === "invoice" &&
+        status === "paid"
+      ) {
         return total + toNumber(entry.amount);
       }
 
@@ -245,8 +286,9 @@ export function calculateExpenseTotal(
   expenses: FinanceRecordLike[]
 ): number {
   return roundMoney(
-    expenses.reduce(
-      (total, expense) => total + toNumber(expense.amount),
+    expenses.reduce<number>(
+      (total, expense) =>
+        total + toNumber(expense.amount),
       0
     )
   );
@@ -256,15 +298,27 @@ export function calculateFiledVat(
   vatReturns: FinanceRecordLike[]
 ): number {
   return roundMoney(
-    vatReturns.reduce((total, vatReturn) => {
-      const status = normaliseStatus(vatReturn.status);
+    vatReturns.reduce<number>(
+      (total, vatReturn) => {
+        const status = normaliseStatus(
+          vatReturn.status
+        );
 
-      if (["submitted", "filed", "paid"].includes(status)) {
-        return total + toNumber(vatReturn.amount);
-      }
+        if (
+          ["submitted", "filed", "paid"].includes(
+            status
+          )
+        ) {
+          return (
+            total +
+            toNumber(vatReturn.amount)
+          );
+        }
 
-      return total;
-    }, 0)
+        return total;
+      },
+      0
+    )
   );
 }
 
@@ -283,11 +337,15 @@ export function estimateVatOwed({
     vatCollected !== undefined
       ? toNumber(vatCollected)
       : roundMoney(
-          toNumber(revenue) * Math.max(0, vatRate)
+          toNumber(revenue) *
+            Math.max(0, vatRate)
         );
 
   return roundMoney(
-    Math.max(0, collected - toNumber(vatFiled))
+    Math.max(
+      0,
+      collected - toNumber(vatFiled)
+    )
   );
 }
 
@@ -313,14 +371,16 @@ export function estimateTaxExposure({
   const taxableProfit = roundMoney(
     Math.max(
       0,
-      profitBeforeAllowance - Math.max(0, personalAllowance)
+      profitBeforeAllowance -
+        Math.max(0, personalAllowance)
     )
   );
 
   return {
     taxableProfit,
     taxExposure: roundMoney(
-      taxableProfit * Math.max(0, taxRate)
+      taxableProfit *
+        Math.max(0, taxRate)
     ),
   };
 }
@@ -336,13 +396,20 @@ export function calculateFinancialMetrics({
   vatCollected?: number;
   vatFiled?: number;
 }): FinancialMetrics {
-  const safeRevenue = roundMoney(toNumber(revenue));
-  const safeCosts = roundMoney(toNumber(operatingCosts));
+  const safeRevenue = roundMoney(
+    toNumber(revenue)
+  );
+
+  const safeCosts = roundMoney(
+    toNumber(operatingCosts)
+  );
 
   const vatOwed = estimateVatOwed({
     revenue: safeRevenue,
     vatCollected:
-      vatCollected > 0 ? vatCollected : undefined,
+      vatCollected > 0
+        ? vatCollected
+        : undefined,
     vatFiled,
   });
 
@@ -357,9 +424,15 @@ export function calculateFinancialMetrics({
     netPosition: roundMoney(
       safeRevenue - safeCosts
     ),
-    monthlyBurn: roundMoney(safeCosts / 12),
-    vatCollected: roundMoney(toNumber(vatCollected)),
-    vatFiled: roundMoney(toNumber(vatFiled)),
+    monthlyBurn: roundMoney(
+      safeCosts / 12
+    ),
+    vatCollected: roundMoney(
+      toNumber(vatCollected)
+    ),
+    vatFiled: roundMoney(
+      toNumber(vatFiled)
+    ),
     vatOwed,
     taxableProfit: tax.taxableProfit,
     taxExposure: tax.taxExposure,
@@ -369,18 +442,25 @@ export function calculateFinancialMetrics({
 export function getLedgerRisk(
   entry: FinanceLedgerEntryLike
 ): "low" | "medium" | "high" {
-  const status = normaliseStatus(entry.status);
+  const status = normaliseStatus(
+    entry.status
+  );
 
   if (
-    ["overdue", "failed", "rejected"].includes(status)
+    ["overdue", "failed", "rejected"].includes(
+      status
+    )
   ) {
     return "high";
   }
 
   if (
-    ["pending", "draft", "sent", "processing"].includes(
-      status
-    )
+    [
+      "pending",
+      "draft",
+      "sent",
+      "processing",
+    ].includes(status)
   ) {
     return "medium";
   }
@@ -395,10 +475,15 @@ export function filterLedger<
   searchQuery: string
 ): Array<
   T & {
-    clarityRisk: "low" | "medium" | "high";
+    clarityRisk:
+      | "low"
+      | "medium"
+      | "high";
   }
 > {
-  const query = searchQuery.trim().toLowerCase();
+  const query = searchQuery
+    .trim()
+    .toLowerCase();
 
   return ledger
     .filter((entry) => {
@@ -413,7 +498,9 @@ export function filterLedger<
       ]
         .filter(Boolean)
         .some((value) =>
-          String(value).toLowerCase().includes(query)
+          String(value)
+            .toLowerCase()
+            .includes(query)
         );
     })
     .map((entry) => ({
@@ -425,20 +512,21 @@ export function filterLedger<
 export function calculateTimesheetHours(
   row: FinanceTimesheetLike
 ): number {
-  return roundMoney(
-    [
-      row.mon,
-      row.tue,
-      row.wed,
-      row.thu,
-      row.fri,
-      row.sat,
-      row.sun,
-    ].reduce(
-      (total, value) => total + toNumber(value),
-      0
-    )
+  const totalHours = [
+    row.mon,
+    row.tue,
+    row.wed,
+    row.thu,
+    row.fri,
+    row.sat,
+    row.sun,
+  ].reduce<number>(
+    (total, value) =>
+      total + toNumber(value),
+    0
   );
+
+  return roundMoney(totalHours);
 }
 
 export function calculateWorkforceMetrics({
@@ -451,36 +539,48 @@ export function calculateWorkforceMetrics({
   defaultHourlyRate?: number;
 }): WorkforceMetrics {
   const totalHours = roundMoney(
-    timesheets.reduce(
+    timesheets.reduce<number>(
       (total, row) =>
-        total + calculateTimesheetHours(row),
+        total +
+        calculateTimesheetHours(row),
       0
     )
   );
 
   const labourCost = roundMoney(
-    timesheets.reduce((total, row) => {
-      const hours =
-        calculateTimesheetHours(row);
+    timesheets.reduce<number>(
+      (total, row) => {
+        const hours =
+          calculateTimesheetHours(row);
 
-      const hourlyRate = row.hourly_rate
-        ? toNumber(row.hourly_rate)
-        : defaultHourlyRate;
+        const hourlyRate =
+          row.hourly_rate !== null &&
+          row.hourly_rate !== undefined &&
+          row.hourly_rate !== ""
+            ? toNumber(row.hourly_rate)
+            : defaultHourlyRate;
 
-      return total + hours * hourlyRate;
-    }, 0)
+        return (
+          total + hours * hourlyRate
+        );
+      },
+      0
+    )
   );
 
-  const safeRevenue = toNumber(revenue);
+  const safeRevenue =
+    toNumber(revenue);
 
   return {
     totalHours,
     labourCost,
     revenuePerHour: roundMoney(
-      safeRevenue / Math.max(totalHours, 1)
+      safeRevenue /
+        Math.max(totalHours, 1)
     ),
     labourCostRatio: roundMoney(
-      labourCost / Math.max(safeRevenue, 1)
+      labourCost /
+        Math.max(safeRevenue, 1)
     ),
   };
 }
@@ -489,10 +589,13 @@ export function calculateMonthlyPayroll(
   employees: FinanceEmployeeLike[]
 ): number {
   return roundMoney(
-    employees.reduce(
+    employees.reduce<number>(
       (total, employee) =>
         total +
-        toNumber(employee.salary_gross) / 12,
+        toNumber(
+          employee.salary_gross
+        ) /
+          12,
       0
     )
   );
@@ -510,15 +613,18 @@ export function calculateFinanceForecast({
   costGrowth?: number;
 }): FinanceForecast {
   const projectedRevenue = roundMoney(
-    toNumber(revenue) * (1 + revenueGrowth)
+    toNumber(revenue) *
+      (1 + revenueGrowth)
   );
 
   const projectedCosts = roundMoney(
-    toNumber(costs) * (1 + costGrowth)
+    toNumber(costs) *
+      (1 + costGrowth)
   );
 
   const projectedProfit = roundMoney(
-    projectedRevenue - projectedCosts
+    projectedRevenue -
+      projectedCosts
   );
 
   return {
@@ -541,7 +647,9 @@ export function calculateFinanceHealth({
 }: {
   metrics: Pick<
     FinancialMetrics,
-    "revenue" | "operatingCosts" | "vatOwed"
+    | "revenue"
+    | "operatingCosts"
+    | "vatOwed"
   >;
   workforce: WorkforceMetrics;
   hasTimesheets: boolean;
@@ -567,7 +675,8 @@ export function calculateFinanceHealth({
   }
 
   if (
-    metrics.vatOwed > metrics.revenue * 0.3 &&
+    metrics.vatOwed >
+      metrics.revenue * 0.3 &&
     metrics.vatOwed > 0
   ) {
     riskSignals.push(
@@ -576,7 +685,8 @@ export function calculateFinanceHealth({
   }
 
   if (
-    metrics.revenue < metrics.operatingCosts
+    metrics.revenue <
+    metrics.operatingCosts
   ) {
     riskSignals.push(
       "Negative operating margin"
@@ -590,13 +700,17 @@ export function calculateFinanceHealth({
   }
 
   const bonus =
-    workforce.revenuePerHour > 100 ? 15 : 0;
+    workforce.revenuePerHour > 100
+      ? 15
+      : 0;
 
   const healthScore = Math.max(
     0,
     Math.min(
       100,
-      100 - riskSignals.length * 18 + bonus
+      100 -
+        riskSignals.length * 18 +
+        bonus
     )
   );
 
@@ -630,7 +744,9 @@ export function getFinancialActionItems({
   const actions = new Set<string>();
 
   if (metrics.taxExposure > 0) {
-    actions.add("Prepare tax provision");
+    actions.add(
+      "Prepare tax provision"
+    );
   }
 
   if (
@@ -638,13 +754,18 @@ export function getFinancialActionItems({
       metrics.revenue * 0.2 &&
     metrics.vatOwed > 0
   ) {
-    actions.add("Review VAT position");
+    actions.add(
+      "Review VAT position"
+    );
   }
 
   if (
-    metrics.revenue < metrics.operatingCosts
+    metrics.revenue <
+    metrics.operatingCosts
   ) {
-    actions.add("Operating loss detected");
+    actions.add(
+      "Operating loss detected"
+    );
   }
 
   if (!hasTimesheets) {
@@ -653,8 +774,8 @@ export function getFinancialActionItems({
     );
   }
 
-  health.riskSignals.forEach((signal) =>
-    actions.add(signal)
+  health.riskSignals.forEach(
+    (signal) => actions.add(signal)
   );
 
   return Array.from(actions);
@@ -665,7 +786,8 @@ export function getDocumentReference(
   id: string | null | undefined
 ): string {
   const prefix =
-    String(type).toLowerCase() === "invoice"
+    String(type).toLowerCase() ===
+    "invoice"
       ? "INV"
       : "QT";
 
@@ -682,18 +804,25 @@ export function getNextRecurringDate(
   currentDate: string | Date,
   interval: string
 ): string {
-  const date = new Date(currentDate);
+  const date = new Date(
+    currentDate
+  );
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(date.getTime())
+  ) {
     return "";
   }
 
-  const normalisedInterval = interval
-    .trim()
-    .toLowerCase();
+  const normalisedInterval =
+    interval.trim().toLowerCase();
 
-  if (normalisedInterval === "weekly") {
-    date.setDate(date.getDate() + 7);
+  if (
+    normalisedInterval === "weekly"
+  ) {
+    date.setDate(
+      date.getDate() + 7
+    );
   } else if (
     normalisedInterval === "yearly" ||
     normalisedInterval === "annual"
@@ -707,5 +836,7 @@ export function getNextRecurringDate(
     );
   }
 
-  return date.toISOString().slice(0, 10);
+  return date
+    .toISOString()
+    .slice(0, 10);
 }

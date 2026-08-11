@@ -62,15 +62,13 @@ export default function PaymentsPage() {
     });
 
   /*
-   * useFinanceContext exposes `organizationId`
-   * using the US spelling.
-   *
+   * useFinanceContext returns `orgId`.
    * Alias it here to `organisationId` so the rest
-   * of the finance section can continue using the
-   * existing UK spelling without needing changes.
+   * of the finance section can keep using the
+   * existing prop name.
    */
   const {
-    organizationId: organisationId,
+    orgId: organisationId,
     teamId,
     userId,
     loading: contextLoading,

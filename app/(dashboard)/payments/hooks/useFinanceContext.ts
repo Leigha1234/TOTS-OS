@@ -1,399 +1,268 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 
-import FinanceHeader from "./components/FinanceHeader";
-import FinanceNav from "./components/FinanceNav";
-import FinanceNotification from "./components/FinanceNotification";
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-import FinanceOverview from "./components/FinanceOverview";
-import FinanceSales from "./components/FinanceSales";
-import FinanceExpenses from "./components/FinanceExpenses";
-import FinanceTax from "./components/FinanceTax";
-import FinancePayroll from "./components/FinancePayroll";
-import FinanceTimesheets from "./components/FinanceTimesheets";
-import FinanceBanking from "./components/FinanceBanking";
+export type FinanceContext = {
+  userId: string | null;
+  orgId: string | null;
+  teamId: string | null;
+  role: string | null;
+  subscriptionTier: string | null;
+};
 
-import InvoiceQuoteModal from "./components/modals/InvoiceQuoteModal";
-import ExpenseModal from "./components/modals/ExpenseModal";
-import EmployeeModal from "./components/modals/EmployeeModal";
-import RecurringInvoiceModal from "./components/modals/RecurringInvoiceModal";
-import VatModal from "./components/modals/VatModal";
-import TaxModal from "./components/modals/TaxModal";
+type UseFinanceContextResult = FinanceContext & {
+  loading: boolean;
+  error: string | null;
+  refreshContext: () => Promise<FinanceContext | null>;
+};
 
-import { useFinanceContext } from "./hooks/useFinanceContext";
-import { useFinanceData } from "./hooks/useFinanceData";
-import { useFinanceMetrics } from "./hooks/useFinanceMetrics";
+/**
+ * Resolves the current user's finance context.
+ *
+ * This keeps the Finance section linked to the same:
+ * - Supabase user
+ * - organisation
+ * - team
+ * - role
+ * - subscription tier
+ *
+ * used throughout TOTS-OS.
+ */
+export function useFinanceContext(): UseFinanceContextResult {
+  const [userId, setUserId] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [teamId, setTeamId] = useState<string | null>(null);
 
-type FinanceTab =
-  | "overview"
-  | "sales"
-  | "expenses"
-  | "tax"
-  | "payroll"
-  | "timesheets"
-  | "banking";
+  const [role, setRole] = useState<string | null>(null);
 
-type ModalType =
-  | "invoiceQuote"
-  | "expense"
-  | "employee"
-  | "recurring"
-  | "vat"
-  | "tax"
-  | null;
+  const [subscriptionTier, setSubscriptionTier] =
+    useState<string | null>(null);
 
-export default function PaymentsPage() {
-  const [activeTab, setActiveTab] =
-    useState<FinanceTab>("overview");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [activeModal, setActiveModal] =
-    useState<ModalType>(null);
+  const clearContext = useCallback(() => {
+    setUserId(null);
+    setOrgId(null);
+    setTeamId(null);
+    setRole(null);
+    setSubscriptionTier(null);
+  }, []);
 
-  const [notification, setNotification] =
-    useState<{
-      visible: boolean;
-      message: string;
-      type: "success" | "error";
-    }>({
-      visible: false,
-      message: "",
-      type: "success",
-    });
+  const resolveContext =
+    useCallback(async (): Promise<FinanceContext | null> => {
+      setError(null);
 
-  /*
-   * useFinanceContext returns `orgId`.
-   * We alias it to `organisationId` because the
-   * finance components use that prop name.
-   */
-  const {
-    orgId: organisationId,
-    teamId,
-    userId,
-    loading: contextLoading,
-    error: contextError,
-  } = useFinanceContext();
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-  const finance = useFinanceData({
-    organisationId,
-    teamId,
-  });
+        if (authError) {
+          throw new Error(authError.message);
+        }
 
-  const metrics = useFinanceMetrics({
-    invoices: finance.invoices ?? [],
-    quotes: finance.quotes ?? [],
-    expenses: finance.expenses ?? [],
-    vatReturns: finance.vatReturns ?? [],
-    taxReturns: finance.taxReturns ?? [],
-    payrollEmployees:
-      finance.payrollEmployees ?? [],
-    payslips: finance.payslips ?? [],
-    timesheets: finance.timesheets ?? [],
-    subscriptions:
-      finance.subscriptions ?? [],
-    bankTransactions:
-      finance.bankTransactions ?? [],
-  });
+        if (!user?.id) {
+          clearContext();
 
-  const notify = (
-    message: string,
-    type: "success" | "error" = "success"
-  ) => {
-    setNotification({
-      visible: true,
-      message,
-      type,
-    });
+          throw new Error(
+            "You must be signed in to access Finance."
+          );
+        }
 
-    window.setTimeout(() => {
-      setNotification((prev) => ({
-        ...prev,
-        visible: false,
-      }));
-    }, 3000);
-  };
+        const [
+          { data: profile, error: profileError },
+          { data: membership, error: membershipError },
+        ] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select(
+              `
+                id,
+                organisation_id,
+                role,
+                subscription_tier
+              `
+            )
+            .eq("id", user.id)
+            .maybeSingle(),
 
-  const loading =
-    contextLoading || finance.loading;
+          supabase
+            .from("team_members")
+            .select(
+              `
+                user_id,
+                team_id,
+                organisation_id,
+                role
+              `
+            )
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        ]);
 
-  if (contextError) {
-    return (
-      <div className="min-h-screen bg-[#faf9f6] p-8">
-        <p className="text-red-500">
-          {contextError}
-        </p>
-      </div>
-    );
-  }
+        if (profileError) {
+          console.error(
+            "Finance context profile lookup error:",
+            profileError
+          );
+        }
 
-  return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900">
-      <FinanceNotification
-        visible={notification.visible}
-        message={notification.message}
-        type={notification.type}
-      />
+        if (membershipError) {
+          console.error(
+            "Finance context team membership lookup error:",
+            membershipError
+          );
+        }
 
-      <main className="mx-auto max-w-[1400px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
-        <FinanceHeader
-          loading={loading}
-          onCreate={() =>
-            setActiveModal("invoiceQuote")
+        const resolvedOrgId =
+          profile?.organisation_id ??
+          membership?.organisation_id ??
+          null;
+
+        const resolvedTeamId =
+          membership?.team_id ?? null;
+
+        const resolvedRole = String(
+          membership?.role ??
+            profile?.role ??
+            "user"
+        )
+          .toLowerCase()
+          .trim();
+
+        const resolvedTier = String(
+          profile?.subscription_tier ??
+            "unpaid"
+        )
+          .toLowerCase()
+          .trim();
+
+        if (!resolvedOrgId) {
+          clearContext();
+
+          throw new Error(
+            "This account is not linked to an organisation."
+          );
+        }
+
+        const context: FinanceContext = {
+          userId: user.id,
+          orgId: resolvedOrgId,
+          teamId: resolvedTeamId,
+          role: resolvedRole,
+          subscriptionTier: resolvedTier,
+        };
+
+        setUserId(context.userId);
+        setOrgId(context.orgId);
+        setTeamId(context.teamId);
+        setRole(context.role);
+        setSubscriptionTier(
+          context.subscriptionTier
+        );
+
+        return context;
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unable to resolve finance context.";
+
+        setError(message);
+
+        console.error(
+          "Finance context resolution error:",
+          err
+        );
+
+        return null;
+      }
+    }, [clearContext]);
+
+  const refreshContext =
+    useCallback(async (): Promise<FinanceContext | null> => {
+      setLoading(true);
+
+      try {
+        return await resolveContext();
+      } finally {
+        setLoading(false);
+      }
+    }, [resolveContext]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function initialise() {
+      setLoading(true);
+
+      try {
+        await resolveContext();
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void initialise();
+
+    return () => {
+      mounted = false;
+    };
+  }, [resolveContext]);
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      async (event) => {
+        if (event === "SIGNED_OUT") {
+          clearContext();
+          setError(null);
+          setLoading(false);
+          return;
+        }
+
+        if (
+          event === "SIGNED_IN" ||
+          event === "TOKEN_REFRESHED" ||
+          event === "USER_UPDATED"
+        ) {
+          setLoading(true);
+
+          try {
+            await resolveContext();
+          } finally {
+            setLoading(false);
           }
-          onRefresh={finance.refresh}
-        />
+        }
+      }
+    );
 
-        <FinanceNav
-          activeTab={activeTab}
-          onChange={setActiveTab}
-        />
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [clearContext, resolveContext]);
 
-        {loading ? (
-          <div className="flex min-h-[400px] items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#a9b897]" />
-          </div>
-        ) : (
-          <>
-            {activeTab === "overview" && (
-              <FinanceOverview
-                metrics={metrics}
-                invoices={finance.invoices}
-                quotes={finance.quotes}
-                expenses={finance.expenses}
-                subscriptions={
-                  finance.subscriptions
-                }
-                onCreateInvoice={() =>
-                  setActiveModal(
-                    "invoiceQuote"
-                  )
-                }
-                onExpense={() =>
-                  setActiveModal("expense")
-                }
-                onEmployee={() =>
-                  setActiveModal("employee")
-                }
-                onRecurring={() =>
-                  setActiveModal("recurring")
-                }
-                onVat={() =>
-                  setActiveModal("vat")
-                }
-                onTax={() =>
-                  setActiveModal("tax")
-                }
-              />
-            )}
-
-            {activeTab === "sales" && (
-              <FinanceSales
-                invoices={finance.invoices}
-                quotes={finance.quotes}
-                customers={finance.customers}
-                subscriptions={
-                  finance.subscriptions
-                }
-                metrics={metrics}
-                refresh={finance.refresh}
-                notify={notify}
-                onCreate={() =>
-                  setActiveModal(
-                    "invoiceQuote"
-                  )
-                }
-                onRecurring={() =>
-                  setActiveModal("recurring")
-                }
-              />
-            )}
-
-            {activeTab === "expenses" && (
-              <FinanceExpenses
-                expenses={finance.expenses}
-                metrics={metrics}
-                refresh={finance.refresh}
-                notify={notify}
-                onCreate={() =>
-                  setActiveModal("expense")
-                }
-              />
-            )}
-
-            {activeTab === "tax" && (
-              <FinanceTax
-                vatReturns={
-                  finance.vatReturns
-                }
-                taxReturns={
-                  finance.taxReturns
-                }
-                metrics={metrics}
-                refresh={finance.refresh}
-                notify={notify}
-                onVat={() =>
-                  setActiveModal("vat")
-                }
-                onTax={() =>
-                  setActiveModal("tax")
-                }
-              />
-            )}
-
-            {activeTab === "payroll" && (
-              <FinancePayroll
-                employees={
-                  finance.payrollEmployees
-                }
-                payslips={finance.payslips}
-                metrics={metrics}
-                refresh={finance.refresh}
-                notify={notify}
-                onCreate={() =>
-                  setActiveModal("employee")
-                }
-              />
-            )}
-
-            {activeTab ===
-              "timesheets" && (
-              <FinanceTimesheets
-                timesheets={
-                  finance.timesheets
-                }
-                employees={
-                  finance.payrollEmployees
-                }
-                organisationId={
-                  organisationId
-                }
-                teamId={teamId}
-                userId={userId}
-                metrics={metrics}
-                refresh={finance.refresh}
-                notify={notify}
-              />
-            )}
-
-            {activeTab === "banking" && (
-              <FinanceBanking
-                transactions={
-                  finance.bankTransactions
-                }
-                invoices={
-                  finance.invoices
-                }
-                expenses={
-                  finance.expenses
-                }
-                metrics={metrics}
-                organisationId={
-                  organisationId
-                }
-                teamId={teamId}
-                userId={userId}
-                refresh={finance.refresh}
-                notify={notify}
-              />
-            )}
-          </>
-        )}
-      </main>
-
-      <InvoiceQuoteModal
-        open={
-          activeModal === "invoiceQuote"
-        }
-        organisationId={
-          organisationId
-        }
-        teamId={teamId}
-        userId={userId}
-        customers={finance.customers}
-        onClose={() =>
-          setActiveModal(null)
-        }
-        onSuccess={finance.refresh}
-        notify={notify}
-      />
-
-      <ExpenseModal
-        open={activeModal === "expense"}
-        organisationId={
-          organisationId
-        }
-        teamId={teamId}
-        userId={userId}
-        onClose={() =>
-          setActiveModal(null)
-        }
-        onSuccess={finance.refresh}
-        notify={notify}
-      />
-
-      <EmployeeModal
-        open={activeModal === "employee"}
-        organisationId={
-          organisationId
-        }
-        teamId={teamId}
-        userId={userId}
-        onClose={() =>
-          setActiveModal(null)
-        }
-        onSuccess={finance.refresh}
-        notify={notify}
-      />
-
-      <RecurringInvoiceModal
-        open={
-          activeModal === "recurring"
-        }
-        organisationId={
-          organisationId
-        }
-        teamId={teamId}
-        userId={userId}
-        onClose={() =>
-          setActiveModal(null)
-        }
-        onSuccess={finance.refresh}
-        notify={notify}
-      />
-
-      <VatModal
-        open={activeModal === "vat"}
-        organisationId={
-          organisationId
-        }
-        teamId={teamId}
-        userId={userId}
-        estimatedAmount={
-          metrics.vatOwed ?? 0
-        }
-        onClose={() =>
-          setActiveModal(null)
-        }
-        onSuccess={finance.refresh}
-        notify={notify}
-      />
-
-      <TaxModal
-        open={activeModal === "tax"}
-        organisationId={
-          organisationId
-        }
-        teamId={teamId}
-        userId={userId}
-        estimatedAmount={
-          metrics.taxExposure ?? 0
-        }
-        onClose={() =>
-          setActiveModal(null)
-        }
-        onSuccess={finance.refresh}
-        notify={notify}
-      />
-    </div>
-  );
+  return {
+    userId,
+    orgId,
+    teamId,
+    role,
+    subscriptionTier,
+    loading,
+    error,
+    refreshContext,
+  };
 }
+
+export default useFinanceContext;

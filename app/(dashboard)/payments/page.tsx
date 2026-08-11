@@ -105,8 +105,7 @@ export default function PaymentsPage() {
     quotes,
     expenses: finance.expenses ?? [],
     vatReturns: finance.vatReturns ?? [],
-    taxReturns:
-      finance.selfAssessments ?? [],
+    taxReturns: finance.selfAssessments ?? [],
     payrollEmployees:
       finance.payrollEmployees ?? [],
     payslips: finance.payslips ?? [],
@@ -127,8 +126,8 @@ export default function PaymentsPage() {
     });
 
     setTimeout(() => {
-      setNotification((prev) => ({
-        ...prev,
+      setNotification((previous) => ({
+        ...previous,
         visible: false,
       }));
     }, 3000);
@@ -193,8 +192,8 @@ export default function PaymentsPage() {
                   setActiveModal("expense")
                 }
                 onAddEmployee={() =>
-  setActiveModal("employee")
-}
+                  setActiveModal("employee")
+                }
                 onRecurring={() =>
                   setActiveModal("recurring")
                 }
@@ -217,11 +216,6 @@ export default function PaymentsPage() {
                 }
                 metrics={metrics}
                 refresh={finance.refresh}
-                onCreate={() =>
-                  setActiveModal(
-                    "invoiceQuote"
-                  )
-                }
                 onRecurring={() =>
                   setActiveModal("recurring")
                 }
@@ -265,7 +259,9 @@ export default function PaymentsPage() {
                 employees={
                   finance.payrollEmployees
                 }
-                payslips={finance.payslips}
+                payslips={
+                  finance.payslips
+                }
                 metrics={metrics}
                 refresh={finance.refresh}
                 notify={notify}
@@ -363,7 +359,9 @@ export default function PaymentsPage() {
       />
 
       <VatModal
-        open={activeModal === "vat"}
+        open={
+          activeModal === "vat"
+        }
         organisationId={
           organisationId
         }
@@ -380,7 +378,9 @@ export default function PaymentsPage() {
       />
 
       <TaxModal
-        open={activeModal === "tax"}
+        open={
+          activeModal === "tax"
+        }
         organisationId={
           organisationId
         }

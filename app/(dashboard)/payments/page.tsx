@@ -61,8 +61,16 @@ export default function PaymentsPage() {
       type: "success",
     });
 
+  /*
+   * useFinanceContext exposes `organizationId`
+   * using the US spelling.
+   *
+   * Alias it here to `organisationId` so the rest
+   * of the finance section can continue using the
+   * existing UK spelling without needing changes.
+   */
   const {
-    organisationId,
+    organizationId: organisationId,
     teamId,
     userId,
     loading: contextLoading,
@@ -159,7 +167,9 @@ export default function PaymentsPage() {
                   finance.subscriptions
                 }
                 onCreateInvoice={() =>
-                  setActiveModal("invoiceQuote")
+                  setActiveModal(
+                    "invoiceQuote"
+                  )
                 }
                 onExpense={() =>
                   setActiveModal("expense")
@@ -191,7 +201,9 @@ export default function PaymentsPage() {
                 refresh={finance.refresh}
                 notify={notify}
                 onCreate={() =>
-                  setActiveModal("invoiceQuote")
+                  setActiveModal(
+                    "invoiceQuote"
+                  )
                 }
                 onRecurring={() =>
                   setActiveModal("recurring")
@@ -246,7 +258,8 @@ export default function PaymentsPage() {
               />
             )}
 
-            {activeTab === "timesheets" && (
+            {activeTab ===
+              "timesheets" && (
               <FinanceTimesheets
                 timesheets={
                   finance.timesheets
@@ -292,9 +305,12 @@ export default function PaymentsPage() {
 
       <InvoiceQuoteModal
         open={
-          activeModal === "invoiceQuote"
+          activeModal ===
+          "invoiceQuote"
         }
-        organisationId={organisationId}
+        organisationId={
+          organisationId
+        }
         teamId={teamId}
         userId={userId}
         customers={finance.customers}
@@ -306,8 +322,12 @@ export default function PaymentsPage() {
       />
 
       <ExpenseModal
-        open={activeModal === "expense"}
-        organisationId={organisationId}
+        open={
+          activeModal === "expense"
+        }
+        organisationId={
+          organisationId
+        }
         teamId={teamId}
         userId={userId}
         onClose={() =>
@@ -318,8 +338,12 @@ export default function PaymentsPage() {
       />
 
       <EmployeeModal
-        open={activeModal === "employee"}
-        organisationId={organisationId}
+        open={
+          activeModal === "employee"
+        }
+        organisationId={
+          organisationId
+        }
         teamId={teamId}
         userId={userId}
         onClose={() =>
@@ -330,8 +354,12 @@ export default function PaymentsPage() {
       />
 
       <RecurringInvoiceModal
-        open={activeModal === "recurring"}
-        organisationId={organisationId}
+        open={
+          activeModal === "recurring"
+        }
+        organisationId={
+          organisationId
+        }
         teamId={teamId}
         userId={userId}
         onClose={() =>
@@ -343,7 +371,9 @@ export default function PaymentsPage() {
 
       <VatModal
         open={activeModal === "vat"}
-        organisationId={organisationId}
+        organisationId={
+          organisationId
+        }
         teamId={teamId}
         userId={userId}
         estimatedAmount={
@@ -358,7 +388,9 @@ export default function PaymentsPage() {
 
       <TaxModal
         open={activeModal === "tax"}
-        organisationId={organisationId}
+        organisationId={
+          organisationId
+        }
         teamId={teamId}
         userId={userId}
         estimatedAmount={

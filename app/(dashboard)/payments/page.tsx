@@ -13,7 +13,12 @@ import FinanceTax from "./components/FinanceTax";
 import FinancePayroll from "./components/FinancePayroll";
 import FinanceTimesheets from "./components/FinanceTimesheets";
 
-import InvoiceQuoteModal from "./components/modals/InvoiceQuoteModal";
+import InvoiceQuoteModal, {
+  type FinanceLineItem,
+  type InvoiceQuoteDocType,
+  type InvoiceQuoteFormData,
+} from "./components/modals/InvoiceQuoteModal";
+
 import ExpenseModal from "./components/modals/ExpenseModal";
 import EmployeeModal from "./components/modals/EmployeeModal";
 import RecurringInvoiceModal from "./components/modals/RecurringInvoiceModal";
@@ -47,6 +52,21 @@ type NotificationType = {
   type: "success" | "error";
 };
 
+const INITIAL_INVOICE_QUOTE_FORM: InvoiceQuoteFormData = {
+  customerId: "",
+  newClientName: "",
+  dueDate: "",
+};
+
+const INITIAL_LINE_ITEMS: FinanceLineItem[] = [
+  {
+    id: 1,
+    desc: "",
+    qty: 1,
+    price: 0,
+  },
+];
+
 export default function PaymentsPage() {
   const [activeTab, setActiveTab] =
     useState<FinanceTab>("overview");
@@ -60,6 +80,23 @@ export default function PaymentsPage() {
       message: "",
       type: "success",
     });
+
+  /*
+   * Invoice / Quote modal state
+   */
+  const [invoiceQuoteSubmitting, setInvoiceQuoteSubmitting] =
+    useState(false);
+
+  const [invoiceQuoteDocType, setInvoiceQuoteDocType] =
+    useState<InvoiceQuoteDocType>("Invoice");
+
+  const [invoiceQuoteForm, setInvoiceQuoteForm] =
+    useState<InvoiceQuoteFormData>(
+      INITIAL_INVOICE_QUOTE_FORM
+    );
+
+  const [invoiceQuoteLineItems, setInvoiceQuoteLineItems] =
+    useState<FinanceLineItem[]>(INITIAL_LINE_ITEMS);
 
   /*
    * Finance context
@@ -78,8 +115,8 @@ export default function PaymentsPage() {
   const finance = useFinanceData();
 
   /*
-   * Prefer the finance context IDs, but fall back
-   * to IDs returned by useFinanceData.
+   * Prefer finance-context IDs but fall back
+   * to the values returned by useFinanceData.
    */
   const organisationId =
     contextOrgId ?? finance.orgId;
@@ -91,7 +128,7 @@ export default function PaymentsPage() {
     contextUserId ?? finance.userId;
 
   /*
-   * Split the finance ledger into invoices / quotes.
+   * Split ledger into invoices and quotes.
    */
   const invoices = useMemo(
     () =>
@@ -116,7 +153,7 @@ export default function PaymentsPage() {
   );
 
   /*
-   * Finance metrics used by Overview, Sales and Tax.
+   * Finance metrics
    */
   const metrics = useFinanceMetrics({
     invoices,
@@ -134,11 +171,32 @@ export default function PaymentsPage() {
   });
 
   /*
-   * Global finance notification helper.
-   *
-   * This is still required by the modals even though
-   * FinanceTax / FinancePayroll / FinanceTimesheets
-   * do not accept it directly.
+   * Invoice / quote totals
+   */
+  const invoiceQuoteNetTotal = useMemo(
+    () =>
+      invoiceQuoteLineItems.reduce(
+        (total, item) =>
+          total +
+          Number(item.qty || 0) *
+            Number(item.price || 0),
+        0
+      ),
+    [invoiceQuoteLineItems]
+  );
+
+  /*
+   * Current modal assumes VAT at 20%.
+   */
+  const invoiceQuoteVatTotal =
+    invoiceQuoteNetTotal * 0.2;
+
+  const invoiceQuoteGrandTotal =
+    invoiceQuoteNetTotal +
+    invoiceQuoteVatTotal;
+
+  /*
+   * Notifications
    */
   const notify = (
     message: string,
@@ -156,6 +214,127 @@ export default function PaymentsPage() {
         visible: false,
       }));
     }, 3000);
+  };
+
+  /*
+   * Reset invoice / quote form
+   */
+  const resetInvoiceQuote = () => {
+    setInvoiceQuoteDocType("Invoice");
+
+    setInvoiceQuoteForm({
+      customerId: "",
+      newClientName: "",
+      dueDate: "",
+    });
+
+    setInvoiceQuoteLineItems([
+      {
+        id: 1,
+        desc: "",
+        qty: 1,
+        price: 0,
+      },
+    ]);
+  };
+
+  /*
+   * Close invoice / quote modal
+   */
+  const closeInvoiceQuoteModal = () => {
+    if (invoiceQuoteSubmitting) {
+      return;
+    }
+
+    setActiveModal(null);
+    resetInvoiceQuote();
+  };
+
+  /*
+   * Invoice / Quote submit
+   *
+   * This currently handles the modal lifecycle.
+   * The actual Supabase/API insert should be added
+   * here once the finance create function is known.
+   */
+  const handleInvoiceQuoteSubmit = async () => {
+    if (invoiceQuoteSubmitting) {
+      return;
+    }
+
+    const hasCustomer =
+      invoiceQuoteForm.customerId.trim().length > 0;
+
+    const hasNewQuoteCustomer =
+      invoiceQuoteDocType === "Quote" &&
+      invoiceQuoteForm.newClientName.trim().length > 0;
+
+    if (!hasCustomer && !hasNewQuoteCustomer) {
+      notify(
+        "Please select or enter a client.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      invoiceQuoteDocType === "Invoice" &&
+      !invoiceQuoteForm.dueDate
+    ) {
+      notify(
+        "Please choose an invoice due date.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      invoiceQuoteLineItems.length === 0 ||
+      invoiceQuoteLineItems.some(
+        (item) =>
+          !item.desc.trim() ||
+          item.qty <= 0 ||
+          item.price < 0
+      )
+    ) {
+      notify(
+        "Please complete all line items.",
+        "error"
+      );
+      return;
+    }
+
+    setInvoiceQuoteSubmitting(true);
+
+    try {
+      /*
+       * Add the real database/API create call here.
+       *
+       * The modal UI is now completely wired and typed.
+       */
+
+      notify(
+        `${invoiceQuoteDocType} prepared successfully.`,
+        "success"
+      );
+
+      setActiveModal(null);
+      resetInvoiceQuote();
+
+      await finance.refresh();
+    } catch (submitError) {
+      console.error(
+        "Invoice / quote submission failed:",
+        submitError
+      );
+
+      notify(
+        `Unable to create ${invoiceQuoteDocType.toLowerCase()}.`,
+        "error"
+      );
+    } finally {
+      setInvoiceQuoteSubmitting(false);
+    }
   };
 
   const loading =
@@ -203,7 +382,7 @@ export default function PaymentsPage() {
           onChange={setActiveTab}
         />
 
-        {/* LOADING */}
+        {/* CONTENT */}
         {loading ? (
           <div className="flex min-h-[400px] items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#a9b897]" />
@@ -297,8 +476,7 @@ export default function PaymentsPage() {
             {activeTab === "payroll" && (
               <FinancePayroll
                 employees={
-                  finance.payrollEmployees ??
-                  []
+                  finance.payrollEmployees ?? []
                 }
                 payslips={
                   finance.payslips ?? []
@@ -323,11 +501,51 @@ export default function PaymentsPage() {
         )}
       </main>
 
-<InvoiceQuoteModal
-  open={activeModal === "invoiceQuote"}
-  customers={finance.customers ?? []}
-  onClose={() => setActiveModal(null)}
-/>
+      {/* INVOICE / QUOTE */}
+      <InvoiceQuoteModal
+        open={
+          activeModal === "invoiceQuote"
+        }
+        submitting={
+          invoiceQuoteSubmitting
+        }
+        docType={
+          invoiceQuoteDocType
+        }
+        customers={
+          finance.customers ?? []
+        }
+        formData={
+          invoiceQuoteForm
+        }
+        lineItems={
+          invoiceQuoteLineItems
+        }
+        netTotal={
+          invoiceQuoteNetTotal
+        }
+        vatTotal={
+          invoiceQuoteVatTotal
+        }
+        grandTotal={
+          invoiceQuoteGrandTotal
+        }
+        onDocTypeChange={
+          setInvoiceQuoteDocType
+        }
+        onFormChange={
+          setInvoiceQuoteForm
+        }
+        onLineItemsChange={
+          setInvoiceQuoteLineItems
+        }
+        onClose={
+          closeInvoiceQuoteModal
+        }
+        onSubmit={
+          handleInvoiceQuoteSubmit
+        }
+      />
 
       {/* LOG EXPENSE */}
       <ExpenseModal

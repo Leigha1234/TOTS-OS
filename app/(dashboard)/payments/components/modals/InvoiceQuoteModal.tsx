@@ -26,7 +26,7 @@ export type FinanceCustomer = {
   email?: string | null;
 };
 
-type FormData = {
+export type InvoiceQuoteFormData = {
   customerId: string;
   newClientName: string;
   dueDate: string;
@@ -37,20 +37,24 @@ type InvoiceQuoteModalProps = {
   submitting?: boolean;
   docType: InvoiceQuoteDocType;
   customers: FinanceCustomer[];
-  formData: FormData;
+  formData: InvoiceQuoteFormData;
   lineItems: FinanceLineItem[];
   netTotal: number;
   vatTotal: number;
   grandTotal: number;
+
   onDocTypeChange: (
     type: InvoiceQuoteDocType
   ) => void;
+
   onFormChange: (
-    form: FormData
+    form: InvoiceQuoteFormData
   ) => void;
+
   onLineItemsChange: (
     items: FinanceLineItem[]
   ) => void;
+
   onClose: () => void;
   onSubmit: () => void;
 };
@@ -71,20 +75,48 @@ export default function InvoiceQuoteModal({
   onClose,
   onSubmit,
 }: InvoiceQuoteModalProps) {
-  const updateLineItem = (
+  const updateDescription = (
     id: number,
-    field:
-      | "desc"
-      | "qty"
-      | "price",
-    value: string | number
+    value: string
   ) => {
     onLineItemsChange(
       lineItems.map((item) =>
         item.id === id
           ? {
               ...item,
-              [field]: value,
+              desc: value,
+            }
+          : item
+      )
+    );
+  };
+
+  const updateQuantity = (
+    id: number,
+    value: number
+  ) => {
+    onLineItemsChange(
+      lineItems.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              qty: value,
+            }
+          : item
+      )
+    );
+  };
+
+  const updatePrice = (
+    id: number,
+    value: number
+  ) => {
+    onLineItemsChange(
+      lineItems.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              price: value,
             }
           : item
       )
@@ -128,13 +160,34 @@ export default function InvoiceQuoteModal({
       }
     );
 
+  const canSubmit =
+    !submitting &&
+    lineItems.length > 0 &&
+    lineItems.every(
+      (item) =>
+        item.desc.trim().length > 0 &&
+        item.qty > 0 &&
+        item.price >= 0
+    ) &&
+    (formData.customerId.trim().length >
+      0 ||
+      (docType === "Quote" &&
+        formData.newClientName.trim()
+          .length > 0));
+
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          initial={{
+            opacity: 0,
+          }}
+          animate={{
+            opacity: 1,
+          }}
+          exit={{
+            opacity: 0,
+          }}
           onClick={onClose}
           className="fixed inset-0 z-[999] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm"
         >
@@ -154,12 +207,16 @@ export default function InvoiceQuoteModal({
               opacity: 0,
               y: 12,
             }}
+            transition={{
+              duration: 0.2,
+              ease: "easeOut",
+            }}
             onClick={(event) =>
               event.stopPropagation()
             }
             className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8"
           >
-            <div className="mb-6 flex items-start justify-between">
+            <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <p className="mb-2 text-[8px] font-black uppercase tracking-[0.35em] text-[#a9b897]">
                   Sales
@@ -176,8 +233,10 @@ export default function InvoiceQuoteModal({
               </div>
 
               <button
+                type="button"
                 onClick={onClose}
-                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
+                aria-label="Close invoice or quote modal"
+                className="rounded-full p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-900"
               >
                 <X size={18} />
               </button>
@@ -192,13 +251,14 @@ export default function InvoiceQuoteModal({
               ).map((type) => (
                 <button
                   key={type}
+                  type="button"
                   onClick={() =>
                     onDocTypeChange(type)
                   }
                   className={`rounded-full px-5 py-2 text-[9px] font-black uppercase tracking-widest transition ${
                     docType === type
                       ? "bg-stone-900 text-white"
-                      : "text-stone-400"
+                      : "text-stone-400 hover:text-stone-700"
                   }`}
                 >
                   {type}
@@ -208,11 +268,15 @@ export default function InvoiceQuoteModal({
 
             <div className="space-y-5">
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="invoice-customer"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Client
                 </label>
 
                 <select
+                  id="invoice-customer"
                   value={
                     formData.customerId
                   }
@@ -246,11 +310,15 @@ export default function InvoiceQuoteModal({
               {docType === "Quote" &&
                 !formData.customerId && (
                   <div>
-                    <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                    <label
+                      htmlFor="new-client-name"
+                      className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                    >
                       New Client Name
                     </label>
 
                     <input
+                      id="new-client-name"
                       value={
                         formData.newClientName
                       }
@@ -258,8 +326,7 @@ export default function InvoiceQuoteModal({
                         onFormChange({
                           ...formData,
                           newClientName:
-                            event.target
-                              .value,
+                            event.target.value,
                         })
                       }
                       placeholder="Enter client name"
@@ -270,11 +337,15 @@ export default function InvoiceQuoteModal({
 
               {docType === "Invoice" && (
                 <div>
-                  <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                  <label
+                    htmlFor="invoice-due-date"
+                    className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                  >
                     Due Date
                   </label>
 
                   <input
+                    id="invoice-due-date"
                     type="date"
                     value={
                       formData.dueDate
@@ -283,8 +354,7 @@ export default function InvoiceQuoteModal({
                       onFormChange({
                         ...formData,
                         dueDate:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     }
                     className="w-full rounded-xl border border-stone-100 bg-[#faf9f6] px-4 py-3 text-sm outline-none transition focus:border-stone-900 focus:bg-white"
@@ -296,7 +366,7 @@ export default function InvoiceQuoteModal({
             <div className="my-7 border-t border-stone-100" />
 
             <div>
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
                     Line Items
@@ -309,8 +379,9 @@ export default function InvoiceQuoteModal({
                 </div>
 
                 <button
+                  type="button"
                   onClick={addLineItem}
-                  className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-[#8fa07d]"
+                  className="flex shrink-0 items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-[#8fa07d] transition hover:text-stone-900"
                 >
                   <Plus size={13} />
                   Add Item
@@ -333,11 +404,15 @@ export default function InvoiceQuoteModal({
                         {lineItems.length >
                           1 && (
                           <button
+                            type="button"
                             onClick={() =>
                               removeLineItem(
                                 item.id
                               )
                             }
+                            aria-label={`Remove item ${
+                              index + 1
+                            }`}
                             className="text-red-400 transition hover:text-red-600"
                           >
                             <Trash2
@@ -350,15 +425,13 @@ export default function InvoiceQuoteModal({
                       <input
                         value={item.desc}
                         onChange={(event) =>
-                          updateLineItem(
+                          updateDescription(
                             item.id,
-                            "desc",
-                            event.target
-                              .value
+                            event.target.value
                           )
                         }
                         placeholder="Description"
-                        className="mb-3 w-full rounded-xl border border-stone-100 bg-white px-3 py-2.5 text-xs outline-none focus:border-stone-900"
+                        className="mb-3 w-full rounded-xl border border-stone-100 bg-white px-3 py-2.5 text-xs outline-none transition focus:border-stone-900"
                       />
 
                       <div className="grid grid-cols-2 gap-3">
@@ -370,23 +443,25 @@ export default function InvoiceQuoteModal({
                           <input
                             type="number"
                             min="1"
+                            step="1"
                             value={
                               item.qty
                             }
                             onChange={(
                               event
                             ) =>
-                              updateLineItem(
+                              updateQuantity(
                                 item.id,
-                                "qty",
-                                Number(
-                                  event
-                                    .target
-                                    .value
+                                Math.max(
+                                  1,
+                                  Number(
+                                    event.target
+                                      .value
+                                  ) || 1
                                 )
                               )
                             }
-                            className="w-full rounded-xl border border-stone-100 bg-white px-3 py-2.5 text-xs outline-none focus:border-stone-900"
+                            className="w-full rounded-xl border border-stone-100 bg-white px-3 py-2.5 text-xs outline-none transition focus:border-stone-900"
                           />
                         </div>
 
@@ -410,17 +485,19 @@ export default function InvoiceQuoteModal({
                               onChange={(
                                 event
                               ) =>
-                                updateLineItem(
+                                updatePrice(
                                   item.id,
-                                  "price",
-                                  Number(
-                                    event
-                                      .target
-                                      .value
+                                  Math.max(
+                                    0,
+                                    Number(
+                                      event
+                                        .target
+                                        .value
+                                    ) || 0
                                   )
                                 )
                               }
-                              className="w-full rounded-xl border border-stone-100 bg-white py-2.5 pl-7 pr-3 text-xs outline-none focus:border-stone-900"
+                              className="w-full rounded-xl border border-stone-100 bg-white py-2.5 pl-7 pr-3 text-xs outline-none transition focus:border-stone-900"
                             />
                           </div>
                         </div>
@@ -437,11 +514,9 @@ export default function InvoiceQuoteModal({
                   <span className="text-stone-400">
                     Net
                   </span>
+
                   <span className="font-mono">
-                    £
-                    {currency(
-                      netTotal
-                    )}
+                    £{currency(netTotal)}
                   </span>
                 </div>
 
@@ -449,11 +524,9 @@ export default function InvoiceQuoteModal({
                   <span className="text-stone-400">
                     VAT
                   </span>
+
                   <span className="font-mono">
-                    £
-                    {currency(
-                      vatTotal
-                    )}
+                    £{currency(vatTotal)}
                   </span>
                 </div>
 
@@ -475,9 +548,10 @@ export default function InvoiceQuoteModal({
             </div>
 
             <button
+              type="button"
               onClick={onSubmit}
-              disabled={submitting}
-              className="mt-6 flex w-full items-center justify-center gap-3 rounded-full bg-[#a9b897] py-4 text-stone-900 transition hover:bg-stone-900 hover:text-white disabled:opacity-50"
+              disabled={!canSubmit}
+              className="mt-6 flex w-full items-center justify-center gap-3 rounded-full bg-[#a9b897] py-4 text-stone-900 transition hover:bg-stone-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (
                 <Loader2

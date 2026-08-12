@@ -1,1633 +1,4326 @@
 "use client";
 
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
+
 import { createBrowserClient } from "@supabase/ssr";
-import { useSettings } from "@/app/context/SettingsContext";
-import { 
-  ArrowRight, Briefcase, X, Loader2, Zap, FileText, 
-  Share2, Mail, User as UserIcon, Clock, CheckSquare, 
-  PoundSterling, Users, ShieldCheck, BarChart3, TrendingUp,
-  AlertCircle, Settings, LogOut, ChevronRight, Sparkles
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 
-function ClarityFloatingButton({
-  open,
-  onClick,
-}: {
-  open: boolean;
-  onClick: () => void;
-}) {
+import { useSettings } from "@/app/context/SettingsContext";
+
+import {
+  Briefcase,
+  CheckSquare,
+  Clock,
+  FileText,
+  Loader2,
+  Mail,
+  Plus,
+  PoundSterling,
+  Sparkles,
+  TrendingUp,
+  X,
+} from "lucide-react";
+
+// ==================================================
+// TYPES
+// ==================================================
+
+type RiskLevel =
+  | "low"
+  | "medium"
+  | "high";
+
+type DashboardTodo = {
+  id: string;
+  text: string;
+  completed: boolean;
+  status?: string;
+};
+
+type TeamMember = {
+  full_name: string;
+  role: string;
+};
+
+type ClarityMessage = {
+  id?: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at?: string;
+};
+
+type NormalisedEvent = {
+  id?: string;
+  title: string;
+  startAt: Date | null;
+  endAt: Date | null;
+};
+
+// ==================================================
+// HELPERS
+// ==================================================
+
+function getGreeting(
+  date: Date
+) {
+  const hour =
+    date.getHours();
+
+  if (hour < 12) {
+    return "Good morning";
+  }
+
+  if (hour < 18) {
+    return "Good afternoon";
+  }
+
+  return "Good evening";
+}
+
+function cleanName(
+  value:
+    | string
+    | null
+    | undefined
+) {
+  const cleaned =
+    String(
+      value ?? ""
+    ).trim();
+
+  if (
+    !cleaned ||
+    cleaned.toLowerCase() ===
+      "user"
+  ) {
+    return "";
+  }
+
+  return cleaned;
+}
+
+function getFirstName(
+  value: string
+) {
+  const cleaned =
+    cleanName(value);
+
+  if (!cleaned) {
+    return "";
+  }
+
   return (
-    <button
-      onClick={onClick}
-      className="fixed top-6 right-6 z-40 h-12 w-12 rounded-full bg-stone-900 text-white shadow-xl flex items-center justify-center hover:scale-105 transition"
-      aria-label="Open Clarity"
-    >
-      <Sparkles size={18} />
-    </button>
+    cleaned.split(/\s+/)[0] ??
+    ""
   );
 }
 
-
-
-/**
- * DashboardContent Component
- * * This component acts as the primary hub for the application.
- * It is designed to be highly resilient against auth-flicker
- * and handles data fetching with a strict singleton pattern.
- */
-function DashboardContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { organisationId } = useSettings();
-  const error = searchParams.get("error");
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+function formatDashboardDate(
+  date: Date
+) {
+  return date.toLocaleDateString(
+    "en-GB",
+    {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }
   );
+}
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-        <h1 className="text-xl font-black uppercase tracking-[0.2em]">Authentication Required</h1>
-        <p className="text-xs text-stone-500 mt-2">The verification link has expired or is invalid.</p>
-        <button 
-          onClick={() => window.location.href = '/login'}
-          className="mt-6 px-6 py-3 bg-stone-900 text-white rounded-xl text-[10px] font-black uppercase"
-        >
-          Return to Login
-        </button>
-      </div>
-    );
+function formatCurrency(
+  value: number
+) {
+  return Number(
+    value || 0
+  ).toLocaleString(
+    "en-GB",
+    {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }
+  );
+}
+
+function getHealthScore(
+  riskLevel: RiskLevel
+) {
+  if (
+    riskLevel === "high"
+  ) {
+    return 51;
   }
-  
-  // State Management
-  const [userName, setUserName] = useState<string>("USER");
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  const [loading, setLoading] = useState<boolean>(true);
-  const [isScanActive, setIsScanActive] = useState<boolean>(false);
-  const [showScanModal, setShowScanModal] = useState<boolean>(false);
-  const [insight, setInsight] = useState<string | null>(null);
 
-  const [stats, setStats] = useState({
+  if (
+    riskLevel ===
+    "medium"
+  ) {
+    return 74;
+  }
+
+  return 92;
+}
+
+function normaliseEvent(
+  event: any
+): NormalisedEvent {
+  const rawStart =
+    event?.start_at ||
+    event?.start_date ||
+    event?.start_time ||
+    event?.start ||
+    event?.date ||
+    event?.created_at ||
+    event?.payload?.new
+      ?.start_at ||
+    event?.payload?.new
+      ?.start_date;
+
+  const rawEnd =
+    event?.end_at ||
+    event?.end_date ||
+    event?.end_time ||
+    event?.payload?.new
+      ?.end_at;
+
+  const parseDate = (
+    value: unknown
+  ) => {
+    if (!value) {
+      return null;
+    }
+
+    const parsed =
+      new Date(
+        String(value)
+      );
+
+    return Number.isNaN(
+      parsed.getTime()
+    )
+      ? null
+      : parsed;
+  };
+
+  return {
+    id:
+      event?.id ||
+      event?.payload?.new?.id,
+
+    title:
+      event?.title ||
+      event?.payload?.new
+        ?.title ||
+      "Event",
+
+    startAt:
+      parseDate(rawStart),
+
+    endAt:
+      parseDate(rawEnd),
+  };
+}
+
+// ==================================================
+// DASHBOARD CONTENT
+// ==================================================
+
+function DashboardContent() {
+  const router =
+    useRouter();
+
+  const searchParams =
+    useSearchParams();
+
+  const {
+    organisationId,
+  } = useSettings();
+
+  const authError =
+    searchParams.get(
+      "error"
+    );
+
+  // ==================================================
+  // SUPABASE
+  // ==================================================
+
+  const supabase =
+    useMemo(
+      () =>
+        createBrowserClient(
+          process.env
+            .NEXT_PUBLIC_SUPABASE_URL!,
+          process.env
+            .NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        ),
+      []
+    );
+
+  // ==================================================
+  // USER / GENERAL STATE
+  // ==================================================
+
+  const [
+    userName,
+    setUserName,
+  ] =
+    useState<string>("");
+
+  const [
+    currentTime,
+    setCurrentTime,
+  ] =
+    useState<Date>(
+      new Date()
+    );
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  const [
+    isScanActive,
+    setIsScanActive,
+  ] =
+    useState(false);
+
+  const [
+    showScanModal,
+    setShowScanModal,
+  ] =
+    useState(false);
+
+  const [
+    insight,
+    setInsight,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  // ==================================================
+  // DASHBOARD DATA
+  // ==================================================
+
+  const [
+    stats,
+    setStats,
+  ] = useState({
     activeProjects: 0,
-    invoicesDue: 0, 
-    socialsPending: 0, 
+    invoicesDue: 0,
+    socialsPending: 0,
     emailsScheduled: 0,
     currentProfit: 0,
   });
 
-  const [teamMembers, setTeamMembers] = useState<{full_name: string, role: string}[]>([]);
-  const [todos, setTodos] = useState<{ id: string; text: string; completed: boolean; status?: string }[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  const [emails, setEmails] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [notes, setNotes] = useState<any[]>([]);
-  const [aiSummary, setAiSummary] = useState<string>("");
-  const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high">("low");
-  const [aiActions, setAiActions] = useState<string[]>([]);
-  const [clarityCommand, setClarityCommand] = useState<string>("");
-  const [clarityResponse, setClarityResponse] = useState<string | null>(null);
-  const [clarityStreaming, setClarityStreaming] = useState(false);
-  const [clarityChatId, setClarityChatId] = useState<string | null>(null);
-  const [clarityMessages, setClarityMessages] = useState<
-    { id?: string; role: "user" | "assistant"; content: string; created_at?: string }[]
-  >([]);
-  const [clarityChats, setClarityChats] = useState<any[]>([]);
-  const [clarityMemory, setClarityMemory] = useState<any[]>([]);
-  const loadClarityChats = async () => {
-    if (!organisationId) return;
+  const [
+    teamMembers,
+    setTeamMembers,
+  ] =
+    useState<
+      TeamMember[]
+    >([]);
 
-    const { data, error } = await supabase
-      .from("clarity_chats")
-      .select("id, title, created_at")
-      .eq("organisation_id", organisationId)
-      .order("created_at", { ascending: false });
+  const [
+    todos,
+    setTodos,
+  ] =
+    useState<
+      DashboardTodo[]
+    >([]);
 
-    if (!error) {
-      setClarityChats(data || []);
-    }
-  };
+  const [
+    events,
+    setEvents,
+  ] =
+    useState<
+      NormalisedEvent[]
+    >([]);
 
-  const loadClarityMessages = async (chatId: string) => {
-    if (!chatId) return;
+  const [
+    emails,
+    setEmails,
+  ] =
+    useState<any[]>([]);
 
-    const { data, error } = await supabase
-      .from("clarity_messages")
-      .select("id, role, content, created_at")
-      .eq("chat_id", chatId)
-      .order("created_at", { ascending: true });
+  const [
+    projects,
+    setProjects,
+  ] =
+    useState<any[]>([]);
 
-    if (!error) {
-      setClarityMessages(data || []);
-    }
-  };
+  const [
+    notes,
+    setNotes,
+  ] =
+    useState<any[]>([]);
 
-  const loadClarityMemory = async () => {
-    if (!organisationId) return;
+  // ==================================================
+  // CLARITY INTELLIGENCE
+  // ==================================================
 
-    const { data, error } = await supabase
-      .from("clarity_memory")
-      .select("id, memory, created_at")
-      .eq("organisation_id", organisationId)
-      .order("created_at", { ascending: false })
-      .limit(20);
+  const [
+    aiSummary,
+    setAiSummary,
+  ] =
+    useState("");
 
-    if (!error) setClarityMemory(data || []);
-  };
+  const [
+    riskLevel,
+    setRiskLevel,
+  ] =
+    useState<RiskLevel>(
+      "low"
+    );
 
-  const startNewClarityChat = async () => {
-    if (!organisationId) return;
+  const [
+    aiActions,
+    setAiActions,
+  ] =
+    useState<
+      string[]
+    >([]);
 
-    const { data, error } = await supabase
-      .from("clarity_chats")
-      .insert({
-        organisation_id: organisationId,
-        title: "New Clarity Conversation"
-      })
-      .select()
-      .single();
+  const [
+    clarityCommand,
+    setClarityCommand,
+  ] =
+    useState("");
 
-    if (!error && data) {
-      setClarityChatId(data.id);
-      localStorage.setItem("clarity_active_chat", data.id);
-      setClarityMessages([]);
-      setClarityResponse(null);
-      loadClarityChats();
-    }
-  };
-  const [showClarityWidget, setShowClarityWidget] = useState(false);
-  const [showBriefModal, setShowBriefModal] = useState(false);
-  const [taskInput, setTaskInput] = useState<string>("");
-  const [noteInput, setNoteInput] = useState<string>("");
-  // Phase 5: Kernel event stream (runtime feed)
-  const [eventStream, setEventStream] = useState<any[]>([]);
-  // Phase 7: Clarity proactive notifications
-  const [clarityNotifications, setClarityNotifications] = useState<string[]>([]);
+  const [
+    clarityResponse,
+    setClarityResponse,
+  ] =
+    useState<
+      string | null
+    >(null);
 
-  // ===============================
-  // EVENT SYSTEM (STANDARDISED MODEL)
-  // ===============================
-  const normaliseEvent = (e: any) => {
-    const raw =
-      e?.start_at ||
-      e?.start_date ||
-      e?.start_time ||
-      e?.start ||
-      e?.date ||
-      e?.created_at ||
-      e?.payload?.new?.start_at ||
-      e?.payload?.new?.start_date;
+  const [
+    clarityStreaming,
+    setClarityStreaming,
+  ] =
+    useState(false);
 
-    return {
-      id: e?.id || e?.payload?.new?.id,
-      title: e?.title || e?.payload?.new?.title || "Event",
-      startAt: raw ? new Date(raw) : null,
-      endAt: e?.end_at || e?.payload?.new?.end_at
-        ? new Date(e?.end_at || e?.payload?.new?.end_at)
-        : null,
-    };
-  };
+  const [
+    clarityChatId,
+    setClarityChatId,
+  ] =
+    useState<
+      string | null
+    >(null);
 
+  const [
+    clarityMessages,
+    setClarityMessages,
+  ] =
+    useState<
+      ClarityMessage[]
+    >([]);
 
-  // Real-time Clock
+  const [
+    clarityChats,
+    setClarityChats,
+  ] =
+    useState<any[]>([]);
+
+  const [
+    clarityMemory,
+    setClarityMemory,
+  ] =
+    useState<any[]>([]);
+
+  const [
+    showClarityWidget,
+    setShowClarityWidget,
+  ] =
+    useState(false);
+
+  const [
+    showBriefModal,
+    setShowBriefModal,
+  ] =
+    useState(false);
+
+  const [
+    taskInput,
+    setTaskInput,
+  ] =
+    useState("");
+
+  const [
+    noteInput,
+    setNoteInput,
+  ] =
+    useState("");
+
+  const [
+    eventStream,
+    setEventStream,
+  ] =
+    useState<any[]>([]);
+
+  const [
+    clarityNotifications,
+    setClarityNotifications,
+  ] =
+    useState<
+      string[]
+    >([]);
+
+  // ==================================================
+  // DERIVED UI VALUES
+  // ==================================================
+
+  const greeting =
+    getGreeting(
+      currentTime
+    );
+
+  const firstName =
+    getFirstName(
+      userName
+    );
+
+  const greetingText =
+    firstName
+      ? `${greeting}, ${firstName}`
+      : greeting;
+
+  const openTasks =
+    todos.filter(
+      (task) =>
+        !task.completed
+    );
+
+  const completedTasks =
+    todos.filter(
+      (task) =>
+        task.completed
+    );
+
+  const healthScore =
+    getHealthScore(
+      riskLevel
+    );
+
+  // ==================================================
+  // CLOCK
+  // ==================================================
+
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Data Fetching: Centralised with Error Handling
-  const loadDashboardData = useCallback(async () => {
-    if (!supabase) return;
-
-    try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      // Fetch Profile Data
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, organisation_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (profile?.full_name) {
-        setUserName(profile.full_name.toUpperCase());
-      }
-
-      const activeOrganisationId = organisationId || profile?.organisation_id;
-      console.log("ORG CHECK", {
-  settingsOrg: organisationId,
-  profileOrg: profile?.organisation_id,
-  activeOrg: activeOrganisationId
-});
-
-      // Guard for Missing OrgID - critical to prevent unauthorized 403s
-      if (!activeOrganisationId || activeOrganisationId === "undefined") {
-        console.warn("Dashboard: No valid organisationId found. Skipping data fetch.");
-        setLoading(false);
-        return;
-      }
-
-      // Fetch Business Data in Parallel for Performance
-      const [projectsRes, invoicesRes, membersRes, notesRes, eventsRes, emailsRes] = await Promise.all([
-        supabase
-          .from("projects")
-          .select("id, name, status")
-          .eq("organisation_id", activeOrganisationId)
-          .limit(5),
-
-        supabase
-          .from("invoices")
-          .select("amount, status")
-          .eq("organisation_id", activeOrganisationId),
-
-        supabase
-          .from("profiles")
-          .select("full_name, role")
-          .eq("organisation_id", activeOrganisationId)
-          .limit(4),
-
-        supabase
-          .from("notes")
-          .select("id, content, completed, status, type")
-          .eq("organisation_id", activeOrganisationId)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("events")
-          .select("*")
-          .eq("organisation_id", activeOrganisationId)
-          .limit(5),
-
-        supabase
-          .from("emails")
-          .select("*")
-          .eq("organisation_id", activeOrganisationId)
-          .order("created_at", { ascending: false })
-          .limit(5)
-      ]);
-
-      console.log("Dashboard Results", {
-  projects: projectsRes.data,
-  notes: notesRes.data,
-  projectError: projectsRes.error,
-  notesError: notesRes.error,
-});
-
-      // Logic calculations
-      const invData = (invoicesRes.data as any[]) || [];
-      const totalProfit = invData.reduce((acc, inv) => inv.status === 'paid' ? acc + (inv.amount || 0) : acc, 0);
-      const pendingCount = invData.filter(inv => inv.status === 'pending').length;
-
-      setStats({ 
-        activeProjects: (projectsRes.data || []).length,
-        currentProfit: totalProfit,
-        invoicesDue: pendingCount,
-        socialsPending: 0,
-        emailsScheduled: 0
-      });
-
-      setTeamMembers((membersRes.data as any[]) || []);
-      setNotes((notesRes.data as any[]) || []);
-      const normaliseStatus = (n: any) => {
-        if (n.completed) return "done";
-        if (!n.status) return "todo";
-
-        const s = String(n.status).toLowerCase().trim();
-
-        if (["todo", "in_progress", "blocked", "done"].includes(s)) {
-          return s;
-        }
-
-        return "todo";
-      };
-
-      setTodos(((notesRes.data as any[]) || [])
-  .filter((n: any) => {
-    const type = String(n.type || "").toLowerCase();
-    return type === "task" || type === "todo";
-  })
-  .map((n: any) => ({
-    id: n.id,
-    text: n.content || n.title || "Untitled Task",
-    completed: Boolean(n.completed),
-    status: normaliseStatus(n),
-  }))
-);
-        
-      setEvents(((eventsRes.data as any[]) || []).map(normaliseEvent));
-      setEmails((emailsRes.data as any[]) || []);
-      setProjects((projectsRes.data as any[]) || []);
-
-      // EXECUTIVE ANALYSIS LOGIC
-      const emailLoad = (emailsRes.data || []).length;
-      const eventLoad = (eventsRes.data || []).length;
-      const taskLoad = (notesRes.data || []).filter((n: any) => n.type === "task" && !n.completed).length;
-
-      let risk: "low" | "medium" | "high" = "low";
-
-      if (taskLoad > 8 || emailLoad > 10) risk = "high";
-      else if (taskLoad > 4 || emailLoad > 5) risk = "medium";
-
-      setRiskLevel(risk);
-
-      setAiSummary(
-        risk === "high"
-          ? "High activity detected. Focus required on outstanding tasks and inbox load."
-          : risk === "medium"
-          ? "Moderate workload. Prioritise tasks due today and review incoming emails."
-          : "System stable. Low operational pressure across all modules."
+    const timer =
+      window.setInterval(
+        () =>
+          setCurrentTime(
+            new Date()
+          ),
+        60000
       );
 
-      // ===============================
-      // CLARITY CEO MODE AI ENGINE
-      // ===============================
+    return () =>
+      window.clearInterval(
+        timer
+      );
+  }, []);
 
-      const actions: string[] = [];
-      const insights: string[] = [];
+  // ==================================================
+  // CLARITY LOADERS
+  // ==================================================
 
-      const workloadScore = taskLoad + emailLoad + eventLoad;
-      const pressureLevel =
-        workloadScore > 18 ? "high" :
-        workloadScore > 10 ? "medium" :
-        "low";
+  const loadClarityChats =
+    useCallback(
+      async () => {
+        if (
+          !organisationId
+        ) {
+          return;
+        }
 
-      // -------------------------------
-      // CEO MODE: STRATEGIC PRIORITIES
-      // -------------------------------
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "clarity_chats"
+            )
+            .select(
+              "id, title, created_at"
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .order(
+              "created_at",
+              {
+                ascending:
+                  false,
+              }
+            );
 
-      // Always compress into TOP 3 EXECUTIVE PRIORITIES
-      if (taskLoad > 0) actions.push("Focus on highest-impact tasks");
-      if (emailLoad > 0) actions.push("Clear critical inbox items");
-      if (eventLoad > 0) actions.push("Align schedule with priorities");
-      if ((stats.invoicesDue || 0) > 0) actions.push("Secure outstanding revenue");
+        if (!error) {
+          setClarityChats(
+            data || []
+          );
+        }
+      },
+      [
+        organisationId,
+        supabase,
+      ]
+    );
 
-      // Reduce to CEO-level focus (max 3)
-      const topPriorities = actions.slice(0, 3);
+  const loadClarityMessages =
+    useCallback(
+      async (
+        chatId: string
+      ) => {
+        if (!chatId) {
+          return;
+        }
 
-      // -------------------------------
-      // CEO MODE: RISK INTELLIGENCE
-      // -------------------------------
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "clarity_messages"
+            )
+            .select(
+              "id, role, content, created_at"
+            )
+            .eq(
+              "chat_id",
+              chatId
+            )
+            .order(
+              "created_at",
+              {
+                ascending:
+                  true,
+              }
+            );
 
-      if (pressureLevel === "high") {
-        insights.push("CEO ALERT: Operational overload detected — delegation required");
-        insights.push("Risk: Execution bottleneck likely within 24–48 hours");
-      }
+        if (!error) {
+          setClarityMessages(
+            (data as ClarityMessage[]) ||
+              []
+          );
+        }
+      },
+      [supabase]
+    );
 
-      if (pressureLevel === "medium") {
-        insights.push("CEO VIEW: Stable operations — optimise throughput");
-      }
+  const loadClarityMemory =
+    useCallback(
+      async () => {
+        if (
+          !organisationId
+        ) {
+          return;
+        }
 
-      if (pressureLevel === "low") {
-        insights.push("CEO OPPORTUNITY: Capacity available for strategic growth work");
-      }
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "clarity_memory"
+            )
+            .select(
+              "id, memory, created_at"
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .order(
+              "created_at",
+              {
+                ascending:
+                  false,
+              }
+            )
+            .limit(20);
 
-      // -------------------------------
-      // CEO MODE: STRATEGIC FORECAST
-      // -------------------------------
+        if (!error) {
+          setClarityMemory(
+            data || []
+          );
+        }
+      },
+      [
+        organisationId,
+        supabase,
+      ]
+    );
 
-      if (taskLoad > 6) {
-        insights.push("Forecast: Task backlog is compounding — intervention recommended");
-      }
+  const startNewClarityChat =
+    useCallback(
+      async () => {
+        if (
+          !organisationId
+        ) {
+          return;
+        }
 
-      if (emailLoad > 8) {
-        insights.push("Forecast: Inbox pressure will increase without triage system");
-      }
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "clarity_chats"
+            )
+            .insert({
+              organisation_id:
+                organisationId,
+              title:
+                "New Clarity Conversation",
+            })
+            .select()
+            .single();
 
-      // -------------------------------
-      // CEO MODE: OPPORTUNITY SIGNAL
-      // -------------------------------
+        if (
+          !error &&
+          data
+        ) {
+          setClarityChatId(
+            data.id
+          );
 
-      if (pressureLevel === "low") {
-        insights.push("Opportunity: Ideal window for high-leverage strategic planning");
-      }
+          localStorage.setItem(
+            "clarity_active_chat",
+            data.id
+          );
 
-      // -------------------------------
-      // FINAL CEO OUTPUT COMPOSITION
-      // -------------------------------
+          setClarityMessages(
+            []
+          );
 
-      setAiActions([...topPriorities, ...insights]);
+          setClarityResponse(
+            null
+          );
 
-      const notifications: string[] = [];
+          await loadClarityChats();
+        }
+      },
+      [
+        organisationId,
+        supabase,
+        loadClarityChats,
+      ]
+    );
 
-      if (taskLoad > 5) {
-        notifications.push("You have a growing task backlog requiring attention.");
-      }
+  // ==================================================
+  // DASHBOARD LOAD
+  // ==================================================
 
-      if (emailLoad > 8) {
-        notifications.push("Inbox pressure is increasing. Consider prioritising responses.");
-      }
+  const loadDashboardData =
+    useCallback(
+      async () => {
+        if (authError) {
+          setLoading(
+            false
+          );
+          return;
+        }
 
-      if (eventLoad > 5) {
-        notifications.push("Your calendar is becoming busy. Review upcoming commitments.");
-      }
+        try {
+          setLoading(
+            true
+          );
 
-      if (risk === "low") {
-        notifications.push("Business operations are stable. Good time for strategic planning.");
-      }
+          const {
+            data: {
+              user,
+            },
+          } =
+            await supabase.auth.getUser();
 
-      setClarityNotifications(notifications);
+          if (!user) {
+            router.replace(
+              "/login"
+            );
+            return;
+          }
 
-    } catch (err) {
-      console.error("Dashboard Sync Critical Error:", err);
-    } finally {
-      setLoading(false);
+          // ------------------------------------------
+          // PROFILE
+          // ------------------------------------------
+
+          const {
+            data:
+              profile,
+            error:
+              profileError,
+          } =
+            await supabase
+              .from(
+                "profiles"
+              )
+              .select(
+                "full_name, name, organisation_id"
+              )
+              .eq(
+                "id",
+                user.id
+              )
+              .maybeSingle();
+
+          if (
+            profileError
+          ) {
+            console.warn(
+              "Dashboard profile lookup:",
+              profileError
+            );
+          }
+
+          /*
+           * Resolve the user's real display name.
+           *
+           * Priority:
+           * 1. profiles.full_name
+           * 2. profiles.name
+           * 3. auth user_metadata.full_name
+           * 4. auth user_metadata.name
+           * 5. auth user_metadata.display_name
+           *
+           * If none exist, leave it blank.
+           */
+          const resolvedName =
+            cleanName(
+              profile?.full_name
+            ) ||
+            cleanName(
+              profile?.name
+            ) ||
+            cleanName(
+              user.user_metadata
+                ?.full_name
+            ) ||
+            cleanName(
+              user.user_metadata
+                ?.name
+            ) ||
+            cleanName(
+              user.user_metadata
+                ?.display_name
+            );
+
+          setUserName(
+            resolvedName
+          );
+
+          const activeOrganisationId =
+            organisationId ||
+            profile?.organisation_id;
+
+          if (
+            !activeOrganisationId ||
+            activeOrganisationId ===
+              "undefined"
+          ) {
+            console.warn(
+              "Dashboard: no organisation ID available."
+            );
+
+            return;
+          }
+
+          // ------------------------------------------
+          // LOAD BUSINESS DATA
+          // ------------------------------------------
+
+          const [
+            projectsRes,
+            invoicesRes,
+            membersRes,
+            notesRes,
+            eventsRes,
+            emailsRes,
+          ] =
+            await Promise.all(
+              [
+                supabase
+                  .from(
+                    "projects"
+                  )
+                  .select(
+                    "id, name, status"
+                  )
+                  .eq(
+                    "organisation_id",
+                    activeOrganisationId
+                  )
+                  .limit(
+                    10
+                  ),
+
+                supabase
+                  .from(
+                    "invoices"
+                  )
+                  .select(
+                    "amount, status"
+                  )
+                  .eq(
+                    "organisation_id",
+                    activeOrganisationId
+                  ),
+
+                supabase
+                  .from(
+                    "profiles"
+                  )
+                  .select(
+                    "full_name, role"
+                  )
+                  .eq(
+                    "organisation_id",
+                    activeOrganisationId
+                  )
+                  .limit(
+                    8
+                  ),
+
+                supabase
+                  .from(
+                    "notes"
+                  )
+                  .select(
+                    "id, title, content, completed, status, type, created_at"
+                  )
+                  .eq(
+                    "organisation_id",
+                    activeOrganisationId
+                  )
+                  .order(
+                    "created_at",
+                    {
+                      ascending:
+                        false,
+                    }
+                  ),
+
+                supabase
+                  .from(
+                    "events"
+                  )
+                  .select(
+                    "*"
+                  )
+                  .eq(
+                    "organisation_id",
+                    activeOrganisationId
+                  )
+                  .order(
+                    "created_at",
+                    {
+                      ascending:
+                        false,
+                    }
+                  )
+                  .limit(
+                    20
+                  ),
+
+                supabase
+                  .from(
+                    "emails"
+                  )
+                  .select(
+                    "*"
+                  )
+                  .eq(
+                    "organisation_id",
+                    activeOrganisationId
+                  )
+                  .order(
+                    "created_at",
+                    {
+                      ascending:
+                        false,
+                    }
+                  )
+                  .limit(
+                    10
+                  ),
+              ]
+            );
+
+          // ------------------------------------------
+          // FINANCE
+          // ------------------------------------------
+
+          const invoiceData =
+            (invoicesRes.data as any[]) ||
+            [];
+
+          const totalProfit =
+            invoiceData.reduce(
+              (
+                total,
+                invoice
+              ) => {
+                return String(
+                  invoice.status ||
+                    ""
+                ).toLowerCase() ===
+                  "paid"
+                  ? total +
+                      Number(
+                        invoice.amount ||
+                          0
+                      )
+                  : total;
+              },
+              0
+            );
+
+          const pendingInvoices =
+            invoiceData.filter(
+              (
+                invoice
+              ) =>
+                [
+                  "pending",
+                  "due",
+                  "overdue",
+                ].includes(
+                  String(
+                    invoice.status ||
+                      ""
+                  ).toLowerCase()
+                )
+            ).length;
+
+          const projectData =
+            (projectsRes.data as any[]) ||
+            [];
+
+          const noteData =
+            (notesRes.data as any[]) ||
+            [];
+
+          const eventData =
+            (
+              (eventsRes.data as any[]) ||
+              []
+            ).map(
+              normaliseEvent
+            );
+
+          const emailData =
+            (emailsRes.data as any[]) ||
+            [];
+
+          // ------------------------------------------
+          // STATE
+          // ------------------------------------------
+
+          setStats({
+            activeProjects:
+              projectData.length,
+
+            currentProfit:
+              totalProfit,
+
+            invoicesDue:
+              pendingInvoices,
+
+            socialsPending:
+              0,
+
+            emailsScheduled:
+              0,
+          });
+
+          setTeamMembers(
+            (membersRes.data as TeamMember[]) ||
+              []
+          );
+
+          setNotes(
+            noteData
+          );
+
+          const normaliseStatus =
+            (
+              note: any
+            ) => {
+              if (
+                note.completed
+              ) {
+                return "done";
+              }
+
+              const status =
+                String(
+                  note.status ||
+                    ""
+                )
+                  .toLowerCase()
+                  .trim();
+
+              if (
+                [
+                  "todo",
+                  "in_progress",
+                  "blocked",
+                  "done",
+                ].includes(
+                  status
+                )
+              ) {
+                return status;
+              }
+
+              return "todo";
+            };
+
+          const loadedTodos =
+            noteData
+              .filter(
+                (
+                  note
+                ) => {
+                  const type =
+                    String(
+                      note.type ||
+                        ""
+                    ).toLowerCase();
+
+                  return (
+                    type ===
+                      "task" ||
+                    type ===
+                      "todo"
+                  );
+                }
+              )
+              .map(
+                (
+                  note
+                ) => ({
+                  id:
+                    note.id,
+
+                  text:
+                    note.content ||
+                    note.title ||
+                    "Untitled Task",
+
+                  completed:
+                    Boolean(
+                      note.completed
+                    ),
+
+                  status:
+                    normaliseStatus(
+                      note
+                    ),
+                })
+              );
+
+          setTodos(
+            loadedTodos
+          );
+
+          setEvents(
+            eventData
+          );
+
+          setEmails(
+            emailData
+          );
+
+          setProjects(
+            projectData
+          );
+
+          // ------------------------------------------
+          // BUSINESS PRESSURE
+          // ------------------------------------------
+
+          const emailLoad =
+            emailData.length;
+
+          const eventLoad =
+            eventData.length;
+
+          const taskLoad =
+            loadedTodos.filter(
+              (
+                todo
+              ) =>
+                !todo.completed
+            ).length;
+
+          let nextRisk:
+            RiskLevel =
+            "low";
+
+          if (
+            taskLoad >
+              8 ||
+            emailLoad >
+              10
+          ) {
+            nextRisk =
+              "high";
+          } else if (
+            taskLoad >
+              4 ||
+            emailLoad >
+              5
+          ) {
+            nextRisk =
+              "medium";
+          }
+
+          setRiskLevel(
+            nextRisk
+          );
+
+          if (
+            nextRisk ===
+            "high"
+          ) {
+            setAiSummary(
+              "Activity is elevated. Clarity recommends narrowing your focus to the work most likely to affect delivery or cash flow."
+            );
+          } else if (
+            nextRisk ===
+            "medium"
+          ) {
+            setAiSummary(
+              "Your workload is manageable, but a few areas would benefit from deliberate prioritisation today."
+            );
+          } else {
+            setAiSummary(
+              "Operations look stable. You have room to focus on higher-value work, planning and growth."
+            );
+          }
+
+          // ------------------------------------------
+          // EXECUTIVE PRIORITIES
+          // ------------------------------------------
+
+          const priorities:
+            string[] =
+            [];
+
+          const insights:
+            string[] =
+            [];
+
+          if (
+            taskLoad > 0
+          ) {
+            priorities.push(
+              "Focus on highest-impact tasks"
+            );
+          }
+
+          if (
+            pendingInvoices >
+            0
+          ) {
+            priorities.push(
+              "Review outstanding revenue"
+            );
+          }
+
+          if (
+            emailLoad > 0
+          ) {
+            priorities.push(
+              "Clear critical inbox items"
+            );
+          }
+
+          if (
+            eventLoad > 0
+          ) {
+            priorities.push(
+              "Align today's schedule with priorities"
+            );
+          }
+
+          const topPriorities =
+            priorities.slice(
+              0,
+              3
+            );
+
+          const workloadScore =
+            taskLoad +
+            emailLoad +
+            eventLoad;
+
+          const pressureLevel =
+            workloadScore >
+            18
+              ? "high"
+              : workloadScore >
+                  10
+                ? "medium"
+                : "low";
+
+          if (
+            pressureLevel ===
+            "high"
+          ) {
+            insights.push(
+              "Operational pressure is elevated"
+            );
+          }
+
+          if (
+            pressureLevel ===
+            "low"
+          ) {
+            insights.push(
+              "Capacity available for strategic work"
+            );
+          }
+
+          setAiActions([
+            ...topPriorities,
+            ...insights,
+          ]);
+
+          // ------------------------------------------
+          // NOTIFICATIONS
+          // ------------------------------------------
+
+          const notifications:
+            string[] =
+            [];
+
+          if (
+            taskLoad > 5
+          ) {
+            notifications.push(
+              "Your task backlog is growing and may benefit from reprioritisation."
+            );
+          }
+
+          if (
+            emailLoad > 8
+          ) {
+            notifications.push(
+              "Inbox activity is elevated."
+            );
+          }
+
+          if (
+            eventLoad > 5
+          ) {
+            notifications.push(
+              "Your calendar is relatively busy."
+            );
+          }
+
+          if (
+            nextRisk ===
+            "low"
+          ) {
+            notifications.push(
+              "Operations are stable — a good time for strategic planning."
+            );
+          }
+
+          setClarityNotifications(
+            notifications
+          );
+        } catch (
+          loadError
+        ) {
+          console.error(
+            "Dashboard sync error:",
+            loadError
+          );
+        } finally {
+          setLoading(
+            false
+          );
+        }
+      },
+      [
+        authError,
+        organisationId,
+        router,
+        supabase,
+      ]
+    );
+
+  // ==================================================
+  // INITIAL LOAD
+  // ==================================================
+
+  useEffect(() => {
+    void loadDashboardData();
+  }, [
+    loadDashboardData,
+  ]);
+
+  // ==================================================
+  // CLARITY HISTORY
+  // ==================================================
+
+  useEffect(() => {
+    if (
+      !organisationId
+    ) {
+      return;
     }
-  }, [router, organisationId, supabase]);
 
-  // Initial Load Trigger
+    void loadClarityChats();
+
+    void loadClarityMemory();
+
+    const savedChatId =
+      localStorage.getItem(
+        "clarity_active_chat"
+      );
+
+    if (
+      savedChatId
+    ) {
+      setClarityChatId(
+        savedChatId
+      );
+
+      void loadClarityMessages(
+        savedChatId
+      );
+    }
+  }, [
+    organisationId,
+    loadClarityChats,
+    loadClarityMessages,
+    loadClarityMemory,
+  ]);
+
+  // ==================================================
+  // REALTIME
+  // ==================================================
+
   useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+    if (
+      !organisationId
+    ) {
+      return;
+    }
 
-  // Phase 5: Kernel event stream runtime integration (live activity feed)
-  useEffect(() => {
-    if (!organisationId || !supabase) return;
-
-    const channel = supabase.channel("dashboard_runtime_events");
+    const channel =
+      supabase.channel(
+        `dashboard_runtime_${organisationId}`
+      );
 
     channel
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notes" },
+        {
+          event: "*",
+          schema:
+            "public",
+          table:
+            "notes",
+          filter:
+            `organisation_id=eq.${organisationId}`,
+        },
         (payload) => {
-          setEventStream((prev: any[]) => [
-            { type: "note_event", payload, created_at: Date.now() },
-            ...prev,
-          ].slice(0, 50));
+          setEventStream(
+            (
+              previous
+            ) => [
+              {
+                type:
+                  "note_event",
+                payload,
+                created_at:
+                  Date.now(),
+              },
+              ...previous,
+            ].slice(
+              0,
+              50
+            )
+          );
         }
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "events" },
+        {
+          event: "*",
+          schema:
+            "public",
+          table:
+            "events",
+          filter:
+            `organisation_id=eq.${organisationId}`,
+        },
         (payload) => {
-          setEventStream((prev: any[]) => [
-            { type: "calendar_event", payload, created_at: Date.now() },
-            ...prev,
-          ].slice(0, 50));
+          setEventStream(
+            (
+              previous
+            ) => [
+              {
+                type:
+                  "calendar_event",
+                payload,
+                created_at:
+                  Date.now(),
+              },
+              ...previous,
+            ].slice(
+              0,
+              50
+            )
+          );
         }
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "emails" },
+        {
+          event: "*",
+          schema:
+            "public",
+          table:
+            "emails",
+          filter:
+            `organisation_id=eq.${organisationId}`,
+        },
         (payload) => {
-          setEventStream((prev: any[]) => [
-            { type: "email_event", payload, created_at: Date.now() },
-            ...prev,
-          ].slice(0, 50));
+          setEventStream(
+            (
+              previous
+            ) => [
+              {
+                type:
+                  "email_event",
+                payload,
+                created_at:
+                  Date.now(),
+              },
+              ...previous,
+            ].slice(
+              0,
+              50
+            )
+          );
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(
+        channel
+      );
     };
-  }, [organisationId, supabase]);
+  }, [
+    organisationId,
+    supabase,
+  ]);
 
-  // PROACTIVE CLARITY AI LOOP
-  useEffect(() => {
-    if (!organisationId) return;
+  // ==================================================
+  // TASK PRIORITY
+  // ==================================================
 
-    const interval = setInterval(() => {
-      try {
-        runClarityScan();
-      } catch (err) {
-        console.warn("Clarity proactive scan failed:", err);
-      }
-    }, 5 * 60 * 1000); // every 5 minutes
-
-    return () => clearInterval(interval);
-  }, [organisationId]);
-
-  // --- TASK PRIORITY AI ENGINE ---
-  const getTaskScore = (task: any) => {
-    const text = (task.text || "").toLowerCase();
+  const getTaskScore = (
+    task: DashboardTodo
+  ) => {
+    const text =
+      String(
+        task.text ||
+          ""
+      ).toLowerCase();
 
     let score = 0;
 
-    // incomplete tasks are always higher priority
-    if (!task.completed) score += 3;
-    else score -= 5;
-
-    // urgency keywords
     if (
-      text.includes("urgent") ||
-      text.includes("asap") ||
-      text.includes("today") ||
-      text.includes("important") ||
-      text.includes("now")
+      !task.completed
+    ) {
+      score += 3;
+    } else {
+      score -= 5;
+    }
+
+    if (
+      text.includes(
+        "urgent"
+      ) ||
+      text.includes(
+        "asap"
+      ) ||
+      text.includes(
+        "today"
+      ) ||
+      text.includes(
+        "important"
+      ) ||
+      text.includes(
+        "now"
+      )
     ) {
       score += 4;
     }
 
-    // high intent language detection
-    if (text.includes("!!!")) score += 2;
+    if (
+      text.includes(
+        "!!!"
+      )
+    ) {
+      score += 2;
+    }
 
-    // longer tasks often indicate complexity (light weighting)
-    if (text.length > 40) score += 1;
+    if (
+      text.length > 40
+    ) {
+      score += 1;
+    }
 
     return score;
   };
 
-  // --- PRIORITY LABEL AI ---
-  const getTaskPriorityLabel = (task: any) => {
-    const score = getTaskScore(task);
+  const getTaskPriorityLabel =
+    (
+      task: DashboardTodo
+    ) => {
+      return getTaskScore(
+        task
+      ) >= 6
+        ? "HIGH"
+        : "LOW";
+    };
 
-    if (score >= 6) return "HIGH";
-    return "LOW";
-  };
-  // Utility Functions
-  const toggleTodo = async (id: string, currentStatus: boolean) => {
-    const newStatus = !currentStatus;
+  // ==================================================
+  // TASK ACTIONS
+  // ==================================================
 
-    setTodos(prev =>
-      prev.map(t =>
-        t.id === id ? { ...t, completed: newStatus, status: newStatus ? "done" : "todo" } : t
-      )
-    );
+  const toggleTodo =
+    async (
+      id: string,
+      currentStatus: boolean
+    ) => {
+      const newStatus =
+        !currentStatus;
 
-    const { error } = await supabase
-      .from("notes")
-      .update({
-        completed: newStatus,
-        status: newStatus ? "done" : "todo"
-      })
-      .eq("id", id);
-
-    if (error) {
-      console.error("Task update failed:", error);
-
-      setTodos(prev =>
-        prev.map(t =>
-          t.id === id ? { ...t, completed: currentStatus, status: currentStatus ? "done" : "todo" } : t
-        )
+      setTodos(
+        (
+          previous
+        ) =>
+          previous.map(
+            (
+              task
+            ) =>
+              task.id ===
+              id
+                ? {
+                    ...task,
+                    completed:
+                      newStatus,
+                    status:
+                      newStatus
+                        ? "done"
+                        : "todo",
+                  }
+                : task
+          )
       );
 
+      const {
+        error,
+      } =
+        await supabase
+          .from(
+            "notes"
+          )
+          .update({
+            completed:
+              newStatus,
+
+            status:
+              newStatus
+                ? "done"
+                : "todo",
+          })
+          .eq(
+            "id",
+            id
+          );
+
+      if (error) {
+        console.error(
+          "Task update failed:",
+          error
+        );
+
+        setTodos(
+          (
+            previous
+          ) =>
+            previous.map(
+              (
+                task
+              ) =>
+                task.id ===
+                id
+                  ? {
+                      ...task,
+                      completed:
+                        currentStatus,
+                      status:
+                        currentStatus
+                          ? "done"
+                          : "todo",
+                    }
+                  : task
+            )
+        );
+
+        return;
+      }
+
+      await loadDashboardData();
+    };
+
+  const addTask =
+    async () => {
+      const cleaned =
+        taskInput.trim();
+
+      if (
+        !cleaned ||
+        !organisationId
+      ) {
+        return;
+      }
+
+      const {
+        data: {
+          user,
+        },
+      } =
+        await supabase.auth.getUser();
+
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "notes"
+          )
+          .insert({
+            title:
+              cleaned,
+
+            content:
+              cleaned,
+
+            completed:
+              false,
+
+            status:
+              "todo",
+
+            type:
+              "task",
+
+            organisation_id:
+              organisationId,
+
+            user_id:
+              user?.id ||
+              null,
+          })
+          .select()
+          .single();
+
+      if (
+        !error &&
+        data
+      ) {
+        setTodos(
+          (
+            previous
+          ) => [
+            {
+              id:
+                data.id,
+
+              text:
+                data.title ||
+                data.content,
+
+              completed:
+                false,
+
+              status:
+                "todo",
+            },
+            ...previous,
+          ]
+        );
+
+        setTaskInput(
+          ""
+        );
+      }
+
+      await loadDashboardData();
+    };
+
+  // ==================================================
+  // NOTE ACTIONS
+  // ==================================================
+
+  const addNote =
+    async () => {
+      const cleaned =
+        noteInput.trim();
+
+      if (
+        !cleaned ||
+        !organisationId
+      ) {
+        return;
+      }
+
+      const {
+        data: {
+          user,
+        },
+      } =
+        await supabase.auth.getUser();
+
+      const {
+        error,
+      } =
+        await supabase
+          .from(
+            "notes"
+          )
+          .insert({
+            title:
+              cleaned,
+
+            content:
+              cleaned,
+
+            completed:
+              false,
+
+            type:
+              "note",
+
+            organisation_id:
+              organisationId,
+
+            user_id:
+              user?.id ||
+              null,
+          });
+
+      if (!error) {
+        setNoteInput(
+          ""
+        );
+
+        await loadDashboardData();
+      }
+    };
+
+  // ==================================================
+  // CLARITY CHAT
+  // ==================================================
+
+  const handleAskClarity =
+    async () => {
+      const query =
+        clarityCommand.trim();
+
+      if (!query) {
+        return;
+      }
+
+      let activeChatId =
+        clarityChatId;
+
+      if (
+        !activeChatId
+      ) {
+        if (
+          !organisationId
+        ) {
+          return;
+        }
+
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "clarity_chats"
+            )
+            .insert({
+              organisation_id:
+                organisationId,
+
+              title:
+                query.length >
+                40
+                  ? `${query.slice(
+                      0,
+                      40
+                    )}...`
+                  : query,
+            })
+            .select()
+            .single();
+
+        if (
+          error ||
+          !data
+        ) {
+          console.error(
+            "Unable to create Clarity chat",
+            error
+          );
+
+          return;
+        }
+
+        activeChatId =
+          data.id;
+
+        setClarityChatId(
+          data.id
+        );
+
+        localStorage.setItem(
+          "clarity_active_chat",
+          data.id
+        );
+      }
+
+      setClarityResponse(
+        "Clarity is analysing your workspace..."
+      );
+
+      setClarityStreaming(
+        true
+      );
+
+      try {
+        const {
+          data,
+          error,
+        } =
+          await supabase.functions.invoke(
+            "clarity-chat",
+            {
+              body: {
+                message:
+                  query,
+
+                context: {
+                  tasks:
+                    todos.filter(
+                      (
+                        task
+                      ) =>
+                        !task.completed
+                    ),
+
+                  projects,
+
+                  events,
+
+                  emails,
+
+                  notes,
+
+                  finance:
+                    stats.currentProfit,
+
+                  risk:
+                    riskLevel,
+
+                  aiActions,
+
+                  memory:
+                    clarityMemory,
+                },
+              },
+            }
+          );
+
+        if (error) {
+          throw error;
+        }
+
+        const answer =
+          String(
+            data?.answer ||
+              data?.message ||
+              ""
+          ).trim();
+
+        if (!answer) {
+          throw new Error(
+            "Clarity returned no response"
+          );
+        }
+
+        setClarityResponse(
+          ""
+        );
+
+        let current =
+          "";
+
+        for (
+          let index = 0;
+          index <
+          answer.length;
+          index += 4
+        ) {
+          current +=
+            answer.slice(
+              index,
+              index + 4
+            );
+
+          setClarityResponse(
+            current
+          );
+
+          await new Promise(
+            (
+              resolve
+            ) =>
+              window.setTimeout(
+                resolve,
+                10
+              )
+          );
+        }
+
+        const newMessages: ClarityMessage[] =
+          [
+            ...clarityMessages,
+
+            {
+              role:
+                "user",
+
+              content:
+                query,
+            },
+
+            {
+              role:
+                "assistant",
+
+              content:
+                answer,
+            },
+          ];
+
+        setClarityMessages(
+          newMessages
+        );
+
+        await supabase
+          .from(
+            "clarity_messages"
+          )
+          .insert([
+            {
+              chat_id:
+                activeChatId,
+
+              role:
+                "user",
+
+              content:
+                query,
+            },
+            {
+              chat_id:
+                activeChatId,
+
+              role:
+                "assistant",
+
+              content:
+                answer,
+            },
+          ]);
+
+        if (
+          organisationId
+        ) {
+          await supabase
+            .from(
+              "clarity_memory"
+            )
+            .insert({
+              organisation_id:
+                organisationId,
+
+              memory:
+                `User asked: ${query}. Clarity answered: ${answer}`,
+            });
+        }
+
+        await Promise.all([
+          loadClarityMemory(),
+          loadClarityChats(),
+        ]);
+      } catch (
+        clarityError
+      ) {
+        console.error(
+          "Clarity AI error:",
+          clarityError
+        );
+
+        setClarityResponse(
+          `Current business snapshot:\n\nOpen tasks: ${
+            openTasks.length
+          }\nActive projects: ${
+            projects.length
+          }\nUpcoming events: ${
+            events.length
+          }\nTracked revenue: £${formatCurrency(
+            stats.currentProfit
+          )}`
+        );
+      } finally {
+        setClarityCommand(
+          ""
+        );
+
+        setClarityStreaming(
+          false
+        );
+      }
+    };
+
+  // ==================================================
+  // CLARITY BRIEF
+  // ==================================================
+
+  const handleClarityBrief =
+    () => {
+      const now =
+        new Date();
+
+      const dateStr =
+        now.toLocaleString(
+          "en-GB",
+          {
+            dateStyle:
+              "full",
+
+            timeStyle:
+              "short",
+          }
+        );
+
+      const incompleteTaskList =
+        openTasks
+          .slice(
+            0,
+            5
+          )
+          .map(
+            (
+              task
+            ) =>
+              `  - ${task.text}`
+          )
+          .join(
+            "\n"
+          );
+
+      const todayEvents =
+        events
+          .filter(
+            (
+              event
+            ) =>
+              event.startAt &&
+              event.startAt.toDateString() ===
+                now.toDateString()
+          )
+          .map(
+            (
+              event
+            ) => {
+              const time =
+                event.startAt
+                  ? ` @ ${event.startAt.toLocaleTimeString(
+                      "en-GB",
+                      {
+                        hour:
+                          "2-digit",
+                        minute:
+                          "2-digit",
+                      }
+                    )}`
+                  : "";
+
+              return `  - ${event.title}${time}`;
+            }
+          )
+          .join(
+            "\n"
+          );
+
+      const activeProjectList =
+        projects
+          .slice(
+            0,
+            10
+          )
+          .map(
+            (
+              project
+            ) =>
+              `  - ${
+                project.name ||
+                project.title ||
+                "Project"
+              }`
+          )
+          .join(
+            "\n"
+          );
+
+      const priorityActions =
+        aiActions.length
+          ? aiActions
+              .slice(
+                0,
+                5
+              )
+              .map(
+                (
+                  action
+                ) =>
+                  `  - ${action}`
+              )
+              .join(
+                "\n"
+              )
+          : "  - None";
+
+      const generatedBrief =
+        `CLARITY DAILY EXECUTIVE BRIEF\n\n` +
+        `Date: ${dateStr}\n\n` +
+        `Risk Level: ${riskLevel.toUpperCase()}\n` +
+        `Summary: ${aiSummary}\n\n` +
+        `Open Tasks: ${openTasks.length}\n` +
+        (incompleteTaskList
+          ? `Priority Tasks:\n${incompleteTaskList}\n\n`
+          : "") +
+        `Today's Events:\n${todayEvents || "  - None"}\n\n` +
+        `Recent Emails: ${emails.length}\n\n` +
+        `Active Projects:\n${activeProjectList || "  - None"}\n\n` +
+        `Tracked Revenue: £${formatCurrency(
+          stats.currentProfit
+        )}\n\n` +
+        `Priority Actions:\n${priorityActions}`;
+
+      setClarityResponse(
+        generatedBrief
+      );
+
+      setShowBriefModal(
+        true
+      );
+    };
+
+  // ==================================================
+  // CLARITY SCAN
+  // ==================================================
+
+  const runClarityScan =
+    useCallback(
+      async () => {
+        if (
+          !organisationId ||
+          isScanActive
+        ) {
+          return;
+        }
+
+        setIsScanActive(
+          true
+        );
+
+        try {
+          const {
+            data,
+            error,
+          } =
+            await supabase.functions.invoke(
+              "clarity-scan",
+              {
+                body: {
+                  organisation_id:
+                    organisationId,
+
+                  context: {
+                    stats,
+                    currentTasks:
+                      todos,
+                  },
+                },
+              }
+            );
+
+          if (error) {
+            throw error;
+          }
+
+          if (
+            data?.insight
+          ) {
+            setInsight(
+              data.insight
+            );
+          }
+        } catch (
+          scanError
+        ) {
+          console.warn(
+            "Clarity scan failed:",
+            scanError
+          );
+        } finally {
+          setIsScanActive(
+            false
+          );
+        }
+      },
+      [
+        organisationId,
+        isScanActive,
+        supabase,
+        stats,
+        todos,
+      ]
+    );
+
+  // ==================================================
+  // PERIODIC SCAN
+  // ==================================================
+
+  useEffect(() => {
+    if (
+      !organisationId
+    ) {
       return;
     }
 
-    await loadDashboardData();
-  };
-
-  // --- TASK CREATION ---
-  const addTask = async () => {
-    if (!taskInput.trim() || !organisationId) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { data, error } = await supabase
-     .from("notes")
-      .insert([
-        {
-          title: taskInput,
-          content: taskInput,
-          completed: false,
-          status: "todo",
-          type: "task",
-          organisation_id: organisationId,
-          user_id: user?.id || null
-        }
-      ])
-      .select()
-      .single();
-
-    if (!error && data) {
-      setTodos(prev => [
-        {
-          id: data.id,
-          text: data.title || data.content,
-          completed: false
+    const interval =
+      window.setInterval(
+        () => {
+          void runClarityScan();
         },
-        ...prev
-      ]);
-    }
-
-    setTaskInput("");
-    loadDashboardData();
-  };
-
-  // --- NOTE CREATION ---
-  const addNote = async () => {
-    if (!noteInput.trim() || !organisationId) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { error } = await supabase
-      .from("notes")
-      .insert([
-        {
-          title: noteInput,
-          content: noteInput,
-          completed: false,
-          organisation_id: organisationId,
-          user_id: user?.id || null
-        }
-      ]);
-
-    setNoteInput("");
-    loadDashboardData();
-  };
-
-  // --- CLARITY COMMAND HANDLERS ---
-  const handleAskClarity = async () => {
-    if (!clarityCommand.trim()) return;
-
-    if (!clarityChatId) {
-      await startNewClarityChat();
-    }
-
-    const query = clarityCommand;
-
-    setClarityResponse("Clarity is analysing your business data...");
-    setClarityStreaming(true);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("clarity-chat", {
-        body: {
-          message: query,
-          context: {
-            tasks: todos.filter(t => !t.completed),
-            projects,
-            events,
-            emails,
-            notes,
-            finance: stats.currentProfit,
-            risk: riskLevel,
-            aiActions,
-            memory: clarityMemory,
-          },
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.answer) {
-        const answer = String(data.answer);
-
-        setClarityResponse("");
-        setClarityStreaming(true);
-
-        let current = "";
-        for (const character of answer) {
-          current += character;
-          setClarityResponse(current);
-          await new Promise(resolve => setTimeout(resolve, 12));
-        }
-
-        setClarityStreaming(false);
-
-        const newMessages: {
-          id?: string;
-          role: "user" | "assistant";
-          content: string;
-          created_at?: string;
-        }[] = [
-          ...clarityMessages,
-          {
-            role: "user",
-            content: query,
-          },
-          {
-            role: "assistant",
-            content: answer,
-          },
-        ];
-
-        setClarityMessages(newMessages);
-
-        if (clarityChatId) {
-          await supabase
-            .from("clarity_messages")
-            .insert([
-              { chat_id: clarityChatId, role: "user", content: query },
-              { chat_id: clarityChatId, role: "assistant", content: answer }
-            ]);
-
-          await supabase
-            .from("clarity_memory")
-            .insert({
-              organisation_id: organisationId,
-              memory: `User asked: ${query}. Clarity answered: ${answer}`
-            });
-
-          loadClarityMemory();
-        }
-      } else {
-        setClarityResponse("Clarity could not generate a response.");
-      }
-    } catch (err) {
-      console.error("CLARITY AI ERROR:", err);
-      setClarityStreaming(false);
-      setClarityResponse(
-        `Clarity fallback summary:\n\nTasks requiring attention: ${todos.filter(t => !t.completed).length}\nActive projects: ${projects.length}\nUpcoming events: ${events.length}\nTracked revenue: £${stats.currentProfit.toLocaleString("en-GB")}`
+        5 *
+          60 *
+          1000
       );
-    }
 
-    setClarityCommand("");
-    setClarityStreaming(false);
-  };
-  useEffect(() => {
-    if (!organisationId) return;
+    return () =>
+      window.clearInterval(
+        interval
+      );
+  }, [
+    organisationId,
+    runClarityScan,
+  ]);
 
-    loadClarityChats();
-    loadClarityMemory();
+  // ==================================================
+  // AUTH ERROR
+  // ==================================================
 
-    const savedChatId = localStorage.getItem("clarity_active_chat");
+  if (authError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#faf9f6] p-6 text-center">
+        <div className="w-full max-w-md rounded-[2rem] border border-stone-200 bg-white p-8 shadow-sm">
+          <h1 className="text-xl font-black uppercase tracking-[0.18em] text-stone-900">
+            Authentication
+            Required
+          </h1>
 
-    if (savedChatId) {
-      setClarityChatId(savedChatId);
-      loadClarityMessages(savedChatId);
-    }
-  }, [organisationId]);
+          <p className="mt-3 text-xs leading-relaxed text-stone-500">
+            The verification
+            link has expired or
+            is no longer valid.
+          </p>
 
-  const handleClarityBrief = () => {
-    // Build formatted daily executive brief using current dashboard state
-    const now = new Date();
-    const dateStr = now.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" });
-    const incompleteTasks = todos.filter(t => !t.completed);
-    const incompleteTaskCount = incompleteTasks.length;
-    const incompleteTaskList = incompleteTasks.slice(0, 5).map((t, i) => `  - ${t.text}`).join("\n");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayEvents = events
-      .filter(e => e.startAt && e.startAt.toDateString() === now.toDateString())
-      .map(e => {
-        let time = "";
-        if (e.startAt) {
-          time = " @ " + e.startAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        }
-        return `  - ${e.title}${time}`;
-      })
-      .join("\n");
-    const activeProjects = projects.map((p: any) => `  - ${p.name || p.title || "Project"}`).join("\n");
-    const profit = stats.currentProfit;
-    const aiSummaryText = aiSummary;
-    const aiActionsText = aiActions.length
-      ? aiActions.map((a: string) => `  - ${a}`).join("\n")
-      : "  - None";
-    const brief =
-      `CLARITY DAILY EXECUTIVE BRIEF\n\n` +
-      `Date: ${dateStr}\n\n` +
-      `Risk Level: ${riskLevel.toUpperCase()}\n` +
-      `AI Summary: ${aiSummaryText}\n\n` +
-      `Incomplete Tasks: ${incompleteTaskCount}\n` +
-      (incompleteTaskList ? `Tasks:\n${incompleteTaskList}\n\n` : "") +
-      `Today's Events:\n${todayEvents || "  - None"}\n\n` +
-      `Recent Emails: ${emails.length}\n\n` +
-      `Active Projects:\n${activeProjects || "  - None"}\n\n` +
-      `Current Profit: £${profit}\n\n` +
-      `AI Priority Actions:\n${aiActionsText}\n`;
-    setClarityResponse(brief);
-    setShowBriefModal(true);
-  };
+          <button
+            type="button"
+            onClick={() =>
+              router.replace(
+                "/login"
+              )
+            }
+            className="mt-6 w-full rounded-xl bg-stone-900 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white"
+          >
+            Return to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  const runClarityScan = async () => {
-    if (!organisationId || !supabase) return;
-    setIsScanActive(true);
-    setShowScanModal(true);
-    try {
-      const { data, error: scanErr } = await supabase.functions.invoke('clarity-scan', {
-        body: { organisation_id: organisationId, context: { stats, currentTasks: todos } }
-      });
-      if (scanErr) throw scanErr;
-      setInsight(data.insight);
-    } catch (err) {
-      setInsight("Business Analysis: Revenue channels are healthy. Focus remains on project delivery.");
-    } finally {
-      setIsScanActive(false);
-    }
-    
-  };
+  // ==================================================
+  // LOADING
+  // ==================================================
 
-  // UI States
-  if (loading) return (
-    <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4 p-6">
-      <Loader2 className="animate-spin text-stone-300" size={32} />
-      <p className="font-black uppercase tracking-[0.5em] text-stone-300 text-[10px]">Syncing Business Intelligence</p>
+  if (loading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-[#faf9f6] p-6">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-stone-200 bg-white shadow-sm">
+          <Loader2
+            className="animate-spin text-[#A3B18A]"
+            size={22}
+          />
+        </div>
+
+        <div className="text-center">
+          <p className="text-[9px] font-black uppercase tracking-[0.35em] text-stone-400">
+            Preparing your
+            workspace
+          </p>
+
+          <p className="mt-2 text-xs text-stone-300">
+            Syncing business
+            intelligence
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================================================
+  // EVENT GROUPS
+  // ==================================================
+
+  const now =
+    new Date();
+
+  const startOfToday =
+    new Date(now);
+
+  startOfToday.setHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+  const endOfToday =
+    new Date(now);
+
+  endOfToday.setHours(
+    23,
+    59,
+    59,
+    999
+  );
+
+  const tomorrowStart =
+    new Date(
+      startOfToday
+    );
+
+  tomorrowStart.setDate(
+    tomorrowStart.getDate() +
+      1
+  );
+
+  const tomorrowEnd =
+    new Date(
+      tomorrowStart
+    );
+
+  tomorrowEnd.setHours(
+    23,
+    59,
+    59,
+    999
+  );
+
+  const weekEnd =
+    new Date(
+      endOfToday
+    );
+
+  weekEnd.setDate(
+    weekEnd.getDate() +
+      7
+  );
+
+  const sortedEvents =
+    [...events].sort(
+      (
+        a,
+        b
+      ) => {
+        const aTime =
+          a.startAt?.getTime() ??
+          Infinity;
+
+        const bTime =
+          b.startAt?.getTime() ??
+          Infinity;
+
+        return (
+          aTime -
+          bTime
+        );
+      }
+    );
+
+  const todayEvents =
+    sortedEvents.filter(
+      (
+        event
+      ) =>
+        event.startAt &&
+        event.startAt >=
+          startOfToday &&
+        event.startAt <=
+          endOfToday
+    );
+
+  const tomorrowEvents =
+    sortedEvents.filter(
+      (
+        event
+      ) =>
+        event.startAt &&
+        event.startAt >=
+          tomorrowStart &&
+        event.startAt <=
+          tomorrowEnd
+    );
+
+  const upcomingEvents =
+    sortedEvents.filter(
+      (
+        event
+      ) =>
+        event.startAt &&
+        event.startAt >
+          tomorrowEnd &&
+        event.startAt <=
+          weekEnd
+    );
+
+  const unscheduledEvents =
+    sortedEvents.filter(
+      (
+        event
+      ) =>
+        !event.startAt
+    );
+
+  const renderEvent = (
+    event: NormalisedEvent
+  ) => (
+    <div
+      key={
+        event.id ||
+        `${event.title}-${event.startAt?.toISOString()}`
+      }
+      className="rounded-2xl border border-stone-200 bg-[#faf9f6] p-3 transition hover:border-stone-300"
+    >
+      <p className="truncate text-[10px] font-bold uppercase tracking-wide text-stone-800">
+        {event.title}
+      </p>
+
+      <p className="mt-1 text-[10px] text-stone-400">
+        {event.startAt
+          ? event.startAt.toLocaleString(
+              "en-GB",
+              {
+                day:
+                  "numeric",
+                month:
+                  "short",
+                hour:
+                  "2-digit",
+                minute:
+                  "2-digit",
+              }
+            )
+          : "No date set"}
+      </p>
     </div>
   );
 
+  // ==================================================
+  // RENDER
+  // ==================================================
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 p-3 sm:p-6 lg:p-12 space-y-8 lg:space-y-12 max-w-[1600px] mx-auto font-sans overflow-x-hidden">
-      {/* Floating Clarity Widget Button */}
-      <ClarityFloatingButton
-        open={showClarityWidget}
-        onClick={() => setShowClarityWidget(v => !v)}
-      />
-      {/* Floating Clarity Widget Popup */}
+    <div className="mx-auto min-h-screen max-w-[1600px] space-y-8 overflow-x-hidden bg-[#faf9f6] p-3 font-sans text-stone-900 sm:p-6 lg:space-y-12 lg:p-12">
+
+      {/* ==================================================
+          CLARITY FLOATING BUTTON
+      ================================================== */}
+
+      <button
+        type="button"
+        onClick={() =>
+          setShowClarityWidget(
+            (
+              current
+            ) =>
+              !current
+          )
+        }
+        className="fixed right-6 top-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-stone-900 text-white shadow-xl transition hover:scale-105"
+        aria-label="Open Clarity"
+      >
+        <Sparkles
+          size={18}
+        />
+
+        {clarityNotifications.length >
+          0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-[#faf9f6] bg-[#A3B18A] px-1 text-[7px] font-black text-white">
+            {
+              clarityNotifications.length
+            }
+          </span>
+        )}
+      </button>
+
+      {/* ==================================================
+          CLARITY WIDGET
+      ================================================== */}
+
       {showClarityWidget && (
-        <div className="fixed top-24 right-6 z-50 w-80 max-w-[90vw] bg-white border border-stone-200 rounded-2xl shadow-2xl p-5 flex flex-col gap-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-bold text-stone-800">Clarity</h3>
-            <button
-              onClick={() => setShowClarityWidget(false)}
-              className="p-1 rounded hover:bg-stone-100"
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
-          </div>
-          <button
-            onClick={startNewClarityChat}
-            className="px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest"
-          >
-            New Chat
-          </button>
+        <div className="fixed right-4 top-20 z-50 flex max-h-[calc(100vh-100px)] w-[calc(100vw-2rem)] max-w-[390px] flex-col overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-2xl sm:right-6">
+          <div className="border-b border-stone-100 bg-[#faf9f6] p-5">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-[#A3B18A]">
+                  <Sparkles
+                    size={14}
+                  />
+                </div>
 
-          {clarityChats.length > 0 && (
-            <div className="max-h-24 overflow-y-auto space-y-1">
-              {clarityChats.slice(0, 5).map((chat) => (
-                <button
-                  key={chat.id}
-                  onClick={() => {
-                    setClarityChatId(chat.id);
-                    localStorage.setItem("clarity_active_chat", chat.id);
-                    loadClarityMessages(chat.id);
-                  }}
-                  className="w-full text-left p-2 rounded-lg bg-[#faf9f6] text-[9px] font-bold uppercase"
-                >
-                  {chat.title}
-                </button>
-              ))}
-            </div>
-          )}
+                <div>
+                  <h3 className="text-sm font-black">
+                    Clarity
+                  </h3>
 
-          <input
-            value={clarityCommand}
-            onChange={e => setClarityCommand(e.target.value)}
-            placeholder="Ask Clarity anything about your business..."
-            className="p-2 rounded-xl border bg-[#faf9f6] text-[10px] uppercase tracking-wide"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleAskClarity}
-              className="flex-1 px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
-            >
-              Analyse <Sparkles size={12} />
-            </button>
-            <button
-              onClick={handleClarityBrief}
-              className="flex-1 px-3 py-2 rounded-xl border border-stone-300 text-stone-700 text-[10px] font-black uppercase tracking-widest"
-            >
-              Daily Brief
-            </button>
-          </div>
-          <button
-            onClick={() => router.push('/clarity')}
-            className="w-full mt-1 px-3 py-2 rounded-xl bg-[#A3B18A] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#7b9462] transition"
-          >
-            Open Full Clarity
-          </button>
-          <div className="mb-3 pb-3 border-b">
-            <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-              Clarity Memory
-            </p>
-            {clarityMemory.length > 0 ? (
-              clarityMemory.slice(0, 3).map((item: any, index: number) => (
-                <div key={index} className="mt-2 p-2 rounded-lg bg-[#faf9f6]">
-                  <p className="text-[9px] font-bold">
-                    {item.memory}
+                  <p className="mt-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
+                    Business
+                    Intelligence
                   </p>
                 </div>
-              ))
-            ) : (
-              <p className="text-[10px] text-stone-400 mt-2">
-                No saved business memory yet.
-              </p>
-            )}
-          </div>
-          <div className="mb-3 pb-3 border-b">
-            <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-              Clarity Notifications
-            </p>
-            {clarityNotifications.length > 0 ? (
-              clarityNotifications.slice(0, 3).map((notification, index) => (
-                <div key={index} className="mt-2 p-2 rounded-lg bg-[#faf9f6]">
-                  <p className="text-[9px] font-bold">
-                    {notification}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <p className="text-[10px] text-stone-400 mt-2">
-                No active notifications.
-              </p>
-            )}
-          </div>
-          {clarityMessages.length > 0 && (
-            <div className="mt-2 p-3 rounded-xl border bg-[#faf9f6] text-[10px] font-medium whitespace-pre-line max-h-64 overflow-y-auto space-y-2">
-              {clarityMessages.map((message: any, index: number) => (
-                <div
-                  key={message.id || index}
-                  className={message.role === "user" ? "text-right" : "text-left"}
-                >
-                  <p className="text-[8px] uppercase tracking-widest text-stone-400 mb-1">
-                    {message.role === "user" ? "You" : "Clarity"}
-                  </p>
-                  <div className="p-2 rounded-lg bg-white border">
-                    {message.content}
-                  </div>
-                </div>
-              ))}
-              {clarityStreaming && (
-                <span className="inline-block animate-pulse">▌</span>
-              )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowClarityWidget(
+                    false
+                  )
+                }
+                className="rounded-full p-2 text-stone-400 transition hover:bg-white hover:text-stone-900"
+              >
+                <X
+                  size={16}
+                />
+              </button>
             </div>
-          )}
+          </div>
+
+          <div className="overflow-y-auto p-4">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  void startNewClarityChat()
+                }
+                className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 px-3 py-2.5 text-[9px] font-black uppercase tracking-wider"
+              >
+                <Plus
+                  size={12}
+                />
+                New Chat
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  handleClarityBrief
+                }
+                className="rounded-xl border border-[#A3B18A]/30 bg-[#A3B18A]/10 px-3 py-2.5 text-[9px] font-black uppercase tracking-wider"
+              >
+                Daily Brief
+              </button>
+            </div>
+
+            {clarityChats.length >
+              0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-[8px] font-black uppercase tracking-widest text-stone-300">
+                  Recent chats
+                </p>
+
+                <div className="space-y-1.5">
+                  {clarityChats
+                    .slice(
+                      0,
+                      4
+                    )
+                    .map(
+                      (
+                        chat
+                      ) => (
+                        <button
+                          type="button"
+                          key={
+                            chat.id
+                          }
+                          onClick={() => {
+                            setClarityChatId(
+                              chat.id
+                            );
+
+                            localStorage.setItem(
+                              "clarity_active_chat",
+                              chat.id
+                            );
+
+                            void loadClarityMessages(
+                              chat.id
+                            );
+                          }}
+                          className="w-full truncate rounded-xl bg-[#faf9f6] p-2.5 text-left text-[9px] font-bold text-stone-600 transition hover:bg-stone-100"
+                        >
+                          {
+                            chat.title
+                          }
+                        </button>
+                      )
+                    )}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 rounded-2xl border border-stone-200 bg-[#faf9f6] p-2">
+              <textarea
+                value={
+                  clarityCommand
+                }
+                onChange={(
+                  event
+                ) =>
+                  setClarityCommand(
+                    event
+                      .target
+                      .value
+                  )
+                }
+                onKeyDown={(
+                  event
+                ) => {
+                  if (
+                    event.key ===
+                      "Enter" &&
+                    !event.shiftKey
+                  ) {
+                    event.preventDefault();
+
+                    void handleAskClarity();
+                  }
+                }}
+                rows={2}
+                placeholder="Ask Clarity anything about your business..."
+                className="w-full resize-none bg-transparent px-2 py-2 text-xs outline-none placeholder:text-stone-300"
+              />
+
+              <button
+                type="button"
+                onClick={() =>
+                  void handleAskClarity()
+                }
+                disabled={
+                  clarityStreaming ||
+                  !clarityCommand.trim()
+                }
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-2.5 text-[9px] font-black uppercase tracking-widest text-white disabled:opacity-40"
+              >
+                <Sparkles
+                  size={11}
+                />
+
+                {clarityStreaming
+                  ? "Analysing..."
+                  : "Ask Clarity"}
+              </button>
+            </div>
+
+            {clarityMessages.length >
+              0 && (
+              <div className="mt-4 max-h-56 space-y-2 overflow-y-auto">
+                {clarityMessages.map(
+                  (
+                    message,
+                    index
+                  ) => (
+                    <div
+                      key={
+                        message.id ||
+                        index
+                      }
+                      className={
+                        message.role ===
+                        "user"
+                          ? "ml-auto max-w-[88%] rounded-2xl bg-stone-900 p-3 text-[10px] leading-relaxed text-white"
+                          : "max-w-[92%] rounded-2xl border border-stone-200 bg-white p-3 text-[10px] leading-relaxed text-stone-600"
+                      }
+                    >
+                      {
+                        message.content
+                      }
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+
+            {clarityStreaming && (
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-stone-200 bg-white p-3">
+                <div className="flex gap-1">
+                  {[0, 1, 2].map(
+                    (
+                      dot
+                    ) => (
+                      <span
+                        key={
+                          dot
+                        }
+                        className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#A3B18A]"
+                        style={{
+                          animationDelay:
+                            `${dot * 120}ms`,
+                        }}
+                      />
+                    )
+                  )}
+                </div>
+
+                <span className="text-[9px] text-stone-400">
+                  Clarity is
+                  thinking
+                </span>
+              </div>
+            )}
+
+            {clarityNotifications.length >
+              0 && (
+              <div className="mt-4 border-t border-stone-100 pt-4">
+                <p className="text-[8px] font-black uppercase tracking-widest text-stone-300">
+                  Signals
+                </p>
+
+                <div className="mt-2 space-y-2">
+                  {clarityNotifications
+                    .slice(
+                      0,
+                      3
+                    )
+                    .map(
+                      (
+                        notification,
+                        index
+                      ) => (
+                        <div
+                          key={
+                            index
+                          }
+                          className="rounded-xl bg-[#faf9f6] p-3 text-[9px] leading-relaxed text-stone-500"
+                        >
+                          {
+                            notification
+                          }
+                        </div>
+                      )
+                    )}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/clarity"
+                )
+              }
+              className="mt-4 w-full rounded-xl bg-[#A3B18A] px-3 py-3 text-[9px] font-black uppercase tracking-widest text-white transition hover:bg-[#8d9c76]"
+            >
+              Open Full
+              Clarity
+            </button>
+          </div>
         </div>
       )}
-      {/* Clarity Brief Modal */}
+
+      {/* ==================================================
+          CLARITY BRIEF MODAL
+      ================================================== */}
+
       {showBriefModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl p-6 max-w-lg w-full relative shadow-2xl">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm">
+          <div className="relative max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-[2rem] border border-stone-200 bg-white p-6 shadow-2xl sm:p-8">
             <button
-              onClick={() => setShowBriefModal(false)}
-              className="absolute top-3 right-3 p-1 rounded hover:bg-stone-100"
-              aria-label="Close"
+              type="button"
+              onClick={() =>
+                setShowBriefModal(
+                  false
+                )
+              }
+              className="absolute right-5 top-5 rounded-full p-2 text-stone-400 hover:bg-stone-100"
             >
-              <X size={20} />
+              <X
+                size={18}
+              />
             </button>
-            <h2 className="text-xl font-bold mb-4">Today's Clarity Brief</h2>
-            <div className="whitespace-pre-wrap text-[11px] text-stone-800" style={{ wordBreak: 'break-word' }}>
-              {clarityResponse}
+
+            <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#A3B18A]">
+              Clarity
+            </p>
+
+            <h2 className="mt-2 font-serif text-3xl italic">
+              Today's
+              Executive Brief
+            </h2>
+
+            <div className="mt-6 whitespace-pre-wrap rounded-2xl bg-[#faf9f6] p-5 text-[11px] leading-relaxed text-stone-700">
+              {
+                clarityResponse
+              }
             </div>
           </div>
         </div>
       )}
-      {/* Header */}
-      <header className="flex flex-col lg:flex-row justify-between items-start border-b border-stone-200 pb-8 lg:pb-12 gap-6 lg:gap-8">
-        <div className="space-y-5 w-full">
-          <div className="flex items-center gap-4 text-[#A3B18A]">
-            <UserIcon size={12} fill="currentColor" />
-            <p className="font-black uppercase text-[9px] tracking-[0.4em]">User: {userName}</p>
-          </div>
 
-          <div>
-            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-serif italic tracking-tighter break-words">
-              Good {currentTime.getHours() < 12 ? "morning" : currentTime.getHours() < 18 ? "afternoon" : "evening"}, {userName}
-            </h1>
-            <p className="mt-3 text-xs uppercase tracking-[0.25em] text-stone-400">
-              Your business command centre is ready.
-            </p>
-          </div>
+      {/* ==================================================
+          HEADER
+      ================================================== */}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
-            <div className="bg-white border border-stone-200 rounded-3xl p-5">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Business Health</p>
-              <p className="text-3xl font-serif italic mt-2">
-                {riskLevel === "low" ? "92%" : riskLevel === "medium" ? "74%" : "51%"}
+      <header className="relative overflow-hidden rounded-[2rem] border border-stone-200 bg-white px-5 py-8 shadow-[0_10px_40px_rgba(0,0,0,0.025)] sm:px-8 lg:rounded-[3rem] lg:px-12 lg:py-12">
+
+        <div className="pointer-events-none absolute -right-32 -top-32 h-72 w-72 rounded-full bg-[#A3B18A]/10 blur-3xl" />
+
+        <div className="relative">
+          <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+
+            <div className="max-w-4xl">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="h-2 w-2 rounded-full bg-[#A3B18A]" />
+
+                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">
+                  {
+                    formatDashboardDate(
+                      currentTime
+                    )
+                  }
+                </p>
+              </div>
+
+              <h1 className="mt-5 break-words font-serif text-5xl italic tracking-tighter text-stone-900 sm:text-6xl lg:text-[5.5rem] lg:leading-[0.95]">
+                {greetingText}
+                <span className="text-[#A3B18A]">
+                  .
+                </span>
+              </h1>
+
+              <p className="mt-5 max-w-2xl text-sm leading-relaxed text-stone-400">
+                Here's what needs
+                your attention
+                across the business
+                today.
               </p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">{riskLevel} operational risk</p>
             </div>
 
-            <div className="bg-white border border-stone-200 rounded-3xl p-5">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Today's Tasks</p>
-              <p className="text-3xl font-serif italic mt-2">{todos.filter(t => !t.completed).length}</p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">requiring attention</p>
+            <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-[#faf9f6] px-4 py-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-[#A3B18A]">
+                <Sparkles
+                  size={14}
+                />
+              </div>
+
+              <div>
+                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                  Clarity
+                </p>
+
+                <p className="mt-0.5 text-[10px] font-semibold text-stone-700">
+                  {riskLevel ===
+                  "low"
+                    ? "Everything looks steady"
+                    : riskLevel ===
+                        "medium"
+                      ? "A few areas need attention"
+                      : "Priority attention recommended"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* HEADER METRICS */}
+
+          <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-[1.5rem] border border-stone-200 bg-[#faf9f6] p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
+                  Business Health
+                </p>
+
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    riskLevel ===
+                    "high"
+                      ? "bg-red-400"
+                      : riskLevel ===
+                          "medium"
+                        ? "bg-amber-400"
+                        : "bg-[#A3B18A]"
+                  }`}
+                />
+              </div>
+
+              <p className="mt-3 font-serif text-3xl italic">
+                {healthScore}%
+              </p>
+
+              <p className="mt-2 text-[9px] uppercase tracking-wider text-stone-400">
+                {riskLevel} operational
+                risk
+              </p>
             </div>
 
-            <div className="bg-white border border-stone-200 rounded-3xl p-5">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Revenue</p>
-              <p className="text-3xl font-serif italic mt-2">£{stats.currentProfit.toLocaleString()}</p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">current tracked profit</p>
+            <div className="rounded-[1.5rem] border border-stone-200 bg-[#faf9f6] p-5">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
+                Open Tasks
+              </p>
+
+              <p className="mt-3 font-serif text-3xl italic">
+                {
+                  openTasks.length
+                }
+              </p>
+
+              <p className="mt-2 text-[9px] uppercase tracking-wider text-stone-400">
+                requiring attention
+              </p>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-stone-200 bg-[#faf9f6] p-5">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
+                Tracked Revenue
+              </p>
+
+              <p className="mt-3 font-serif text-3xl italic">
+                £
+                {formatCurrency(
+                  stats.currentProfit
+                )}
+              </p>
+
+              <p className="mt-2 text-[9px] uppercase tracking-wider text-stone-400">
+                paid invoices
+              </p>
             </div>
           </div>
         </div>
       </header>
 
-     
-      {/* CLARITY DAILY EXECUTIVE BRIEF */}
-      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-5 lg:p-10">
+      {/* ==================================================
+          CLARITY DAILY BRIEF
+      ================================================== */}
+
+      <section className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:rounded-[3rem] lg:p-10">
         <div className="flex flex-col gap-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
-                Clarity Daily Brief
+              <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#A3B18A]">
+                Clarity Daily
+                Brief
               </p>
-              <h2 className="text-3xl font-serif italic mt-2">
-                Today's Business Overview
+
+              <h2 className="mt-2 font-serif text-3xl italic">
+                Today's Business
+                Overview
               </h2>
             </div>
 
             <button
-              onClick={handleClarityBrief}
-              className="px-5 py-3 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase tracking-widest"
+              type="button"
+              onClick={
+                handleClarityBrief
+              }
+              className="rounded-xl bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-white transition hover:bg-[#A3B18A]"
             >
               Open Full Brief
             </button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+
+            <div className="rounded-2xl border border-stone-200 bg-[#faf9f6] p-5">
+              <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
                 AI Summary
               </p>
-              <p className="text-sm font-medium mt-3 leading-relaxed">
-                {aiSummary || "Clarity is analysing your business activity."}
+
+              <p className="mt-3 text-sm font-medium leading-relaxed text-stone-700">
+                {aiSummary ||
+                  "Clarity is analysing your business activity."}
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+            <div className="rounded-2xl border border-stone-200 bg-[#faf9f6] p-5">
+              <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
                 Priority Actions
               </p>
+
               <div className="mt-3 space-y-2">
-                {aiActions.length > 0 ? (
-                  aiActions.slice(0, 3).map((action, index) => (
-                    <p key={index} className="text-xs font-medium">
-                      {index + 1}. {action}
-                    </p>
-                  ))
+                {aiActions.length >
+                0 ? (
+                  aiActions
+                    .slice(
+                      0,
+                      3
+                    )
+                    .map(
+                      (
+                        action,
+                        index
+                      ) => (
+                        <div
+                          key={
+                            index
+                          }
+                          className="flex items-start gap-3"
+                        >
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-stone-900 text-[7px] font-black text-white">
+                            {index +
+                              1}
+                          </span>
+
+                          <p className="pt-0.5 text-xs font-medium text-stone-600">
+                            {
+                              action
+                            }
+                          </p>
+                        </div>
+                      )
+                    )
                 ) : (
-                  <p className="text-xs text-stone-400">No actions required.</p>
+                  <p className="text-xs text-stone-400">
+                    No urgent actions
+                    detected.
+                  </p>
                 )}
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+            <div className="rounded-2xl border border-stone-200 bg-[#faf9f6] p-5">
+              <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
                 Today's Activity
               </p>
-              <div className="mt-3 space-y-2">
-                <p className="text-xs font-medium">
-                  {events.length} scheduled events
+
+              <div className="mt-3 space-y-2 text-xs font-medium text-stone-600">
+                <p>
+                  {
+                    todayEvents.length
+                  }{" "}
+                  events today
                 </p>
-                <p className="text-xs font-medium">
-                  {emails.length} recent emails
+
+                <p>
+                  {
+                    emails.length
+                  }{" "}
+                  recent emails
                 </p>
-                <p className="text-xs font-medium">
-                  {todos.filter(t => !t.completed).length} tasks requiring attention
+
+                <p>
+                  {
+                    openTasks.length
+                  }{" "}
+                  open tasks
                 </p>
               </div>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl border border-[#A3B18A]/30 bg-[#A3B18A]/10">
-            <p className="text-[9px] font-black uppercase tracking-widest text-stone-500">
-              Clarity Recommendation
-            </p>
-            <p className="text-sm font-medium mt-2">
-              {aiActions[0] || "Your business operations are currently stable."}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Clarity Decision Engine */}
-
-      {/* BUSINESS HEALTH INTELLIGENCE */}
-      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-5 lg:p-10">
-        <div className="flex flex-col gap-6">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
-              Business Health Intelligence
-            </p>
-            <h2 className="text-3xl font-serif italic mt-2">
-              How your business is performing
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-2xl border p-5 bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                Operational Health
-              </p>
-              <p className="text-3xl font-serif italic mt-3">
-                {riskLevel === "low" ? "92%" : riskLevel === "medium" ? "74%" : "51%"}
-              </p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">
-                {riskLevel} risk level
-              </p>
-            </div>
-
-            <div className="rounded-2xl border p-5 bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                Project Delivery
-              </p>
-              <p className="text-3xl font-serif italic mt-3">
-                {stats.activeProjects}
-              </p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">
-                active projects
-              </p>
-            </div>
-
-            <div className="rounded-2xl border p-5 bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                Revenue Position
-              </p>
-              <p className="text-3xl font-serif italic mt-3">
-                £{stats.currentProfit.toLocaleString("en-GB")}
-              </p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">
-                tracked paid revenue
-              </p>
-            </div>
-
-            <div className="rounded-2xl border p-5 bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                Team Activity
-              </p>
-              <p className="text-3xl font-serif italic mt-3">
-                {teamMembers.length}
-              </p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">
-                active members
-              </p>
             </div>
           </div>
 
           <div className="rounded-2xl border border-[#A3B18A]/30 bg-[#A3B18A]/10 p-5">
-            <p className="text-[9px] font-black uppercase tracking-widest text-stone-500">
-              Clarity Health Insight
+            <p className="text-[8px] font-black uppercase tracking-widest text-stone-500">
+              Clarity
+              Recommendation
             </p>
-            <p className="text-sm font-medium mt-2 leading-relaxed">
-              {riskLevel === "high"
-                ? "Operational pressure is increasing. Review workload distribution and prioritise critical activities."
-                : riskLevel === "medium"
-                ? "Business activity is healthy, but prioritisation will help maintain momentum."
-                : "Operations are stable. This is a good opportunity to focus on growth and strategic improvements."}
+
+            <p className="mt-2 text-sm font-medium text-stone-700">
+              {aiActions[0] ||
+                "Your business operations are currently stable."}
             </p>
           </div>
         </div>
       </section>
-      {/* CLARITY PRIORITY ACTION BOARD */}
-      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-5 lg:p-10">
-        <div className="flex flex-col gap-6">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
-              CEO Action Board
-            </p>
-            <h2 className="text-3xl font-serif italic mt-2">
-              What needs your attention
-            </h2>
-          </div>
 
-          <div className="space-y-3">
-            {aiActions.length > 0 ? (
-              aiActions.slice(0, 5).map((action, index) => (
-                <div
-                  key={index}
-                  className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border bg-[#faf9f6]"
-                >
-                  <div className="h-8 w-8 rounded-full bg-stone-900 text-white flex items-center justify-center text-[10px] font-black">
-                    {index + 1}
-                  </div>
+      {/* ==================================================
+          BUSINESS HEALTH
+      ================================================== */}
 
-                  <div className="flex-1">
-                    <p className="text-xs font-bold uppercase tracking-wide">
-                      {action}
-                    </p>
-                    <p className="text-[10px] text-stone-400 uppercase mt-1">
-                      Suggested by Clarity based on current business activity
-                    </p>
-                  </div>
+      <section className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:rounded-[3rem] lg:p-10">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.28em] text-stone-400">
+            Business Health
+            Intelligence
+          </p>
 
-                  <button
-                    onClick={() => {
-                      if (action.toLowerCase().includes("task")) router.push("/notes");
-                      else if (action.toLowerCase().includes("email")) router.push("/campaigns");
-                      else if (action.toLowerCase().includes("project")) router.push("/projects");
-                    }}
-                    className="px-4 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest"
-                  >
-                    View
-                  </button>
-                </div>
-              ))
-            ) : (
-              <div className="p-5 rounded-2xl border bg-[#faf9f6]">
-                <p className="text-xs uppercase text-stone-400">
-                  No priority actions detected. Operations are currently stable.
+          <h2 className="mt-2 font-serif text-3xl italic">
+            How your business
+            is performing
+          </h2>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+          {[
+            {
+              label:
+                "Operational Health",
+
+              value:
+                `${healthScore}%`,
+
+              note:
+                `${riskLevel} risk`,
+            },
+            {
+              label:
+                "Project Delivery",
+
+              value:
+                stats.activeProjects,
+
+              note:
+                "active projects",
+            },
+            {
+              label:
+                "Revenue Position",
+
+              value:
+                `£${formatCurrency(
+                  stats.currentProfit
+                )}`,
+
+              note:
+                "tracked paid revenue",
+            },
+            {
+              label:
+                "Team",
+
+              value:
+                teamMembers.length,
+
+              note:
+                "workspace members",
+            },
+          ].map(
+            (
+              item
+            ) => (
+              <div
+                key={
+                  item.label
+                }
+                className="rounded-2xl border border-stone-200 bg-[#faf9f6] p-5"
+              >
+                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                  {
+                    item.label
+                  }
+                </p>
+
+                <p className="mt-3 font-serif text-3xl italic">
+                  {
+                    item.value
+                  }
+                </p>
+
+                <p className="mt-2 text-[9px] uppercase tracking-wider text-stone-400">
+                  {
+                    item.note
+                  }
                 </p>
               </div>
+            )
+          )}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[#A3B18A]/30 bg-[#A3B18A]/10 p-5">
+          <p className="text-[8px] font-black uppercase tracking-widest text-stone-500">
+            Clarity Health
+            Insight
+          </p>
+
+          <p className="mt-2 text-sm font-medium leading-relaxed text-stone-700">
+            {riskLevel ===
+            "high"
+              ? "Operational pressure is increasing. Review workload distribution and prioritise critical activities."
+              : riskLevel ===
+                  "medium"
+                ? "Business activity is healthy, but clearer prioritisation will help maintain momentum."
+                : "Operations are stable. This is a strong opportunity to focus on growth and strategic improvements."}
+          </p>
+        </div>
+      </section>
+
+      {/* ==================================================
+          ACTION BOARD
+      ================================================== */}
+
+      <section className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:rounded-[3rem] lg:p-10">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.28em] text-stone-400">
+            Priority Action
+            Board
+          </p>
+
+          <h2 className="mt-2 font-serif text-3xl italic">
+            What needs your
+            attention
+          </h2>
+        </div>
+
+        <div className="mt-6 space-y-3">
+          {aiActions.length >
+          0 ? (
+            aiActions
+              .slice(
+                0,
+                5
+              )
+              .map(
+                (
+                  action,
+                  index
+                ) => (
+                  <div
+                    key={
+                      index
+                    }
+                    className="flex flex-col gap-4 rounded-2xl border border-stone-200 bg-[#faf9f6] p-4 sm:flex-row sm:items-center"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-900 text-[9px] font-black text-white">
+                      {index +
+                        1}
+                    </div>
+
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-stone-700">
+                        {
+                          action
+                        }
+                      </p>
+
+                      <p className="mt-1 text-[8px] uppercase tracking-widest text-stone-400">
+                        Suggested by
+                        Clarity
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const lower =
+                          action.toLowerCase();
+
+                        if (
+                          lower.includes(
+                            "task"
+                          )
+                        ) {
+                          router.push(
+                            "/notes"
+                          );
+                        } else if (
+                          lower.includes(
+                            "email"
+                          )
+                        ) {
+                          router.push(
+                            "/campaigns"
+                          );
+                        } else if (
+                          lower.includes(
+                            "project"
+                          )
+                        ) {
+                          router.push(
+                            "/projects"
+                          );
+                        } else if (
+                          lower.includes(
+                            "revenue"
+                          ) ||
+                          lower.includes(
+                            "invoice"
+                          )
+                        ) {
+                          router.push(
+                            "/payments"
+                          );
+                        }
+                      }}
+                      className="rounded-xl border border-stone-200 bg-white px-4 py-2 text-[8px] font-black uppercase tracking-widest"
+                    >
+                      View
+                    </button>
+                  </div>
+                )
+              )
+          ) : (
+            <div className="rounded-2xl border border-stone-200 bg-[#faf9f6] p-5">
+              <p className="text-xs text-stone-400">
+                No priority
+                actions detected.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[
+            {
+              label:
+                "Task Pressure",
+              value:
+                `${openTasks.length} open`,
+            },
+            {
+              label:
+                "Inbox Activity",
+              value:
+                `${emails.length} emails`,
+            },
+            {
+              label:
+                "Calendar Load",
+              value:
+                `${events.length} events`,
+            },
+          ].map(
+            (
+              item
+            ) => (
+              <div
+                key={
+                  item.label
+                }
+                className="rounded-2xl border border-stone-200 p-4"
+              >
+                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                  {
+                    item.label
+                  }
+                </p>
+
+                <p className="mt-2 font-serif text-xl italic">
+                  {
+                    item.value
+                  }
+                </p>
+              </div>
+            )
+          )}
+        </div>
+      </section>
+
+      {/* ==================================================
+          LIVE INSIGHTS
+      ================================================== */}
+
+      <section className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:rounded-[3rem] lg:p-10">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.28em] text-stone-400">
+            Live Business
+            Insights
+          </p>
+
+          <h2 className="mt-2 font-serif text-3xl italic">
+            Real-time
+            operational signals
+          </h2>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+
+          {[
+            {
+              label:
+                "Live Activity",
+
+              value:
+                eventStream.length,
+
+              note:
+                "recent system events",
+            },
+            {
+              label:
+                "Task Momentum",
+
+              value:
+                `${completedTasks.length}/${todos.length}`,
+
+              note:
+                "completed tasks",
+            },
+            {
+              label:
+                "Project Activity",
+
+              value:
+                projects.length,
+
+              note:
+                "active projects",
+            },
+            {
+              label:
+                "AI Status",
+
+              value:
+                riskLevel ===
+                "high"
+                  ? "Alert"
+                  : riskLevel ===
+                      "medium"
+                    ? "Watch"
+                    : "Stable",
+
+              note:
+                "Clarity monitoring",
+            },
+          ].map(
+            (
+              item
+            ) => (
+              <div
+                key={
+                  item.label
+                }
+                className="rounded-2xl border border-stone-200 bg-[#faf9f6] p-5"
+              >
+                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                  {
+                    item.label
+                  }
+                </p>
+
+                <p className="mt-3 font-serif text-3xl italic">
+                  {
+                    item.value
+                  }
+                </p>
+
+                <p className="mt-2 text-[9px] uppercase tracking-wider text-stone-400">
+                  {
+                    item.note
+                  }
+                </p>
+              </div>
+            )
+          )}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[#A3B18A]/30 bg-[#A3B18A]/10 p-5">
+          <p className="text-[8px] font-black uppercase tracking-widest text-stone-500">
+            Latest Clarity
+            Signals
+          </p>
+
+          <div className="mt-3 space-y-2">
+            {eventStream.length >
+            0 ? (
+              eventStream
+                .slice(
+                  0,
+                  5
+                )
+                .map(
+                  (
+                    event,
+                    index
+                  ) => (
+                    <p
+                      key={
+                        index
+                      }
+                      className="text-xs font-medium capitalize text-stone-600"
+                    >
+                      {String(
+                        event.type
+                      ).replaceAll(
+                        "_",
+                        " "
+                      )}{" "}
+                      detected
+                    </p>
+                  )
+                )
+            ) : (
+              <p className="text-xs font-medium text-stone-600">
+                Clarity is
+                monitoring your
+                business activity.
+              </p>
             )}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-            <div className="p-4 rounded-2xl border">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                Task Pressure
-              </p>
-              <p className="text-xl font-serif italic mt-2">
-                {todos.filter(t => !t.completed).length} open
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl border">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                Inbox Pressure
-              </p>
-              <p className="text-xl font-serif italic mt-2">
-                {emails.length} emails
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl border">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                Calendar Load
-              </p>
-              <p className="text-xl font-serif italic mt-2">
-                {events.length} events
-              </p>
-            </div>
-          </div>
         </div>
       </section>
 
-      {/* LIVE BUSINESS INSIGHTS */}
-      <section className="bg-white border border-stone-200 rounded-[2rem] lg:rounded-[3rem] p-5 lg:p-10">
-        <div className="flex flex-col gap-6">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400">
-              Live Business Insights
-            </p>
-            <h2 className="text-3xl font-serif italic mt-2">
-              Real-time operational signals
-            </h2>
-          </div>
+      {/* ==================================================
+          CORE WORKSPACE GRID
+      ================================================== */}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                Live Activity
-              </p>
-              <p className="text-3xl font-serif italic mt-3">
-                {eventStream.length}
-              </p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">
-                recent system events
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                Task Momentum
-              </p>
-              <p className="text-3xl font-serif italic mt-3">
-                {todos.filter(t => t.completed).length}/{todos.length}
-              </p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">
-                completed tasks
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                Pipeline Activity
-              </p>
-              <p className="text-3xl font-serif italic mt-3">
-                {projects.length}
-              </p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">
-                active opportunities
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl border bg-[#faf9f6]">
-              <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                AI Status
-              </p>
-              <p className="text-3xl font-serif italic mt-3">
-                {riskLevel === "high" ? "Alert" : riskLevel === "medium" ? "Watch" : "Stable"}
-              </p>
-              <p className="text-[10px] uppercase text-stone-500 mt-2">
-                Clarity monitoring
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#A3B18A]/30 bg-[#A3B18A]/10 p-5">
-            <p className="text-[9px] font-black uppercase tracking-widest text-stone-500">
-              Latest Clarity Signals
-            </p>
-            <div className="mt-3 space-y-2">
-              {eventStream.length > 0 ? (
-                eventStream.slice(0, 5).map((event: any, index: number) => (
-                  <p key={index} className="text-xs font-medium">
-                    {event.type.replace("_", " ")} detected
-                  </p>
-                ))
-              ) : (
-                <p className="text-xs font-medium">
-                  Clarity is monitoring your business activity.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Primary Overview Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-12">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 lg:gap-6">
 
         {/* TASKS */}
-        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-5">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
-            <CheckSquare size={14} className="text-[#A3B18A]" /> To Do List
-          </h2>
 
-          <div className="flex flex-col sm:flex-row gap-2 mb-4 w-full">
+        <section className="rounded-[2rem] border border-stone-200 bg-white p-4 lg:col-span-5 lg:rounded-[3rem] lg:p-8">
+          <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A3B18A]">
+                Work Queue
+              </p>
+
+              <h2 className="mt-1 flex items-center gap-2 font-serif text-2xl italic">
+                <CheckSquare
+                  size={17}
+                />
+
+                To Do List
+              </h2>
+            </div>
+
+            <p className="text-[9px] font-bold uppercase tracking-widest text-stone-400">
+              {
+                openTasks.length
+              }{" "}
+              open
+            </p>
+          </div>
+
+          <div className="mb-6 flex w-full flex-col gap-2 sm:flex-row">
             <input
-              value={taskInput}
-              onChange={(e) => setTaskInput(e.target.value)}
-              placeholder="New task..."
-              className="flex-1 p-2 rounded-xl border bg-[#faf9f6] text-[10px] uppercase"
+              value={
+                taskInput
+              }
+              onChange={(
+                event
+              ) =>
+                setTaskInput(
+                  event.target
+                    .value
+                )
+              }
+              onKeyDown={(
+                event
+              ) => {
+                if (
+                  event.key ===
+                  "Enter"
+                ) {
+                  void addTask();
+                }
+              }}
+              placeholder="What needs done?"
+              className="flex-1 rounded-xl border border-stone-200 bg-[#faf9f6] p-3 text-xs outline-none focus:border-stone-400"
             />
+
             <button
-              onClick={addTask}
-              className="w-full sm:w-auto px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase"
+              type="button"
+              onClick={() =>
+                void addTask()
+              }
+              className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-white"
             >
-              Add
+              <Plus
+                size={12}
+              />
+              Add Task
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            {(["todo", "in_progress", "blocked", "done"] as const).map((status) => (
-              <div key={status} className="space-y-2">
-                <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest">
-                  {status.replace("_", " ")}
-                </p>
-
-                {todos.filter(t => t.status === status).length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {(
+              [
+                "todo",
+                "in_progress",
+                "blocked",
+                "done",
+              ] as const
+            ).map(
+              (
+                status
+              ) => {
+                const statusTasks =
                   todos
-                    .filter(t => t.status === status)
-                    .sort((a, b) => getTaskScore(b) - getTaskScore(a))
-                    .slice(0, 6)
-                    .map((todo) => (
-                      <div key={todo.id} className="flex items-center gap-2 p-2 rounded-xl border bg-[#faf9f6]">
-                        <button
-                          type="button"
-                          onClick={() => toggleTodo(todo.id, todo.completed)}
-                          className={`w-4 h-4 rounded border flex items-center justify-center ${todo.completed ? "bg-[#A3B18A] border-[#A3B18A] text-white" : "border-stone-400"}`}
-                        >
-                          ✓
-                        </button>
+                    .filter(
+                      (
+                        task
+                      ) =>
+                        task.status ===
+                        status
+                    )
+                    .sort(
+                      (
+                        a,
+                        b
+                      ) =>
+                        getTaskScore(
+                          b
+                        ) -
+                        getTaskScore(
+                          a
+                        )
+                    )
+                    .slice(
+                      0,
+                      6
+                    );
 
-                        <span className="text-[10px] font-bold uppercase truncate">
-                          {todo.text}
-                        </span>
+                return (
+                  <div
+                    key={
+                      status
+                    }
+                    className="rounded-2xl bg-[#faf9f6] p-3"
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                        {status.replace(
+                          "_",
+                          " "
+                        )}
+                      </p>
 
-                        <span className={`ml-auto text-[8px] px-2 py-1 rounded-full border font-bold uppercase ${
-                          getTaskPriorityLabel(todo) === "HIGH"
-                            ? "bg-red-100 text-red-600 border-red-200"
-                            : "bg-green-100 text-green-600 border-green-200"
-                        }`}>
-                          {getTaskPriorityLabel(todo)}
-                        </span>
-                      </div>
-                    ))
-                ) : (
-                  <p className="text-[9px] text-stone-400 uppercase">None</p>
-                )}
-              </div>
-            ))}
+                      <span className="rounded-full bg-white px-2 py-1 text-[8px] font-bold text-stone-400">
+                        {
+                          statusTasks.length
+                        }
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {statusTasks.length >
+                      0 ? (
+                        statusTasks.map(
+                          (
+                            todo
+                          ) => (
+                            <div
+                              key={
+                                todo.id
+                              }
+                              className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white p-3"
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void toggleTodo(
+                                    todo.id,
+                                    todo.completed
+                                  )
+                                }
+                                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[8px] ${
+                                  todo.completed
+                                    ? "border-[#A3B18A] bg-[#A3B18A] text-white"
+                                    : "border-stone-300"
+                                }`}
+                              >
+                                {todo.completed
+                                  ? "✓"
+                                  : ""}
+                              </button>
+
+                              <span
+                                className={`min-w-0 flex-1 truncate text-[9px] font-bold ${
+                                  todo.completed
+                                    ? "text-stone-300 line-through"
+                                    : "text-stone-700"
+                                }`}
+                              >
+                                {
+                                  todo.text
+                                }
+                              </span>
+
+                              {!todo.completed && (
+                                <span
+                                  className={`rounded-full border px-2 py-1 text-[7px] font-black ${
+                                    getTaskPriorityLabel(
+                                      todo
+                                    ) ===
+                                    "HIGH"
+                                      ? "border-red-200 bg-red-50 text-red-500"
+                                      : "border-stone-200 bg-stone-50 text-stone-400"
+                                  }`}
+                                >
+                                  {getTaskPriorityLabel(
+                                    todo
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        )
+                      ) : (
+                        <p className="py-4 text-center text-[9px] text-stone-300">
+                          Nothing here
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+            )}
           </div>
         </section>
 
         {/* PROJECTS */}
-        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-3">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
-            <Briefcase size={14} className="text-[#A3B18A]" /> Projects
-          </h2>
+
+        <section className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:col-span-3 lg:rounded-[3rem] lg:p-8">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.25em] text-stone-400">
+              <Briefcase
+                size={14}
+                className="text-[#A3B18A]"
+              />
+              Projects
+            </h2>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/projects"
+                )
+              }
+              className="text-[8px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900"
+            >
+              View all
+            </button>
+          </div>
+
           <div className="space-y-3">
-            <p className="text-[10px] uppercase text-stone-400">{stats.activeProjects} active projects</p>
-            {projects.length > 0 ? projects.map((project:any) => (
-              <button
-                key={project.id}
-                onClick={() => router.push(`/projects/${project.id}`)}
-                className="w-full text-left p-3 rounded-xl border bg-[#faf9f6] hover:bg-stone-100 transition"
-              >
-                <p className="text-[10px] font-bold uppercase truncate">
-                  {project.name || project.title || 'Project'}
+            {projects.length >
+            0 ? (
+              projects
+                .slice(
+                  0,
+                  5
+                )
+                .map(
+                  (
+                    project
+                  ) => (
+                    <button
+                      type="button"
+                      key={
+                        project.id
+                      }
+                      onClick={() =>
+                        router.push(
+                          `/projects/${project.id}`
+                        )
+                      }
+                      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-[#faf9f6] p-4 text-left transition hover:border-stone-300 hover:bg-white"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-stone-700">
+                          {project.name ||
+                            project.title ||
+                            "Project"}
+                        </p>
+
+                        <p className="mt-1 text-[8px] font-bold uppercase tracking-widest text-stone-400">
+                          {project.status ||
+                            "Active"}
+                        </p>
+                      </div>
+
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-[#A3B18A]" />
+                    </button>
+                  )
+                )
+            ) : (
+              <div className="rounded-2xl bg-[#faf9f6] p-8 text-center">
+                <p className="text-xs text-stone-400">
+                  No active
+                  projects yet.
                 </p>
-                <p className="text-[10px] text-stone-400 uppercase">
-                  {project.status || 'Active'}
-                </p>
-              </button>
-            )) : (
-              <p className="text-[10px] uppercase text-stone-400">No active projects</p>
+              </div>
             )}
           </div>
         </section>
 
         {/* EVENTS */}
-        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-3">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
-            <Clock size={14} className="text-[#A3B18A]" /> Today’s Events
-          </h2>
-          <div className="space-y-3">
-            {(() => {
-              const now = new Date();
 
-              const isToday = (d: Date) =>
-                d.toDateString() === now.toDateString();
+        <section className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:col-span-2 lg:rounded-[3rem] lg:p-8">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.25em] text-stone-400">
+              <Clock
+                size={14}
+                className="text-[#A3B18A]"
+              />
+              Schedule
+            </h2>
 
-              const isTomorrow = (d: Date) => {
-                const t = new Date();
-                t.setDate(now.getDate() + 1);
-                return d.toDateString() === t.toDateString();
-              };
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/calendar"
+                )
+              }
+              className="text-[8px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900"
+            >
+              Calendar
+            </button>
+          </div>
 
-              const allEvents = events;
+          <div className="space-y-5">
+            {todayEvents.length >
+              0 && (
+              <div className="space-y-2">
+                <p className="text-[8px] font-black uppercase tracking-widest text-[#A3B18A]">
+                  Today
+                </p>
 
-              
-
-              const startOfToday = new Date(now);
-startOfToday.setHours(0, 0, 0, 0);
-
-const endOfWeek = new Date(now);
-endOfWeek.setDate(now.getDate() + 7);
-endOfWeek.setHours(23, 59, 59, 999);
-
-const sorted = [...allEvents].sort((a: any, b: any) => {
-  const aTime = a.startAt?.getTime?.() ?? Infinity;
-  const bTime = b.startAt?.getTime?.() ?? Infinity;
-  return aTime - bTime;
-});
-
-const todayEvents = sorted.filter(
-  e =>
-    e.startAt &&
-    e.startAt >= startOfToday &&
-    e.startAt.toDateString() === now.toDateString()
-);
-
-const tomorrowEvents = sorted.filter(e => {
-  const t = new Date(now);
-  t.setDate(now.getDate() + 1);
-  return e.startAt && e.startAt.toDateString() === t.toDateString();
-});
-
-const upcomingEvents = sorted.filter(e => {
-  return (
-    e.startAt &&
-    e.startAt > new Date(now.setHours(23, 59, 59, 999)) &&
-    e.startAt <= endOfWeek
-  );
-});
-
-const unscheduledEvents = sorted.filter(e => !e.startAt);
-
-              const renderEvent = (e: any, idx: number) => (
-                <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
-                  <p className="text-[10px] font-bold uppercase truncate">
-                    {e.title || "Event"}
-                  </p>
-                  <p className="text-[10px] text-stone-400">
-                    {e.startAt ? e.startAt.toLocaleString() : "No date set"}
-                  </p>
-                </div>
-              );
-
-              return (
-                <>
-                  {todayEvents.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-[#A3B18A]">
-                        Today
-                      </p>
-                      {todayEvents.slice(0, 3).map(renderEvent)}
-                    </div>
+                {todayEvents
+                  .slice(
+                    0,
+                    3
+                  )
+                  .map(
+                    renderEvent
                   )}
+              </div>
+            )}
 
-                  {tomorrowEvents.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                        Tomorrow
-                      </p>
-                      {tomorrowEvents.slice(0, 3).map(renderEvent)}
-                    </div>
+            {tomorrowEvents.length >
+              0 && (
+              <div className="space-y-2">
+                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                  Tomorrow
+                </p>
+
+                {tomorrowEvents
+                  .slice(
+                    0,
+                    2
+                  )
+                  .map(
+                    renderEvent
                   )}
+              </div>
+            )}
 
-                  {upcomingEvents.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                        Upcoming
-                      </p>
-                      {upcomingEvents.slice(0, 3).map(renderEvent)}
-                    </div>
+            {upcomingEvents.length >
+              0 && (
+              <div className="space-y-2">
+                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                  Coming up
+                </p>
+
+                {upcomingEvents
+                  .slice(
+                    0,
+                    2
+                  )
+                  .map(
+                    renderEvent
                   )}
+              </div>
+            )}
 
-                  {unscheduledEvents.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                        Unscheduled
-                      </p>
-                      {unscheduledEvents.slice(0, 3).map(renderEvent)}
-                    </div>
+            {unscheduledEvents.length >
+              0 && (
+              <div className="space-y-2">
+                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                  Unscheduled
+                </p>
+
+                {unscheduledEvents
+                  .slice(
+                    0,
+                    2
+                  )
+                  .map(
+                    renderEvent
                   )}
+              </div>
+            )}
 
-                  {todayEvents.length === 0 &&
-                    tomorrowEvents.length === 0 &&
-                    upcomingEvents.length === 0 &&
-                    unscheduledEvents.length === 0 && (
-                      <p className="text-[10px] uppercase text-stone-400">
-                        No scheduled activity
-                      </p>
-                    )}
-                </>
-              );
-            })()}
+            {events.length ===
+              0 && (
+              <div className="rounded-2xl bg-[#faf9f6] p-8 text-center">
+                <p className="text-xs text-stone-400">
+                  Nothing scheduled
+                  yet.
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
-        {/* EMAILS */}
-        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-2">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
-            <Mail size={14} className="text-[#A3B18A]" /> Emails
-          </h2>
+        {/* EMAIL */}
+
+        <section className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:col-span-2 lg:rounded-[3rem] lg:p-8">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.25em] text-stone-400">
+              <Mail
+                size={14}
+                className="text-[#A3B18A]"
+              />
+              Emails
+            </h2>
+          </div>
+
           <div className="space-y-3">
-            {emails.length > 0 ? emails.slice(0,5).map((m:any, idx:number) => (
-              <div key={idx} className="p-2 lg:p-3 rounded-xl border bg-[#faf9f6]">
-                <p className="text-[10px] font-bold uppercase truncate">{m.subject || "New Email"}</p>
-                <p className="text-[10px] text-stone-400 truncate">{m.from || "Unknown sender"}</p>
+            {emails.length >
+            0 ? (
+              emails
+                .slice(
+                  0,
+                  5
+                )
+                .map(
+                  (
+                    email,
+                    index
+                  ) => (
+                    <div
+                      key={
+                        email.id ||
+                        index
+                      }
+                      className="rounded-2xl border border-stone-200 bg-[#faf9f6] p-4"
+                    >
+                      <p className="truncate text-[10px] font-bold text-stone-700">
+                        {email.subject ||
+                          "New Email"}
+                      </p>
+
+                      <p className="mt-1 truncate text-[9px] text-stone-400">
+                        {email.from ||
+                          email.sender ||
+                          "Unknown sender"}
+                      </p>
+                    </div>
+                  )
+                )
+            ) : (
+              <div className="rounded-2xl bg-[#faf9f6] p-8 text-center">
+                <p className="text-xs text-stone-400">
+                  Inbox clear.
+                </p>
               </div>
-            )) : <p className="text-[10px] uppercase text-stone-400">System inbox clear</p>}
+            )}
           </div>
         </section>
 
         {/* NOTES */}
-        <section className="bg-white border border-stone-200 p-4 lg:p-8 rounded-[2rem] lg:rounded-[3rem] lg:col-span-5">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 flex items-center gap-2">
-            <FileText size={14} className="text-[#A3B18A]" /> Notes
-          </h2>
-          <div className="flex flex-col sm:flex-row gap-2 mb-4 w-full">
-            <input
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-              placeholder="New note..."
-              className="flex-1 p-2 rounded-xl border bg-[#faf9f6] text-[10px] uppercase"
-            />
+
+        <section className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:col-span-3 lg:rounded-[3rem] lg:p-8">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.25em] text-stone-400">
+              <FileText
+                size={14}
+                className="text-[#A3B18A]"
+              />
+              Notes
+            </h2>
+
             <button
-              onClick={addNote}
-              className="px-3 py-2 rounded-xl bg-stone-900 text-white text-[10px] font-black uppercase"
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/notes"
+                )
+              }
+              className="text-[8px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900"
+            >
+              All notes
+            </button>
+          </div>
+
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+            <input
+              value={
+                noteInput
+              }
+              onChange={(
+                event
+              ) =>
+                setNoteInput(
+                  event.target
+                    .value
+                )
+              }
+              onKeyDown={(
+                event
+              ) => {
+                if (
+                  event.key ===
+                  "Enter"
+                ) {
+                  void addNote();
+                }
+              }}
+              placeholder="Capture a thought..."
+              className="flex-1 rounded-xl border border-stone-200 bg-[#faf9f6] p-3 text-xs outline-none focus:border-stone-400"
+            />
+
+            <button
+              type="button"
+              onClick={() =>
+                void addNote()
+              }
+              className="rounded-xl bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-white"
             >
               Add
             </button>
-            <button
-              onClick={() => router.push('/notes')}
-              className="px-3 py-2 rounded-xl border text-[10px] font-black uppercase"
-            >
-              Edit Notes
-            </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 max-h-[260px] overflow-y-auto pr-1">
-            {notes.slice(0, 20).map((note: any) => (
-              <div
-                key={note.id}
-                onClick={() => router.push(`/notes/${note.id}`)}
-                className="p-3 lg:p-4 rounded-2xl border bg-[#faf9f6] min-w-0 hover:bg-stone-100 transition cursor-pointer"
-              >
-                <p className="text-[10px] font-bold uppercase truncate max-w-full">
-                  {note.content || note.title || "Untitled Note"}
-                </p>
 
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-[10px] text-stone-400 uppercase">
-                    {note.status || "note"}
-                  </p>
-                </div>
+          <div className="grid max-h-[310px] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+            {notes
+              .filter(
+                (
+                  note
+                ) =>
+                  ![
+                    "task",
+                    "todo",
+                  ].includes(
+                    String(
+                      note.type ||
+                        ""
+                    ).toLowerCase()
+                  )
+              )
+              .slice(
+                0,
+                12
+              )
+              .map(
+                (
+                  note
+                ) => (
+                  <button
+                    type="button"
+                    key={
+                      note.id
+                    }
+                    onClick={() =>
+                      router.push(
+                        `/notes/${note.id}`
+                      )
+                    }
+                    className="min-w-0 rounded-2xl border border-stone-200 bg-[#faf9f6] p-4 text-left transition hover:border-stone-300 hover:bg-white"
+                  >
+                    <p className="line-clamp-2 text-[10px] font-bold leading-relaxed text-stone-700">
+                      {note.content ||
+                        note.title ||
+                        "Untitled Note"}
+                    </p>
+
+                    <p className="mt-3 text-[7px] font-black uppercase tracking-widest text-stone-300">
+                      Note
+                    </p>
+                  </button>
+                )
+              )}
+
+            {notes.filter(
+              (
+                note
+              ) =>
+                ![
+                  "task",
+                  "todo",
+                ].includes(
+                  String(
+                    note.type ||
+                      ""
+                  ).toLowerCase()
+                )
+            ).length ===
+              0 && (
+              <div className="col-span-full rounded-2xl bg-[#faf9f6] p-8 text-center">
+                <p className="text-xs text-stone-400">
+                  No notes yet.
+                </p>
               </div>
-            ))}
+            )}
           </div>
         </section>
-
       </div>
 
-      {/* Financial Stats Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: "Projects", val: stats.activeProjects, icon: Briefcase },
-          { label: "Pending", val: stats.invoicesDue, icon: FileText },
-          { label: "Profit", val: stats.currentProfit, icon: PoundSterling },
-          { label: "Analytics", val: "88%", icon: TrendingUp },
-        ].map((item, idx) => (
-          <div key={idx} className="bg-white border border-stone-200 p-6 lg:p-10 rounded-[2rem] lg:rounded-[3rem] shadow-sm flex flex-col gap-3 lg:gap-4">
-            <item.icon className="text-[#A3B18A]" size={24} />
-            <p className="text-[10px] font-black uppercase text-stone-400">{item.label}</p>
-            <p className="text-2xl sm:text-3xl font-serif italic">{item.val}</p>
-          </div>
-        ))}
-      </section>
+      {/* ==================================================
+          BOTTOM METRICS
+      ================================================== */}
 
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          {
+            label:
+              "Projects",
+
+            value:
+              stats.activeProjects,
+
+            icon:
+              Briefcase,
+          },
+          {
+            label:
+              "Invoices Due",
+
+            value:
+              stats.invoicesDue,
+
+            icon:
+              FileText,
+          },
+          {
+            label:
+              "Revenue",
+
+            value:
+              `£${formatCurrency(
+                stats.currentProfit
+              )}`,
+
+            icon:
+              PoundSterling,
+          },
+          {
+            label:
+              "Health",
+
+            value:
+              `${healthScore}%`,
+
+            icon:
+              TrendingUp,
+          },
+        ].map(
+          (
+            item
+          ) => {
+            const Icon =
+              item.icon;
+
+            return (
+              <div
+                key={
+                  item.label
+                }
+                className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#A3B18A]/10 text-[#8b9c74]">
+                  <Icon
+                    size={18}
+                  />
+                </div>
+
+                <p className="mt-5 text-[8px] font-black uppercase tracking-widest text-stone-400">
+                  {
+                    item.label
+                  }
+                </p>
+
+                <p className="mt-2 font-serif text-3xl italic">
+                  {
+                    item.value
+                  }
+                </p>
+              </div>
+            );
+          }
+        )}
+      </section>
     </div>
   );
 }
+
+// ==================================================
+// PAGE
+// ==================================================
+
 export default function DashboardPage() {
-  const [isInitializing, setIsInitializing] = useState(false);
   return (
-    <Suspense fallback={<div className="h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center bg-[#faf9f6]">
+          <Loader2
+            className="animate-spin text-[#A3B18A]"
+            size={28}
+          />
+        </div>
+      }
+    >
       <DashboardContent />
     </Suspense>
   );

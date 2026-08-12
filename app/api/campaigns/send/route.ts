@@ -31,15 +31,10 @@ type CampaignRecipient = {
 
 type ProcessCampaignArgs = {
   campaignId: string;
-
   subscribers: CampaignRecipient[];
-
   campaign: any;
-
   resend: Resend;
-
   fromEmail: string;
-
   trackingBaseUrl: string;
 };
 
@@ -230,134 +225,144 @@ async function loadCampaignRecipients(
   }
 
   // ==================================================
-  // NORMALISE PROFILES
+  // NORMALISE PROFILE RECIPIENTS
   // ==================================================
 
- const profileRecipients: CampaignRecipient[] = [];
+  const profileRecipients: CampaignRecipient[] =
+    [];
 
-for (const row of profileLinks || []) {
-  const profile =
-    Array.isArray(row.profiles)
-      ? row.profiles[0]
-      : row.profiles;
-
-  if (!profile) {
-    continue;
-  }
-
-  if (
-    profile.is_subscribed === false
+  for (
+    const row of
+      profileLinks ||
+      []
   ) {
-    continue;
-  }
+    const profile =
+      Array.isArray(
+        row.profiles
+      )
+        ? row.profiles[0]
+        : row.profiles;
 
-  const email =
-    cleanEmail(
-      profile.email
+    if (
+      !profile
+    ) {
+      continue;
+    }
+
+    if (
+      profile.is_subscribed ===
+      false
+    ) {
+      continue;
+    }
+
+    const email =
+      cleanEmail(
+        profile.email
+      );
+
+    if (
+      !email ||
+      !isValidEmail(
+        email
+      )
+    ) {
+      continue;
+    }
+
+    profileRecipients.push(
+      {
+        id:
+          String(
+            profile.id ||
+              row.profile_id
+          ),
+
+        email,
+
+        source:
+          "profile",
+      }
     );
-
-  if (
-    !email ||
-    !isValidEmail(
-      email
-    )
-  ) {
-    continue;
   }
 
-  profileRecipients.push({
-    id: String(
-      profile.id ||
-        row.profile_id
-    ),
-
-    email,
-
-    source:
-      "profile",
-  });
-}
   // ==================================================
-  // NORMALISE MANUAL EMAILS
+  // NORMALISE MANUAL RECIPIENTS
   // ==================================================
 
   const manualRecipients: CampaignRecipient[] =
-    (
+    [];
+
+  for (
+    const row of
       manualRows ||
       []
-    )
-      .map(
-        (
-          row: any
-        ) => {
-          const email =
-            cleanEmail(
-              row.email
-            );
-
-          if (
-            !email ||
-            !isValidEmail(
-              email
-            )
-          ) {
-            return null;
-          }
-
-          return {
-            id:
-              String(
-                row.id
-              ),
-
-            email,
-
-            source:
-              "manual" as const,
-          };
-        }
-      )
-      .filter(
-        (
-          recipient
-        ): recipient is CampaignRecipient =>
-          Boolean(
-            recipient
-          )
+  ) {
+    const email =
+      cleanEmail(
+        row.email
       );
+
+    if (
+      !email ||
+      !isValidEmail(
+        email
+      )
+    ) {
+      continue;
+    }
+
+    manualRecipients.push(
+      {
+        id:
+          String(
+            row.id
+          ),
+
+        email,
+
+        source:
+          "manual",
+      }
+    );
+  }
 
   // ==================================================
   // COMBINE + DEDUPE
   // ==================================================
 
-  const combined = [
-    ...profileRecipients,
-    ...manualRecipients,
-  ];
+  const combined: CampaignRecipient[] =
+    [
+      ...profileRecipients,
+      ...manualRecipients,
+    ];
 
   const seen =
     new Set<string>();
 
-  const unique =
-    combined.filter(
-      (
-        recipient
-      ) => {
-        if (
-          seen.has(
-            recipient.email
-          )
-        ) {
-          return false;
-        }
+  const unique: CampaignRecipient[] =
+    [];
 
-        seen.add(
-          recipient.email
-        );
+  for (
+    const recipient of
+      combined
+  ) {
+    if (
+      seen.has(
+        recipient.email
+      )
+    ) {
+      continue;
+    }
 
-        return true;
-      }
+    seen.add(
+      recipient.email
     );
+
+    unique.push(
+      recipient
+    );
+  }
 
   console.log(
     "Campaign recipients loaded:",
@@ -595,12 +600,6 @@ async function processCampaign({
   // FINAL STATUS
   // ==================================================
 
-  /*
-   * If at least one email sends successfully,
-   * treat the campaign as sent.
-   *
-   * If every email fails, mark the campaign failed.
-   */
   const finalStatus =
     sentCount > 0
       ? "sent"
@@ -646,8 +645,10 @@ async function processCampaign({
   return {
     sentCount,
     failedCount,
+
     total:
       subscribers.length,
+
     status:
       finalStatus,
   };
@@ -666,7 +667,7 @@ export async function POST(
 
   try {
     // ==================================================
-    // ENV
+    // ENVIRONMENT
     // ==================================================
 
     const resendKey =
@@ -795,7 +796,7 @@ export async function POST(
     }
 
     // ==================================================
-    // CHECK LIST
+    // VALIDATE LIST
     // ==================================================
 
     if (
@@ -814,7 +815,7 @@ export async function POST(
     }
 
     // ==================================================
-    // PREVENT DOUBLE SEND
+    // PREVENT DUPLICATE SEND
     // ==================================================
 
     if (
@@ -852,7 +853,7 @@ export async function POST(
     }
 
     // ==================================================
-    // LOAD BOTH RECIPIENT TYPES
+    // LOAD RECIPIENTS
     // ==================================================
 
     const subscribers =
@@ -890,7 +891,7 @@ export async function POST(
     }
 
     // ==================================================
-    // OPTIONAL JOB RECORD
+    // JOB RECORD
     // ==================================================
 
     const {
@@ -915,10 +916,6 @@ export async function POST(
     if (
       jobError
     ) {
-      /*
-       * A campaign job logging failure should
-       * not prevent the actual campaign send.
-       */
       console.warn(
         "Could not create campaign job:",
         jobError
@@ -927,22 +924,6 @@ export async function POST(
 
     // ==================================================
     // SEND
-    // ==================================================
-    //
-    // IMPORTANT:
-    //
-    // We AWAIT this.
-    //
-    // Your old version used:
-    //
-    // void processCampaign(...)
-    //
-    // and returned immediately.
-    //
-    // On Vercel/serverless environments,
-    // work that continues after the response
-    // is returned is not reliable.
-    //
     // ==================================================
 
     const result =

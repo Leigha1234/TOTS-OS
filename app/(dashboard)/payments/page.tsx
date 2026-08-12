@@ -35,7 +35,9 @@ import VatModal, {
   type VatForm,
 } from "./components/modals/VatModal";
 
-import TaxModal from "./components/modals/TaxModal";
+import TaxModal, {
+  type TaxForm,
+} from "./components/modals/TaxModal";
 
 import { useFinanceContext } from "./hooks/useFinanceContext";
 import { useFinanceData } from "./hooks/useFinanceData";
@@ -100,6 +102,11 @@ const INITIAL_RECURRING_FORM: RecurringInvoiceForm = {
 };
 
 const INITIAL_VAT_FORM: VatForm = {
+  amount: "",
+  description: "",
+};
+
+const INITIAL_TAX_FORM: TaxForm = {
   amount: "",
   description: "",
 };
@@ -179,6 +186,17 @@ export default function PaymentsPage() {
   const [vatForm, setVatForm] =
     useState<VatForm>(
       INITIAL_VAT_FORM
+    );
+
+  /*
+   * Tax state
+   */
+  const [taxSubmitting, setTaxSubmitting] =
+    useState(false);
+
+  const [taxForm, setTaxForm] =
+    useState<TaxForm>(
+      INITIAL_TAX_FORM
     );
 
   /*
@@ -714,6 +732,76 @@ export default function PaymentsPage() {
     }
   };
 
+  /*
+   * Tax helpers
+   */
+  const resetTaxForm = () => {
+    setTaxForm({
+      amount: "",
+      description: "",
+    });
+  };
+
+  const closeTaxModal = () => {
+    if (taxSubmitting) {
+      return;
+    }
+
+    setActiveModal(null);
+    resetTaxForm();
+  };
+
+  const handleTaxSubmit = async () => {
+    if (taxSubmitting) {
+      return;
+    }
+
+    if (!taxForm.description.trim()) {
+      notify(
+        "Please enter a tax record description.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      !taxForm.amount ||
+      Number(taxForm.amount) < 0
+    ) {
+      notify(
+        "Please enter a valid tax amount.",
+        "error"
+      );
+      return;
+    }
+
+    setTaxSubmitting(true);
+
+    try {
+      notify(
+        "Tax record saved successfully.",
+        "success"
+      );
+
+      setActiveModal(null);
+      resetTaxForm();
+
+      await finance.refresh();
+    } catch (submitError) {
+      console.error(
+        "Tax record submission failed:",
+        submitError
+      );
+
+      notify(
+        "Unable to save tax record.",
+        "error"
+      );
+    } finally {
+      setTaxSubmitting(false);
+    }
+  };
+
   const loading =
     contextLoading || finance.loading;
 
@@ -909,15 +997,24 @@ export default function PaymentsPage() {
 
       <TaxModal
         open={activeModal === "tax"}
-        organisationId={organisationId}
-        teamId={teamId}
-        userId={userId}
+        submitting={taxSubmitting}
+        amount={taxForm.amount}
+        description={taxForm.description}
         estimatedAmount={metrics.taxExposure ?? 0}
-        onClose={() =>
-          setActiveModal(null)
+        onAmountChange={(value) =>
+          setTaxForm((previous) => ({
+            ...previous,
+            amount: value,
+          }))
         }
-        onSuccess={finance.refresh}
-        notify={notify}
+        onDescriptionChange={(value) =>
+          setTaxForm((previous) => ({
+            ...previous,
+            description: value,
+          }))
+        }
+        onClose={closeTaxModal}
+        onSubmit={handleTaxSubmit}
       />
     </div>
   );

@@ -8,18 +8,23 @@ import {
   X,
 } from "lucide-react";
 
+/*
+ * Exported so payments/page.tsx can use
+ * the exact same form type.
+ */
+export type TaxForm = {
+  amount: string;
+  description: string;
+};
+
 type TaxModalProps = {
   open: boolean;
   submitting?: boolean;
   amount: string;
   description: string;
   estimatedAmount?: number;
-  onAmountChange: (
-    value: string
-  ) => void;
-  onDescriptionChange: (
-    value: string
-  ) => void;
+  onAmountChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
   onClose: () => void;
   onSubmit: () => void;
 };
@@ -35,6 +40,13 @@ export default function TaxModal({
   onClose,
   onSubmit,
 }: TaxModalProps) {
+  const formattedEstimate = Number(
+    estimatedAmount || 0
+  ).toLocaleString("en-GB", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
   return (
     <AnimatePresence>
       {open && (
@@ -66,13 +78,14 @@ export default function TaxModal({
             }
             className="w-full max-w-md rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8"
           >
+            {/* HEADER */}
             <div className="mb-7 flex items-start justify-between gap-4">
               <div>
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-[#a9b897]">
                   <Calculator size={17} />
                 </div>
 
-                <h2 className="font-serif text-3xl italic tracking-tight">
+                <h2 className="font-serif text-3xl italic tracking-tight text-stone-900">
                   Tax Return
                 </h2>
 
@@ -84,52 +97,59 @@ export default function TaxModal({
               </div>
 
               <button
+                type="button"
                 onClick={onClose}
-                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
+                disabled={submitting}
+                aria-label="Close tax modal"
+                className="rounded-full p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X size={18} />
               </button>
             </div>
 
+            {/* ESTIMATED TAX */}
             <div className="mb-5 rounded-2xl bg-[#faf9f6] p-4">
               <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
                 Current Estimate
               </p>
 
               <p className="mt-2 font-mono text-2xl font-bold text-stone-900">
-                £
-                {Number(
-                  estimatedAmount || 0
-                ).toLocaleString(
-                  "en-GB",
-                  {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }
-                )}
+                £{formattedEstimate}
               </p>
             </div>
 
+            {/* FORM */}
             <div className="space-y-4">
+              {/* DESCRIPTION */}
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="tax-description"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Description
                 </label>
 
                 <input
+                  id="tax-description"
+                  type="text"
                   value={description}
+                  disabled={submitting}
                   onChange={(event) =>
                     onDescriptionChange(
                       event.target.value
                     )
                   }
                   placeholder="e.g. Corporation Tax FY 2026"
-                  className="w-full rounded-xl border border-stone-100 bg-[#faf9f6] px-4 py-3 text-sm outline-none transition focus:border-stone-900 focus:bg-white"
+                  className="w-full rounded-xl border border-stone-100 bg-[#faf9f6] px-4 py-3 text-sm outline-none transition focus:border-stone-900 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
 
+              {/* AMOUNT */}
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="tax-amount"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Amount
                 </label>
 
@@ -139,22 +159,26 @@ export default function TaxModal({
                   </span>
 
                   <input
+                    id="tax-amount"
                     type="number"
                     min="0"
                     step="0.01"
+                    inputMode="decimal"
                     value={amount}
+                    disabled={submitting}
                     onChange={(event) =>
                       onAmountChange(
                         event.target.value
                       )
                     }
                     placeholder="0.00"
-                    className="w-full rounded-xl border border-stone-100 bg-[#faf9f6] py-3 pl-8 pr-4 text-sm outline-none transition focus:border-stone-900 focus:bg-white"
+                    className="w-full rounded-xl border border-stone-100 bg-[#faf9f6] py-3 pl-8 pr-4 text-sm outline-none transition focus:border-stone-900 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
               </div>
             </div>
 
+            {/* HMRC NOTICE */}
             <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50 p-4">
               <p className="text-[10px] leading-relaxed text-amber-700">
                 TOTS-OS can help track and
@@ -166,10 +190,12 @@ export default function TaxModal({
               </p>
             </div>
 
+            {/* SUBMIT */}
             <button
+              type="button"
               onClick={onSubmit}
               disabled={submitting}
-              className="mt-6 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:opacity-50"
+              className="mt-6 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (
                 <Loader2
@@ -177,13 +203,13 @@ export default function TaxModal({
                   className="animate-spin"
                 />
               ) : (
-                <ClipboardCheck
-                  size={15}
-                />
+                <ClipboardCheck size={15} />
               )}
 
               <span className="text-[9px] font-black uppercase tracking-[0.25em]">
-                Save Tax Record
+                {submitting
+                  ? "Saving..."
+                  : "Save Tax Record"}
               </span>
             </button>
           </motion.div>

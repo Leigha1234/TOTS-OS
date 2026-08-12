@@ -230,22 +230,17 @@ export default function PaymentsPage() {
 
             {activeTab === "tax" && (
               <FinanceTax
-                vatReturns={
-                  finance.vatReturns ?? []
-                }
-                taxReturns={
-                  finance.selfAssessments ?? []
-                }
-                metrics={metrics}
-                refresh={finance.refresh}
-                notify={notify}
-                onVat={() =>
-                  setActiveModal("vat")
-                }
-                onTax={() =>
-                  setActiveModal("tax")
-                }
-              />
+  vatReturns={finance.vatReturns ?? []}
+  taxReturns={finance.selfAssessments ?? []}
+  metrics={metrics}
+  refresh={finance.refresh}
+  onVat={() =>
+    setActiveModal("vat")
+  }
+  onTax={() =>
+    setActiveModal("tax")
+  }
+/>
             )}
 
             {activeTab === "payroll" && (

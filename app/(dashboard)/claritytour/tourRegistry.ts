@@ -33,7 +33,7 @@ export const CLARITY_TOUR_STEPS: ClarityTourStep[] = [
 
   {
     id: "crm-welcome",
-    route: "/contacts",
+    route: "/crm",
     target: "[data-tour='crm-header']",
     title: "Your CRM",
     description:

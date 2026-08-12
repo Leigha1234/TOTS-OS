@@ -233,79 +233,50 @@ async function loadCampaignRecipients(
   // NORMALISE PROFILES
   // ==================================================
 
-  const profileRecipients: CampaignRecipient[] =
-    (
-      profileLinks ||
-      []
+ const profileRecipients: CampaignRecipient[] = [];
+
+for (const row of profileLinks || []) {
+  const profile =
+    Array.isArray(row.profiles)
+      ? row.profiles[0]
+      : row.profiles;
+
+  if (!profile) {
+    continue;
+  }
+
+  if (
+    profile.is_subscribed === false
+  ) {
+    continue;
+  }
+
+  const email =
+    cleanEmail(
+      profile.email
+    );
+
+  if (
+    !email ||
+    !isValidEmail(
+      email
     )
-      .map(
-        (
-          row: any
-        ) => {
-          /*
-           * Supabase relationships can occasionally
-           * be returned as either an object or array
-           * depending on relationship metadata.
-           */
-          const profile =
-            Array.isArray(
-              row.profiles
-            )
-              ? row
-                  .profiles[0]
-              : row.profiles;
+  ) {
+    continue;
+  }
 
-          if (
-            !profile
-          ) {
-            return null;
-          }
+  profileRecipients.push({
+    id: String(
+      profile.id ||
+        row.profile_id
+    ),
 
-          // Explicit unsubscribe always wins.
-          if (
-            profile.is_subscribed ===
-            false
-          ) {
-            return null;
-          }
+    email,
 
-          const email =
-            cleanEmail(
-              profile.email
-            );
-
-          if (
-            !email ||
-            !isValidEmail(
-              email
-            )
-          ) {
-            return null;
-          }
-
-          return {
-            id:
-              String(
-                profile.id ||
-                  row.profile_id
-              ),
-
-            email,
-
-            source:
-              "profile" as const,
-          };
-        }
-      )
-      .filter(
-        (
-          recipient
-        ): recipient is CampaignRecipient =>
-          Boolean(
-            recipient
-          )
-      );
-
+    source:
+      "profile",
+  });
+}
   // ==================================================
   // NORMALISE MANUAL EMAILS
   // ==================================================

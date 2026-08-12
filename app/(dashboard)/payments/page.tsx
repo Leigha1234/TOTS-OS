@@ -224,10 +224,10 @@ export default function PaymentsPage() {
 
             {activeTab === "expenses" && (
               <FinanceExpenses
-  onCreate={() =>
-    setActiveModal("expense")
-  }
-/>
+                onCreate={() =>
+                  setActiveModal("expense")
+                }
+              />
             )}
 
             {activeTab === "tax" && (

@@ -1,21 +1,25 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, UserPlus, X } from "lucide-react";
+import {
+  Loader2,
+  UserPlus,
+  X,
+} from "lucide-react";
+
+export type EmployeeForm = {
+  name: string;
+  role: string;
+  salary_gross: string;
+};
 
 type EmployeeModalProps = {
   open: boolean;
   submitting?: boolean;
-  employee: {
-    name: string;
-    role: string;
-    salary_gross: string;
-  };
-  onChange: (employee: {
-    name: string;
-    role: string;
-    salary_gross: string;
-  }) => void;
+  employee: EmployeeForm;
+  onChange: (
+    employee: EmployeeForm
+  ) => void;
   onClose: () => void;
   onSubmit: () => void;
 };
@@ -28,13 +32,26 @@ export default function EmployeeModal({
   onClose,
   onSubmit,
 }: EmployeeModalProps) {
+  const canSubmit =
+    !submitting &&
+    employee.name.trim().length > 0 &&
+    employee.role.trim().length > 0 &&
+    employee.salary_gross.trim().length > 0 &&
+    Number(employee.salary_gross) > 0;
+
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          initial={{
+            opacity: 0,
+          }}
+          animate={{
+            opacity: 1,
+          }}
+          exit={{
+            opacity: 0,
+          }}
           onClick={onClose}
           className="fixed inset-0 z-[999] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm"
         >
@@ -53,6 +70,10 @@ export default function EmployeeModal({
               scale: 0.96,
               opacity: 0,
               y: 12,
+            }}
+            transition={{
+              duration: 0.2,
+              ease: "easeOut",
             }}
             onClick={(event) =>
               event.stopPropagation()
@@ -76,7 +97,9 @@ export default function EmployeeModal({
               </div>
 
               <button
+                type="button"
                 onClick={onClose}
+                aria-label="Close employee modal"
                 className="rounded-full p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-900"
               >
                 <X size={18} />
@@ -85,34 +108,45 @@ export default function EmployeeModal({
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="employee-name"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Full Name
                 </label>
 
                 <input
+                  id="employee-name"
                   value={employee.name}
                   onChange={(event) =>
                     onChange({
                       ...employee,
-                      name: event.target.value,
+                      name:
+                        event.target.value,
                     })
                   }
                   placeholder="e.g. Sam Day-Clark"
+                  autoComplete="name"
                   className="w-full rounded-xl border border-stone-100 bg-[#faf9f6] px-4 py-3 text-sm outline-none transition focus:border-stone-900 focus:bg-white"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="employee-role"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Role
                 </label>
 
                 <input
+                  id="employee-role"
                   value={employee.role}
                   onChange={(event) =>
                     onChange({
                       ...employee,
-                      role: event.target.value,
+                      role:
+                        event.target.value,
                     })
                   }
                   placeholder="e.g. Operations Manager"
@@ -121,7 +155,10 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="employee-salary"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Gross Annual Salary
                 </label>
 
@@ -131,9 +168,11 @@ export default function EmployeeModal({
                   </span>
 
                   <input
+                    id="employee-salary"
                     type="number"
                     min="0"
                     step="0.01"
+                    inputMode="decimal"
                     value={
                       employee.salary_gross
                     }
@@ -152,8 +191,9 @@ export default function EmployeeModal({
             </div>
 
             <button
+              type="button"
               onClick={onSubmit}
-              disabled={submitting}
+              disabled={!canSubmit}
               className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (

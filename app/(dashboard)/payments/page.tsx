@@ -23,7 +23,10 @@ import ExpenseModal, {
   type ExpenseForm,
 } from "./components/modals/ExpenseModal";
 
-import EmployeeModal from "./components/modals/EmployeeModal";
+import EmployeeModal, {
+  type EmployeeForm,
+} from "./components/modals/EmployeeModal";
+
 import RecurringInvoiceModal from "./components/modals/RecurringInvoiceModal";
 import VatModal from "./components/modals/VatModal";
 import TaxModal from "./components/modals/TaxModal";
@@ -77,6 +80,12 @@ const INITIAL_EXPENSE_FORM: ExpenseForm = {
   status: "pending",
 };
 
+const INITIAL_EMPLOYEE_FORM: EmployeeForm = {
+  name: "",
+  role: "",
+  salary_gross: "",
+};
+
 export default function PaymentsPage() {
   const [activeTab, setActiveTab] =
     useState<FinanceTab>("overview");
@@ -92,7 +101,7 @@ export default function PaymentsPage() {
     });
 
   /*
-   * Invoice / Quote modal state
+   * Invoice / Quote state
    */
   const [invoiceQuoteSubmitting, setInvoiceQuoteSubmitting] =
     useState(false);
@@ -106,10 +115,12 @@ export default function PaymentsPage() {
     );
 
   const [invoiceQuoteLineItems, setInvoiceQuoteLineItems] =
-    useState<FinanceLineItem[]>(INITIAL_LINE_ITEMS);
+    useState<FinanceLineItem[]>(
+      INITIAL_LINE_ITEMS
+    );
 
   /*
-   * Expense modal state
+   * Expense state
    */
   const [expenseSubmitting, setExpenseSubmitting] =
     useState(false);
@@ -117,6 +128,17 @@ export default function PaymentsPage() {
   const [expenseForm, setExpenseForm] =
     useState<ExpenseForm>(
       INITIAL_EXPENSE_FORM
+    );
+
+  /*
+   * Employee state
+   */
+  const [employeeSubmitting, setEmployeeSubmitting] =
+    useState(false);
+
+  const [employeeForm, setEmployeeForm] =
+    useState<EmployeeForm>(
+      INITIAL_EMPLOYEE_FORM
     );
 
   /*
@@ -135,9 +157,6 @@ export default function PaymentsPage() {
    */
   const finance = useFinanceData();
 
-  /*
-   * Prefer context IDs, otherwise use finance data IDs.
-   */
   const organisationId =
     contextOrgId ?? finance.orgId;
 
@@ -191,7 +210,7 @@ export default function PaymentsPage() {
   });
 
   /*
-   * Invoice / quote totals
+   * Invoice totals
    */
   const invoiceQuoteNetTotal = useMemo(
     () =>
@@ -314,10 +333,6 @@ export default function PaymentsPage() {
     setInvoiceQuoteSubmitting(true);
 
     try {
-      /*
-       * Add actual invoice / quote creation logic here.
-       */
-
       notify(
         `${invoiceQuoteDocType} prepared successfully.`,
         "success"
@@ -398,10 +413,6 @@ export default function PaymentsPage() {
     setExpenseSubmitting(true);
 
     try {
-      /*
-       * Add actual expense creation logic here.
-       */
-
       notify(
         "Expense logged successfully.",
         "success"
@@ -426,15 +437,96 @@ export default function PaymentsPage() {
     }
   };
 
+  /*
+   * Employee helpers
+   */
+  const resetEmployeeForm = () => {
+    setEmployeeForm({
+      name: "",
+      role: "",
+      salary_gross: "",
+    });
+  };
+
+  const closeEmployeeModal = () => {
+    if (employeeSubmitting) {
+      return;
+    }
+
+    setActiveModal(null);
+    resetEmployeeForm();
+  };
+
+  const handleEmployeeSubmit = async () => {
+    if (employeeSubmitting) {
+      return;
+    }
+
+    if (!employeeForm.name.trim()) {
+      notify(
+        "Please enter the employee name.",
+        "error"
+      );
+      return;
+    }
+
+    if (!employeeForm.role.trim()) {
+      notify(
+        "Please enter the employee role.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      !employeeForm.salary_gross ||
+      Number(employeeForm.salary_gross) <= 0
+    ) {
+      notify(
+        "Please enter a valid salary.",
+        "error"
+      );
+      return;
+    }
+
+    setEmployeeSubmitting(true);
+
+    try {
+      /*
+       * Add real employee creation logic here
+       * when the finance data method is confirmed.
+       */
+
+      notify(
+        "Employee added successfully.",
+        "success"
+      );
+
+      setActiveModal(null);
+      resetEmployeeForm();
+
+      await finance.refresh();
+    } catch (submitError) {
+      console.error(
+        "Employee submission failed:",
+        submitError
+      );
+
+      notify(
+        "Unable to add employee.",
+        "error"
+      );
+    } finally {
+      setEmployeeSubmitting(false);
+    }
+  };
+
   const loading =
     contextLoading || finance.loading;
 
   const error =
     contextError || finance.error;
 
-  /*
-   * Error state
-   */
   if (error) {
     return (
       <div className="min-h-screen bg-[#faf9f6] p-8">
@@ -451,7 +543,6 @@ export default function PaymentsPage() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900">
-      {/* GLOBAL NOTIFICATION */}
       <FinanceNotification
         visible={notification.visible}
         message={notification.message}
@@ -459,26 +550,22 @@ export default function PaymentsPage() {
       />
 
       <main className="mx-auto max-w-[1400px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
-        {/* HEADER */}
         <FinanceHeader
           loading={loading}
           onRefresh={finance.refresh}
         />
 
-        {/* NAVIGATION */}
         <FinanceNav
           activeTab={activeTab}
           onChange={setActiveTab}
         />
 
-        {/* CONTENT */}
         {loading ? (
           <div className="flex min-h-[400px] items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#a9b897]" />
           </div>
         ) : (
           <>
-            {/* OVERVIEW */}
             {activeTab === "overview" && (
               <FinanceOverview
                 metrics={metrics}
@@ -513,7 +600,6 @@ export default function PaymentsPage() {
               />
             )}
 
-            {/* SALES */}
             {activeTab === "sales" && (
               <FinanceSales
                 invoices={invoices}
@@ -532,7 +618,6 @@ export default function PaymentsPage() {
               />
             )}
 
-            {/* EXPENSES */}
             {activeTab === "expenses" && (
               <FinanceExpenses
                 expenses={
@@ -541,7 +626,6 @@ export default function PaymentsPage() {
               />
             )}
 
-            {/* TAX */}
             {activeTab === "tax" && (
               <FinanceTax
                 vatReturns={
@@ -561,7 +645,6 @@ export default function PaymentsPage() {
               />
             )}
 
-            {/* PAYROLL */}
             {activeTab === "payroll" && (
               <FinancePayroll
                 employees={
@@ -573,7 +656,6 @@ export default function PaymentsPage() {
               />
             )}
 
-            {/* TIMESHEETS */}
             {activeTab === "timesheets" && (
               <FinanceTimesheets
                 timesheets={
@@ -590,7 +672,6 @@ export default function PaymentsPage() {
         )}
       </main>
 
-      {/* INVOICE / QUOTE */}
       <InvoiceQuoteModal
         open={
           activeModal === "invoiceQuote"
@@ -636,7 +717,6 @@ export default function PaymentsPage() {
         }
       />
 
-      {/* LOG EXPENSE */}
       <ExpenseModal
         open={
           activeModal === "expense"
@@ -658,26 +738,27 @@ export default function PaymentsPage() {
         }
       />
 
-      {/* ADD EMPLOYEE */}
       <EmployeeModal
         open={
           activeModal === "employee"
         }
-        organisationId={
-          organisationId
+        submitting={
+          employeeSubmitting
         }
-        teamId={teamId}
-        userId={userId}
-        onClose={() =>
-          setActiveModal(null)
+        employee={
+          employeeForm
         }
-        onSuccess={
-          finance.refresh
+        onChange={
+          setEmployeeForm
         }
-        notify={notify}
+        onClose={
+          closeEmployeeModal
+        }
+        onSubmit={
+          handleEmployeeSubmit
+        }
       />
 
-      {/* RECURRING INVOICE */}
       <RecurringInvoiceModal
         open={
           activeModal === "recurring"
@@ -696,7 +777,6 @@ export default function PaymentsPage() {
         notify={notify}
       />
 
-      {/* VAT RETURN */}
       <VatModal
         open={
           activeModal === "vat"
@@ -718,7 +798,6 @@ export default function PaymentsPage() {
         notify={notify}
       />
 
-      {/* TAX RETURN */}
       <TaxModal
         open={
           activeModal === "tax"

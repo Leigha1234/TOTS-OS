@@ -41,6 +41,12 @@ type ModalType =
   | "tax"
   | null;
 
+type NotificationType = {
+  visible: boolean;
+  message: string;
+  type: "success" | "error";
+};
+
 export default function PaymentsPage() {
   const [activeTab, setActiveTab] =
     useState<FinanceTab>("overview");
@@ -49,16 +55,15 @@ export default function PaymentsPage() {
     useState<ModalType>(null);
 
   const [notification, setNotification] =
-    useState<{
-      visible: boolean;
-      message: string;
-      type: "success" | "error";
-    }>({
+    useState<NotificationType>({
       visible: false,
       message: "",
       type: "success",
     });
 
+  /*
+   * Finance context
+   */
   const {
     orgId: contextOrgId,
     teamId: contextTeamId,
@@ -67,8 +72,15 @@ export default function PaymentsPage() {
     error: contextError,
   } = useFinanceContext();
 
+  /*
+   * Finance data
+   */
   const finance = useFinanceData();
 
+  /*
+   * Prefer the finance context IDs, but fall back
+   * to IDs returned by useFinanceData.
+   */
   const organisationId =
     contextOrgId ?? finance.orgId;
 
@@ -78,9 +90,12 @@ export default function PaymentsPage() {
   const userId =
     contextUserId ?? finance.userId;
 
+  /*
+   * Split the finance ledger into invoices / quotes.
+   */
   const invoices = useMemo(
     () =>
-      finance.ledger.filter(
+      (finance.ledger ?? []).filter(
         (entry) =>
           String(entry.type ?? "")
             .trim()
@@ -91,7 +106,7 @@ export default function PaymentsPage() {
 
   const quotes = useMemo(
     () =>
-      finance.ledger.filter(
+      (finance.ledger ?? []).filter(
         (entry) =>
           String(entry.type ?? "")
             .trim()
@@ -100,6 +115,9 @@ export default function PaymentsPage() {
     [finance.ledger]
   );
 
+  /*
+   * Finance metrics used by Overview, Sales and Tax.
+   */
   const metrics = useFinanceMetrics({
     invoices,
     quotes,
@@ -115,6 +133,13 @@ export default function PaymentsPage() {
     bankTransactions: [],
   });
 
+  /*
+   * Global finance notification helper.
+   *
+   * This is still required by the modals even though
+   * FinanceTax / FinancePayroll / FinanceTimesheets
+   * do not accept it directly.
+   */
   const notify = (
     message: string,
     type: "success" | "error" = "success"
@@ -139,18 +164,26 @@ export default function PaymentsPage() {
   const error =
     contextError || finance.error;
 
+  /*
+   * Error state
+   */
   if (error) {
     return (
       <div className="min-h-screen bg-[#faf9f6] p-8">
-        <p className="text-red-500">
-          {error}
-        </p>
+        <div className="mx-auto max-w-[1400px]">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+            <p className="text-sm font-medium text-red-600">
+              {error}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900">
+      {/* GLOBAL NOTIFICATION */}
       <FinanceNotification
         visible={notification.visible}
         message={notification.message}
@@ -158,33 +191,41 @@ export default function PaymentsPage() {
       />
 
       <main className="mx-auto max-w-[1400px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
+        {/* HEADER */}
         <FinanceHeader
           loading={loading}
           onRefresh={finance.refresh}
         />
 
+        {/* NAVIGATION */}
         <FinanceNav
           activeTab={activeTab}
           onChange={setActiveTab}
         />
 
+        {/* LOADING */}
         {loading ? (
           <div className="flex min-h-[400px] items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#a9b897]" />
           </div>
         ) : (
           <>
+            {/* OVERVIEW */}
             {activeTab === "overview" && (
               <FinanceOverview
                 metrics={metrics}
                 invoices={invoices}
                 quotes={quotes}
-                expenses={finance.expenses ?? []}
+                expenses={
+                  finance.expenses ?? []
+                }
                 subscriptions={
                   finance.subscriptions ?? []
                 }
                 onCreateInvoice={() =>
-                  setActiveModal("invoiceQuote")
+                  setActiveModal(
+                    "invoiceQuote"
+                  )
                 }
                 onLogExpense={() =>
                   setActiveModal("expense")
@@ -204,11 +245,14 @@ export default function PaymentsPage() {
               />
             )}
 
+            {/* SALES */}
             {activeTab === "sales" && (
               <FinanceSales
                 invoices={invoices}
                 quotes={quotes}
-                customers={finance.customers}
+                customers={
+                  finance.customers ?? []
+                }
                 subscriptions={
                   finance.subscriptions ?? []
                 }
@@ -220,6 +264,7 @@ export default function PaymentsPage() {
               />
             )}
 
+            {/* EXPENSES */}
             {activeTab === "expenses" && (
               <FinanceExpenses
                 expenses={
@@ -228,60 +273,80 @@ export default function PaymentsPage() {
               />
             )}
 
+            {/* TAX */}
             {activeTab === "tax" && (
               <FinanceTax
-  vatReturns={finance.vatReturns ?? []}
-  taxReturns={finance.selfAssessments ?? []}
-  metrics={metrics}
-  refresh={finance.refresh}
-  onVat={() =>
-    setActiveModal("vat")
-  }
-  onTax={() =>
-    setActiveModal("tax")
-  }
-/>
+                vatReturns={
+                  finance.vatReturns ?? []
+                }
+                taxReturns={
+                  finance.selfAssessments ?? []
+                }
+                metrics={metrics}
+                refresh={finance.refresh}
+                onVat={() =>
+                  setActiveModal("vat")
+                }
+                onTax={() =>
+                  setActiveModal("tax")
+                }
+              />
             )}
 
-         {activeTab === "payroll" && (
-  <FinancePayroll
-    employees={finance.payrollEmployees ?? []}
-    payslips={finance.payslips ?? []}
-  />
-)}
-{activeTab === "timesheets" && (
-  <FinanceTimesheets
-    timesheets={finance.timesheets ?? []}
-    organisationId={organisationId}
-    teamId={teamId}
-    userId={userId}
-    metrics={metrics}
-    refresh={finance.refresh}
-    notify={notify}
-  />
-)}
-            
+            {/* PAYROLL */}
+            {activeTab === "payroll" && (
+              <FinancePayroll
+                employees={
+                  finance.payrollEmployees ??
+                  []
+                }
+                payslips={
+                  finance.payslips ?? []
+                }
+              />
+            )}
+
+            {/* TIMESHEETS */}
+            {activeTab === "timesheets" && (
+              <FinanceTimesheets
+                timesheets={
+                  finance.timesheets ?? []
+                }
+                organisationId={
+                  organisationId
+                }
+                teamId={teamId}
+                userId={userId}
+              />
+            )}
           </>
         )}
       </main>
 
+      {/* CREATE INVOICE / QUOTE */}
       <InvoiceQuoteModal
         open={
-          activeModal === "invoiceQuote"
+          activeModal ===
+          "invoiceQuote"
         }
         organisationId={
           organisationId
         }
         teamId={teamId}
         userId={userId}
-        customers={finance.customers}
+        customers={
+          finance.customers ?? []
+        }
         onClose={() =>
           setActiveModal(null)
         }
-        onSuccess={finance.refresh}
+        onSuccess={
+          finance.refresh
+        }
         notify={notify}
       />
 
+      {/* LOG EXPENSE */}
       <ExpenseModal
         open={
           activeModal === "expense"
@@ -294,10 +359,13 @@ export default function PaymentsPage() {
         onClose={() =>
           setActiveModal(null)
         }
-        onSuccess={finance.refresh}
+        onSuccess={
+          finance.refresh
+        }
         notify={notify}
       />
 
+      {/* ADD EMPLOYEE */}
       <EmployeeModal
         open={
           activeModal === "employee"
@@ -310,10 +378,13 @@ export default function PaymentsPage() {
         onClose={() =>
           setActiveModal(null)
         }
-        onSuccess={finance.refresh}
+        onSuccess={
+          finance.refresh
+        }
         notify={notify}
       />
 
+      {/* RECURRING INVOICE */}
       <RecurringInvoiceModal
         open={
           activeModal === "recurring"
@@ -326,10 +397,13 @@ export default function PaymentsPage() {
         onClose={() =>
           setActiveModal(null)
         }
-        onSuccess={finance.refresh}
+        onSuccess={
+          finance.refresh
+        }
         notify={notify}
       />
 
+      {/* VAT RETURN */}
       <VatModal
         open={
           activeModal === "vat"
@@ -345,10 +419,13 @@ export default function PaymentsPage() {
         onClose={() =>
           setActiveModal(null)
         }
-        onSuccess={finance.refresh}
+        onSuccess={
+          finance.refresh
+        }
         notify={notify}
       />
 
+      {/* TAX RETURN */}
       <TaxModal
         open={
           activeModal === "tax"
@@ -364,7 +441,9 @@ export default function PaymentsPage() {
         onClose={() =>
           setActiveModal(null)
         }
-        onSuccess={finance.refresh}
+        onSuccess={
+          finance.refresh
+        }
         notify={notify}
       />
     </div>

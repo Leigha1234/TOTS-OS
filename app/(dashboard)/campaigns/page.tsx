@@ -39,7 +39,6 @@ import {
 
 type Campaign = {
   id: string;
-
   title: string;
 
   subject:
@@ -214,13 +213,9 @@ function emptyForm(
 ): CampaignForm {
   return {
     title: "",
-
     subject: "",
-
     previewText: "",
-
     message: "",
-
     listId: "",
 
     scheduledFor: "",
@@ -237,7 +232,6 @@ function emptyForm(
     headerImageUrl: "",
 
     ctaText: "",
-
     ctaUrl: "",
 
     brandColor:
@@ -254,6 +248,20 @@ function isValidEmail(
 ) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
     value.trim()
+  );
+}
+
+function cleanEmail(
+  value:
+    | string
+    | null
+    | undefined
+) {
+  return (
+    value
+      ?.trim()
+      .toLowerCase() ||
+    ""
   );
 }
 
@@ -321,7 +329,9 @@ function plainTextToHtml(
       /\n{2,}/
     )
     .map(
-      (paragraph) =>
+      (
+        paragraph
+      ) =>
         `<p style="font-size:16px;line-height:1.8;margin:0 0 20px;color:#44403c;">${escapeHtml(
           paragraph
         ).replace(
@@ -420,24 +430,24 @@ function extractCampaignLogoUrl(
     return "";
   }
 
-  const match =
+  const firstMatch =
     html.match(
       /data-tots-campaign-logo="true"[^>]*src="([^"]+)"/i
     );
 
   if (
-    match?.[1]
+    firstMatch?.[1]
   ) {
-    return match[1];
+    return firstMatch[1];
   }
 
-  const reverseMatch =
+  const secondMatch =
     html.match(
       /src="([^"]+)"[^>]*data-tots-campaign-logo="true"/i
     );
 
   return (
-    reverseMatch?.[1] ||
+    secondMatch?.[1] ||
     ""
   );
 }
@@ -467,6 +477,21 @@ function buildCampaignHtml({
     campaignLogoUrl.trim() ||
     company.logoUrl.trim();
 
+  const safeLogo =
+    escapeHtml(
+      logo
+    );
+
+  const safeHeaderImage =
+    escapeHtml(
+      headerImageUrl
+    );
+
+  const safeCtaUrl =
+    escapeHtml(
+      ctaUrl
+    );
+
   return `
     <div
       style="
@@ -487,7 +512,7 @@ function buildCampaignHtml({
               "
             >
               <img
-                src="${logo}"
+                src="${safeLogo}"
                 data-tots-campaign-logo="true"
                 alt="${escapeHtml(
                   company.name
@@ -510,7 +535,7 @@ function buildCampaignHtml({
         headerImageUrl
           ? `
             <img
-              src="${headerImageUrl}"
+              src="${safeHeaderImage}"
               alt=""
               style="
                 display:block;
@@ -545,7 +570,8 @@ function buildCampaignHtml({
               "
             >
               <a
-                href="${ctaUrl}"
+                href="${safeCtaUrl}"
+                data-tots-click-url="${safeCtaUrl}"
                 style="
                   display:inline-block;
                   background:${brandColor};
@@ -581,7 +607,7 @@ function buildCampaignHtml({
           logo
             ? `
               <img
-                src="${logo}"
+                src="${safeLogo}"
                 alt="${escapeHtml(
                   company.name
                 )}"
@@ -762,12 +788,16 @@ function getOpenRate(
   campaign: Campaign
 ) {
   const sent =
-    campaign.sent_count ||
-    0;
+    Number(
+      campaign.sent_count ||
+        0
+    );
 
   const opens =
-    campaign.open_count ||
-    0;
+    Number(
+      campaign.open_count ||
+        0
+    );
 
   if (
     sent <= 0
@@ -788,12 +818,16 @@ function getClickRate(
   campaign: Campaign
 ) {
   const sent =
-    campaign.sent_count ||
-    0;
+    Number(
+      campaign.sent_count ||
+        0
+    );
 
   const clicks =
-    campaign.click_count ||
-    0;
+    Number(
+      campaign.click_count ||
+        0
+    );
 
   if (
     sent <= 0
@@ -808,6 +842,108 @@ function getClickRate(
         100
     )
   );
+}
+
+function getStatusLabel(
+  campaign: Campaign
+) {
+  if (
+    campaign.sent_at ||
+    Number(
+      campaign.sent_count ||
+        0
+    ) > 0 ||
+    campaign.status ===
+      "sent"
+  ) {
+    return "sent";
+  }
+
+  return (
+    campaign.status ||
+    "draft"
+  );
+}
+
+// ==================================================
+// UNIQUE TRACKING COUNTS
+// ==================================================
+
+function createUniqueTrackingCounts(
+  rows: any[]
+) {
+  const grouped: Record<
+    string,
+    Set<string>
+  > = {};
+
+  for (
+    const row of
+      rows
+  ) {
+    const campaignId =
+      row?.campaign_id;
+
+    if (
+      !campaignId
+    ) {
+      continue;
+    }
+
+    if (
+      !grouped[
+        campaignId
+      ]
+    ) {
+      grouped[
+        campaignId
+      ] =
+        new Set();
+    }
+
+    /*
+     * profile_id is now acting as the stable
+     * recipient identifier for both profile and
+     * manual recipients.
+     *
+     * The row ID fallback preserves old analytics.
+     */
+    const recipientKey =
+      row.profile_id
+        ? `recipient-${String(
+            row.profile_id
+          )}`
+        : `legacy-${String(
+            row.id
+          )}`;
+
+    grouped[
+      campaignId
+    ].add(
+      recipientKey
+    );
+  }
+
+  const counts: Record<
+    string,
+    number
+  > = {};
+
+  for (
+    const [
+      campaignId,
+      recipients,
+    ] of Object.entries(
+      grouped
+    )
+  ) {
+    counts[
+      campaignId
+    ] =
+      recipients.size;
+  }
+
+  return counts;
 }
 
 // ==================================================
@@ -1087,6 +1223,8 @@ export default function CampaignsPage() {
           const {
             data:
               teamData,
+            error:
+              teamError,
           } =
             await supabase
               .from(
@@ -1099,6 +1237,15 @@ export default function CampaignsPage() {
               )
               .limit(1)
               .maybeSingle();
+
+          if (
+            teamError
+          ) {
+            console.warn(
+              "Team branding load error:",
+              teamError
+            );
+          }
 
           team =
             teamData ||
@@ -1150,7 +1297,7 @@ export default function CampaignsPage() {
   ]);
 
   // ==================================================
-  // LOAD CAMPAIGNS + STATS
+  // LOAD CAMPAIGNS + ANALYTICS
   // ==================================================
 
   const loadCampaigns =
@@ -1198,11 +1345,14 @@ export default function CampaignsPage() {
       }
 
       const loadedCampaigns =
-        campaignData ||
-        [];
+        (
+          campaignData ||
+          []
+        ) as Campaign[];
 
       if (
-        !loadedCampaigns.length
+        loadedCampaigns.length ===
+        0
       ) {
         setCampaigns(
           []
@@ -1219,6 +1369,10 @@ export default function CampaignsPage() {
             campaign.id
         );
 
+      // ==================================================
+      // LOAD TRACKING EVENTS
+      // ==================================================
+
       const [
         openResult,
         clickResult,
@@ -1229,7 +1383,7 @@ export default function CampaignsPage() {
               "campaign_opens"
             )
             .select(
-              "campaign_id"
+              "id,campaign_id,profile_id"
             )
             .in(
               "campaign_id",
@@ -1241,7 +1395,7 @@ export default function CampaignsPage() {
               "campaign_clicks"
             )
             .select(
-              "campaign_id"
+              "id,campaign_id,profile_id"
             )
             .in(
               "campaign_id",
@@ -1267,72 +1421,44 @@ export default function CampaignsPage() {
         );
       }
 
-      const openCounts: Record<
-        string,
-        number
-      > = {};
+      // ==================================================
+      // UNIQUE OPENS
+      // ==================================================
 
-      (
-        openResult.data ||
-        []
-      ).forEach(
-        (
-          row: any
-        ) => {
-          openCounts[
-            row.campaign_id
-          ] =
-            (openCounts[
-              row.campaign_id
-            ] || 0) +
-            1;
-        }
-      );
+      const openCounts =
+        openResult.error
+          ? {}
+          : createUniqueTrackingCounts(
+              openResult.data ||
+                []
+            );
 
-      const clickCounts: Record<
-        string,
-        number
-      > = {};
+      // ==================================================
+      // UNIQUE CLICKS
+      // ==================================================
 
-      (
-        clickResult.data ||
-        []
-      ).forEach(
-        (
-          row: any
-        ) => {
-          clickCounts[
-            row.campaign_id
-          ] =
-            (clickCounts[
-              row.campaign_id
-            ] || 0) +
-            1;
-        }
-      );
+      const clickCounts =
+        clickResult.error
+          ? {}
+          : createUniqueTrackingCounts(
+              clickResult.data ||
+                []
+            );
+
+      // ==================================================
+      // MERGE CAMPAIGNS
+      // ==================================================
 
       const enrichedCampaigns: Campaign[] =
         loadedCampaigns.map(
           (
-            campaign: any
+            campaign
           ) => {
             const sentCount =
-              campaign.sent_count ||
-              0;
-
-            const opens =
-              openCounts[
-                campaign.id
-              ] ??
-              campaign.open_count ??
-              0;
-
-            const clicks =
-              clickCounts[
-                campaign.id
-              ] ??
-              campaign.click_count ??
-              0;
+              Number(
+                campaign.sent_count ||
+                  0
+              );
 
             const resolvedStatus =
               campaign.sent_at ||
@@ -1341,6 +1467,16 @@ export default function CampaignsPage() {
                 : campaign.status ||
                   "draft";
 
+            const trackedOpenCount =
+              openCounts[
+                campaign.id
+              ];
+
+            const trackedClickCount =
+              clickCounts[
+                campaign.id
+              ];
+
             return {
               ...campaign,
 
@@ -1348,10 +1484,22 @@ export default function CampaignsPage() {
                 resolvedStatus,
 
               open_count:
-                opens,
+                trackedOpenCount !==
+                undefined
+                  ? trackedOpenCount
+                  : Number(
+                      campaign.open_count ||
+                        0
+                    ),
 
               click_count:
-                clicks,
+                trackedClickCount !==
+                undefined
+                  ? trackedClickCount
+                  : Number(
+                      campaign.click_count ||
+                        0
+                    ),
             };
           }
         );
@@ -1362,11 +1510,17 @@ export default function CampaignsPage() {
     };
 
   // ==================================================
-  // MANUAL STATS REFRESH
+  // REFRESH STATS
   // ==================================================
 
   const refreshStats =
     async () => {
+      if (
+        refreshingStats
+      ) {
+        return;
+      }
+
       setRefreshingStats(
         true
       );
@@ -1400,7 +1554,9 @@ export default function CampaignsPage() {
           selectedCampaign.id
       );
 
-    if (!latest) {
+    if (
+      !latest
+    ) {
       return;
     }
 
@@ -1445,7 +1601,9 @@ export default function CampaignsPage() {
             }
           );
 
-      if (error) {
+      if (
+        error
+      ) {
         console.error(
           "List load error:",
           error
@@ -1491,7 +1649,9 @@ export default function CampaignsPage() {
             true
           );
 
-      if (error) {
+      if (
+        error
+      ) {
         console.error(
           "Profiles load error:",
           error
@@ -1527,7 +1687,7 @@ export default function CampaignsPage() {
               "profile_subscriber_lists"
             )
             .select(
-              "list_id,profile_id"
+              "list_id,profile_id,profiles:profiles(email)"
             )
             .eq(
               "organisation_id",
@@ -1539,7 +1699,7 @@ export default function CampaignsPage() {
               "campaign_list_emails"
             )
             .select(
-              "list_id,id"
+              "list_id,id,email"
             )
             .eq(
               "organisation_id",
@@ -1565,6 +1725,14 @@ export default function CampaignsPage() {
         );
       }
 
+      /*
+       * Count unique email addresses rather than
+       * database rows.
+       *
+       * This prevents the same email being counted twice
+       * when it exists as both a contact and manual email.
+       */
+
       const countMap: Record<
         string,
         Set<string>
@@ -1578,6 +1746,12 @@ export default function CampaignsPage() {
           row: any
         ) => {
           if (
+            !row.list_id
+          ) {
+            return;
+          }
+
+          if (
             !countMap[
               row.list_id
             ]
@@ -1588,10 +1762,27 @@ export default function CampaignsPage() {
               new Set();
           }
 
+          const profile =
+            Array.isArray(
+              row.profiles
+            )
+              ? row
+                  .profiles[0]
+              : row.profiles;
+
+          const email =
+            cleanEmail(
+              profile?.email
+            );
+
+          const key =
+            email ||
+            `profile-${row.profile_id}`;
+
           countMap[
             row.list_id
           ].add(
-            `profile-${row.profile_id}`
+            key
           );
         }
       );
@@ -1604,6 +1795,12 @@ export default function CampaignsPage() {
           row: any
         ) => {
           if (
+            !row.list_id
+          ) {
+            return;
+          }
+
+          if (
             !countMap[
               row.list_id
             ]
@@ -1614,10 +1811,19 @@ export default function CampaignsPage() {
               new Set();
           }
 
+          const email =
+            cleanEmail(
+              row.email
+            );
+
+          const key =
+            email ||
+            `manual-${row.id}`;
+
           countMap[
             row.list_id
           ].add(
-            `manual-${row.id}`
+            key
           );
         }
       );
@@ -1657,6 +1863,9 @@ export default function CampaignsPage() {
       return;
     }
 
+    let cancelled =
+      false;
+
     const loadAll =
       async () => {
         setLoading(
@@ -1670,39 +1879,51 @@ export default function CampaignsPage() {
           loadSubscriberCounts(),
         ]);
 
-        setLoading(
-          false
-        );
+        if (
+          !cancelled
+        ) {
+          setLoading(
+            false
+          );
+        }
       };
 
     void loadAll();
+
+    return () => {
+      cancelled =
+        true;
+    };
   }, [
     organisationId,
   ]);
 
   // ==================================================
-  // PROCESSING POLLING
+  // ACTIVE CAMPAIGN POLLING
   // ==================================================
+
+  const hasActiveCampaign =
+    campaigns.some(
+      (
+        campaign
+      ) => {
+        const status =
+          getStatusLabel(
+            campaign
+          );
+
+        return (
+          status ===
+            "processing" ||
+          status ===
+            "sending"
+        );
+      }
+    );
 
   useEffect(() => {
     if (
-      !organisationId
-    ) {
-      return;
-    }
-
-    const hasActiveCampaign =
-      campaigns.some(
-        (
-          campaign
-        ) =>
-          campaign.status ===
-            "processing" ||
-          campaign.status ===
-            "sending"
-      );
-
-    if (
+      !organisationId ||
       !hasActiveCampaign
     ) {
       return;
@@ -1713,7 +1934,7 @@ export default function CampaignsPage() {
         () => {
           void loadCampaigns();
         },
-        3000
+        2500
       );
 
     return () => {
@@ -1723,19 +1944,29 @@ export default function CampaignsPage() {
     };
   }, [
     organisationId,
-    campaigns,
+    hasActiveCampaign,
   ]);
 
   // ==================================================
-  // STATS POLLING WHILE VIEWING SENT CAMPAIGN
+  // ANALYTICS POLLING WHILE VIEWING CAMPAIGN
   // ==================================================
 
   useEffect(() => {
     if (
       !showCampaignView ||
-      !selectedCampaign ||
-      selectedCampaign.status !==
-        "sent"
+      !selectedCampaign
+    ) {
+      return;
+    }
+
+    const status =
+      getStatusLabel(
+        selectedCampaign
+      );
+
+    if (
+      status !==
+      "sent"
     ) {
       return;
     }
@@ -1757,6 +1988,35 @@ export default function CampaignsPage() {
     showCampaignView,
     selectedCampaign?.id,
     selectedCampaign?.status,
+    selectedCampaign?.sent_at,
+  ]);
+
+  // ==================================================
+  // PAGE-LEVEL ANALYTICS REFRESH
+  // ==================================================
+
+  useEffect(() => {
+    if (
+      !organisationId
+    ) {
+      return;
+    }
+
+    const interval =
+      window.setInterval(
+        () => {
+          void loadCampaigns();
+        },
+        30000
+      );
+
+    return () => {
+      window.clearInterval(
+        interval
+      );
+    };
+  }, [
+    organisationId,
   ]);
 
   // ==================================================
@@ -1796,14 +2056,17 @@ export default function CampaignsPage() {
               organisationId,
           });
 
-      if (error) {
+      if (
+        error
+      ) {
         console.error(
           "Create list error:",
           error
         );
 
         alert(
-          error.message
+          error.message ||
+            "Could not create list."
         );
 
         return;
@@ -1817,7 +2080,10 @@ export default function CampaignsPage() {
         false
       );
 
-      await loadLists();
+      await Promise.all([
+        loadLists(),
+        loadSubscriberCounts(),
+      ]);
     };
 
   // ==================================================
@@ -1880,6 +2146,24 @@ export default function CampaignsPage() {
               ),
           ]);
 
+        if (
+          profileResult.error
+        ) {
+          console.error(
+            "Profile subscriber load error:",
+            profileResult.error
+          );
+        }
+
+        if (
+          manualResult.error
+        ) {
+          console.error(
+            "Manual subscriber load error:",
+            manualResult.error
+          );
+        }
+
         const combined: ListSubscriber[] =
           [];
 
@@ -1899,24 +2183,29 @@ export default function CampaignsPage() {
                 : row.profiles;
 
             const email =
-              profile
-                ?.email
-                ?.trim()
-                ?.toLowerCase();
+              cleanEmail(
+                profile?.email
+              );
 
-            if (!email) {
+            if (
+              !email
+            ) {
               return;
             }
 
             combined.push({
               id:
-                row.profile_id,
+                String(
+                  row.profile_id
+                ),
 
               source:
                 "profile",
 
               profileId:
-                row.profile_id,
+                String(
+                  row.profile_id
+                ),
 
               manualId:
                 null,
@@ -1941,17 +2230,21 @@ export default function CampaignsPage() {
             row: any
           ) => {
             const email =
-              row.email
-                ?.trim()
-                ?.toLowerCase();
+              cleanEmail(
+                row.email
+              );
 
-            if (!email) {
+            if (
+              !email
+            ) {
               return;
             }
 
             combined.push({
               id:
-                row.id,
+                String(
+                  row.id
+                ),
 
               source:
                 "manual",
@@ -1960,7 +2253,9 @@ export default function CampaignsPage() {
                 null,
 
               manualId:
-                row.id,
+                String(
+                  row.id
+                ),
 
               name:
                 null,
@@ -1996,6 +2291,13 @@ export default function CampaignsPage() {
 
         setListSubscribers(
           unique
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          "List subscriber loading error:",
+          error
         );
       } finally {
         setLoadingList(
@@ -2039,7 +2341,8 @@ export default function CampaignsPage() {
     ) => {
       if (
         !organisationId ||
-        !selectedProfiles.length
+        selectedProfiles.length ===
+          0
       ) {
         return;
       }
@@ -2075,7 +2378,9 @@ export default function CampaignsPage() {
             }
           );
 
-      if (error) {
+      if (
+        error
+      ) {
         console.error(
           "Add profile subscribers error:",
           error
@@ -2096,7 +2401,8 @@ export default function CampaignsPage() {
     ) => {
       if (
         !organisationId ||
-        !emails.length
+        emails.length ===
+          0
       ) {
         return;
       }
@@ -2104,16 +2410,33 @@ export default function CampaignsPage() {
       const clean =
         Array.from(
           new Set(
-            emails.map(
-              (
-                email
-              ) =>
-                email
-                  .trim()
-                  .toLowerCase()
-            )
+            emails
+              .map(
+                (
+                  email
+                ) =>
+                  cleanEmail(
+                    email
+                  )
+              )
+              .filter(
+                (
+                  email
+                ) =>
+                  email &&
+                  isValidEmail(
+                    email
+                  )
+              )
           )
         );
+
+      if (
+        clean.length ===
+        0
+      ) {
+        return;
+      }
 
       const {
         data:
@@ -2140,6 +2463,11 @@ export default function CampaignsPage() {
       if (
         existingError
       ) {
+        console.error(
+          "Existing manual email lookup error:",
+          existingError
+        );
+
         throw existingError;
       }
 
@@ -2153,23 +2481,26 @@ export default function CampaignsPage() {
               (
                 row: any
               ) =>
-                row.email
-                  ?.trim()
-                  ?.toLowerCase()
+                cleanEmail(
+                  row.email
+                )
             )
             .filter(Boolean)
         );
 
       const newEmails =
         clean.filter(
-          (email) =>
+          (
+            email
+          ) =>
             !existingSet.has(
               email
             )
         );
 
       if (
-        !newEmails.length
+        newEmails.length ===
+        0
       ) {
         return;
       }
@@ -2200,7 +2531,14 @@ export default function CampaignsPage() {
             rows
           );
 
-      if (error) {
+      if (
+        error
+      ) {
+        console.error(
+          "Manual subscriber insert error:",
+          error
+        );
+
         throw error;
       }
     };
@@ -2223,8 +2561,10 @@ export default function CampaignsPage() {
         );
 
       if (
-        !selectedProfiles.length &&
-        !parsed.length
+        selectedProfiles.length ===
+          0 &&
+        parsed.length ===
+          0
       ) {
         alert(
           "Select a contact or enter at least one valid email."
@@ -2298,71 +2638,80 @@ export default function CampaignsPage() {
         return;
       }
 
-      if (
-        subscriber.source ===
-          "profile" &&
-        subscriber.profileId
-      ) {
-        const {
-          error,
-        } =
-          await supabase
-            .from(
-              "profile_subscriber_lists"
-            )
-            .delete()
-            .eq(
-              "list_id",
-              selectedList.id
-            )
-            .eq(
-              "profile_id",
-              subscriber.profileId
-            );
+      try {
+        if (
+          subscriber.source ===
+            "profile" &&
+          subscriber.profileId
+        ) {
+          const {
+            error,
+          } =
+            await supabase
+              .from(
+                "profile_subscriber_lists"
+              )
+              .delete()
+              .eq(
+                "list_id",
+                selectedList.id
+              )
+              .eq(
+                "profile_id",
+                subscriber.profileId
+              );
 
-        if (error) {
-          console.error(
+          if (
             error
-          );
-
-          return;
+          ) {
+            throw error;
+          }
         }
-      }
 
-      if (
-        subscriber.source ===
-          "manual" &&
-        subscriber.manualId
-      ) {
-        const {
-          error,
-        } =
-          await supabase
-            .from(
-              "campaign_list_emails"
-            )
-            .delete()
-            .eq(
-              "id",
-              subscriber.manualId
-            );
+        if (
+          subscriber.source ===
+            "manual" &&
+          subscriber.manualId
+        ) {
+          const {
+            error,
+          } =
+            await supabase
+              .from(
+                "campaign_list_emails"
+              )
+              .delete()
+              .eq(
+                "id",
+                subscriber.manualId
+              );
 
-        if (error) {
-          console.error(
+          if (
             error
-          );
-
-          return;
+          ) {
+            throw error;
+          }
         }
+
+        await Promise.all([
+          loadListSubscribers(
+            selectedList.id
+          ),
+
+          loadSubscriberCounts(),
+        ]);
+      } catch (
+        error
+      ) {
+        console.error(
+          "Remove subscriber error:",
+          error
+        );
+
+        alert(
+          "Could not remove subscriber."
+        );
       }
-
-      await Promise.all([
-        loadListSubscribers(
-          selectedList.id
-        ),
-
-        loadSubscriberCounts(),
-      ]);
     };
 
   // ==================================================
@@ -2385,77 +2734,115 @@ export default function CampaignsPage() {
         return;
       }
 
-      await supabase
-        .from(
-          "campaigns"
-        )
-        .update({
-          list_id:
-            null,
-        })
-        .eq(
-          "list_id",
-          selectedList.id
+      try {
+        const {
+          error:
+            campaignError,
+        } =
+          await supabase
+            .from(
+              "campaigns"
+            )
+            .update({
+              list_id:
+                null,
+            })
+            .eq(
+              "list_id",
+              selectedList.id
+            );
+
+        if (
+          campaignError
+        ) {
+          throw campaignError;
+        }
+
+        const {
+          error:
+            profileLinkError,
+        } =
+          await supabase
+            .from(
+              "profile_subscriber_lists"
+            )
+            .delete()
+            .eq(
+              "list_id",
+              selectedList.id
+            );
+
+        if (
+          profileLinkError
+        ) {
+          throw profileLinkError;
+        }
+
+        const {
+          error:
+            manualError,
+        } =
+          await supabase
+            .from(
+              "campaign_list_emails"
+            )
+            .delete()
+            .eq(
+              "list_id",
+              selectedList.id
+            );
+
+        if (
+          manualError
+        ) {
+          throw manualError;
+        }
+
+        const {
+          error:
+            listError,
+        } =
+          await supabase
+            .from(
+              "subscriber_lists"
+            )
+            .delete()
+            .eq(
+              "id",
+              selectedList.id
+            );
+
+        if (
+          listError
+        ) {
+          throw listError;
+        }
+
+        setShowListDetails(
+          false
         );
 
-      await supabase
-        .from(
-          "profile_subscriber_lists"
-        )
-        .delete()
-        .eq(
-          "list_id",
-          selectedList.id
+        setSelectedList(
+          null
         );
 
-      await supabase
-        .from(
-          "campaign_list_emails"
-        )
-        .delete()
-        .eq(
-          "list_id",
-          selectedList.id
-        );
-
-      const {
-        error,
-      } =
-        await supabase
-          .from(
-            "subscriber_lists"
-          )
-          .delete()
-          .eq(
-            "id",
-            selectedList.id
-          );
-
-      if (error) {
+        await Promise.all([
+          loadLists(),
+          loadSubscriberCounts(),
+          loadCampaigns(),
+        ]);
+      } catch (
+        error
+      ) {
         console.error(
+          "Delete list error:",
           error
         );
 
         alert(
           "Could not delete list."
         );
-
-        return;
       }
-
-      setShowListDetails(
-        false
-      );
-
-      setSelectedList(
-        null
-      );
-
-      await Promise.all([
-        loadLists(),
-        loadSubscriberCounts(),
-        loadCampaigns(),
-      ]);
     };
 
   // ==================================================
@@ -2699,6 +3086,34 @@ export default function CampaignsPage() {
         return false;
       }
 
+      if (
+        campaignForm.replyTo.trim() &&
+        !isValidEmail(
+          campaignForm.replyTo.trim()
+        )
+      ) {
+        alert(
+          "Enter a valid reply-to email address."
+        );
+
+        return false;
+      }
+
+      if (
+        Boolean(
+          campaignForm.ctaText.trim()
+        ) !==
+        Boolean(
+          campaignForm.ctaUrl.trim()
+        )
+      ) {
+        alert(
+          "Enter both button text and a button URL, or leave both blank."
+        );
+
+        return false;
+      }
+
       return true;
     };
 
@@ -2730,7 +3145,9 @@ export default function CampaignsPage() {
           campaignForm.scheduledFor
         );
 
-      if (!isoDate) {
+      if (
+        !isoDate
+      ) {
         alert(
           "Invalid scheduled date."
         );
@@ -2763,6 +3180,18 @@ export default function CampaignsPage() {
 
           status:
             "queued",
+
+          sent_at:
+            null,
+
+          sent_count:
+            0,
+
+          open_count:
+            0,
+
+          click_count:
+            0,
         };
 
         if (
@@ -2783,7 +3212,9 @@ export default function CampaignsPage() {
                 editingCampaignId
               );
 
-          if (error) {
+          if (
+            error
+          ) {
             throw error;
           }
         } else {
@@ -2808,7 +3239,9 @@ export default function CampaignsPage() {
                   user?.id,
               });
 
-          if (error) {
+          if (
+            error
+          ) {
             throw error;
           }
         }
@@ -2899,10 +3332,66 @@ export default function CampaignsPage() {
         campaignId
       );
 
+      /*
+       * Immediate optimistic state so the UI responds
+       * before the server request completes.
+       */
+      setCampaigns(
+        (
+          previous
+        ) =>
+          previous.map(
+            (
+              campaign
+            ) =>
+              campaign.id ===
+              campaignId
+                ? {
+                    ...campaign,
+
+                    status:
+                      "processing",
+                  }
+                : campaign
+          )
+      );
+
       try {
-        await callSendApi(
-          campaignId
-        );
+        const result =
+          await callSendApi(
+            campaignId
+          );
+
+        /*
+         * The fixed send API returns the final campaign
+         * row. Use it immediately when available.
+         */
+        if (
+          result?.campaign
+        ) {
+          setCampaigns(
+            (
+              previous
+            ) =>
+              previous.map(
+                (
+                  campaign
+                ) =>
+                  campaign.id ===
+                  campaignId
+                    ? {
+                        ...campaign,
+
+                        ...result.campaign,
+
+                        status:
+                          result.campaign.status ||
+                          "sent",
+                      }
+                    : campaign
+              )
+          );
+        }
 
         await loadCampaigns();
       } catch (
@@ -2914,11 +3403,16 @@ export default function CampaignsPage() {
             ? error.message
             : "Campaign could not be sent.";
 
-        alert(message);
-
         console.error(
+          "Send existing campaign error:",
           error
         );
+
+        alert(
+          message
+        );
+
+        await loadCampaigns();
       } finally {
         setSendingCampaignId(
           null
@@ -2954,6 +3448,21 @@ export default function CampaignsPage() {
 
           status:
             "queued",
+
+          /*
+           * A resend/edit starts a fresh campaign run.
+           */
+          sent_at:
+            null,
+
+          sent_count:
+            0,
+
+          open_count:
+            0,
+
+          click_count:
+            0,
         };
 
         let campaignId:
@@ -2983,7 +3492,9 @@ export default function CampaignsPage() {
               )
               .single();
 
-          if (error) {
+          if (
+            error
+          ) {
             throw error;
           }
 
@@ -3016,7 +3527,9 @@ export default function CampaignsPage() {
               )
               .single();
 
-          if (error) {
+          if (
+            error
+          ) {
             throw error;
           }
 
@@ -3024,15 +3537,18 @@ export default function CampaignsPage() {
             data.id;
         }
 
-        if (!campaignId) {
+        if (
+          !campaignId
+        ) {
           throw new Error(
             "Campaign ID was not returned."
           );
         }
 
-        await callSendApi(
-          campaignId
-        );
+        const result =
+          await callSendApi(
+            campaignId
+          );
 
         setShowEditor(
           false
@@ -3041,6 +3557,53 @@ export default function CampaignsPage() {
         setEditingCampaignId(
           null
         );
+
+        if (
+          result?.campaign
+        ) {
+          setCampaigns(
+            (
+              previous
+            ) => {
+              const exists =
+                previous.some(
+                  (
+                    campaign
+                  ) =>
+                    campaign.id ===
+                    campaignId
+                );
+
+              if (
+                exists
+              ) {
+                return previous.map(
+                  (
+                    campaign
+                  ) =>
+                    campaign.id ===
+                    campaignId
+                      ? {
+                          ...campaign,
+
+                          ...result.campaign,
+
+                          status:
+                            result.campaign
+                              .status ||
+                            "sent",
+                        }
+                      : campaign
+                );
+              }
+
+              return [
+                result.campaign,
+                ...previous,
+              ];
+            }
+          );
+        }
 
         await loadCampaigns();
       } catch (
@@ -3057,7 +3620,11 @@ export default function CampaignsPage() {
           error
         );
 
-        alert(message);
+        alert(
+          message
+        );
+
+        await loadCampaigns();
       } finally {
         setSavingCampaign(
           false
@@ -3094,8 +3661,11 @@ export default function CampaignsPage() {
             campaign.id
           );
 
-      if (error) {
+      if (
+        error
+      ) {
         console.error(
+          "Delete campaign error:",
           error
         );
 
@@ -3121,7 +3691,9 @@ export default function CampaignsPage() {
   // LOADING
   // ==================================================
 
-  if (loading) {
+  if (
+    loading
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
         <Loader2 className="h-7 w-7 animate-spin text-stone-400" />
@@ -3135,7 +3707,6 @@ export default function CampaignsPage() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] p-4 text-stone-900 md:p-12">
-
       {/* ==================================================
           HEADER
       ================================================== */}
@@ -3151,9 +3722,8 @@ export default function CampaignsPage() {
           </h1>
 
           <p className="mt-4 max-w-xl text-sm leading-relaxed text-stone-500">
-            Create branded email
-            campaigns, manage your
-            audience and track
+            Create branded email campaigns,
+            manage your audience and track
             performance.
           </p>
         </div>
@@ -3200,7 +3770,6 @@ export default function CampaignsPage() {
       ================================================== */}
 
       <main className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_360px]">
-
         {/* ==================================================
             CAMPAIGNS
         ================================================== */}
@@ -3238,8 +3807,9 @@ export default function CampaignsPage() {
                 campaign
               ) => {
                 const status =
-                  campaign.status ||
-                  "draft";
+                  getStatusLabel(
+                    campaign
+                  );
 
                 return (
                   <button
@@ -3284,7 +3854,9 @@ export default function CampaignsPage() {
                           {campaign.sent_at ? (
                             <span className="flex items-center gap-1.5">
                               <Check
-                                size={11}
+                                size={
+                                  11
+                                }
                               />
 
                               Sent{" "}
@@ -3295,9 +3867,12 @@ export default function CampaignsPage() {
                           ) : campaign.scheduled_for ? (
                             <span className="flex items-center gap-1.5">
                               <Calendar
-                                size={11}
+                                size={
+                                  11
+                                }
                               />
 
+                              Scheduled{" "}
                               {formatDate(
                                 campaign.scheduled_for
                               )}
@@ -3305,7 +3880,9 @@ export default function CampaignsPage() {
                           ) : (
                             <span className="flex items-center gap-1.5">
                               <Clock
-                                size={11}
+                                size={
+                                  11
+                                }
                               />
 
                               Not scheduled
@@ -3329,7 +3906,10 @@ export default function CampaignsPage() {
                                   : status ===
                                       "failed"
                                     ? "bg-red-100 text-red-700"
-                                    : "bg-stone-100 text-stone-500"
+                                    : status ===
+                                        "queued"
+                                      ? "bg-blue-50 text-blue-600"
+                                      : "bg-stone-100 text-stone-500"
                             }`}
                           >
                             {
@@ -3397,8 +3977,7 @@ export default function CampaignsPage() {
                 </p>
 
                 <p className="mt-2 text-xs text-stone-400">
-                  Manage your
-                  audiences.
+                  Manage your audiences.
                 </p>
               </div>
 
@@ -3442,7 +4021,9 @@ export default function CampaignsPage() {
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <Hash
-                        size={12}
+                        size={
+                          12
+                        }
                         className="shrink-0 text-stone-300"
                       />
 
@@ -3467,7 +4048,7 @@ export default function CampaignsPage() {
       </main>
 
       {/* ==================================================
-          CREATE LIST
+          CREATE LIST MODAL
       ================================================== */}
 
       <AnimatePresence>
@@ -3475,16 +4056,22 @@ export default function CampaignsPage() {
           <div className="fixed inset-0 z-[300] flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-sm">
             <motion.div
               initial={{
-                opacity: 0,
-                scale: 0.96,
+                opacity:
+                  0,
+                scale:
+                  0.96,
               }}
               animate={{
-                opacity: 1,
-                scale: 1,
+                opacity:
+                  1,
+                scale:
+                  1,
               }}
               exit={{
-                opacity: 0,
-                scale: 0.96,
+                opacity:
+                  0,
+                scale:
+                  0.96,
               }}
               className="relative w-full max-w-md rounded-[2.5rem] bg-white p-8 shadow-2xl"
             >
@@ -3497,7 +4084,9 @@ export default function CampaignsPage() {
                 className="absolute right-7 top-7 rounded-full p-2 text-stone-400 hover:bg-stone-50"
               >
                 <X
-                  size={17}
+                  size={
+                    17
+                  }
                 />
               </button>
 
@@ -3558,16 +4147,22 @@ export default function CampaignsPage() {
             <div className="fixed inset-0 z-[350] flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-sm">
               <motion.div
                 initial={{
-                  opacity: 0,
-                  scale: 0.96,
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
                 }}
                 animate={{
-                  opacity: 1,
-                  scale: 1,
+                  opacity:
+                    1,
+                  scale:
+                    1,
                 }}
                 exit={{
-                  opacity: 0,
-                  scale: 0.96,
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
                 }}
                 className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[2.5rem] bg-white shadow-2xl"
               >
@@ -3597,7 +4192,9 @@ export default function CampaignsPage() {
                     className="rounded-full p-3 hover:bg-stone-50"
                   >
                     <X
-                      size={18}
+                      size={
+                        18
+                      }
                     />
                   </button>
                 </div>
@@ -3617,9 +4214,8 @@ export default function CampaignsPage() {
                       </p>
 
                       <p className="mt-1 text-[10px] text-stone-400">
-                        Contacts and
-                        manually added
-                        emails.
+                        Contacts and manually
+                        added emails.
                       </p>
                     </div>
 
@@ -3640,7 +4236,9 @@ export default function CampaignsPage() {
                       className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-wider text-[#a9b897]"
                     >
                       <Plus
-                        size={13}
+                        size={
+                          13
+                        }
                       />
 
                       Add Subscribers
@@ -3655,13 +4253,14 @@ export default function CampaignsPage() {
                     0 ? (
                     <div className="rounded-2xl border border-dashed border-stone-200 p-10 text-center">
                       <Mail
-                        size={23}
+                        size={
+                          23
+                        }
                         className="mx-auto mb-4 text-stone-200"
                       />
 
                       <p className="font-serif italic text-stone-400">
-                        This list is
-                        empty.
+                        This list is empty.
                       </p>
                     </div>
                   ) : (
@@ -3707,7 +4306,9 @@ export default function CampaignsPage() {
                               className="shrink-0 rounded-lg p-2 text-red-500 hover:bg-red-50"
                             >
                               <Trash2
-                                size={14}
+                                size={
+                                  14
+                                }
                               />
                             </button>
                           </div>
@@ -3753,16 +4354,22 @@ export default function CampaignsPage() {
             <div className="fixed inset-0 z-[500] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm">
               <motion.div
                 initial={{
-                  opacity: 0,
-                  scale: 0.96,
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
                 }}
                 animate={{
-                  opacity: 1,
-                  scale: 1,
+                  opacity:
+                    1,
+                  scale:
+                    1,
                 }}
                 exit={{
-                  opacity: 0,
-                  scale: 0.96,
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
                 }}
                 className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[2.5rem] bg-white shadow-2xl"
               >
@@ -3788,29 +4395,34 @@ export default function CampaignsPage() {
                     className="rounded-full p-3 hover:bg-stone-50"
                   >
                     <X
-                      size={18}
+                      size={
+                        18
+                      }
                     />
                   </button>
                 </div>
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-7">
+                  {/* MANUAL EMAILS */}
+
                   <section>
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#71805f]">
                         <Mail
-                          size={16}
+                          size={
+                            16
+                          }
                         />
                       </div>
 
                       <div>
                         <p className="text-sm font-black">
-                          Add email
-                          addresses
+                          Add email addresses
                         </p>
 
                         <p className="text-[10px] text-stone-400">
-                          Paste one or
-                          multiple emails.
+                          Paste one or multiple
+                          emails.
                         </p>
                       </div>
                     </div>
@@ -3833,15 +4445,14 @@ another@email.com`}
                       className="min-h-[140px] w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm leading-relaxed outline-none focus:border-stone-900"
                     />
 
-                    <div className="mt-2 flex justify-between text-[9px] text-stone-400">
+                    <div className="mt-2 flex justify-between gap-3 text-[9px] text-stone-400">
                       <span>
-                        Separate with
-                        commas, lines or
-                        semicolons.
+                        Separate with commas,
+                        lines or semicolons.
                       </span>
 
                       {manualEmails.trim() && (
-                        <span className="font-black text-[#71805f]">
+                        <span className="shrink-0 font-black text-[#71805f]">
                           {
                             parseEmails(
                               manualEmails
@@ -3863,12 +4474,14 @@ another@email.com`}
                     <div className="h-px flex-1 bg-stone-100" />
                   </div>
 
+                  {/* EXISTING CONTACTS */}
+
                   <section className="space-y-2">
                     {profiles.length ===
                       0 && (
                       <p className="py-6 text-center text-xs italic text-stone-400">
-                        No subscribed
-                        contacts found.
+                        No subscribed contacts
+                        found.
                       </p>
                     )}
 
@@ -3968,12 +4581,16 @@ another@email.com`}
                   >
                     {savingSubscribers ? (
                       <Loader2
-                        size={15}
+                        size={
+                          15
+                        }
                         className="animate-spin"
                       />
                     ) : (
                       <Check
-                        size={15}
+                        size={
+                          15
+                        }
                       />
                     )}
 
@@ -3996,16 +4613,22 @@ another@email.com`}
           <div className="fixed inset-0 z-[600] overflow-y-auto bg-stone-900/60 p-3 backdrop-blur-xl md:p-6">
             <motion.div
               initial={{
-                opacity: 0,
-                y: 25,
+                opacity:
+                  0,
+                y:
+                  25,
               }}
               animate={{
-                opacity: 1,
-                y: 0,
+                opacity:
+                  1,
+                y:
+                  0,
               }}
               exit={{
-                opacity: 0,
-                y: 25,
+                opacity:
+                  0,
+                y:
+                  25,
               }}
               className="relative mx-auto w-full max-w-5xl rounded-[2.5rem] bg-[#faf9f6] shadow-2xl"
             >
@@ -4031,18 +4654,21 @@ another@email.com`}
                   className="rounded-full border border-stone-200 bg-white p-3"
                 >
                   <X
-                    size={18}
+                    size={
+                      18
+                    }
                   />
                 </button>
               </div>
 
               <div className="grid gap-8 p-6 md:p-8 lg:grid-cols-[1fr_300px]">
-
                 {/* ==================================================
                     MAIN FORM
                 ================================================== */}
 
                 <div className="space-y-6">
+                  {/* CAMPAIGN NAME */}
+
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
                       Campaign Name
@@ -4072,6 +4698,8 @@ another@email.com`}
                     />
                   </div>
 
+                  {/* SUBJECT */}
+
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
                       Email Subject
@@ -4100,6 +4728,8 @@ another@email.com`}
                       className="w-full rounded-2xl border border-stone-200 bg-white p-4 font-serif text-xl italic outline-none focus:border-stone-900"
                     />
                   </div>
+
+                  {/* PREVIEW */}
 
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
@@ -4138,7 +4768,9 @@ another@email.com`}
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-50">
                         <ImageIcon
-                          size={16}
+                          size={
+                            16
+                          }
                           className="text-stone-500"
                         />
                       </div>
@@ -4149,9 +4781,8 @@ another@email.com`}
                         </p>
 
                         <p className="text-[10px] text-stone-400">
-                          Optional. Uses
-                          your saved logo
-                          by default.
+                          Paste a logo URL or use
+                          your company logo.
                         </p>
                       </div>
                     </div>
@@ -4193,15 +4824,36 @@ another@email.com`}
                     ) : (
                       <div className="mt-4 rounded-2xl border border-dashed border-stone-200 p-5 text-center">
                         <p className="text-[10px] italic text-stone-400">
-                          No campaign
-                          logo selected.
+                          No campaign logo selected.
                         </p>
                       </div>
                     )}
 
-                    {company.logoUrl &&
-                      campaignForm.campaignLogoUrl !==
-                        company.logoUrl && (
+                    <div className="mt-4 flex flex-wrap gap-4">
+                      {company.logoUrl &&
+                        campaignForm.campaignLogoUrl !==
+                          company.logoUrl && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCampaignForm(
+                                (
+                                  previous
+                                ) => ({
+                                  ...previous,
+
+                                  campaignLogoUrl:
+                                    company.logoUrl,
+                                })
+                              )
+                            }
+                            className="text-[9px] font-black uppercase tracking-wider text-[#71805f]"
+                          >
+                            Use company logo
+                          </button>
+                        )}
+
+                      {campaignForm.campaignLogoUrl && (
                         <button
                           type="button"
                           onClick={() =>
@@ -4212,26 +4864,26 @@ another@email.com`}
                                 ...previous,
 
                                 campaignLogoUrl:
-                                  company.logoUrl,
+                                  "",
                               })
                             )
                           }
-                          className="mt-3 text-[9px] font-black uppercase tracking-wider text-[#71805f]"
+                          className="text-[9px] font-black uppercase tracking-wider text-red-400"
                         >
-                          Use saved
-                          company logo
+                          Remove logo
                         </button>
                       )}
+                    </div>
                   </div>
 
-                  {/* ==================================================
-                      HEADER IMAGE
-                  ================================================== */}
+                  {/* HEADER IMAGE */}
 
                   <div>
                     <label className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-400">
                       <ImageIcon
-                        size={12}
+                        size={
+                          12
+                        }
                       />
 
                       Header Image
@@ -4276,9 +4928,7 @@ another@email.com`}
                     )}
                   </div>
 
-                  {/* ==================================================
-                      MESSAGE
-                  ================================================== */}
+                  {/* MESSAGE */}
 
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
@@ -4313,13 +4963,16 @@ Write your email exactly how you want it to read.`}
                     />
                   </div>
 
-                  {/* ==================================================
-                      CTA
-                  ================================================== */}
+                  {/* CTA */}
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
-                    <p className="mb-4 text-[9px] font-black uppercase tracking-wider text-stone-400">
+                    <p className="mb-1 text-[9px] font-black uppercase tracking-wider text-stone-400">
                       Optional Button
+                    </p>
+
+                    <p className="mb-4 text-[10px] text-stone-400">
+                      Add a button if you want
+                      readers to visit a page.
                     </p>
 
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -4393,11 +5046,15 @@ Write your email exactly how you want it to read.`}
                 ================================================== */}
 
                 <aside className="space-y-5">
+                  {/* AUDIENCE */}
+
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100">
                         <Users
-                          size={15}
+                          size={
+                            15
+                          }
                         />
                       </div>
 
@@ -4407,8 +5064,7 @@ Write your email exactly how you want it to read.`}
                         </p>
 
                         <p className="text-[9px] text-stone-400">
-                          Who receives
-                          this email?
+                          Who receives this email?
                         </p>
                       </div>
                     </div>
@@ -4470,16 +5126,20 @@ Write your email exactly how you want it to read.`}
                             campaignForm.listId
                           ] || 0}
                         </strong>{" "}
-                        recipient(s).
+                        unique recipient(s).
                       </p>
                     )}
                   </div>
+
+                  {/* SCHEDULE */}
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100">
                         <Calendar
-                          size={15}
+                          size={
+                            15
+                          }
                         />
                       </div>
 
@@ -4489,8 +5149,7 @@ Write your email exactly how you want it to read.`}
                         </p>
 
                         <p className="text-[9px] text-stone-400">
-                          Leave blank
-                          for Send Now.
+                          Leave blank for Send Now.
                         </p>
                       </div>
                     </div>
@@ -4518,6 +5177,8 @@ Write your email exactly how you want it to read.`}
                       className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
                     />
                   </div>
+
+                  {/* SENDER */}
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <p className="mb-4 text-[9px] font-black uppercase tracking-wider text-stone-400">
@@ -4548,6 +5209,7 @@ Write your email exactly how you want it to read.`}
                     />
 
                     <input
+                      type="email"
                       value={
                         campaignForm.replyTo
                       }
@@ -4570,6 +5232,8 @@ Write your email exactly how you want it to read.`}
                       className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
                     />
                   </div>
+
+                  {/* BUTTON COLOUR */}
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <p className="mb-3 text-[9px] font-black uppercase tracking-wider text-stone-400">
@@ -4638,12 +5302,16 @@ Write your email exactly how you want it to read.`}
                   >
                     {savingCampaign ? (
                       <Loader2
-                        size={15}
+                        size={
+                          15
+                        }
                         className="animate-spin"
                       />
                     ) : (
                       <Calendar
-                        size={15}
+                        size={
+                          15
+                        }
                       />
                     )}
 
@@ -4662,12 +5330,16 @@ Write your email exactly how you want it to read.`}
                 >
                   {savingCampaign ? (
                     <Loader2
-                      size={15}
+                      size={
+                        15
+                      }
                       className="animate-spin"
                     />
                   ) : (
                     <Send
-                      size={15}
+                      size={
+                        15
+                      }
                     />
                   )}
 
@@ -4689,16 +5361,22 @@ Write your email exactly how you want it to read.`}
             <div className="fixed inset-0 z-[550] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-lg">
               <motion.div
                 initial={{
-                  opacity: 0,
-                  scale: 0.96,
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
                 }}
                 animate={{
-                  opacity: 1,
-                  scale: 1,
+                  opacity:
+                    1,
+                  scale:
+                    1,
                 }}
                 exit={{
-                  opacity: 0,
-                  scale: 0.96,
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
                 }}
                 className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2.5rem] bg-white shadow-2xl"
               >
@@ -4713,22 +5391,36 @@ Write your email exactly how you want it to read.`}
 
                       <span
                         className={`rounded-full px-3 py-1 text-[7px] font-black uppercase tracking-wider ${
-                          selectedCampaign.status ===
+                          getStatusLabel(
+                            selectedCampaign
+                          ) ===
                           "sent"
                             ? "bg-emerald-100 text-emerald-700"
-                            : selectedCampaign.status ===
+                            : getStatusLabel(
+                                  selectedCampaign
+                                ) ===
                                   "processing" ||
-                                selectedCampaign.status ===
+                                getStatusLabel(
+                                  selectedCampaign
+                                ) ===
                                   "sending"
                               ? "bg-amber-100 text-amber-700"
-                              : selectedCampaign.status ===
+                              : getStatusLabel(
+                                    selectedCampaign
+                                  ) ===
                                   "failed"
                                 ? "bg-red-100 text-red-700"
-                                : "bg-stone-100 text-stone-500"
+                                : getStatusLabel(
+                                      selectedCampaign
+                                    ) ===
+                                    "queued"
+                                  ? "bg-blue-50 text-blue-600"
+                                  : "bg-stone-100 text-stone-500"
                         }`}
                       >
-                        {selectedCampaign.status ||
-                          "draft"}
+                        {getStatusLabel(
+                          selectedCampaign
+                        )}
                       </span>
                     </div>
 
@@ -4754,7 +5446,9 @@ Write your email exactly how you want it to read.`}
                     className="rounded-full p-3 hover:bg-stone-50"
                   >
                     <X
-                      size={18}
+                      size={
+                        18
+                      }
                     />
                   </button>
                 </div>
@@ -4762,21 +5456,19 @@ Write your email exactly how you want it to read.`}
                 {/* BODY */}
 
                 <div className="flex-1 overflow-y-auto bg-[#faf9f6] p-5 md:p-8">
-
                   {/* ==================================================
                       ANALYTICS
                   ================================================== */}
 
                   <div className="mx-auto mb-6 max-w-3xl">
-                    <div className="mb-4 flex items-center justify-between">
+                    <div className="mb-4 flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
                           Performance
                         </p>
 
                         <h3 className="mt-1 text-lg font-black text-stone-800">
-                          Campaign
-                          analytics
+                          Campaign analytics
                         </h3>
                       </div>
 
@@ -4787,10 +5479,12 @@ Write your email exactly how you want it to read.`}
                         disabled={
                           refreshingStats
                         }
-                        className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 text-[8px] font-black uppercase tracking-wider text-stone-400"
+                        className="flex shrink-0 items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 text-[8px] font-black uppercase tracking-wider text-stone-400 disabled:opacity-50"
                       >
                         <RefreshCw
-                          size={12}
+                          size={
+                            12
+                          }
                           className={
                             refreshingStats
                               ? "animate-spin"
@@ -4803,13 +5497,14 @@ Write your email exactly how you want it to read.`}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-
                       {/* SENT */}
 
                       <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
                         <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
                           <Send
-                            size={14}
+                            size={
+                              14
+                            }
                             className="text-stone-500"
                           />
                         </div>
@@ -4829,7 +5524,9 @@ Write your email exactly how you want it to read.`}
                       <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
                         <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
                           <Eye
-                            size={14}
+                            size={
+                              14
+                            }
                             className="text-stone-500"
                           />
                         </div>
@@ -4840,7 +5537,7 @@ Write your email exactly how you want it to read.`}
                         </p>
 
                         <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
-                          Opens
+                          Unique Opens
                         </p>
                       </div>
 
@@ -4849,7 +5546,9 @@ Write your email exactly how you want it to read.`}
                       <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
                         <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
                           <BarChart3
-                            size={14}
+                            size={
+                              14
+                            }
                             className="text-stone-500"
                           />
                         </div>
@@ -4871,7 +5570,9 @@ Write your email exactly how you want it to read.`}
                       <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
                         <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
                           <MousePointerClick
-                            size={14}
+                            size={
+                              14
+                            }
                             className="text-stone-500"
                           />
                         </div>
@@ -4882,7 +5583,7 @@ Write your email exactly how you want it to read.`}
                         </p>
 
                         <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
-                          Clicks
+                          Unique Clicks
                         </p>
                       </div>
 
@@ -4891,7 +5592,9 @@ Write your email exactly how you want it to read.`}
                       <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
                         <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
                           <BarChart3
-                            size={14}
+                            size={
+                              14
+                            }
                             className="text-stone-500"
                           />
                         </div>
@@ -4909,35 +5612,45 @@ Write your email exactly how you want it to read.`}
                       </div>
                     </div>
 
+                    {/* DELIVERY STATUS */}
+
                     <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-stone-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
-                          Delivery
-                          Status
+                          Delivery Status
                         </p>
 
                         <p
                           className={`mt-1 text-sm font-black uppercase ${
-                            selectedCampaign.status ===
+                            getStatusLabel(
+                              selectedCampaign
+                            ) ===
                             "sent"
                               ? "text-emerald-600"
-                              : selectedCampaign.status ===
+                              : getStatusLabel(
+                                    selectedCampaign
+                                  ) ===
                                     "processing" ||
-                                  selectedCampaign.status ===
+                                  getStatusLabel(
+                                    selectedCampaign
+                                  ) ===
                                     "sending"
                                 ? "text-amber-600"
-                                : selectedCampaign.status ===
+                                : getStatusLabel(
+                                      selectedCampaign
+                                    ) ===
                                     "failed"
                                   ? "text-red-600"
                                   : "text-stone-500"
                           }`}
                         >
-                          {selectedCampaign.status ||
-                            "draft"}
+                          {getStatusLabel(
+                            selectedCampaign
+                          )}
                         </p>
                       </div>
 
-                      {selectedCampaign.sent_at && (
+                      {selectedCampaign.sent_at ? (
                         <div className="sm:text-right">
                           <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
                             Sent At
@@ -4949,8 +5662,28 @@ Write your email exactly how you want it to read.`}
                             )}
                           </p>
                         </div>
-                      )}
+                      ) : selectedCampaign.scheduled_for ? (
+                        <div className="sm:text-right">
+                          <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                            Scheduled For
+                          </p>
+
+                          <p className="mt-1 text-xs font-bold text-stone-600">
+                            {formatDate(
+                              selectedCampaign.scheduled_for
+                            )}
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
+
+                    <p className="mt-3 text-[9px] leading-relaxed text-stone-400">
+                      Opens are unique tracked
+                      recipients. Some email providers
+                      may block or preload tracking
+                      images, so open statistics are
+                      best treated as an estimate.
+                    </p>
                   </div>
 
                   {/* ==================================================
@@ -4973,10 +5706,14 @@ Write your email exactly how you want it to read.`}
                   </div>
                 </div>
 
-                {/* ACTIONS */}
+                {/* ==================================================
+                    ACTIONS
+                ================================================== */}
 
                 <div className="flex flex-wrap gap-3 border-t border-stone-100 bg-white p-6">
-                  {selectedCampaign.status !==
+                  {getStatusLabel(
+                    selectedCampaign
+                  ) !==
                     "sent" && (
                     <button
                       onClick={() =>
@@ -4987,22 +5724,30 @@ Write your email exactly how you want it to read.`}
                       className="flex items-center gap-2 rounded-xl bg-stone-100 px-5 py-3 text-[9px] font-black uppercase tracking-wider"
                     >
                       <Edit3
-                        size={13}
+                        size={
+                          13
+                        }
                       />
 
                       Edit
                     </button>
                   )}
 
-                  {selectedCampaign.status !==
+                  {getStatusLabel(
+                    selectedCampaign
+                  ) !==
                     "sent" && (
                     <button
                       disabled={
                         sendingCampaignId ===
                           selectedCampaign.id ||
-                        selectedCampaign.status ===
+                        getStatusLabel(
+                          selectedCampaign
+                        ) ===
                           "processing" ||
-                        selectedCampaign.status ===
+                        getStatusLabel(
+                          selectedCampaign
+                        ) ===
                           "sending"
                       }
                       onClick={() =>
@@ -5015,23 +5760,51 @@ Write your email exactly how you want it to read.`}
                       {sendingCampaignId ===
                       selectedCampaign.id ? (
                         <Loader2
-                          size={13}
+                          size={
+                            13
+                          }
                           className="animate-spin"
                         />
                       ) : (
                         <Send
-                          size={13}
+                          size={
+                            13
+                          }
                         />
                       )}
 
-                      {selectedCampaign.status ===
+                      {getStatusLabel(
+                        selectedCampaign
+                      ) ===
                         "processing" ||
-                      selectedCampaign.status ===
+                      getStatusLabel(
+                        selectedCampaign
+                      ) ===
                         "sending"
                         ? "Sending..."
                         : "Send Now"}
                     </button>
                   )}
+
+                  <button
+                    onClick={() =>
+                      void refreshStats()
+                    }
+                    className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-5 py-3 text-[9px] font-black uppercase tracking-wider text-stone-500"
+                  >
+                    <RefreshCw
+                      size={
+                        13
+                      }
+                      className={
+                        refreshingStats
+                          ? "animate-spin"
+                          : ""
+                      }
+                    />
+
+                    Refresh
+                  </button>
 
                   <button
                     onClick={() =>
@@ -5042,7 +5815,9 @@ Write your email exactly how you want it to read.`}
                     className="ml-auto flex items-center gap-2 rounded-xl bg-red-50 px-5 py-3 text-[9px] font-black uppercase tracking-wider text-red-600"
                   >
                     <Trash2
-                      size={13}
+                      size={
+                        13
+                      }
                     />
 
                     Delete

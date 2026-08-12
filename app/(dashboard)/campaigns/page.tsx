@@ -18,7 +18,6 @@ import {
   Check,
   Clock,
   Columns2,
-  FileText,
   Hash,
   Heading2,
   Image as ImageIcon,
@@ -37,7 +36,6 @@ import {
   Sparkles,
   Type,
   Users,
-  Wand2,
   X,
   Zap,
 } from "lucide-react";
@@ -101,6 +99,23 @@ type CampaignTemplate = {
   buildContent: (
     company: CompanyBranding
   ) => string;
+};
+
+type ListSubscriber = {
+  id: string;
+  source:
+    | "profile"
+    | "manual";
+  profile_id:
+    | string
+    | null;
+  manual_email_id:
+    | string
+    | null;
+  name:
+    | string
+    | null;
+  email: string;
 };
 
 // ==================================================
@@ -359,6 +374,36 @@ const CAMPAIGN_TEMPLATES: CampaignTemplate[] =
       `,
     },
   ];
+
+// ==================================================
+// EMAIL HELPERS
+// ==================================================
+
+function isValidEmail(
+  value: string
+) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    value.trim()
+  );
+}
+
+function parseManualEmails(
+  value: string
+) {
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,;]+/)
+        .map((email) =>
+          email
+            .trim()
+            .toLowerCase()
+        )
+        .filter(Boolean)
+        .filter(isValidEmail)
+    )
+  );
+}
 
 // ==================================================
 // HTML HELPERS
@@ -624,7 +669,7 @@ function createCampaignService(
 
       const {
         error:
-          linkError,
+          profileLinkError,
       } = await supabase
         .from(
           "profile_subscriber_lists"
@@ -632,13 +677,36 @@ function createCampaignService(
         .delete()
         .eq("list_id", id);
 
-      if (linkError) {
+      if (
+        profileLinkError
+      ) {
         console.error(
-          "deleteList subscriber link error:",
-          linkError
+          "deleteList profile link error:",
+          profileLinkError
         );
 
-        throw linkError;
+        throw profileLinkError;
+      }
+
+      const {
+        error:
+          manualEmailError,
+      } = await supabase
+        .from(
+          "campaign_list_emails"
+        )
+        .delete()
+        .eq("list_id", id);
+
+      if (
+        manualEmailError
+      ) {
+        console.error(
+          "deleteList manual email error:",
+          manualEmailError
+        );
+
+        throw manualEmailError;
       }
 
       const {
@@ -683,6 +751,41 @@ function createCampaignService(
       if (error) {
         console.error(
           "removeSubscriber error:",
+          error
+        );
+
+        throw error;
+      }
+    },
+
+    async removeManualSubscriber(
+      id: string
+    ) {
+      if (
+        !organisationId
+      ) {
+        return;
+      }
+
+      const {
+        error,
+      } = await supabase
+        .from(
+          "campaign_list_emails"
+        )
+        .delete()
+        .eq(
+          "id",
+          id
+        )
+        .eq(
+          "organisation_id",
+          organisationId
+        );
+
+      if (error) {
+        console.error(
+          "removeManualSubscriber error:",
           error
         );
 
@@ -758,7 +861,10 @@ function createCampaignService(
       listId: string,
       profileIds: string[]
     ) {
-      if (!organisationId) {
+      if (
+        !organisationId ||
+        !profileIds.length
+      ) {
         return;
       }
 
@@ -767,6 +873,7 @@ function createCampaignService(
           (profile_id) => ({
             profile_id,
             list_id: listId,
+
             organisation_id:
               organisationId,
           })
@@ -793,29 +900,111 @@ function createCampaignService(
       }
     },
 
+    async addManualSubscribers(
+      listId: string,
+      emails: string[]
+    ) {
+      if (
+        !organisationId ||
+        !emails.length
+      ) {
+        return;
+      }
+
+      const rows =
+        emails.map(
+          (email) => ({
+            list_id:
+              listId,
+
+            organisation_id:
+              organisationId,
+
+            email:
+              email
+                .trim()
+                .toLowerCase(),
+          })
+        );
+
+      const {
+        error,
+      } = await supabase
+        .from(
+          "campaign_list_emails"
+        )
+        .upsert(
+          rows,
+          {
+            onConflict:
+              "organisation_id,list_id,email",
+
+            ignoreDuplicates:
+              true,
+          }
+        );
+
+      if (error) {
+        console.error(
+          "addManualSubscribers error:",
+          error
+        );
+
+        throw error;
+      }
+    },
+
     async subscriberCounts() {
       if (!organisationId) {
         return {};
       }
 
-      const {
-        data,
-        error,
-      } = await supabase
-        .from(
-          "profile_subscriber_lists"
-        )
-        .select("list_id")
-        .eq(
-          "organisation_id",
-          organisationId
-        );
+      const [
+        profileResult,
+        manualResult,
+      ] =
+        await Promise.all([
+          supabase
+            .from(
+              "profile_subscriber_lists"
+            )
+            .select(
+              "list_id"
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            ),
+
+          supabase
+            .from(
+              "campaign_list_emails"
+            )
+            .select(
+              "list_id"
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            ),
+        ]);
 
       if (
-        error ||
-        !data
+        profileResult.error
       ) {
-        return {};
+        console.error(
+          "subscriberCounts profile error:",
+          profileResult.error
+        );
+      }
+
+      if (
+        manualResult.error
+      ) {
+        console.error(
+          "subscriberCounts manual error:",
+          manualResult.error
+        );
       }
 
       const counts: Record<
@@ -823,7 +1012,24 @@ function createCampaignService(
         number
       > = {};
 
-      data.forEach(
+      (
+        profileResult.data ||
+        []
+      ).forEach(
+        (row: any) => {
+          counts[
+            row.list_id
+          ] =
+            (counts[
+              row.list_id
+            ] || 0) + 1;
+        }
+      );
+
+      (
+        manualResult.data ||
+        []
+      ).forEach(
         (row: any) => {
           counts[
             row.list_id
@@ -1206,11 +1412,6 @@ function useCampaigns(
         return;
       }
 
-      cacheRef.current = {
-        data,
-        ts: now,
-      };
-
       const incoming =
         data || [];
 
@@ -1222,7 +1423,7 @@ function useCampaigns(
           )
         );
 
-      setCampaigns(
+      const processed =
         incoming.map(
           (campaign: any) => {
             const optimisticStatus =
@@ -1244,7 +1445,15 @@ function useCampaigns(
                 ] || 0,
             };
           }
-        )
+        );
+
+      cacheRef.current = {
+        data: processed,
+        ts: now,
+      };
+
+      setCampaigns(
+        processed
       );
     };
 
@@ -1314,7 +1523,7 @@ function useCampaigns(
             )
           );
 
-        setCampaigns(
+        const processed =
           (
             camps || []
           ).map(
@@ -1328,8 +1537,18 @@ function useCampaigns(
                   campaign.id
                 ] || 0,
             })
-          )
+          );
+
+        setCampaigns(
+          processed
         );
+
+        cacheRef.current = {
+          data:
+            processed,
+          ts:
+            Date.now(),
+        };
 
         setLists(
           listsData
@@ -1488,7 +1707,9 @@ function useCampaigns(
   const loadListSubscribers =
     async (
       listId: string
-    ) => {
+    ): Promise<
+      ListSubscriber[]
+    > => {
       if (
         !listId ||
         !organisationId
@@ -1496,50 +1717,161 @@ function useCampaigns(
         return [];
       }
 
-      const {
-        data,
-        error,
-      } = await supabase
-        .from(
-          "profile_subscriber_lists"
-        )
-        .select(
-          "profile_id, profiles:profiles(id, name, full_name, email)"
-        )
-        .eq(
-          "list_id",
-          listId
-        );
+      const [
+        profileResult,
+        manualResult,
+      ] =
+        await Promise.all([
+          supabase
+            .from(
+              "profile_subscriber_lists"
+            )
+            .select(
+              "profile_id, profiles:profiles(id, name, full_name, email)"
+            )
+            .eq(
+              "list_id",
+              listId
+            ),
 
-      if (error) {
+          supabase
+            .from(
+              "campaign_list_emails"
+            )
+            .select(
+              "id,email"
+            )
+            .eq(
+              "list_id",
+              listId
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .order(
+              "created_at",
+              {
+                ascending:
+                  false,
+              }
+            ),
+        ]);
+
+      if (
+        profileResult.error
+      ) {
         console.error(
-          "Load subscribers error:",
-          error
+          "Load profile subscribers error:",
+          profileResult.error
         );
-
-        return [];
       }
 
-      return (
-        data || []
-      ).map(
-        (
-          row: any,
-          index: number
-        ) => ({
-          profile_id:
-            row.profile_id ??
-            `missing-${index}`,
+      if (
+        manualResult.error
+      ) {
+        console.error(
+          "Load manual subscribers error:",
+          manualResult.error
+        );
+      }
 
-          profiles:
-            row.profiles ?? {
-              id: null,
-              name: null,
-              full_name:
+      const profileSubscribers: ListSubscriber[] =
+        (
+          profileResult.data ||
+          []
+        )
+          .filter(
+            (row: any) =>
+              row.profiles
+                ?.email
+          )
+          .map(
+            (
+              row: any
+            ) => ({
+              id:
+                row.profile_id,
+
+              source:
+                "profile",
+
+              profile_id:
+                row.profile_id,
+
+              manual_email_id:
                 null,
-              email: null,
-            },
-        })
+
+              name:
+                row.profiles
+                  ?.full_name ||
+                row.profiles
+                  ?.name ||
+                null,
+
+              email:
+                row.profiles
+                  ?.email ||
+                "",
+            })
+          );
+
+      const manualSubscribers: ListSubscriber[] =
+        (
+          manualResult.data ||
+          []
+        ).map(
+          (
+            row: any
+          ) => ({
+            id:
+              row.id,
+
+            source:
+              "manual",
+
+            profile_id:
+              null,
+
+            manual_email_id:
+              row.id,
+
+            name:
+              null,
+
+            email:
+              row.email,
+          })
+        );
+
+      const combined = [
+        ...profileSubscribers,
+        ...manualSubscribers,
+      ];
+
+      const seen =
+        new Set<string>();
+
+      return combined.filter(
+        (
+          subscriber
+        ) => {
+          const email =
+            subscriber.email
+              .trim()
+              .toLowerCase();
+
+          if (
+            !email ||
+            seen.has(email)
+          ) {
+            return false;
+          }
+
+          seen.add(email);
+
+          return true;
+        }
       );
     };
 
@@ -1642,10 +1974,22 @@ function useCampaigns(
               list.id !== id
           )
       );
+
+      setSubscriberCounts(
+        (previous) => {
+          const next = {
+            ...previous,
+          };
+
+          delete next[id];
+
+          return next;
+        }
+      );
     };
 
   // ==================================================
-  // REMOVE SUBSCRIBER
+  // REMOVE PROFILE SUBSCRIBER
   // ==================================================
 
   const removeSubscriber =
@@ -1656,6 +2000,26 @@ function useCampaigns(
       await service.removeSubscriber(
         listId,
         profileId
+      );
+
+      const counts =
+        await service.subscriberCounts();
+
+      setSubscriberCounts(
+        counts
+      );
+    };
+
+  // ==================================================
+  // REMOVE MANUAL SUBSCRIBER
+  // ==================================================
+
+  const removeManualSubscriber =
+    async (
+      id: string
+    ) => {
+      await service.removeManualSubscriber(
+        id
       );
 
       const counts =
@@ -1704,7 +2068,11 @@ function useCampaigns(
           !response.ok
         ) {
           const error =
-            await response.json();
+            await response
+              .json()
+              .catch(
+                () => ({})
+              );
 
           alert(
             error.error ||
@@ -1738,7 +2106,7 @@ function useCampaigns(
     };
 
   // ==================================================
-  // ADD SUBSCRIBERS
+  // ADD PROFILE SUBSCRIBERS
   // ==================================================
 
   const addSubscribersToList =
@@ -1746,9 +2114,43 @@ function useCampaigns(
       listId: string,
       profileIds: string[]
     ) => {
+      if (
+        !profileIds.length
+      ) {
+        return;
+      }
+
       await service.addSubscribers(
         listId,
         profileIds
+      );
+
+      const counts =
+        await service.subscriberCounts();
+
+      setSubscriberCounts(
+        counts
+      );
+    };
+
+  // ==================================================
+  // ADD MANUAL SUBSCRIBERS
+  // ==================================================
+
+  const addManualSubscribersToList =
+    async (
+      listId: string,
+      emails: string[]
+    ) => {
+      if (
+        !emails.length
+      ) {
+        return;
+      }
+
+      await service.addManualSubscribers(
+        listId,
+        emails
       );
 
       const counts =
@@ -1773,7 +2175,7 @@ function useCampaigns(
     const channel =
       supabase
         .channel(
-          "realtime-campaigns-lists"
+          `realtime-campaigns-lists-${organisationId}`
         )
         .on(
           "postgres_changes",
@@ -1799,9 +2201,29 @@ function useCampaigns(
             schema:
               "public",
             table:
+              "campaign_list_emails",
+          },
+          () => {
+            service
+              .subscriberCounts()
+              .then(
+                setSubscriberCounts
+              );
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema:
+              "public",
+            table:
               "campaigns",
           },
           () => {
+            cacheRef.current.ts =
+              0;
+
             void refreshCampaigns();
           }
         )
@@ -1875,6 +2297,9 @@ function useCampaigns(
               "campaign_clicks",
           },
           () => {
+            cacheRef.current.ts =
+              0;
+
             void refreshCampaigns();
           }
         )
@@ -1908,7 +2333,9 @@ function useCampaigns(
     updateCampaign,
     deleteCampaign,
     deleteList,
+
     removeSubscriber,
+    removeManualSubscriber,
 
     subscriberCounts,
     profiles,
@@ -1916,6 +2343,7 @@ function useCampaigns(
     sendCampaignNow,
 
     addSubscribersToList,
+    addManualSubscribersToList,
 
     refreshCampaigns,
   };
@@ -1953,7 +2381,9 @@ export default function CampaignsPage() {
     updateCampaign,
     deleteCampaign,
     deleteList,
+
     removeSubscriber,
+    removeManualSubscriber,
 
     subscriberCounts,
     profiles,
@@ -1962,6 +2392,7 @@ export default function CampaignsPage() {
       sendCampaignNowBase,
 
     addSubscribersToList,
+    addManualSubscribersToList,
 
     refreshCampaigns,
   } = useCampaigns(
@@ -2009,9 +2440,9 @@ export default function CampaignsPage() {
   const [
     listSubscribers,
     setListSubscribers,
-  ] = useState<any[]>(
-    []
-  );
+  ] = useState<
+    ListSubscriber[]
+  >([]);
 
   const [
     selectedProfiles,
@@ -2021,8 +2452,18 @@ export default function CampaignsPage() {
   >([]);
 
   const [
+    manualEmails,
+    setManualEmails,
+  ] = useState("");
+
+  const [
     showSubscriberManager,
     setShowSubscriberManager,
+  ] = useState(false);
+
+  const [
+    savingSubscribers,
+    setSavingSubscribers,
   ] = useState(false);
 
   const [
@@ -2548,7 +2989,9 @@ export default function CampaignsPage() {
 
   const executeGeneration =
     () => {
-      if (!clarityTopic) {
+      if (
+        !clarityTopic.trim()
+      ) {
         return;
       }
 
@@ -2736,6 +3179,7 @@ export default function CampaignsPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#faf9f6] p-4 font-sans text-stone-900 md:p-12">
+
       {/* ==================================================
           HEADER
       ================================================== */}
@@ -2800,6 +3244,7 @@ export default function CampaignsPage() {
       ================================================== */}
 
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 lg:grid-cols-12">
+
         {/* ==================================================
             CAMPAIGN PIPELINE
         ================================================== */}
@@ -2964,10 +3409,16 @@ export default function CampaignsPage() {
               {lists.map(
                 (list) => (
                   <div
-                    key={list.id}
+                    key={
+                      list.id
+                    }
                     onClick={async () => {
                       setSelectedList(
                         list
+                      );
+
+                      setListSubscribers(
+                        []
                       );
 
                       setShowListDetailModal(
@@ -3269,6 +3720,10 @@ export default function CampaignsPage() {
                           },
                       });
 
+                      setStep(
+                        "editor"
+                      );
+
                       setShowModal(
                         true
                       );
@@ -3360,6 +3815,10 @@ export default function CampaignsPage() {
                 scale: 1,
                 opacity: 1,
               }}
+              exit={{
+                scale: 0.9,
+                opacity: 0,
+              }}
               className="relative w-full max-w-md rounded-[3rem] border border-stone-200 bg-white p-10 shadow-2xl"
             >
               <button
@@ -3438,6 +3897,10 @@ export default function CampaignsPage() {
                 opacity: 1,
                 y: 0,
               }}
+              exit={{
+                opacity: 0,
+                y: 50,
+              }}
               className="relative flex h-full w-full flex-col overflow-hidden border border-stone-200 bg-[#faf9f6] shadow-2xl md:h-[92vh] md:max-w-[1500px] md:flex-row md:rounded-[3rem]"
             >
               <button
@@ -3471,6 +3934,7 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* BRAND SYNC */}
+
                 <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4">
                   <div className="mb-3 flex items-center gap-3">
                     {companyBranding.logoUrl ? (
@@ -3518,6 +3982,7 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* TEMPLATES */}
+
                 <div className="rounded-2xl border border-stone-100 bg-white p-4">
                   <button
                     type="button"
@@ -3535,6 +4000,7 @@ export default function CampaignsPage() {
                       <LayoutTemplate
                         size={12}
                       />
+
                       Templates
                     </span>
 
@@ -3582,6 +4048,7 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* CONTENT BLOCKS */}
+
                 <div className="rounded-2xl border border-stone-100 bg-white p-4">
                   <p className="mb-3 text-[8px] font-black uppercase tracking-wider text-stone-400">
                     Insert Block
@@ -3598,6 +4065,7 @@ export default function CampaignsPage() {
                       <Type
                         size={12}
                       />
+
                       Heading
                     </button>
 
@@ -3611,6 +4079,7 @@ export default function CampaignsPage() {
                       <Quote
                         size={12}
                       />
+
                       Quote
                     </button>
 
@@ -3624,6 +4093,7 @@ export default function CampaignsPage() {
                       <Minus
                         size={12}
                       />
+
                       Divider
                     </button>
 
@@ -3637,12 +4107,14 @@ export default function CampaignsPage() {
                       <Columns2
                         size={12}
                       />
+
                       2 Columns
                     </button>
                   </div>
                 </div>
 
                 {/* COMPANY NAME */}
+
                 <div className="rounded-2xl border border-stone-100 bg-white p-4">
                   <label className="mb-2 block text-[8px] font-black uppercase tracking-wider text-stone-400">
                     Company Name
@@ -3676,6 +4148,7 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* EXTRA FOOTER */}
+
                 <div className="rounded-2xl border border-stone-100 bg-white p-4">
                   <label className="mb-2 block text-[8px] font-black uppercase tracking-wider text-stone-400">
                     Extra Footer Note
@@ -3705,11 +4178,13 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* SENDER */}
+
                 <div className="space-y-3 rounded-2xl border border-stone-100 bg-white p-4">
                   <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
                     <Mail
                       size={10}
                     />
+
                     Sender
                   </p>
 
@@ -3753,6 +4228,7 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* PREVIEW TEXT */}
+
                 <div className="rounded-2xl border border-stone-100 bg-white p-4">
                   <label className="mb-2 block text-[8px] font-black uppercase tracking-wider text-stone-400">
                     Inbox Preview
@@ -3779,6 +4255,7 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* HEADER IMAGE */}
+
                 <div className="rounded-2xl border border-stone-100 bg-white p-4">
                   <label className="mb-2 flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
                     <ImageIcon
@@ -3820,11 +4297,13 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* BRAND STYLE */}
+
                 <div className="space-y-3 rounded-2xl border border-stone-100 bg-white p-4">
                   <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
                     <Palette
                       size={10}
                     />
+
                     Brand Style
                   </p>
 
@@ -3906,6 +4385,7 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* CTA */}
+
                 <div className="space-y-3 rounded-2xl border border-stone-100 bg-white p-4">
                   <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
                     <MousePointerClick
@@ -3955,11 +4435,13 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* SOCIAL */}
+
                 <div className="space-y-3 rounded-2xl border border-stone-100 bg-white p-4">
                   <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
                     <Share2
                       size={10}
                     />
+
                     Social Links
                   </p>
 
@@ -4092,7 +4574,10 @@ export default function CampaignsPage() {
                             onClick={
                               executeGeneration
                             }
-                            className="flex items-center gap-2 rounded-xl bg-[#a9b897] px-8 py-3 text-[9px] font-black uppercase tracking-widest text-stone-900"
+                            disabled={
+                              isGenerating
+                            }
+                            className="flex items-center gap-2 rounded-xl bg-[#a9b897] px-8 py-3 text-[9px] font-black uppercase tracking-widest text-stone-900 disabled:opacity-50"
                           >
                             {isGenerating ? (
                               <Loader2
@@ -4117,8 +4602,8 @@ export default function CampaignsPage() {
                     </AnimatePresence>
 
                     {/* EMAIL CANVAS */}
+
                     <div className="min-h-[850px] w-full rounded-[3rem] border border-stone-200 bg-white p-8 text-stone-600 shadow-2xl md:p-16">
-                      {/* BRAND HEADER */}
                       <div className="mb-12 flex items-center justify-between border-b border-stone-100 pb-8">
                         <div className="flex items-center gap-4">
                           {companyBranding.logoUrl ? (
@@ -4216,6 +4701,7 @@ export default function CampaignsPage() {
                       />
 
                       {/* TOOLBAR */}
+
                       <div className="mb-5 flex w-fit flex-wrap items-center gap-1 rounded-2xl border border-stone-100 bg-stone-50 p-2">
                         <button
                           type="button"
@@ -4398,6 +4884,7 @@ export default function CampaignsPage() {
                       </div>
 
                       {/* CONTENT */}
+
                       <div
                         ref={
                           contentEditableRef
@@ -4416,6 +4903,7 @@ export default function CampaignsPage() {
                       />
 
                       {/* CTA */}
+
                       {form.cta_text && (
                         <div className="mt-12 text-center">
                           <a
@@ -4440,6 +4928,7 @@ export default function CampaignsPage() {
                       )}
 
                       {/* LIVE AUTO FOOTER PREVIEW */}
+
                       <footer className="mt-16 border-t border-stone-100 pt-10 text-center">
                         {companyBranding.logoUrl && (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -4562,7 +5051,12 @@ export default function CampaignsPage() {
                               >
                                 {
                                   list.name
-                                }
+                                }{" "}
+                                (
+                                {subscriberCounts?.[
+                                  list.id
+                                ] || 0}
+                                )
                               </option>
                             )
                           )}
@@ -4596,7 +5090,6 @@ export default function CampaignsPage() {
                         />
                       </div>
 
-                      {/* BRAND SUMMARY */}
                       <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-5">
                         <div className="flex items-center gap-4">
                           {companyBranding.logoUrl && (
@@ -4821,7 +5314,7 @@ export default function CampaignsPage() {
       <AnimatePresence>
         {showListDetailModal &&
           selectedList && (
-            <div className="fixed inset-0 z-[210] flex items-center justify-center bg-stone-900/50 p-6 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[210] flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-sm md:p-6">
               <motion.div
                 initial={{
                   opacity: 0,
@@ -4835,21 +5328,32 @@ export default function CampaignsPage() {
                   opacity: 0,
                   scale: 0.95,
                 }}
-                className="w-full max-w-2xl rounded-[3rem] border border-stone-200 bg-white p-10 shadow-2xl"
+                className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[3rem] border border-stone-200 bg-white shadow-2xl"
               >
-                <div className="mb-8 flex items-center justify-between">
-                  <h2 className="font-serif text-2xl italic">
-                    {
-                      selectedList.name
-                    }
-                  </h2>
+                <div className="flex items-center justify-between border-b border-stone-100 p-7 md:p-10">
+                  <div>
+                    <p className="mb-2 text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                      Campaign List
+                    </p>
+
+                    <h2 className="font-serif text-2xl italic">
+                      {
+                        selectedList.name
+                      }
+                    </h2>
+                  </div>
 
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setShowListDetailModal(
                         false
-                      )
-                    }
+                      );
+
+                      setSelectedList(
+                        null
+                      );
+                    }}
+                    className="rounded-full border border-stone-200 p-3 text-stone-500 transition hover:bg-stone-50"
                   >
                     <X
                       size={18}
@@ -4857,94 +5361,142 @@ export default function CampaignsPage() {
                   </button>
                 </div>
 
-                <p className="mb-6 text-[10px] font-black uppercase tracking-widest text-stone-400">
-                  Active
-                  Subscribers (
-                  {
-                    listSubscribers.length
-                  }
-                  )
-                </p>
-
-                <button
-                  onClick={() => {
-                    setSelectedProfiles(
-                      []
-                    );
-
-                    setShowSubscriberManager(
-                      true
-                    );
-                  }}
-                  className="mb-4 rounded-xl bg-stone-900 px-4 py-2 text-[10px] font-black uppercase text-white"
-                >
-                  Add
-                  Subscribers
-                </button>
-
-                <div className="max-h-[400px] space-y-3 overflow-y-auto">
-                  {listSubscribers.length ===
-                    0 && (
-                    <p className="text-sm italic text-stone-400">
-                      No subscribers
-                      found.
+                <div className="no-scrollbar flex-1 overflow-y-auto p-7 md:p-10">
+                  <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">
+                      Active
+                      Subscribers (
+                      {
+                        listSubscribers.length
+                      }
+                      )
                     </p>
-                  )}
 
-                  {listSubscribers.map(
-                    (
-                      subscriber: any,
-                      index: number
-                    ) => (
-                      <div
-                        key={`${subscriber.profile_id}-${index}`}
-                        className="flex items-center justify-between rounded-xl border border-stone-100 bg-stone-50 p-4"
-                      >
-                        <div>
-                          <p className="text-sm font-bold text-stone-800">
-                            {subscriber
-                              .profiles
-                              ?.full_name ||
-                              subscriber
-                                .profiles
-                                ?.name ||
-                              "Unnamed User"}
-                          </p>
+                    <button
+                      onClick={() => {
+                        setSelectedProfiles(
+                          []
+                        );
 
-                          <p className="text-xs text-stone-500">
-                            {subscriber
-                              .profiles
-                              ?.email ||
-                              "No email"}
-                          </p>
-                        </div>
+                        setManualEmails(
+                          ""
+                        );
 
-                        <button
-                          onClick={async () => {
-                            await removeSubscriber(
-                              selectedList.id,
-                              subscriber.profile_id
-                            );
+                        setShowSubscriberManager(
+                          true
+                        );
+                      }}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-wider text-[#a9b897]"
+                    >
+                      <Plus
+                        size={13}
+                      />
 
-                            const updated =
-                              await loadListSubscribers(
-                                selectedList.id
-                              );
+                      Add
+                      Subscribers
+                    </button>
+                  </div>
 
-                            setListSubscribers(
-                              updated
-                            );
-                          }}
-                          className="text-xs font-black uppercase text-red-600"
-                        >
-                          Remove
-                        </button>
+                  <div className="space-y-3">
+                    {listSubscribers.length ===
+                      0 && (
+                      <div className="rounded-2xl border border-dashed border-stone-200 p-10 text-center">
+                        <Mail
+                          size={24}
+                          className="mx-auto mb-4 text-stone-200"
+                        />
+
+                        <p className="font-serif text-sm italic text-stone-400">
+                          No subscribers
+                          found.
+                        </p>
                       </div>
-                    )
-                  )}
+                    )}
+
+                    {listSubscribers.map(
+                      (
+                        subscriber
+                      ) => (
+                        <div
+                          key={
+                            `${subscriber.source}-${subscriber.id}`
+                          }
+                          className="flex items-center justify-between gap-4 rounded-2xl border border-stone-100 bg-stone-50 p-4"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-sm font-bold text-stone-800">
+                                {subscriber.name ||
+                                  subscriber.email}
+                              </p>
+
+                              {subscriber.source ===
+                                "manual" && (
+                                <span className="shrink-0 rounded-full bg-[#a9b897]/20 px-2 py-1 text-[7px] font-black uppercase tracking-wider text-[#71805f]">
+                                  Manual
+                                </span>
+                              )}
+                            </div>
+
+                            {subscriber.name && (
+                              <p className="mt-1 truncate text-xs text-stone-500">
+                                {
+                                  subscriber.email
+                                }
+                              </p>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={async () => {
+                              try {
+                                if (
+                                  subscriber.source ===
+                                    "manual" &&
+                                  subscriber.manual_email_id
+                                ) {
+                                  await removeManualSubscriber(
+                                    subscriber.manual_email_id
+                                  );
+                                } else if (
+                                  subscriber.profile_id
+                                ) {
+                                  await removeSubscriber(
+                                    selectedList.id,
+                                    subscriber.profile_id
+                                  );
+                                }
+
+                                const updated =
+                                  await loadListSubscribers(
+                                    selectedList.id
+                                  );
+
+                                setListSubscribers(
+                                  updated
+                                );
+                              } catch (error) {
+                                console.error(
+                                  "Remove subscriber error:",
+                                  error
+                                );
+
+                                alert(
+                                  "Failed to remove subscriber."
+                                );
+                              }
+                            }}
+                            className="shrink-0 text-[9px] font-black uppercase tracking-wider text-red-600"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )
+                    )}
+                  </div>
                 </div>
 
-                <div className="mt-8 flex justify-end gap-3">
+                <div className="flex flex-col justify-end gap-3 border-t border-stone-100 bg-stone-50 p-6 sm:flex-row">
                   <button
                     onClick={async () => {
                       if (
@@ -4978,6 +5530,10 @@ export default function CampaignsPage() {
                       setSelectedList(
                         null
                       );
+
+                      setListSubscribers(
+                        []
+                      );
                     }}
                     className="rounded-xl bg-red-600 px-6 py-3 text-[10px] font-black uppercase text-white"
                   >
@@ -4985,11 +5541,15 @@ export default function CampaignsPage() {
                   </button>
 
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setShowListDetailModal(
                         false
-                      )
-                    }
+                      );
+
+                      setSelectedList(
+                        null
+                      );
+                    }}
                     className="rounded-xl bg-stone-900 px-6 py-3 text-[10px] font-black uppercase text-[#a9b897]"
                   >
                     Close
@@ -5006,20 +5566,36 @@ export default function CampaignsPage() {
 
       {showSubscriberManager &&
         selectedList && (
-          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 p-6">
-            <div className="w-full max-w-2xl rounded-[3rem] bg-white p-8">
-              <div className="mb-6 flex justify-between">
-                <h3 className="text-xl font-bold">
-                  Manage
-                  Subscribers
-                </h3>
+          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm md:p-6">
+            <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[3rem] border border-stone-200 bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b border-stone-100 p-7 md:p-8">
+                <div>
+                  <p className="mb-2 text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                    {
+                      selectedList.name
+                    }
+                  </p>
+
+                  <h3 className="text-xl font-bold text-stone-900">
+                    Add Subscribers
+                  </h3>
+                </div>
 
                 <button
-                  onClick={() =>
+                  onClick={() => {
                     setShowSubscriberManager(
                       false
-                    )
-                  }
+                    );
+
+                    setManualEmails(
+                      ""
+                    );
+
+                    setSelectedProfiles(
+                      []
+                    );
+                  }}
+                  className="rounded-full border border-stone-200 p-3 text-stone-500 transition hover:bg-stone-50"
                 >
                   <X
                     size={18}
@@ -5027,100 +5603,323 @@ export default function CampaignsPage() {
                 </button>
               </div>
 
-              <div className="max-h-[400px] space-y-2 overflow-y-auto">
-                {profiles.map(
-                  (
-                    profile: any
-                  ) => (
-                    <label
-                      key={
-                        profile.id
-                      }
-                      className="flex items-center gap-3 rounded-xl border p-3"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedProfiles.includes(
-                          profile.id
-                        )}
-                        onChange={(
-                          event
-                        ) => {
-                          if (
-                            event
-                              .target
-                              .checked
-                          ) {
-                            setSelectedProfiles(
-                              (
-                                previous
-                              ) => [
-                                ...previous,
-                                profile.id,
-                              ]
-                            );
-                          } else {
-                            setSelectedProfiles(
-                              (
-                                previous
-                              ) =>
-                                previous.filter(
-                                  (
-                                    id
-                                  ) =>
-                                    id !==
-                                    profile.id
-                                )
-                            );
-                          }
-                        }}
+              <div className="no-scrollbar flex-1 space-y-8 overflow-y-auto p-7 md:p-8">
+
+                {/* MANUAL EMAILS */}
+
+                <div>
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#71805f]">
+                      <Mail
+                        size={16}
                       />
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-black text-stone-800">
+                        Add Any Email
+                      </p>
+
+                      <p className="text-[10px] text-stone-400">
+                        They do not need
+                        a TOTS-OS account.
+                      </p>
+                    </div>
+                  </div>
+
+                  <textarea
+                    value={
+                      manualEmails
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setManualEmails(
+                        event.target
+                          .value
+                      )
+                    }
+                    placeholder={`hello@example.com
+marketing@business.co.uk
+customer@email.com`}
+                    className="min-h-[150px] w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 p-5 text-sm leading-relaxed outline-none transition focus:border-stone-900 focus:bg-white"
+                  />
+
+                  <div className="mt-3 flex items-start justify-between gap-4">
+                    <p className="max-w-md text-[9px] leading-relaxed text-stone-400">
+                      Enter one email per
+                      line, or separate
+                      addresses with
+                      commas or
+                      semicolons.
+                      Duplicates are
+                      removed
+                      automatically.
+                    </p>
+
+                    {manualEmails.trim() && (
+                      <span className="shrink-0 rounded-full bg-stone-100 px-3 py-1 text-[8px] font-black uppercase text-stone-500">
+                        {
+                          parseManualEmails(
+                            manualEmails
+                          ).length
+                        }{" "}
+                        valid
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* DIVIDER */}
+
+                <div className="flex items-center gap-4">
+                  <div className="h-px flex-1 bg-stone-100" />
+
+                  <span className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-300">
+                    Or choose existing
+                    contacts
+                  </span>
+
+                  <div className="h-px flex-1 bg-stone-100" />
+                </div>
+
+                {/* EXISTING PROFILES */}
+
+                <div>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-100 text-stone-500">
+                        <Users
+                          size={16}
+                        />
+                      </div>
 
                       <div>
-                        <p className="font-bold">
-                          {profile.full_name ||
-                            profile.name}
+                        <p className="text-sm font-black text-stone-800">
+                          Existing
+                          Subscribers
                         </p>
 
-                        <p className="text-xs text-stone-500">
-                          {
-                            profile.email
-                          }
+                        <p className="text-[10px] text-stone-400">
+                          Select people
+                          already stored
+                          in TOTS-OS.
                         </p>
                       </div>
-                    </label>
-                  )
-                )}
+                    </div>
+
+                    {selectedProfiles.length >
+                      0 && (
+                      <span className="shrink-0 rounded-full bg-stone-900 px-3 py-1 text-[8px] font-black text-white">
+                        {
+                          selectedProfiles.length
+                        }{" "}
+                        selected
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="max-h-[300px] space-y-2 overflow-y-auto">
+                    {profiles.length ===
+                      0 && (
+                      <div className="rounded-2xl border border-dashed border-stone-200 p-8 text-center">
+                        <p className="text-xs italic text-stone-400">
+                          No existing
+                          subscribed
+                          contacts found.
+                        </p>
+                      </div>
+                    )}
+
+                    {profiles.map(
+                      (
+                        profile: any
+                      ) => {
+                        const checked =
+                          selectedProfiles.includes(
+                            profile.id
+                          );
+
+                        return (
+                          <label
+                            key={
+                              profile.id
+                            }
+                            className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition ${
+                              checked
+                                ? "border-[#a9b897] bg-[#a9b897]/10"
+                                : "border-stone-100 bg-stone-50 hover:border-stone-200"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={
+                                checked
+                              }
+                              onChange={(
+                                event
+                              ) => {
+                                if (
+                                  event
+                                    .target
+                                    .checked
+                                ) {
+                                  setSelectedProfiles(
+                                    (
+                                      previous
+                                    ) =>
+                                      previous.includes(
+                                        profile.id
+                                      )
+                                        ? previous
+                                        : [
+                                            ...previous,
+                                            profile.id,
+                                          ]
+                                  );
+                                } else {
+                                  setSelectedProfiles(
+                                    (
+                                      previous
+                                    ) =>
+                                      previous.filter(
+                                        (
+                                          id
+                                        ) =>
+                                          id !==
+                                          profile.id
+                                      )
+                                  );
+                                }
+                              }}
+                              className="h-4 w-4"
+                            />
+
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-stone-800">
+                                {profile.full_name ||
+                                  profile.name ||
+                                  profile.email ||
+                                  "Unnamed contact"}
+                              </p>
+
+                              <p className="truncate text-xs text-stone-500">
+                                {profile.email ||
+                                  "No email"}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      }
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <button
-                onClick={async () => {
-                  await addSubscribersToList(
-                    selectedList.id,
-                    selectedProfiles
-                  );
+              {/* SAVE */}
 
-                  const result =
-                    await loadListSubscribers(
-                      selectedList.id
+              <div className="border-t border-stone-100 bg-stone-50 p-6 md:p-8">
+                <button
+                  disabled={
+                    savingSubscribers
+                  }
+                  onClick={async () => {
+                    const parsedEmails =
+                      parseManualEmails(
+                        manualEmails
+                      );
+
+                    if (
+                      selectedProfiles.length ===
+                        0 &&
+                      parsedEmails.length ===
+                        0
+                    ) {
+                      alert(
+                        "Select an existing subscriber or enter at least one valid email address."
+                      );
+
+                      return;
+                    }
+
+                    setSavingSubscribers(
+                      true
                     );
 
-                  setListSubscribers(
-                    result
-                  );
+                    try {
+                      if (
+                        selectedProfiles.length >
+                        0
+                      ) {
+                        await addSubscribersToList(
+                          selectedList.id,
+                          selectedProfiles
+                        );
+                      }
 
-                  setShowSubscriberManager(
-                    false
-                  );
-                }}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 py-4 font-black text-white"
-              >
-                <Check
-                  size={16}
-                />
+                      if (
+                        parsedEmails.length >
+                        0
+                      ) {
+                        await addManualSubscribersToList(
+                          selectedList.id,
+                          parsedEmails
+                        );
+                      }
 
-                Save Subscribers
-              </button>
+                      const result =
+                        await loadListSubscribers(
+                          selectedList.id
+                        );
+
+                      setListSubscribers(
+                        result
+                      );
+
+                      setManualEmails(
+                        ""
+                      );
+
+                      setSelectedProfiles(
+                        []
+                      );
+
+                      setShowSubscriberManager(
+                        false
+                      );
+                    } catch (error) {
+                      console.error(
+                        "Save subscribers error:",
+                        error
+                      );
+
+                      alert(
+                        "Failed to save subscribers."
+                      );
+                    } finally {
+                      setSavingSubscribers(
+                        false
+                      );
+                    }
+                  }}
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-[#a9b897] shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingSubscribers ? (
+                    <Loader2
+                      size={16}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Check
+                      size={16}
+                    />
+                  )}
+
+                  {savingSubscribers
+                    ? "Saving..."
+                    : "Save Subscribers"}
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -9,6 +9,7 @@ import {
 import { createBrowserClient } from "@supabase/ssr";
 
 import {
+  BarChart3,
   Calendar,
   Check,
   Clock,
@@ -18,7 +19,9 @@ import {
   Image as ImageIcon,
   Loader2,
   Mail,
+  MousePointerClick,
   Plus,
+  RefreshCw,
   Send,
   Trash2,
   Users,
@@ -175,14 +178,13 @@ type CampaignForm = {
   message: string;
   listId: string;
 
-  scheduledFor:
-    string;
+  scheduledFor: string;
 
   senderName: string;
   replyTo: string;
 
-  headerImageUrl:
-    string;
+  campaignLogoUrl: string;
+  headerImageUrl: string;
 
   ctaText: string;
   ctaUrl: string;
@@ -196,6 +198,12 @@ type CampaignForm = {
 
 const DEFAULT_BRAND_COLOR =
   "#1c1917";
+
+const MESSAGE_START =
+  "<!-- TOTS_MESSAGE_START -->";
+
+const MESSAGE_END =
+  "<!-- TOTS_MESSAGE_END -->";
 
 // ==================================================
 // FORM
@@ -222,6 +230,9 @@ function emptyForm(
 
     replyTo:
       company?.email || "",
+
+    campaignLogoUrl:
+      company?.logoUrl || "",
 
     headerImageUrl: "",
 
@@ -363,6 +374,74 @@ function stripHtml(
   ).trim();
 }
 
+function extractMessage(
+  html: string
+) {
+  if (!html) {
+    return "";
+  }
+
+  const start =
+    html.indexOf(
+      MESSAGE_START
+    );
+
+  const end =
+    html.indexOf(
+      MESSAGE_END
+    );
+
+  if (
+    start !== -1 &&
+    end !== -1 &&
+    end > start
+  ) {
+    const raw =
+      html.slice(
+        start +
+          MESSAGE_START.length,
+        end
+      );
+
+    return stripHtml(
+      raw
+    );
+  }
+
+  return stripHtml(
+    html
+  );
+}
+
+function extractCampaignLogoUrl(
+  html: string
+) {
+  if (!html) {
+    return "";
+  }
+
+  const match =
+    html.match(
+      /data-tots-campaign-logo="true"[^>]*src="([^"]+)"/i
+    );
+
+  if (
+    match?.[1]
+  ) {
+    return match[1];
+  }
+
+  const reverseMatch =
+    html.match(
+      /src="([^"]+)"[^>]*data-tots-campaign-logo="true"/i
+    );
+
+  return (
+    reverseMatch?.[1] ||
+    ""
+  );
+}
+
 // ==================================================
 // EMAIL HTML
 // ==================================================
@@ -370,6 +449,7 @@ function stripHtml(
 function buildCampaignHtml({
   message,
   company,
+  campaignLogoUrl,
   headerImageUrl,
   ctaText,
   ctaUrl,
@@ -377,24 +457,49 @@ function buildCampaignHtml({
 }: {
   message: string;
   company: CompanyBranding;
+  campaignLogoUrl: string;
   headerImageUrl: string;
   ctaText: string;
   ctaUrl: string;
   brandColor: string;
 }) {
+  const logo =
+    campaignLogoUrl.trim() ||
+    company.logoUrl.trim();
+
   return `
-    <div style="max-width:640px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#292524;">
+    <div
+      style="
+        max-width:640px;
+        margin:0 auto;
+        font-family:Arial,Helvetica,sans-serif;
+        color:#292524;
+      "
+    >
 
       ${
-        company.logoUrl
+        logo
           ? `
-            <div style="text-align:center;margin:0 0 32px;">
+            <div
+              style="
+                text-align:center;
+                margin:0 0 32px;
+              "
+            >
               <img
-                src="${company.logoUrl}"
+                src="${logo}"
+                data-tots-campaign-logo="true"
                 alt="${escapeHtml(
                   company.name
                 )}"
-                style="max-width:130px;max-height:70px;width:auto;height:auto;"
+                style="
+                  display:inline-block;
+                  max-width:150px;
+                  max-height:80px;
+                  width:auto;
+                  height:auto;
+                  object-fit:contain;
+                "
               />
             </div>
           `
@@ -407,11 +512,19 @@ function buildCampaignHtml({
             <img
               src="${headerImageUrl}"
               alt=""
-              style="display:block;width:100%;height:auto;border-radius:20px;margin:0 0 32px;"
+              style="
+                display:block;
+                width:100%;
+                height:auto;
+                border-radius:20px;
+                margin:0 0 32px;
+              "
             />
           `
           : ""
       }
+
+      ${MESSAGE_START}
 
       <div>
         ${plainTextToHtml(
@@ -419,11 +532,18 @@ function buildCampaignHtml({
         )}
       </div>
 
+      ${MESSAGE_END}
+
       ${
         ctaText &&
         ctaUrl
           ? `
-            <div style="text-align:center;margin:36px 0;">
+            <div
+              style="
+                text-align:center;
+                margin:36px 0;
+              "
+            >
               <a
                 href="${ctaUrl}"
                 style="
@@ -448,23 +568,46 @@ function buildCampaignHtml({
           : ""
       }
 
-      <div style="margin-top:48px;padding-top:28px;border-top:1px solid #e7e5e4;text-align:center;">
+      <div
+        style="
+          margin-top:48px;
+          padding-top:28px;
+          border-top:1px solid #e7e5e4;
+          text-align:center;
+        "
+      >
 
         ${
-          company.logoUrl
+          logo
             ? `
               <img
-                src="${company.logoUrl}"
+                src="${logo}"
                 alt="${escapeHtml(
                   company.name
                 )}"
-                style="max-width:90px;max-height:50px;width:auto;height:auto;margin-bottom:14px;"
+                style="
+                  max-width:90px;
+                  max-height:50px;
+                  width:auto;
+                  height:auto;
+                  object-fit:contain;
+                  margin-bottom:14px;
+                "
               />
             `
             : ""
         }
 
-        <p style="margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#44403c;">
+        <p
+          style="
+            margin:0;
+            font-size:11px;
+            font-weight:700;
+            text-transform:uppercase;
+            letter-spacing:0.14em;
+            color:#44403c;
+          "
+        >
           ${escapeHtml(
             company.name
           )}
@@ -473,7 +616,13 @@ function buildCampaignHtml({
         ${
           company.email
             ? `
-              <p style="margin:8px 0 0;font-size:10px;color:#a8a29e;">
+              <p
+                style="
+                  margin:8px 0 0;
+                  font-size:10px;
+                  color:#a8a29e;
+                "
+              >
                 ${escapeHtml(
                   company.email
                 )}
@@ -482,7 +631,15 @@ function buildCampaignHtml({
             : ""
         }
 
-        <p style="margin:16px 0 0;font-size:8px;color:#d6d3d1;text-transform:uppercase;letter-spacing:0.2em;">
+        <p
+          style="
+            margin:16px 0 0;
+            font-size:8px;
+            color:#d6d3d1;
+            text-transform:uppercase;
+            letter-spacing:0.2em;
+          "
+        >
           Powered by TOTS-OS
         </p>
       </div>
@@ -598,6 +755,62 @@ function formatDate(
 }
 
 // ==================================================
+// ANALYTICS HELPERS
+// ==================================================
+
+function getOpenRate(
+  campaign: Campaign
+) {
+  const sent =
+    campaign.sent_count ||
+    0;
+
+  const opens =
+    campaign.open_count ||
+    0;
+
+  if (
+    sent <= 0
+  ) {
+    return 0;
+  }
+
+  return Math.min(
+    100,
+    Math.round(
+      (opens / sent) *
+        100
+    )
+  );
+}
+
+function getClickRate(
+  campaign: Campaign
+) {
+  const sent =
+    campaign.sent_count ||
+    0;
+
+  const clicks =
+    campaign.click_count ||
+    0;
+
+  if (
+    sent <= 0
+  ) {
+    return 0;
+  }
+
+  return Math.min(
+    100,
+    Math.round(
+      (clicks / sent) *
+        100
+    )
+  );
+}
+
+// ==================================================
 // PAGE
 // ==================================================
 
@@ -678,6 +891,12 @@ export default function CampaignsPage() {
     setLoading,
   ] =
     useState(true);
+
+  const [
+    refreshingStats,
+    setRefreshingStats,
+  ] =
+    useState(false);
 
   // ==================================================
   // CAMPAIGN UI
@@ -886,26 +1105,23 @@ export default function CampaignsPage() {
             null;
         }
 
-        const companyData =
+        const companyData: CompanyBranding =
           {
             name:
               team
                 ?.company_name ||
-              team
-                ?.name ||
+              team?.name ||
               profile
                 ?.company_name ||
               profile
                 ?.business_name ||
               profile
                 ?.full_name ||
-              profile
-                ?.name ||
+              profile?.name ||
               "Your Company",
 
             email:
-              profile
-                ?.email ||
+              profile?.email ||
               "",
 
             logoUrl:
@@ -913,8 +1129,7 @@ export default function CampaignsPage() {
                 ?.logo_url ||
               profile
                 ?.company_logo_url ||
-              team
-                ?.logo_url ||
+              team?.logo_url ||
               "",
           };
 
@@ -935,7 +1150,7 @@ export default function CampaignsPage() {
   ]);
 
   // ==================================================
-  // LOAD CAMPAIGNS
+  // LOAD CAMPAIGNS + STATS
   // ==================================================
 
   const loadCampaigns =
@@ -947,8 +1162,10 @@ export default function CampaignsPage() {
       }
 
       const {
-        data,
-        error,
+        data:
+          campaignData,
+        error:
+          campaignError,
       } =
         await supabase
           .from(
@@ -969,19 +1186,231 @@ export default function CampaignsPage() {
             }
           );
 
-      if (error) {
+      if (
+        campaignError
+      ) {
         console.error(
           "Campaign load error:",
-          error
+          campaignError
         );
 
         return;
       }
 
+      const loadedCampaigns =
+        campaignData ||
+        [];
+
+      if (
+        !loadedCampaigns.length
+      ) {
+        setCampaigns(
+          []
+        );
+
+        return;
+      }
+
+      const campaignIds =
+        loadedCampaigns.map(
+          (
+            campaign
+          ) =>
+            campaign.id
+        );
+
+      const [
+        openResult,
+        clickResult,
+      ] =
+        await Promise.all([
+          supabase
+            .from(
+              "campaign_opens"
+            )
+            .select(
+              "campaign_id"
+            )
+            .in(
+              "campaign_id",
+              campaignIds
+            ),
+
+          supabase
+            .from(
+              "campaign_clicks"
+            )
+            .select(
+              "campaign_id"
+            )
+            .in(
+              "campaign_id",
+              campaignIds
+            ),
+        ]);
+
+      if (
+        openResult.error
+      ) {
+        console.warn(
+          "Campaign open stats error:",
+          openResult.error
+        );
+      }
+
+      if (
+        clickResult.error
+      ) {
+        console.warn(
+          "Campaign click stats error:",
+          clickResult.error
+        );
+      }
+
+      const openCounts: Record<
+        string,
+        number
+      > = {};
+
+      (
+        openResult.data ||
+        []
+      ).forEach(
+        (
+          row: any
+        ) => {
+          openCounts[
+            row.campaign_id
+          ] =
+            (openCounts[
+              row.campaign_id
+            ] || 0) +
+            1;
+        }
+      );
+
+      const clickCounts: Record<
+        string,
+        number
+      > = {};
+
+      (
+        clickResult.data ||
+        []
+      ).forEach(
+        (
+          row: any
+        ) => {
+          clickCounts[
+            row.campaign_id
+          ] =
+            (clickCounts[
+              row.campaign_id
+            ] || 0) +
+            1;
+        }
+      );
+
+      const enrichedCampaigns: Campaign[] =
+        loadedCampaigns.map(
+          (
+            campaign: any
+          ) => {
+            const sentCount =
+              campaign.sent_count ||
+              0;
+
+            const opens =
+              openCounts[
+                campaign.id
+              ] ??
+              campaign.open_count ??
+              0;
+
+            const clicks =
+              clickCounts[
+                campaign.id
+              ] ??
+              campaign.click_count ??
+              0;
+
+            const resolvedStatus =
+              campaign.sent_at ||
+              sentCount > 0
+                ? "sent"
+                : campaign.status ||
+                  "draft";
+
+            return {
+              ...campaign,
+
+              status:
+                resolvedStatus,
+
+              open_count:
+                opens,
+
+              click_count:
+                clicks,
+            };
+          }
+        );
+
       setCampaigns(
-        data || []
+        enrichedCampaigns
       );
     };
+
+  // ==================================================
+  // MANUAL STATS REFRESH
+  // ==================================================
+
+  const refreshStats =
+    async () => {
+      setRefreshingStats(
+        true
+      );
+
+      try {
+        await loadCampaigns();
+      } finally {
+        setRefreshingStats(
+          false
+        );
+      }
+    };
+
+  // ==================================================
+  // KEEP SELECTED CAMPAIGN CURRENT
+  // ==================================================
+
+  useEffect(() => {
+    if (
+      !selectedCampaign
+    ) {
+      return;
+    }
+
+    const latest =
+      campaigns.find(
+        (
+          campaign
+        ) =>
+          campaign.id ===
+          selectedCampaign.id
+      );
+
+    if (!latest) {
+      return;
+    }
+
+    setSelectedCampaign(
+      latest
+    );
+  }, [
+    campaigns,
+    selectedCampaign?.id,
+  ]);
 
   // ==================================================
   // LOAD LISTS
@@ -1098,7 +1527,7 @@ export default function CampaignsPage() {
               "profile_subscriber_lists"
             )
             .select(
-              "list_id"
+              "list_id,profile_id"
             )
             .eq(
               "organisation_id",
@@ -1110,7 +1539,7 @@ export default function CampaignsPage() {
               "campaign_list_emails"
             )
             .select(
-              "list_id"
+              "list_id,id"
             )
             .eq(
               "organisation_id",
@@ -1162,7 +1591,7 @@ export default function CampaignsPage() {
           countMap[
             row.list_id
           ].add(
-            `profile-${Math.random()}`
+            `profile-${row.profile_id}`
           );
         }
       );
@@ -1188,7 +1617,7 @@ export default function CampaignsPage() {
           countMap[
             row.list_id
           ].add(
-            `manual-${Math.random()}`
+            `manual-${row.id}`
           );
         }
       );
@@ -1249,6 +1678,85 @@ export default function CampaignsPage() {
     void loadAll();
   }, [
     organisationId,
+  ]);
+
+  // ==================================================
+  // PROCESSING POLLING
+  // ==================================================
+
+  useEffect(() => {
+    if (
+      !organisationId
+    ) {
+      return;
+    }
+
+    const hasActiveCampaign =
+      campaigns.some(
+        (
+          campaign
+        ) =>
+          campaign.status ===
+            "processing" ||
+          campaign.status ===
+            "sending"
+      );
+
+    if (
+      !hasActiveCampaign
+    ) {
+      return;
+    }
+
+    const interval =
+      window.setInterval(
+        () => {
+          void loadCampaigns();
+        },
+        3000
+      );
+
+    return () => {
+      window.clearInterval(
+        interval
+      );
+    };
+  }, [
+    organisationId,
+    campaigns,
+  ]);
+
+  // ==================================================
+  // STATS POLLING WHILE VIEWING SENT CAMPAIGN
+  // ==================================================
+
+  useEffect(() => {
+    if (
+      !showCampaignView ||
+      !selectedCampaign ||
+      selectedCampaign.status !==
+        "sent"
+    ) {
+      return;
+    }
+
+    const interval =
+      window.setInterval(
+        () => {
+          void loadCampaigns();
+        },
+        10000
+      );
+
+    return () => {
+      window.clearInterval(
+        interval
+      );
+    };
+  }, [
+    showCampaignView,
+    selectedCampaign?.id,
+    selectedCampaign?.status,
   ]);
 
   // ==================================================
@@ -1330,160 +1838,170 @@ export default function CampaignsPage() {
         true
       );
 
-      const [
-        profileResult,
-        manualResult,
-      ] =
-        await Promise.all([
-          supabase
-            .from(
-              "profile_subscriber_lists"
-            )
-            .select(
-              "profile_id, profiles:profiles(id,name,full_name,email)"
-            )
-            .eq(
-              "list_id",
-              listId
-            ),
-
-          supabase
-            .from(
-              "campaign_list_emails"
-            )
-            .select(
-              "id,email"
-            )
-            .eq(
-              "organisation_id",
-              organisationId
-            )
-            .eq(
-              "list_id",
-              listId
-            )
-            .order(
-              "created_at",
-              {
-                ascending:
-                  false,
-              }
-            ),
-        ]);
-
-      const combined: ListSubscriber[] =
-        [];
-
-      (
-        profileResult.data ||
-        []
-      ).forEach(
-        (
-          row: any
-        ) => {
-          const email =
-            row.profiles
-              ?.email
-              ?.trim()
-              ?.toLowerCase();
-
-          if (!email) {
-            return;
-          }
-
-          combined.push({
-            id:
-              row.profile_id,
-
-            source:
-              "profile",
-
-            profileId:
-              row.profile_id,
-
-            manualId:
-              null,
-
-            name:
-              row.profiles
-                ?.full_name ||
-              row.profiles
-                ?.name ||
-              null,
-
-            email,
-          });
-        }
-      );
-
-      (
-        manualResult.data ||
-        []
-      ).forEach(
-        (
-          row: any
-        ) => {
-          const email =
-            row.email
-              ?.trim()
-              ?.toLowerCase();
-
-          if (!email) {
-            return;
-          }
-
-          combined.push({
-            id:
-              row.id,
-
-            source:
-              "manual",
-
-            profileId:
-              null,
-
-            manualId:
-              row.id,
-
-            name:
-              null,
-
-            email,
-          });
-        }
-      );
-
-      const seen =
-        new Set<string>();
-
-      const unique =
-        combined.filter(
-          (
-            subscriber
-          ) => {
-            if (
-              seen.has(
-                subscriber.email
+      try {
+        const [
+          profileResult,
+          manualResult,
+        ] =
+          await Promise.all([
+            supabase
+              .from(
+                "profile_subscriber_lists"
               )
-            ) {
-              return false;
+              .select(
+                "profile_id, profiles:profiles(id,name,full_name,email)"
+              )
+              .eq(
+                "list_id",
+                listId
+              ),
+
+            supabase
+              .from(
+                "campaign_list_emails"
+              )
+              .select(
+                "id,email"
+              )
+              .eq(
+                "organisation_id",
+                organisationId
+              )
+              .eq(
+                "list_id",
+                listId
+              )
+              .order(
+                "created_at",
+                {
+                  ascending:
+                    false,
+                }
+              ),
+          ]);
+
+        const combined: ListSubscriber[] =
+          [];
+
+        (
+          profileResult.data ||
+          []
+        ).forEach(
+          (
+            row: any
+          ) => {
+            const profile =
+              Array.isArray(
+                row.profiles
+              )
+                ? row
+                    .profiles[0]
+                : row.profiles;
+
+            const email =
+              profile
+                ?.email
+                ?.trim()
+                ?.toLowerCase();
+
+            if (!email) {
+              return;
             }
 
-            seen.add(
-              subscriber.email
-            );
+            combined.push({
+              id:
+                row.profile_id,
 
-            return true;
+              source:
+                "profile",
+
+              profileId:
+                row.profile_id,
+
+              manualId:
+                null,
+
+              name:
+                profile
+                  ?.full_name ||
+                profile
+                  ?.name ||
+                null,
+
+              email,
+            });
           }
         );
 
-      setListSubscribers(
-        unique
-      );
+        (
+          manualResult.data ||
+          []
+        ).forEach(
+          (
+            row: any
+          ) => {
+            const email =
+              row.email
+                ?.trim()
+                ?.toLowerCase();
 
-      setLoadingList(
-        false
-      );
+            if (!email) {
+              return;
+            }
+
+            combined.push({
+              id:
+                row.id,
+
+              source:
+                "manual",
+
+              profileId:
+                null,
+
+              manualId:
+                row.id,
+
+              name:
+                null,
+
+              email,
+            });
+          }
+        );
+
+        const seen =
+          new Set<string>();
+
+        const unique =
+          combined.filter(
+            (
+              subscriber
+            ) => {
+              if (
+                seen.has(
+                  subscriber.email
+                )
+              ) {
+                return false;
+              }
+
+              seen.add(
+                subscriber.email
+              );
+
+              return true;
+            }
+          );
+
+        setListSubscribers(
+          unique
+        );
+      } finally {
+        setLoadingList(
+          false
+        );
+      }
     };
 
   // ==================================================
@@ -1622,23 +2140,6 @@ export default function CampaignsPage() {
       if (
         existingError
       ) {
-        console.error(
-          "Check manual email error:",
-          {
-            message:
-              existingError.message,
-
-            details:
-              existingError.details,
-
-            hint:
-              existingError.hint,
-
-            code:
-              existingError.code,
-          }
-        );
-
         throw existingError;
       }
 
@@ -1689,8 +2190,7 @@ export default function CampaignsPage() {
         );
 
       const {
-        error:
-          insertError,
+        error,
       } =
         await supabase
           .from(
@@ -1700,27 +2200,8 @@ export default function CampaignsPage() {
             rows
           );
 
-      if (
-        insertError
-      ) {
-        console.error(
-          "Manual subscriber insert error:",
-          {
-            message:
-              insertError.message,
-
-            details:
-              insertError.details,
-
-            hint:
-              insertError.hint,
-
-            code:
-              insertError.code,
-          }
-        );
-
-        throw insertError;
+      if (error) {
+        throw error;
       }
     };
 
@@ -1794,7 +2275,7 @@ export default function CampaignsPage() {
         );
 
         alert(
-          "Could not save subscribers. Check the browser console for the Supabase error."
+          "Could not save subscribers."
         );
       } finally {
         setSavingSubscribers(
@@ -2024,7 +2505,7 @@ export default function CampaignsPage() {
           "",
 
         message:
-          stripHtml(
+          extractMessage(
             campaign.content ||
               ""
           ),
@@ -2045,6 +2526,13 @@ export default function CampaignsPage() {
         replyTo:
           campaign.reply_to ||
           company.email,
+
+        campaignLogoUrl:
+          extractCampaignLogoUrl(
+            campaign.content ||
+              ""
+          ) ||
+          company.logoUrl,
 
         headerImageUrl:
           campaign.header_image_url ||
@@ -2073,7 +2561,7 @@ export default function CampaignsPage() {
     };
 
   // ==================================================
-  // CAMPAIGN PAYLOAD
+  // PAYLOAD
   // ==================================================
 
   const buildPayload =
@@ -2099,6 +2587,9 @@ export default function CampaignsPage() {
               campaignForm.message,
 
             company,
+
+            campaignLogoUrl:
+              campaignForm.campaignLogoUrl.trim(),
 
             headerImageUrl:
               campaignForm.headerImageUrl.trim(),
@@ -2150,7 +2641,7 @@ export default function CampaignsPage() {
     };
 
   // ==================================================
-  // VALIDATE CAMPAIGN
+  // VALIDATION
   // ==================================================
 
   const validateCampaign =
@@ -2212,7 +2703,7 @@ export default function CampaignsPage() {
     };
 
   // ==================================================
-  // SAVE SCHEDULED CAMPAIGN
+  // SCHEDULE CAMPAIGN
   // ==================================================
 
   const scheduleCampaign =
@@ -2397,7 +2888,7 @@ export default function CampaignsPage() {
     };
 
   // ==================================================
-  // SEND EXISTING CAMPAIGN
+  // SEND EXISTING
   // ==================================================
 
   const sendExistingCampaign =
@@ -2411,14 +2902,6 @@ export default function CampaignsPage() {
       try {
         await callSendApi(
           campaignId
-        );
-
-        setShowCampaignView(
-          false
-        );
-
-        setSelectedCampaign(
-          null
         );
 
         await loadCampaigns();
@@ -2444,7 +2927,7 @@ export default function CampaignsPage() {
     };
 
   // ==================================================
-  // SAVE + SEND NOW
+  // SAVE + SEND
   // ==================================================
 
   const saveAndSendNow =
@@ -2635,93 +3118,6 @@ export default function CampaignsPage() {
     };
 
   // ==================================================
-  // REALTIME
-  // ==================================================
-
-  useEffect(() => {
-    if (
-      !organisationId
-    ) {
-      return;
-    }
-
-    const channel =
-      supabase
-        .channel(
-          `campaigns-page-${organisationId}`
-        )
-
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema:
-              "public",
-            table:
-              "campaigns",
-          },
-          () => {
-            void loadCampaigns();
-          }
-        )
-
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema:
-              "public",
-            table:
-              "campaign_list_emails",
-          },
-          () => {
-            void loadSubscriberCounts();
-
-            if (
-              selectedList
-            ) {
-              void loadListSubscribers(
-                selectedList.id
-              );
-            }
-          }
-        )
-
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema:
-              "public",
-            table:
-              "profile_subscriber_lists",
-          },
-          () => {
-            void loadSubscriberCounts();
-
-            if (
-              selectedList
-            ) {
-              void loadListSubscribers(
-                selectedList.id
-              );
-            }
-          }
-        )
-
-        .subscribe();
-
-    return () => {
-      void supabase.removeChannel(
-        channel
-      );
-    };
-  }, [
-    organisationId,
-    selectedList?.id,
-  ]);
-
-  // ==================================================
   // LOADING
   // ==================================================
 
@@ -2755,26 +3151,48 @@ export default function CampaignsPage() {
           </h1>
 
           <p className="mt-4 max-w-xl text-sm leading-relaxed text-stone-500">
-            Create an email,
-            choose who it goes
-            to, then send it now
-            or schedule it for
-            later.
+            Create branded email
+            campaigns, manage your
+            audience and track
+            performance.
           </p>
         </div>
 
-        <button
-          onClick={
-            openNewCampaign
-          }
-          className="flex items-center justify-center gap-3 rounded-2xl bg-stone-900 px-7 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-[#a9b897] shadow-lg"
-        >
-          <Plus
-            size={16}
-          />
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            onClick={() =>
+              void refreshStats()
+            }
+            disabled={
+              refreshingStats
+            }
+            className="flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-5 py-4 text-[9px] font-black uppercase tracking-wider text-stone-500 shadow-sm disabled:opacity-50"
+          >
+            <RefreshCw
+              size={14}
+              className={
+                refreshingStats
+                  ? "animate-spin"
+                  : ""
+              }
+            />
 
-          New Campaign
-        </button>
+            Refresh Stats
+          </button>
+
+          <button
+            onClick={
+              openNewCampaign
+            }
+            className="flex items-center justify-center gap-3 rounded-2xl bg-stone-900 px-7 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-[#a9b897] shadow-lg"
+          >
+            <Plus
+              size={16}
+            />
+
+            New Campaign
+          </button>
+        </div>
       </header>
 
       {/* ==================================================
@@ -2840,8 +3258,8 @@ export default function CampaignsPage() {
                     }}
                     className="w-full rounded-[2rem] border border-stone-100 bg-white p-6 text-left shadow-sm transition hover:border-stone-200 hover:shadow-md"
                   >
-                    <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-                      <div className="min-w-0">
+                    <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
+                      <div className="min-w-0 flex-1">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <h2 className="truncate text-lg font-black text-stone-800">
                             {
@@ -2896,32 +3314,67 @@ export default function CampaignsPage() {
                         </div>
                       </div>
 
-                      <div className="flex shrink-0 items-center gap-3">
-                        <span
-                          className={`rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-wider ${
-                            status ===
-                            "sent"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : status ===
-                                    "sending" ||
-                                  status ===
-                                    "processing"
-                                ? "bg-amber-100 text-amber-700"
+                      <div className="shrink-0">
+                        <div className="mb-3 flex justify-start md:justify-end">
+                          <span
+                            className={`rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-wider ${
+                              status ===
+                              "sent"
+                                ? "bg-emerald-100 text-emerald-700"
                                 : status ===
-                                    "failed"
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-stone-100 text-stone-500"
-                          }`}
-                        >
-                          {
-                            status
-                          }
-                        </span>
+                                      "sending" ||
+                                    status ===
+                                      "processing"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : status ===
+                                      "failed"
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-stone-100 text-stone-500"
+                            }`}
+                          >
+                            {
+                              status
+                            }
+                          </span>
+                        </div>
 
-                        <Eye
-                          size={16}
-                          className="text-stone-300"
-                        />
+                        {status ===
+                          "sent" && (
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="min-w-[62px] rounded-xl bg-stone-50 px-3 py-2 text-center">
+                              <p className="text-sm font-black text-stone-700">
+                                {campaign.sent_count ||
+                                  0}
+                              </p>
+
+                              <p className="mt-1 text-[7px] font-black uppercase tracking-wider text-stone-300">
+                                Sent
+                              </p>
+                            </div>
+
+                            <div className="min-w-[62px] rounded-xl bg-stone-50 px-3 py-2 text-center">
+                              <p className="text-sm font-black text-stone-700">
+                                {campaign.open_count ||
+                                  0}
+                              </p>
+
+                              <p className="mt-1 text-[7px] font-black uppercase tracking-wider text-stone-300">
+                                Opens
+                              </p>
+                            </div>
+
+                            <div className="min-w-[62px] rounded-xl bg-stone-50 px-3 py-2 text-center">
+                              <p className="text-sm font-black text-stone-700">
+                                {campaign.click_count ||
+                                  0}
+                              </p>
+
+                              <p className="mt-1 text-[7px] font-black uppercase tracking-wider text-stone-300">
+                                Clicks
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -3086,7 +3539,7 @@ export default function CampaignsPage() {
                 onClick={() =>
                   void createList()
                 }
-                className="mt-5 w-full rounded-2xl bg-stone-900 py-4 text-[10px] font-black uppercase tracking-wider text-[#a9b897]"
+                className="mt-5 w-full rounded-2xl bg-stone-900 py-4 text-[10px] font-black uppercase tracking-wider text-white"
               >
                 Create List
               </button>
@@ -3164,8 +3617,8 @@ export default function CampaignsPage() {
                       </p>
 
                       <p className="mt-1 text-[10px] text-stone-400">
-                        TOTS-OS contacts
-                        and manually added
+                        Contacts and
+                        manually added
                         emails.
                       </p>
                     </div>
@@ -3291,7 +3744,7 @@ export default function CampaignsPage() {
       </AnimatePresence>
 
       {/* ==================================================
-          ADD SUBSCRIBERS
+          SUBSCRIBER MANAGER
       ================================================== */}
 
       <AnimatePresence>
@@ -3341,9 +3794,6 @@ export default function CampaignsPage() {
                 </div>
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-7">
-
-                  {/* MANUAL */}
-
                   <section>
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#71805f]">
@@ -3412,8 +3862,6 @@ another@email.com`}
 
                     <div className="h-px flex-1 bg-stone-100" />
                   </div>
-
-                  {/* EXISTING */}
 
                   <section className="space-y-2">
                     {profiles.length ===
@@ -3559,7 +4007,7 @@ another@email.com`}
                 opacity: 0,
                 y: 25,
               }}
-              className="relative mx-auto min-h-full w-full max-w-5xl rounded-[2.5rem] bg-[#faf9f6] shadow-2xl md:min-h-0"
+              className="relative mx-auto w-full max-w-5xl rounded-[2.5rem] bg-[#faf9f6] shadow-2xl"
             >
               <div className="flex items-center justify-between border-b border-stone-200 p-6 md:p-8">
                 <div>
@@ -3590,12 +4038,11 @@ another@email.com`}
 
               <div className="grid gap-8 p-6 md:p-8 lg:grid-cols-[1fr_300px]">
 
-                {/* MAIN FORM */}
+                {/* ==================================================
+                    MAIN FORM
+                ================================================== */}
 
                 <div className="space-y-6">
-
-                  {/* CAMPAIGN NAME */}
-
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
                       Campaign Name
@@ -3624,8 +4071,6 @@ another@email.com`}
                       className="w-full rounded-2xl border border-stone-200 bg-white p-4 text-sm font-bold outline-none focus:border-stone-900"
                     />
                   </div>
-
-                  {/* SUBJECT */}
 
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
@@ -3656,8 +4101,6 @@ another@email.com`}
                     />
                   </div>
 
-                  {/* PREVIEW */}
-
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
                       Preview Text
@@ -3687,7 +4130,103 @@ another@email.com`}
                     />
                   </div>
 
-                  {/* IMAGE */}
+                  {/* ==================================================
+                      CAMPAIGN LOGO
+                  ================================================== */}
+
+                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-50">
+                        <ImageIcon
+                          size={16}
+                          className="text-stone-500"
+                        />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-black">
+                          Campaign Logo
+                        </p>
+
+                        <p className="text-[10px] text-stone-400">
+                          Optional. Uses
+                          your saved logo
+                          by default.
+                        </p>
+                      </div>
+                    </div>
+
+                    <input
+                      value={
+                        campaignForm.campaignLogoUrl
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setCampaignForm(
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
+
+                            campaignLogoUrl:
+                              event.target
+                                .value,
+                          })
+                        )
+                      }
+                      placeholder="https://yourwebsite.com/logo.png"
+                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-sm outline-none focus:border-stone-900"
+                    />
+
+                    {campaignForm.campaignLogoUrl ? (
+                      <div className="mt-4 flex items-center justify-center rounded-2xl border border-stone-100 bg-[#faf9f6] p-6">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={
+                            campaignForm.campaignLogoUrl
+                          }
+                          alt="Campaign logo preview"
+                          className="max-h-20 max-w-[180px] object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-2xl border border-dashed border-stone-200 p-5 text-center">
+                        <p className="text-[10px] italic text-stone-400">
+                          No campaign
+                          logo selected.
+                        </p>
+                      </div>
+                    )}
+
+                    {company.logoUrl &&
+                      campaignForm.campaignLogoUrl !==
+                        company.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCampaignForm(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                campaignLogoUrl:
+                                  company.logoUrl,
+                              })
+                            )
+                          }
+                          className="mt-3 text-[9px] font-black uppercase tracking-wider text-[#71805f]"
+                        >
+                          Use saved
+                          company logo
+                        </button>
+                      )}
+                  </div>
+
+                  {/* ==================================================
+                      HEADER IMAGE
+                  ================================================== */}
 
                   <div>
                     <label className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-400">
@@ -3696,6 +4235,7 @@ another@email.com`}
                       />
 
                       Header Image
+
                       <span className="font-medium normal-case tracking-normal">
                         (optional)
                       </span>
@@ -3736,7 +4276,9 @@ another@email.com`}
                     )}
                   </div>
 
-                  {/* MESSAGE */}
+                  {/* ==================================================
+                      MESSAGE
+                  ================================================== */}
 
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
@@ -3771,7 +4313,9 @@ Write your email exactly how you want it to read.`}
                     />
                   </div>
 
-                  {/* CTA */}
+                  {/* ==================================================
+                      CTA
+                  ================================================== */}
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <p className="mb-4 text-[9px] font-black uppercase tracking-wider text-stone-400">
@@ -3825,15 +4369,30 @@ Write your email exactly how you want it to read.`}
                         className="rounded-xl border border-stone-100 bg-stone-50 p-3 text-sm outline-none"
                       />
                     </div>
+
+                    {campaignForm.ctaText && (
+                      <div className="mt-5 text-center">
+                        <span
+                          className="inline-block rounded-xl px-6 py-3 text-[9px] font-black uppercase tracking-wider text-white"
+                          style={{
+                            backgroundColor:
+                              campaignForm.brandColor,
+                          }}
+                        >
+                          {
+                            campaignForm.ctaText
+                          }
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* SIDEBAR */}
+                {/* ==================================================
+                    SIDEBAR
+                ================================================== */}
 
                 <aside className="space-y-5">
-
-                  {/* AUDIENCE */}
-
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100">
@@ -3906,8 +4465,6 @@ Write your email exactly how you want it to read.`}
 
                     {campaignForm.listId && (
                       <p className="mt-3 text-[9px] text-stone-400">
-                        This campaign
-                        currently has{" "}
                         <strong className="text-stone-700">
                           {subscriberCounts[
                             campaignForm.listId
@@ -3917,8 +4474,6 @@ Write your email exactly how you want it to read.`}
                       </p>
                     )}
                   </div>
-
-                  {/* SCHEDULE */}
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <div className="mb-4 flex items-center gap-3">
@@ -3963,8 +4518,6 @@ Write your email exactly how you want it to read.`}
                       className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
                     />
                   </div>
-
-                  {/* SENDER */}
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <p className="mb-4 text-[9px] font-black uppercase tracking-wider text-stone-400">
@@ -4018,8 +4571,6 @@ Write your email exactly how you want it to read.`}
                     />
                   </div>
 
-                  {/* BRAND */}
-
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <p className="mb-3 text-[9px] font-black uppercase tracking-wider text-stone-400">
                       Button Colour
@@ -4059,9 +4610,11 @@ Write your email exactly how you want it to read.`}
                 </aside>
               </div>
 
-              {/* ACTIONS */}
+              {/* ==================================================
+                  EDITOR ACTIONS
+              ================================================== */}
 
-              <div className="flex flex-col gap-3 border-t border-stone-200 bg-white p-6 md:flex-row md:justify-end md:rounded-b-[2.5rem]">
+              <div className="flex flex-col gap-3 rounded-b-[2.5rem] border-t border-stone-200 bg-white p-6 md:flex-row md:justify-end">
                 <button
                   onClick={() =>
                     setShowEditor(
@@ -4147,15 +4700,39 @@ Write your email exactly how you want it to read.`}
                   opacity: 0,
                   scale: 0.96,
                 }}
-                className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[2.5rem] bg-white shadow-2xl"
+                className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2.5rem] bg-white shadow-2xl"
               >
+                {/* HEADER */}
+
                 <div className="flex items-start justify-between border-b border-stone-100 p-7">
                   <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
-                      Campaign
-                    </p>
+                    <div className="mb-2 flex flex-wrap items-center gap-3">
+                      <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                        Campaign
+                      </p>
 
-                    <h2 className="mt-2 text-2xl font-black">
+                      <span
+                        className={`rounded-full px-3 py-1 text-[7px] font-black uppercase tracking-wider ${
+                          selectedCampaign.status ===
+                          "sent"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : selectedCampaign.status ===
+                                  "processing" ||
+                                selectedCampaign.status ===
+                                  "sending"
+                              ? "bg-amber-100 text-amber-700"
+                              : selectedCampaign.status ===
+                                  "failed"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-stone-100 text-stone-500"
+                        }`}
+                      >
+                        {selectedCampaign.status ||
+                          "draft"}
+                      </span>
+                    </div>
+
+                    <h2 className="text-2xl font-black">
                       {
                         selectedCampaign.title
                       }
@@ -4182,64 +4759,279 @@ Write your email exactly how you want it to read.`}
                   </button>
                 </div>
 
+                {/* BODY */}
+
                 <div className="flex-1 overflow-y-auto bg-[#faf9f6] p-5 md:p-8">
-                  <div
-                    className="mx-auto max-w-2xl rounded-[2rem] bg-white p-7 shadow-sm md:p-10"
-                    dangerouslySetInnerHTML={{
-                      __html:
-                        selectedCampaign.content ||
-                        "",
-                    }}
-                  />
+
+                  {/* ==================================================
+                      ANALYTICS
+                  ================================================== */}
+
+                  <div className="mx-auto mb-6 max-w-3xl">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                          Performance
+                        </p>
+
+                        <h3 className="mt-1 text-lg font-black text-stone-800">
+                          Campaign
+                          analytics
+                        </h3>
+                      </div>
+
+                      <button
+                        onClick={() =>
+                          void refreshStats()
+                        }
+                        disabled={
+                          refreshingStats
+                        }
+                        className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 text-[8px] font-black uppercase tracking-wider text-stone-400"
+                      >
+                        <RefreshCw
+                          size={12}
+                          className={
+                            refreshingStats
+                              ? "animate-spin"
+                              : ""
+                          }
+                        />
+
+                        Refresh
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+
+                      {/* SENT */}
+
+                      <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
+                          <Send
+                            size={14}
+                            className="text-stone-500"
+                          />
+                        </div>
+
+                        <p className="text-2xl font-black text-stone-800">
+                          {selectedCampaign.sent_count ||
+                            0}
+                        </p>
+
+                        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                          Sent
+                        </p>
+                      </div>
+
+                      {/* OPENS */}
+
+                      <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
+                          <Eye
+                            size={14}
+                            className="text-stone-500"
+                          />
+                        </div>
+
+                        <p className="text-2xl font-black text-stone-800">
+                          {selectedCampaign.open_count ||
+                            0}
+                        </p>
+
+                        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                          Opens
+                        </p>
+                      </div>
+
+                      {/* OPEN RATE */}
+
+                      <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
+                          <BarChart3
+                            size={14}
+                            className="text-stone-500"
+                          />
+                        </div>
+
+                        <p className="text-2xl font-black text-stone-800">
+                          {getOpenRate(
+                            selectedCampaign
+                          )}
+                          %
+                        </p>
+
+                        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                          Open Rate
+                        </p>
+                      </div>
+
+                      {/* CLICKS */}
+
+                      <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
+                          <MousePointerClick
+                            size={14}
+                            className="text-stone-500"
+                          />
+                        </div>
+
+                        <p className="text-2xl font-black text-stone-800">
+                          {selectedCampaign.click_count ||
+                            0}
+                        </p>
+
+                        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                          Clicks
+                        </p>
+                      </div>
+
+                      {/* CLICK RATE */}
+
+                      <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
+                          <BarChart3
+                            size={14}
+                            className="text-stone-500"
+                          />
+                        </div>
+
+                        <p className="text-2xl font-black text-stone-800">
+                          {getClickRate(
+                            selectedCampaign
+                          )}
+                          %
+                        </p>
+
+                        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                          Click Rate
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-stone-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                          Delivery
+                          Status
+                        </p>
+
+                        <p
+                          className={`mt-1 text-sm font-black uppercase ${
+                            selectedCampaign.status ===
+                            "sent"
+                              ? "text-emerald-600"
+                              : selectedCampaign.status ===
+                                    "processing" ||
+                                  selectedCampaign.status ===
+                                    "sending"
+                                ? "text-amber-600"
+                                : selectedCampaign.status ===
+                                    "failed"
+                                  ? "text-red-600"
+                                  : "text-stone-500"
+                          }`}
+                        >
+                          {selectedCampaign.status ||
+                            "draft"}
+                        </p>
+                      </div>
+
+                      {selectedCampaign.sent_at && (
+                        <div className="sm:text-right">
+                          <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                            Sent At
+                          </p>
+
+                          <p className="mt-1 text-xs font-bold text-stone-600">
+                            {formatDate(
+                              selectedCampaign.sent_at
+                            )}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ==================================================
+                      EMAIL PREVIEW
+                  ================================================== */}
+
+                  <div className="mx-auto max-w-3xl">
+                    <p className="mb-3 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">
+                      Email Preview
+                    </p>
+
+                    <div
+                      className="rounded-[2rem] bg-white p-7 shadow-sm md:p-10"
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          selectedCampaign.content ||
+                          "",
+                      }}
+                    />
+                  </div>
                 </div>
 
+                {/* ACTIONS */}
+
                 <div className="flex flex-wrap gap-3 border-t border-stone-100 bg-white p-6">
-                  <button
-                    onClick={() =>
-                      editCampaign(
-                        selectedCampaign
-                      )
-                    }
-                    className="flex items-center gap-2 rounded-xl bg-stone-100 px-5 py-3 text-[9px] font-black uppercase tracking-wider"
-                  >
-                    <Edit3
-                      size={13}
-                    />
+                  {selectedCampaign.status !==
+                    "sent" && (
+                    <button
+                      onClick={() =>
+                        editCampaign(
+                          selectedCampaign
+                        )
+                      }
+                      className="flex items-center gap-2 rounded-xl bg-stone-100 px-5 py-3 text-[9px] font-black uppercase tracking-wider"
+                    >
+                      <Edit3
+                        size={13}
+                      />
 
-                    Edit
-                  </button>
+                      Edit
+                    </button>
+                  )}
 
-                  <button
-                    disabled={
-                      sendingCampaignId ===
-                        selectedCampaign.id ||
+                  {selectedCampaign.status !==
+                    "sent" && (
+                    <button
+                      disabled={
+                        sendingCampaignId ===
+                          selectedCampaign.id ||
+                        selectedCampaign.status ===
+                          "processing" ||
+                        selectedCampaign.status ===
+                          "sending"
+                      }
+                      onClick={() =>
+                        void sendExistingCampaign(
+                          selectedCampaign.id
+                        )
+                      }
+                      className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-[9px] font-black uppercase tracking-wider text-white disabled:opacity-50"
+                    >
+                      {sendingCampaignId ===
+                      selectedCampaign.id ? (
+                        <Loader2
+                          size={13}
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <Send
+                          size={13}
+                        />
+                      )}
+
+                      {selectedCampaign.status ===
+                        "processing" ||
                       selectedCampaign.status ===
-                        "sent"
-                    }
-                    onClick={() =>
-                      void sendExistingCampaign(
-                        selectedCampaign.id
-                      )
-                    }
-                    className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-[9px] font-black uppercase tracking-wider text-white disabled:opacity-50"
-                  >
-                    {sendingCampaignId ===
-                    selectedCampaign.id ? (
-                      <Loader2
-                        size={13}
-                        className="animate-spin"
-                      />
-                    ) : (
-                      <Send
-                        size={13}
-                      />
-                    )}
-
-                    {selectedCampaign.status ===
-                    "sent"
-                      ? "Sent"
-                      : "Send Now"}
-                  </button>
+                        "sending"
+                        ? "Sending..."
+                        : "Send Now"}
+                    </button>
+                  )}
 
                   <button
                     onClick={() =>

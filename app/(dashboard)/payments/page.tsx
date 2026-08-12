@@ -323,11 +323,10 @@ export default function PaymentsPage() {
         )}
       </main>
 
-  <InvoiceQuoteModal
+ <InvoiceQuoteModal
   open={activeModal === "invoiceQuote"}
   customers={finance.customers ?? []}
   onClose={() => setActiveModal(null)}
-  onSuccess={finance.refresh}
   notify={notify}
 />
 

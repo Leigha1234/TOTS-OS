@@ -1,7 +1,4 @@
-"use client";
-
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import type { LucideIcon } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -11,10 +8,8 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleDollarSign,
-  Clock3,
   Cloud,
   ContactRound,
-  FileText,
   FolderKanban,
   Gauge,
   Layers3,
@@ -26,7 +21,6 @@ import {
   Network,
   NotebookPen,
   Play,
-  ReceiptText,
   ShieldCheck,
   Sparkles,
   Target,
@@ -35,190 +29,150 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-type IntroStage = "boot" | "opening" | "ready" | "complete";
-
-type Feature = {
-  icon: LucideIcon;
-  eyebrow: string;
-  title: string;
-  description: string;
-};
-
-type PricingPlan = {
-  name: string;
-  price: number;
-  description: string;
-  featured?: boolean;
-  badge?: string;
-  features: string[];
-};
+/* ---------------------------------------------------------------- */
+/*  content                                                          */
+/* ---------------------------------------------------------------- */
 
 const NAV_ITEMS = [
   { label: "Product", href: "#product" },
-  { label: "Features", href: "#features" },
+  { label: "Modules", href: "#features" },
   { label: "Pricing", href: "#pricing" },
   { label: "About", href: "#about" },
 ];
 
-const FEATURES: Feature[] = [
+const BOOT_LINES = [
+  "tots-os kernel  v1.0.4",
+  "mounting workspace  ok",
+  "loading module  CRM ................ ok",
+  "loading module  PROJECTS ........... ok",
+  "loading module  CALENDAR ........... ok",
+  "loading module  FINANCE ............ ok",
+  "loading module  SOCIALS ............ ok",
+  "loading module  NOTES .............. ok",
+  "indexing 6 modules  done",
+  "workspace ready",
+];
+
+const FEATURES = [
   {
     icon: ContactRound,
-    eyebrow: "CRM",
-    title: "Know your clients.",
-    description:
-      "Keep contacts, organisations, notes and relationships connected without losing the context behind them.",
+    id: "01",
+    title: "Know your clients",
+    text: "Contacts, organisations and notes stay connected, so the context behind a relationship is never more than a click away.",
   },
   {
     icon: FolderKanban,
-    eyebrow: "Projects",
-    title: "Keep work moving.",
-    description:
-      "Turn ideas into projects, projects into tasks and tasks into clear next actions from one organised workspace.",
+    id: "02",
+    title: "Keep work moving",
+    text: "Ideas become projects, projects become tasks, tasks become clear next actions — one workspace, no hand-offs.",
   },
   {
     icon: CalendarDays,
-    eyebrow: "Planning",
-    title: "See what is coming.",
-    description:
-      "Bring events, deadlines, meetings and priorities into one connected calendar built around your business.",
+    id: "03",
+    title: "See what's coming",
+    text: "Events, deadlines and priorities sit on one connected calendar, built around how a business actually runs.",
   },
   {
     icon: CircleDollarSign,
-    eyebrow: "Finance",
-    title: "Understand the numbers.",
-    description:
-      "Bring sales, expenses, tax, payroll and important financial information into a clearer business view.",
+    id: "04",
+    title: "Understand the numbers",
+    text: "Sales, expenses and the everyday financial picture, brought into a view that's built for founders, not accountants.",
   },
   {
     icon: MessageSquareText,
-    eyebrow: "Socials",
-    title: "Plan your content.",
-    description:
-      "Organise social content and publishing workflows alongside everything else happening inside your business.",
+    id: "05",
+    title: "Plan your content",
+    text: "Social content and publishing sit beside everything else happening in the business, instead of off in another tab.",
   },
   {
     icon: NotebookPen,
-    eyebrow: "Notes",
-    title: "Capture every idea.",
-    description:
-      "Store notes, thoughts, plans and brain dumps before they disappear into another app, notebook or forgotten tab.",
+    id: "06",
+    title: "Capture every idea",
+    text: "Notes, thoughts and brain-dumps land somewhere permanent, before they disappear into a forgotten app.",
   },
 ];
 
-const PRICING: PricingPlan[] = [
+const PRICING = [
   {
     name: "Standard",
     price: 29,
-    description:
-      "The essential operating system for founders building a more organised business.",
-    features: [
-      "Business dashboard",
-      "Projects & tasks",
-      "CRM & contacts",
-      "Calendar & planning",
-      "Notes & brain dump",
-      "Core finance tools",
-    ],
+    tag: "boot",
+    description: "The essential operating system for a founder building a more organised business.",
+    features: ["Business dashboard", "Projects & tasks", "CRM & contacts", "Calendar & planning", "Notes & brain dump", "Core finance tools"],
   },
   {
     name: "Professional",
     price: 59,
-    description:
-      "For growing businesses that need more power, visibility and connected workflows.",
+    tag: "run",
     featured: true,
     badge: "Most popular",
-    features: [
-      "Everything in Standard",
-      "Advanced business tools",
-      "Social planning",
-      "Expanded finance features",
-      "Team workflows",
-      "Business insights & KPIs",
-    ],
+    description: "For growing businesses that need more power, visibility and connected workflows.",
+    features: ["Everything in Standard", "Advanced business tools", "Social planning", "Expanded finance features", "Team workflows", "Business insights & KPIs"],
   },
   {
     name: "Elite",
     price: 149,
-    description:
-      "A more complete operating environment for established teams and ambitious businesses.",
-    features: [
-      "Everything in Professional",
-      "Advanced team access",
-      "Enhanced operational tools",
-      "Priority support",
-      "Higher usage allowances",
-      "Built for scaling businesses",
-    ],
+    tag: "scale",
+    description: "A complete operating environment for established teams and ambitious businesses.",
+    features: ["Everything in Professional", "Advanced team access", "Enhanced operational tools", "Priority support", "Higher usage allowances", "Built for scaling"],
   },
 ];
 
 const FAQS = [
-  {
-    question: "What is TOTS-OS?",
-    answer:
-      "TOTS-OS is an all-in-one business operating system designed to bring the everyday parts of running a business into one connected workspace — including projects, tasks, contacts, planning, finances, notes and more.",
-  },
-  {
-    question: "Who is TOTS-OS designed for?",
-    answer:
-      "TOTS-OS is designed for founders, small businesses and growing teams who are tired of running their business across disconnected apps, spreadsheets, notebooks and browser tabs.",
-  },
-  {
-    question: "Can I access TOTS-OS online?",
-    answer:
-      "Yes. TOTS-OS is a web-based platform, so your business workspace can be accessed through your account online.",
-  },
-  {
-    question: "Does TOTS-OS include social media tools?",
-    answer:
-      "TOTS-OS includes social planning and connected social workflows designed to sit alongside the rest of your business operations.",
-  },
-  {
-    question: "Can I log into an existing account?",
-    answer:
-      "Yes. Existing users can use the Log in button at the top of this page to access their TOTS-OS account.",
-  },
+  { q: "What is TOTS-OS?", a: "TOTS-OS is an all-in-one business operating system that brings projects, contacts, planning, finances and notes into one connected workspace." },
+  { q: "Who is it built for?", a: "Founders, small businesses and growing teams tired of running their business across disconnected apps, spreadsheets and browser tabs." },
+  { q: "Is it web based?", a: "Yes. TOTS-OS runs in the browser, so your workspace is reachable from any device through your account." },
+  { q: "Does it include social planning?", a: "Yes — social content and publishing workflows sit alongside the rest of your operations, not in a separate tool." },
+  { q: "I already have an account — where do I log in?", a: "Use the Log in button at the top of this page to open your existing TOTS-OS workspace." },
 ];
 
-function Reveal({
-  children,
-  delay = 0,
-  className = "",
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  className?: string;
-}) {
-  const reduceMotion = useReducedMotion();
+const ORBIT_MODULES = [
+  { icon: Users, label: "CRM", angle: -90 },
+  { icon: FolderKanban, label: "Projects", angle: -30 },
+  { icon: WalletCards, label: "Finance", angle: 30 },
+  { icon: CalendarDays, label: "Calendar", angle: 90 },
+  { icon: MessageSquareText, label: "Socials", angle: 150 },
+  { icon: BarChart3, label: "Insights", angle: 210 },
+];
 
+/* ---------------------------------------------------------------- */
+/*  primitives                                                       */
+/* ---------------------------------------------------------------- */
+
+function Cursor({ className = "" }) {
+  return <span className={`tots-cursor ${className}`} aria-hidden="true" />;
+}
+
+function Eyebrow({ children }) {
+  return (
+    <div className="tots-eyebrow">
+      <span className="tots-eyebrow-dot" />
+      {children}
+    </div>
+  );
+}
+
+function Corners() {
+  return (
+    <>
+      <span className="tots-corner tots-corner-tl" />
+      <span className="tots-corner tots-corner-tr" />
+      <span className="tots-corner tots-corner-bl" />
+      <span className="tots-corner tots-corner-br" />
+    </>
+  );
+}
+
+function Reveal({ children, delay = 0, className = "" }) {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      initial={
-        reduceMotion
-          ? { opacity: 1 }
-          : {
-              opacity: 0,
-              y: 42,
-              filter: "blur(12px)",
-            }
-      }
-      whileInView={{
-        opacity: 1,
-        y: 0,
-        filter: "blur(0px)",
-      }}
-      viewport={{
-        once: true,
-        amount: 0.16,
-      }}
-      transition={{
-        duration: 0.9,
-        delay,
-        ease: [0.22, 1, 0.36, 1],
-      }}
+      initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 36, filter: "blur(10px)" }}
+      whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      viewport={{ once: true, amount: 0.18 }}
+      transition={{ duration: 0.85, delay, ease: [0.19, 1, 0.22, 1] }}
       className={className}
     >
       {children}
@@ -226,256 +180,201 @@ function Reveal({
   );
 }
 
-function Eyebrow({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+/* ---------------------------------------------------------------- */
+/*  boot sequence                                                    */
+/* ---------------------------------------------------------------- */
+
+function BootSequence({ done, onSkip }) {
+  const [lineCount, setLineCount] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    if (lineCount >= BOOT_LINES.length) return;
+    const t = setTimeout(() => setLineCount((n) => n + 1), lineCount === 0 ? 260 : 190);
+    return () => clearTimeout(t);
+  }, [lineCount, reduceMotion]);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    setProgress(Math.min(100, Math.round((lineCount / BOOT_LINES.length) * 100)));
+  }, [lineCount, reduceMotion]);
+
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2 backdrop-blur-xl">
-      <span className="h-1.5 w-1.5 rounded-full bg-[#d8dfc8] shadow-[0_0_14px_rgba(216,223,200,0.8)]" />
-      <span className="text-[10px] font-medium uppercase tracking-[0.25em] text-white/55">
-        {children}
-      </span>
-    </div>
+    <AnimatePresence>
+      {!done && (
+        <motion.div
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="tots-boot"
+        >
+          <div className="tots-boot-flash" data-done={progress >= 100} />
+
+          <button className="tots-boot-skip" onClick={onSkip} type="button">
+            Skip intro
+          </button>
+
+          <div className="tots-boot-inner">
+            <div className="tots-boot-brand">
+              <span className="tots-boot-mark">TOTS­–OS</span>
+              <span className="tots-boot-sub">business operating system</span>
+            </div>
+
+            <div className="tots-boot-log">
+              {BOOT_LINES.slice(0, lineCount).map((line, i) => (
+                <div key={i} className="tots-boot-line">
+                  <span className="tots-boot-caret">›</span>
+                  {line}
+                </div>
+              ))}
+              {lineCount < BOOT_LINES.length && (
+                <div className="tots-boot-line tots-boot-line-active">
+                  <span className="tots-boot-caret">›</span>
+                  <Cursor />
+                </div>
+              )}
+            </div>
+
+            <div className="tots-boot-bar-track">
+              <motion.div
+                className="tots-boot-bar-fill"
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.25 }}
+              />
+            </div>
+            <div className="tots-boot-progress-label">
+              <span>booting workspace</span>
+              <span>{progress}%</span>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
+/* ---------------------------------------------------------------- */
+/*  product window                                                   */
+/* ---------------------------------------------------------------- */
+
 function ProductWindow() {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const y = useTransform(scrollYProgress, [0, 1], [30, -30]);
+
   return (
     <motion.div
-      initial={{
-        opacity: 0,
-        y: 70,
-        rotateX: 6,
-        scale: 0.94,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-        rotateX: 0,
-        scale: 1,
-      }}
-      transition={{
-        delay: 0.9,
-        duration: 1.4,
-        ease: [0.22, 1, 0.36, 1],
-      }}
-      className="relative mx-auto mt-20 w-full max-w-[1180px]"
-      style={{
-        perspective: 1800,
-      }}
+      ref={ref}
+      initial={{ opacity: 0, y: 60, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: 0.5, duration: 1.2, ease: [0.19, 1, 0.22, 1] }}
+      style={{ y }}
+      className="tots-window-wrap"
     >
-      <div className="absolute -inset-8 rounded-[60px] bg-[#cfd8b8]/[0.08] blur-[80px]" />
-
-      <div className="relative overflow-hidden rounded-[26px] border border-white/[0.12] bg-[#0a0a0a] shadow-[0_70px_180px_rgba(0,0,0,0.75)]">
-        <div className="flex h-11 items-center border-b border-white/[0.07] bg-white/[0.035] px-4">
-          <div className="flex gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-            <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-            <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+      <div className="tots-window-glow" />
+      <div className="tots-window">
+        <div className="tots-window-bar">
+          <div className="tots-window-dots">
+            <span /> <span /> <span />
           </div>
-
-          <div className="absolute left-1/2 -translate-x-1/2 rounded-lg border border-white/[0.06] bg-black/40 px-14 py-1.5">
-            <span className="text-[8px] uppercase tracking-[0.22em] text-white/25">
-              TOTS-OS / Dashboard
-            </span>
+          <div className="tots-window-tab">tots-os / workspace</div>
+          <div className="tots-window-status">
+            <span className="tots-status-dot" /> live
           </div>
         </div>
 
-        <div className="grid min-h-[570px] grid-cols-[74px_1fr] md:grid-cols-[210px_1fr]">
-          <aside className="border-r border-white/[0.07] bg-[#090909] p-4">
-            <div className="flex items-center gap-3">
-              <img
-                src="/images/tots-os%20favicon.png"
-                alt=""
-                className="h-9 w-9 rounded-xl object-contain"
-              />
-
-              <div className="hidden md:block">
-                <p className="text-[10px] font-semibold tracking-[0.16em] text-white">
-                  TOTS-OS
-                </p>
-                <p className="mt-0.5 text-[8px] uppercase tracking-[0.18em] text-white/25">
-                  Workspace
-                </p>
-              </div>
+        <div className="tots-window-body">
+          <aside className="tots-window-side">
+            <div className="tots-window-side-brand">
+              <div className="tots-window-logo">T</div>
+              <span className="tots-window-side-label">workspace</span>
             </div>
-
-            <div className="mt-10 space-y-2">
+            <div className="tots-window-nav">
               {[
                 [LayoutDashboard, "Dashboard", true],
-                [Users, "CRM", false],
-                [FolderKanban, "Projects", false],
-                [CalendarDays, "Calendar", false],
-                [ReceiptText, "Finance", false],
-                [MessageSquareText, "Socials", false],
-                [NotebookPen, "Notes", false],
-              ].map(([Icon, label, active]) => {
-                const MenuIcon = Icon as LucideIcon;
-
-                return (
-                  <div
-                    key={String(label)}
-                    className={`flex items-center gap-3 rounded-xl px-3 py-3 ${
-                      active
-                        ? "bg-white text-black"
-                        : "text-white/30"
-                    }`}
-                  >
-                    <MenuIcon className="h-4 w-4 shrink-0" />
-
-                    <span className="hidden text-[10px] font-medium md:block">
-                      {String(label)}
-                    </span>
-                  </div>
-                );
-              })}
+                [Users, "CRM"],
+                [FolderKanban, "Projects"],
+                [CalendarDays, "Calendar"],
+                [CircleDollarSign, "Finance"],
+                [MessageSquareText, "Socials"],
+                [NotebookPen, "Notes"],
+              ].map(([Icon, label, active]) => (
+                <div key={label} className={`tots-window-navitem ${active ? "is-active" : ""}`}>
+                  <Icon size={15} strokeWidth={1.75} />
+                  <span>{label}</span>
+                </div>
+              ))}
             </div>
           </aside>
 
-          <div className="overflow-hidden bg-[#0d0d0c] p-4 sm:p-6 lg:p-8">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="tots-window-main">
+            <div className="tots-window-mainhead">
               <div>
-                <p className="text-[9px] uppercase tracking-[0.26em] text-white/25">
-                  Wednesday, 12 August
-                </p>
-
-                <h3 className="mt-2 text-xl font-medium tracking-tight text-white sm:text-2xl">
-                  Good morning.
-                </h3>
+                <p className="tots-mono-label">wed · 12 aug</p>
+                <h3>Good morning.</h3>
               </div>
-
-              <div className="flex items-center gap-2">
-                <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] px-3 py-2 text-[9px] text-white/35">
-                  + New task
-                </div>
-
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d8dfc8] text-[9px] font-semibold text-black">
-                  TO
-                </div>
-              </div>
+              <div className="tots-window-avatar">TO</div>
             </div>
 
-            <div className="mt-7 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <div className="tots-window-stats">
               {[
                 ["Revenue", "£12,840", "+14.2%"],
                 ["Open projects", "08", "3 due soon"],
                 ["Tasks", "24", "6 today"],
-                ["Contacts", "142", "+8 this month"],
+                ["Contacts", "142", "+8 mo"],
               ].map(([label, value, note]) => (
-                <div
-                  key={label}
-                  className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 sm:p-5"
-                >
-                  <p className="text-[8px] uppercase tracking-[0.18em] text-white/25">
-                    {label}
-                  </p>
-
-                  <p className="mt-4 text-xl font-medium tracking-tight text-white sm:text-2xl">
-                    {value}
-                  </p>
-
-                  <p className="mt-2 text-[8px] text-[#d8dfc8]/55">
-                    {note}
-                  </p>
+                <div key={label} className="tots-stat-card">
+                  <p className="tots-mono-label">{label}</p>
+                  <p className="tots-stat-value">{value}</p>
+                  <p className="tots-stat-note">{note}</p>
                 </div>
               ))}
             </div>
 
-            <div className="mt-3 grid gap-3 xl:grid-cols-[1.35fr_.65fr]">
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
-                <div className="flex items-center justify-between">
+            <div className="tots-window-panels">
+              <div className="tots-panel">
+                <div className="tots-panel-head">
                   <div>
-                    <p className="text-[8px] uppercase tracking-[0.2em] text-white/25">
-                      Business pulse
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-white/80">
-                      Performance
-                    </p>
+                    <p className="tots-mono-label">pulse</p>
+                    <p className="tots-panel-title">Performance</p>
                   </div>
-
-                  <BarChart3 className="h-4 w-4 text-white/20" />
+                  <BarChart3 size={16} strokeWidth={1.5} className="tots-dim-icon" />
                 </div>
-
-                <div className="mt-8 flex h-[180px] items-end gap-2 sm:gap-3">
-                  {[36, 44, 40, 58, 52, 66, 62, 80, 72, 89, 84, 96].map(
-                    (height, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{
-                          height: 0,
-                        }}
-                        whileInView={{
-                          height: `${height}%`,
-                        }}
-                        viewport={{
-                          once: true,
-                        }}
-                        transition={{
-                          duration: 0.8,
-                          delay: index * 0.04,
-                        }}
-                        className="relative flex-1 overflow-hidden rounded-t-md bg-white/[0.075]"
-                      >
-                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#d8dfc8]/30 to-transparent" />
-                      </motion.div>
-                    )
-                  )}
+                <div className="tots-bars">
+                  {[36, 44, 40, 58, 52, 66, 62, 80, 72, 89, 84, 96].map((h, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ height: 0 }}
+                      whileInView={{ height: `${h}%` }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.7, delay: i * 0.035 }}
+                      className="tots-bar"
+                    />
+                  ))}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
-                <div className="flex items-center justify-between">
+              <div className="tots-panel">
+                <div className="tots-panel-head">
                   <div>
-                    <p className="text-[8px] uppercase tracking-[0.2em] text-white/25">
-                      Today
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-white/80">
-                      Focus
-                    </p>
+                    <p className="tots-mono-label">today</p>
+                    <p className="tots-panel-title">Focus</p>
                   </div>
-
-                  <Target className="h-4 w-4 text-white/20" />
+                  <Target size={16} strokeWidth={1.5} className="tots-dim-icon" />
                 </div>
-
-                <div className="mt-6 space-y-3">
+                <div className="tots-tasks">
                   {[
                     ["Prepare client proposal", "09:30"],
                     ["Review campaign", "11:00"],
                     ["Finance check-in", "14:30"],
                     ["Schedule content", "16:00"],
-                  ].map(([task, time], index) => (
-                    <motion.div
-                      initial={{
-                        opacity: 0,
-                        x: 15,
-                      }}
-                      whileInView={{
-                        opacity: 1,
-                        x: 0,
-                      }}
-                      viewport={{
-                        once: true,
-                      }}
-                      transition={{
-                        delay: 0.15 + index * 0.1,
-                      }}
-                      key={task}
-                      className="flex items-center gap-3 rounded-xl border border-white/[0.055] bg-black/20 p-3"
-                    >
-                      <span className="h-2 w-2 rounded-full border border-[#d8dfc8]/40" />
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[9px] text-white/60">
-                          {task}
-                        </p>
-                      </div>
-
-                      <span className="text-[8px] text-white/20">
-                        {time}
-                      </span>
-                    </motion.div>
+                  ].map(([task, time]) => (
+                    <div key={task} className="tots-task-row">
+                      <span className="tots-task-dot" />
+                      <span className="tots-task-label">{task}</span>
+                      <span className="tots-task-time">{time}</span>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -483,1319 +382,893 @@ function ProductWindow() {
           </div>
         </div>
       </div>
-
-      <div className="mx-auto h-[34px] w-[94%] rounded-b-[50%] bg-gradient-to-b from-zinc-800 to-black shadow-[0_40px_80px_rgba(0,0,0,0.8)]" />
     </motion.div>
   );
 }
 
-function Intro({
-  stage,
-  setStage,
-}: {
-  stage: IntroStage;
-  setStage: (stage: IntroStage) => void;
-}) {
-  return (
-    <AnimatePresence>
-      {stage !== "complete" && (
-        <motion.div
-          exit={{
-            opacity: 0,
-            scale: 1.06,
-            filter: "blur(20px)",
-          }}
-          transition={{
-            duration: 1,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-          className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#050505]"
-        >
-          <motion.div
-            animate={{
-              opacity: [0.25, 0.7, 0.25],
-              scale: [0.85, 1.08, 0.85],
-            }}
-            transition={{
-              duration: 5,
-              repeat: Infinity,
-            }}
-            className="absolute h-[600px] w-[600px] rounded-full bg-[#d8dfc8]/10 blur-[150px]"
-          />
-
-          <button
-            onClick={() => setStage("complete")}
-            className="absolute right-6 top-6 z-50 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[9px] uppercase tracking-[0.22em] text-white/35 transition hover:text-white md:right-10 md:top-10"
-          >
-            Skip intro
-          </button>
-
-          <motion.div
-            initial={{
-              opacity: 0,
-              y: 50,
-              scale: 0.92,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              scale: 1,
-            }}
-            transition={{
-              duration: 1.2,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-            className="relative flex w-full max-w-5xl flex-col items-center px-6"
-          >
-            <div
-              className="relative w-full max-w-3xl"
-              style={{
-                perspective: 2200,
-              }}
-            >
-              <motion.div
-                initial={{
-                  rotateX: -105,
-                }}
-                animate={{
-                  rotateX:
-                    stage === "boot"
-                      ? -105
-                      : stage === "opening"
-                        ? -8
-                        : 0,
-                }}
-                transition={{
-                  duration: 1.8,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                style={{
-                  transformOrigin: "bottom",
-                  transformStyle: "preserve-3d",
-                }}
-                className="relative h-[300px] rounded-t-[28px] border border-white/10 bg-black shadow-[0_0_100px_rgba(216,223,200,.12)] sm:h-[390px]"
-              >
-                <div className="absolute inset-0 overflow-hidden rounded-t-[28px]">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(216,223,200,.12),transparent_45%)]" />
-
-                  <div className="absolute left-1/2 top-3 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/25" />
-
-                  <AnimatePresence>
-                    {stage === "ready" && (
-                      <motion.div
-                        initial={{
-                          opacity: 0,
-                          scale: 0.86,
-                          filter: "blur(24px)",
-                        }}
-                        animate={{
-                          opacity: 1,
-                          scale: 1,
-                          filter: "blur(0px)",
-                        }}
-                        className="flex h-full flex-col items-center justify-center text-center"
-                      >
-                        <motion.img
-                          initial={{
-                            opacity: 0,
-                            scale: 0.7,
-                          }}
-                          animate={{
-                            opacity: 1,
-                            scale: 1,
-                          }}
-                          src="/images/tots-os%20favicon.png"
-                          alt=""
-                          className="mb-7 h-12 w-12 rounded-2xl"
-                        />
-
-                        <p className="text-[8px] uppercase tracking-[0.4em] text-[#d8dfc8]/55">
-                          Business operating system
-                        </p>
-
-                        <h2 className="mt-4 text-4xl font-semibold tracking-[-0.06em] sm:text-6xl">
-                          TOTS-OS
-                        </h2>
-
-                        <motion.div
-                          initial={{
-                            width: 0,
-                          }}
-                          animate={{
-                            width: 180,
-                          }}
-                          transition={{
-                            delay: 0.4,
-                            duration: 1,
-                          }}
-                          className="mt-8 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent"
-                        />
-
-                        <motion.p
-                          initial={{
-                            opacity: 0,
-                          }}
-                          animate={{
-                            opacity: 1,
-                          }}
-                          transition={{
-                            delay: 0.65,
-                          }}
-                          className="mt-6 text-[8px] uppercase tracking-[0.32em] text-white/25"
-                        >
-                          System ready
-                        </motion.p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-
-              <div className="h-7 w-full rounded-b-[50px] border-t border-white/[0.08] bg-gradient-to-b from-zinc-700 via-zinc-900 to-black shadow-[0_40px_80px_rgba(0,0,0,.8)]">
-                <div className="mx-auto h-1.5 w-32 rounded-b-full bg-black/70" />
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
+/* ---------------------------------------------------------------- */
+/*  main                                                              */
+/* ---------------------------------------------------------------- */
 
 export default function TotsOSLanding() {
   const reduceMotion = useReducedMotion();
-
-  const [introStage, setIntroStage] =
-    useState<IntroStage>("boot");
-
-  const [mobileMenuOpen, setMobileMenuOpen] =
-    useState(false);
-
+  const [bootDone, setBootDone] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] =
-    useState(false);
-
-  const [submitting, setSubmitting] =
-    useState(false);
-
-  const [openFaq, setOpenFaq] =
-    useState<number | null>(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [openFaq, setOpenFaq] = useState(0);
 
   useEffect(() => {
     if (reduceMotion) {
-      setIntroStage("complete");
+      setBootDone(true);
       return;
     }
-
-    const opening = window.setTimeout(
-      () => setIntroStage("opening"),
-      350
-    );
-
-    const ready = window.setTimeout(
-      () => setIntroStage("ready"),
-      1250
-    );
-
-    const complete = window.setTimeout(
-      () => setIntroStage("complete"),
-      3100
-    );
-
-    return () => {
-      window.clearTimeout(opening);
-      window.clearTimeout(ready);
-      window.clearTimeout(complete);
-    };
+    const t = setTimeout(() => setBootDone(true), 2600);
+    return () => clearTimeout(t);
   }, [reduceMotion]);
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
-
+  function handleSubmit(e) {
+    e.preventDefault();
     if (!email.trim()) return;
-
-    setSubmitting(true);
-
-    const formData = new FormData();
-    formData.append("fields[email]", email);
-
-    try {
-      await fetch(
-        "https://assets.mailerlite.com/jsonp/1976098/forms/173944037984699428/subscribe",
-        {
-          method: "POST",
-          body: formData,
-          mode: "no-cors",
-        }
-      );
-
-      setSubmitted(true);
-      setEmail("");
-    } catch {
-      setSubmitted(true);
-      setEmail("");
-    } finally {
-      setSubmitting(false);
-    }
+    setSubmitted(true);
+    setEmail("");
   }
 
   return (
-    <>
-      <Intro
-        stage={introStage}
-        setStage={setIntroStage}
-      />
+    <div className="tots-root">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
 
-      <main className="relative overflow-hidden bg-[#050505] text-white selection:bg-[#d8dfc8] selection:text-black">
-        {/* GLOBAL BACKGROUND */}
-        <div className="pointer-events-none fixed inset-0 z-0">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(216,223,200,0.09),transparent_32%)]" />
+        .tots-root {
+          --bg: #08080a;
+          --bg-1: #0e0e10;
+          --bg-2: #131315;
+          --ink: #f3f4ee;
+          --ink-dim: rgba(243,244,238,0.44);
+          --ink-faint: rgba(243,244,238,0.20);
+          --ink-ghost: rgba(243,244,238,0.09);
+          --accent: #d7e0a8;
+          --accent-soft: rgba(215,224,168,0.14);
+          --accent-deep: #7c8a52;
+          --line: rgba(243,244,238,0.09);
+          --line-soft: rgba(243,244,238,0.055);
+          font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+          background: var(--bg);
+          color: var(--ink);
+          position: relative;
+          overflow-x: hidden;
+          isolation: isolate;
+        }
+        .tots-root * { box-sizing: border-box; }
+        .tots-root h1, .tots-root h2, .tots-root h3 {
+          font-family: 'Space Grotesk', ui-sans-serif, sans-serif;
+          letter-spacing: -0.04em;
+          margin: 0;
+        }
+        .tots-root ::selection { background: var(--accent); color: #08080a; }
+        .tots-mono {
+          font-family: 'JetBrains Mono', ui-monospace, monospace;
+        }
+        .tots-mono-label {
+          font-family: 'JetBrains Mono', ui-monospace, monospace;
+          font-size: 9px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--ink-faint);
+          margin: 0;
+        }
 
-          <div
-            className="absolute inset-0 opacity-[0.025]"
-            style={{
-              backgroundImage: `
-                linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px)
-              `,
-              backgroundSize: "80px 80px",
-            }}
-          />
+        /* cursor */
+        .tots-cursor {
+          display: inline-block;
+          width: 8px;
+          height: 1em;
+          background: var(--accent);
+          margin-left: 2px;
+          vertical-align: -0.15em;
+          animation: tots-blink 1s steps(1) infinite;
+        }
+        @keyframes tots-blink { 50% { opacity: 0; } }
 
-          <div className="absolute inset-x-0 top-0 h-[800px] bg-gradient-to-b from-transparent to-[#050505]" />
+        /* eyebrow */
+        .tots-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 7px 14px;
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          background: rgba(255,255,255,0.02);
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: var(--ink-dim);
+        }
+        .tots-eyebrow-dot {
+          width: 6px; height: 6px; border-radius: 999px;
+          background: var(--accent);
+          box-shadow: 0 0 10px var(--accent);
+        }
+
+        /* grid + scanline backdrop */
+        .tots-bg-grid {
+          position: fixed; inset: 0; z-index: 0; pointer-events: none;
+          background-image:
+            linear-gradient(rgba(243,244,238,0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(243,244,238,0.05) 1px, transparent 1px);
+          background-size: 64px 64px;
+          opacity: 0.35;
+          mask-image: radial-gradient(ellipse 70% 55% at 50% 0%, black 10%, transparent 75%);
+        }
+        .tots-bg-glow {
+          position: fixed; inset: 0; z-index: 0; pointer-events: none;
+          background: radial-gradient(ellipse 60% 40% at 50% -8%, rgba(215,224,168,0.10), transparent 55%);
+        }
+
+        /* corners */
+        .tots-corner {
+          position: absolute; width: 10px; height: 10px;
+          border-color: var(--ink-ghost); border-style: solid; border-width: 0;
+          opacity: 0; transition: opacity .3s ease;
+        }
+        .tots-corner-tl { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
+        .tots-corner-tr { top: -1px; right: -1px; border-top-width: 1px; border-right-width: 1px; }
+        .tots-corner-bl { bottom: -1px; left: -1px; border-bottom-width: 1px; border-left-width: 1px; }
+        .tots-corner-br { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
+        .tots-hud:hover .tots-corner { opacity: 1; border-color: var(--accent); }
+
+        /* boot sequence */
+        .tots-boot {
+          position: fixed; inset: 0; z-index: 100;
+          background: #050506;
+          display: flex; align-items: center; justify-content: center;
+          overflow: hidden;
+        }
+        .tots-boot-flash {
+          position: absolute; inset: 0;
+          background: var(--accent);
+          opacity: 0; pointer-events: none;
+        }
+        .tots-boot-flash[data-done="true"] {
+          animation: tots-flash 0.6s ease forwards;
+          animation-delay: 0.15s;
+        }
+        @keyframes tots-flash {
+          0% { opacity: 0; }
+          45% { opacity: 0.9; }
+          100% { opacity: 0; }
+        }
+        .tots-boot-skip {
+          position: absolute; top: 22px; right: 22px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 9px; text-transform: uppercase; letter-spacing: 0.18em;
+          color: var(--ink-faint);
+          background: rgba(255,255,255,0.03);
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          padding: 8px 14px;
+          cursor: pointer;
+        }
+        .tots-boot-skip:hover { color: var(--ink); }
+        .tots-boot-inner {
+          width: min(560px, 88vw);
+        }
+        .tots-boot-brand {
+          margin-bottom: 34px;
+        }
+        .tots-boot-mark {
+          display: block;
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: clamp(2.2rem, 6vw, 3rem);
+          font-weight: 600;
+          letter-spacing: -0.04em;
+        }
+        .tots-boot-sub {
+          display: block;
+          margin-top: 6px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          letter-spacing: 0.24em;
+          text-transform: uppercase;
+          color: var(--accent);
+          opacity: 0.7;
+        }
+        .tots-boot-log {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 12px;
+          line-height: 1.9;
+          color: var(--ink-dim);
+          min-height: 210px;
+        }
+        .tots-boot-line { display: flex; gap: 8px; }
+        .tots-boot-caret { color: var(--accent); }
+        .tots-boot-line-active { color: var(--ink); }
+        .tots-boot-bar-track {
+          margin-top: 22px;
+          height: 2px; width: 100%;
+          background: var(--line);
+          overflow: hidden;
+        }
+        .tots-boot-bar-fill {
+          height: 100%;
+          background: var(--accent);
+          box-shadow: 0 0 12px var(--accent);
+        }
+        .tots-boot-progress-label {
+          margin-top: 10px;
+          display: flex; justify-content: space-between;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+          color: var(--ink-faint);
+        }
+
+        /* nav */
+        .tots-nav-shell { position: fixed; inset-inline: 0; top: 0; z-index: 50; padding: 16px 20px 0; }
+        .tots-nav {
+          max-width: 1400px; margin: 0 auto;
+          height: 64px;
+          display: flex; align-items: center; justify-content: space-between;
+          border: 1px solid var(--line);
+          border-radius: 18px;
+          background: rgba(8,8,10,0.72);
+          backdrop-filter: blur(20px);
+          padding: 0 10px 0 16px;
+        }
+        .tots-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+        .tots-brand-mark {
+          width: 34px; height: 34px; border-radius: 10px;
+          background: linear-gradient(155deg, var(--accent), var(--accent-deep));
+          color: #08080a;
+          display: flex; align-items: center; justify-content: center;
+          font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px;
+        }
+        .tots-brand-name { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; }
+        .tots-brand-sub { font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint); font-family: 'JetBrains Mono', monospace; }
+        .tots-nav-links { display: none; align-items: center; gap: 2px; }
+        .tots-nav-link {
+          padding: 9px 15px; border-radius: 999px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+          color: var(--ink-dim); text-decoration: none;
+          transition: background .2s, color .2s;
+        }
+        .tots-nav-link:hover { background: rgba(255,255,255,0.05); color: var(--ink); }
+        .tots-nav-actions { display: none; align-items: center; gap: 8px; }
+        .tots-btn-ghost {
+          height: 40px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px;
+          border: 1px solid var(--line); border-radius: 999px;
+          font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+          color: var(--ink-dim); text-decoration: none; transition: border-color .2s, color .2s;
+        }
+        .tots-btn-ghost:hover { border-color: var(--ink-faint); color: var(--ink); }
+        .tots-btn-solid {
+          height: 40px; padding: 0 18px; display: inline-flex; align-items: center; gap: 8px;
+          border-radius: 999px; background: var(--accent); color: #08080a;
+          font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+          text-decoration: none; border: none; cursor: pointer; transition: transform .2s, background .2s;
+        }
+        .tots-btn-solid:hover { background: #fff; }
+        .tots-btn-solid.lg, .tots-btn-ghost.lg { height: 56px; padding: 0 28px; font-size: 10px; }
+        .tots-menu-btn {
+          width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--line);
+          display: flex; align-items: center; justify-content: center; color: var(--ink-dim);
+          background: transparent;
+        }
+        @media (min-width: 1024px) { .tots-nav-links { display: flex; } }
+        @media (min-width: 640px) { .tots-nav-actions { display: flex; } .tots-menu-btn { display: none; } }
+
+        .tots-mobile-menu {
+          position: fixed; inset: 0; z-index: 90; background: rgba(5,5,6,0.9);
+          backdrop-filter: blur(24px); padding: 16px;
+        }
+        .tots-mobile-panel { border: 1px solid var(--line); border-radius: 24px; background: var(--bg-1); padding: 20px; }
+        .tots-mobile-link {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 16px 14px; border-radius: 16px; color: var(--ink-dim); text-decoration: none;
+          font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.08em;
+        }
+        .tots-mobile-link:hover { background: rgba(255,255,255,0.05); }
+
+        /* hero */
+        .tots-hero { position: relative; z-index: 10; padding: 150px 20px 90px; min-height: 100vh; }
+        .tots-hero-inner { max-width: 1400px; margin: 0 auto; text-align: center; }
+        .tots-hero h1 {
+          margin: 28px auto 0; max-width: 1160px;
+          font-size: clamp(2.6rem, 7.6vw, 7.6rem);
+          line-height: 0.94; font-weight: 600;
+        }
+        .tots-hero-line2 {
+          display: block;
+          background: linear-gradient(90deg, #fff, var(--accent) 60%, rgba(255,255,255,0.4));
+          -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .tots-hero p.lede {
+          max-width: 640px; margin: 26px auto 0;
+          font-size: clamp(0.95rem, 1.4vw, 1.1rem); line-height: 1.7; color: var(--ink-dim);
+        }
+        .tots-hero-ctas { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; margin-top: 38px; }
+        @media (min-width: 640px) { .tots-hero-ctas { flex-direction: row; } }
+        .tots-hero-meta {
+          margin-top: 30px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+          gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.1em;
+          text-transform: uppercase; color: var(--ink-faint);
+        }
+        .tots-hero-meta span { display: inline-flex; align-items: center; gap: 6px; }
+
+        /* window mockup */
+        .tots-window-wrap { position: relative; margin: 88px auto 0; max-width: 1180px; }
+        .tots-window-glow { position: absolute; inset: -30px; background: radial-gradient(ellipse, rgba(215,224,168,0.10), transparent 70%); filter: blur(40px); }
+        .tots-window {
+          position: relative; overflow: hidden; border-radius: 20px;
+          border: 1px solid var(--line); background: #0a0a0b;
+          box-shadow: 0 60px 160px rgba(0,0,0,0.6);
+        }
+        .tots-window-bar { display: flex; align-items: center; gap: 12px; height: 42px; padding: 0 16px; border-bottom: 1px solid var(--line-soft); background: rgba(255,255,255,0.015); }
+        .tots-window-dots { display: flex; gap: 6px; }
+        .tots-window-dots span { width: 8px; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.12); }
+        .tots-window-tab { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink-faint); letter-spacing: 0.08em; }
+        .tots-window-status { margin-left: auto; display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); opacity: 0.8; }
+        .tots-status-dot { width: 5px; height: 5px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        .tots-window-body { display: grid; grid-template-columns: 64px 1fr; min-height: 540px; }
+        @media (min-width: 768px) { .tots-window-body { grid-template-columns: 190px 1fr; } }
+        .tots-window-side { border-right: 1px solid var(--line-soft); background: #08080a; padding: 16px; }
+        .tots-window-side-brand { display: flex; align-items: center; gap: 10px; }
+        .tots-window-logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #08080a; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; }
+        .tots-window-side-label { display: none; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+        @media (min-width: 768px) { .tots-window-side-label { display: inline; } }
+        .tots-window-nav { margin-top: 30px; display: flex; flex-direction: column; gap: 4px; }
+        .tots-window-navitem { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; color: var(--ink-faint); }
+        .tots-window-navitem span { display: none; font-size: 11px; }
+        @media (min-width: 768px) { .tots-window-navitem span { display: inline; } }
+        .tots-window-navitem.is-active { background: var(--accent); color: #08080a; }
+        .tots-window-main { padding: 18px; }
+        @media (min-width: 640px) { .tots-window-main { padding: 26px; } }
+        .tots-window-mainhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .tots-window-mainhead h3 { font-size: 22px; font-weight: 500; margin-top: 6px; }
+        .tots-window-avatar { width: 32px; height: 32px; border-radius: 999px; background: var(--accent); color: #08080a; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; }
+        .tots-window-stats { margin-top: 24px; display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+        @media (min-width: 1024px) { .tots-window-stats { grid-template-columns: repeat(4,1fr); } }
+        .tots-stat-card { border: 1px solid var(--line-soft); background: rgba(255,255,255,0.02); border-radius: 14px; padding: 16px; }
+        .tots-stat-value { margin-top: 12px; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 500; letter-spacing: -0.03em; }
+        .tots-stat-note { margin-top: 6px; font-size: 9px; color: var(--accent); opacity: 0.6; }
+        .tots-window-panels { margin-top: 12px; display: grid; gap: 10px; }
+        @media (min-width: 1024px) { .tots-window-panels { grid-template-columns: 1.35fr 0.65fr; } }
+        .tots-panel { border: 1px solid var(--line-soft); background: rgba(255,255,255,0.02); border-radius: 14px; padding: 18px; }
+        .tots-panel-head { display: flex; align-items: center; justify-content: space-between; }
+        .tots-panel-title { margin-top: 4px; font-size: 13px; color: rgba(243,244,238,0.8); }
+        .tots-dim-icon { color: rgba(243,244,238,0.18); }
+        .tots-bars { margin-top: 28px; display: flex; align-items: flex-end; gap: 6px; height: 170px; }
+        .tots-bar { flex: 1; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, var(--accent-soft), rgba(215,224,168,0.02)); }
+        .tots-tasks { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .tots-task-row { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--line-soft); }
+        .tots-task-dot { width: 6px; height: 6px; border-radius: 999px; border: 1px solid rgba(215,224,168,0.5); flex-shrink: 0; }
+        .tots-task-label { flex: 1; min-width: 0; font-size: 11px; color: rgba(243,244,238,0.65); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tots-task-time { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink-faint); }
+
+        /* marquee */
+        .tots-marquee { position: relative; z-index: 10; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; padding: 26px 0; }
+        .tots-marquee-track { display: flex; width: max-content; }
+        .tots-marquee-item { padding: 0 32px; display: flex; align-items: center; gap: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: var(--ink-faint); white-space: nowrap; }
+        @media (min-width: 640px) { .tots-marquee-item { padding: 0 48px; } }
+
+        /* generic section */
+        .tots-section { position: relative; z-index: 10; padding: 100px 20px; }
+        @media (min-width: 1024px) { .tots-section { padding: 140px 24px; } }
+        .tots-section.bordered { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255,255,255,0.008); }
+        .tots-wrap { max-width: 1400px; margin: 0 auto; }
+        .tots-wrap-narrow { max-width: 1150px; margin: 0 auto; }
+
+        /* why grid */
+        .tots-why-grid { margin-top: 60px; display: grid; gap: 12px; }
+        @media (min-width: 1024px) { .tots-why-grid { grid-template-columns: repeat(3,1fr); } }
+        .tots-why-card {
+          position: relative; min-height: 340px; border: 1px solid var(--line); border-radius: 24px;
+          background: rgba(255,255,255,0.018); padding: 30px; display: flex; flex-direction: column;
+        }
+        .tots-why-top { display: flex; align-items: center; justify-content: space-between; }
+        .tots-why-icon { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center; color: var(--accent); }
+        .tots-why-card h3 { margin-top: auto; padding-top: 90px; font-size: 24px; font-weight: 500; }
+        .tots-why-card p { margin-top: 12px; font-size: 13.5px; line-height: 1.7; color: var(--ink-dim); max-width: 340px; }
+
+        /* features */
+        .tots-feat-grid { margin-top: 60px; display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 26px; overflow: hidden; }
+        @media (min-width: 768px) { .tots-feat-grid { grid-template-columns: repeat(2,1fr); } }
+        @media (min-width: 1024px) { .tots-feat-grid { grid-template-columns: repeat(3,1fr); } }
+        .tots-feat-card { background: #08080a; padding: 32px; min-height: 300px; transition: background .25s; }
+        .tots-feat-card:hover { background: rgba(255,255,255,0.025); }
+        .tots-feat-top { display: flex; align-items: flex-start; justify-content: space-between; }
+        .tots-feat-icon { width: 46px; height: 46px; border-radius: 13px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center; color: var(--accent); }
+        .tots-feat-id { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-ghost); }
+        .tots-feat-card h3 { margin-top: 40px; font-size: 21px; font-weight: 500; }
+        .tots-feat-card p { margin-top: 12px; font-size: 13px; line-height: 1.7; color: var(--ink-dim); max-width: 320px; }
+
+        /* orbit */
+        .tots-orbit-wrap { position: relative; margin: 0 auto; aspect-ratio: 1; max-width: 560px; }
+        .tots-orbit-ring { position: absolute; border-radius: 999px; border: 1px solid var(--line); }
+        .tots-orbit-ring.r1 { inset: 12%; }
+        .tots-orbit-ring.r2 { inset: 28%; border-style: dashed; border-color: var(--ink-ghost); }
+        .tots-orbit-core {
+          position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+          width: 118px; height: 118px; border-radius: 30px;
+          background: rgba(215,224,168,0.06); border: 1px solid rgba(215,224,168,0.22);
+          display: flex; align-items: center; justify-content: center;
+          font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: var(--accent);
+        }
+        .tots-orbit-node {
+          position: absolute; width: 84px; height: 84px; margin: -42px;
+          border-radius: 18px; border: 1px solid var(--line); background: rgba(10,10,11,0.9);
+          display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+          backdrop-filter: blur(6px);
+        }
+        .tots-orbit-node span { font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+
+        /* checklist */
+        .tots-check-list { margin-top: 34px; display: flex; flex-direction: column; gap: 16px; }
+        .tots-check-row { display: flex; align-items: center; gap: 14px; }
+        .tots-check-icon { width: 28px; height: 28px; border-radius: 999px; border: 1px solid rgba(215,224,168,0.25); background: var(--accent-soft); display: flex; align-items: center; justify-content: center; color: var(--accent); flex-shrink: 0; }
+        .tots-check-row span.txt { font-size: 14px; color: rgba(243,244,238,0.7); }
+
+        /* security */
+        .tots-sec-card { position: relative; overflow: hidden; border-radius: 32px; border: 1px solid var(--line); background: #0a0a09; padding: 34px; }
+        @media (min-width: 1024px) { .tots-sec-card { padding: 60px; } }
+        .tots-sec-grid { display: grid; gap: 40px; }
+        @media (min-width: 1024px) { .tots-sec-grid { grid-template-columns: 1fr 0.85fr; align-items: center; } }
+        .tots-sec-items { display: grid; gap: 10px; }
+        @media (min-width: 640px) { .tots-sec-items { grid-template-columns: repeat(2,1fr); } }
+        .tots-sec-item { border: 1px solid var(--line); background: rgba(255,255,255,0.02); border-radius: 16px; padding: 18px; }
+        .tots-sec-item h4 { margin-top: 16px; font-size: 13px; font-weight: 500; }
+        .tots-sec-item p { margin-top: 6px; font-size: 11.5px; line-height: 1.6; color: var(--ink-faint); }
+
+        /* pricing */
+        .tots-price-grid { margin-top: 60px; display: grid; gap: 12px; }
+        @media (min-width: 1024px) { .tots-price-grid { grid-template-columns: repeat(3,1fr); } }
+        .tots-price-card {
+          position: relative; display: flex; flex-direction: column; min-height: 640px;
+          border-radius: 28px; border: 1px solid var(--line); background: rgba(255,255,255,0.018); padding: 30px;
+        }
+        .tots-price-card.featured { border-color: rgba(215,224,168,0.35); background: rgba(215,224,168,0.045); }
+        .tots-price-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+        .tots-price-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; }
+        .tots-price-badge { margin-top: 10px; display: inline-block; border: 1px solid rgba(215,224,168,0.3); background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 4px 10px; font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; }
+        .tots-price-figure { margin-top: 40px; display: flex; align-items: flex-end; }
+        .tots-price-amount { font-family: 'Space Grotesk', sans-serif; font-size: 58px; font-weight: 600; letter-spacing: -0.04em; }
+        .tots-price-period { margin-bottom: 8px; margin-left: 6px; font-size: 12px; color: var(--ink-faint); }
+        .tots-price-desc { margin-top: 22px; min-height: 68px; font-size: 13.5px; line-height: 1.6; color: var(--ink-dim); }
+        .tots-price-includes { margin-top: 30px; border-top: 1px solid var(--line-soft); padding-top: 26px; }
+        .tots-price-feature { display: flex; align-items: flex-start; gap: 10px; margin-top: 14px; }
+        .tots-price-feature span { font-size: 12.5px; line-height: 1.5; color: rgba(243,244,238,0.55); }
+
+        /* faq */
+        .tots-faq-item { border-bottom: 1px solid var(--line); }
+        .tots-faq-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 0; background: none; border: none; text-align: left; cursor: pointer; color: inherit; }
+        .tots-faq-btn span { font-size: 14.5px; font-weight: 500; color: rgba(243,244,238,0.78); }
+        .tots-faq-answer { font-size: 13.5px; line-height: 1.7; color: var(--ink-dim); max-width: 640px; padding-bottom: 26px; }
+
+        /* email cta */
+        .tots-cta-card { position: relative; overflow: hidden; border-radius: 40px; border: 1px solid var(--line); background: #0b0b0a; padding: 60px 24px; text-align: center; }
+        @media (min-width: 1024px) { .tots-cta-card { padding: 96px 40px; } }
+        .tots-cta-icon { margin: 0 auto; width: 52px; height: 52px; border-radius: 15px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center; color: var(--accent); }
+        .tots-cta-form { margin: 34px auto 0; max-width: 560px; display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--line); border-radius: 20px; background: rgba(0,0,0,0.3); padding: 8px; }
+        @media (min-width: 640px) { .tots-cta-form { flex-direction: row; } }
+        .tots-cta-input { height: 50px; flex: 1; background: transparent; border: none; outline: none; padding: 0 16px; color: var(--ink); font-size: 13.5px; }
+        .tots-cta-input::placeholder { color: var(--ink-ghost); }
+
+        /* footer */
+        .tots-footer { position: relative; z-index: 10; border-top: 1px solid var(--line); padding: 60px 20px 30px; }
+        .tots-footer-grid { display: grid; gap: 40px; padding-bottom: 50px; }
+        @media (min-width: 768px) { .tots-footer-grid { grid-template-columns: 1.5fr repeat(3, 1fr); } }
+        .tots-footer h5 { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); }
+        .tots-footer-links { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .tots-footer-links a { font-size: 12.5px; color: var(--ink-dim); text-decoration: none; }
+        .tots-footer-links a:hover { color: var(--ink); }
+        .tots-footer-bottom { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 22px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--ink-faint); }
+        @media (min-width: 640px) { .tots-footer-bottom { flex-direction: row; align-items: center; justify-content: space-between; } }
+      `}</style>
+
+      <div className="tots-bg-grid" />
+      <div className="tots-bg-glow" />
+
+      <BootSequence done={bootDone} onSkip={() => setBootDone(true)} />
+
+      {/* NAV */}
+      <div className="tots-nav-shell">
+        <div className="tots-nav">
+          <a href="#" className="tots-brand">
+            <span className="tots-brand-mark">T</span>
+            <span>
+              <span className="tots-brand-name" style={{ display: "block" }}>TOTS-OS</span>
+              <span className="tots-brand-sub">business os</span>
+            </span>
+          </a>
+
+          <nav className="tots-nav-links">
+            {NAV_ITEMS.map((item) => (
+              <a key={item.href} href={item.href} className="tots-nav-link">{item.label}</a>
+            ))}
+          </nav>
+
+          <div className="tots-nav-actions">
+            <a href="#" className="tots-btn-ghost"><LogIn size={13} /> Log in</a>
+            <a href="#pricing" className="tots-btn-solid">View plans <ArrowRight size={13} /></a>
+          </div>
+
+          <button className="tots-menu-btn" onClick={() => setMobileMenuOpen(true)} aria-label="Open menu">
+            <Menu size={16} />
+          </button>
         </div>
+      </div>
 
-        {/* NAV */}
-        <header className="fixed inset-x-0 top-0 z-50">
-          <div className="mx-auto max-w-[1500px] px-4 pt-4 sm:px-6 lg:px-8">
-            <div className="flex h-[68px] items-center justify-between rounded-[22px] border border-white/[0.08] bg-black/55 px-4 shadow-[0_20px_80px_rgba(0,0,0,.35)] backdrop-blur-2xl sm:px-5">
-              <Link
-                href="/"
-                className="flex items-center gap-3"
-              >
-                <img
-                  src="/images/tots-os%20favicon.png"
-                  alt="TOTS-OS"
-                  className="h-9 w-9 rounded-xl object-contain"
-                />
-
-                <div>
-                  <p className="text-[11px] font-semibold tracking-[0.18em]">
-                    TOTS-OS
-                  </p>
-
-                  <p className="mt-0.5 hidden text-[7px] uppercase tracking-[0.22em] text-white/25 sm:block">
-                    Business operating system
-                  </p>
-                </div>
-              </Link>
-
-              <nav className="hidden items-center gap-1 lg:flex">
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="tots-mobile-menu">
+            <motion.div initial={{ y: -24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -16, opacity: 0 }} className="tots-mobile-panel">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div className="tots-brand"><span className="tots-brand-mark">T</span><span className="tots-brand-name">TOTS-OS</span></div>
+                <button className="tots-menu-btn" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu"><X size={16} /></button>
+              </div>
+              <div style={{ marginTop: 24 }}>
                 {NAV_ITEMS.map((item) => (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    className="rounded-full px-4 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-white/40 transition hover:bg-white/[0.05] hover:text-white"
-                  >
-                    {item.label}
+                  <a key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)} className="tots-mobile-link">
+                    {item.label} <ArrowUpRight size={14} />
                   </a>
                 ))}
-              </nav>
-
-              <div className="hidden items-center gap-2 sm:flex">
-                <Link
-                  href="/login"
-                  className="flex h-10 items-center gap-2 rounded-full border border-white/10 px-4 text-[9px] font-medium uppercase tracking-[0.16em] text-white/60 transition hover:border-white/20 hover:text-white"
-                >
-                  <LogIn className="h-3.5 w-3.5" />
-                  Log in
-                </Link>
-
-                <a
-                  href="#pricing"
-                  className="group flex h-10 items-center gap-2 rounded-full bg-[#e5e8dc] px-5 text-[9px] font-semibold uppercase tracking-[0.16em] text-black transition hover:bg-white"
-                >
-                  View plans
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                </a>
               </div>
-
-              <button
-                type="button"
-                aria-label="Open menu"
-                onClick={() =>
-                  setMobileMenuOpen(true)
-                }
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/60 sm:hidden"
-              >
-                <Menu className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.div
-              initial={{
-                opacity: 0,
-              }}
-              animate={{
-                opacity: 1,
-              }}
-              exit={{
-                opacity: 0,
-              }}
-              className="fixed inset-0 z-[80] bg-black/80 p-4 backdrop-blur-2xl sm:hidden"
-            >
-              <motion.div
-                initial={{
-                  y: -30,
-                  opacity: 0,
-                }}
-                animate={{
-                  y: 0,
-                  opacity: 1,
-                }}
-                exit={{
-                  y: -20,
-                  opacity: 0,
-                }}
-                className="rounded-[28px] border border-white/10 bg-[#0b0b0b] p-5"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src="/images/tots-os%20favicon.png"
-                      alt=""
-                      className="h-9 w-9 rounded-xl"
-                    />
-                    <span className="text-xs font-semibold tracking-[0.16em]">
-                      TOTS-OS
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() =>
-                      setMobileMenuOpen(false)
-                    }
-                    aria-label="Close menu"
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="mt-8 space-y-1">
-                  {NAV_ITEMS.map((item) => (
-                    <a
-                      key={item.href}
-                      href={item.href}
-                      onClick={() =>
-                        setMobileMenuOpen(false)
-                      }
-                      className="flex items-center justify-between rounded-2xl px-4 py-4 text-sm text-white/65 transition hover:bg-white/[0.05]"
-                    >
-                      {item.label}
-                      <ArrowUpRight className="h-4 w-4 text-white/20" />
-                    </a>
-                  ))}
-                </div>
-
-                <div className="mt-6 grid grid-cols-2 gap-2">
-                  <Link
-                    href="/login"
-                    className="flex h-12 items-center justify-center rounded-2xl border border-white/10 text-xs"
-                  >
-                    Log in
-                  </Link>
-
-                  <a
-                    href="#pricing"
-                    onClick={() =>
-                      setMobileMenuOpen(false)
-                    }
-                    className="flex h-12 items-center justify-center rounded-2xl bg-white text-xs font-medium text-black"
-                  >
-                    View plans
-                  </a>
-                </div>
-              </motion.div>
+              <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <a href="#" className="tots-btn-ghost" style={{ justifyContent: "center" }}>Log in</a>
+                <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="tots-btn-solid" style={{ justifyContent: "center" }}>View plans</a>
+              </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* HERO */}
-        <section className="relative z-10 min-h-screen px-5 pb-24 pt-40 sm:px-6 lg:px-8 lg:pt-48">
-          <motion.div
-            animate={{
-              x: ["-5%", "5%", "-5%"],
-              y: ["0%", "7%", "0%"],
-            }}
-            transition={{
-              duration: 15,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-            className="pointer-events-none absolute left-1/2 top-[25%] h-[620px] w-[620px] -translate-x-1/2 rounded-full bg-[#d8dfc8]/[0.06] blur-[160px]"
-          />
-
-          <div className="relative mx-auto max-w-[1400px]">
-            <motion.div
-              initial={{
-                opacity: 0,
-                y: 20,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              transition={{
-                delay: 0.15,
-                duration: 0.8,
-              }}
-              className="text-center"
-            >
-              <Eyebrow>
-                Your business. One operating system.
-              </Eyebrow>
-
-              <motion.h1
-                initial={{
-                  opacity: 0,
-                  y: 40,
-                  filter: "blur(16px)",
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  filter: "blur(0px)",
-                }}
-                transition={{
-                  delay: 0.25,
-                  duration: 1.1,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="mx-auto mt-8 max-w-[1100px] text-[clamp(3.5rem,8vw,8.7rem)] font-medium leading-[0.88] tracking-[-0.075em]"
-              >
-                Run your business
-                <span className="block bg-gradient-to-r from-white via-[#dfe4d3] to-white/55 bg-clip-text text-transparent">
-                  without the chaos.
-                </span>
-              </motion.h1>
-
-              <motion.p
-                initial={{
-                  opacity: 0,
-                  y: 22,
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                }}
-                transition={{
-                  delay: 0.55,
-                  duration: 0.9,
-                }}
-                className="mx-auto mt-8 max-w-[680px] text-base leading-7 text-white/42 sm:text-lg"
-              >
-                TOTS-OS brings your projects, clients,
-                finances, planning, content and everyday
-                operations into one beautifully organised
-                business system.
-              </motion.p>
-
-              <motion.div
-                initial={{
-                  opacity: 0,
-                  y: 22,
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                }}
-                transition={{
-                  delay: 0.75,
-                }}
-                className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row"
-              >
-                <a
-                  href="#pricing"
-                  className="group flex h-14 min-w-[190px] items-center justify-center gap-3 rounded-full bg-[#e8eadf] px-7 text-[10px] font-semibold uppercase tracking-[0.18em] text-black transition duration-300 hover:scale-[1.025] hover:bg-white"
-                >
-                  Explore TOTS-OS
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </a>
-
-                <a
-                  href="#product"
-                  className="group flex h-14 min-w-[190px] items-center justify-center gap-3 rounded-full border border-white/10 bg-white/[0.035] px-7 text-[10px] font-medium uppercase tracking-[0.18em] text-white/60 backdrop-blur-xl transition hover:border-white/20 hover:text-white"
-                >
-                  <Play className="h-3.5 w-3.5 fill-current" />
-                  See the system
-                </a>
-              </motion.div>
-
-              <motion.div
-                initial={{
-                  opacity: 0,
-                }}
-                animate={{
-                  opacity: 1,
-                }}
-                transition={{
-                  delay: 1.1,
-                }}
-                className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[9px] uppercase tracking-[0.16em] text-white/22"
-              >
-                <span className="flex items-center gap-2">
-                  <Check className="h-3 w-3 text-[#d8dfc8]/60" />
-                  Web based
-                </span>
-
-                <span className="flex items-center gap-2">
-                  <Check className="h-3 w-3 text-[#d8dfc8]/60" />
-                  Secure account access
-                </span>
-
-                <span className="flex items-center gap-2">
-                  <Check className="h-3 w-3 text-[#d8dfc8]/60" />
-                  Built for real businesses
-                </span>
-              </motion.div>
-            </motion.div>
-
-            <ProductWindow />
-          </div>
-        </section>
-
-        {/* MARQUEE */}
-        <section className="relative z-10 overflow-hidden border-y border-white/[0.06] py-7">
-          <motion.div
-            animate={{
-              x: ["0%", "-50%"],
-            }}
-            transition={{
-              duration: 28,
-              repeat: Infinity,
-              ease: "linear",
-            }}
-            className="flex w-max items-center"
-          >
-            {[...Array(2)].flatMap((_, group) =>
-              [
-                "CRM",
-                "PROJECTS",
-                "FINANCE",
-                "CALENDAR",
-                "SOCIALS",
-                "NOTES",
-                "TASKS",
-                "BUSINESS KPIs",
-              ].map((item, index) => (
-                <div
-                  key={`${group}-${index}`}
-                  className="flex items-center"
-                >
-                  <span className="px-8 text-[10px] font-medium tracking-[0.28em] text-white/25 sm:px-12">
-                    {item}
-                  </span>
-                  <Sparkles className="h-3 w-3 text-[#d8dfc8]/25" />
-                </div>
-              ))
-            )}
           </motion.div>
-        </section>
+        )}
+      </AnimatePresence>
 
-        {/* PRODUCT PHILOSOPHY */}
-        <section
-          id="product"
-          className="relative z-10 px-5 py-28 sm:px-6 lg:px-8 lg:py-40"
-        >
-          <div className="mx-auto max-w-[1400px]">
-            <Reveal>
-              <div className="grid gap-12 lg:grid-cols-[.8fr_1.2fr] lg:items-end">
-                <div>
-                  <Eyebrow>Why TOTS-OS</Eyebrow>
+      {/* HERO */}
+      <section className="tots-hero">
+        <div className="tots-hero-inner">
+          <Eyebrow>[ business os — v1.0 ]</Eyebrow>
 
-                  <p className="mt-7 max-w-md text-sm leading-6 text-white/35">
-                    Businesses outgrow scattered systems.
-                    TOTS-OS is designed to make running one
-                    feel simpler again.
-                  </p>
-                </div>
+          <h1>
+            Run your business
+            <span className="tots-hero-line2">without the chaos.<Cursor /></span>
+          </h1>
 
-                <h2 className="text-[clamp(2.7rem,5.7vw,6.4rem)] font-medium leading-[0.96] tracking-[-0.06em]">
-                  Stop building your business around
-                  <span className="text-white/22">
-                    {" "}
-                    disconnected tools.
-                  </span>
-                </h2>
-              </div>
-            </Reveal>
+          <p className="lede">
+            TOTS-OS boots your business into one connected system — projects, clients, finances, planning and content, running from a single workspace.
+          </p>
 
-            <div className="mt-20 grid gap-4 lg:grid-cols-3">
-              {[
-                {
-                  number: "01",
-                  icon: Layers3,
-                  title: "One connected workspace",
-                  text: "The parts of your business belong together. Keep the context around your clients, work, money and plans close at hand.",
-                },
-                {
-                  number: "02",
-                  icon: Gauge,
-                  title: "Clarity at a glance",
-                  text: "See what needs attention, what is moving and what comes next without rebuilding the picture every morning.",
-                },
-                {
-                  number: "03",
-                  icon: Zap,
-                  title: "Less admin friction",
-                  text: "Spend less time maintaining your organisation system and more time actually using it to move forward.",
-                },
-              ].map((item, index) => {
-                const Icon = item.icon;
-
-                return (
-                  <Reveal
-                    key={item.number}
-                    delay={index * 0.1}
-                  >
-                    <motion.div
-                      whileHover={{
-                        y: -5,
-                      }}
-                      className="group relative min-h-[390px] overflow-hidden rounded-[30px] border border-white/[0.08] bg-white/[0.025] p-7 sm:p-9"
-                    >
-                      <div className="absolute right-0 top-0 h-52 w-52 bg-[#d8dfc8]/[0.035] blur-[80px] transition group-hover:bg-[#d8dfc8]/[0.07]" />
-
-                      <div className="relative flex h-full flex-col">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] tracking-[0.22em] text-white/20">
-                            {item.number}
-                          </span>
-
-                          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04]">
-                            <Icon className="h-4 w-4 text-[#d8dfc8]/60" />
-                          </div>
-                        </div>
-
-                        <div className="mt-auto pt-28">
-                          <h3 className="text-2xl font-medium tracking-[-0.035em]">
-                            {item.title}
-                          </h3>
-
-                          <p className="mt-4 max-w-sm text-sm leading-6 text-white/35">
-                            {item.text}
-                          </p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </Reveal>
-                );
-              })}
-            </div>
+          <div className="tots-hero-ctas">
+            <a href="#pricing" className="tots-btn-solid lg">Explore TOTS-OS <ArrowRight size={15} /></a>
+            <a href="#product" className="tots-btn-ghost lg"><Play size={13} style={{ fill: "currentColor" }} /> See the system</a>
           </div>
-        </section>
 
-        {/* FEATURES */}
-        <section
-          id="features"
-          className="relative z-10 border-y border-white/[0.06] bg-white/[0.012] px-5 py-28 sm:px-6 lg:px-8 lg:py-40"
-        >
-          <div className="mx-auto max-w-[1400px]">
-            <Reveal className="text-center">
-              <Eyebrow>Inside the system</Eyebrow>
+          <div className="tots-hero-meta">
+            <span><Check size={12} color="var(--accent)" /> web based</span>
+            <span><Check size={12} color="var(--accent)" /> secure account access</span>
+            <span><Check size={12} color="var(--accent)" /> 6 modules, one system</span>
+          </div>
 
-              <h2 className="mx-auto mt-7 max-w-4xl text-[clamp(2.8rem,6vw,6rem)] font-medium leading-[0.95] tracking-[-0.06em]">
+          <ProductWindow />
+        </div>
+      </section>
+
+      {/* MARQUEE */}
+      <section className="tots-marquee">
+        <motion.div animate={{ x: ["0%", "-50%"] }} transition={{ duration: 26, repeat: Infinity, ease: "linear" }} className="tots-marquee-track">
+          {[...Array(2)].flatMap((_, g) =>
+            ["CRM", "PROJECTS", "FINANCE", "CALENDAR", "SOCIALS", "NOTES", "TASKS", "BUSINESS KPIS"].map((item, i) => (
+              <span key={`${g}-${i}`} className="tots-marquee-item">
+                {item} <Sparkles size={11} color="var(--accent)" opacity={0.4} />
+              </span>
+            ))
+          )}
+        </motion.div>
+      </section>
+
+      {/* WHY */}
+      <section id="product" className="tots-section">
+        <div className="tots-wrap">
+          <Reveal>
+            <div style={{ display: "grid", gap: 32 }}>
+              <Eyebrow>why tots-os</Eyebrow>
+              <h2 style={{ fontSize: "clamp(2.4rem,5.6vw,5.6rem)", lineHeight: 0.98, fontWeight: 500, maxWidth: 900 }}>
+                Stop building your business around <span style={{ color: "var(--ink-faint)" }}>disconnected tools.</span>
+              </h2>
+            </div>
+          </Reveal>
+
+          <div className="tots-why-grid">
+            {[
+              { icon: Layers3, id: "why.01", title: "One connected workspace", text: "The parts of your business belong together — the context around clients, work, money and plans, always close at hand." },
+              { icon: Gauge, id: "why.02", title: "Clarity at a glance", text: "See what needs attention, what is moving and what comes next, without rebuilding the picture every morning." },
+              { icon: Zap, id: "why.03", title: "Less admin friction", text: "Spend less time maintaining your organisation system, and more time actually using it to move forward." },
+            ].map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <Reveal key={item.id} delay={i * 0.08}>
+                  <div className="tots-why-card tots-hud">
+                    <Corners />
+                    <div className="tots-why-top">
+                      <span className="tots-mono-label">{item.id}</span>
+                      <div className="tots-why-icon"><Icon size={18} strokeWidth={1.6} /></div>
+                    </div>
+                    <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </div>
+                </Reveal>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section id="features" className="tots-section bordered">
+        <div className="tots-wrap">
+          <Reveal className="tots-wrap-narrow" style={{ textAlign: "center" }}>
+            <div style={{ textAlign: "center" }}>
+              <Eyebrow>inside the system</Eyebrow>
+              <h2 style={{ margin: "26px auto 0", maxWidth: 760, fontSize: "clamp(2.4rem,5.4vw,5rem)", lineHeight: 0.98, fontWeight: 500 }}>
                 Everything has a place.
               </h2>
-
-              <p className="mx-auto mt-7 max-w-2xl text-base leading-7 text-white/35">
-                Core business tools designed to work as
-                parts of one system instead of a pile of
-                separate subscriptions.
+              <p style={{ margin: "24px auto 0", maxWidth: 560, fontSize: 14.5, lineHeight: 1.7, color: "var(--ink-dim)" }}>
+                Six core modules, engineered to run as parts of one system — not a pile of separate subscriptions.
               </p>
-            </Reveal>
-
-            <div className="mt-20 grid gap-px overflow-hidden rounded-[32px] border border-white/[0.07] bg-white/[0.07] md:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map((feature, index) => {
-                const Icon = feature.icon;
-
-                return (
-                  <Reveal
-                    key={feature.title}
-                    delay={(index % 3) * 0.07}
-                  >
-                    <motion.div
-                      whileHover={{
-                        backgroundColor:
-                          "rgba(255,255,255,0.045)",
-                      }}
-                      className="group min-h-[330px] bg-[#090909] p-8 lg:p-9"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.035]">
-                          <Icon className="h-5 w-5 text-[#d8dfc8]/65" />
-                        </div>
-
-                        <ArrowUpRight className="h-4 w-4 text-white/10 transition duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:text-white/50" />
-                      </div>
-
-                      <div className="mt-16">
-                        <p className="text-[9px] font-medium uppercase tracking-[0.22em] text-[#d8dfc8]/35">
-                          {feature.eyebrow}
-                        </p>
-
-                        <h3 className="mt-3 text-2xl font-medium tracking-[-0.04em]">
-                          {feature.title}
-                        </h3>
-
-                        <p className="mt-4 max-w-sm text-sm leading-6 text-white/32">
-                          {feature.description}
-                        </p>
-                      </div>
-                    </motion.div>
-                  </Reveal>
-                );
-              })}
             </div>
+          </Reveal>
+
+          <div className="tots-feat-grid">
+            {FEATURES.map((f, i) => {
+              const Icon = f.icon;
+              return (
+                <Reveal key={f.id} delay={(i % 3) * 0.06}>
+                  <div className="tots-feat-card">
+                    <div className="tots-feat-top">
+                      <div className="tots-feat-icon"><Icon size={19} strokeWidth={1.6} /></div>
+                      <span className="tots-feat-id">mod.{f.id}</span>
+                    </div>
+                    <h3>{f.title}</h3>
+                    <p>{f.text}</p>
+                  </div>
+                </Reveal>
+              );
+            })}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* CONNECTED SYSTEM */}
-        <section className="relative z-10 px-5 py-28 sm:px-6 lg:px-8 lg:py-40">
-          <div className="mx-auto grid max-w-[1400px] gap-16 lg:grid-cols-2 lg:items-center">
+      {/* CONNECTED SYSTEM */}
+      <section className="tots-section">
+        <div className="tots-wrap" style={{ display: "grid", gap: 60, alignItems: "center" }}>
+          <div style={{ display: "grid", gap: 60 }} className="tots-connect-grid">
             <Reveal>
-              <Eyebrow>Connected by design</Eyebrow>
-
-              <h2 className="mt-7 max-w-xl text-[clamp(2.8rem,5vw,5.6rem)] font-medium leading-[0.95] tracking-[-0.06em]">
+              <Eyebrow>connected by design</Eyebrow>
+              <h2 style={{ marginTop: 26, maxWidth: 560, fontSize: "clamp(2.4rem,4.6vw,4.6rem)", lineHeight: 0.98, fontWeight: 500 }}>
                 Your business is not six different apps.
               </h2>
-
-              <p className="mt-7 max-w-lg text-base leading-7 text-white/35">
-                A client becomes a project. A project
-                creates tasks. Tasks have dates. Work
-                creates revenue. TOTS-OS is built around
-                those relationships.
+              <p style={{ marginTop: 24, maxWidth: 480, fontSize: 14.5, lineHeight: 1.75, color: "var(--ink-dim)" }}>
+                A client becomes a project. A project creates tasks. Tasks have dates. Work creates revenue. TOTS-OS is built around those relationships.
               </p>
-
-              <div className="mt-10 space-y-5">
-                {[
-                  "See your work in context",
-                  "Reduce duplicate admin",
-                  "Build clearer business routines",
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center gap-4"
-                  >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[#d8dfc8]/15 bg-[#d8dfc8]/[0.05]">
-                      <Check className="h-3.5 w-3.5 text-[#d8dfc8]/70" />
-                    </div>
-
-                    <span className="text-sm text-white/55">
-                      {item}
-                    </span>
+              <div className="tots-check-list">
+                {["See your work in context", "Reduce duplicate admin", "Build clearer business routines"].map((item) => (
+                  <div key={item} className="tots-check-row">
+                    <span className="tots-check-icon"><Check size={13} /></span>
+                    <span className="txt">{item}</span>
                   </div>
                 ))}
               </div>
             </Reveal>
 
-            <Reveal delay={0.15}>
-              <div className="relative mx-auto aspect-square max-w-[610px]">
-                <div className="absolute inset-[13%] rounded-full border border-white/[0.06]" />
-                <div className="absolute inset-[28%] rounded-full border border-white/[0.08]" />
-
-                <motion.div
-                  animate={{
-                    rotate: 360,
-                  }}
-                  transition={{
-                    duration: 42,
-                    repeat: Infinity,
-                    ease: "linear",
-                  }}
-                  className="absolute inset-[13%] rounded-full border border-dashed border-[#d8dfc8]/10"
-                />
-
-                <div className="absolute left-1/2 top-1/2 flex h-32 w-32 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[35px] border border-[#d8dfc8]/15 bg-[#d8dfc8]/[0.06] shadow-[0_0_100px_rgba(216,223,200,.08)] backdrop-blur-xl">
-                  <img
-                    src="/images/tots-os%20favicon.png"
-                    alt=""
-                    className="h-16 w-16 rounded-2xl"
-                  />
-                </div>
-
-                {[
-                  {
-                    icon: Users,
-                    label: "CRM",
-                    position: "left-[5%] top-[17%]",
-                  },
-                  {
-                    icon: FolderKanban,
-                    label: "Projects",
-                    position: "right-[3%] top-[18%]",
-                  },
-                  {
-                    icon: WalletCards,
-                    label: "Finance",
-                    position: "left-[2%] bottom-[18%]",
-                  },
-                  {
-                    icon: CalendarDays,
-                    label: "Calendar",
-                    position:
-                      "right-[2%] bottom-[17%]",
-                  },
-                  {
-                    icon: MessageSquareText,
-                    label: "Socials",
-                    position:
-                      "left-1/2 top-[3%] -translate-x-1/2",
-                  },
-                  {
-                    icon: BarChart3,
-                    label: "Insights",
-                    position:
-                      "bottom-[2%] left-1/2 -translate-x-1/2",
-                  },
-                ].map(
-                  ({
-                    icon: Icon,
-                    label,
-                    position,
-                  }) => (
+            <Reveal delay={0.12}>
+              <div className="tots-orbit-wrap">
+                <div className="tots-orbit-ring r1" />
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 46, repeat: Infinity, ease: "linear" }} className="tots-orbit-ring r2" />
+                <div className="tots-orbit-core">T</div>
+                {ORBIT_MODULES.map(({ icon: Icon, label, angle }) => {
+                  const rad = (angle * Math.PI) / 180;
+                  const radius = 44;
+                  const left = 50 + radius * Math.cos(rad);
+                  const top = 50 + radius * Math.sin(rad);
+                  return (
                     <motion.div
                       key={label}
-                      animate={{
-                        y: [0, -8, 0],
-                      }}
-                      transition={{
-                        duration: 4,
-                        repeat: Infinity,
-                        delay: Math.random(),
-                      }}
-                      className={`absolute ${position} flex h-20 w-20 flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-black/70 backdrop-blur-xl sm:h-24 sm:w-24`}
+                      animate={{ y: [0, -8, 0] }}
+                      transition={{ duration: 4, repeat: Infinity, delay: angle / 90 }}
+                      className="tots-orbit-node"
+                      style={{ left: `${left}%`, top: `${top}%` }}
                     >
-                      <Icon className="h-4 w-4 text-[#d8dfc8]/55" />
-
-                      <span className="mt-2 text-[8px] uppercase tracking-[0.15em] text-white/30">
-                        {label}
-                      </span>
+                      <Icon size={16} color="var(--accent)" strokeWidth={1.6} />
+                      <span>{label}</span>
                     </motion.div>
-                  )
-                )}
+                  );
+                })}
               </div>
             </Reveal>
           </div>
-        </section>
+        </div>
+        <style>{`@media (min-width: 1024px) { .tots-connect-grid { grid-template-columns: 1fr 1fr !important; } }`}</style>
+      </section>
 
-        {/* SECURITY */}
-        <section className="relative z-10 px-5 pb-28 sm:px-6 lg:px-8 lg:pb-40">
-          <div className="mx-auto max-w-[1400px]">
-            <Reveal>
-              <div className="relative overflow-hidden rounded-[40px] border border-white/[0.08] bg-[#0a0a09] p-8 sm:p-12 lg:p-16">
-                <div className="absolute right-[-5%] top-[-70%] h-[500px] w-[500px] rounded-full bg-[#d8dfc8]/[0.06] blur-[120px]" />
+      {/* SECURITY */}
+      <section className="tots-section" style={{ paddingTop: 0 }}>
+        <div className="tots-wrap">
+          <Reveal>
+            <div className="tots-sec-card">
+              <div className="tots-sec-grid">
+                <div>
+                  <Eyebrow>built for your business</Eyebrow>
+                  <h2 style={{ marginTop: 26, maxWidth: 560, fontSize: "clamp(2.2rem,4.4vw,4rem)", lineHeight: 1, fontWeight: 500 }}>
+                    Your workspace should feel like yours.
+                  </h2>
+                  <p style={{ marginTop: 20, maxWidth: 480, fontSize: 14, lineHeight: 1.75, color: "var(--ink-dim)" }}>
+                    TOTS-OS gives your business a dedicated, account-based workspace for keeping operational information together.
+                  </p>
+                </div>
+                <div className="tots-sec-items">
+                  {[
+                    { icon: LockKeyhole, title: "Secure access", text: "Account-based access to your TOTS-OS workspace." },
+                    { icon: ShieldCheck, title: "Privacy", text: "Clear privacy information and responsible data handling." },
+                    { icon: Cloud, title: "Web based", text: "Access the platform through your browser." },
+                    { icon: Network, title: "Connected", text: "Modules designed to work together across your business." },
+                  ].map(({ icon: Icon, title, text }) => (
+                    <div key={title} className="tots-sec-item">
+                      <Icon size={16} color="var(--accent)" strokeWidth={1.6} />
+                      <h4>{title}</h4>
+                      <p>{text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
 
-                <div className="relative grid gap-14 lg:grid-cols-[1fr_.8fr] lg:items-center">
-                  <div>
-                    <Eyebrow>
-                      Built for your business
-                    </Eyebrow>
+      {/* ABOUT */}
+      <section id="about" className="tots-section bordered" style={{ textAlign: "center" }}>
+        <div className="tots-wrap-narrow">
+          <Reveal>
+            <Eyebrow>the idea behind tots-os</Eyebrow>
+            <h2 style={{ margin: "30px auto 0", fontSize: "clamp(2.4rem,5.4vw,5.4rem)", lineHeight: 0.98, fontWeight: 500 }}>
+              Your business deserves <span style={{ color: "var(--ink-faint)" }}>its own operating system.</span>
+            </h2>
+            <p style={{ margin: "30px auto 0", maxWidth: 680, fontSize: 15, lineHeight: 1.85, color: "var(--ink-dim)" }}>
+              TOTS-OS was built around a simple idea: running a small business shouldn't require endless subscriptions, scattered spreadsheets, forgotten notes and a dozen tabs open just to understand what's going on.
+            </p>
+            <p style={{ margin: "18px auto 0", maxWidth: 680, fontSize: 15, lineHeight: 1.85, color: "var(--ink-dim)" }}>
+              We're building one organised place for the work behind the business — so founders spend less time managing their systems, and more time building what matters.
+            </p>
+          </Reveal>
+        </div>
+      </section>
 
-                    <h2 className="mt-7 max-w-2xl text-[clamp(2.6rem,5vw,5.2rem)] font-medium leading-[0.96] tracking-[-0.055em]">
-                      Your workspace should feel like
-                      yours.
-                    </h2>
+      {/* PRICING */}
+      <section id="pricing" className="tots-section">
+        <div className="tots-wrap">
+          <Reveal style={{ textAlign: "center" }}>
+            <div style={{ textAlign: "center" }}>
+              <Eyebrow>simple pricing</Eyebrow>
+              <h2 style={{ marginTop: 26, fontSize: "clamp(2.6rem,5.4vw,5.2rem)", fontWeight: 500, letterSpacing: "-0.04em" }}>Choose your system.</h2>
+              <p style={{ margin: "18px auto 0", maxWidth: 480, fontSize: 14, lineHeight: 1.7, color: "var(--ink-dim)" }}>
+                Start with the level of TOTS-OS that fits your business today.
+              </p>
+            </div>
+          </Reveal>
 
-                    <p className="mt-6 max-w-xl text-sm leading-7 text-white/35 sm:text-base">
-                      TOTS-OS gives your business a
-                      dedicated account-based workspace for
-                      keeping operational information
-                      together.
-                    </p>
+          <div className="tots-price-grid">
+            {PRICING.map((plan, i) => (
+              <Reveal key={plan.name} delay={i * 0.08}>
+                <div className={`tots-price-card ${plan.featured ? "featured" : ""}`}>
+                  <div className="tots-price-top">
+                    <div>
+                      <p className="tots-price-name">{plan.name}</p>
+                      {plan.badge && <span className="tots-price-badge">{plan.badge}</span>}
+                    </div>
+                    <span className="tots-mono-label">/ {plan.tag}</span>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {[
-                      {
-                        icon: LockKeyhole,
-                        title: "Secure access",
-                        text: "Account-based access to your TOTS-OS workspace.",
-                      },
-                      {
-                        icon: ShieldCheck,
-                        title: "Privacy",
-                        text: "Clear privacy information and responsible data handling.",
-                      },
-                      {
-                        icon: Cloud,
-                        title: "Web based",
-                        text: "Access the platform through your browser.",
-                      },
-                      {
-                        icon: Network,
-                        title: "Connected",
-                        text: "Modules designed to work together across your business.",
-                      },
-                    ].map(({ icon: Icon, title, text }) => (
-                      <div
-                        key={title}
-                        className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5"
-                      >
-                        <Icon className="h-4 w-4 text-[#d8dfc8]/60" />
+                  <div className="tots-price-figure">
+                    <span className="tots-price-amount">£{plan.price}</span>
+                    <span className="tots-price-period">/mo</span>
+                  </div>
 
-                        <p className="mt-5 text-sm font-medium">
-                          {title}
-                        </p>
+                  <p className="tots-price-desc">{plan.description}</p>
 
-                        <p className="mt-2 text-xs leading-5 text-white/30">
-                          {text}
-                        </p>
+                  <a href="#" className={plan.featured ? "tots-btn-solid" : "tots-btn-ghost"} style={{ marginTop: "auto", height: 54, justifyContent: "center", borderRadius: 16 }}>
+                    Select {plan.name} <ArrowRight size={13} />
+                  </a>
+
+                  <div className="tots-price-includes">
+                    <p className="tots-mono-label">includes</p>
+                    {plan.features.map((f) => (
+                      <div key={f} className="tots-price-feature">
+                        <CheckCircle2 size={15} color="var(--accent)" style={{ flexShrink: 0, marginTop: 1 }} />
+                        <span>{f}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-              </div>
-            </Reveal>
+              </Reveal>
+            ))}
           </div>
-        </section>
 
-        {/* ABOUT */}
-        <section
-          id="about"
-          className="relative z-10 border-y border-white/[0.06] bg-white/[0.012] px-5 py-28 sm:px-6 lg:px-8 lg:py-40"
-        >
-          <div className="mx-auto max-w-[1150px] text-center">
-            <Reveal>
-              <Eyebrow>The idea behind TOTS-OS</Eyebrow>
+          <p style={{ marginTop: 30, textAlign: "center", fontSize: 11, color: "var(--ink-ghost)" }}>
+            Plan features and availability may evolve as TOTS-OS continues to grow.
+          </p>
+        </div>
+      </section>
 
-              <h2 className="mx-auto mt-8 text-[clamp(2.8rem,6vw,6.5rem)] font-medium leading-[0.94] tracking-[-0.06em]">
-                Your business deserves
-                <span className="text-white/22">
-                  {" "}
-                  its own operating system.
-                </span>
-              </h2>
-
-              <p className="mx-auto mt-9 max-w-3xl text-base leading-8 text-white/38 sm:text-lg">
-                TOTS-OS was created around a simple idea:
-                running a small business should not require
-                endless subscriptions, scattered
-                spreadsheets, forgotten notes and a dozen
-                tabs open just to understand what is going
-                on.
-              </p>
-
-              <p className="mx-auto mt-5 max-w-3xl text-base leading-8 text-white/38 sm:text-lg">
-                We are building one organised place for the
-                work behind the business — so founders can
-                spend less time managing their systems and
-                more time building what matters.
-              </p>
-            </Reveal>
-          </div>
-        </section>
-
-        {/* PRICING */}
-        <section
-          id="pricing"
-          className="relative z-10 px-5 py-28 sm:px-6 lg:px-8 lg:py-40"
-        >
-          <div className="mx-auto max-w-[1250px]">
-            <Reveal className="text-center">
-              <Eyebrow>Simple pricing</Eyebrow>
-
-              <h2 className="mt-7 text-[clamp(3rem,6vw,6rem)] font-medium tracking-[-0.06em]">
-                Choose your system.
-              </h2>
-
-              <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-white/35 sm:text-base">
-                Start with the level of TOTS-OS that fits
-                your business today.
-              </p>
-            </Reveal>
-
-            <div className="mt-20 grid gap-4 lg:grid-cols-3">
-              {PRICING.map((plan, index) => (
-                <Reveal
-                  key={plan.name}
-                  delay={index * 0.1}
-                  className={
-                    plan.featured
-                      ? "lg:-translate-y-5"
-                      : ""
-                  }
-                >
-                  <div
-                    className={`relative flex min-h-[650px] flex-col overflow-hidden rounded-[32px] border p-7 sm:p-9 ${
-                      plan.featured
-                        ? "border-[#d8dfc8]/30 bg-[#d8dfc8]/[0.065] shadow-[0_30px_120px_rgba(216,223,200,.07)]"
-                        : "border-white/[0.08] bg-white/[0.025]"
-                    }`}
-                  >
-                    {plan.featured && (
-                      <>
-                        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#d8dfc8]/80 to-transparent" />
-
-                        <div className="absolute right-[-20%] top-[-20%] h-72 w-72 rounded-full bg-[#d8dfc8]/[0.07] blur-[100px]" />
-                      </>
-                    )}
-
-                    <div className="relative">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-sm font-medium">
-                            {plan.name}
-                          </p>
-
-                          {plan.badge && (
-                            <div className="mt-3 inline-flex rounded-full border border-[#d8dfc8]/15 bg-[#d8dfc8]/[0.06] px-3 py-1 text-[8px] uppercase tracking-[0.18em] text-[#d8dfc8]/65">
-                              {plan.badge}
-                            </div>
-                          )}
-                        </div>
-
-                        <span className="text-[9px] uppercase tracking-[0.18em] text-white/20">
-                          Monthly
-                        </span>
-                      </div>
-
-                      <div className="mt-12 flex items-end">
-                        <span className="text-6xl font-medium tracking-[-0.07em] sm:text-7xl">
-                          £{plan.price}
-                        </span>
-
-                        <span className="mb-2 ml-2 text-xs text-white/30">
-                          /mo
-                        </span>
-                      </div>
-
-                      <p className="mt-7 min-h-[72px] text-sm leading-6 text-white/35">
-                        {plan.description}
-                      </p>
-
-                      <Link
-                        href={`/login?plan=${plan.name.toLowerCase()}`}
-                        className={`group mt-9 flex h-14 w-full items-center justify-center gap-3 rounded-2xl text-[10px] font-semibold uppercase tracking-[0.18em] transition ${
-                          plan.featured
-                            ? "bg-[#e6e9dd] text-black hover:bg-white"
-                            : "border border-white/10 bg-white/[0.035] text-white hover:border-white/20 hover:bg-white/[0.06]"
-                        }`}
-                      >
-                        Select {plan.name}
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                      </Link>
-
-                      <div className="mt-9 border-t border-white/[0.07] pt-8">
-                        <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/25">
-                          Includes
-                        </p>
-
-                        <div className="mt-6 space-y-4">
-                          {plan.features.map((feature) => (
-                            <div
-                              key={feature}
-                              className="flex items-start gap-3"
-                            >
-                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#d8dfc8]/55" />
-
-                              <span className="text-xs leading-5 text-white/45">
-                                {feature}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-
-            <p className="mt-8 text-center text-[10px] leading-5 text-white/20">
-              Plan features and availability may evolve as
-              TOTS-OS continues to grow.
+      {/* EMAIL CTA */}
+      <section className="tots-section" style={{ paddingTop: 0 }}>
+        <Reveal className="tots-wrap">
+          <div className="tots-cta-card">
+            <div className="tots-cta-icon"><Sparkles size={18} strokeWidth={1.6} /></div>
+            <h2 style={{ marginTop: 30, fontSize: "clamp(2.2rem,4.6vw,4.4rem)", lineHeight: 1, fontWeight: 500 }}>
+              Keep up with <span style={{ color: "var(--ink-faint)" }}>what comes next.</span>
+            </h2>
+            <p style={{ margin: "18px auto 0", maxWidth: 460, fontSize: 13.5, lineHeight: 1.7, color: "var(--ink-dim)" }}>
+              Join the mailing list for product updates, announcements and early-access news.
             </p>
+
+            {!submitted ? (
+              <form onSubmit={handleSubmit} className="tots-cta-form">
+                <input
+                  type="email"
+                  required
+                  aria-label="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email address"
+                  className="tots-cta-input"
+                />
+                <button type="submit" className="tots-btn-solid" style={{ height: 50, justifyContent: "center" }}>
+                  Join updates <ArrowRight size={13} />
+                </button>
+              </form>
+            ) : (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ margin: "30px auto 0", maxWidth: 380, border: "1px solid rgba(215,224,168,0.2)", background: "var(--accent-soft)", borderRadius: 16, padding: 18 }}>
+                <CheckCircle2 size={18} color="var(--accent)" style={{ margin: "0 auto", display: "block" }} />
+                <p style={{ marginTop: 10, fontSize: 13, fontWeight: 500 }}>You're on the list.</p>
+                <p style={{ marginTop: 4, fontSize: 11.5, color: "var(--ink-faint)" }}>Thanks for joining TOTS-OS updates.</p>
+              </motion.div>
+            )}
           </div>
-        </section>
+        </Reveal>
+      </section>
 
-        {/* EMAIL CTA */}
-        <section className="relative z-10 px-5 pb-28 sm:px-6 lg:px-8 lg:pb-40">
-          <Reveal className="mx-auto max-w-[1250px]">
-            <div className="relative overflow-hidden rounded-[44px] border border-white/[0.09] bg-[#0b0b0a] px-6 py-20 text-center sm:px-10 lg:py-28">
-              <motion.div
-                animate={{
-                  scale: [0.8, 1.1, 0.8],
-                  opacity: [0.2, 0.5, 0.2],
-                }}
-                transition={{
-                  duration: 8,
-                  repeat: Infinity,
-                }}
-                className="absolute left-1/2 top-1/2 h-[430px] w-[430px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d8dfc8]/[0.06] blur-[120px]"
-              />
-
-              <div className="relative mx-auto max-w-3xl">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04]">
-                  <Sparkles className="h-5 w-5 text-[#d8dfc8]/60" />
-                </div>
-
-                <h2 className="mt-8 text-[clamp(2.8rem,5vw,5.5rem)] font-medium leading-[0.95] tracking-[-0.06em]">
-                  Keep up with
-                  <span className="text-white/25">
-                    {" "}
-                    what comes next.
-                  </span>
-                </h2>
-
-                <p className="mx-auto mt-6 max-w-xl text-sm leading-6 text-white/35">
-                  Join the TOTS-OS mailing list for product
-                  updates, announcements and early-access
-                  news.
-                </p>
-
-                {!submitted ? (
-                  <form
-                    onSubmit={handleSubmit}
-                    className="mx-auto mt-9 flex max-w-[620px] flex-col gap-3 rounded-[22px] border border-white/[0.08] bg-black/35 p-2 sm:flex-row"
-                  >
-                    <input
-                      type="email"
-                      required
-                      aria-label="Email address"
-                      value={email}
-                      onChange={(event) =>
-                        setEmail(event.target.value)
-                      }
-                      placeholder="Enter your email address"
-                      className="h-14 flex-1 bg-transparent px-4 text-sm text-white outline-none placeholder:text-white/20"
-                    />
-
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="group flex h-14 items-center justify-center gap-3 rounded-2xl bg-[#e6e9dd] px-7 text-[9px] font-semibold uppercase tracking-[0.18em] text-black transition hover:bg-white disabled:opacity-50"
-                    >
-                      {submitting
-                        ? "Joining..."
-                        : "Join updates"}
-
-                      {!submitting && (
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                      )}
-                    </button>
-                  </form>
-                ) : (
-                  <motion.div
-                    initial={{
-                      opacity: 0,
-                      y: 15,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                    }}
-                    className="mx-auto mt-9 max-w-md rounded-2xl border border-[#d8dfc8]/10 bg-[#d8dfc8]/[0.045] p-5"
-                  >
-                    <CheckCircle2 className="mx-auto h-5 w-5 text-[#d8dfc8]/70" />
-
-                    <p className="mt-3 text-sm font-medium">
-                      You're on the list.
-                    </p>
-
-                    <p className="mt-1 text-xs text-white/30">
-                      Thanks for joining TOTS-OS updates.
-                    </p>
-                  </motion.div>
-                )}
-              </div>
-            </div>
-          </Reveal>
-        </section>
-
-        {/* FAQ */}
-        <section className="relative z-10 border-y border-white/[0.06] bg-white/[0.012] px-5 py-28 sm:px-6 lg:px-8 lg:py-36">
-          <div className="mx-auto grid max-w-[1150px] gap-14 lg:grid-cols-[.7fr_1fr]">
+      {/* FAQ */}
+      <section className="tots-section bordered">
+        <div className="tots-wrap-narrow" style={{ display: "grid", gap: 50 }}>
+          <div className="tots-faq-grid" style={{ display: "grid", gap: 50 }}>
             <Reveal>
-              <Eyebrow>FAQ</Eyebrow>
-
-              <h2 className="mt-7 text-4xl font-medium tracking-[-0.05em] sm:text-5xl">
+              <Eyebrow>faq</Eyebrow>
+              <h2 style={{ marginTop: 26, fontSize: "clamp(1.9rem,3.4vw,3rem)", fontWeight: 500, letterSpacing: "-0.03em" }}>
                 A few things you might want to know.
               </h2>
-
-              <p className="mt-6 max-w-sm text-sm leading-6 text-white/35">
-                Need something else? Get in touch with the
-                TOTS-OS team.
+              <p style={{ marginTop: 20, maxWidth: 320, fontSize: 13.5, lineHeight: 1.7, color: "var(--ink-dim)" }}>
+                Need something else? Get in touch with the TOTS-OS team.
               </p>
-
-              <a
-                href="mailto:hello@theorganisedtypes.co.uk"
-                className="mt-7 inline-flex items-center gap-2 text-xs font-medium text-white/60 transition hover:text-white"
-              >
-                Contact us
-                <ArrowUpRight className="h-3.5 w-3.5" />
+              <a href="mailto:hello@theorganisedtypes.co.uk" style={{ marginTop: 22, display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "rgba(243,244,238,0.7)", textDecoration: "none" }}>
+                Contact us <ArrowUpRight size={14} />
               </a>
             </Reveal>
 
-            <div className="border-t border-white/[0.08]">
-              {FAQS.map((faq, index) => {
-                const open = openFaq === index;
-
+            <div style={{ borderTop: "1px solid var(--line)" }}>
+              {FAQS.map((faq, i) => {
+                const open = openFaq === i;
                 return (
-                  <Reveal
-                    key={faq.question}
-                    delay={index * 0.04}
-                  >
-                    <div className="border-b border-white/[0.08]">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenFaq(
-                            open ? null : index
-                          )
-                        }
-                        className="flex w-full items-center justify-between gap-8 py-6 text-left"
-                      >
-                        <span className="text-sm font-medium text-white/70 sm:text-base">
-                          {faq.question}
-                        </span>
-
-                        <motion.div
-                          animate={{
-                            rotate: open ? 180 : 0,
-                          }}
-                        >
-                          <ChevronDown className="h-4 w-4 text-white/25" />
-                        </motion.div>
+                  <Reveal key={faq.q} delay={i * 0.03}>
+                    <div className="tots-faq-item">
+                      <button type="button" className="tots-faq-btn" onClick={() => setOpenFaq(open ? null : i)}>
+                        <span>{faq.q}</span>
+                        <motion.span animate={{ rotate: open ? 180 : 0 }} style={{ display: "flex", color: "var(--ink-faint)" }}>
+                          <ChevronDown size={16} />
+                        </motion.span>
                       </button>
-
                       <AnimatePresence initial={false}>
                         {open && (
-                          <motion.div
-                            initial={{
-                              height: 0,
-                              opacity: 0,
-                            }}
-                            animate={{
-                              height: "auto",
-                              opacity: 1,
-                            }}
-                            exit={{
-                              height: 0,
-                              opacity: 0,
-                            }}
-                            className="overflow-hidden"
-                          >
-                            <p className="max-w-2xl pb-7 pr-10 text-sm leading-7 text-white/35">
-                              {faq.answer}
-                            </p>
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden" }}>
+                            <p className="tots-faq-answer">{faq.a}</p>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -1805,163 +1278,76 @@ export default function TotsOSLanding() {
               })}
             </div>
           </div>
-        </section>
+        </div>
+        <style>{`@media (min-width: 1024px) { .tots-faq-grid { grid-template-columns: 0.7fr 1fr !important; } }`}</style>
+      </section>
 
-        {/* FINAL CTA */}
-        <section className="relative z-10 px-5 py-28 sm:px-6 lg:px-8 lg:py-40">
-          <div className="mx-auto max-w-[1250px] text-center">
-            <Reveal>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-[#d8dfc8]/40">
-                TOTS-OS
+      {/* FINAL CTA */}
+      <section className="tots-section" style={{ textAlign: "center" }}>
+        <div className="tots-wrap">
+          <Reveal>
+            <p className="tots-mono-label" style={{ color: "var(--accent)", opacity: 0.6 }}>tots-os</p>
+            <h2 style={{ margin: "20px auto 0", maxWidth: 900, fontSize: "clamp(2.6rem,6.4vw,7rem)", lineHeight: 0.9, fontWeight: 600 }}>
+              Your business.
+              <span style={{ display: "block", color: "var(--ink-faint)" }}>Finally organised.<Cursor /></span>
+            </h2>
+            <div className="tots-hero-ctas" style={{ marginTop: 40 }}>
+              <a href="#pricing" className="tots-btn-solid lg">View pricing <ArrowRight size={15} /></a>
+              <a href="#" className="tots-btn-ghost lg"><LogIn size={13} /> Log in</a>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="tots-footer">
+        <div className="tots-wrap">
+          <div className="tots-footer-grid">
+            <div>
+              <div className="tots-brand">
+                <span className="tots-brand-mark">T</span>
+                <span className="tots-brand-name">TOTS-OS</span>
+              </div>
+              <p style={{ marginTop: 16, maxWidth: 260, fontSize: 12, lineHeight: 1.7, color: "var(--ink-ghost)" }}>
+                The all-in-one business operating system for bringing your work, clients, planning and operations together.
               </p>
+            </div>
 
-              <h2 className="mx-auto mt-6 max-w-5xl text-[clamp(3.3rem,7vw,8rem)] font-medium leading-[0.87] tracking-[-0.075em]">
-                Your business.
-                <span className="block text-white/20">
-                  Finally organised.
-                </span>
-              </h2>
-
-              <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <a
-                  href="#pricing"
-                  className="group flex h-14 min-w-[190px] items-center justify-center gap-3 rounded-full bg-[#e7eadf] px-7 text-[10px] font-semibold uppercase tracking-[0.18em] text-black transition hover:bg-white"
-                >
-                  View pricing
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </a>
-
-                <Link
-                  href="/login"
-                  className="flex h-14 min-w-[190px] items-center justify-center gap-3 rounded-full border border-white/10 px-7 text-[10px] font-medium uppercase tracking-[0.18em] text-white/55 transition hover:border-white/20 hover:text-white"
-                >
-                  <LogIn className="h-3.5 w-3.5" />
-                  Log in
-                </Link>
-              </div>
-            </Reveal>
-          </div>
-        </section>
-
-        {/* FOOTER */}
-        <footer className="relative z-10 border-t border-white/[0.07] px-5 pb-8 pt-16 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[1400px]">
-            <div className="grid gap-12 pb-14 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
-              <div>
-                <Link
-                  href="/"
-                  className="inline-flex items-center gap-3"
-                >
-                  <img
-                    src="/images/tots-os%20favicon.png"
-                    alt="TOTS-OS"
-                    className="h-10 w-10 rounded-xl"
-                  />
-
-                  <span className="text-xs font-semibold tracking-[0.18em]">
-                    TOTS-OS
-                  </span>
-                </Link>
-
-                <p className="mt-5 max-w-xs text-xs leading-6 text-white/28">
-                  The all-in-one business operating system
-                  for bringing your work, clients, planning
-                  and operations together.
-                </p>
-              </div>
-
-              <div>
-                <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/25">
-                  Product
-                </p>
-
-                <div className="mt-5 space-y-3 text-xs text-white/38">
-                  <a
-                    href="#features"
-                    className="block transition hover:text-white"
-                  >
-                    Features
-                  </a>
-                  <a
-                    href="#pricing"
-                    className="block transition hover:text-white"
-                  >
-                    Pricing
-                  </a>
-                  <Link
-                    href="/login"
-                    className="block transition hover:text-white"
-                  >
-                    Log in
-                  </Link>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/25">
-                  Company
-                </p>
-
-                <div className="mt-5 space-y-3 text-xs text-white/38">
-                  <a
-                    href="#about"
-                    className="block transition hover:text-white"
-                  >
-                    About
-                  </a>
-
-                  <a
-                    href="mailto:hello@theorganisedtypes.co.uk"
-                    className="block transition hover:text-white"
-                  >
-                    Contact
-                  </a>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/25">
-                  Legal
-                </p>
-
-                <div className="mt-5 space-y-3 text-xs text-white/38">
-                  <Link
-                    href="/privacy"
-                    className="block transition hover:text-white"
-                  >
-                    Privacy Policy
-                  </Link>
-
-                  <Link
-                    href="/terms"
-                    className="block transition hover:text-white"
-                  >
-                    Terms of Service
-                  </Link>
-                </div>
+            <div>
+              <h5>Product</h5>
+              <div className="tots-footer-links">
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#">Log in</a>
               </div>
             </div>
 
-            <div className="flex flex-col gap-4 border-t border-white/[0.07] pt-7 text-[9px] text-white/20 sm:flex-row sm:items-center sm:justify-between">
-              <p>
-                © {new Date().getFullYear()} TOTS-OS. All
-                rights reserved.
-              </p>
+            <div>
+              <h5>Company</h5>
+              <div className="tots-footer-links">
+                <a href="#about">About</a>
+                <a href="mailto:hello@theorganisedtypes.co.uk">Contact</a>
+              </div>
+            </div>
 
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#d8dfc8] opacity-30" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#d8dfc8]/60" />
-                </span>
-
-                <span className="uppercase tracking-[0.16em]">
-                  TOTS-OS online
-                </span>
+            <div>
+              <h5>Legal</h5>
+              <div className="tots-footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
               </div>
             </div>
           </div>
-        </footer>
-      </main>
-    </>
+
+          <div className="tots-footer-bottom">
+            <p>© {new Date().getFullYear()} TOTS-OS. All rights reserved.</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="tots-status-dot" />
+              <span style={{ textTransform: "uppercase", letterSpacing: "0.14em" }}>system online</span>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }

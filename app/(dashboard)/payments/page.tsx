@@ -249,25 +249,18 @@ export default function PaymentsPage() {
     payslips={finance.payslips ?? []}
   />
 )}
-
-            {activeTab === "timesheets" && (
-              <FinanceTimesheets
-                timesheets={
-                  finance.timesheets ?? []
-                }
-                employees={
-                  finance.payrollEmployees ?? []
-                }
-                organisationId={
-                  organisationId
-                }
-                teamId={teamId}
-                userId={userId}
-                metrics={metrics}
-                refresh={finance.refresh}
-                notify={notify}
-              />
-            )}
+{activeTab === "timesheets" && (
+  <FinanceTimesheets
+    timesheets={finance.timesheets ?? []}
+    organisationId={organisationId}
+    teamId={teamId}
+    userId={userId}
+    metrics={metrics}
+    refresh={finance.refresh}
+    notify={notify}
+  />
+)}
+            
           </>
         )}
       </main>

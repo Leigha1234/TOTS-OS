@@ -10,10 +10,12 @@ import {
 } from "react";
 
 import { useRouter } from "next/navigation";
+
 import {
   AnimatePresence,
   motion,
 } from "framer-motion";
+
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,7 +52,8 @@ type OAuthTokens = {
 // CONSTANTS
 // ==================================================
 
-const LOGO_STORAGE_KEY = "tots_os_profile_logo_url";
+const LOGO_STORAGE_KEY =
+  "tots_os_profile_logo_url";
 
 // ==================================================
 // HELPERS
@@ -106,8 +109,10 @@ function storeLogoUrl(
       cleaned
     );
   } catch {
-    // Local storage is only a backup.
-    // A browser privacy setting may prevent access.
+    /*
+     * Local storage is only a fallback.
+     * Ignore browser storage failures.
+     */
   }
 }
 
@@ -116,7 +121,8 @@ function storeLogoUrl(
 // ==================================================
 
 function SettingsInner() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   // ==================================================
   // PROFILE
@@ -142,23 +148,18 @@ function SettingsInner() {
     logout,
   } = useSettingsProfile();
 
-  /*
-   * Keep a local fallback copy of the logo.
-   *
-   * The Supabase/profile value remains the primary
-   * source of truth. This prevents the UI from losing
-   * an uploaded logo if the profile hook temporarily
-   * returns an empty value during hydration/refresh.
-   */
+  // ==================================================
+  // PERSISTENT LOGO FALLBACK
+  // ==================================================
+
   const [
     persistentLogoUrl,
     setPersistentLogoUrl,
   ] = useState("");
 
-  // ==================================================
-  // RESTORE CACHED LOGO
-  // ==================================================
-
+  /*
+   * Restore cached logo on initial load.
+   */
   useEffect(() => {
     const storedLogo =
       getStoredLogoUrl();
@@ -170,10 +171,13 @@ function SettingsInner() {
     }
   }, []);
 
-  // ==================================================
-  // KEEP CACHE IN SYNC WITH PROFILE
-  // ==================================================
-
+  /*
+   * Whenever the real profile logo changes,
+   * keep the local fallback in sync.
+   *
+   * This is what catches the newly uploaded logo
+   * after uploadLogo() updates the hook state.
+   */
   useEffect(() => {
     const cleanedLogoUrl =
       String(
@@ -194,8 +198,8 @@ function SettingsInner() {
   }, [logoUrl]);
 
   /*
-   * Prefer the actual profile value.
-   * Fall back to the latest locally cached logo.
+   * Always prefer the real profile logo.
+   * Fall back to the cached version if needed.
    */
   const resolvedLogoUrl =
     String(
@@ -204,7 +208,7 @@ function SettingsInner() {
     persistentLogoUrl;
 
   // ==================================================
-  // LOGO UPLOAD WRAPPER
+  // LOGO UPLOAD
   // ==================================================
 
   const handleLogoUpload =
@@ -215,36 +219,16 @@ function SettingsInner() {
         >
       ) => {
         /*
-         * The existing hook still performs the
-         * real upload.
+         * uploadLogo currently returns void.
+         *
+         * We simply wait for it to complete.
+         * When useSettingsProfile updates logoUrl,
+         * the effect above automatically stores the
+         * new URL in the persistent fallback.
          */
-        const result =
-          await uploadLogo(
-            ...args
-          );
-
-        /*
-         * If uploadLogo returns a URL, cache it
-         * immediately as an extra safeguard.
-         */
-        if (
-          typeof result ===
-          "string" &&
-          result.trim()
-        ) {
-          const uploadedUrl =
-            result.trim();
-
-          setPersistentLogoUrl(
-            uploadedUrl
-          );
-
-          storeLogoUrl(
-            uploadedUrl
-          );
-        }
-
-        return result;
+        await uploadLogo(
+          ...args
+        );
       },
       [uploadLogo]
     );
@@ -298,8 +282,8 @@ function SettingsInner() {
   // ==================================================
   // LEGACY OAUTH CALLBACK
   //
-  // Used for Meta / LinkedIn.
-  // TikTok uses its dedicated server callback.
+  // Meta / LinkedIn.
+  // TikTok uses dedicated server callback.
   // ==================================================
 
   useEffect(() => {
@@ -310,7 +294,9 @@ function SettingsInner() {
       return;
     }
 
-    // Facebook sometimes appends #_=_
+    /*
+     * Facebook can append #_=_
+     */
     if (
       window.location.hash ===
       "#_=_"
@@ -333,7 +319,10 @@ function SettingsInner() {
     const state =
       params.get("state");
 
-    if (!code || !state) {
+    if (
+      !code ||
+      !state
+    ) {
       return;
     }
 
@@ -391,7 +380,9 @@ function SettingsInner() {
             );
           }
 
-          // TikTok must use dedicated callback.
+          /*
+           * TikTok uses the dedicated callback.
+           */
           if (
             platform ===
             "tiktok"

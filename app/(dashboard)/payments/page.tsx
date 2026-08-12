@@ -243,22 +243,17 @@ export default function PaymentsPage() {
 />
             )}
 
-            {activeTab === "payroll" && (
-              <FinancePayroll
-                employees={
-                  finance.payrollEmployees ?? []
-                }
-                payslips={
-                  finance.payslips ?? []
-                }
-                metrics={metrics}
-                refresh={finance.refresh}
-                notify={notify}
-                onCreate={() =>
-                  setActiveModal("employee")
-                }
-              />
-            )}
+          {activeTab === "payroll" && (
+  <FinancePayroll
+    employees={finance.payrollEmployees ?? []}
+    payslips={finance.payslips ?? []}
+    refresh={finance.refresh}
+    notify={notify}
+    onCreate={() =>
+      setActiveModal("employee")
+    }
+  />
+)}
 
             {activeTab === "timesheets" && (
               <FinanceTimesheets

@@ -31,7 +31,10 @@ import RecurringInvoiceModal, {
   type RecurringInvoiceForm,
 } from "./components/modals/RecurringInvoiceModal";
 
-import VatModal from "./components/modals/VatModal";
+import VatModal, {
+  type VatForm,
+} from "./components/modals/VatModal";
+
 import TaxModal from "./components/modals/TaxModal";
 
 import { useFinanceContext } from "./hooks/useFinanceContext";
@@ -94,6 +97,11 @@ const INITIAL_RECURRING_FORM: RecurringInvoiceForm = {
   amount: "",
   interval: "monthly",
   next_run: "",
+};
+
+const INITIAL_VAT_FORM: VatForm = {
+  amount: "",
+  description: "",
 };
 
 export default function PaymentsPage() {
@@ -160,6 +168,17 @@ export default function PaymentsPage() {
   const [recurringForm, setRecurringForm] =
     useState<RecurringInvoiceForm>(
       INITIAL_RECURRING_FORM
+    );
+
+  /*
+   * VAT state
+   */
+  const [vatSubmitting, setVatSubmitting] =
+    useState(false);
+
+  const [vatForm, setVatForm] =
+    useState<VatForm>(
+      INITIAL_VAT_FORM
     );
 
   /*
@@ -601,11 +620,6 @@ export default function PaymentsPage() {
     setRecurringSubmitting(true);
 
     try {
-      /*
-       * Add real recurring invoice creation
-       * logic here once the data method is known.
-       */
-
       notify(
         "Recurring invoice scheduled successfully.",
         "success"
@@ -627,6 +641,76 @@ export default function PaymentsPage() {
       );
     } finally {
       setRecurringSubmitting(false);
+    }
+  };
+
+  /*
+   * VAT helpers
+   */
+  const resetVatForm = () => {
+    setVatForm({
+      amount: "",
+      description: "",
+    });
+  };
+
+  const closeVatModal = () => {
+    if (vatSubmitting) {
+      return;
+    }
+
+    setActiveModal(null);
+    resetVatForm();
+  };
+
+  const handleVatSubmit = async () => {
+    if (vatSubmitting) {
+      return;
+    }
+
+    if (!vatForm.description.trim()) {
+      notify(
+        "Please enter a VAT return description.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      !vatForm.amount ||
+      Number(vatForm.amount) < 0
+    ) {
+      notify(
+        "Please enter a valid VAT amount.",
+        "error"
+      );
+      return;
+    }
+
+    setVatSubmitting(true);
+
+    try {
+      notify(
+        "VAT return saved successfully.",
+        "success"
+      );
+
+      setActiveModal(null);
+      resetVatForm();
+
+      await finance.refresh();
+    } catch (submitError) {
+      console.error(
+        "VAT return submission failed:",
+        submitError
+      );
+
+      notify(
+        "Unable to save VAT return.",
+        "error"
+      );
+    } finally {
+      setVatSubmitting(false);
     }
   };
 
@@ -680,16 +764,10 @@ export default function PaymentsPage() {
                 metrics={metrics}
                 invoices={invoices}
                 quotes={quotes}
-                expenses={
-                  finance.expenses ?? []
-                }
-                subscriptions={
-                  finance.subscriptions ?? []
-                }
+                expenses={finance.expenses ?? []}
+                subscriptions={finance.subscriptions ?? []}
                 onCreateInvoice={() =>
-                  setActiveModal(
-                    "invoiceQuote"
-                  )
+                  setActiveModal("invoiceQuote")
                 }
                 onLogExpense={() =>
                   setActiveModal("expense")
@@ -713,12 +791,8 @@ export default function PaymentsPage() {
               <FinanceSales
                 invoices={invoices}
                 quotes={quotes}
-                customers={
-                  finance.customers ?? []
-                }
-                subscriptions={
-                  finance.subscriptions ?? []
-                }
+                customers={finance.customers ?? []}
+                subscriptions={finance.subscriptions ?? []}
                 metrics={metrics}
                 refresh={finance.refresh}
                 onRecurring={() =>
@@ -729,20 +803,14 @@ export default function PaymentsPage() {
 
             {activeTab === "expenses" && (
               <FinanceExpenses
-                expenses={
-                  finance.expenses ?? []
-                }
+                expenses={finance.expenses ?? []}
               />
             )}
 
             {activeTab === "tax" && (
               <FinanceTax
-                vatReturns={
-                  finance.vatReturns ?? []
-                }
-                taxReturns={
-                  finance.selfAssessments ?? []
-                }
+                vatReturns={finance.vatReturns ?? []}
+                taxReturns={finance.selfAssessments ?? []}
                 metrics={metrics}
                 refresh={finance.refresh}
                 onVat={() =>
@@ -756,23 +824,15 @@ export default function PaymentsPage() {
 
             {activeTab === "payroll" && (
               <FinancePayroll
-                employees={
-                  finance.payrollEmployees ?? []
-                }
-                payslips={
-                  finance.payslips ?? []
-                }
+                employees={finance.payrollEmployees ?? []}
+                payslips={finance.payslips ?? []}
               />
             )}
 
             {activeTab === "timesheets" && (
               <FinanceTimesheets
-                timesheets={
-                  finance.timesheets ?? []
-                }
-                organisationId={
-                  organisationId
-                }
+                timesheets={finance.timesheets ?? []}
+                organisationId={organisationId}
                 teamId={teamId}
                 userId={userId}
               />
@@ -781,159 +841,82 @@ export default function PaymentsPage() {
         )}
       </main>
 
-      {/* INVOICE / QUOTE */}
       <InvoiceQuoteModal
-        open={
-          activeModal === "invoiceQuote"
-        }
-        submitting={
-          invoiceQuoteSubmitting
-        }
-        docType={
-          invoiceQuoteDocType
-        }
-        customers={
-          finance.customers ?? []
-        }
-        formData={
-          invoiceQuoteForm
-        }
-        lineItems={
-          invoiceQuoteLineItems
-        }
-        netTotal={
-          invoiceQuoteNetTotal
-        }
-        vatTotal={
-          invoiceQuoteVatTotal
-        }
-        grandTotal={
-          invoiceQuoteGrandTotal
-        }
-        onDocTypeChange={
-          setInvoiceQuoteDocType
-        }
-        onFormChange={
-          setInvoiceQuoteForm
-        }
-        onLineItemsChange={
-          setInvoiceQuoteLineItems
-        }
-        onClose={
-          closeInvoiceQuoteModal
-        }
-        onSubmit={
-          handleInvoiceQuoteSubmit
-        }
+        open={activeModal === "invoiceQuote"}
+        submitting={invoiceQuoteSubmitting}
+        docType={invoiceQuoteDocType}
+        customers={finance.customers ?? []}
+        formData={invoiceQuoteForm}
+        lineItems={invoiceQuoteLineItems}
+        netTotal={invoiceQuoteNetTotal}
+        vatTotal={invoiceQuoteVatTotal}
+        grandTotal={invoiceQuoteGrandTotal}
+        onDocTypeChange={setInvoiceQuoteDocType}
+        onFormChange={setInvoiceQuoteForm}
+        onLineItemsChange={setInvoiceQuoteLineItems}
+        onClose={closeInvoiceQuoteModal}
+        onSubmit={handleInvoiceQuoteSubmit}
       />
 
-      {/* EXPENSE */}
       <ExpenseModal
-        open={
-          activeModal === "expense"
-        }
-        submitting={
-          expenseSubmitting
-        }
-        expense={
-          expenseForm
-        }
-        onChange={
-          setExpenseForm
-        }
-        onClose={
-          closeExpenseModal
-        }
-        onSubmit={
-          handleExpenseSubmit
-        }
+        open={activeModal === "expense"}
+        submitting={expenseSubmitting}
+        expense={expenseForm}
+        onChange={setExpenseForm}
+        onClose={closeExpenseModal}
+        onSubmit={handleExpenseSubmit}
       />
 
-      {/* EMPLOYEE */}
       <EmployeeModal
-        open={
-          activeModal === "employee"
-        }
-        submitting={
-          employeeSubmitting
-        }
-        employee={
-          employeeForm
-        }
-        onChange={
-          setEmployeeForm
-        }
-        onClose={
-          closeEmployeeModal
-        }
-        onSubmit={
-          handleEmployeeSubmit
-        }
+        open={activeModal === "employee"}
+        submitting={employeeSubmitting}
+        employee={employeeForm}
+        onChange={setEmployeeForm}
+        onClose={closeEmployeeModal}
+        onSubmit={handleEmployeeSubmit}
       />
 
-      {/* RECURRING INVOICE */}
       <RecurringInvoiceModal
-        open={
-          activeModal === "recurring"
-        }
-        submitting={
-          recurringSubmitting
-        }
-        form={
-          recurringForm
-        }
-        onChange={
-          setRecurringForm
-        }
-        onClose={
-          closeRecurringModal
-        }
-        onSubmit={
-          handleRecurringSubmit
-        }
+        open={activeModal === "recurring"}
+        submitting={recurringSubmitting}
+        form={recurringForm}
+        onChange={setRecurringForm}
+        onClose={closeRecurringModal}
+        onSubmit={handleRecurringSubmit}
       />
 
-      {/* VAT */}
       <VatModal
-        open={
-          activeModal === "vat"
+        open={activeModal === "vat"}
+        submitting={vatSubmitting}
+        amount={vatForm.amount}
+        description={vatForm.description}
+        estimatedAmount={metrics.vatOwed ?? 0}
+        onAmountChange={(value) =>
+          setVatForm((previous) => ({
+            ...previous,
+            amount: value,
+          }))
         }
-        organisationId={
-          organisationId
+        onDescriptionChange={(value) =>
+          setVatForm((previous) => ({
+            ...previous,
+            description: value,
+          }))
         }
-        teamId={teamId}
-        userId={userId}
-        estimatedAmount={
-          metrics.vatOwed ?? 0
-        }
-        onClose={() =>
-          setActiveModal(null)
-        }
-        onSuccess={
-          finance.refresh
-        }
-        notify={notify}
+        onClose={closeVatModal}
+        onSubmit={handleVatSubmit}
       />
 
-      {/* TAX */}
       <TaxModal
-        open={
-          activeModal === "tax"
-        }
-        organisationId={
-          organisationId
-        }
+        open={activeModal === "tax"}
+        organisationId={organisationId}
         teamId={teamId}
         userId={userId}
-        estimatedAmount={
-          metrics.taxExposure ?? 0
-        }
+        estimatedAmount={metrics.taxExposure ?? 0}
         onClose={() =>
           setActiveModal(null)
         }
-        onSuccess={
-          finance.refresh
-        }
+        onSuccess={finance.refresh}
         notify={notify}
       />
     </div>

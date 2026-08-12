@@ -8,18 +8,19 @@ import {
   X,
 } from "lucide-react";
 
+export type VatForm = {
+  amount: string;
+  description: string;
+};
+
 type VatModalProps = {
   open: boolean;
   submitting?: boolean;
   amount: string;
   description: string;
   estimatedAmount?: number;
-  onAmountChange: (
-    value: string
-  ) => void;
-  onDescriptionChange: (
-    value: string
-  ) => void;
+  onAmountChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
   onClose: () => void;
   onSubmit: () => void;
 };
@@ -35,6 +36,12 @@ export default function VatModal({
   onClose,
   onSubmit,
 }: VatModalProps) {
+  const canSubmit =
+    !submitting &&
+    description.trim().length > 0 &&
+    amount.trim().length > 0 &&
+    Number(amount) >= 0;
+
   return (
     <AnimatePresence>
       {open && (
@@ -61,6 +68,10 @@ export default function VatModal({
               opacity: 0,
               y: 12,
             }}
+            transition={{
+              duration: 0.2,
+              ease: "easeOut",
+            }}
             onClick={(event) =>
               event.stopPropagation()
             }
@@ -84,8 +95,10 @@ export default function VatModal({
               </div>
 
               <button
+                type="button"
                 onClick={onClose}
-                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
+                aria-label="Close VAT modal"
+                className="rounded-full p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-900"
               >
                 <X size={18} />
               </button>
@@ -112,11 +125,15 @@ export default function VatModal({
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="vat-description"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Return Description
                 </label>
 
                 <input
+                  id="vat-description"
                   value={description}
                   onChange={(event) =>
                     onDescriptionChange(
@@ -129,7 +146,10 @@ export default function VatModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="vat-amount"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   VAT Amount
                 </label>
 
@@ -139,9 +159,11 @@ export default function VatModal({
                   </span>
 
                   <input
+                    id="vat-amount"
                     type="number"
                     min="0"
                     step="0.01"
+                    inputMode="decimal"
                     value={amount}
                     onChange={(event) =>
                       onAmountChange(
@@ -174,9 +196,10 @@ export default function VatModal({
             </div>
 
             <button
+              type="button"
               onClick={onSubmit}
-              disabled={submitting}
-              className="mt-6 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:opacity-50"
+              disabled={!canSubmit}
+              className="mt-6 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (
                 <Loader2

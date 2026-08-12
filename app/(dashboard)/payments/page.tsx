@@ -243,13 +243,10 @@ export default function PaymentsPage() {
 />
             )}
 
-          {activeTab === "payroll" && (
+         {activeTab === "payroll" && (
   <FinancePayroll
     employees={finance.payrollEmployees ?? []}
     payslips={finance.payslips ?? []}
-    onCreate={() =>
-      setActiveModal("employee")
-    }
   />
 )}
 

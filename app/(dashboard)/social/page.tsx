@@ -1,87 +1,158 @@
 "use client";
 
 import React, {
-  useState,
-  useEffect,
-  useMemo,
   ChangeEvent,
   useCallback,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
+
 import { createBrowserClient } from "@supabase/ssr";
-import { motion, AnimatePresence } from "framer-motion";
+
 import {
-  Trash2,
-  RefreshCcw,
-  Layers,
-  Sparkles,
-  Hash,
-  Clock,
-  X,
+  AnimatePresence,
+  motion,
+} from "framer-motion";
+
+import {
   ArrowRight,
   BarChart3,
-  Video,
-  Linkedin as LinkedinIcon,
-  Plus,
-  Film,
-  Music,
+  Brain,
+  CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
-  Upload,
+  Clock,
+  Eye,
+  Film,
+  Hash,
   Image as ImageIcon,
+  Layers,
+  Lightbulb,
+  Linkedin as LinkedinIcon,
+  Loader2,
+  Music,
+  Plus,
+  RefreshCcw,
+  Send,
+  Sparkles,
+  Trash2,
+  Upload,
+  Video,
+  Wand2,
+  X,
 } from "lucide-react";
+
 import { toast } from "sonner";
+
 import Link from "next/link";
 
-// --------------------------------------------------
+// ==================================================
 // TYPES
-// --------------------------------------------------
+// ==================================================
 
 interface SocialPost {
   id: string;
+
   caption: string;
+
   platform: string;
+
   hashtags?: string | null;
+
   media_url?: string | null;
+
   scheduled_for: string;
+
   status: string;
+
   format: string;
+
   platform_post_id?: string | null;
+
   error?: string | null;
+
   last_error?: string | null;
+
   attempts?: number;
+
   analytics?: any;
+
   platform_response?: any;
 }
 
 interface SocialAccount {
   id: string;
+
   platform: string;
+
   platform_user_id?: string | null;
+
   instagram_business_account_id?: string | null;
+}
+
+interface BusinessProfile {
+  name: string;
+
+  description: string;
+
+  audience: string;
+
+  services: string;
+
+  tone: string;
+
+  goals: string;
+
+  rawContext: string;
 }
 
 interface ContentConcept {
   id: string;
+
   title: string;
-  trendAngle: string;
-  format: "Reel" | "TikTok" | "Post" | "Carousel";
+
+  hook: string;
+
+  whyItWorks: string;
+
+  format:
+    | "Reel"
+    | "TikTok"
+    | "Post"
+    | "Carousel";
+
+  platforms: string[];
+
   script: string;
+
   caption: string;
+
   hashtags: string;
+
   recommendedAudio: string;
 }
 
+// ==================================================
+// POST STATUS
+// ==================================================
+
 const POST_STATUS = {
   DRAFT: "draft",
+
   SCHEDULED: "scheduled",
+
   PROCESSING: "processing",
+
   PUBLISHED: "published",
+
   FAILED: "failed",
 } as const;
 
-// --------------------------------------------------
+// ==================================================
 // HELPERS
-// --------------------------------------------------
+// ==================================================
 
 const isSameDay = (
   dateStr: string,
@@ -89,1042 +160,2349 @@ const isSameDay = (
   month: number,
   year: number
 ) => {
-  if (!dateStr) return false;
+  if (!dateStr) {
+    return false;
+  }
 
-  const d = new Date(dateStr);
+  const date =
+    new Date(dateStr);
 
-  if (Number.isNaN(d.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return false;
   }
 
   return (
-    d.getDate() === day &&
-    d.getMonth() === month &&
-    d.getFullYear() === year
+    date.getDate() ===
+      day &&
+    date.getMonth() ===
+      month &&
+    date.getFullYear() ===
+      year
   );
 };
 
-const getStatusColor = (status?: string) => {
-  switch (status || "") {
-    case "published":
-      return "bg-green-500";
-    case "scheduled":
-      return "bg-blue-400";
-    case "processing":
-      return "bg-yellow-400";
-    case "failed":
-      return "bg-red-500";
-    case "draft":
-      return "bg-stone-300";
-    default:
-      return "bg-stone-200";
+const getStatusColor =
+  (status?: string) => {
+    switch (
+      status || ""
+    ) {
+      case "published":
+        return "bg-emerald-500";
+
+      case "scheduled":
+        return "bg-blue-400";
+
+      case "processing":
+        return "bg-amber-400";
+
+      case "failed":
+        return "bg-red-500";
+
+      case "draft":
+        return "bg-stone-300";
+
+      default:
+        return "bg-stone-200";
+    }
+  };
+
+const getStatusTextColor =
+  (status?: string) => {
+    switch (
+      status || ""
+    ) {
+      case "published":
+        return "text-emerald-600";
+
+      case "scheduled":
+        return "text-blue-500";
+
+      case "processing":
+        return "text-amber-600";
+
+      case "failed":
+        return "text-red-500";
+
+      default:
+        return "text-stone-400";
+    }
+  };
+
+const isVideoUrl = (
+  url?: string | null
+) => {
+  if (!url) {
+    return false;
   }
-};
 
-const isVideoUrl = (url?: string | null) => {
-  if (!url) return false;
+  const cleanUrl =
+    url
+      .toLowerCase()
+      .split("?")[0];
 
-  const cleanUrl = url.toLowerCase().split("?")[0];
-
-  return [".mp4", ".mov", ".m4v", ".webm", ".avi"].some((extension) =>
-    cleanUrl.endsWith(extension)
+  return [
+    ".mp4",
+    ".mov",
+    ".m4v",
+    ".webm",
+    ".avi",
+  ].some(
+    (extension) =>
+      cleanUrl.endsWith(
+        extension
+      )
   );
 };
 
-// --------------------------------------------------
-// COMPONENT
-// --------------------------------------------------
-
-export default function SocialStudioUnified() {
-  const [viewMode, setViewMode] = useState<"lab" | "planner">("lab");
-  const [status, setStatus] = useState("Ready");
-  const [currentDate, setCurrentDate] = useState(new Date());
-
-  const [isDayViewOpen, setIsDayViewOpen] = useState(false);
-
-  const [selectedDayPosts, setSelectedDayPosts] = useState<SocialPost[]>([]);
-
-  const [businessContext, setBusinessContext] = useState("");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  const [generatedConcepts, setGeneratedConcepts] = useState<ContentConcept[]>(
-    []
-  );
-
-  const [selectedConcept, setSelectedConcept] =
-    useState<ContentConcept | null>(null);
-
-  const [caption, setCaption] = useState("");
-  const [hashtags, setHashtags] = useState("");
-  const [platforms, setPlatforms] = useState<string[]>([]);
-  const [format, setFormat] = useState("Post");
-  const [scheduledTime, setScheduledTime] = useState("");
-  const [metaScript, setMetaScript] = useState("");
-  const [metaAudio, setMetaAudio] = useState("");
-
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-
-  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
-
-  const [isPosting, setIsPosting] = useState(false);
-
-  const [postState, setPostState] = useState<
-    "idle" | "posting" | "posted"
-  >("idle");
-
-  const [posts, setPosts] = useState<SocialPost[]>([]);
-  const [user, setUser] = useState<any>(null);
-
-  const [accounts, setAccounts] = useState<SocialAccount[]>([]);
-
-  const [selectedAccountId, setSelectedAccountId] = useState("");
-
-  const [previewPost, setPreviewPost] = useState<SocialPost | null>(null);
-
-  // --------------------------------------------------
-  // SUPABASE
-  // --------------------------------------------------
-
-  const supabase = useMemo(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!url || !key) {
-      console.error("Missing Supabase environment variables");
-    }
-
-    return createBrowserClient(url || "", key || "");
-  }, []);
-
-  // --------------------------------------------------
-  // LOAD POSTS
-  // --------------------------------------------------
-
-  const syncPosts = useCallback(async () => {
-    if (!user?.id) return;
-
-    setStatus("Syncing");
-
-    const { data, error } = await supabase
-      .from("socials")
-      .select(
-        `
-          id,
-          caption,
-          platform,
-          hashtags,
-          media_url,
-          scheduled_for,
-          status,
-          format,
-          platform_post_id,
-          error,
-          last_error,
-          attempts,
-          analytics,
-          platform_response
-        `
-      )
-      .eq("user_id", user.id)
-      .order("scheduled_for", {
-        ascending: true,
-      });
-
-    if (error) {
-      console.error("Social posts fetch error:", error);
-
-      toast.error(`Could not load scheduled posts: ${error.message}`);
-
-      setStatus("Ready");
-
-      return;
-    }
-
-    setPosts((data || []) as SocialPost[]);
-
-    setStatus("Ready");
-  }, [supabase, user?.id]);
-
-  // --------------------------------------------------
-  // AUTH
-  // --------------------------------------------------
-
-  useEffect(() => {
-    const initAuth = async () => {
-      const { data, error } = await supabase.auth.getUser();
-
-      if (error || !data?.user) {
-        console.error("Social Studio auth error:", error);
-
-        setUser(null);
-
-        setStatus("Not authenticated");
-
-        return;
-      }
-
-      setUser(data.user);
-    };
-
-    void initAuth();
-  }, [supabase]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    void syncPosts();
-  }, [user?.id, syncPosts]);
-
-  // --------------------------------------------------
-  // CONNECTED ACCOUNTS
-  // --------------------------------------------------
-
-  useEffect(() => {
-    const loadAccounts = async () => {
-      if (!user?.id) {
-        setAccounts([]);
-
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("social_accounts")
-        .select(
-          "id, platform, platform_user_id, instagram_business_account_id"
-        )
-        .eq("user_id", user.id);
-
-      if (error) {
-        console.error("Account load error:", error);
-
-        toast.error(`Could not load connected accounts: ${error.message}`);
-
-        return;
-      }
-
-      const loadedAccounts = (data || []) as SocialAccount[];
-
-      setAccounts(loadedAccounts);
-
-      if (!selectedAccountId && loadedAccounts.length > 0) {
-        setSelectedAccountId(loadedAccounts[0].id);
-      }
-    };
-
-    void loadAccounts();
-  }, [user?.id, supabase, selectedAccountId]);
-
-  // --------------------------------------------------
-  // REALTIME
-  // --------------------------------------------------
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel(`socials_realtime_${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "socials",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          void syncPosts();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [supabase, user?.id, syncPosts]);
-
-  // --------------------------------------------------
-  // MEDIA
-  // --------------------------------------------------
-
-  const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    if (mediaPreview) {
-      URL.revokeObjectURL(mediaPreview);
-    }
-
-    setMediaFile(file);
-
-    const localUrl = URL.createObjectURL(file);
-
-    setMediaPreview(localUrl);
-
-    toast.success(`Loaded file: ${file.name}`);
-  };
-
-  const clearMedia = () => {
-    if (mediaPreview) {
-      URL.revokeObjectURL(mediaPreview);
-    }
-
-    setMediaFile(null);
-
-    setMediaPreview(null);
-  };
-
-  // --------------------------------------------------
-  // AI
-  // --------------------------------------------------
-
-  const analyzeBusinessDNA = async () => {
-    if (!businessContext.trim()) {
-      toast.error(
-        "Please enter your business context to tailor the ideas."
-      );
-
-      return;
-    }
-
-    setIsAnalyzing(true);
-
-    setStatus("Analyzing Trends...");
-
-    await new Promise((resolve) => setTimeout(resolve, 2200));
-
-    const mockBlueprints: ContentConcept[] = [
-      {
-        id: "concept-1",
-        title: "The Frictionless Ecosystem",
-        trendAngle: "POV / Clean Desk Aesthetic (Highly Trending)",
-        format: "Reel",
-        script:
-          "Visual: Top-down hyper-lapse of cluttered physical notes transitioning cleanly into a crisp, minimalist workspace UI layout.\n\nAudio Hook (0-3s): Stop glorifying chaotic workflows.\nBody (3-15s): Walkthrough showing the precise layout switch from raw intent to clean cloud sync architecture.\nOutro (15-30s): Call to action to clear the digital noise with the system blueprint link in bio.",
-        caption:
-          "Chaos is expensive. Design your way out of it. The new architectural standard for business management tools is officially live. Built for high-intent builders who value digital clarity.",
-        hashtags:
-          "#minimalism #workflow #SaaS #productivity #uidesign #workspace #systems",
-        recommendedAudio:
-          "Lofi Horizon (Trending Ambient Instrumental) - Pitch-shifted, slows down at 0:12",
-      },
-      {
-        id: "concept-2",
-        title: "Behind the Architecture",
-        trendAngle: "Raw Truth / Founder Commentary",
-        format: "TikTok",
-        script:
-          "Visual: Face-to-camera or over-the-shoulder green-screen overlay showing database schemas or code structure.\n\nAudio Hook (0-5s): Why we deleted 600 lines of codebase code to fix one user interface problem.\nBody (5-45s): Transparent explanation of stripping away sidebars to favor full-canvas immersion. Show the human decision-making process behind software evolution.\nOutro (45-60s): Follow to trace the architecture build.",
-        caption:
-          "Good design isn't what we add, it's what we have the courage to remove. Moving towards completely full-canvas immersive spaces.",
-        hashtags:
-          "#buildinpublic #founder #minimalisttech #techstack #developer #designsystem",
-        recommendedAudio:
-          "Original Audio (Spoken Voiceover) layered with 'Metamorphosis' low volume synth",
-      },
-      {
-        id: "concept-3",
-        title: "The System Blueprint",
-        trendAngle: "Asymmetric Value Delivery / Micro-Infographic",
-        format: "Post",
-        script:
-          "Visual: High-contrast text layout or clean step-by-step visual documentation breaking down 3 structural pillars of an organized operations stack.",
-        caption:
-          "An unorganized brand framework limits execution speed. Here is the architecture we use to track production nodes across networks without breaking schemas.",
-        hashtags:
-          "#businessarchitecture #brandstrategy #systemsdesigner #agile #opsmanagement",
-        recommendedAudio: "None (Static Post / Carousel Highlight Track)",
-      },
-    ];
-
-    setGeneratedConcepts(mockBlueprints);
-
-    setSelectedConcept(mockBlueprints[0]);
-
-    applyConceptToForm(mockBlueprints[0]);
-
-    setIsAnalyzing(false);
-
-    setStatus("Ready");
-
-    toast.success("Strategic Campaign Briefs Synthesized.");
-  };
-
-  const applyConceptToForm = (concept: ContentConcept) => {
-    setCaption(concept.caption);
-
-    setHashtags(concept.hashtags);
-
-    setFormat(concept.format);
-
-    setMetaScript(concept.script);
-
-    setMetaAudio(concept.recommendedAudio);
-
-    if (concept.format === "Reel") {
-      setPlatforms(["meta", "instagram"]);
-    } else if (concept.format === "TikTok") {
-      setPlatforms(["tiktok"]);
-    } else {
-      setPlatforms(["linkedin"]);
-    }
-  };
-
-  // --------------------------------------------------
-  // CALENDAR
-  // --------------------------------------------------
-
-  const handleDateClick = (day: number) => {
-    if (day === 0) return;
-
-    const clickedDate = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      day
-    );
-
-    const dayPosts = posts.filter(
-      (post) =>
-        post.scheduled_for &&
-        isSameDay(
-          post.scheduled_for,
-          day,
-          currentDate.getMonth(),
-          currentDate.getFullYear()
-        )
-    );
-
-    if (dayPosts.length > 0) {
-      setSelectedDayPosts(dayPosts);
-
-      setIsDayViewOpen(true);
-
-      return;
-    }
-
-    const localDate = new Date(clickedDate);
-
-    localDate.setHours(12, 0, 0, 0);
-
-    const year = localDate.getFullYear();
-
-    const month = String(localDate.getMonth() + 1).padStart(2, "0");
-
-    const date = String(localDate.getDate()).padStart(2, "0");
-
-    setScheduledTime(`${year}-${month}-${date}T12:00`);
-
-    setViewMode("lab");
-
-    toast(`Publish schedule ready for ${clickedDate.toLocaleDateString()}`);
-  };
-
-  // --------------------------------------------------
-  // VALIDATION
-  // --------------------------------------------------
-
-  const validateConnections = () => {
-    for (const platform of platforms) {
-      const normalized = platform.toLowerCase();
-
-      const connected = accounts.some(
-        (account) => account.platform?.toLowerCase() === normalized
-      );
-
-      if (!connected) {
-        toast.error(`${platform} is not connected`);
-
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  // --------------------------------------------------
-  // CREATE / SCHEDULE POST
-  // --------------------------------------------------
-
-  const createPost = async ({
-    instant,
-  }: {
-    instant: boolean;
-  }) => {
-    console.log("CREATE POST FUNCTION ENTERED", {
-      instant,
-      userId: user?.id,
-      platforms,
-      accounts,
-      caption,
-      mediaFile,
-      isPosting,
-      isUploadingMedia,
-    });
-
-    // Clear stale state from an earlier failed attempt.
-    setIsPosting(false);
-    setIsUploadingMedia(false);
-    setPostState("idle");
-    setStatus("Ready");
-
-    // ------------------------------------------
-    // VALIDATION
-    // ------------------------------------------
-
-    if (!user?.id) {
-      toast.error("You must be signed in.");
-
-      return false;
-    }
-
-    if (!caption.trim()) {
-      toast.error("Please add a caption before posting.");
-
-      return false;
-    }
-
-    if (platforms.length === 0) {
-      toast.error("Please select at least one platform.");
-
-      return false;
-    }
-
-    if (!validateConnections()) {
-      return false;
-    }
-
-    const hasTikTok = platforms.includes("tiktok");
-
-    const hasInstagram = platforms.includes("instagram");
-
-    if (hasTikTok && !mediaFile) {
-      toast.error("TikTok requires a video file.");
-
-      return false;
-    }
+const normalisePlatform =
+  (value: string) => {
+    const lower =
+      value
+        .trim()
+        .toLowerCase();
 
     if (
-      hasTikTok &&
-      mediaFile &&
-      !mediaFile.type.startsWith("video/")
+      lower === "facebook"
     ) {
-      toast.error("TikTok posts must use a video file.");
-
-      return false;
+      return "meta";
     }
 
-    if (hasInstagram && !mediaFile) {
-      toast.error("Instagram requires media.");
+    return lower;
+  };
 
-      return false;
+const uniqueStrings = (
+  values: string[]
+) => {
+  return Array.from(
+    new Set(
+      values.filter(
+        Boolean
+      )
+    )
+  );
+};
+
+const compactText = (
+  values: unknown[]
+) => {
+  return values
+    .filter(
+      (
+        value
+      ): value is string =>
+        typeof value ===
+          "string" &&
+        Boolean(
+          value.trim()
+        )
+    )
+    .map(
+      (value) =>
+        value.trim()
+    )
+    .filter(
+      (
+        value,
+        index,
+        array
+      ) =>
+        array.indexOf(
+          value
+        ) === index
+    )
+    .join("\n");
+};
+
+// ==================================================
+// PAGE
+// ==================================================
+
+export default function SocialStudioUnified() {
+  // ==================================================
+  // VIEW
+  // ==================================================
+
+  const [
+    viewMode,
+    setViewMode,
+  ] = useState<
+    "create" | "ideas" | "planner"
+  >("create");
+
+  const [
+    status,
+    setStatus,
+  ] =
+    useState("Ready");
+
+  const [
+    currentDate,
+    setCurrentDate,
+  ] = useState(
+    new Date()
+  );
+
+  // ==================================================
+  // USER / BUSINESS
+  // ==================================================
+
+  const [
+    user,
+    setUser,
+  ] =
+    useState<any>(null);
+
+  const [
+    businessProfile,
+    setBusinessProfile,
+  ] =
+    useState<BusinessProfile>({
+      name:
+        "Your business",
+
+      description:
+        "",
+
+      audience:
+        "",
+
+      services:
+        "",
+
+      tone:
+        "",
+
+      goals:
+        "",
+
+      rawContext:
+        "",
+    });
+
+  const [
+    businessLoading,
+    setBusinessLoading,
+  ] =
+    useState(false);
+
+  const [
+    businessLoaded,
+    setBusinessLoaded,
+  ] =
+    useState(false);
+
+  // ==================================================
+  // IDEAS
+  // ==================================================
+
+  const [
+    generatedConcepts,
+    setGeneratedConcepts,
+  ] = useState<
+    ContentConcept[]
+  >([]);
+
+  const [
+    generatingIdeas,
+    setGeneratingIdeas,
+  ] =
+    useState(false);
+
+  const [
+    selectedConcept,
+    setSelectedConcept,
+  ] =
+    useState<ContentConcept | null>(
+      null
+    );
+
+  // ==================================================
+  // COMPOSER
+  // ==================================================
+
+  const [
+    caption,
+    setCaption,
+  ] =
+    useState("");
+
+  const [
+    hashtags,
+    setHashtags,
+  ] =
+    useState("");
+
+  const [
+    platforms,
+    setPlatforms,
+  ] = useState<
+    string[]
+  >([]);
+
+  const [
+    format,
+    setFormat,
+  ] =
+    useState("Post");
+
+  const [
+    scheduledTime,
+    setScheduledTime,
+  ] =
+    useState("");
+
+  const [
+    metaScript,
+    setMetaScript,
+  ] =
+    useState("");
+
+  const [
+    metaAudio,
+    setMetaAudio,
+  ] =
+    useState("");
+
+  // ==================================================
+  // MEDIA
+  // ==================================================
+
+  const [
+    mediaFile,
+    setMediaFile,
+  ] =
+    useState<File | null>(
+      null
+    );
+
+  const [
+    mediaPreview,
+    setMediaPreview,
+  ] = useState<
+    string | null
+  >(null);
+
+  const [
+    isUploadingMedia,
+    setIsUploadingMedia,
+  ] =
+    useState(false);
+
+  // ==================================================
+  // POSTING
+  // ==================================================
+
+  const [
+    isPosting,
+    setIsPosting,
+  ] =
+    useState(false);
+
+  // ==================================================
+  // POSTS
+  // ==================================================
+
+  const [
+    posts,
+    setPosts,
+  ] = useState<
+    SocialPost[]
+  >([]);
+
+  const [
+    accounts,
+    setAccounts,
+  ] = useState<
+    SocialAccount[]
+  >([]);
+
+  const [
+    previewPost,
+    setPreviewPost,
+  ] =
+    useState<SocialPost | null>(
+      null
+    );
+
+  // ==================================================
+  // DAY DRAWER
+  // ==================================================
+
+  const [
+    isDayViewOpen,
+    setIsDayViewOpen,
+  ] =
+    useState(false);
+
+  const [
+    selectedDayPosts,
+    setSelectedDayPosts,
+  ] = useState<
+    SocialPost[]
+  >([]);
+
+  // ==================================================
+  // SUPABASE
+  // ==================================================
+
+  const supabase =
+    useMemo(
+      () => {
+        const url =
+          process.env
+            .NEXT_PUBLIC_SUPABASE_URL;
+
+        const key =
+          process.env
+            .NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (
+          !url ||
+          !key
+        ) {
+          console.error(
+            "Missing Supabase environment variables"
+          );
+        }
+
+        return createBrowserClient(
+          url || "",
+          key || ""
+        );
+      },
+      []
+    );
+
+  // ==================================================
+  // AUTH
+  // ==================================================
+
+  useEffect(() => {
+    const initialise =
+      async () => {
+        const {
+          data,
+          error,
+        } =
+          await supabase.auth.getUser();
+
+        if (
+          error ||
+          !data.user
+        ) {
+          console.error(
+            "Social Studio auth error:",
+            error
+          );
+
+          setStatus(
+            "Not authenticated"
+          );
+
+          return;
+        }
+
+        setUser(
+          data.user
+        );
+      };
+
+    void initialise();
+  }, [
+    supabase,
+  ]);
+
+  // ==================================================
+  // LOAD BUSINESS KNOWLEDGE
+  // ==================================================
+
+  const loadBusinessKnowledge =
+    useCallback(
+      async () => {
+        if (!user?.id) {
+          return;
+        }
+
+        setBusinessLoading(
+          true
+        );
+
+        try {
+          const {
+            data: profile,
+            error:
+              profileError,
+          } =
+            await supabase
+              .from(
+                "profiles"
+              )
+              .select("*")
+              .eq(
+                "id",
+                user.id
+              )
+              .maybeSingle();
+
+          if (
+            profileError
+          ) {
+            console.warn(
+              "Profile business context error:",
+              profileError
+            );
+          }
+
+          const organisationId =
+            profile
+              ?.organisation_id ||
+            null;
+
+          let team:
+            | any
+            | null =
+            null;
+
+          if (
+            organisationId
+          ) {
+            const {
+              data:
+                teamData,
+              error:
+                teamError,
+            } =
+              await supabase
+                .from(
+                  "team"
+                )
+                .select("*")
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .limit(1)
+                .maybeSingle();
+
+            if (
+              teamError
+            ) {
+              console.warn(
+                "Team business context error:",
+                teamError
+              );
+            }
+
+            team =
+              teamData ||
+              null;
+          }
+
+          // --------------------------------------------------
+          // TOTS-OS / CLARITY CONTEXT
+          //
+          // This deliberately reads from "*" so it will use
+          // whichever Clarity/business fields already exist
+          // without requiring every account to have them.
+          // --------------------------------------------------
+
+          const businessName =
+            team
+              ?.company_name ||
+            team?.name ||
+            profile
+              ?.company_name ||
+            profile
+              ?.business_name ||
+            profile
+              ?.company ||
+            profile
+              ?.full_name ||
+            profile?.name ||
+            "Your business";
+
+          const description =
+            compactText([
+              profile
+                ?.clarity_summary,
+
+              profile
+                ?.business_summary,
+
+              profile
+                ?.business_description,
+
+              profile
+                ?.business_context,
+
+              profile?.bio,
+
+              team
+                ?.description,
+
+              team
+                ?.business_description,
+            ]);
+
+          const audience =
+            compactText([
+              profile
+                ?.target_audience,
+
+              profile
+                ?.ideal_customer,
+
+              profile
+                ?.ideal_client,
+
+              profile
+                ?.audience,
+
+              team
+                ?.target_audience,
+            ]);
+
+          const services =
+            compactText([
+              profile
+                ?.services,
+
+              profile
+                ?.products_services,
+
+              profile
+                ?.offer,
+
+              profile
+                ?.offering,
+
+              team
+                ?.services,
+            ]);
+
+          const tone =
+            compactText([
+              profile
+                ?.brand_tone,
+
+              profile
+                ?.tone_of_voice,
+
+              profile
+                ?.brand_voice,
+
+              team
+                ?.brand_tone,
+            ]);
+
+          const goals =
+            compactText([
+              profile
+                ?.business_goals,
+
+              profile
+                ?.goals,
+
+              profile
+                ?.clarity_goals,
+
+              team?.goals,
+            ]);
+
+          let storedClarity =
+            "";
+
+          try {
+            storedClarity =
+              window.localStorage.getItem(
+                "tots-clarity-business-context"
+              ) || "";
+          } catch {
+            storedClarity =
+              "";
+          }
+
+          const rawContext =
+            compactText([
+              `Business: ${businessName}`,
+
+              description
+                ? `About: ${description}`
+                : "",
+
+              audience
+                ? `Audience: ${audience}`
+                : "",
+
+              services
+                ? `Products or services: ${services}`
+                : "",
+
+              tone
+                ? `Brand voice: ${tone}`
+                : "",
+
+              goals
+                ? `Goals: ${goals}`
+                : "",
+
+              storedClarity,
+            ]);
+
+          setBusinessProfile({
+            name:
+              businessName,
+
+            description,
+
+            audience,
+
+            services,
+
+            tone,
+
+            goals,
+
+            rawContext,
+          });
+
+          setBusinessLoaded(
+            true
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            "Business context load error:",
+            error
+          );
+
+          setBusinessProfile(
+            (previous) => ({
+              ...previous,
+
+              name:
+                previous.name ||
+                "Your business",
+            })
+          );
+
+          setBusinessLoaded(
+            true
+          );
+        } finally {
+          setBusinessLoading(
+            false
+          );
+        }
+      },
+      [
+        supabase,
+        user?.id,
+      ]
+    );
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
     }
 
-    // ------------------------------------------
-    // START
-    // ------------------------------------------
+    void loadBusinessKnowledge();
+  }, [
+    user?.id,
+    loadBusinessKnowledge,
+  ]);
 
-    setIsPosting(true);
+  // ==================================================
+  // LOAD POSTS
+  // ==================================================
 
-    setPostState("posting");
-
-    setStatus(instant ? "Posting..." : "Scheduling...");
-
-    let completedSuccessfully = false;
-
-    try {
-      console.log("1. createPost started", {
-        instant,
-        userId: user.id,
-        platforms,
-        hasMediaFile: Boolean(mediaFile),
-        mediaType: mediaFile?.type,
-        mediaName: mediaFile?.name,
-      });
-
-      let finalMediaUrl: string | null = null;
-
-      // ------------------------------------------
-      // UPLOAD MEDIA
-      // ------------------------------------------
-
-      if (mediaFile) {
-        setIsUploadingMedia(true);
-
-        setStatus("Uploading media...");
-
-        const fileExt =
-          mediaFile.name.split(".").pop()?.toLowerCase() || "bin";
-
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
-
-        const filePath = `${user.id}/${fileName}`;
-
-        console.log("2. Starting media upload", {
-          bucket: "social-assets",
-          filePath,
-          type: mediaFile.type,
-          size: mediaFile.size,
-        });
-
-        const { data: uploadData, error: uploadError } =
-          await supabase.storage
-            .from("social-assets")
-            .upload(filePath, mediaFile, {
-              cacheControl: "3600",
-              upsert: false,
-              contentType: mediaFile.type || undefined,
-            });
-
-        console.log("3. Media upload finished", {
-          uploadData,
-          uploadError,
-        });
-
-        if (uploadError) {
-          console.error("Social asset upload failed:", uploadError);
-
-          toast.error(`Media upload failed: ${uploadError.message}`);
-
-          return false;
+  const syncPosts =
+    useCallback(
+      async () => {
+        if (!user?.id) {
+          return;
         }
 
-        const { data: publicUrlData } = supabase.storage
-          .from("social-assets")
-          .getPublicUrl(filePath);
+        setStatus(
+          "Syncing"
+        );
 
-        finalMediaUrl = publicUrlData?.publicUrl || null;
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "socials"
+            )
+            .select(`
+              id,
+              caption,
+              platform,
+              hashtags,
+              media_url,
+              scheduled_for,
+              status,
+              format,
+              platform_post_id,
+              error,
+              last_error,
+              attempts,
+              analytics,
+              platform_response
+            `)
+            .eq(
+              "user_id",
+              user.id
+            )
+            .order(
+              "scheduled_for",
+              {
+                ascending:
+                  true,
+              }
+            );
 
-        console.log("4. Media public URL generated:", finalMediaUrl);
+        if (
+          error
+        ) {
+          console.error(
+            "Social posts fetch error:",
+            error
+          );
 
-        if (!finalMediaUrl) {
-          toast.error("Media uploaded but no public URL was generated.");
+          toast.error(
+            `Could not load posts: ${error.message}`
+          );
 
-          return false;
+          setStatus(
+            "Ready"
+          );
+
+          return;
         }
 
-        setIsUploadingMedia(false);
+        setPosts(
+          (data ||
+            []) as SocialPost[]
+        );
+
+        setStatus(
+          "Ready"
+        );
+      },
+      [
+        supabase,
+        user?.id,
+      ]
+    );
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    void syncPosts();
+  }, [
+    user?.id,
+    syncPosts,
+  ]);
+
+  // ==================================================
+  // CONNECTED ACCOUNTS
+  // ==================================================
+
+  useEffect(() => {
+    const loadAccounts =
+      async () => {
+        if (
+          !user?.id
+        ) {
+          setAccounts(
+            []
+          );
+
+          return;
+        }
+
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "social_accounts"
+            )
+            .select(
+              "id,platform,platform_user_id,instagram_business_account_id"
+            )
+            .eq(
+              "user_id",
+              user.id
+            );
+
+        if (
+          error
+        ) {
+          console.error(
+            "Social accounts error:",
+            error
+          );
+
+          return;
+        }
+
+        setAccounts(
+          (
+            data ||
+            []
+          ) as SocialAccount[]
+        );
+      };
+
+    void loadAccounts();
+  }, [
+    supabase,
+    user?.id,
+  ]);
+
+  // ==================================================
+  // REALTIME
+  // ==================================================
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    const channel =
+      supabase
+        .channel(
+          `socials-page-${user.id}`
+        )
+        .on(
+          "postgres_changes",
+          {
+            event:
+              "*",
+
+            schema:
+              "public",
+
+            table:
+              "socials",
+
+            filter:
+              `user_id=eq.${user.id}`,
+          },
+          () => {
+            void syncPosts();
+          }
+        )
+        .subscribe();
+
+    return () => {
+      void supabase.removeChannel(
+        channel
+      );
+    };
+  }, [
+    supabase,
+    user?.id,
+    syncPosts,
+  ]);
+
+  // ==================================================
+  // MEDIA
+  // ==================================================
+
+  const handleMediaUpload =
+    (
+      event: ChangeEvent<HTMLInputElement>
+    ) => {
+      const file =
+        event.target
+          .files?.[0];
+
+      if (!file) {
+        return;
       }
 
-      // ------------------------------------------
-      // DATE
-      // ------------------------------------------
+      if (
+        mediaPreview
+      ) {
+        URL.revokeObjectURL(
+          mediaPreview
+        );
+      }
 
-      const scheduledFor = instant
-        ? new Date()
-        : scheduledTime
-        ? new Date(scheduledTime)
-        : new Date();
+      setMediaFile(
+        file
+      );
 
-      if (Number.isNaN(scheduledFor.getTime())) {
-        toast.error("Invalid scheduled date.");
+      setMediaPreview(
+        URL.createObjectURL(
+          file
+        )
+      );
+
+      toast.success(
+        `${file.name} ready`
+      );
+    };
+
+  const clearMedia =
+    () => {
+      if (
+        mediaPreview
+      ) {
+        URL.revokeObjectURL(
+          mediaPreview
+        );
+      }
+
+      setMediaFile(
+        null
+      );
+
+      setMediaPreview(
+        null
+      );
+    };
+
+  // ==================================================
+  // BUSINESS-SPECIFIC IDEA GENERATION
+  // ==================================================
+
+  const generateBusinessIdeas =
+    async () => {
+      setGeneratingIdeas(
+        true
+      );
+
+      setStatus(
+        "Creating ideas..."
+      );
+
+      try {
+        if (
+          !businessLoaded
+        ) {
+          await loadBusinessKnowledge();
+        }
+
+        const name =
+          businessProfile
+            .name ||
+          "your business";
+
+        const audience =
+          businessProfile
+            .audience ||
+          "your ideal customers";
+
+        const services =
+          businessProfile
+            .services ||
+          businessProfile
+            .description ||
+          "what your business offers";
+
+        const concepts: ContentConcept[] =
+          [
+            {
+              id:
+                `idea-${Date.now()}-1`,
+
+              title:
+                "The problem nobody talks about",
+
+              hook:
+                `Nobody talks enough about this problem in ${name}...`,
+
+              whyItWorks:
+                "Problem-led content makes the audience feel understood before you introduce the solution.",
+
+              format:
+                "TikTok",
+
+              platforms: [
+                "tiktok",
+                "instagram",
+              ],
+
+              script:
+                `HOOK:\n“Can we talk about something nobody warns you about?”\n\nBODY:\nTalk about one frustrating problem ${audience} regularly experiences before finding ${name}.\n\nExplain why the usual solution does not always work.\n\nThen naturally introduce how ${services} helps make that problem easier.\n\nCTA:\n“Follow for more honest advice about this.”`,
+
+              caption:
+                `Can we normalise talking about the part nobody warns you about? 👀\n\nThere is usually a much simpler way to deal with the problem — and that is exactly what we are trying to make easier at ${name}.`,
+
+              hashtags:
+                "#smallbusiness #businesstips #businessowner #entrepreneur #behindthebusiness",
+
+              recommendedAudio:
+                "Original talking audio or a quiet trending background sound.",
+            },
+
+            {
+              id:
+                `idea-${Date.now()}-2`,
+
+              title:
+                "3 things your customer needs to know",
+
+              hook:
+                `3 things I wish every ${audience} knew...`,
+
+              whyItWorks:
+                "Educational list content is easy to save, share and repurpose into carousels.",
+
+              format:
+                "Carousel",
+
+              platforms: [
+                "instagram",
+                "linkedin",
+              ],
+
+              script:
+                `SLIDE 1:\n3 things I wish every customer knew.\n\nSLIDE 2:\nA common misconception about ${services}.\n\nSLIDE 3:\nA mistake customers often make before working with ${name}.\n\nSLIDE 4:\nWhat they should focus on instead.\n\nSLIDE 5:\nA simple CTA to save the post or contact ${name}.`,
+
+              caption:
+                `If you are trying to get better results, these are the things we wish more people knew before getting started.\n\nSave this for later — it might save you a lot of time.`,
+
+              hashtags:
+                "#businesstips #smallbusinessuk #marketingtips #education #businessadvice",
+
+              recommendedAudio:
+                "No audio needed. Use as a clean static carousel.",
+            },
+
+            {
+              id:
+                `idea-${Date.now()}-3`,
+
+              title:
+                "Behind the business",
+
+              hook:
+                `What running ${name} actually looks like behind the scenes...`,
+
+              whyItWorks:
+                "Founder and behind-the-scenes content builds familiarity and trust without feeling overly promotional.",
+
+              format:
+                "Reel",
+
+              platforms: [
+                "instagram",
+                "tiktok",
+              ],
+
+              script:
+                `CLIP 1:\nOpening laptop / starting work.\nText: “What running ${name} actually looks like...”\n\nCLIP 2:\nA real piece of work related to ${services}.\n\nCLIP 3:\nSomething slightly chaotic or relatable.\n\nCLIP 4:\nThe finished outcome.\n\nENDING TEXT:\n“The polished result vs everything that happened behind it.”`,
+
+              caption:
+                `The finished result always looks calm. The behind-the-scenes part? Slightly different 😂\n\nA little look at what actually goes into running ${name}.`,
+
+              hashtags:
+                "#behindthescenes #businessowner #smallbusiness #dayinthelife #buildinpublic",
+
+              recommendedAudio:
+                "Use a current light lifestyle / day-in-the-life trend.",
+            },
+
+            {
+              id:
+                `idea-${Date.now()}-4`,
+
+              title:
+                "Stop doing this",
+
+              hook:
+                `If you are ${audience}, stop doing this...`,
+
+              whyItWorks:
+                "A strong contrarian hook creates curiosity while letting the business demonstrate expertise.",
+
+              format:
+                "TikTok",
+
+              platforms: [
+                "tiktok",
+                "instagram",
+              ],
+
+              script:
+                `HOOK:\n“If you are trying to improve this, stop doing this first.”\n\nBODY:\nChoose one common mistake relating to ${services}.\n\nExplain what people normally do.\n\nExplain why it creates more work or worse results.\n\nGive one practical alternative.\n\nCTA:\n“Save this so you remember it later.”`,
+
+              caption:
+                `Sometimes doing more is not the answer. Sometimes you need to stop doing the thing creating the problem in the first place.`,
+
+              hashtags:
+                "#businessadvice #tips #smallbusinessowner #learnontiktok #businessgrowth",
+
+              recommendedAudio:
+                "Original audio. Keep the spoken hook clear.",
+            },
+
+            {
+              id:
+                `idea-${Date.now()}-5`,
+
+              title:
+                "The customer transformation",
+
+              hook:
+                "Before → after, but make it about the result.",
+
+              whyItWorks:
+                "Outcome-led content shows value without needing a hard sales pitch.",
+
+              format:
+                "Reel",
+
+              platforms: [
+                "instagram",
+                "tiktok",
+                "meta",
+              ],
+
+              script:
+                `BEFORE:\nShow the customer's situation before using ${services}.\n\nMIDDLE:\nShow one or two parts of the process.\n\nAFTER:\nShow the end result or improvement.\n\nTEXT OVERLAY:\n“From [problem] → [result].”\n\nENDING:\n“This is exactly why we built ${name}.”`,
+
+              caption:
+                `This is the bit we love most — seeing the difference between where someone started and where they ended up.\n\nThat transformation is the whole point.`,
+
+              hashtags:
+                "#transformation #clientresults #smallbusiness #results #businessgrowth",
+
+              recommendedAudio:
+                "Use a before/after transition audio currently performing well.",
+            },
+
+            {
+              id:
+                `idea-${Date.now()}-6`,
+
+              title:
+                "Unpopular opinion",
+
+              hook:
+                `Unpopular opinion: ${audience} do not need more complexity.`,
+
+              whyItWorks:
+                "Opinion content encourages comments and lets the brand establish a recognisable point of view.",
+
+              format:
+                "Post",
+
+              platforms: [
+                "linkedin",
+                "instagram",
+              ],
+
+              script:
+                `MAIN STATEMENT:\n“Unpopular opinion: the answer is not always more.”\n\nBODY:\nExplain why simpler systems, better decisions or clearer processes matter more than adding another tool, feature or task.\n\nConnect the lesson back to the philosophy behind ${name}.`,
+
+              caption:
+                `Unpopular opinion: more does not automatically mean better.\n\nMore tools. More tabs. More complexity. More things to keep track of.\n\nSometimes the smartest move is simplifying the system you already have.`,
+
+              hashtags:
+                "#businessstrategy #businessowner #systems #productivity #smallbusiness",
+
+              recommendedAudio:
+                "Static graphic or carousel. No audio necessary.",
+            },
+          ];
+
+        setGeneratedConcepts(
+          concepts
+        );
+
+        setViewMode(
+          "ideas"
+        );
+
+        toast.success(
+          `Ideas created for ${name}`
+        );
+      } finally {
+        setGeneratingIdeas(
+          false
+        );
+
+        setStatus(
+          "Ready"
+        );
+      }
+    };
+
+  // ==================================================
+  // TURN IDEA INTO POST
+  // ==================================================
+
+  const createFromIdea =
+    (
+      concept: ContentConcept
+    ) => {
+      setSelectedConcept(
+        concept
+      );
+
+      setCaption(
+        concept.caption
+      );
+
+      setHashtags(
+        concept.hashtags
+      );
+
+      setFormat(
+        concept.format
+      );
+
+      setMetaScript(
+        concept.script
+      );
+
+      setMetaAudio(
+        concept.recommendedAudio
+      );
+
+      const connected =
+        concept.platforms.filter(
+          (platform) =>
+            accounts.some(
+              (account) =>
+                normalisePlatform(
+                  account.platform
+                ) ===
+                normalisePlatform(
+                  platform
+                )
+            )
+        );
+
+      setPlatforms(
+        connected.length
+          ? connected
+          : concept.platforms
+      );
+
+      setViewMode(
+        "create"
+      );
+
+      toast.success(
+        "Idea added to your post"
+      );
+    };
+
+  // ==================================================
+  // CONNECTED PLATFORM HELPERS
+  // ==================================================
+
+  const isConnected =
+    (
+      platform: string
+    ) => {
+      return accounts.some(
+        (account) =>
+          normalisePlatform(
+            account.platform
+          ) ===
+          normalisePlatform(
+            platform
+          )
+      );
+    };
+
+  const togglePlatform =
+    (
+      platform: string
+    ) => {
+      if (
+        !isConnected(
+          platform
+        )
+      ) {
+        toast.error(
+          `${platform} is not connected yet`
+        );
+
+        return;
+      }
+
+      setPlatforms(
+        (previous) =>
+          previous.includes(
+            platform
+          )
+            ? previous.filter(
+                (item) =>
+                  item !==
+                  platform
+              )
+            : [
+                ...previous,
+                platform,
+              ]
+      );
+    };
+
+  const validateConnections =
+    () => {
+      for (
+        const platform of
+        platforms
+      ) {
+        if (
+          !isConnected(
+            platform
+          )
+        ) {
+          toast.error(
+            `${platform} is not connected`
+          );
+
+          return false;
+        }
+      }
+
+      return true;
+    };
+
+  // ==================================================
+  // CREATE POST
+  // ==================================================
+
+  const createPost =
+    async ({
+      instant,
+    }: {
+      instant: boolean;
+    }) => {
+      if (!user?.id) {
+        toast.error(
+          "You must be signed in."
+        );
 
         return false;
       }
 
-      // ------------------------------------------
-      // ROW PER PLATFORM
-      // ------------------------------------------
-
-      const rows = platforms.map((platform) => ({
-        user_id: user.id,
-
-        caption: caption.trim(),
-
-        platform: platform.toLowerCase(),
-
-        hashtags: hashtags.trim() || null,
-
-        media_url: finalMediaUrl,
-
-        scheduled_for: scheduledFor.toISOString(),
-
-        status: POST_STATUS.SCHEDULED,
-
-        format: platform === "tiktok" ? "Video" : format,
-
-        attempts: 0,
-
-        retry_count: 0,
-
-        posted_at: null,
-
-        platform_post_id: null,
-
-        error: null,
-
-        last_error: null,
-
-        last_attempt_at: null,
-
-        platform_response: null,
-      }));
-
-      console.log("5. About to insert socials rows:", rows);
-
-      setStatus("Saving post...");
-
-      const {
-        data: insertedPosts,
-        error: insertError,
-      } = await supabase
-        .from("socials")
-        .insert(rows)
-        .select("id, platform, status, media_url");
-
-      console.log("6. Socials insert finished", {
-        insertedPosts,
-        insertError,
-      });
-
-      if (insertError) {
-        console.error("Social post insert error:", insertError);
-
-        toast.error(`Could not save post: ${insertError.message}`);
+      if (
+        !caption.trim()
+      ) {
+        toast.error(
+          "Write a caption first."
+        );
 
         return false;
       }
 
-      if (!insertedPosts?.length) {
+      if (
+        platforms.length ===
+        0
+      ) {
+        toast.error(
+          "Choose at least one platform."
+        );
+
+        return false;
+      }
+
+      if (
+        !validateConnections()
+      ) {
+        return false;
+      }
+
+      const hasTikTok =
+        platforms.includes(
+          "tiktok"
+        );
+
+      const hasInstagram =
+        platforms.includes(
+          "instagram"
+        );
+
+      if (
+        hasTikTok &&
+        !mediaFile
+      ) {
+        toast.error(
+          "TikTok requires a video."
+        );
+
+        return false;
+      }
+
+      if (
+        hasTikTok &&
+        mediaFile &&
+        !mediaFile.type.startsWith(
+          "video/"
+        )
+      ) {
+        toast.error(
+          "TikTok requires a video file."
+        );
+
+        return false;
+      }
+
+      if (
+        hasInstagram &&
+        !mediaFile
+      ) {
+        toast.error(
+          "Instagram requires an image or video."
+        );
+
+        return false;
+      }
+
+      if (
+        !instant &&
+        !scheduledTime
+      ) {
+        toast.error(
+          "Choose when you want the post published."
+        );
+
+        return false;
+      }
+
+      setIsPosting(
+        true
+      );
+
+      setStatus(
+        instant
+          ? "Publishing..."
+          : "Scheduling..."
+      );
+
+      try {
+        let finalMediaUrl:
+          | string
+          | null =
+          null;
+
+        // ==================================================
+        // UPLOAD MEDIA
+        // ==================================================
+
+        if (
+          mediaFile
+        ) {
+          setIsUploadingMedia(
+            true
+          );
+
+          setStatus(
+            "Uploading..."
+          );
+
+          const extension =
+            mediaFile.name
+              .split(".")
+              .pop()
+              ?.toLowerCase() ||
+            "bin";
+
+          const filePath =
+            `${user.id}/${crypto.randomUUID()}.${extension}`;
+
+          const {
+            error:
+              uploadError,
+          } =
+            await supabase.storage
+              .from(
+                "social-assets"
+              )
+              .upload(
+                filePath,
+                mediaFile,
+                {
+                  cacheControl:
+                    "3600",
+
+                  upsert:
+                    false,
+
+                  contentType:
+                    mediaFile.type ||
+                    undefined,
+                }
+              );
+
+          if (
+            uploadError
+          ) {
+            throw new Error(
+              `Media upload failed: ${uploadError.message}`
+            );
+          }
+
+          const {
+            data:
+              publicData,
+          } =
+            supabase.storage
+              .from(
+                "social-assets"
+              )
+              .getPublicUrl(
+                filePath
+              );
+
+          finalMediaUrl =
+            publicData
+              ?.publicUrl ||
+            null;
+
+          if (
+            !finalMediaUrl
+          ) {
+            throw new Error(
+              "Could not create a public media URL."
+            );
+          }
+        }
+
+        // ==================================================
+        // DATE
+        // ==================================================
+
+        const publishDate =
+          instant
+            ? new Date()
+            : new Date(
+                scheduledTime
+              );
+
+        if (
+          Number.isNaN(
+            publishDate.getTime()
+          )
+        ) {
+          throw new Error(
+            "Invalid publishing date."
+          );
+        }
+
+        // ==================================================
+        // INSERT
+        // ==================================================
+
+        const rows =
+          platforms.map(
+            (platform) => ({
+              user_id:
+                user.id,
+
+              caption:
+                caption.trim(),
+
+              platform:
+                platform.toLowerCase(),
+
+              hashtags:
+                hashtags.trim() ||
+                null,
+
+              media_url:
+                finalMediaUrl,
+
+              scheduled_for:
+                publishDate.toISOString(),
+
+              status:
+                POST_STATUS.SCHEDULED,
+
+              format:
+                platform ===
+                "tiktok"
+                  ? "Video"
+                  : format,
+
+              attempts:
+                0,
+
+              retry_count:
+                0,
+
+              posted_at:
+                null,
+
+              platform_post_id:
+                null,
+
+              error:
+                null,
+
+              last_error:
+                null,
+
+              last_attempt_at:
+                null,
+
+              platform_response:
+                null,
+            })
+          );
+
+        const {
+          data:
+            insertedPosts,
+          error:
+            insertError,
+        } =
+          await supabase
+            .from(
+              "socials"
+            )
+            .insert(
+              rows
+            )
+            .select(
+              "id,platform,status,media_url"
+            );
+
+        if (
+          insertError
+        ) {
+          throw insertError;
+        }
+
+        if (
+          !insertedPosts
+            ?.length
+        ) {
+          throw new Error(
+            "The post was not saved."
+          );
+        }
+
+        // ==================================================
+        // PUBLISH NOW
+        // ==================================================
+
+        if (
+          instant
+        ) {
+          setStatus(
+            "Sending..."
+          );
+
+          const response =
+            await fetch(
+              "/api/social/worker/run",
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+              }
+            );
+
+          const result =
+            await response
+              .json()
+              .catch(
+                () =>
+                  null
+              );
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result?.error ||
+                "Post saved, but publishing failed."
+            );
+          }
+
+          toast.success(
+            "Post sent for publishing"
+          );
+        } else {
+          toast.success(
+            "Post scheduled"
+          );
+        }
+
+        // ==================================================
+        // RESET
+        // ==================================================
+
+        setCaption(
+          ""
+        );
+
+        setHashtags(
+          ""
+        );
+
+        setMetaScript(
+          ""
+        );
+
+        setMetaAudio(
+          ""
+        );
+
+        setScheduledTime(
+          ""
+        );
+
+        setSelectedConcept(
+          null
+        );
+
+        clearMedia();
+
+        await syncPosts();
+
+        setStatus(
+          "Ready"
+        );
+
+        return true;
+      } catch (
+        error
+      ) {
         console.error(
-          "Insert returned no rows even though no Supabase error was reported."
+          "Social post error:",
+          error
         );
 
         toast.error(
-          "Post was not created. No database row was returned."
+          error instanceof
+          Error
+            ? error.message
+            : "Something went wrong"
         );
 
         return false;
-      }
-
-      console.log(
-        "7. Social post created successfully:",
-        insertedPosts
-      );
-
-      // ------------------------------------------
-      // POST NOW
-      // ------------------------------------------
-
-      if (instant) {
-        setStatus("Sending to platform...");
-
-        console.log("8. Triggering social publishing worker");
-
-        const workerResponse = await fetch(
-          "/api/social/worker/run",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
+      } finally {
+        setIsPosting(
+          false
         );
 
-        const workerResult = await workerResponse
-          .json()
-          .catch(() => null);
+        setIsUploadingMedia(
+          false
+        );
 
-        console.log("9. Social worker response:", {
-          ok: workerResponse.ok,
-          status: workerResponse.status,
-          result: workerResult,
-        });
+        setStatus(
+          "Ready"
+        );
+      }
+    };
 
-        if (!workerResponse.ok) {
-          console.error("Social worker failed:", workerResult);
+  // ==================================================
+  // APPROVE POST
+  // ==================================================
 
-          toast.error(
-            workerResult?.error ||
-              "Post was saved, but publishing failed."
-          );
+  const approvePost =
+    async (
+      postId: string
+    ) => {
+      try {
+        const {
+          error,
+        } =
+          await supabase
+            .from(
+              "socials"
+            )
+            .update({
+              status:
+                "scheduled",
 
-          await syncPosts();
+              scheduled_for:
+                new Date().toISOString(),
 
-          return false;
+              last_error:
+                null,
+
+              error:
+                null,
+            })
+            .eq(
+              "id",
+              postId
+            );
+
+        if (
+          error
+        ) {
+          throw error;
         }
 
-        toast.success("Post sent for publishing!");
+        const response =
+          await fetch(
+            "/api/social/worker/run",
+            {
+              method:
+                "POST",
 
-        setStatus("Processing");
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+            }
+          );
 
-        setPostState("posted");
-      } else {
-        toast.success("Post scheduled successfully!");
+        const result =
+          await response
+            .json()
+            .catch(
+              () => null
+            );
 
-        setStatus("Scheduled");
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result?.error ||
+              "Failed to publish post"
+          );
+        }
 
-        setPostState("posted");
+        toast.success(
+          "Post sent for publishing"
+        );
+
+        setPreviewPost(
+          null
+        );
+
+        await syncPosts();
+      } catch (
+        error
+      ) {
+        console.error(
+          "Approval error:",
+          error
+        );
+
+        toast.error(
+          error instanceof
+          Error
+            ? error.message
+            : "Approval failed"
+        );
+      }
+    };
+
+  // ==================================================
+  // DELETE POST
+  // ==================================================
+
+  const deletePost =
+    async (
+      postId: string
+    ) => {
+      if (
+        !window.confirm(
+          "Delete this post?"
+        )
+      ) {
+        return;
       }
 
-      completedSuccessfully = true;
+      const {
+        error,
+      } =
+        await supabase
+          .from(
+            "socials"
+          )
+          .delete()
+          .eq(
+            "id",
+            postId
+          );
 
-      // ------------------------------------------
-      // RESET FORM
-      // ------------------------------------------
-
-      setCaption("");
-
-      setHashtags("");
-
-      setMetaScript("");
-
-      setMetaAudio("");
-
-      setScheduledTime("");
-
-      clearMedia();
-
-      await syncPosts();
-
-      setTimeout(() => {
-        setStatus("Ready");
-
-        setPostState("idle");
-
-        setIsPosting(false);
-      }, 1500);
-
-      return true;
-    } catch (error) {
-      console.error("createPost fatal error:", error);
-
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong posting content"
-      );
-
-      return false;
-    } finally {
-      setIsPosting(false);
-
-      setIsUploadingMedia(false);
-
-      if (!completedSuccessfully) {
-        setPostState("idle");
-
-        setStatus("Ready");
-      }
-    }
-  };
-
-  // --------------------------------------------------
-  // POST NOW
-  // --------------------------------------------------
-
-  const handleInstantPost = async () => {
-    console.log("POST NOW HANDLER STARTED");
-
-    await createPost({
-      instant: true,
-    });
-  };
-
-  // --------------------------------------------------
-  // SCHEDULE
-  // --------------------------------------------------
-
-  const deployToProductionGrid = async () => {
-    console.log("SCHEDULE HANDLER STARTED");
-
-    await createPost({
-      instant: false,
-    });
-  };
-
-  // --------------------------------------------------
-  // APPROVE & PUBLISH
-  // --------------------------------------------------
-
-  const approvePost = async (postId: string) => {
-    try {
-      const { error } = await supabase
-        .from("socials")
-        .update({
-          status: "scheduled",
-          scheduled_for: new Date().toISOString(),
-          last_error: null,
-          error: null,
-        })
-        .eq("id", postId);
-
-      if (error) {
-        throw error;
-      }
-
-      const response = await fetch("/api/social/worker/run", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        console.error("Approve worker error:", result);
-
-        toast.error(result?.error || "Failed to publish post");
+      if (
+        error
+      ) {
+        toast.error(
+          error.message
+        );
 
         return;
       }
 
-      toast.success("Post sent for publishing");
+      setSelectedDayPosts(
+        (previous) =>
+          previous.filter(
+            (post) =>
+              post.id !==
+              postId
+          )
+      );
 
-      setPreviewPost(null);
+      toast.success(
+        "Post deleted"
+      );
 
       await syncPosts();
-    } catch (error) {
-      console.error("Approval error:", error);
+    };
 
-      toast.error("Approval failed");
-    }
-  };
+  // ==================================================
+  // CALENDAR
+  // ==================================================
 
-  // --------------------------------------------------
-  // DELETE
-  // --------------------------------------------------
+  const calendarDays =
+    useMemo(
+      () => {
+        const year =
+          currentDate.getFullYear();
 
-  const deletePost = async (postId: string) => {
-    const { error } = await supabase
-      .from("socials")
-      .delete()
-      .eq("id", postId);
+        const month =
+          currentDate.getMonth();
 
-    if (error) {
-      console.error("Delete post error:", error);
+        const firstDay =
+          new Date(
+            year,
+            month,
+            1
+          ).getDay();
 
-      toast.error(`Failed to delete post: ${error.message}`);
+        const daysInMonth =
+          new Date(
+            year,
+            month + 1,
+            0
+          ).getDate();
 
-      return;
-    }
+        const days:
+          number[] =
+          [];
 
-    toast.success("Post deleted");
+        for (
+          let i = 0;
+          i < firstDay;
+          i += 1
+        ) {
+          days.push(
+            0
+          );
+        }
 
-    setSelectedDayPosts((previous) =>
-      previous.filter((item) => item.id !== postId)
+        for (
+          let day = 1;
+          day <=
+          daysInMonth;
+          day += 1
+        ) {
+          days.push(
+            day
+          );
+        }
+
+        return days;
+      },
+      [
+        currentDate,
+      ]
     );
 
-    await syncPosts();
-  };
+  const handleDateClick =
+    (
+      day: number
+    ) => {
+      if (
+        day === 0
+      ) {
+        return;
+      }
 
-  // --------------------------------------------------
-  // CALENDAR
-  // --------------------------------------------------
+      const clickedDate =
+        new Date(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          day
+        );
 
-  const calendarDays = useMemo(() => {
-    const year = currentDate.getFullYear();
+      const dayPosts =
+        posts.filter(
+          (post) =>
+            post.scheduled_for &&
+            isSameDay(
+              post.scheduled_for,
+              day,
+              currentDate.getMonth(),
+              currentDate.getFullYear()
+            )
+        );
 
-    const month = currentDate.getMonth();
+      if (
+        dayPosts.length
+      ) {
+        setSelectedDayPosts(
+          dayPosts
+        );
 
-    const firstDay = new Date(year, month, 1).getDay();
+        setIsDayViewOpen(
+          true
+        );
 
-    const daysInMonth = new Date(
-      year,
-      month + 1,
-      0
-    ).getDate();
+        return;
+      }
 
-    const days: number[] = [];
+      clickedDate.setHours(
+        12,
+        0,
+        0,
+        0
+      );
 
-    for (let i = 0; i < firstDay; i += 1) {
-      days.push(0);
-    }
+      const year =
+        clickedDate.getFullYear();
 
-    for (let i = 1; i <= daysInMonth; i += 1) {
-      days.push(i);
-    }
+      const month =
+        String(
+          clickedDate.getMonth() +
+            1
+        ).padStart(
+          2,
+          "0"
+        );
 
-    return days;
-  }, [currentDate]);
+      const date =
+        String(
+          clickedDate.getDate()
+        ).padStart(
+          2,
+          "0"
+        );
 
-  // --------------------------------------------------
-  // UI
-  // --------------------------------------------------
+      setScheduledTime(
+        `${year}-${month}-${date}T12:00`
+      );
+
+      setViewMode(
+        "create"
+      );
+
+      toast.success(
+        "Date added to your post"
+      );
+    };
+
+  // ==================================================
+  // PLATFORM DETAILS
+  // ==================================================
+
+  const platformOptions =
+    [
+      {
+        id:
+          "instagram",
+
+        name:
+          "Instagram",
+
+        description:
+          "Posts & Reels",
+      },
+
+      {
+        id:
+          "tiktok",
+
+        name:
+          "TikTok",
+
+        description:
+          "Video",
+      },
+
+      {
+        id:
+          "meta",
+
+        name:
+          "Facebook",
+
+        description:
+          "Posts",
+      },
+
+      {
+        id:
+          "linkedin",
+
+        name:
+          "LinkedIn",
+
+        description:
+          "Posts",
+      },
+    ];
+
+  // ==================================================
+  // RENDER
+  // ==================================================
 
   return (
-    <div className="min-h-screen bg-[#FBFBFA] text-[#1c1c1c] font-sans antialiased flex flex-col overflow-x-hidden">
-      {/* HEADER */}
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900">
 
-      <nav className="h-auto min-h-20 px-4 sm:px-6 lg:px-10 py-3 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between bg-white/80 backdrop-blur-xl border-b border-stone-100 sticky top-0 z-50">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 lg:gap-12">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#1c1c1c] rounded-xl flex items-center justify-center text-[#a9b897] shadow-lg">
-              <Layers size={18} />
+      {/* ==================================================
+          HEADER
+      ================================================== */}
+
+      <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-[#faf9f6]/95 px-4 py-4 backdrop-blur-xl md:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897]">
+              <Layers
+                size={18}
+              />
             </div>
 
-            <span className="font-serif italic text-2xl tracking-tighter">
-              Social.OS
-            </span>
+            <div>
+              <p className="text-[8px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
+                TOTS-OS
+              </p>
+
+              <h1 className="font-serif text-2xl italic">
+                Social Studio
+              </h1>
+            </div>
           </div>
 
-          <div className="flex flex-wrap bg-stone-50 p-1 rounded-2xl border border-stone-100 gap-1">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-stone-200 bg-white p-1.5">
+
             <button
               type="button"
-              onClick={() => setViewMode("lab")}
-              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                viewMode === "lab"
-                  ? "bg-white shadow-sm text-[#1c1c1c]"
-                  : "text-stone-300"
+              onClick={() =>
+                setViewMode(
+                  "create"
+                )
+              }
+              className={`rounded-xl px-5 py-3 text-[9px] font-black uppercase tracking-wider transition ${
+                viewMode ===
+                "create"
+                  ? "bg-stone-900 text-[#a9b897]"
+                  : "text-stone-400 hover:text-stone-700"
               }`}
             >
-              Strategy Lab
+              Create
             </button>
 
             <button
               type="button"
-              onClick={() => setViewMode("planner")}
-              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                viewMode === "planner"
-                  ? "bg-white shadow-sm text-[#1c1c1c]"
-                  : "text-stone-300"
+              onClick={() =>
+                setViewMode(
+                  "ideas"
+                )
+              }
+              className={`flex items-center gap-2 rounded-xl px-5 py-3 text-[9px] font-black uppercase tracking-wider transition ${
+                viewMode ===
+                "ideas"
+                  ? "bg-stone-900 text-[#a9b897]"
+                  : "text-stone-400 hover:text-stone-700"
               }`}
             >
-              Content Planner
+              <Sparkles
+                size={12}
+              />
+
+              Ideas
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setViewMode(
+                  "planner"
+                )
+              }
+              className={`rounded-xl px-5 py-3 text-[9px] font-black uppercase tracking-wider transition ${
+                viewMode ===
+                "planner"
+                  ? "bg-stone-900 text-[#a9b897]"
+                  : "text-stone-400 hover:text-stone-700"
+              }`}
+            >
+              Planner
             </button>
           </div>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
-          <div className="flex items-center gap-3 px-4 py-2 bg-stone-50 rounded-full border border-stone-100">
-            <div
-              className={`w-1.5 h-1.5 rounded-full ${
-                status === "Ready"
-                  ? "bg-[#a9b897]"
-                  : "bg-amber-400"
-              } animate-pulse`}
-            />
+          <div className="flex items-center gap-3">
+            <div className="rounded-full border border-stone-200 bg-white px-4 py-2">
+              <span className="flex items-center gap-2 text-[8px] font-black uppercase tracking-wider text-stone-400">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    status ===
+                    "Ready"
+                      ? "bg-[#a9b897]"
+                      : "bg-amber-400"
+                  }`}
+                />
 
-            <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">
-              {status}
-            </span>
+                {status}
+              </span>
+            </div>
+
+            <button
+              onClick={() =>
+                void syncPosts()
+              }
+              className="rounded-xl border border-stone-200 bg-white p-3 text-stone-400 hover:text-stone-900"
+            >
+              <RefreshCcw
+                size={15}
+              />
+            </button>
+
+            <Link
+              href="/reports"
+              className="rounded-xl border border-stone-200 bg-white p-3 text-stone-400 hover:text-stone-900"
+            >
+              <BarChart3
+                size={15}
+              />
+            </Link>
           </div>
-
-          <button
-            type="button"
-            onClick={() => void syncPosts()}
-            className="p-2 text-stone-300 hover:text-[#1c1c1c] transition-colors"
-          >
-            <RefreshCcw size={18} />
-          </button>
-
-          <Link
-            href="/reports"
-            className="p-2 text-stone-300 hover:text-[#1c1c1c] transition-colors"
-          >
-            <BarChart3 size={18} />
-          </Link>
         </div>
-      </nav>
+      </header>
 
-      {/* MAIN */}
+      {/* ==================================================
+          MAIN
+      ================================================== */}
 
-      <main className="flex-1 p-4 sm:p-6 lg:p-10 overflow-x-hidden">
-        <AnimatePresence mode="wait">
-          {viewMode === "lab" ? (
+      <main className="mx-auto max-w-7xl p-4 md:p-8 lg:p-10">
+
+        <AnimatePresence
+          mode="wait"
+        >
+
+          {/* ==================================================
+              CREATE
+          ================================================== */}
+
+          {viewMode ===
+            "create" && (
             <motion.div
-              key="lab"
+              key="create"
               initial={{
                 opacity: 0,
                 y: 10,
@@ -1135,564 +2513,1038 @@ export default function SocialStudioUnified() {
               }}
               exit={{
                 opacity: 0,
-                y: -10,
               }}
-              className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12"
+              className="space-y-6"
             >
-              {/* LEFT */}
 
-              <div className="col-span-12 lg:col-span-6 space-y-8">
-                <div className="bg-white p-10 rounded-[3rem] border border-stone-100 shadow-xl space-y-6">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#a9b897] mb-1">
-                      Contextual Alignment
-                    </p>
+              {/* HERO */}
 
-                    <h3 className="text-3xl font-serif italic tracking-tight">
-                      Tell us about your business
-                    </h3>
-                  </div>
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="mb-2 text-[9px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
+                    Create Content
+                  </p>
 
-                  <textarea
-                    value={businessContext}
-                    onChange={(e) =>
-                      setBusinessContext(e.target.value)
-                    }
-                    placeholder="e.g., We are architectural designers focusing on functional minimalism..."
-                    className="w-full h-32 bg-stone-50 rounded-2xl p-6 text-sm font-medium outline-none border border-stone-100/50 focus:border-[#a9b897] transition-all resize-none placeholder:text-stone-300"
-                  />
+                  <h2 className="font-serif text-5xl italic tracking-tight md:text-7xl">
+                    What are we
+                    posting?
+                  </h2>
 
-                  <button
-                    type="button"
-                    onClick={analyzeBusinessDNA}
-                    disabled={isAnalyzing}
-                    className="w-full py-5 bg-[#1c1c1c] text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-stone-800 transition-all disabled:opacity-40"
-                  >
-                    <Sparkles
-                      size={14}
-                      className="text-[#a9b897]"
-                    />
-
-                    {isAnalyzing
-                      ? "Analyzing Trends..."
-                      : "Generate Trending Ideas"}
-                  </button>
+                  <p className="mt-4 max-w-xl text-sm leading-relaxed text-stone-500">
+                    Write something
+                    yourself or let
+                    TOTS-OS create the
+                    starting point from
+                    what Clarity already
+                    knows about your
+                    business.
+                  </p>
                 </div>
 
-                {generatedConcepts.length > 0 && (
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-300 ml-4">
-                      Strategic Content Options
+                <button
+                  onClick={() => {
+                    setViewMode(
+                      "ideas"
+                    );
+
+                    if (
+                      !generatedConcepts.length
+                    ) {
+                      void generateBusinessIdeas();
+                    }
+                  }}
+                  className="flex items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-4 text-[10px] font-black uppercase tracking-wider text-stone-900"
+                >
+                  <Wand2
+                    size={15}
+                  />
+
+                  Give Me Ideas
+                </button>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+
+                {/* ==================================================
+                    MAIN COMPOSER
+                ================================================== */}
+
+                <section className="space-y-5 rounded-[2.5rem] border border-stone-200 bg-white p-6 shadow-sm md:p-8">
+
+                  {selectedConcept && (
+                    <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#71805f]">
+                            Created from
+                            idea
+                          </p>
+
+                          <p className="mt-2 text-sm font-black">
+                            {
+                              selectedConcept.title
+                            }
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() =>
+                            setSelectedConcept(
+                              null
+                            )
+                          }
+                          className="text-stone-400"
+                        >
+                          <X
+                            size={15}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MEDIA */}
+
+                  <div>
+                    <label className="mb-3 flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-400">
+                      <ImageIcon
+                        size={12}
+                      />
+
+                      Photo or Video
                     </label>
 
-                    <div className="grid grid-cols-3 gap-3">
-                      {generatedConcepts.map(
-                        (concept, index) => (
+                    <div className="relative flex min-h-[260px] items-center justify-center overflow-hidden rounded-[2rem] border border-dashed border-stone-200 bg-stone-50">
+                      {mediaPreview ? (
+                        <>
+                          {mediaFile
+                            ?.type
+                            .startsWith(
+                              "video/"
+                            ) ? (
+                            <video
+                              src={
+                                mediaPreview
+                              }
+                              controls
+                              playsInline
+                              className="max-h-[440px] w-full object-contain"
+                            />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={
+                                mediaPreview
+                              }
+                              alt="Post preview"
+                              className="max-h-[440px] w-full object-contain"
+                            />
+                          )}
+
                           <button
-                            type="button"
-                            key={concept.id}
-                            onClick={() => {
-                              setSelectedConcept(concept);
-
-                              applyConceptToForm(concept);
-                            }}
-                            className={`p-5 rounded-2xl border text-left flex flex-col justify-between transition-all relative overflow-hidden h-32 ${
-                              selectedConcept?.id === concept.id
-                                ? "bg-white border-[#a9b897] shadow-md"
-                                : "bg-white/60 border-stone-100 hover:border-stone-200"
-                            }`}
+                            onClick={
+                              clearMedia
+                            }
+                            className="absolute right-4 top-4 rounded-full bg-stone-900 p-3 text-white shadow-xl"
                           >
-                            <div className="text-[9px] font-mono text-stone-300">
-                              Idea 0{index + 1} // {concept.format}
-                            </div>
-
-                            <div className="font-serif italic text-lg leading-tight mt-2 text-[#1c1c1c]">
-                              {concept.title}
-                            </div>
+                            <X
+                              size={14}
+                            />
                           </button>
-                        )
+                        </>
+                      ) : (
+                        <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center p-12 text-center">
+                          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+                            <Upload
+                              size={20}
+                              className="text-[#8fa07d]"
+                            />
+                          </div>
+
+                          <p className="text-sm font-black">
+                            Add your content
+                          </p>
+
+                          <p className="mt-2 text-xs text-stone-400">
+                            Upload an image
+                            or video
+                          </p>
+
+                          <input
+                            type="file"
+                            accept="image/*,video/*"
+                            onChange={
+                              handleMediaUpload
+                            }
+                            className="hidden"
+                          />
+                        </label>
                       )}
                     </div>
                   </div>
-                )}
 
-                {selectedConcept && (
-                  <div className="bg-white p-10 rounded-[3rem] border border-stone-100 shadow-xl space-y-6">
-                    <div className="flex justify-between items-start border-b border-stone-50 pb-4">
-                      <div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] bg-[#a9b897]/10 px-3 py-1 rounded-full">
-                          {selectedConcept.trendAngle}
-                        </span>
+                  {/* CAPTION */}
 
-                        <h4 className="text-2xl font-serif italic mt-3">
-                          {selectedConcept.title}
-                        </h4>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-[10px] font-black uppercase text-stone-300">
-                        <Film size={12} />
-
-                        Creative Production Script
-                      </div>
-
-                      <div className="bg-stone-50 rounded-2xl p-6 text-xs font-medium text-stone-600 leading-relaxed whitespace-pre-wrap font-mono">
-                        {metaScript}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 pt-2">
-                      <div className="flex items-center gap-2 text-[10px] font-black uppercase text-stone-300">
-                        <Music size={12} />
-
-                        Recommended Sound & Trending Audio
-                      </div>
-
-                      <div className="bg-amber-50/40 border border-amber-100/50 rounded-xl p-4 flex items-center gap-3 text-xs font-semibold text-amber-900">
-                        <Plus
-                          size={14}
-                          className="text-[#a9b897] shrink-0 animate-pulse"
-                        />
-
-                        <span>
-                          {metaAudio ||
-                            "No background audio required for this format placement."}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* RIGHT */}
-
-              <div className="col-span-12 lg:col-span-6">
-                <div className="bg-white p-12 rounded-[3.5rem] border border-stone-100 shadow-2xl flex flex-col justify-between min-h-[600px]">
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center border-b border-stone-50 pb-4">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-stone-300">
-                        Final Post Preview
+                  <div>
+                    <div className="mb-3 flex items-center justify-between">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-stone-400">
+                        Caption
                       </label>
 
-                      <span className="text-[10px] font-black uppercase tracking-widest text-stone-400 font-mono">
-                        {format} Strategy
+                      <span className="text-[9px] text-stone-300">
+                        {
+                          caption.length
+                        }{" "}
+                        characters
                       </span>
                     </div>
 
-                    {/* MEDIA */}
+                    <textarea
+                      value={
+                        caption
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setCaption(
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      placeholder="What do you want to say?"
+                      className="min-h-[220px] w-full resize-y rounded-[2rem] border border-stone-200 bg-[#faf9f6] p-6 text-base leading-8 outline-none transition focus:border-[#a9b897]"
+                    />
+                  </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest flex items-center gap-2">
-                        <ImageIcon size={12} />
+                  {/* HASHTAGS */}
 
-                        Asset Attachment
-                      </label>
-
-                      <div className="relative border border-dashed border-stone-200 rounded-2xl h-48 bg-stone-50/50 flex flex-col items-center justify-center overflow-hidden transition-all hover:bg-stone-50 group">
-                        {mediaPreview ? (
-                          <>
-                            {mediaFile?.type.startsWith("video/") ? (
-                              <video
-                                src={mediaPreview}
-                                className="w-full h-full object-cover"
-                                controls
-                                playsInline
-                              />
-                            ) : (
-                              <img
-                                src={mediaPreview}
-                                alt="Upload Preview"
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-
-                            <button
-                              type="button"
-                              onClick={clearMedia}
-                              className="absolute top-3 right-3 p-2 bg-[#1c1c1c] text-white rounded-full opacity-80 hover:opacity-100 transition-opacity"
-                            >
-                              <X size={14} />
-                            </button>
-                          </>
-                        ) : (
-                          <label className="cursor-pointer flex flex-col items-center justify-center space-y-2 p-6 w-full h-full">
-                            <div className="p-3 bg-white rounded-xl shadow-sm border border-stone-100 text-stone-400 group-hover:text-[#a9b897] transition-colors">
-                              <Upload size={16} />
-                            </div>
-
-                            <span className="text-xs font-semibold text-stone-500">
-                              Drop your file or browse
-                            </span>
-
-                            <span className="text-[9px] font-medium text-stone-300 uppercase tracking-wider">
-                              Supports images or video formats
-                            </span>
-
-                            <input
-                              type="file"
-                              accept="image/*,video/*"
-                              onChange={handleImageUpload}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* CAPTION */}
-
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest">
-                        Post Caption Copy
-                      </label>
-
-                      <textarea
-                        value={caption}
-                        onChange={(e) =>
-                          setCaption(e.target.value)
-                        }
-                        className="w-full h-28 bg-stone-50 rounded-2xl p-5 text-base font-serif italic outline-none resize-none border border-stone-100 focus:border-[#a9b897] transition-all leading-relaxed"
-                        placeholder="Write a custom post manually from scratch..."
+                  <div>
+                    <label className="mb-3 flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-400">
+                      <Hash
+                        size={12}
                       />
-                    </div>
 
-                    {/* HASHTAGS */}
+                      Hashtags
+                    </label>
 
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest flex items-center gap-1.5">
-                        <Hash size={12} />
+                    <input
+                      value={
+                        hashtags
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setHashtags(
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      placeholder="#smallbusiness #marketing"
+                      className="w-full rounded-2xl border border-stone-200 bg-[#faf9f6] p-4 text-sm outline-none focus:border-[#a9b897]"
+                    />
+                  </div>
 
-                        Search Optimization Tags
-                      </label>
+                  {/* SCRIPT */}
 
-                      <input
-                        value={hashtags}
-                        onChange={(e) =>
-                          setHashtags(e.target.value)
-                        }
-                        className="w-full p-4 bg-stone-50 rounded-xl text-xs font-mono font-bold outline-none border border-stone-100 focus:border-[#a9b897] transition-all"
-                        placeholder="#branding #marketing"
-                      />
-                    </div>
+                  {metaScript && (
+                    <div className="rounded-[2rem] border border-stone-200 bg-stone-50 p-5">
+                      <div className="mb-4 flex items-center gap-2">
+                        <Film
+                          size={14}
+                          className="text-[#8fa07d]"
+                        />
 
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* PLATFORMS */}
-
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest">
-                          Target Platform
-                        </label>
-
-                        <div className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold space-y-2">
-                          {[
-                            "meta",
-                            "instagram",
-                            "tiktok",
-                            "linkedin",
-                          ].map((platform) => (
-                            <label
-                              key={platform}
-                              className="flex items-center gap-2 capitalize"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={platforms.includes(platform)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setPlatforms((previous) =>
-                                      previous.includes(platform)
-                                        ? previous
-                                        : [...previous, platform]
-                                    );
-                                  } else {
-                                    setPlatforms((previous) =>
-                                      previous.filter(
-                                        (item) => item !== platform
-                                      )
-                                    );
-                                  }
-                                }}
-                              />
-
-                              {platform}
-                            </label>
-                          ))}
-                        </div>
-
-                        {/* ACCOUNT */}
-
-                        <div className="space-y-2 mt-4">
-                          <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest">
-                            Connected Account
-                          </label>
-
-                          <select
-                            value={selectedAccountId}
-                            onChange={(e) =>
-                              setSelectedAccountId(e.target.value)
-                            }
-                            className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100"
-                          >
-                            <option value="">
-                              Select account
-                            </option>
-
-                            {accounts.map((account) => (
-                              <option
-                                key={account.id}
-                                value={account.id}
-                              >
-                                {account.platform} -{" "}
-                                {account.platform_user_id ||
-                                  account.id}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">
+                          Filming /
+                          Content Guide
+                        </p>
                       </div>
 
-                      {/* DATE */}
+                      <p className="whitespace-pre-wrap text-xs leading-6 text-stone-500">
+                        {
+                          metaScript
+                        }
+                      </p>
+                    </div>
+                  )}
 
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase text-stone-300 tracking-widest flex items-center gap-1.5">
-                          <Clock size={12} />
+                  {metaAudio && (
+                    <div className="flex items-start gap-3 rounded-2xl border border-stone-100 bg-amber-50 p-4">
+                      <Music
+                        size={15}
+                        className="mt-0.5 shrink-0 text-amber-500"
+                      />
 
-                          Publishing Schedule
-                        </label>
+                      <div>
+                        <p className="text-[8px] font-black uppercase tracking-wider text-amber-700">
+                          Audio suggestion
+                        </p>
 
-                        <input
-                          type="datetime-local"
-                          value={scheduledTime}
-                          onChange={(e) =>
-                            setScheduledTime(e.target.value)
+                        <p className="mt-1 text-xs text-amber-800">
+                          {
+                            metaAudio
                           }
-                          className="w-full p-4 bg-stone-50 rounded-xl text-xs font-bold outline-none border border-transparent focus:border-stone-100"
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* ==================================================
+                    SIDEBAR
+                ================================================== */}
+
+                <aside className="space-y-5">
+
+                  {/* PLATFORMS */}
+
+                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+                    <p className="mb-1 text-sm font-black">
+                      Where should it
+                      go?
+                    </p>
+
+                    <p className="mb-5 text-[10px] text-stone-400">
+                      Choose one or more
+                      connected
+                      platforms.
+                    </p>
+
+                    <div className="space-y-2">
+                      {platformOptions.map(
+                        (
+                          platform
+                        ) => {
+                          const connected =
+                            isConnected(
+                              platform.id
+                            );
+
+                          const selected =
+                            platforms.includes(
+                              platform.id
+                            );
+
+                          return (
+                            <button
+                              key={
+                                platform.id
+                              }
+                              type="button"
+                              onClick={() =>
+                                togglePlatform(
+                                  platform.id
+                                )
+                              }
+                              className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition ${
+                                selected
+                                  ? "border-[#a9b897] bg-[#a9b897]/10"
+                                  : "border-stone-100 bg-stone-50"
+                              } ${
+                                !connected
+                                  ? "opacity-50"
+                                  : ""
+                              }`}
+                            >
+                              <div>
+                                <p className="text-xs font-black">
+                                  {
+                                    platform.name
+                                  }
+                                </p>
+
+                                <p className="mt-1 text-[9px] text-stone-400">
+                                  {connected
+                                    ? platform.description
+                                    : "Not connected"}
+                                </p>
+                              </div>
+
+                              {selected ? (
+                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#a9b897] text-white">
+                                  <Check
+                                    size={12}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="h-6 w-6 rounded-full border border-stone-200 bg-white" />
+                              )}
+                            </button>
+                          );
+                        }
+                      )}
+                    </div>
+                  </div>
+
+                  {/* FORMAT */}
+
+                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+                    <p className="mb-3 text-[9px] font-black uppercase tracking-wider text-stone-400">
+                      Format
+                    </p>
+
+                    <select
+                      value={
+                        format
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setFormat(
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs font-bold outline-none"
+                    >
+                      <option value="Post">
+                        Post
+                      </option>
+
+                      <option value="Reel">
+                        Reel
+                      </option>
+
+                      <option value="TikTok">
+                        TikTok
+                      </option>
+
+                      <option value="Carousel">
+                        Carousel
+                      </option>
+                    </select>
+                  </div>
+
+                  {/* SCHEDULE */}
+
+                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100">
+                        <Clock
+                          size={14}
                         />
                       </div>
+
+                      <div>
+                        <p className="text-xs font-black">
+                          Schedule
+                        </p>
+
+                        <p className="text-[9px] text-stone-400">
+                          Optional if
+                          posting now
+                        </p>
+                      </div>
                     </div>
+
+                    <input
+                      type="datetime-local"
+                      value={
+                        scheduledTime
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setScheduledTime(
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
+                    />
                   </div>
 
                   {/* POST NOW */}
 
                   <button
-                    type="button"
-                    onClick={() => {
-                      console.log("POST NOW CLICKED", {
-                        isPosting,
-                        isUploadingMedia,
-                        userId: user?.id,
-                        platforms,
-                        caption,
-                        mediaFile,
-                      });
-
-                      void handleInstantPost();
-                    }}
-                    disabled={isUploadingMedia}
-                    className="w-full py-6 mb-3 bg-[#a9b897] text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-[#97a786] transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={
+                      isPosting ||
+                      isUploadingMedia
+                    }
+                    onClick={() =>
+                      void createPost({
+                        instant:
+                          true,
+                      })
+                    }
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-stone-900 shadow-lg disabled:opacity-50"
                   >
-                    {postState === "posting"
-                      ? status === "Uploading media..."
-                        ? "Uploading..."
-                        : status === "Saving post..."
-                        ? "Saving..."
-                        : status === "Sending to platform..."
-                        ? "Publishing..."
-                        : "Posting..."
-                      : postState === "posted"
-                      ? "Sent!"
-                      : "Post Now"}
+                    {isPosting ? (
+                      <Loader2
+                        size={15}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Send
+                        size={15}
+                      />
+                    )}
 
-                    <ArrowRight size={14} />
+                    Post Now
                   </button>
 
                   {/* SCHEDULE */}
 
                   <button
-                    type="button"
-                    onClick={() => {
-                      console.log("SCHEDULE CLICKED", {
-                        isPosting,
-                        isUploadingMedia,
-                        userId: user?.id,
-                        platforms,
-                        caption,
-                        scheduledTime,
-                      });
-
-                      void deployToProductionGrid();
-                    }}
-                    disabled={isUploadingMedia}
-                    className="w-full py-6 mt-6 bg-[#1c1c1c] text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.4em] flex items-center justify-center gap-4 hover:bg-stone-800 transition-all shadow-xl shadow-stone-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={
+                      isPosting ||
+                      isUploadingMedia
+                    }
+                    onClick={() =>
+                      void createPost({
+                        instant:
+                          false,
+                      })
+                    }
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 px-6 py-5 text-[10px] font-black uppercase tracking-widest text-[#a9b897] shadow-lg disabled:opacity-50"
                   >
-                    {isUploadingMedia
-                      ? "Staging Assets..."
-                      : isPosting
-                      ? "Saving..."
-                      : "Schedule Content Post"}
+                    {isPosting ? (
+                      <Loader2
+                        size={15}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <CalendarDays
+                        size={15}
+                      />
+                    )}
 
-                    <ArrowRight
-                      size={14}
-                      className="text-[#a9b897]"
-                    />
+                    Schedule Post
                   </button>
-                </div>
+                </aside>
               </div>
             </motion.div>
-          ) : (
-            /* --------------------------------------------------
-               PLANNER
-            -------------------------------------------------- */
+          )}
 
+          {/* ==================================================
+              IDEAS
+          ================================================== */}
+
+          {viewMode ===
+            "ideas" && (
             <motion.div
-              key="planner"
+              key="ideas"
               initial={{
                 opacity: 0,
-                scale: 0.98,
+                y: 10,
               }}
               animate={{
                 opacity: 1,
-                scale: 1,
+                y: 0,
               }}
               exit={{
                 opacity: 0,
               }}
-              className="max-w-6xl mx-auto space-y-12"
+              className="space-y-8"
             >
-              <div className="flex flex-col lg:flex-row gap-4 lg:items-end lg:justify-between">
-                <div className="flex items-baseline gap-6">
-                  <h2 className="text-5xl sm:text-6xl lg:text-8xl font-serif italic tracking-tighter">
-                    {currentDate.toLocaleString("default", {
-                      month: "long",
-                    })}
-                    .
-                  </h2>
 
-                  <span className="text-stone-300 text-3xl font-serif italic leading-none">
-                    {currentDate.getFullYear()}
-                  </span>
-                </div>
+              {/* HERO */}
 
-                <div className="flex gap-2 bg-white p-2 rounded-2xl border border-stone-100 shadow-sm">
+              <div className="rounded-[3rem] bg-stone-900 p-7 text-white md:p-10 lg:p-12">
+                <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
+                  <div>
+                    <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#a9b897] text-stone-900">
+                      <Brain
+                        size={20}
+                      />
+                    </div>
+
+                    <p className="mb-3 text-[9px] font-black uppercase tracking-[0.35em] text-[#a9b897]">
+                      Powered by your
+                      business context
+                    </p>
+
+                    <h2 className="max-w-3xl font-serif text-5xl italic leading-[0.95] md:text-7xl">
+                      Ideas that actually
+                      make sense for your
+                      business.
+                    </h2>
+
+                    <p className="mt-6 max-w-2xl text-sm leading-7 text-stone-400">
+                      TOTS-OS already
+                      knows about your
+                      business through
+                      your profile and
+                      Clarity context, so
+                      you should not need
+                      to start from zero
+                      every time.
+                    </p>
+                  </div>
+
                   <button
-                    type="button"
-                    onClick={() =>
-                      setCurrentDate(
-                        new Date(
-                          currentDate.getFullYear(),
-                          currentDate.getMonth() - 1,
-                          1
-                        )
-                      )
+                    disabled={
+                      generatingIdeas
                     }
-                    className="p-3 hover:bg-stone-50 rounded-xl transition-all"
+                    onClick={() =>
+                      void generateBusinessIdeas()
+                    }
+                    className="flex items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-stone-900 disabled:opacity-50"
                   >
-                    <ChevronLeft size={18} />
-                  </button>
+                    {generatingIdeas ? (
+                      <Loader2
+                        size={15}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Sparkles
+                        size={15}
+                      />
+                    )}
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCurrentDate(
-                        new Date(
-                          currentDate.getFullYear(),
-                          currentDate.getMonth() + 1,
-                          1
-                        )
-                      )
-                    }
-                    className="p-3 hover:bg-stone-50 rounded-xl transition-all"
-                  >
-                    <ChevronRight size={18} />
+                    {generatedConcepts.length
+                      ? "Give Me More Ideas"
+                      : "Generate Ideas"}
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 sm:gap-4 lg:gap-5 bg-white p-4 sm:p-8 lg:p-16 rounded-[2rem] lg:rounded-[4rem] border border-stone-100 shadow-2xl overflow-x-auto">
-                {[
-                  "Sun",
-                  "Mon",
-                  "Tue",
-                  "Wed",
-                  "Thu",
-                  "Fri",
-                  "Sat",
-                ].map((day) => (
-                  <div
-                    key={day}
-                    className="text-center text-[10px] font-black text-stone-200 uppercase tracking-[0.3em] mb-10"
-                  >
-                    {day}
-                  </div>
-                ))}
+              {/* BUSINESS UNDERSTANDING */}
 
-                {posts.length === 0 && (
-                  <div className="col-span-full text-center py-10 text-stone-400 text-sm font-medium">
-                    No scheduled posts yet. Create your first post in
-                    Strategy Lab.
+              <section className="rounded-[2.5rem] border border-stone-200 bg-white p-6 md:p-8">
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                      Clarity
+                    </p>
+
+                    <h3 className="mt-2 text-xl font-black">
+                      What TOTS-OS knows
+                      about your business
+                    </h3>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      void loadBusinessKnowledge()
+                    }
+                    disabled={
+                      businessLoading
+                    }
+                    className="flex items-center gap-2 rounded-xl bg-stone-50 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-stone-400"
+                  >
+                    <RefreshCcw
+                      size={12}
+                      className={
+                        businessLoading
+                          ? "animate-spin"
+                          : ""
+                      }
+                    />
+
+                    Refresh
+                  </button>
+                </div>
+
+                {businessLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="animate-spin text-stone-300" />
+                  </div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+
+                    <div className="rounded-2xl bg-stone-50 p-5">
+                      <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
+                        Business
+                      </p>
+
+                      <p className="mt-2 text-sm font-black">
+                        {
+                          businessProfile.name
+                        }
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-stone-50 p-5">
+                      <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
+                        Audience
+                      </p>
+
+                      <p className="mt-2 text-xs leading-5 text-stone-600">
+                        {businessProfile.audience ||
+                          "TOTS-OS will use your existing business profile."}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-stone-50 p-5">
+                      <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
+                        What you offer
+                      </p>
+
+                      <p className="mt-2 text-xs leading-5 text-stone-600">
+                        {businessProfile.services ||
+                          businessProfile.description ||
+                          "Your business information"}
+                      </p>
+                    </div>
                   </div>
                 )}
+              </section>
 
-                {calendarDays.map((day, index) => {
-                  const dayPosts = posts.filter(
-                    (post) =>
-                      post.scheduled_for &&
-                      isSameDay(
-                        post.scheduled_for,
-                        day,
-                        currentDate.getMonth(),
-                        currentDate.getFullYear()
-                      )
-                  );
+              {/* IDEA EMPTY STATE */}
 
-                  return (
-                    <div
-                      key={index}
-                      onClick={() => handleDateClick(day)}
-                      className={`aspect-square min-w-[60px] rounded-[1.5rem] lg:rounded-[2rem] border border-stone-50 flex items-center justify-center text-xl sm:text-2xl lg:text-4xl font-serif italic relative cursor-pointer group transition-all
-                        ${
-                          day === 0
-                            ? "opacity-0 pointer-events-none"
-                            : "hover:bg-stone-50 hover:border-stone-100"
+              {generatedConcepts.length ===
+                0 && (
+                <button
+                  onClick={() =>
+                    void generateBusinessIdeas()
+                  }
+                  className="flex w-full flex-col items-center justify-center rounded-[3rem] border border-dashed border-stone-200 bg-white p-16 text-center transition hover:border-[#a9b897]"
+                >
+                  <Lightbulb
+                    size={30}
+                    className="mb-5 text-[#a9b897]"
+                  />
+
+                  <p className="font-serif text-3xl italic">
+                    Need something to
+                    post?
+                  </p>
+
+                  <p className="mt-3 max-w-md text-sm leading-6 text-stone-400">
+                    Tap here and TOTS-OS
+                    will create ideas
+                    around your actual
+                    business.
+                  </p>
+                </button>
+              )}
+
+              {/* IDEAS */}
+
+              {generatedConcepts.length >
+                0 && (
+                <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                  {generatedConcepts.map(
+                    (
+                      concept,
+                      index
+                    ) => (
+                      <div
+                        key={
+                          concept.id
                         }
-                        ${
-                          dayPosts.length > 0
-                            ? "text-[#1c1c1c]"
-                            : "text-stone-100"
-                        }
-                      `}
-                    >
-                      {day > 0 ? day : ""}
+                        className="flex min-h-[390px] flex-col rounded-[2.5rem] border border-stone-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                      >
+                        <div className="mb-6 flex items-start justify-between">
+                          <span className="rounded-full bg-[#a9b897]/15 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-[#71805f]">
+                            Idea{" "}
+                            {String(
+                              index +
+                                1
+                            ).padStart(
+                              2,
+                              "0"
+                            )}
+                          </span>
 
-                      {dayPosts.length > 0 && (
-                        <div className="absolute bottom-5 flex gap-1">
-                          {dayPosts.slice(0, 3).map((post) => (
-                            <div
-                              key={post.id}
-                              className={`w-2 h-2 rounded-full ${getStatusColor(
-                                post.status
-                              )}`}
-                            />
-                          ))}
+                          <span className="rounded-full bg-stone-50 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-400">
+                            {
+                              concept.format
+                            }
+                          </span>
                         </div>
+
+                        <h3 className="font-serif text-3xl italic leading-none">
+                          {
+                            concept.title
+                          }
+                        </h3>
+
+                        <div className="mt-5 rounded-2xl bg-stone-50 p-4">
+                          <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
+                            Hook
+                          </p>
+
+                          <p className="mt-2 text-sm font-bold leading-5 text-stone-700">
+                            “
+                            {
+                              concept.hook
+                            }
+                            ”
+                          </p>
+                        </div>
+
+                        <p className="mt-5 flex-1 text-xs leading-6 text-stone-400">
+                          {
+                            concept.whyItWorks
+                          }
+                        </p>
+
+                        <div className="mt-6 flex flex-wrap gap-2">
+                          {concept.platforms.map(
+                            (
+                              platform
+                            ) => (
+                              <span
+                                key={
+                                  platform
+                                }
+                                className="rounded-full bg-stone-100 px-3 py-1.5 text-[7px] font-black uppercase tracking-wider text-stone-400"
+                              >
+                                {
+                                  platform
+                                }
+                              </span>
+                            )
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() =>
+                            createFromIdea(
+                              concept
+                            )
+                          }
+                          className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-wider text-[#a9b897]"
+                        >
+                          <Wand2
+                            size={13}
+                          />
+
+                          Create This Post
+                        </button>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ==================================================
+              PLANNER
+          ================================================== */}
+
+          {viewMode ===
+            "planner" && (
+            <motion.div
+              key="planner"
+              initial={{
+                opacity: 0,
+                y: 10,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+              exit={{
+                opacity: 0,
+              }}
+              className="space-y-8"
+            >
+
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="mb-2 text-[9px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
+                    Content Planner
+                  </p>
+
+                  <div className="flex items-baseline gap-4">
+                    <h2 className="font-serif text-5xl italic md:text-7xl">
+                      {currentDate.toLocaleString(
+                        "default",
+                        {
+                          month:
+                            "long",
+                        }
                       )}
-                    </div>
-                  );
-                })}
+                    </h2>
+
+                    <span className="font-serif text-2xl italic text-stone-300">
+                      {currentDate.getFullYear()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 rounded-2xl border border-stone-200 bg-white p-2">
+                  <button
+                    onClick={() =>
+                      setCurrentDate(
+                        new Date(
+                          currentDate.getFullYear(),
+                          currentDate.getMonth() -
+                            1,
+                          1
+                        )
+                      )
+                    }
+                    className="rounded-xl p-3 hover:bg-stone-50"
+                  >
+                    <ChevronLeft
+                      size={18}
+                    />
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      setCurrentDate(
+                        new Date(
+                          currentDate.getFullYear(),
+                          currentDate.getMonth() +
+                            1,
+                          1
+                        )
+                      )
+                    }
+                    className="rounded-xl p-3 hover:bg-stone-50"
+                  >
+                    <ChevronRight
+                      size={18}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-[3rem] border border-stone-200 bg-white p-4 shadow-sm md:p-8">
+
+                <div className="grid grid-cols-7">
+                  {[
+                    "Sun",
+                    "Mon",
+                    "Tue",
+                    "Wed",
+                    "Thu",
+                    "Fri",
+                    "Sat",
+                  ].map(
+                    (
+                      day
+                    ) => (
+                      <div
+                        key={
+                          day
+                        }
+                        className="py-4 text-center text-[8px] font-black uppercase tracking-wider text-stone-300"
+                      >
+                        {
+                          day
+                        }
+                      </div>
+                    )
+                  )}
+                </div>
+
+                <div className="grid grid-cols-7">
+                  {calendarDays.map(
+                    (
+                      day,
+                      index
+                    ) => {
+                      const dayPosts =
+                        day
+                          ? posts.filter(
+                              (
+                                post
+                              ) =>
+                                isSameDay(
+                                  post.scheduled_for,
+                                  day,
+                                  currentDate.getMonth(),
+                                  currentDate.getFullYear()
+                                )
+                            )
+                          : [];
+
+                      return (
+                        <button
+                          key={
+                            index
+                          }
+                          type="button"
+                          onClick={() =>
+                            handleDateClick(
+                              day
+                            )
+                          }
+                          disabled={
+                            day ===
+                            0
+                          }
+                          className={`relative min-h-[90px] border-b border-r border-stone-50 p-2 text-left transition md:min-h-[130px] md:p-4 ${
+                            day ===
+                            0
+                              ? "bg-stone-50/30"
+                              : "hover:bg-stone-50"
+                          }`}
+                        >
+                          {day >
+                            0 && (
+                            <>
+                              <span className="text-sm font-black text-stone-500">
+                                {
+                                  day
+                                }
+                              </span>
+
+                              <div className="mt-3 space-y-1">
+                                {dayPosts
+                                  .slice(
+                                    0,
+                                    2
+                                  )
+                                  .map(
+                                    (
+                                      post
+                                    ) => (
+                                      <div
+                                        key={
+                                          post.id
+                                        }
+                                        className="rounded-lg bg-stone-100 p-2"
+                                      >
+                                        <div className="flex items-center gap-1">
+                                          <span
+                                            className={`h-1.5 w-1.5 rounded-full ${getStatusColor(
+                                              post.status
+                                            )}`}
+                                          />
+
+                                          <span className="truncate text-[7px] font-black uppercase text-stone-500">
+                                            {
+                                              post.platform
+                                            }
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )
+                                  )}
+
+                                {dayPosts.length >
+                                  2 && (
+                                  <p className="text-[7px] font-black text-stone-300">
+                                    +
+                                    {dayPosts.length -
+                                      2}{" "}
+                                    more
+                                  </p>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {/* --------------------------------------------------
+      {/* ==================================================
           DAY DRAWER
-      -------------------------------------------------- */}
+      ================================================== */}
 
       <AnimatePresence>
         {isDayViewOpen && (
           <div className="fixed inset-0 z-[100] flex justify-end">
+
             <motion.div
               initial={{
                 opacity: 0,
@@ -1703,224 +3555,333 @@ export default function SocialStudioUnified() {
               exit={{
                 opacity: 0,
               }}
-              onClick={() => setIsDayViewOpen(false)}
-              className="absolute inset-0 bg-stone-100/40 backdrop-blur-md"
+              onClick={() =>
+                setIsDayViewOpen(
+                  false
+                )
+              }
+              className="absolute inset-0 bg-stone-900/30 backdrop-blur-sm"
             />
 
             <motion.div
               initial={{
-                x: "100%",
+                x:
+                  "100%",
               }}
               animate={{
-                x: 0,
+                x:
+                  0,
               }}
               exit={{
-                x: "100%",
+                x:
+                  "100%",
               }}
-              className="relative w-full max-w-md bg-white h-full shadow-2xl border-l border-stone-100 p-4 sm:p-8 lg:p-12 flex flex-col"
+              className="relative flex h-full w-full max-w-md flex-col bg-white p-6 shadow-2xl md:p-8"
             >
-              <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center mb-6 lg:mb-12">
-                <h3 className="text-4xl font-serif italic">
-                  Daily Overview.
-                </h3>
+              <div className="mb-8 flex items-center justify-between">
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                    Planner
+                  </p>
+
+                  <h3 className="mt-2 font-serif text-4xl italic">
+                    Posts
+                  </h3>
+                </div>
 
                 <button
-                  type="button"
-                  onClick={() => setIsDayViewOpen(false)}
-                  className="p-3 bg-stone-50 rounded-full hover:bg-stone-100 transition-colors"
+                  onClick={() =>
+                    setIsDayViewOpen(
+                      false
+                    )
+                  }
+                  className="rounded-full bg-stone-50 p-3"
                 >
-                  <X size={20} />
+                  <X
+                    size={18}
+                  />
                 </button>
               </div>
 
-              <div className="flex-1 space-y-6 overflow-y-auto custom-scrollbar pr-4">
-                {selectedDayPosts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="bg-stone-50 rounded-[2rem] lg:rounded-[2.5rem] p-4 lg:p-6 space-y-4 border border-stone-100 group"
-                  >
-                    <div className="flex gap-4 items-center">
-                      <div className="w-12 h-12 rounded-xl bg-[#1c1c1c]/5 flex items-center justify-center text-[#a9b897]">
-                        {post.platform === "tiktok" ? (
-                          <Video size={20} />
-                        ) : post.platform === "meta" ? (
-                          <Layers size={20} />
-                        ) : (
-                          <LinkedinIcon size={20} />
-                        )}
-                      </div>
-
-                      <div className="flex-1">
+              <div className="flex-1 space-y-4 overflow-y-auto">
+                {selectedDayPosts.map(
+                  (
+                    post
+                  ) => (
+                    <div
+                      key={
+                        post.id
+                      }
+                      className="rounded-[2rem] border border-stone-100 bg-stone-50 p-5"
+                    >
+                      <div className="mb-4 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div
-                            className={`w-2 h-2 rounded-full ${getStatusColor(
+                          <span
+                            className={`h-2 w-2 rounded-full ${getStatusColor(
                               post.status
                             )}`}
                           />
 
-                          <p className="text-[10px] font-black uppercase text-[#a9b897] tracking-widest">
-                            {post.platform} // {post.format}
+                          <p className="text-[8px] font-black uppercase tracking-wider text-stone-500">
+                            {
+                              post.platform
+                            }
                           </p>
                         </div>
 
-                        <p className="text-sm font-serif italic text-stone-600 line-clamp-2 leading-snug mt-0.5">
-                          "{post.caption}"
-                        </p>
+                        <span
+                          className={`text-[8px] font-black uppercase ${getStatusTextColor(
+                            post.status
+                          )}`}
+                        >
+                          {
+                            post.status
+                          }
+                        </span>
+                      </div>
 
-                        {post.last_error && (
-                          <p className="text-[10px] text-red-500 mt-2 break-words">
-                            {post.last_error}
-                          </p>
-                        )}
+                      <p className="line-clamp-3 text-sm leading-6 text-stone-600">
+                        {
+                          post.caption
+                        }
+                      </p>
+
+                      <div className="mt-5 flex items-center justify-between border-t border-stone-200 pt-4">
+                        <span className="flex items-center gap-2 text-[9px] text-stone-400">
+                          <Clock
+                            size={11}
+                          />
+
+                          {new Date(
+                            post.scheduled_for
+                          ).toLocaleTimeString(
+                            [],
+                            {
+                              hour:
+                                "2-digit",
+
+                              minute:
+                                "2-digit",
+                            }
+                          )}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() =>
+                              setPreviewPost(
+                                post
+                              )
+                            }
+                            className="rounded-lg p-2 text-stone-400 hover:bg-white"
+                          >
+                            <Eye
+                              size={14}
+                            />
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              void deletePost(
+                                post.id
+                              )
+                            }
+                            className="rounded-lg p-2 text-red-400 hover:bg-red-50"
+                          >
+                            <Trash2
+                              size={14}
+                            />
+                          </button>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex justify-between items-center pt-4 border-t border-stone-100/50">
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-stone-300 uppercase">
-                        <Clock size={12} />
-
-                        {new Date(
-                          post.scheduled_for
-                        ).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewPost(post)}
-                          className="text-stone-300 hover:text-[#1c1c1c] text-[10px] font-black uppercase tracking-widest"
-                        >
-                          Preview
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => void deletePost(post.id)}
-                          className="text-stone-200 hover:text-red-500 transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
 
               <button
-                type="button"
                 onClick={() => {
-                  setViewMode("lab");
+                  setIsDayViewOpen(
+                    false
+                  );
 
-                  setIsDayViewOpen(false);
+                  setViewMode(
+                    "create"
+                  );
                 }}
-                className="w-full py-6 mt-10 border-2 border-dashed border-stone-200 rounded-3xl flex items-center justify-center gap-3 text-[10px] font-black uppercase text-stone-300 hover:border-[#a9b897] hover:text-[#a9b897] transition-all"
+                className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 py-5 text-[9px] font-black uppercase tracking-wider text-[#a9b897]"
               >
-                <Plus size={16} />
+                <Plus
+                  size={14}
+                />
 
-                Add New Post
+                Create Another Post
               </button>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* --------------------------------------------------
+      {/* ==================================================
           PREVIEW MODAL
-      -------------------------------------------------- */}
+      ================================================== */}
 
-      {previewPost && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-md">
-          <div className="bg-white w-full max-w-2xl rounded-[2rem] p-8 shadow-2xl space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-serif italic">
-                Post Preview
-              </h2>
+      <AnimatePresence>
+        {previewPost && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-md">
 
-              <button
-                type="button"
-                onClick={() => setPreviewPost(null)}
-                className="text-stone-400 hover:text-black"
-              >
-                ✕
-              </button>
-            </div>
+            <motion.div
+              initial={{
+                opacity: 0,
+                scale:
+                  0.96,
+              }}
+              animate={{
+                opacity: 1,
+                scale:
+                  1,
+              }}
+              exit={{
+                opacity: 0,
+                scale:
+                  0.96,
+              }}
+              className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2.5rem] bg-white p-6 shadow-2xl md:p-8"
+            >
 
-            <div className="space-y-4">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                    Preview
+                  </p>
+
+                  <h2 className="mt-2 font-serif text-3xl italic">
+                    Your Post
+                  </h2>
+                </div>
+
+                <button
+                  onClick={() =>
+                    setPreviewPost(
+                      null
+                    )
+                  }
+                  className="rounded-full bg-stone-50 p-3"
+                >
+                  <X
+                    size={17}
+                  />
+                </button>
+              </div>
+
               {previewPost.media_url &&
-                (isVideoUrl(previewPost.media_url) ||
-                previewPost.platform === "tiktok" ? (
+                (
+                  isVideoUrl(
+                    previewPost.media_url
+                  ) ||
+                  previewPost.platform ===
+                    "tiktok"
+                ? (
                   <video
-                    src={previewPost.media_url}
-                    className="w-full h-72 object-cover rounded-2xl border bg-black"
+                    src={
+                      previewPost.media_url
+                    }
                     controls
                     playsInline
+                    className="mb-6 max-h-[450px] w-full rounded-[2rem] bg-black object-contain"
                   />
                 ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={previewPost.media_url}
+                    src={
+                      previewPost.media_url
+                    }
                     alt="Post preview"
-                    className="w-full h-72 object-cover rounded-2xl border"
+                    className="mb-6 max-h-[450px] w-full rounded-[2rem] object-contain"
                   />
-                ))}
+                )
+              )}
 
-              <div className="text-sm font-medium text-stone-600 whitespace-pre-wrap">
-                {previewPost.caption}
-              </div>
+              <p className="whitespace-pre-wrap text-sm leading-7 text-stone-600">
+                {
+                  previewPost.caption
+                }
+              </p>
 
-              <div className="text-[10px] font-black uppercase tracking-widest text-stone-300">
-                {previewPost.platform} • {previewPost.format} •{" "}
-                {previewPost.status}
-              </div>
+              {previewPost.hashtags && (
+                <p className="mt-4 text-xs font-bold leading-6 text-[#71805f]">
+                  {
+                    previewPost.hashtags
+                  }
+                </p>
+              )}
 
               {previewPost.last_error && (
-                <div className="rounded-xl bg-red-50 border border-red-100 p-4 text-xs text-red-600 break-words">
-                  {previewPost.last_error}
+                <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs text-red-600">
+                  {
+                    previewPost.last_error
+                  }
                 </div>
               )}
-            </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button
-                type="button"
-                onClick={() => setPreviewPost(null)}
-                className="px-5 py-3 text-xs font-black uppercase tracking-widest text-stone-400"
-              >
-                Close
-              </button>
+              <div className="mt-8 flex flex-col gap-3 border-t border-stone-100 pt-6 sm:flex-row sm:justify-end">
+                <button
+                  onClick={() =>
+                    setPreviewPost(
+                      null
+                    )
+                  }
+                  className="rounded-xl bg-stone-100 px-6 py-3 text-[9px] font-black uppercase tracking-wider text-stone-500"
+                >
+                  Close
+                </button>
 
-              <button
-                type="button"
-                onClick={() => void approvePost(previewPost.id)}
-                className="px-6 py-3 bg-[#a9b897] text-white rounded-xl text-xs font-black uppercase tracking-widest"
-              >
-                Approve & Publish
-              </button>
-            </div>
+                {previewPost.status !==
+                  "published" && (
+                  <button
+                    onClick={() =>
+                      void approvePost(
+                        previewPost.id
+                      )
+                    }
+                    className="flex items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-6 py-3 text-[9px] font-black uppercase tracking-wider text-stone-900"
+                  >
+                    <ArrowRight
+                      size={13}
+                    />
+
+                    Publish Now
+                  </button>
+                )}
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
+
+      {/* ==================================================
+          STYLES
+      ================================================== */}
 
       <style jsx global>{`
-        @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap");
+        @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&display=swap");
 
         .font-serif {
           font-family: "Instrument Serif", serif;
         }
 
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
+        ::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
         }
 
-        .custom-scrollbar::-webkit-scrollbar-track {
+        ::-webkit-scrollbar-track {
           background: transparent;
         }
 
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #e5e5e5;
-          border-radius: 10px;
+        ::-webkit-scrollbar-thumb {
+          background: #e7e5e4;
+          border-radius: 999px;
         }
       `}</style>
     </div>

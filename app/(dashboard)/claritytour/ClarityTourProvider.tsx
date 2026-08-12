@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -40,10 +41,18 @@ export function ClarityTourProvider({
   const router = useRouter();
   const pathname = usePathname();
 
-  const [
-    isOpen,
-    setIsOpen,
-  ] = useState(false);
+  /*
+   * Prevent the first-login check from running
+   * multiple times during re-renders.
+   */
+  const initialisedRef =
+    useRef(false);
+
+  const autoStartedRef =
+    useRef(false);
+
+  const [isOpen, setIsOpen] =
+    useState(false);
 
   const [
     currentStepId,
@@ -52,12 +61,19 @@ export function ClarityTourProvider({
     null
   );
 
+  const [userId, setUserId] =
+    useState<string | null>(
+      null
+    );
+
   const [
-    userId,
-    setUserId,
-  ] = useState<string | null>(
-    null
-  );
+    isInitialising,
+    setIsInitialising,
+  ] = useState(true);
+
+  // ==================================================
+  // CURRENT STEP
+  // ==================================================
 
   const currentStepIndex =
     useMemo(() => {
@@ -84,6 +100,10 @@ export function ClarityTourProvider({
 
   const totalSteps =
     CLARITY_TOUR_STEPS.length;
+
+  // ==================================================
+  // SAVE PROGRESS
+  // ==================================================
 
   const saveProgress =
     useCallback(
@@ -113,10 +133,14 @@ export function ClarityTourProvider({
 
         const {
           error,
-        } = await supabase
-          .from("profiles")
-          .update(payload)
-          .eq("id", userId);
+        } =
+          await supabase
+            .from("profiles")
+            .update(payload)
+            .eq(
+              "id",
+              userId
+            );
 
         if (error) {
           console.error(
@@ -127,6 +151,58 @@ export function ClarityTourProvider({
       },
       [userId]
     );
+
+  // ==================================================
+  // MARK TOUR AS SEEN
+  //
+  // This happens as soon as the automatic first-login
+  // tour is launched.
+  //
+  // Closing the tour therefore does NOT make it appear
+  // again next time the user signs in.
+  // ==================================================
+
+  const markTourAsSeen =
+    useCallback(
+      async (
+        targetUserId:
+          string
+      ) => {
+        const {
+          error,
+        } =
+          await supabase
+            .from("profiles")
+            .update({
+              clarity_tour_seen:
+                true,
+
+              clarity_tour_started_at:
+                new Date().toISOString(),
+            })
+            .eq(
+              "id",
+              targetUserId
+            );
+
+        if (error) {
+          console.error(
+            "Unable to mark Clarity tour as seen:",
+            error
+          );
+        }
+      },
+      []
+    );
+
+  // ==================================================
+  // START TOUR
+  //
+  // This is the manual start/restart function.
+  //
+  // We intentionally allow this even if the user has
+  // already seen the automatic onboarding.
+  // ==================================================
 
   const startTour =
     useCallback(() => {
@@ -161,14 +237,16 @@ export function ClarityTourProvider({
       saveProgress,
     ]);
 
+  // ==================================================
+  // CONTINUE TOUR
+  // ==================================================
+
   const continueTour =
     useCallback(() => {
       if (!currentStepId) {
         startTour();
         return;
       }
-
-      setIsOpen(true);
 
       const step =
         CLARITY_TOUR_STEPS.find(
@@ -177,10 +255,16 @@ export function ClarityTourProvider({
             currentStepId
         );
 
+      if (!step) {
+        startTour();
+        return;
+      }
+
+      setIsOpen(true);
+
       if (
-        step &&
         pathname !==
-          step.route
+        step.route
       ) {
         router.push(
           step.route
@@ -193,49 +277,89 @@ export function ClarityTourProvider({
       startTour,
     ]);
 
+  // ==================================================
+  // COMPLETE TOUR
+  // ==================================================
+
   const completeTour =
-    useCallback(async () => {
-      setIsOpen(false);
+    useCallback(
+      async () => {
+        setIsOpen(false);
 
-      setCurrentStepId(
-        null
-      );
+        setCurrentStepId(
+          null
+        );
 
-      await saveProgress(
-        null,
-        true
-      );
-    }, [saveProgress]);
+        if (!userId) {
+          return;
+        }
+
+        const {
+          error,
+        } =
+          await supabase
+            .from("profiles")
+            .update({
+              clarity_tour_seen:
+                true,
+
+              clarity_tour_completed:
+                true,
+
+              clarity_tour_step:
+                null,
+
+              clarity_tour_completed_at:
+                new Date().toISOString(),
+            })
+            .eq(
+              "id",
+              userId
+            );
+
+        if (error) {
+          console.error(
+            "Unable to complete Clarity tour:",
+            error
+          );
+        }
+      },
+      [userId]
+    );
+
+  // ==================================================
+  // NEXT
+  // ==================================================
 
   const nextStep =
     useCallback(() => {
       const nextIndex =
         currentStepIndex + 1;
 
-      const nextStep =
+      const next =
         CLARITY_TOUR_STEPS[
           nextIndex
         ];
 
-      if (!nextStep) {
+      if (!next) {
         void completeTour();
         return;
       }
 
       setCurrentStepId(
-        nextStep.id
+        next.id
       );
 
       void saveProgress(
-        nextStep.id
+        next.id
       );
 
       if (
         pathname !==
-        nextStep.route
+        next.route
       ) {
         router.push(
-          nextStep.route
+          next.route
         );
       }
     }, [
@@ -245,6 +369,10 @@ export function ClarityTourProvider({
       router,
       saveProgress,
     ]);
+
+  // ==================================================
+  // PREVIOUS
+  // ==================================================
 
   const previousStep =
     useCallback(() => {
@@ -257,29 +385,29 @@ export function ClarityTourProvider({
         return;
       }
 
-      const previousStep =
+      const previous =
         CLARITY_TOUR_STEPS[
           previousIndex
         ];
 
-      if (!previousStep) {
+      if (!previous) {
         return;
       }
 
       setCurrentStepId(
-        previousStep.id
+        previous.id
       );
 
       void saveProgress(
-        previousStep.id
+        previous.id
       );
 
       if (
         pathname !==
-        previousStep.route
+        previous.route
       ) {
         router.push(
-          previousStep.route
+          previous.route
         );
       }
     }, [
@@ -289,107 +417,329 @@ export function ClarityTourProvider({
       saveProgress,
     ]);
 
+  // ==================================================
+  // SKIP
+  //
+  // "Skip" means:
+  //
+  // - don't automatically show again
+  // - mark onboarding as completed/skipped
+  //
+  // They can still manually restart it later.
+  // ==================================================
+
   const skipTour =
-    useCallback(() => {
-      void completeTour();
-    }, [completeTour]);
+    useCallback(
+      async () => {
+        setIsOpen(false);
+
+        setCurrentStepId(
+          null
+        );
+
+        if (!userId) {
+          return;
+        }
+
+        const {
+          error,
+        } =
+          await supabase
+            .from("profiles")
+            .update({
+              clarity_tour_seen:
+                true,
+
+              clarity_tour_completed:
+                true,
+
+              clarity_tour_step:
+                null,
+
+              clarity_tour_completed_at:
+                new Date().toISOString(),
+            })
+            .eq(
+              "id",
+              userId
+            );
+
+        if (error) {
+          console.error(
+            "Unable to skip Clarity tour:",
+            error
+          );
+        }
+      },
+      [userId]
+    );
+
+  // ==================================================
+  // CLOSE
+  //
+  // Closing is different from skipping.
+  //
+  // It hides the tour without completing it.
+  //
+  // Because clarity_tour_seen was already set TRUE
+  // when onboarding started, it will NOT automatically
+  // reopen on the user's next login.
+  //
+  // They could manually continue/restart it later.
+  // ==================================================
 
   const closeTour =
     useCallback(() => {
       setIsOpen(false);
     }, []);
 
-  /*
-   * Load tour state from Supabase.
-   */
+  // ==================================================
+  // FIRST LOGIN DETECTION
+  // ==================================================
+
   useEffect(() => {
+    if (
+      initialisedRef.current
+    ) {
+      return;
+    }
+
+    initialisedRef.current =
+      true;
+
     let cancelled =
       false;
 
     const initialise =
       async () => {
-        const {
-          data: {
-            user,
-          },
-        } =
-          await supabase.auth.getUser();
+        try {
+          // ------------------------------------------
+          // GET CURRENT USER
+          // ------------------------------------------
 
-        if (
-          cancelled ||
-          !user
-        ) {
-          return;
-        }
+          const {
+            data: {
+              user,
+            },
+            error:
+              userError,
+          } =
+            await supabase.auth.getUser();
 
-        setUserId(
-          user.id
-        );
+          if (
+            userError
+          ) {
+            console.error(
+              "Unable to load user for Clarity tour:",
+              userError
+            );
 
-        const {
-          data,
-          error,
-        } =
-          await supabase
-            .from(
-              "profiles"
-            )
-            .select(
-              `
+            return;
+          }
+
+          if (
+            cancelled ||
+            !user
+          ) {
+            return;
+          }
+
+          setUserId(
+            user.id
+          );
+
+          // ------------------------------------------
+          // GET PROFILE TOUR STATE
+          // ------------------------------------------
+
+          const {
+            data:
+              profile,
+            error:
+              profileError,
+          } =
+            await supabase
+              .from(
+                "profiles"
+              )
+              .select(`
+                clarity_tour_seen,
                 clarity_tour_completed,
-                clarity_tour_step
-              `
-            )
-            .eq(
-              "id",
-              user.id
-            )
-            .maybeSingle();
+                clarity_tour_step,
+                clarity_tour_started_at,
+                clarity_tour_completed_at
+              `)
+              .eq(
+                "id",
+                user.id
+              )
+              .maybeSingle();
 
-        if (
-          error
-        ) {
-          console.error(
-            "Unable to load Clarity tour:",
-            error
+          if (
+            profileError
+          ) {
+            console.error(
+              "Unable to load Clarity onboarding state:",
+              profileError
+            );
+
+            return;
+          }
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          // ------------------------------------------
+          // ONLY BRAND-NEW / UNSEEN USERS AUTO START
+          // ------------------------------------------
+
+          if (
+            profile
+              ?.clarity_tour_seen
+          ) {
+            /*
+             * They've already been shown onboarding.
+             *
+             * DO NOT automatically open it.
+             *
+             * We can still retain their saved step
+             * so a future "Continue tour" button
+             * can work.
+             */
+
+            if (
+              !profile
+                .clarity_tour_completed &&
+              profile
+                .clarity_tour_step
+            ) {
+              const validStep =
+                CLARITY_TOUR_STEPS.some(
+                  (step) =>
+                    step.id ===
+                    profile.clarity_tour_step
+                );
+
+              if (
+                validStep
+              ) {
+                setCurrentStepId(
+                  profile.clarity_tour_step
+                );
+              }
+            }
+
+            return;
+          }
+
+          // ------------------------------------------
+          // FIRST-EVER LOGIN TOUR
+          // ------------------------------------------
+
+          if (
+            autoStartedRef.current
+          ) {
+            return;
+          }
+
+          autoStartedRef.current =
+            true;
+
+          const firstStep =
+            CLARITY_TOUR_STEPS[0];
+
+          if (!firstStep) {
+            return;
+          }
+
+          /*
+           * Mark as seen BEFORE displaying.
+           *
+           * This guarantees that refreshing/logging
+           * out midway cannot trigger another automatic
+           * onboarding session next time.
+           */
+          await markTourAsSeen(
+            user.id
           );
 
-          return;
-        }
+          if (
+            cancelled
+          ) {
+            return;
+          }
 
-        if (
-          data
-            ?.clarity_tour_completed
-        ) {
-          return;
-        }
-
-        const savedStepId =
-          data
-            ?.clarity_tour_step;
-
-        if (
-          savedStepId &&
-          CLARITY_TOUR_STEPS.some(
-            (step) =>
-              step.id ===
-              savedStepId
-          )
-        ) {
-          setCurrentStepId(
-            savedStepId
-          );
-
-          return;
-        }
-
-        const firstStep =
-          CLARITY_TOUR_STEPS[0];
-
-        if (firstStep) {
           setCurrentStepId(
             firstStep.id
           );
+
+          /*
+           * Save the first step.
+           */
+          const {
+            error:
+              progressError,
+          } =
+            await supabase
+              .from(
+                "profiles"
+              )
+              .update({
+                clarity_tour_step:
+                  firstStep.id,
+              })
+              .eq(
+                "id",
+                user.id
+              );
+
+          if (
+            progressError
+          ) {
+            console.error(
+              "Unable to save initial Clarity step:",
+              progressError
+            );
+          }
+
+          /*
+           * Send the user to the correct starting page.
+           */
+          if (
+            pathname !==
+            firstStep.route
+          ) {
+            router.push(
+              firstStep.route
+            );
+          }
+
+          /*
+           * Give the workspace a moment to settle.
+           */
+          window.setTimeout(
+            () => {
+              if (
+                !cancelled
+              ) {
+                setIsOpen(
+                  true
+                );
+              }
+            },
+            900
+          );
+        } finally {
+          if (
+            !cancelled
+          ) {
+            setIsInitialising(
+              false
+            );
+          }
         }
       };
 
@@ -399,36 +749,15 @@ export function ClarityTourProvider({
       cancelled =
         true;
     };
-  }, []);
-
-  /*
-   * Automatically open for a user
-   * who has not completed onboarding.
-   */
-  useEffect(() => {
-    if (
-      !userId ||
-      !currentStepId
-    ) {
-      return;
-    }
-
-    const timer =
-      window.setTimeout(
-        () => {
-          setIsOpen(true);
-        },
-        900
-      );
-
-    return () =>
-      window.clearTimeout(
-        timer
-      );
   }, [
-    userId,
-    currentStepId,
+    markTourAsSeen,
+    pathname,
+    router,
   ]);
+
+  // ==================================================
+  // CONTEXT
+  // ==================================================
 
   const value =
     useMemo<
@@ -475,6 +804,16 @@ export function ClarityTourProvider({
       ]
     );
 
+  /*
+   * isInitialising currently exists so we can add
+   * onboarding-specific loading behaviour later.
+   *
+   * We intentionally still render the dashboard while
+   * checking so returning users aren't held on a
+   * loading screen unnecessarily.
+   */
+  void isInitialising;
+
   return (
     <ClarityTourContext.Provider
       value={value}
@@ -483,6 +822,10 @@ export function ClarityTourProvider({
     </ClarityTourContext.Provider>
   );
 }
+
+// ==================================================
+// HOOK
+// ==================================================
 
 export function useClarityTour() {
   const context =

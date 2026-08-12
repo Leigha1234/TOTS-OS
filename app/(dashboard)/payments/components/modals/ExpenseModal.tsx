@@ -8,7 +8,7 @@ import {
   X,
 } from "lucide-react";
 
-type ExpenseForm = {
+export type ExpenseForm = {
   description: string;
   amount: string;
   date: string;
@@ -34,13 +34,26 @@ export default function ExpenseModal({
   onClose,
   onSubmit,
 }: ExpenseModalProps) {
+  const canSubmit =
+    !submitting &&
+    expense.description.trim().length > 0 &&
+    expense.amount.trim().length > 0 &&
+    Number(expense.amount) > 0 &&
+    expense.date.trim().length > 0;
+
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          initial={{
+            opacity: 0,
+          }}
+          animate={{
+            opacity: 1,
+          }}
+          exit={{
+            opacity: 0,
+          }}
           onClick={onClose}
           className="fixed inset-0 z-[999] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm"
         >
@@ -59,6 +72,10 @@ export default function ExpenseModal({
               scale: 0.96,
               opacity: 0,
               y: 12,
+            }}
+            transition={{
+              duration: 0.2,
+              ease: "easeOut",
             }}
             onClick={(event) =>
               event.stopPropagation()
@@ -82,8 +99,10 @@ export default function ExpenseModal({
               </div>
 
               <button
+                type="button"
                 onClick={onClose}
-                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
+                aria-label="Close expense modal"
+                className="rounded-full p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-900"
               >
                 <X size={18} />
               </button>
@@ -91,14 +110,16 @@ export default function ExpenseModal({
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="expense-description"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Description
                 </label>
 
                 <input
-                  value={
-                    expense.description
-                  }
+                  id="expense-description"
+                  value={expense.description}
                   onChange={(event) =>
                     onChange({
                       ...expense,
@@ -112,7 +133,10 @@ export default function ExpenseModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="expense-amount"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Amount
                 </label>
 
@@ -122,9 +146,11 @@ export default function ExpenseModal({
                   </span>
 
                   <input
+                    id="expense-amount"
                     type="number"
                     min="0"
                     step="0.01"
+                    inputMode="decimal"
                     value={expense.amount}
                     onChange={(event) =>
                       onChange({
@@ -140,17 +166,22 @@ export default function ExpenseModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="expense-date"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Date
                 </label>
 
                 <input
+                  id="expense-date"
                   type="date"
                   value={expense.date}
                   onChange={(event) =>
                     onChange({
                       ...expense,
-                      date: event.target.value,
+                      date:
+                        event.target.value,
                     })
                   }
                   className="w-full rounded-xl border border-stone-100 bg-[#faf9f6] px-4 py-3 text-sm outline-none transition focus:border-stone-900 focus:bg-white"
@@ -158,11 +189,15 @@ export default function ExpenseModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="expense-status"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Status
                 </label>
 
                 <select
+                  id="expense-status"
                   value={expense.status}
                   onChange={(event) =>
                     onChange({
@@ -176,9 +211,11 @@ export default function ExpenseModal({
                   <option value="pending">
                     Pending
                   </option>
+
                   <option value="approved">
                     Approved
                   </option>
+
                   <option value="paid">
                     Paid
                   </option>
@@ -187,9 +224,10 @@ export default function ExpenseModal({
             </div>
 
             <button
+              type="button"
               onClick={onSubmit}
-              disabled={submitting}
-              className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:opacity-50"
+              disabled={!canSubmit}
+              className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (
                 <Loader2

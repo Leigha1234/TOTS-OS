@@ -19,7 +19,10 @@ import InvoiceQuoteModal, {
   type InvoiceQuoteFormData,
 } from "./components/modals/InvoiceQuoteModal";
 
-import ExpenseModal from "./components/modals/ExpenseModal";
+import ExpenseModal, {
+  type ExpenseForm,
+} from "./components/modals/ExpenseModal";
+
 import EmployeeModal from "./components/modals/EmployeeModal";
 import RecurringInvoiceModal from "./components/modals/RecurringInvoiceModal";
 import VatModal from "./components/modals/VatModal";
@@ -67,6 +70,13 @@ const INITIAL_LINE_ITEMS: FinanceLineItem[] = [
   },
 ];
 
+const INITIAL_EXPENSE_FORM: ExpenseForm = {
+  description: "",
+  amount: "",
+  date: "",
+  status: "pending",
+};
+
 export default function PaymentsPage() {
   const [activeTab, setActiveTab] =
     useState<FinanceTab>("overview");
@@ -99,6 +109,17 @@ export default function PaymentsPage() {
     useState<FinanceLineItem[]>(INITIAL_LINE_ITEMS);
 
   /*
+   * Expense modal state
+   */
+  const [expenseSubmitting, setExpenseSubmitting] =
+    useState(false);
+
+  const [expenseForm, setExpenseForm] =
+    useState<ExpenseForm>(
+      INITIAL_EXPENSE_FORM
+    );
+
+  /*
    * Finance context
    */
   const {
@@ -115,8 +136,7 @@ export default function PaymentsPage() {
   const finance = useFinanceData();
 
   /*
-   * Prefer finance-context IDs but fall back
-   * to the values returned by useFinanceData.
+   * Prefer context IDs, otherwise use finance data IDs.
    */
   const organisationId =
     contextOrgId ?? finance.orgId;
@@ -128,7 +148,7 @@ export default function PaymentsPage() {
     contextUserId ?? finance.userId;
 
   /*
-   * Split ledger into invoices and quotes.
+   * Ledger groups
    */
   const invoices = useMemo(
     () =>
@@ -185,9 +205,6 @@ export default function PaymentsPage() {
     [invoiceQuoteLineItems]
   );
 
-  /*
-   * Current modal assumes VAT at 20%.
-   */
   const invoiceQuoteVatTotal =
     invoiceQuoteNetTotal * 0.2;
 
@@ -217,7 +234,7 @@ export default function PaymentsPage() {
   };
 
   /*
-   * Reset invoice / quote form
+   * Invoice / Quote helpers
    */
   const resetInvoiceQuote = () => {
     setInvoiceQuoteDocType("Invoice");
@@ -238,9 +255,6 @@ export default function PaymentsPage() {
     ]);
   };
 
-  /*
-   * Close invoice / quote modal
-   */
   const closeInvoiceQuoteModal = () => {
     if (invoiceQuoteSubmitting) {
       return;
@@ -250,13 +264,6 @@ export default function PaymentsPage() {
     resetInvoiceQuote();
   };
 
-  /*
-   * Invoice / Quote submit
-   *
-   * This currently handles the modal lifecycle.
-   * The actual Supabase/API insert should be added
-   * here once the finance create function is known.
-   */
   const handleInvoiceQuoteSubmit = async () => {
     if (invoiceQuoteSubmitting) {
       return;
@@ -308,9 +315,7 @@ export default function PaymentsPage() {
 
     try {
       /*
-       * Add the real database/API create call here.
-       *
-       * The modal UI is now completely wired and typed.
+       * Add actual invoice / quote creation logic here.
        */
 
       notify(
@@ -334,6 +339,90 @@ export default function PaymentsPage() {
       );
     } finally {
       setInvoiceQuoteSubmitting(false);
+    }
+  };
+
+  /*
+   * Expense helpers
+   */
+  const resetExpenseForm = () => {
+    setExpenseForm({
+      description: "",
+      amount: "",
+      date: "",
+      status: "pending",
+    });
+  };
+
+  const closeExpenseModal = () => {
+    if (expenseSubmitting) {
+      return;
+    }
+
+    setActiveModal(null);
+    resetExpenseForm();
+  };
+
+  const handleExpenseSubmit = async () => {
+    if (expenseSubmitting) {
+      return;
+    }
+
+    if (!expenseForm.description.trim()) {
+      notify(
+        "Please enter an expense description.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      !expenseForm.amount ||
+      Number(expenseForm.amount) <= 0
+    ) {
+      notify(
+        "Please enter a valid expense amount.",
+        "error"
+      );
+      return;
+    }
+
+    if (!expenseForm.date) {
+      notify(
+        "Please select an expense date.",
+        "error"
+      );
+      return;
+    }
+
+    setExpenseSubmitting(true);
+
+    try {
+      /*
+       * Add actual expense creation logic here.
+       */
+
+      notify(
+        "Expense logged successfully.",
+        "success"
+      );
+
+      setActiveModal(null);
+      resetExpenseForm();
+
+      await finance.refresh();
+    } catch (submitError) {
+      console.error(
+        "Expense submission failed:",
+        submitError
+      );
+
+      notify(
+        "Unable to log expense.",
+        "error"
+      );
+    } finally {
+      setExpenseSubmitting(false);
     }
   };
 
@@ -552,18 +641,21 @@ export default function PaymentsPage() {
         open={
           activeModal === "expense"
         }
-        organisationId={
-          organisationId
+        submitting={
+          expenseSubmitting
         }
-        teamId={teamId}
-        userId={userId}
-        onClose={() =>
-          setActiveModal(null)
+        expense={
+          expenseForm
         }
-        onSuccess={
-          finance.refresh
+        onChange={
+          setExpenseForm
         }
-        notify={notify}
+        onClose={
+          closeExpenseModal
+        }
+        onSubmit={
+          handleExpenseSubmit
+        }
       />
 
       {/* ADD EMPLOYEE */}

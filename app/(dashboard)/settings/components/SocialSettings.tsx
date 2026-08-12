@@ -9,7 +9,10 @@ import type {
 
 type SocialSettingsProps = {
   socialAccounts?: SocialAccount[];
-  connectionHealth?: Record<string, ConnectionHealth>;
+  connectionHealth?: Record<
+    string,
+    ConnectionHealth
+  >;
 };
 
 const PLATFORMS = [
@@ -22,6 +25,16 @@ export default function SocialSettings({
   socialAccounts = [],
   connectionHealth = {},
 }: SocialSettingsProps) {
+  /*
+   * Keep the account data available here because
+   * SocialSettings may use it for additional status
+   * information in future.
+   *
+   * SocialConnections currently manages its own state
+   * and does not accept props.
+   */
+  void socialAccounts;
+
   return (
     <div className="space-y-8">
       {/* =========================================
@@ -34,14 +47,14 @@ export default function SocialSettings({
             Social Connections
           </p>
 
-          <h3 className="text-xl font-serif italic text-stone-900">
+          <h3 className="font-serif text-xl italic text-stone-900">
             Connected Platforms
           </h3>
 
           <p className="text-sm text-stone-500">
-            Connect your social media accounts so TOTS-OS
-            can publish and manage content through your
-            connected platforms.
+            Connect your social media accounts so
+            TOTS-OS can publish and manage content
+            through your connected platforms.
           </p>
         </div>
 
@@ -89,20 +102,17 @@ export default function SocialSettings({
             Account Connections
           </p>
 
-          <h3 className="mt-2 text-2xl font-serif italic text-stone-900">
+          <h3 className="mt-2 font-serif text-2xl italic text-stone-900">
             Manage Connected Accounts
           </h3>
 
           <p className="mt-2 text-sm text-stone-500">
-            Connect, reconnect or disconnect your supported
-            social media platforms.
+            Connect, reconnect or disconnect your
+            supported social media platforms.
           </p>
         </div>
 
-        <SocialConnections
-          socialAccounts={socialAccounts}
-          connectionHealth={connectionHealth}
-        />
+        <SocialConnections />
       </div>
     </div>
   );

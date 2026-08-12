@@ -323,12 +323,8 @@ export default function PaymentsPage() {
         )}
       </main>
 
-      {/* CREATE INVOICE / QUOTE */}
-      <InvoiceQuoteModal
+  <InvoiceQuoteModal
   open={activeModal === "invoiceQuote"}
-  organisationId={organisationId}
-  teamId={teamId}
-  userId={userId}
   customers={finance.customers ?? []}
   onClose={() => setActiveModal(null)}
   onSuccess={finance.refresh}

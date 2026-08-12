@@ -31,23 +31,6 @@ import { useSettingsProfile } from "./hooks/useSettingsProfile";
 import { useSocialConnections } from "./hooks/useSocialConnections";
 import { useTikTokOAuthResult } from "./hooks/useTikTokOAuthResult";
 
-import { supabase } from "../../../lib/supabase";
-
-// ==================================================
-// TYPES
-// ==================================================
-
-type OAuthState = {
-  platform?: string;
-  userId?: string;
-};
-
-type OAuthTokens = {
-  access_token?: string;
-  refresh_token?: string | null;
-  expires_at?: string | null;
-};
-
 // ==================================================
 // CONSTANTS
 // ==================================================
@@ -58,14 +41,6 @@ const LOGO_STORAGE_KEY =
 // ==================================================
 // HELPERS
 // ==================================================
-
-function getOAuthStorageKey(
-  platform: string
-) {
-  return platform === "meta"
-    ? "oauth_pending_meta"
-    : `oauth_pending_${platform}`;
-}
 
 function getStoredLogoUrl() {
   if (
@@ -111,9 +86,53 @@ function storeLogoUrl(
   } catch {
     /*
      * Local storage is only a fallback.
-     * Ignore browser storage failures.
      */
   }
+}
+
+function clearOAuthStorage(
+  platform: string
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  try {
+    const key =
+      platform === "meta"
+        ? "oauth_pending_meta"
+        : `oauth_pending_${platform}`;
+
+    window.sessionStorage.removeItem(
+      key
+    );
+
+    window.sessionStorage.removeItem(
+      "oauth_started_at"
+    );
+  } catch {
+    /*
+     * OAuth storage cleanup is best-effort.
+     */
+  }
+}
+
+function cleanOAuthUrl() {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  window.history.replaceState(
+    {},
+    document.title,
+    window.location.pathname
+  );
 }
 
 // ==================================================
@@ -157,9 +176,6 @@ function SettingsInner() {
     setPersistentLogoUrl,
   ] = useState("");
 
-  /*
-   * Restore cached logo on initial load.
-   */
   useEffect(() => {
     const storedLogo =
       getStoredLogoUrl();
@@ -171,13 +187,6 @@ function SettingsInner() {
     }
   }, []);
 
-  /*
-   * Whenever the real profile logo changes,
-   * keep the local fallback in sync.
-   *
-   * This is what catches the newly uploaded logo
-   * after uploadLogo() updates the hook state.
-   */
   useEffect(() => {
     const cleanedLogoUrl =
       String(
@@ -197,10 +206,6 @@ function SettingsInner() {
     );
   }, [logoUrl]);
 
-  /*
-   * Always prefer the real profile logo.
-   * Fall back to the cached version if needed.
-   */
   const resolvedLogoUrl =
     String(
       logoUrl ?? ""
@@ -218,14 +223,6 @@ function SettingsInner() {
           typeof uploadLogo
         >
       ) => {
-        /*
-         * uploadLogo currently returns void.
-         *
-         * We simply wait for it to complete.
-         * When useSettingsProfile updates logoUrl,
-         * the effect above automatically stores the
-         * new URL in the persistent fallback.
-         */
         await uploadLogo(
           ...args
         );
@@ -248,7 +245,8 @@ function SettingsInner() {
   const [
     showConnectedModal,
     setShowConnectedModal,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     connectedPlatformModal,
@@ -280,10 +278,20 @@ function SettingsInner() {
   });
 
   // ==================================================
-  // LEGACY OAUTH CALLBACK
+  // META / LINKEDIN OAUTH RESULT
   //
-  // Meta / LinkedIn.
-  // TikTok uses dedicated server callback.
+  // IMPORTANT:
+  // Meta's callback + token exchange happen
+  // completely server-side now.
+  //
+  // This page ONLY reacts to:
+  //
+  // ?oauth=meta_success
+  // ?oauth=meta_failed
+  // ?oauth=linkedin_success
+  // ?oauth=linkedin_failed
+  //
+  // TikTok remains handled by useTikTokOAuthResult.
   // ==================================================
 
   useEffect(() => {
@@ -295,7 +303,7 @@ function SettingsInner() {
     }
 
     /*
-     * Facebook can append #_=_
+     * Facebook occasionally leaves this hash.
      */
     if (
       window.location.hash ===
@@ -304,7 +312,7 @@ function SettingsInner() {
       window.history.replaceState(
         {},
         document.title,
-        window.location.pathname
+        `${window.location.pathname}${window.location.search}`
       );
     }
 
@@ -313,243 +321,181 @@ function SettingsInner() {
         window.location.search
       );
 
-    const code =
-      params.get("code");
+    const oauth =
+      params.get("oauth");
 
-    const state =
-      params.get("state");
-
-    if (
-      !code ||
-      !state
-    ) {
+    if (!oauth) {
       return;
     }
 
     let cancelled =
       false;
 
-    // ----------------------------------------------
-    // CLEAN CALLBACK PARAMETERS
-    // ----------------------------------------------
-
-    const cleanOAuthUrl =
-      () => {
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        );
-      };
-
-    // ----------------------------------------------
-    // HANDLE OAUTH
-    // ----------------------------------------------
-
-    const handleLegacyOAuth =
+    const handleOAuthResult =
       async () => {
         try {
-          let parsedState:
-            OAuthState;
-
-          try {
-            parsedState =
-              JSON.parse(
-                decodeURIComponent(
-                  state
-                )
-              ) as OAuthState;
-          } catch {
-            throw new Error(
-              "Invalid OAuth state format"
-            );
-          }
-
-          const platform =
-            parsedState.platform;
-
-          const userId =
-            parsedState.userId;
+          // ==================================================
+          // META SUCCESS
+          // ==================================================
 
           if (
-            !platform ||
-            !userId
+            oauth ===
+            "meta_success"
           ) {
-            throw new Error(
-              "OAuth state is missing required values"
-            );
-          }
-
-          /*
-           * TikTok uses the dedicated callback.
-           */
-          if (
-            platform ===
-            "tiktok"
-          ) {
-            cleanOAuthUrl();
-            return;
-          }
-
-          // ------------------------------------------
-          // VERIFY USER
-          // ------------------------------------------
-
-          const {
-            data: {
-              user,
-            },
-          } =
-            await supabase.auth.getUser();
-
-          if (
-            !user ||
-            user.id !== userId
-          ) {
-            throw new Error(
-              "OAuth user mismatch"
-            );
-          }
-
-          // ------------------------------------------
-          // EXCHANGE CODE
-          // ------------------------------------------
-
-          const response =
-            await fetch(
-              "/api/oauth/exchange",
-              {
-                method:
-                  "POST",
-
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-
-                body:
-                  JSON.stringify(
-                    {
-                      platform,
-                      code,
-                      state,
-                      userId,
-                    }
-                  ),
-              }
+            clearOAuthStorage(
+              "meta"
             );
 
-          if (
-            !response.ok
-          ) {
-            const message =
-              await response.text();
+            await refreshConnections();
 
-            throw new Error(
-              message ||
-                "OAuth exchange failed"
-            );
-          }
+            await verifyConnections();
 
-          const tokens =
-            (await response.json()) as OAuthTokens;
+            await verifyPendingOAuth();
 
-          if (
-            !tokens.access_token
-          ) {
-            throw new Error(
-              "Missing OAuth access token"
-            );
-          }
+            if (cancelled) {
+              return;
+            }
 
-          // ------------------------------------------
-          // SAVE CONNECTION
-          // ------------------------------------------
-
-          const {
-            error,
-          } =
-            await supabase
-              .from(
-                "social_accounts"
-              )
-              .upsert(
-                {
-                  user_id:
-                    userId,
-
-                  platform,
-
-                  access_token:
-                    tokens.access_token,
-
-                  refresh_token:
-                    tokens.refresh_token ||
-                    null,
-
-                  expires_at:
-                    tokens.expires_at ||
-                    null,
-
-                  updated_at:
-                    new Date().toISOString(),
-                },
-                {
-                  onConflict:
-                    "user_id,platform",
-                }
-              );
-
-          if (error) {
-            throw error;
-          }
-
-          // ------------------------------------------
-          // CLEAN OAUTH SESSION
-          // ------------------------------------------
-
-          sessionStorage.removeItem(
-            getOAuthStorageKey(
-              platform
-            )
-          );
-
-          sessionStorage.removeItem(
-            "oauth_started_at"
-          );
-
-          // ------------------------------------------
-          // REFRESH CONNECTION STATE
-          // ------------------------------------------
-
-          await refreshConnections();
-
-          await verifyConnections();
-
-          await verifyPendingOAuth();
-
-          // ------------------------------------------
-          // SUCCESS
-          // ------------------------------------------
-
-          if (!cancelled) {
             toast.success(
-              `${platform} connected successfully`
+              "Meta connected successfully"
             );
 
             setConnectedPlatformModal(
-              platform
+              "meta"
             );
 
             setShowConnectedModal(
               true
+            );
+
+            return;
+          }
+
+          // ==================================================
+          // META FAILED
+          // ==================================================
+
+          if (
+            oauth ===
+            "meta_failed"
+          ) {
+            clearOAuthStorage(
+              "meta"
+            );
+
+            if (cancelled) {
+              return;
+            }
+
+            const reason =
+              params.get(
+                "reason"
+              );
+
+            let message =
+              "Meta connection failed";
+
+            if (reason) {
+              try {
+                message =
+                  decodeURIComponent(
+                    reason
+                  );
+              } catch {
+                message =
+                  reason;
+              }
+            }
+
+            toast.error(
+              message
+            );
+
+            return;
+          }
+
+          // ==================================================
+          // LINKEDIN SUCCESS
+          // ==================================================
+
+          if (
+            oauth ===
+            "linkedin_success"
+          ) {
+            clearOAuthStorage(
+              "linkedin"
+            );
+
+            await refreshConnections();
+
+            await verifyConnections();
+
+            await verifyPendingOAuth();
+
+            if (cancelled) {
+              return;
+            }
+
+            toast.success(
+              "LinkedIn connected successfully"
+            );
+
+            setConnectedPlatformModal(
+              "linkedin"
+            );
+
+            setShowConnectedModal(
+              true
+            );
+
+            return;
+          }
+
+          // ==================================================
+          // LINKEDIN FAILED
+          // ==================================================
+
+          if (
+            oauth ===
+            "linkedin_failed"
+          ) {
+            clearOAuthStorage(
+              "linkedin"
+            );
+
+            if (cancelled) {
+              return;
+            }
+
+            const reason =
+              params.get(
+                "reason"
+              );
+
+            let message =
+              "LinkedIn connection failed";
+
+            if (reason) {
+              try {
+                message =
+                  decodeURIComponent(
+                    reason
+                  );
+              } catch {
+                message =
+                  reason;
+              }
+            }
+
+            toast.error(
+              message
             );
           }
         } catch (
           error
         ) {
           console.error(
-            "OAuth callback handling failed:",
+            "OAuth result handling failed:",
             error
           );
 
@@ -558,15 +504,22 @@ function SettingsInner() {
               error instanceof
                 Error
                 ? error.message
-                : "OAuth connection failed"
+                : "Social account connection could not be verified"
             );
           }
         } finally {
-          cleanOAuthUrl();
+          /*
+           * Remove OAuth result from URL so
+           * refreshing Settings does not repeat
+           * the success/error notification.
+           */
+          if (!cancelled) {
+            cleanOAuthUrl();
+          }
         }
       };
 
-    void handleLegacyOAuth();
+    void handleOAuthResult();
 
     return () => {
       cancelled =
@@ -576,6 +529,45 @@ function SettingsInner() {
     refreshConnections,
     verifyConnections,
     verifyPendingOAuth,
+  ]);
+
+  // ==================================================
+  // REFRESH CONNECTIONS AFTER PAGE LOAD
+  // ==================================================
+
+  useEffect(() => {
+    let cancelled =
+      false;
+
+    const refresh =
+      async () => {
+        try {
+          await refreshConnections();
+
+          if (cancelled) {
+            return;
+          }
+
+          await verifyConnections();
+        } catch (
+          error
+        ) {
+          console.warn(
+            "Initial social connection refresh failed:",
+            error
+          );
+        }
+      };
+
+    void refresh();
+
+    return () => {
+      cancelled =
+        true;
+    };
+  }, [
+    refreshConnections,
+    verifyConnections,
   ]);
 
   // ==================================================
@@ -605,6 +597,7 @@ function SettingsInner() {
 
   return (
     <div className="min-h-screen w-full min-w-0 overflow-x-hidden bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] p-4 text-stone-900 sm:p-6 lg:p-8 xl:p-10">
+
       {/* ==================================================
           HEADER
       ================================================== */}
@@ -662,6 +655,7 @@ function SettingsInner() {
             className="space-y-12"
           >
             <section className="space-y-10 rounded-[2rem] border border-stone-200 bg-white/90 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.04)] backdrop-blur sm:p-6 lg:space-y-16 lg:rounded-[4rem] lg:p-8">
+
               {/* ==================================================
                   PROFILE
               ================================================== */}

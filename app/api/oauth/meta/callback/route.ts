@@ -1,57 +1,472 @@
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
+export const runtime =
+  "nodejs";
 
-import { NextRequest, NextResponse } from "next/server";
+// ==================================================
+// HELPERS
+// ==================================================
 
-export async function GET(request: NextRequest) {
+function getAppBaseUrl(
+  request: NextRequest
+) {
+  const configuredUrl =
+    process.env
+      .NEXT_PUBLIC_SITE_URL ||
+    process.env
+      .NEXT_PUBLIC_APP_URL;
+
+  if (configuredUrl) {
+    return configuredUrl.replace(
+      /\/+$/,
+      ""
+    );
+  }
+
+  const redirectUri =
+    process.env
+      .META_REDIRECT_URI;
+
+  if (redirectUri) {
+    try {
+      const parsed =
+        new URL(
+          redirectUri
+        );
+
+      return parsed.origin;
+    } catch {
+      // Ignore and fall through
+    }
+  }
+
+  return request.nextUrl.origin;
+}
+
+function buildSettingsUrl(
+  request: NextRequest,
+  params: Record<
+    string,
+    string
+  >
+) {
+  const baseUrl =
+    getAppBaseUrl(
+      request
+    );
+
+  const url =
+    new URL(
+      "/settings",
+      baseUrl
+    );
+
+  Object.entries(
+    params
+  ).forEach(
+    ([
+      key,
+      value,
+    ]) => {
+      url.searchParams.set(
+        key,
+        value
+      );
+    }
+  );
+
+  return url;
+}
+
+// ==================================================
+// GET
+// ==================================================
+
+export async function GET(
+  request: NextRequest
+) {
   try {
-    const { searchParams } = new URL(request.url);
+    const {
+      searchParams,
+    } =
+      new URL(
+        request.url
+      );
 
-    const code = searchParams.get("code");
-    const state = searchParams.get("state");
-    const error = searchParams.get("error");
+    // ==================================================
+    // META RESPONSE
+    // ==================================================
 
-    if (error) {
-      console.error("Meta OAuth error:", error);
+    const code =
+      searchParams.get(
+        "code"
+      );
+
+    const state =
+      searchParams.get(
+        "state"
+      );
+
+    const oauthError =
+      searchParams.get(
+        "error"
+      );
+
+    const errorReason =
+      searchParams.get(
+        "error_reason"
+      );
+
+    const errorDescription =
+      searchParams.get(
+        "error_description"
+      );
+
+    // ==================================================
+    // META ERROR
+    // ==================================================
+
+    if (oauthError) {
+      console.error(
+        "Meta OAuth returned an error:",
+        {
+          error:
+            oauthError,
+
+          errorReason,
+
+          errorDescription,
+        }
+      );
+
       return NextResponse.redirect(
-        `${process.env.META_REDIRECT_URI?.replace("/api/oauth/meta/callback", "")}/settings?oauth=failed`
+        buildSettingsUrl(
+          request,
+          {
+            oauth:
+              "failed",
+
+            platform:
+              "meta",
+
+            reason:
+              errorDescription ||
+              errorReason ||
+              oauthError,
+          }
+        )
       );
     }
 
-    if (!code || !state) {
-      return NextResponse.json(
-        { error: "Missing OAuth code or state" },
-        { status: 400 }
+    // ==================================================
+    // VALIDATE CALLBACK
+    // ==================================================
+
+    if (
+      !code ||
+      !state
+    ) {
+      console.error(
+        "Meta callback missing values:",
+        {
+          hasCode:
+            Boolean(
+              code
+            ),
+
+          hasState:
+            Boolean(
+              state
+            ),
+        }
+      );
+
+      return NextResponse.redirect(
+        buildSettingsUrl(
+          request,
+          {
+            oauth:
+              "failed",
+
+            platform:
+              "meta",
+
+            reason:
+              "missing_code_or_state",
+          }
+        )
       );
     }
 
-    const exchangeUrl = new URL(
-      `${process.env.META_REDIRECT_URI?.replace("/api/oauth/meta/callback", "")}/api/oauth/exchange`
+    // ==================================================
+    // VALIDATE STATE
+    // ==================================================
+
+    let parsedState:
+      | {
+          platform?: string;
+          userId?: string;
+        }
+      | null =
+      null;
+
+    try {
+      parsedState =
+        JSON.parse(
+          decodeURIComponent(
+            state
+          )
+        );
+    } catch (
+      error
+    ) {
+      console.error(
+        "Invalid Meta OAuth state:",
+        error
+      );
+
+      return NextResponse.redirect(
+        buildSettingsUrl(
+          request,
+          {
+            oauth:
+              "failed",
+
+            platform:
+              "meta",
+
+            reason:
+              "invalid_state",
+          }
+        )
+      );
+    }
+
+    if (
+      !parsedState
+        ?.userId
+    ) {
+      console.error(
+        "Meta OAuth state missing userId:",
+        parsedState
+      );
+
+      return NextResponse.redirect(
+        buildSettingsUrl(
+          request,
+          {
+            oauth:
+              "failed",
+
+            platform:
+              "meta",
+
+            reason:
+              "missing_user",
+          }
+        )
+      );
+    }
+
+    // ==================================================
+    // BUILD INTERNAL EXCHANGE URL
+    // ==================================================
+
+    const baseUrl =
+      getAppBaseUrl(
+        request
+      );
+
+    const exchangeUrl =
+      new URL(
+        "/api/oauth/exchange",
+        baseUrl
+      );
+
+    // ==================================================
+    // EXCHANGE META CODE
+    // ==================================================
+
+    const exchangeResponse =
+      await fetch(
+        exchangeUrl.toString(),
+        {
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify(
+              {
+                code,
+
+                state,
+
+                platform:
+                  "meta",
+              }
+            ),
+
+          cache:
+            "no-store",
+        }
+      );
+
+    const exchangeResult =
+      await exchangeResponse
+        .json()
+        .catch(
+          () =>
+            null
+        );
+
+    // ==================================================
+    // EXCHANGE FAILED
+    // ==================================================
+
+    if (
+      !exchangeResponse.ok
+    ) {
+      console.error(
+        "Meta token exchange failed:",
+        {
+          status:
+            exchangeResponse.status,
+
+          result:
+            exchangeResult,
+        }
+      );
+
+      const reason =
+        exchangeResult
+          ?.details
+          ?.error
+          ?.message ||
+        exchangeResult
+          ?.details
+          ?.message ||
+        exchangeResult
+          ?.message ||
+        exchangeResult
+          ?.error ||
+        "token_exchange_failed";
+
+      return NextResponse.redirect(
+        buildSettingsUrl(
+          request,
+          {
+            oauth:
+              "failed",
+
+            platform:
+              "meta",
+
+            reason:
+              String(
+                reason
+              ).slice(
+                0,
+                250
+              ),
+          }
+        )
+      );
+    }
+
+    // ==================================================
+    // VALIDATE RESULT
+    // ==================================================
+
+    if (
+      !exchangeResult
+        ?.success
+    ) {
+      console.error(
+        "Meta exchange returned unexpected response:",
+        exchangeResult
+      );
+
+      return NextResponse.redirect(
+        buildSettingsUrl(
+          request,
+          {
+            oauth:
+              "failed",
+
+            platform:
+              "meta",
+
+            reason:
+              "invalid_exchange_response",
+          }
+        )
+      );
+    }
+
+    // ==================================================
+    // SUCCESS
+    // ==================================================
+
+    console.log(
+      "Meta OAuth completed successfully:",
+      {
+        userId:
+          parsedState.userId,
+
+        platform:
+          exchangeResult.platform ||
+          "meta",
+      }
     );
 
-    exchangeUrl.searchParams.set("code", code);
-    exchangeUrl.searchParams.set("state", state);
-    exchangeUrl.searchParams.set("platform", "meta");
-
-    const response = await fetch(exchangeUrl.toString());
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-
-      console.error("Meta token exchange failed:", data);
-
-      return NextResponse.redirect(
-        `${process.env.META_REDIRECT_URI?.replace("/api/oauth/meta/callback", "")}/settings?oauth=failed`
-      );
-    }
-
     return NextResponse.redirect(
-      `${process.env.META_REDIRECT_URI?.replace("/api/oauth/meta/callback", "")}/settings?oauth=success`
+      buildSettingsUrl(
+        request,
+        {
+          oauth:
+            "success",
+
+          platform:
+            "meta",
+        }
+      )
     );
-  } catch (error) {
-    console.error("Meta OAuth callback error:", error);
+  } catch (
+    error
+  ) {
+    console.error(
+      "Meta OAuth callback error:",
+      error
+    );
 
     return NextResponse.redirect(
-      `${process.env.META_REDIRECT_URI?.replace("/api/oauth/meta/callback", "")}/settings?oauth=failed`
+      buildSettingsUrl(
+        request,
+        {
+          oauth:
+            "failed",
+
+          platform:
+            "meta",
+
+          reason:
+            error instanceof
+            Error
+              ? error.message.slice(
+                  0,
+                  250
+                )
+              : "unknown_callback_error",
+        }
+      )
     );
   }
 }

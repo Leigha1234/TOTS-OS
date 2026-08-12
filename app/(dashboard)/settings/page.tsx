@@ -47,6 +47,12 @@ type OAuthTokens = {
 };
 
 // ==================================================
+// CONSTANTS
+// ==================================================
+
+const LOGO_STORAGE_KEY = "tots_os_profile_logo_url";
+
+// ==================================================
 // HELPERS
 // ==================================================
 
@@ -56,6 +62,53 @@ function getOAuthStorageKey(
   return platform === "meta"
     ? "oauth_pending_meta"
     : `oauth_pending_${platform}`;
+}
+
+function getStoredLogoUrl() {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return "";
+  }
+
+  try {
+    return (
+      window.localStorage.getItem(
+        LOGO_STORAGE_KEY
+      ) ?? ""
+    );
+  } catch {
+    return "";
+  }
+}
+
+function storeLogoUrl(
+  value: string
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  const cleaned =
+    value.trim();
+
+  if (!cleaned) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      LOGO_STORAGE_KEY,
+      cleaned
+    );
+  } catch {
+    // Local storage is only a backup.
+    // A browser privacy setting may prevent access.
+  }
 }
 
 // ==================================================
@@ -89,6 +142,113 @@ function SettingsInner() {
     logout,
   } = useSettingsProfile();
 
+  /*
+   * Keep a local fallback copy of the logo.
+   *
+   * The Supabase/profile value remains the primary
+   * source of truth. This prevents the UI from losing
+   * an uploaded logo if the profile hook temporarily
+   * returns an empty value during hydration/refresh.
+   */
+  const [
+    persistentLogoUrl,
+    setPersistentLogoUrl,
+  ] = useState("");
+
+  // ==================================================
+  // RESTORE CACHED LOGO
+  // ==================================================
+
+  useEffect(() => {
+    const storedLogo =
+      getStoredLogoUrl();
+
+    if (storedLogo) {
+      setPersistentLogoUrl(
+        storedLogo
+      );
+    }
+  }, []);
+
+  // ==================================================
+  // KEEP CACHE IN SYNC WITH PROFILE
+  // ==================================================
+
+  useEffect(() => {
+    const cleanedLogoUrl =
+      String(
+        logoUrl ?? ""
+      ).trim();
+
+    if (!cleanedLogoUrl) {
+      return;
+    }
+
+    setPersistentLogoUrl(
+      cleanedLogoUrl
+    );
+
+    storeLogoUrl(
+      cleanedLogoUrl
+    );
+  }, [logoUrl]);
+
+  /*
+   * Prefer the actual profile value.
+   * Fall back to the latest locally cached logo.
+   */
+  const resolvedLogoUrl =
+    String(
+      logoUrl ?? ""
+    ).trim() ||
+    persistentLogoUrl;
+
+  // ==================================================
+  // LOGO UPLOAD WRAPPER
+  // ==================================================
+
+  const handleLogoUpload =
+    useCallback(
+      async (
+        ...args: Parameters<
+          typeof uploadLogo
+        >
+      ) => {
+        /*
+         * The existing hook still performs the
+         * real upload.
+         */
+        const result =
+          await uploadLogo(
+            ...args
+          );
+
+        /*
+         * If uploadLogo returns a URL, cache it
+         * immediately as an extra safeguard.
+         */
+        if (
+          typeof result ===
+          "string" &&
+          result.trim()
+        ) {
+          const uploadedUrl =
+            result.trim();
+
+          setPersistentLogoUrl(
+            uploadedUrl
+          );
+
+          storeLogoUrl(
+            uploadedUrl
+          );
+        }
+
+        return result;
+      },
+      [uploadLogo]
+    );
+
   // ==================================================
   // SOCIAL CONNECTIONS
   // ==================================================
@@ -101,15 +261,17 @@ function SettingsInner() {
     verifyPendingOAuth,
   } = useSocialConnections();
 
-const [
-  showConnectedModal,
-  setShowConnectedModal,
-] = useState(false);
+  const [
+    showConnectedModal,
+    setShowConnectedModal,
+  ] = useState(false);
 
-const [
-  connectedPlatformModal,
-  setConnectedPlatformModal,
-] = useState<string | null>(null);
+  const [
+    connectedPlatformModal,
+    setConnectedPlatformModal,
+  ] = useState<
+    string | null
+  >(null);
 
   // ==================================================
   // TIKTOK OAUTH RESULT
@@ -530,13 +692,13 @@ const [
                   setBio
                 }
                 logoUrl={
-                  logoUrl
+                  resolvedLogoUrl
                 }
                 logoUploading={
                   logoUploading
                 }
                 uploadLogo={
-                  uploadLogo
+                  handleLogoUpload
                 }
               />
 

@@ -103,18 +103,10 @@ type CampaignTemplate = {
 
 type ListSubscriber = {
   id: string;
-  source:
-    | "profile"
-    | "manual";
-  profile_id:
-    | string
-    | null;
-  manual_email_id:
-    | string
-    | null;
-  name:
-    | string
-    | null;
+  source: "profile" | "manual";
+  profile_id: string | null;
+  manual_email_id: string | null;
+  name: string | null;
   email: string;
 };
 
@@ -681,7 +673,7 @@ function createCampaignService(
         profileLinkError
       ) {
         console.error(
-          "deleteList profile link error:",
+          "deleteList profile subscriber link error:",
           profileLinkError
         );
 
@@ -702,7 +694,7 @@ function createCampaignService(
         manualEmailError
       ) {
         console.error(
-          "deleteList manual email error:",
+          "deleteList manual emails error:",
           manualEmailError
         );
 
@@ -786,7 +778,16 @@ function createCampaignService(
       if (error) {
         console.error(
           "removeManualSubscriber error:",
-          error
+          {
+            message:
+              error.message,
+            details:
+              error.details,
+            hint:
+              error.hint,
+            code:
+              error.code,
+          }
         );
 
         throw error;
@@ -872,8 +873,8 @@ function createCampaignService(
         profileIds.map(
           (profile_id) => ({
             profile_id,
-            list_id: listId,
-
+            list_id:
+              listId,
             organisation_id:
               organisationId,
           })
@@ -885,10 +886,13 @@ function createCampaignService(
         .from(
           "profile_subscriber_lists"
         )
-        .upsert(rows, {
-          onConflict:
-            "profile_id,list_id",
-        });
+        .upsert(
+          rows,
+          {
+            onConflict:
+              "profile_id,list_id",
+          }
+        );
 
       if (error) {
         console.error(
@@ -899,6 +903,10 @@ function createCampaignService(
         throw error;
       }
     },
+
+    // ==================================================
+    // FIXED MANUAL EMAIL INSERT
+    // ==================================================
 
     async addManualSubscribers(
       listId: string,
@@ -911,8 +919,113 @@ function createCampaignService(
         return;
       }
 
+      const cleanedEmails =
+        Array.from(
+          new Set(
+            emails
+              .map(
+                (
+                  email
+                ) =>
+                  email
+                    .trim()
+                    .toLowerCase()
+              )
+              .filter(
+                Boolean
+              )
+          )
+        );
+
+      if (
+        !cleanedEmails.length
+      ) {
+        return;
+      }
+
+      const {
+        data:
+          existingRows,
+        error:
+          existingError,
+      } = await supabase
+        .from(
+          "campaign_list_emails"
+        )
+        .select(
+          "email"
+        )
+        .eq(
+          "organisation_id",
+          organisationId
+        )
+        .eq(
+          "list_id",
+          listId
+        )
+        .in(
+          "email",
+          cleanedEmails
+        );
+
+      if (
+        existingError
+      ) {
+        console.error(
+          "Check existing manual subscribers error:",
+          {
+            message:
+              existingError.message,
+            details:
+              existingError.details,
+            hint:
+              existingError.hint,
+            code:
+              existingError.code,
+          }
+        );
+
+        throw existingError;
+      }
+
+      const existingEmails =
+        new Set(
+          (
+            existingRows ||
+            []
+          )
+            .map(
+              (
+                row: {
+                  email:
+                    string;
+                }
+              ) =>
+                row.email
+                  ?.trim()
+                  .toLowerCase()
+            )
+            .filter(
+              Boolean
+            )
+        );
+
+      const newEmails =
+        cleanedEmails.filter(
+          (email) =>
+            !existingEmails.has(
+              email
+            )
+        );
+
+      if (
+        !newEmails.length
+      ) {
+        return;
+      }
+
       const rows =
-        emails.map(
+        newEmails.map(
           (email) => ({
             list_id:
               listId,
@@ -920,37 +1033,44 @@ function createCampaignService(
             organisation_id:
               organisationId,
 
-            email:
-              email
-                .trim()
-                .toLowerCase(),
+            email,
           })
         );
 
       const {
-        error,
+        error:
+          insertError,
       } = await supabase
         .from(
           "campaign_list_emails"
         )
-        .upsert(
-          rows,
-          {
-            onConflict:
-              "organisation_id,list_id,email",
+        .insert(
+          rows
+        );
 
-            ignoreDuplicates:
-              true,
+      if (
+        insertError
+      ) {
+        console.error(
+          "addManualSubscribers insert error:",
+          {
+            message:
+              insertError.message,
+            details:
+              insertError.details,
+            hint:
+              insertError.hint,
+            code:
+              insertError.code,
           }
         );
 
-      if (error) {
         console.error(
-          "addManualSubscribers error:",
-          error
+          "Attempted manual email rows:",
+          rows
         );
 
-        throw error;
+        throw insertError;
       }
     },
 
@@ -1147,7 +1267,9 @@ function useCampaigns(
         error:
           profileError,
       } = await supabase
-        .from("profiles")
+        .from(
+          "profiles"
+        )
         .select("*")
         .eq(
           "id",
@@ -1186,7 +1308,9 @@ function useCampaigns(
           error:
             teamError,
         } = await supabase
-          .from("team")
+          .from(
+            "team"
+          )
           .select("*")
           .eq(
             "organisation_id",
@@ -1211,14 +1335,16 @@ function useCampaigns(
       const companyName =
         team
           ?.company_name ||
-        team?.name ||
+        team
+          ?.name ||
         profile
           ?.company_name ||
         profile
           ?.business_name ||
         profile
           ?.full_name ||
-        profile?.name ||
+        profile
+          ?.name ||
         "Your Company";
 
       const logoUrl =
@@ -1226,16 +1352,20 @@ function useCampaigns(
           ?.logo_url ||
         profile
           ?.company_logo_url ||
-        team?.logo_url ||
+        team
+          ?.logo_url ||
         "";
 
       const email =
-        profile?.email ||
+        profile
+          ?.email ||
         "";
 
       const details =
-        profile?.bio ||
-        team?.description ||
+        profile
+          ?.bio ||
+        team
+          ?.description ||
         "";
 
       setCompanyBranding({
@@ -1245,16 +1375,6 @@ function useCampaigns(
         email,
         details,
       });
-
-      if (
-        !orgId &&
-        team
-          ?.organisation_id
-      ) {
-        setOrganisationId(
-          team.organisation_id
-        );
-      }
     };
 
   const updateCompanyName =
@@ -1274,14 +1394,17 @@ function useCampaigns(
       setCompanyBranding(
         (previous) => ({
           ...previous,
-          name: trimmed,
+          name:
+            trimmed,
         })
       );
 
       const {
         error,
       } = await supabase
-        .from("team")
+        .from(
+          "team"
+        )
         .update({
           company_name:
             trimmed,
@@ -1340,10 +1463,7 @@ function useCampaigns(
           error
         );
 
-        return {} as Record<
-          string,
-          number
-        >;
+        return {};
       }
 
       const counts: Record<
@@ -1418,38 +1538,39 @@ function useCampaigns(
       const clickCounts =
         await loadClickCounts(
           incoming.map(
-            (campaign: any) =>
+            (
+              campaign: any
+            ) =>
               campaign.id
           )
         );
 
       const processed =
         incoming.map(
-          (campaign: any) => {
-            const optimisticStatus =
+          (
+            campaign: any
+          ) => ({
+            ...campaign,
+
+            status:
               optimisticStatusRef
                 .current[
                 campaign.id
-              ];
+              ] ||
+              campaign.status,
 
-            return {
-              ...campaign,
-
-              status:
-                optimisticStatus ||
-                campaign.status,
-
-              click_count:
-                clickCounts[
-                  campaign.id
-                ] || 0,
-            };
-          }
+            click_count:
+              clickCounts[
+                campaign.id
+              ] || 0,
+          })
         );
 
       cacheRef.current = {
-        data: processed,
-        ts: now,
+        data:
+          processed,
+        ts:
+          now,
       };
 
       setCampaigns(
@@ -1458,7 +1579,7 @@ function useCampaigns(
     };
 
   // ==================================================
-  // INITIAL USER / ORG
+  // INITIAL USER
   // ==================================================
 
   useEffect(() => {
@@ -1484,7 +1605,7 @@ function useCampaigns(
   }, [supabase]);
 
   // ==================================================
-  // LOAD ORG DATA
+  // LOAD ORG
   // ==================================================
 
   useEffect(() => {
@@ -1502,14 +1623,12 @@ function useCampaigns(
           profilesData,
           counts,
         ] =
-          await Promise.all(
-            [
-              service.listCampaigns(),
-              service.listSubscriberLists(),
-              service.listProfiles(),
-              service.subscriberCounts(),
-            ]
-          );
+          await Promise.all([
+            service.listCampaigns(),
+            service.listSubscriberLists(),
+            service.listProfiles(),
+            service.subscriberCounts(),
+          ]);
 
         const clickCounts =
           await loadClickCounts(
@@ -1566,7 +1685,6 @@ function useCampaigns(
     void load();
   }, [
     organisationId,
-    supabase,
     service,
   ]);
 
@@ -1579,7 +1697,7 @@ function useCampaigns(
       name: string
     ) => {
       const trimmed =
-        name?.trim();
+        name.trim();
 
       if (
         !organisationId
@@ -1607,7 +1725,8 @@ function useCampaigns(
           "subscriber_lists"
         )
         .insert({
-          name: trimmed,
+          name:
+            trimmed,
 
           organisation_id:
             organisationId,
@@ -1630,7 +1749,9 @@ function useCampaigns(
       }
 
       setLists(
-        (previous) => [
+        (
+          previous
+        ) => [
           ...previous,
           data,
         ]
@@ -1640,7 +1761,7 @@ function useCampaigns(
     };
 
   // ==================================================
-  // SCHEDULE
+  // SCHEDULE CAMPAIGN
   // ==================================================
 
   const scheduleCampaign =
@@ -1681,7 +1802,9 @@ function useCampaigns(
 
       if (created) {
         setCampaigns(
-          (previous) => [
+          (
+            previous
+          ) => [
             created,
             ...previous,
           ]
@@ -1701,7 +1824,7 @@ function useCampaigns(
     };
 
   // ==================================================
-  // LIST SUBSCRIBERS
+  // LOAD LIST SUBSCRIBERS
   // ==================================================
 
   const loadListSubscribers =
@@ -1727,7 +1850,7 @@ function useCampaigns(
               "profile_subscriber_lists"
             )
             .select(
-              "profile_id, profiles:profiles(id, name, full_name, email)"
+              "profile_id, profiles:profiles(id,name,full_name,email)"
             )
             .eq(
               "list_id",
@@ -1782,7 +1905,9 @@ function useCampaigns(
           []
         )
           .filter(
-            (row: any) =>
+            (
+              row: any
+            ) =>
               row.profiles
                 ?.email
           )
@@ -1876,7 +2001,7 @@ function useCampaigns(
     };
 
   // ==================================================
-  // UPDATE CAMPAIGN
+  // UPDATE
   // ==================================================
 
   const updateCampaign =
@@ -1898,9 +2023,13 @@ function useCampaigns(
 
       if (updated) {
         setCampaigns(
-          (previous) =>
+          (
+            previous
+          ) =>
             previous.map(
-              (campaign) =>
+              (
+                campaign
+              ) =>
                 campaign.id ===
                 id
                   ? {
@@ -1910,15 +2039,6 @@ function useCampaigns(
                   : campaign
             )
         );
-
-        if (
-          updated?.status
-        ) {
-          optimisticStatusRef.current[
-            id
-          ] =
-            updated.status;
-        }
       }
 
       cacheRef.current.ts =
@@ -1943,9 +2063,13 @@ function useCampaigns(
         .current[id];
 
       setCampaigns(
-        (previous) =>
+        (
+          previous
+        ) =>
           previous.filter(
-            (campaign) =>
+            (
+              campaign
+            ) =>
               campaign.id !==
               id
           )
@@ -1968,15 +2092,21 @@ function useCampaigns(
       );
 
       setLists(
-        (previous) =>
+        (
+          previous
+        ) =>
           previous.filter(
-            (list) =>
+            (
+              list
+            ) =>
               list.id !== id
           )
       );
 
       setSubscriberCounts(
-        (previous) => {
+        (
+          previous
+        ) => {
           const next = {
             ...previous,
           };
@@ -1989,7 +2119,7 @@ function useCampaigns(
     };
 
   // ==================================================
-  // REMOVE PROFILE SUBSCRIBER
+  // REMOVE SUBSCRIBERS
   // ==================================================
 
   const removeSubscriber =
@@ -2002,17 +2132,10 @@ function useCampaigns(
         profileId
       );
 
-      const counts =
-        await service.subscriberCounts();
-
       setSubscriberCounts(
-        counts
+        await service.subscriberCounts()
       );
     };
-
-  // ==================================================
-  // REMOVE MANUAL SUBSCRIBER
-  // ==================================================
 
   const removeManualSubscriber =
     async (
@@ -2022,16 +2145,59 @@ function useCampaigns(
         id
       );
 
-      const counts =
-        await service.subscriberCounts();
-
       setSubscriberCounts(
-        counts
+        await service.subscriberCounts()
       );
     };
 
   // ==================================================
-  // SEND NOW
+  // ADD SUBSCRIBERS
+  // ==================================================
+
+  const addSubscribersToList =
+    async (
+      listId: string,
+      profileIds: string[]
+    ) => {
+      if (
+        !profileIds.length
+      ) {
+        return;
+      }
+
+      await service.addSubscribers(
+        listId,
+        profileIds
+      );
+
+      setSubscriberCounts(
+        await service.subscriberCounts()
+      );
+    };
+
+  const addManualSubscribersToList =
+    async (
+      listId: string,
+      emails: string[]
+    ) => {
+      if (
+        !emails.length
+      ) {
+        return;
+      }
+
+      await service.addManualSubscribers(
+        listId,
+        emails
+      );
+
+      setSubscriberCounts(
+        await service.subscriberCounts()
+      );
+    };
+
+  // ==================================================
+  // SEND
   // ==================================================
 
   const sendCampaignNow =
@@ -2056,11 +2222,9 @@ function useCampaigns(
               },
 
               body:
-                JSON.stringify(
-                  {
-                    campaignId,
-                  }
-                ),
+                JSON.stringify({
+                  campaignId,
+                }),
             }
           );
 
@@ -2081,14 +2245,16 @@ function useCampaigns(
 
           optimisticStatusRef.current[
             campaignId
-          ] = "failed";
+          ] =
+            "failed";
 
           return response;
         }
 
         optimisticStatusRef.current[
           campaignId
-        ] = "sent";
+        ] =
+          "sent";
 
         cacheRef.current.ts =
           0;
@@ -2099,66 +2265,11 @@ function useCampaigns(
       } catch (error) {
         optimisticStatusRef.current[
           campaignId
-        ] = "failed";
+        ] =
+          "failed";
 
         throw error;
       }
-    };
-
-  // ==================================================
-  // ADD PROFILE SUBSCRIBERS
-  // ==================================================
-
-  const addSubscribersToList =
-    async (
-      listId: string,
-      profileIds: string[]
-    ) => {
-      if (
-        !profileIds.length
-      ) {
-        return;
-      }
-
-      await service.addSubscribers(
-        listId,
-        profileIds
-      );
-
-      const counts =
-        await service.subscriberCounts();
-
-      setSubscriberCounts(
-        counts
-      );
-    };
-
-  // ==================================================
-  // ADD MANUAL SUBSCRIBERS
-  // ==================================================
-
-  const addManualSubscribersToList =
-    async (
-      listId: string,
-      emails: string[]
-    ) => {
-      if (
-        !emails.length
-      ) {
-        return;
-      }
-
-      await service.addManualSubscribers(
-        listId,
-        emails
-      );
-
-      const counts =
-        await service.subscriberCounts();
-
-      setSubscriberCounts(
-        counts
-      );
     };
 
   // ==================================================
@@ -2175,8 +2286,9 @@ function useCampaigns(
     const channel =
       supabase
         .channel(
-          `realtime-campaigns-lists-${organisationId}`
+          `campaigns-${organisationId}`
         )
+
         .on(
           "postgres_changes",
           {
@@ -2187,13 +2299,14 @@ function useCampaigns(
               "profile_subscriber_lists",
           },
           () => {
-            service
+            void service
               .subscriberCounts()
               .then(
                 setSubscriberCounts
               );
           }
         )
+
         .on(
           "postgres_changes",
           {
@@ -2204,13 +2317,14 @@ function useCampaigns(
               "campaign_list_emails",
           },
           () => {
-            service
+            void service
               .subscriberCounts()
               .then(
                 setSubscriberCounts
               );
           }
         )
+
         .on(
           "postgres_changes",
           {
@@ -2227,82 +2341,7 @@ function useCampaigns(
             void refreshCampaigns();
           }
         )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema:
-              "public",
-            table:
-              "campaign_opens",
-          },
-          async () => {
-            const {
-              data,
-            } = await supabase
-              .from(
-                "campaign_opens"
-              )
-              .select(
-                "campaign_id"
-              );
 
-            const counts: Record<
-              string,
-              number
-            > = {};
-
-            (
-              data || []
-            ).forEach(
-              (
-                row: any
-              ) => {
-                counts[
-                  row.campaign_id
-                ] =
-                  (counts[
-                    row
-                      .campaign_id
-                  ] || 0) +
-                  1;
-              }
-            );
-
-            setCampaigns(
-              (previous) =>
-                previous.map(
-                  (
-                    campaign
-                  ) => ({
-                    ...campaign,
-
-                    open_count:
-                      counts[
-                        campaign
-                          .id
-                      ] || 0,
-                  })
-                )
-            );
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema:
-              "public",
-            table:
-              "campaign_clicks",
-          },
-          () => {
-            cacheRef.current.ts =
-              0;
-
-            void refreshCampaigns();
-          }
-        )
         .subscribe();
 
     return () => {
@@ -2312,39 +2351,29 @@ function useCampaigns(
     };
   }, [
     organisationId,
-    supabase,
     service,
+    supabase,
   ]);
 
   return {
     campaigns,
     setCampaigns,
-
     lists,
-
     companyBranding,
     updateCompanyName,
-
-    organisationId,
-
     createList,
     scheduleCampaign,
     loadListSubscribers,
     updateCampaign,
     deleteCampaign,
     deleteList,
-
     removeSubscriber,
     removeManualSubscriber,
-
     subscriberCounts,
     profiles,
-
     sendCampaignNow,
-
     addSubscribersToList,
     addManualSubscribersToList,
-
     refreshCampaigns,
   };
 }
@@ -2369,31 +2398,23 @@ export default function CampaignsPage() {
   const {
     campaigns,
     setCampaigns,
-
     lists,
-
     companyBranding,
     updateCompanyName,
-
     createList,
     scheduleCampaign,
     loadListSubscribers,
     updateCampaign,
     deleteCampaign,
     deleteList,
-
     removeSubscriber,
     removeManualSubscriber,
-
     subscriberCounts,
     profiles,
-
     sendCampaignNow:
       sendCampaignNowBase,
-
     addSubscribersToList,
     addManualSubscribersToList,
-
     refreshCampaigns,
   } = useCampaigns(
     supabase
@@ -2539,10 +2560,6 @@ export default function CampaignsPage() {
       null
     );
 
-  // ==================================================
-  // BRANDING SYNC
-  // ==================================================
-
   useEffect(() => {
     setCompanyNameInput(
       companyBranding.name
@@ -2550,10 +2567,6 @@ export default function CampaignsPage() {
   }, [
     companyBranding.name,
   ]);
-
-  // ==================================================
-  // CONTENT EDITOR SYNC
-  // ==================================================
 
   useEffect(() => {
     if (
@@ -2579,27 +2592,21 @@ export default function CampaignsPage() {
     editingCampaignId,
   ]);
 
-  // ==================================================
-  // COMPANY FOOTER
-  // ==================================================
-
   const withAutomaticCompanyDetails =
     (
       contentHtml: string
     ) => {
       const cleanContent =
         stripAutomaticCompanyFooter(
-          contentHtml || ""
+          contentHtml ||
+            ""
         );
 
-      const footer =
-        buildCompanyFooterHtml(
-          companyBranding,
-          campaignCompanyDetails,
-          form.social_links
-        );
-
-      return `${cleanContent}${footer}`;
+      return `${cleanContent}${buildCompanyFooterHtml(
+        companyBranding,
+        campaignCompanyDetails,
+        form.social_links
+      )}`;
     };
 
   // ==================================================
@@ -2611,9 +2618,13 @@ export default function CampaignsPage() {
       campaignId: string
     ) => {
       setCampaigns(
-        (previous) =>
+        (
+          previous
+        ) =>
           previous.map(
-            (campaign) =>
+            (
+              campaign
+            ) =>
               campaign.id ===
               campaignId
                 ? {
@@ -2624,23 +2635,6 @@ export default function CampaignsPage() {
                 : campaign
           )
       );
-
-      if (
-        selectedCampaign
-          ?.id ===
-        campaignId
-      ) {
-        setSelectedCampaign(
-          (previous: any) =>
-            previous
-              ? {
-                  ...previous,
-                  status:
-                    "sending",
-                }
-              : previous
-        );
-      }
 
       try {
         const response =
@@ -2657,98 +2651,16 @@ export default function CampaignsPage() {
           );
         }
 
-        setCampaigns(
-          (previous) =>
-            previous.map(
-              (campaign) =>
-                campaign.id ===
-                campaignId
-                  ? {
-                      ...campaign,
-
-                      status:
-                        "sent",
-
-                      sent_at:
-                        campaign.sent_at ||
-                        new Date().toISOString(),
-                    }
-                  : campaign
-            )
-        );
-
-        if (
-          selectedCampaign
-            ?.id ===
-          campaignId
-        ) {
-          setSelectedCampaign(
-            (previous: any) =>
-              previous
-                ? {
-                    ...previous,
-
-                    status:
-                      "sent",
-
-                    sent_at:
-                      previous.sent_at ||
-                      new Date().toISOString(),
-                  }
-                : previous
-          );
-        }
-
-        window.setTimeout(
-          () => {
-            void refreshCampaigns();
-          },
-          1500
-        );
+        await refreshCampaigns();
       } catch (error) {
         console.error(
-          "sendCampaignNow error:",
           error
         );
-
-        setCampaigns(
-          (previous) =>
-            previous.map(
-              (campaign) =>
-                campaign.id ===
-                campaignId
-                  ? {
-                      ...campaign,
-                      status:
-                        "failed",
-                    }
-                  : campaign
-            )
-        );
-
-        if (
-          selectedCampaign
-            ?.id ===
-          campaignId
-        ) {
-          setSelectedCampaign(
-            (previous: any) =>
-              previous
-                ? {
-                    ...previous,
-                    status:
-                      "failed",
-                  }
-                : previous
-          );
-        }
-
-        await refreshCampaigns();
       }
     };
 
   // ==================================================
-  // FORMAT
+  // EDITOR HELPERS
   // ==================================================
 
   const applyFormat =
@@ -2764,22 +2676,16 @@ export default function CampaignsPage() {
 
       contentEditableRef.current.focus();
 
-      try {
-        document.execCommand(
-          command,
-          false,
-          value
-        );
-      } catch (error) {
-        console.error(
-          "Format command failed:",
-          command,
-          error
-        );
-      }
+      document.execCommand(
+        command,
+        false,
+        value
+      );
 
       setForm(
-        (previous: any) => ({
+        (
+          previous: any
+        ) => ({
           ...previous,
 
           content:
@@ -2810,7 +2716,9 @@ export default function CampaignsPage() {
       );
 
       setForm(
-        (previous: any) => ({
+        (
+          previous: any
+        ) => ({
           ...previous,
 
           content:
@@ -2824,14 +2732,10 @@ export default function CampaignsPage() {
 
   const handleContentInput =
     () => {
-      if (
-        !contentEditableRef.current
-      ) {
-        return;
-      }
-
       setForm(
-        (previous: any) => ({
+        (
+          previous: any
+        ) => ({
           ...previous,
 
           content:
@@ -2843,32 +2747,26 @@ export default function CampaignsPage() {
       );
     };
 
-  // ==================================================
-  // EDITOR ACTIONS
-  // ==================================================
-
   const handleInsertLink =
     () => {
       const url =
         window.prompt(
-          "Link URL (include https://)"
+          "Link URL"
         );
 
-      if (!url) {
-        return;
+      if (url) {
+        applyFormat(
+          "createLink",
+          url
+        );
       }
-
-      applyFormat(
-        "createLink",
-        url
-      );
     };
 
   const handleInsertImage =
     () => {
       const url =
         window.prompt(
-          "Image URL (include https://)"
+          "Image URL"
         );
 
       if (!url) {
@@ -2885,18 +2783,6 @@ export default function CampaignsPage() {
         </div>
       `);
     };
-
-  const toggleHeading =
-    () => {
-      applyFormat(
-        "formatBlock",
-        "H2"
-      );
-    };
-
-  // ==================================================
-  // CONTENT BLOCKS
-  // ==================================================
 
   const insertHeadingBlock =
     () => {
@@ -2917,8 +2803,8 @@ export default function CampaignsPage() {
   const insertQuote =
     () => {
       insertHtml(`
-        <blockquote style="margin:36px 0;padding:10px 0 10px 24px;border-left:3px solid ${form.brand_color || DEFAULT_BRAND_COLOR};font-size:24px;line-height:1.5;font-style:italic;color:#57534e;">
-          Add your quote or key message here.
+        <blockquote style="margin:36px 0;padding:10px 0 10px 24px;border-left:3px solid ${form.brand_color || DEFAULT_BRAND_COLOR};font-size:24px;">
+          Add your quote here.
         </blockquote>
       `);
     };
@@ -2926,27 +2812,19 @@ export default function CampaignsPage() {
   const insertTwoColumn =
     () => {
       insertHtml(`
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0;">
+        <table width="100%" style="margin:32px 0;">
           <tr>
-            <td width="48%" valign="top" style="padding-right:4%;">
-              <p style="font-size:16px;line-height:1.7;">
-                Left column content.
-              </p>
+            <td width="48%" style="padding-right:4%;">
+              Left column content.
             </td>
 
-            <td width="48%" valign="top">
-              <p style="font-size:16px;line-height:1.7;">
-                Right column content.
-              </p>
+            <td width="48%">
+              Right column content.
             </td>
           </tr>
         </table>
       `);
     };
-
-  // ==================================================
-  // APPLY TEMPLATE
-  // ==================================================
 
   const applyTemplate =
     (
@@ -2958,7 +2836,9 @@ export default function CampaignsPage() {
         );
 
       setForm(
-        (previous: any) => ({
+        (
+          previous: any
+        ) => ({
           ...previous,
 
           brand_color:
@@ -2983,10 +2863,6 @@ export default function CampaignsPage() {
       );
     };
 
-  // ==================================================
-  // AI GENERATION
-  // ==================================================
-
   const executeGeneration =
     () => {
       if (
@@ -3001,39 +2877,35 @@ export default function CampaignsPage() {
 
       window.setTimeout(
         () => {
-          const generatedSubject =
-            `Update: ${clarityTopic
-              .split(" ")
-              .slice(0, 4)
-              .join(" ")}`;
+          const generated =
+            `
+              <p>Hi,</p>
 
-          const generatedContent = `
-            <p style="font-size:17px;line-height:1.8;">
-              Hi,
-            </p>
+              <p>
+                We wanted to share an update about
+                ${clarityTopic}.
+              </p>
 
-            <p style="font-size:17px;line-height:1.8;">
-              We wanted to share an update about ${clarityTopic}.
-            </p>
+              <h2>
+                Here’s what you need to know
+              </h2>
 
-            <h2 style="font-size:30px;line-height:1.2;margin:32px 0 16px;">
-              Here’s what you need to know
-            </h2>
-
-            <p style="font-size:17px;line-height:1.8;">
-              Add the key details, value and next steps for your audience here.
-            </p>
-          `;
+              <p>
+                Add the key details here.
+              </p>
+            `;
 
           setForm(
-            (previous: any) => ({
+            (
+              previous: any
+            ) => ({
               ...previous,
 
               subject:
-                generatedSubject,
+                `Update: ${clarityTopic}`,
 
               content:
-                generatedContent,
+                generated,
             })
           );
 
@@ -3041,7 +2913,7 @@ export default function CampaignsPage() {
             contentEditableRef.current
           ) {
             contentEditableRef.current.innerHTML =
-              generatedContent;
+              generated;
           }
 
           setIsGenerating(
@@ -3056,89 +2928,22 @@ export default function CampaignsPage() {
       );
     };
 
-  // ==================================================
-  // SOCIAL
-  // ==================================================
-
-  const updateSocialLink =
-    (
-      platform:
-        keyof SocialLinks,
-      value: string
-    ) => {
-      setForm(
-        (previous: any) => ({
-          ...previous,
-
-          social_links: {
-            ...(
-              previous.social_links ||
-              {}
-            ),
-
-            [platform]:
-              value,
-          },
-        })
-      );
-    };
-
-  // ==================================================
-  // DATE
-  // ==================================================
-
   const formatScheduledDate =
     (
-      dateString:
+      value:
         | string
         | null
     ) => {
-      if (!dateString) {
+      if (!value) {
         return "Immediate Release";
       }
 
-      try {
-        const date =
-          new Date(
-            dateString
-          );
-
-        return date.toLocaleString(
-          "en-GB",
-          {
-            day:
-              "numeric",
-
-            month:
-              "short",
-
-            year:
-              "numeric",
-
-            hour:
-              "2-digit",
-
-            minute:
-              "2-digit",
-          }
-        );
-      } catch {
-        return dateString;
-      }
+      return new Date(
+        value
+      ).toLocaleString(
+        "en-GB"
+      );
     };
-
-  const activeBrandColor =
-    form.brand_color ||
-    DEFAULT_BRAND_COLOR;
-
-  const activeBrandFont =
-    form.brand_font ||
-    FONT_OPTIONS[0]
-      .value;
-
-  // ==================================================
-  // OPEN NEW CAMPAIGN
-  // ==================================================
 
   const openNewCampaign =
     () => {
@@ -3164,14 +2969,19 @@ export default function CampaignsPage() {
         ""
       );
 
-      setShowTemplates(
-        true
-      );
-
       setShowModal(
         true
       );
     };
+
+  const activeBrandColor =
+    form.brand_color ||
+    DEFAULT_BRAND_COLOR;
+
+  const activeBrandFont =
+    form.brand_font ||
+    FONT_OPTIONS[0]
+      .value;
 
   // ==================================================
   // RENDER
@@ -3180,216 +2990,126 @@ export default function CampaignsPage() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#faf9f6] p-4 font-sans text-stone-900 md:p-12">
 
-      {/* ==================================================
-          HEADER
-      ================================================== */}
+      {/* HEADER */}
 
-      <header className="mx-auto mb-8 flex max-w-7xl flex-col gap-6 border-b border-stone-200 pb-10 md:mb-16 md:flex-row md:items-end md:justify-between">
+      <header className="mx-auto mb-12 flex max-w-7xl flex-col gap-6 border-b border-stone-200 pb-10 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="mb-3 text-[9px] font-black uppercase tracking-[0.5em] text-[#8fa07d]">
             Campaign Dashboard
           </p>
 
-          <h1 className="font-serif text-5xl italic tracking-tighter text-stone-800 md:text-7xl">
+          <h1 className="font-serif text-5xl italic md:text-7xl">
             Campaigns
           </h1>
-
-          <div className="mt-5 flex items-center gap-3">
-            {companyBranding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={
-                  companyBranding.logoUrl
-                }
-                alt={
-                  companyBranding.name
-                }
-                className="h-9 w-9 rounded-xl border border-stone-200 bg-white object-contain p-1"
-              />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-[9px] font-black text-stone-400">
-                OS
-              </div>
-            )}
-
-            <div>
-              <p className="text-xs font-bold text-stone-700">
-                {
-                  companyBranding.name
-                }
-              </p>
-
-              <p className="text-[9px] uppercase tracking-wider text-stone-400">
-                Brand synced from
-                settings
-              </p>
-            </div>
-          </div>
         </div>
 
         <button
           onClick={
             openNewCampaign
           }
-          className="flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.3em] text-[#a9b897] shadow-xl transition-all hover:scale-[1.02] md:w-auto md:py-5 md:text-[11px]"
+          className="flex items-center justify-center gap-3 rounded-2xl bg-stone-900 px-8 py-5 text-[10px] font-black uppercase tracking-[0.3em] text-[#a9b897]"
         >
-          <Plus size={18} />
+          <Plus
+            size={18}
+          />
 
           Create Campaign
         </button>
       </header>
 
-      {/* ==================================================
-          MAIN GRID
-      ================================================== */}
+      {/* MAIN */}
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 lg:grid-cols-12">
+      <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-12">
 
-        {/* ==================================================
-            CAMPAIGN PIPELINE
-        ================================================== */}
-
-        <div className="order-2 space-y-6 lg:order-1 lg:col-span-8">
-          <p className="ml-4 text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">
-            Campaign Status
-            Pipeline
+        <div className="space-y-6 lg:col-span-8">
+          <p className="text-[9px] font-black uppercase tracking-[0.4em] text-stone-300">
+            Campaign Status Pipeline
           </p>
 
           {campaigns.length ===
-          0 ? (
-            <div className="rounded-[3.5rem] border border-stone-100 bg-white p-24 text-center shadow-sm">
-              <p className="font-serif text-2xl italic text-stone-200">
+            0 && (
+            <div className="rounded-[3rem] bg-white p-20 text-center">
+              <p className="font-serif italic text-stone-300">
                 No campaigns
-                scheduled at this
-                time.
+                scheduled.
               </p>
             </div>
-          ) : (
-            campaigns.map(
-              (campaign) => (
-                <div
-                  key={
-                    campaign.id
-                  }
-                  onClick={() => {
-                    setSelectedCampaign(
-                      campaign
-                    );
+          )}
 
-                    setShowViewModal(
-                      true
-                    );
-                  }}
-                  className="group flex cursor-pointer flex-col justify-between gap-6 rounded-[3rem] border border-stone-100 bg-white p-8 shadow-sm transition-all hover:border-stone-200 hover:shadow-md md:flex-row md:items-center"
-                >
-                  <div className="flex min-w-0 flex-1 items-start gap-6">
-                    <div
-                      className="shrink-0 rounded-2xl bg-stone-50 p-5"
-                      style={{
-                        color:
-                          campaign.brand_color ||
-                          "#a9b897",
-                      }}
-                    >
-                      <Radio
-                        size={20}
-                        className="animate-pulse"
+          {campaigns.map(
+            (
+              campaign
+            ) => (
+              <div
+                key={
+                  campaign.id
+                }
+                onClick={() => {
+                  setSelectedCampaign(
+                    campaign
+                  );
+
+                  setShowViewModal(
+                    true
+                  );
+                }}
+                className="cursor-pointer rounded-[3rem] border border-stone-100 bg-white p-8"
+              >
+                <div className="flex justify-between gap-6">
+                  <div>
+                    <h3 className="text-xl font-black uppercase">
+                      {
+                        campaign.title
+                      }
+                    </h3>
+
+                    <p className="mt-2 font-serif text-sm italic text-stone-500">
+                      {
+                        campaign.subject
+                      }
+                    </p>
+
+                    <p className="mt-3 flex items-center gap-2 text-[10px] text-stone-400">
+                      <Clock
+                        size={12}
                       />
-                    </div>
 
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate text-xl font-black uppercase tracking-tight text-stone-800">
-                          {
-                            campaign.title
-                          }
-                        </h3>
-
-                        <span className="rounded-full bg-stone-100 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-stone-500">
-                          {campaign
-                            .subscriber_lists
-                            ?.name ||
-                            "Unassigned List"}
-                        </span>
-                      </div>
-
-                      <p className="block truncate font-serif text-xs italic text-stone-500">
-                        Subject:{" "}
-                        {campaign.subject ||
-                          "No Subject Specified"}
-                      </p>
-
-                      {campaign.preview_text && (
-                        <p className="block truncate text-[11px] text-stone-400">
-                          {
-                            campaign.preview_text
-                          }
-                        </p>
+                      {formatScheduledDate(
+                        campaign.scheduled_for
                       )}
-
-                      <div className="flex items-center gap-4 pt-1 text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                        <span className="flex items-center gap-1">
-                          <Clock
-                            size={
-                              12
-                            }
-                          />
-
-                          {formatScheduledDate(
-                            campaign.scheduled_for
-                          )}
-                        </span>
-                      </div>
-                    </div>
+                    </p>
                   </div>
 
-                  <div className="flex flex-col items-end gap-1">
-                    <span
-                      className={`rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-wider ${
-                        campaign.status ===
-                        "sent"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : campaign.status ===
-                                "sending" ||
-                              campaign.status ===
-                                "processing"
-                            ? "bg-amber-100 text-amber-700"
-                            : campaign.status ===
-                                "failed"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-stone-100 text-stone-500"
-                      }`}
-                    >
+                  <div className="text-right">
+                    <span className="rounded-full bg-stone-100 px-3 py-1 text-[9px] font-black uppercase">
                       {campaign.status ||
                         "queued"}
                     </span>
 
-                    <span className="text-[10px] font-black uppercase tracking-wider text-stone-400">
-                      Opens:{" "}
+                    <p className="mt-3 text-[9px] text-stone-400">
+                      Opens{" "}
                       {campaign.open_count ||
                         0}
-                    </span>
+                    </p>
 
-                    <span className="text-[10px] font-black uppercase tracking-wider text-stone-400">
-                      Clicks:{" "}
+                    <p className="text-[9px] text-stone-400">
+                      Clicks{" "}
                       {campaign.click_count ||
                         0}
-                    </span>
+                    </p>
                   </div>
                 </div>
-              )
+              </div>
             )
           )}
         </div>
 
-        {/* ==================================================
-            LISTS
-        ================================================== */}
+        {/* LISTS */}
 
-        <aside className="order-1 lg:order-2 lg:col-span-4">
-          <div className="rounded-[3.5rem] border border-stone-200 bg-stone-50 p-8 shadow-sm md:p-12">
-            <div className="mb-10 flex items-center justify-between">
-              <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[#8fa07d]">
+        <aside className="lg:col-span-4">
+          <div className="rounded-[3rem] border border-stone-200 bg-stone-50 p-8">
+            <div className="mb-8 flex justify-between">
+              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-[#8fa07d]">
                 Campaign Lists
               </p>
 
@@ -3399,16 +3119,19 @@ export default function CampaignsPage() {
                     true
                   )
                 }
-                className="rounded-full border border-stone-200 bg-white p-2 transition-colors hover:bg-stone-100"
               >
-                <Plus size={14} />
+                <Plus
+                  size={16}
+                />
               </button>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-5">
               {lists.map(
-                (list) => (
-                  <div
+                (
+                  list
+                ) => (
+                  <button
                     key={
                       list.id
                     }
@@ -3417,409 +3140,55 @@ export default function CampaignsPage() {
                         list
                       );
 
-                      setListSubscribers(
-                        []
-                      );
-
                       setShowListDetailModal(
                         true
                       );
 
-                      const result =
+                      setListSubscribers(
                         await loadListSubscribers(
                           list.id
-                        );
-
-                      setListSubscribers(
-                        result
+                        )
                       );
                     }}
-                    className="flex cursor-pointer items-center justify-between border-b border-stone-200 pb-4 text-[10px] font-black uppercase tracking-widest text-stone-600 hover:text-stone-900"
+                    className="flex w-full justify-between border-b border-stone-200 pb-4 text-left text-[10px] font-black uppercase tracking-widest"
                   >
                     <span>
-                      {list.name} (
-                      {subscriberCounts?.[
+                      {
+                        list.name
+                      }{" "}
+                      (
+                      {subscriberCounts[
                         list.id
                       ] || 0}
                       )
                     </span>
 
                     <Hash
-                      size={10}
-                      className="text-stone-300"
+                      size={11}
                     />
-                  </div>
+                  </button>
                 )
-              )}
-
-              {lists.length ===
-                0 && (
-                <p className="font-serif text-[10px] italic text-stone-400">
-                  No subscriber
-                  lists created
-                  yet.
-                </p>
               )}
             </div>
           </div>
         </aside>
       </div>
 
-      {/* ==================================================
-          CAMPAIGN VIEW MODAL
-      ================================================== */}
-
-      <AnimatePresence>
-        {showViewModal &&
-          selectedCampaign && (
-            <div className="fixed inset-0 z-[250] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-xl md:p-10">
-              <motion.div
-                initial={{
-                  opacity: 0,
-                  scale: 0.95,
-                }}
-                animate={{
-                  opacity: 1,
-                  scale: 1,
-                }}
-                exit={{
-                  opacity: 0,
-                  scale: 0.95,
-                }}
-                className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[3.5rem] border border-stone-200 bg-[#faf9f6] shadow-2xl"
-              >
-                <div className="flex items-start justify-between gap-4 border-b border-stone-200 bg-stone-50 p-8 md:p-12">
-                  <div>
-                    <div className="mb-3 flex items-center gap-3">
-                      {companyBranding.logoUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={
-                            companyBranding.logoUrl
-                          }
-                          alt={
-                            companyBranding.name
-                          }
-                          className="h-10 w-10 rounded-xl border border-stone-200 bg-white object-contain p-1"
-                        />
-                      )}
-
-                      <span className="rounded-full bg-stone-900 px-4 py-1 text-[9px] font-black uppercase tracking-widest text-[#a9b897]">
-                        Campaign
-                        Profile
-                      </span>
-                    </div>
-
-                    <h2 className="text-3xl font-black uppercase tracking-tight text-stone-800">
-                      {
-                        selectedCampaign.title
-                      }
-                    </h2>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setShowViewModal(
-                        false
-                      );
-
-                      setSelectedCampaign(
-                        null
-                      );
-                    }}
-                    className="rounded-full border border-stone-200 bg-white p-3 transition-colors hover:bg-stone-100"
-                  >
-                    <X
-                      size={18}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex-1 space-y-8 overflow-y-auto p-8 md:p-12">
-                  <div>
-                    <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      Subject
-                    </p>
-
-                    <div className="rounded-2xl border border-stone-100 bg-white p-5 font-serif text-lg italic text-stone-900">
-                      {selectedCampaign.subject ||
-                        "No Subject Specified"}
-                    </div>
-                  </div>
-
-                  {selectedCampaign.header_image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={
-                        selectedCampaign.header_image_url
-                      }
-                      alt=""
-                      className="h-48 w-full rounded-3xl border border-stone-200 object-cover"
-                    />
-                  )}
-
-                  <div
-                    className="min-h-[200px] rounded-[2.5rem] border border-stone-200 bg-white p-8 text-base leading-relaxed shadow-sm md:p-10"
-                    style={{
-                      fontFamily:
-                        selectedCampaign.brand_font ||
-                        undefined,
-                    }}
-                    dangerouslySetInnerHTML={{
-                      __html:
-                        selectedCampaign.content ||
-                        "Empty content payload.",
-                    }}
-                  />
-
-                  {selectedCampaign.cta_text &&
-                    selectedCampaign.cta_url && (
-                      <div className="text-center">
-                        <a
-                          href={
-                            selectedCampaign.cta_url
-                          }
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-block px-8 py-4 text-[10px] font-black uppercase tracking-widest text-white"
-                          style={{
-                            backgroundColor:
-                              selectedCampaign.brand_color ||
-                              DEFAULT_BRAND_COLOR,
-
-                            borderRadius:
-                              "14px",
-                          }}
-                        >
-                          {
-                            selectedCampaign.cta_text
-                          }
-                        </a>
-                      </div>
-                    )}
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4">
-                      <p className="text-[9px] font-black uppercase text-stone-400">
-                        Sent
-                      </p>
-
-                      <p className="text-xl font-bold">
-                        {selectedCampaign.sent_count ||
-                          0}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4">
-                      <p className="text-[9px] font-black uppercase text-stone-400">
-                        Opens
-                      </p>
-
-                      <p className="text-xl font-bold">
-                        {selectedCampaign.open_count ||
-                          0}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4">
-                      <p className="text-[9px] font-black uppercase text-stone-400">
-                        Clicks
-                      </p>
-
-                      <p className="text-xl font-bold">
-                        {selectedCampaign.click_count ||
-                          0}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap justify-between gap-3 border-t border-stone-200 bg-stone-50 p-6">
-                  <button
-                    onClick={() => {
-                      setShowViewModal(
-                        false
-                      );
-
-                      setEditingCampaignId(
-                        selectedCampaign.id
-                      );
-
-                      const rawContent =
-                        stripAutomaticCompanyFooter(
-                          selectedCampaign.content ||
-                            ""
-                        );
-
-                      setForm({
-                        title:
-                          selectedCampaign.title ||
-                          "",
-
-                        subject:
-                          selectedCampaign.subject ||
-                          "",
-
-                        preview_text:
-                          selectedCampaign.preview_text ||
-                          "",
-
-                        list_id:
-                          selectedCampaign.list_id
-                            ? String(
-                                selectedCampaign.list_id
-                              )
-                            : "",
-
-                        scheduled_for:
-                          selectedCampaign.scheduled_for ||
-                          "",
-
-                        content:
-                          rawContent,
-
-                        sender_name:
-                          selectedCampaign.sender_name ||
-                          companyBranding.name,
-
-                        reply_to:
-                          selectedCampaign.reply_to ||
-                          companyBranding.email,
-
-                        header_image_url:
-                          selectedCampaign.header_image_url ||
-                          "",
-
-                        brand_color:
-                          selectedCampaign.brand_color ||
-                          DEFAULT_BRAND_COLOR,
-
-                        brand_font:
-                          selectedCampaign.brand_font ||
-                          FONT_OPTIONS[0]
-                            .value,
-
-                        cta_text:
-                          selectedCampaign.cta_text ||
-                          "",
-
-                        cta_url:
-                          selectedCampaign.cta_url ||
-                          "",
-
-                        social_links:
-                          selectedCampaign.social_links || {
-                            twitter:
-                              "",
-                            facebook:
-                              "",
-                            instagram:
-                              "",
-                            linkedin:
-                              "",
-                          },
-                      });
-
-                      setStep(
-                        "editor"
-                      );
-
-                      setShowModal(
-                        true
-                      );
-                    }}
-                    className="rounded-xl border border-stone-200 bg-white px-8 py-4 text-[10px] font-black uppercase text-stone-700"
-                  >
-                    Edit Campaign
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setShowEmailPreview(
-                        true
-                      )
-                    }
-                    className="rounded-xl border border-stone-200 bg-stone-100 px-8 py-4 text-[10px] font-black uppercase text-stone-700"
-                  >
-                    Preview Email
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      void sendCampaignNow(
-                        selectedCampaign.id
-                      )
-                    }
-                    disabled={
-                      selectedCampaign.status ===
-                        "sending" ||
-                      selectedCampaign.status ===
-                        "sent"
-                    }
-                    className="rounded-xl bg-emerald-700 px-8 py-4 text-[10px] font-black uppercase text-white disabled:opacity-50"
-                  >
-                    {selectedCampaign.status ===
-                    "sent"
-                      ? "Sent"
-                      : selectedCampaign.status ===
-                          "sending"
-                        ? "Sending..."
-                        : "Send Now"}
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      if (
-                        !window.confirm(
-                          `Delete "${selectedCampaign.title}"?`
-                        )
-                      ) {
-                        return;
-                      }
-
-                      await deleteCampaign(
-                        selectedCampaign.id
-                      );
-
-                      setShowViewModal(
-                        false
-                      );
-
-                      setSelectedCampaign(
-                        null
-                      );
-                    }}
-                    className="rounded-xl bg-red-600 px-8 py-4 text-[10px] font-black uppercase text-white"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-      </AnimatePresence>
-
-      {/* ==================================================
-          CREATE LIST MODAL
-      ================================================== */}
+      {/* CREATE LIST */}
 
       <AnimatePresence>
         {showListModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-stone-900/40 p-6 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-4">
             <motion.div
               initial={{
-                scale: 0.9,
                 opacity: 0,
+                scale: 0.95,
               }}
               animate={{
-                scale: 1,
                 opacity: 1,
+                scale: 1,
               }}
-              exit={{
-                scale: 0.9,
-                opacity: 0,
-              }}
-              className="relative w-full max-w-md rounded-[3rem] border border-stone-200 bg-white p-10 shadow-2xl"
+              className="relative w-full max-w-md rounded-[3rem] bg-white p-10"
             >
               <button
                 onClick={() =>
@@ -3827,15 +3196,16 @@ export default function CampaignsPage() {
                     false
                   )
                 }
-                className="absolute right-8 top-8 rounded-full p-2 text-stone-400 hover:text-stone-900"
+                className="absolute right-8 top-8"
               >
-                <X size={16} />
+                <X
+                  size={17}
+                />
               </button>
 
-              <h3 className="mb-6 font-serif text-2xl italic">
-                Create Campaign
-                List
-              </h3>
+              <h2 className="mb-6 font-serif text-2xl italic">
+                Create Campaign List
+              </h2>
 
               <input
                 value={
@@ -3849,30 +3219,27 @@ export default function CampaignsPage() {
                       .value
                   )
                 }
-                placeholder="Segment name"
-                className="mb-6 w-full rounded-2xl border border-stone-100 bg-stone-50 p-4 outline-none focus:border-stone-900"
+                placeholder="List name"
+                className="mb-5 w-full rounded-2xl border bg-stone-50 p-4 outline-none"
               />
 
               <button
                 onClick={async () => {
-                  const created =
+                  if (
                     await createList(
                       newListName
+                    )
+                  ) {
+                    setNewListName(
+                      ""
                     );
 
-                  if (!created) {
-                    return;
+                    setShowListModal(
+                      false
+                    );
                   }
-
-                  setNewListName(
-                    ""
-                  );
-
-                  setShowListModal(
-                    false
-                  );
                 }}
-                className="w-full rounded-2xl bg-stone-900 py-4 text-[10px] font-black uppercase tracking-widest text-white"
+                className="w-full rounded-2xl bg-stone-900 py-4 text-[10px] font-black uppercase text-white"
               >
                 Create List
               </button>
@@ -3881,1440 +3248,12 @@ export default function CampaignsPage() {
         )}
       </AnimatePresence>
 
-      {/* ==================================================
-          CAMPAIGN EDITOR
-      ================================================== */}
-
-      <AnimatePresence>
-        {showModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/60 backdrop-blur-xl md:p-6">
-            <motion.div
-              initial={{
-                opacity: 0,
-                y: 50,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              exit={{
-                opacity: 0,
-                y: 50,
-              }}
-              className="relative flex h-full w-full flex-col overflow-hidden border border-stone-200 bg-[#faf9f6] shadow-2xl md:h-[92vh] md:max-w-[1500px] md:flex-row md:rounded-[3rem]"
-            >
-              <button
-                onClick={() =>
-                  setShowModal(
-                    false
-                  )
-                }
-                className="absolute right-6 top-6 z-[110] rounded-full border border-stone-200 bg-white p-3 text-stone-700 shadow-sm hover:bg-stone-100"
-              >
-                <X size={18} />
-              </button>
-
-              {/* ==================================================
-                  SIDEBAR
-              ================================================== */}
-
-              <div className="no-scrollbar w-full shrink-0 space-y-4 overflow-y-auto border-r border-stone-200 bg-stone-50 p-6 md:w-[350px] md:p-8">
-                <div className="mb-2">
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400">
-                    Campaign Studio
-                  </p>
-
-                  <p className="mt-2 text-xs leading-relaxed text-stone-500">
-                    Build a branded
-                    email with your
-                    company details
-                    automatically
-                    included.
-                  </p>
-                </div>
-
-                {/* BRAND SYNC */}
-
-                <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4">
-                  <div className="mb-3 flex items-center gap-3">
-                    {companyBranding.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={
-                          companyBranding.logoUrl
-                        }
-                        alt=""
-                        className="h-12 w-12 rounded-xl border border-white bg-white object-contain p-1"
-                      />
-                    ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white">
-                        <ImageIcon
-                          size={
-                            17
-                          }
-                          className="text-stone-300"
-                        />
-                      </div>
-                    )}
-
-                    <div>
-                      <p className="text-xs font-black text-stone-800">
-                        {
-                          companyBranding.name
-                        }
-                      </p>
-
-                      <p className="text-[8px] font-black uppercase tracking-wider text-[#71805f]">
-                        Synced from
-                        settings
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] leading-relaxed text-stone-500">
-                    Your logo, company
-                    name, contact details
-                    and profile summary
-                    will automatically be
-                    included in the
-                    campaign footer.
-                  </p>
-                </div>
-
-                {/* TEMPLATES */}
-
-                <div className="rounded-2xl border border-stone-100 bg-white p-4">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowTemplates(
-                        (
-                          previous
-                        ) =>
-                          !previous
-                      )
-                    }
-                    className="flex w-full items-center justify-between"
-                  >
-                    <span className="flex items-center gap-2 text-[8px] font-black uppercase tracking-wider text-stone-400">
-                      <LayoutTemplate
-                        size={12}
-                      />
-
-                      Templates
-                    </span>
-
-                    <span className="text-[9px] text-stone-400">
-                      {showTemplates
-                        ? "Hide"
-                        : "Show"}
-                    </span>
-                  </button>
-
-                  {showTemplates && (
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      {CAMPAIGN_TEMPLATES.map(
-                        (
-                          template
-                        ) => (
-                          <button
-                            key={
-                              template.id
-                            }
-                            type="button"
-                            onClick={() =>
-                              applyTemplate(
-                                template
-                              )
-                            }
-                            className="rounded-xl border border-stone-100 bg-stone-50 p-3 text-left transition hover:border-[#a9b897] hover:bg-white"
-                          >
-                            <p className="text-[9px] font-black uppercase text-stone-800">
-                              {
-                                template.name
-                              }
-                            </p>
-
-                            <p className="mt-1 text-[8px] leading-relaxed text-stone-400">
-                              {
-                                template.description
-                              }
-                            </p>
-                          </button>
-                        )
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* CONTENT BLOCKS */}
-
-                <div className="rounded-2xl border border-stone-100 bg-white p-4">
-                  <p className="mb-3 text-[8px] font-black uppercase tracking-wider text-stone-400">
-                    Insert Block
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={
-                        insertHeadingBlock
-                      }
-                      className="flex items-center gap-2 rounded-xl bg-stone-50 p-3 text-[9px] font-bold text-stone-600 hover:bg-stone-100"
-                    >
-                      <Type
-                        size={12}
-                      />
-
-                      Heading
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={
-                        insertQuote
-                      }
-                      className="flex items-center gap-2 rounded-xl bg-stone-50 p-3 text-[9px] font-bold text-stone-600 hover:bg-stone-100"
-                    >
-                      <Quote
-                        size={12}
-                      />
-
-                      Quote
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={
-                        insertDivider
-                      }
-                      className="flex items-center gap-2 rounded-xl bg-stone-50 p-3 text-[9px] font-bold text-stone-600 hover:bg-stone-100"
-                    >
-                      <Minus
-                        size={12}
-                      />
-
-                      Divider
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={
-                        insertTwoColumn
-                      }
-                      className="flex items-center gap-2 rounded-xl bg-stone-50 p-3 text-[9px] font-bold text-stone-600 hover:bg-stone-100"
-                    >
-                      <Columns2
-                        size={12}
-                      />
-
-                      2 Columns
-                    </button>
-                  </div>
-                </div>
-
-                {/* COMPANY NAME */}
-
-                <div className="rounded-2xl border border-stone-100 bg-white p-4">
-                  <label className="mb-2 block text-[8px] font-black uppercase tracking-wider text-stone-400">
-                    Company Name
-                  </label>
-
-                  <input
-                    value={
-                      companyNameInput
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setCompanyNameInput(
-                        event.target
-                          .value
-                      )
-                    }
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs font-bold outline-none"
-                  />
-
-                  <button
-                    onClick={() =>
-                      void updateCompanyName(
-                        companyNameInput
-                      )
-                    }
-                    className="mt-3 w-full rounded-xl bg-stone-900 py-2 text-[9px] font-black uppercase text-[#a9b897]"
-                  >
-                    Save Company Name
-                  </button>
-                </div>
-
-                {/* EXTRA FOOTER */}
-
-                <div className="rounded-2xl border border-stone-100 bg-white p-4">
-                  <label className="mb-2 block text-[8px] font-black uppercase tracking-wider text-stone-400">
-                    Extra Footer Note
-                  </label>
-
-                  <textarea
-                    value={
-                      campaignCompanyDetails
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setCampaignCompanyDetails(
-                        event.target
-                          .value
-                      )
-                    }
-                    placeholder="Optional campaign-specific footer details..."
-                    className="min-h-[70px] w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
-                  />
-
-                  <p className="mt-2 text-[9px] leading-relaxed text-stone-400">
-                    Leave blank to use
-                    the company summary
-                    from Settings.
-                  </p>
-                </div>
-
-                {/* SENDER */}
-
-                <div className="space-y-3 rounded-2xl border border-stone-100 bg-white p-4">
-                  <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
-                    <Mail
-                      size={10}
-                    />
-
-                    Sender
-                  </p>
-
-                  <input
-                    value={
-                      form.sender_name
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setForm({
-                        ...form,
-
-                        sender_name:
-                          event.target
-                            .value,
-                      })
-                    }
-                    placeholder="Sender name"
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs font-bold outline-none"
-                  />
-
-                  <input
-                    value={
-                      form.reply_to
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setForm({
-                        ...form,
-
-                        reply_to:
-                          event.target
-                            .value,
-                      })
-                    }
-                    placeholder="Reply-to email"
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
-                  />
-                </div>
-
-                {/* PREVIEW TEXT */}
-
-                <div className="rounded-2xl border border-stone-100 bg-white p-4">
-                  <label className="mb-2 block text-[8px] font-black uppercase tracking-wider text-stone-400">
-                    Inbox Preview
-                  </label>
-
-                  <input
-                    value={
-                      form.preview_text
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setForm({
-                        ...form,
-
-                        preview_text:
-                          event.target
-                            .value,
-                      })
-                    }
-                    placeholder="Preview text shown after the subject"
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
-                  />
-                </div>
-
-                {/* HEADER IMAGE */}
-
-                <div className="rounded-2xl border border-stone-100 bg-white p-4">
-                  <label className="mb-2 flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
-                    <ImageIcon
-                      size={10}
-                    />
-
-                    Header Image
-                  </label>
-
-                  <input
-                    value={
-                      form.header_image_url
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setForm({
-                        ...form,
-
-                        header_image_url:
-                          event.target
-                            .value,
-                      })
-                    }
-                    placeholder="https://..."
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
-                  />
-
-                  {form.header_image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={
-                        form.header_image_url
-                      }
-                      alt=""
-                      className="mt-3 h-24 w-full rounded-xl border border-stone-100 object-cover"
-                    />
-                  )}
-                </div>
-
-                {/* BRAND STYLE */}
-
-                <div className="space-y-3 rounded-2xl border border-stone-100 bg-white p-4">
-                  <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
-                    <Palette
-                      size={10}
-                    />
-
-                    Brand Style
-                  </p>
-
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      value={
-                        form.brand_color
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setForm({
-                          ...form,
-
-                          brand_color:
-                            event
-                              .target
-                              .value,
-                        })
-                      }
-                      className="h-10 w-10 cursor-pointer rounded-lg border border-stone-200"
-                    />
-
-                    <input
-                      value={
-                        form.brand_color
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setForm({
-                          ...form,
-
-                          brand_color:
-                            event
-                              .target
-                              .value,
-                        })
-                      }
-                      className="flex-1 rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs font-bold outline-none"
-                    />
-                  </div>
-
-                  <select
-                    value={
-                      form.brand_font
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setForm({
-                        ...form,
-
-                        brand_font:
-                          event.target
-                            .value,
-                      })
-                    }
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
-                  >
-                    {FONT_OPTIONS.map(
-                      (font) => (
-                        <option
-                          key={
-                            font.value
-                          }
-                          value={
-                            font.value
-                          }
-                        >
-                          {
-                            font.label
-                          }
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
-
-                {/* CTA */}
-
-                <div className="space-y-3 rounded-2xl border border-stone-100 bg-white p-4">
-                  <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
-                    <MousePointerClick
-                      size={10}
-                    />
-
-                    Call To Action
-                  </p>
-
-                  <input
-                    value={
-                      form.cta_text
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setForm({
-                        ...form,
-
-                        cta_text:
-                          event.target
-                            .value,
-                      })
-                    }
-                    placeholder="Button text"
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs font-bold outline-none"
-                  />
-
-                  <input
-                    value={
-                      form.cta_url
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setForm({
-                        ...form,
-
-                        cta_url:
-                          event.target
-                            .value,
-                      })
-                    }
-                    placeholder="Button URL"
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
-                  />
-                </div>
-
-                {/* SOCIAL */}
-
-                <div className="space-y-3 rounded-2xl border border-stone-100 bg-white p-4">
-                  <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
-                    <Share2
-                      size={10}
-                    />
-
-                    Social Links
-                  </p>
-
-                  {(
-                    [
-                      "instagram",
-                      "facebook",
-                      "linkedin",
-                      "twitter",
-                    ] as (
-                      keyof SocialLinks
-                    )[]
-                  ).map(
-                    (
-                      platform
-                    ) => (
-                      <input
-                        key={
-                          platform
-                        }
-                        value={
-                          form
-                            .social_links?.[
-                            platform
-                          ] || ""
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          updateSocialLink(
-                            platform,
-                            event
-                              .target
-                              .value
-                          )
-                        }
-                        placeholder={`${platform} URL`}
-                        className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
-                      />
-                    )
-                  )}
-                </div>
-              </div>
-
-              {/* ==================================================
-                  EDITOR AREA
-              ================================================== */}
-
-              <div className="no-scrollbar flex-1 overflow-y-auto bg-stone-100/30 p-6 md:p-12">
-                {step ===
-                  "editor" && (
-                  <div className="mx-auto w-full max-w-4xl pb-20">
-                    <div className="mb-8 flex items-center justify-between gap-4 pr-14 md:pr-0">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                        Email Design
-                        Canvas
-                      </span>
-
-                      <button
-                        onClick={() =>
-                          setShowClarityPrompt(
-                            true
-                          )
-                        }
-                        className="flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-widest text-[#a9b897] shadow-md"
-                      >
-                        <Zap
-                          size={13}
-                        />
-
-                        Clarity
-                        Assistant
-                      </button>
-                    </div>
-
-                    <AnimatePresence>
-                      {showClarityPrompt && (
-                        <motion.div
-                          initial={{
-                            opacity: 0,
-                            y: -10,
-                          }}
-                          animate={{
-                            opacity: 1,
-                            y: 0,
-                          }}
-                          exit={{
-                            opacity: 0,
-                          }}
-                          className="relative mb-8 rounded-[2rem] bg-stone-900 p-7 text-white"
-                        >
-                          <button
-                            onClick={() =>
-                              setShowClarityPrompt(
-                                false
-                              )
-                            }
-                            className="absolute right-5 top-5 text-stone-400"
-                          >
-                            <X
-                              size={
-                                15
-                              }
-                            />
-                          </button>
-
-                          <h4 className="mb-4 text-[10px] font-black uppercase tracking-widest text-[#a9b897]">
-                            Campaign
-                            Objective
-                          </h4>
-
-                          <input
-                            value={
-                              clarityTopic
-                            }
-                            onChange={(
-                              event
-                            ) =>
-                              setClarityTopic(
-                                event
-                                  .target
-                                  .value
-                              )
-                            }
-                            className="mb-4 w-full rounded-2xl border border-white/10 bg-white/5 p-5 font-serif text-sm italic text-white outline-none"
-                            placeholder="What is this campaign about?"
-                          />
-
-                          <button
-                            onClick={
-                              executeGeneration
-                            }
-                            disabled={
-                              isGenerating
-                            }
-                            className="flex items-center gap-2 rounded-xl bg-[#a9b897] px-8 py-3 text-[9px] font-black uppercase tracking-widest text-stone-900 disabled:opacity-50"
-                          >
-                            {isGenerating ? (
-                              <Loader2
-                                size={
-                                  12
-                                }
-                                className="animate-spin"
-                              />
-                            ) : (
-                              <Sparkles
-                                size={
-                                  12
-                                }
-                              />
-                            )}
-
-                            Generate
-                            Draft
-                          </button>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* EMAIL CANVAS */}
-
-                    <div className="min-h-[850px] w-full rounded-[3rem] border border-stone-200 bg-white p-8 text-stone-600 shadow-2xl md:p-16">
-                      <div className="mb-12 flex items-center justify-between border-b border-stone-100 pb-8">
-                        <div className="flex items-center gap-4">
-                          {companyBranding.logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={
-                                companyBranding.logoUrl
-                              }
-                              alt={
-                                companyBranding.name
-                              }
-                              className="max-h-16 max-w-[150px] object-contain"
-                            />
-                          ) : (
-                            <span className="font-serif text-xl italic text-stone-300">
-                              {
-                                companyBranding.name
-                              }
-                            </span>
-                          )}
-                        </div>
-
-                        <span className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-300">
-                          Email
-                          Campaign
-                        </span>
-                      </div>
-
-                      {form.header_image_url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={
-                            form.header_image_url
-                          }
-                          alt=""
-                          className="mb-10 h-56 w-full rounded-3xl object-cover"
-                        />
-                      )}
-
-                      <input
-                        placeholder="Campaign title..."
-                        value={
-                          form.title
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setForm({
-                            ...form,
-
-                            title:
-                              event.target
-                                .value,
-                          })
-                        }
-                        className="mb-5 w-full border-b border-stone-100 bg-transparent pb-4 text-xl font-bold text-stone-900 outline-none"
-                      />
-
-                      <input
-                        placeholder="Inbox preview text..."
-                        value={
-                          form.preview_text
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setForm({
-                            ...form,
-
-                            preview_text:
-                              event.target
-                                .value,
-                          })
-                        }
-                        className="mb-6 w-full bg-transparent text-xs italic text-stone-400 outline-none"
-                      />
-
-                      <textarea
-                        placeholder="Email subject line..."
-                        value={
-                          form.subject
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setForm({
-                            ...form,
-
-                            subject:
-                              event.target
-                                .value,
-                          })
-                        }
-                        className="mb-8 h-32 w-full resize-none border-b border-stone-100 bg-transparent pb-8 font-serif text-3xl italic leading-tight text-stone-900 outline-none md:text-5xl"
-                      />
-
-                      {/* TOOLBAR */}
-
-                      <div className="mb-5 flex w-fit flex-wrap items-center gap-1 rounded-2xl border border-stone-100 bg-stone-50 p-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            applyFormat(
-                              "bold"
-                            )
-                          }
-                          className="rounded-lg p-2 hover:bg-stone-200"
-                        >
-                          <Bold
-                            size={
-                              14
-                            }
-                          />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            applyFormat(
-                              "italic"
-                            )
-                          }
-                          className="rounded-lg p-2 hover:bg-stone-200"
-                        >
-                          <Italic
-                            size={
-                              14
-                            }
-                          />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={
-                            toggleHeading
-                          }
-                          className="rounded-lg p-2 hover:bg-stone-200"
-                        >
-                          <Heading2
-                            size={
-                              14
-                            }
-                          />
-                        </button>
-
-                        <span className="mx-1 h-5 w-px bg-stone-200" />
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            applyFormat(
-                              "justifyLeft"
-                            )
-                          }
-                          className="rounded-lg p-2 hover:bg-stone-200"
-                        >
-                          <AlignLeft
-                            size={
-                              14
-                            }
-                          />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            applyFormat(
-                              "justifyCenter"
-                            )
-                          }
-                          className="rounded-lg p-2 hover:bg-stone-200"
-                        >
-                          <AlignCenter
-                            size={
-                              14
-                            }
-                          />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            applyFormat(
-                              "justifyRight"
-                            )
-                          }
-                          className="rounded-lg p-2 hover:bg-stone-200"
-                        >
-                          <AlignRight
-                            size={
-                              14
-                            }
-                          />
-                        </button>
-
-                        <span className="mx-1 h-5 w-px bg-stone-200" />
-
-                        <button
-                          type="button"
-                          onClick={
-                            handleInsertLink
-                          }
-                          className="rounded-lg p-2 hover:bg-stone-200"
-                        >
-                          <Link2
-                            size={
-                              14
-                            }
-                          />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={
-                            handleInsertImage
-                          }
-                          className="rounded-lg p-2 hover:bg-stone-200"
-                        >
-                          <ImageIcon
-                            size={
-                              14
-                            }
-                          />
-                        </button>
-
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowColorPicker(
-                                (
-                                  previous
-                                ) =>
-                                  !previous
-                              )
-                            }
-                            className="rounded-lg p-2 hover:bg-stone-200"
-                          >
-                            <Palette
-                              size={
-                                14
-                              }
-                            />
-                          </button>
-
-                          {showColorPicker && (
-                            <div className="absolute left-0 top-10 z-20 flex gap-1 rounded-xl border border-stone-200 bg-white p-2 shadow-lg">
-                              {COLOR_SWATCHES.map(
-                                (
-                                  color
-                                ) => (
-                                  <button
-                                    key={
-                                      color
-                                    }
-                                    type="button"
-                                    onClick={() => {
-                                      applyFormat(
-                                        "foreColor",
-                                        color
-                                      );
-
-                                      setShowColorPicker(
-                                        false
-                                      );
-                                    }}
-                                    className="h-6 w-6 rounded-full border border-stone-200"
-                                    style={{
-                                      backgroundColor:
-                                        color,
-                                    }}
-                                  />
-                                )
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* CONTENT */}
-
-                      <div
-                        ref={
-                          contentEditableRef
-                        }
-                        contentEditable
-                        suppressContentEditableWarning
-                        onInput={
-                          handleContentInput
-                        }
-                        data-placeholder="Write your campaign here..."
-                        className="min-h-[400px] text-base leading-relaxed text-stone-700 outline-none empty:before:content-[attr(data-placeholder)] empty:before:opacity-20 md:text-lg"
-                        style={{
-                          fontFamily:
-                            activeBrandFont,
-                        }}
-                      />
-
-                      {/* CTA */}
-
-                      {form.cta_text && (
-                        <div className="mt-12 text-center">
-                          <a
-                            href={
-                              form.cta_url ||
-                              "#"
-                            }
-                            className="inline-block px-10 py-5 text-[11px] font-black uppercase tracking-widest text-white"
-                            style={{
-                              backgroundColor:
-                                activeBrandColor,
-
-                              borderRadius:
-                                "14px",
-                            }}
-                          >
-                            {
-                              form.cta_text
-                            }
-                          </a>
-                        </div>
-                      )}
-
-                      {/* LIVE AUTO FOOTER PREVIEW */}
-
-                      <footer className="mt-16 border-t border-stone-100 pt-10 text-center">
-                        {companyBranding.logoUrl && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={
-                              companyBranding.logoUrl
-                            }
-                            alt={
-                              companyBranding.name
-                            }
-                            className="mx-auto mb-5 max-h-14 max-w-[120px] object-contain"
-                          />
-                        )}
-
-                        <p className="mb-2 text-[11px] font-black uppercase tracking-[0.35em] text-stone-900">
-                          {
-                            companyBranding.name
-                          }
-                        </p>
-
-                        {(campaignCompanyDetails ||
-                          companyBranding.details) && (
-                          <p className="mx-auto mb-3 max-w-xl whitespace-pre-wrap text-[10px] leading-relaxed text-stone-500">
-                            {campaignCompanyDetails ||
-                              companyBranding.details}
-                          </p>
-                        )}
-
-                        {companyBranding.email && (
-                          <p className="text-[10px] text-stone-400">
-                            {
-                              companyBranding.email
-                            }
-                          </p>
-                        )}
-
-                        <p className="mt-4 text-[8px] font-medium uppercase tracking-[0.3em] text-stone-300">
-                          Powered by
-                          TOTS-OS
-                        </p>
-                      </footer>
-                    </div>
-
-                    <div className="mt-12 flex justify-center">
-                      <button
-                        onClick={() =>
-                          setStep(
-                            "schedule"
-                          )
-                        }
-                        className="rounded-3xl bg-stone-900 px-12 py-6 text-[11px] font-black uppercase tracking-[0.3em] text-[#a9b897] shadow-2xl transition hover:scale-[1.02] md:px-24"
-                      >
-                        Proceed to
-                        Scheduling
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ==================================================
-                    SCHEDULE
-                ================================================== */}
-
-                {step ===
-                  "schedule" && (
-                  <div className="mx-auto mt-10 w-full max-w-2xl rounded-[4rem] border border-stone-200 bg-white p-8 text-center shadow-2xl md:p-16">
-                    <Users
-                      size={32}
-                      className="mx-auto mb-6 text-stone-200"
-                    />
-
-                    <h2 className="mb-8 font-serif text-4xl italic text-stone-800">
-                      Scheduling
-                    </h2>
-
-                    <div className="mb-12 space-y-8 text-left">
-                      <div>
-                        <label className="mb-3 block text-[9px] font-black uppercase text-stone-400">
-                          Target
-                          Campaign List
-                        </label>
-
-                        <select
-                          value={
-                            form.list_id ??
-                            ""
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            setForm({
-                              ...form,
-
-                              list_id:
-                                event
-                                  .target
-                                  .value ||
-                                "",
-                            })
-                          }
-                          className="w-full rounded-2xl border border-stone-200 bg-stone-50 p-5 text-xs outline-none focus:border-stone-900"
-                        >
-                          <option value="">
-                            Select
-                            audience
-                            list...
-                          </option>
-
-                          {lists.map(
-                            (
-                              list
-                            ) => (
-                              <option
-                                key={
-                                  list.id
-                                }
-                                value={
-                                  list.id
-                                }
-                              >
-                                {
-                                  list.name
-                                }{" "}
-                                (
-                                {subscriberCounts?.[
-                                  list.id
-                                ] || 0}
-                                )
-                              </option>
-                            )
-                          )}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="mb-3 block text-[9px] font-black uppercase text-stone-400">
-                          Scheduled
-                          Time
-                        </label>
-
-                        <input
-                          type="datetime-local"
-                          value={
-                            form.scheduled_for
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            setForm({
-                              ...form,
-
-                              scheduled_for:
-                                event
-                                  .target
-                                  .value,
-                            })
-                          }
-                          className="w-full rounded-2xl border border-stone-200 bg-stone-50 p-5 text-xs outline-none focus:border-stone-900"
-                        />
-                      </div>
-
-                      <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-5">
-                        <div className="flex items-center gap-4">
-                          {companyBranding.logoUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={
-                                companyBranding.logoUrl
-                              }
-                              alt=""
-                              className="h-12 w-12 rounded-xl bg-white object-contain p-1"
-                            />
-                          )}
-
-                          <div>
-                            <p className="text-xs font-black text-stone-800">
-                              Company
-                              branding
-                              ready
-                            </p>
-
-                            <p className="mt-1 text-[10px] text-stone-500">
-                              Logo and
-                              company
-                              details will
-                              be attached
-                              automatically.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                      <button
-                        onClick={() =>
-                          setStep(
-                            "editor"
-                          )
-                        }
-                        className="rounded-2xl bg-stone-100 px-10 py-5 text-[10px] font-black uppercase tracking-widest text-stone-500"
-                      >
-                        Return to
-                        Editor
-                      </button>
-
-                      <button
-                        onClick={async () => {
-                          if (
-                            !form.title ||
-                            !form.subject ||
-                            !form.list_id
-                          ) {
-                            alert(
-                              "Please fill in title, subject and target list."
-                            );
-
-                            return;
-                          }
-
-                          const payload = {
-                            ...form,
-
-                            content:
-                              withAutomaticCompanyDetails(
-                                form.content
-                              ),
-                          };
-
-                          if (
-                            editingCampaignId
-                          ) {
-                            await updateCampaign(
-                              payload,
-                              editingCampaignId
-                            );
-                          } else {
-                            await scheduleCampaign(
-                              payload
-                            );
-                          }
-
-                          setEditingCampaignId(
-                            null
-                          );
-
-                          setShowModal(
-                            false
-                          );
-
-                          setStep(
-                            "editor"
-                          );
-                        }}
-                        className="flex items-center justify-center gap-3 rounded-2xl bg-stone-900 px-12 py-5 text-[10px] font-black uppercase tracking-widest text-[#a9b897] shadow-xl"
-                      >
-                        <CalendarIcon
-                          size={16}
-                        />
-
-                        Schedule
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* ==================================================
-          EMAIL PREVIEW
-      ================================================== */}
-
-      {showEmailPreview &&
-        selectedCampaign && (
-          <div className="fixed inset-0 z-[300] flex items-center justify-center bg-stone-900/70 p-6">
-            <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[3rem] border border-stone-200 bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-stone-100 p-8">
-                <h2 className="font-serif text-xl italic">
-                  Email Preview
-                </h2>
-
-                <button
-                  onClick={() =>
-                    setShowEmailPreview(
-                      false
-                    )
-                  }
-                >
-                  <X
-                    size={18}
-                  />
-                </button>
-              </div>
-
-              <div className="no-scrollbar overflow-y-auto">
-                <div className="border-b border-stone-100 bg-stone-50 p-6 text-xs">
-                  <p className="text-stone-800">
-                    <span className="font-black">
-                      From:
-                    </span>{" "}
-                    {selectedCampaign.sender_name ||
-                      companyBranding.name}
-                  </p>
-
-                  <p className="mt-1 font-bold text-stone-800">
-                    {
-                      selectedCampaign.subject
-                    }
-                  </p>
-
-                  {selectedCampaign.preview_text && (
-                    <p className="mt-1 text-stone-400">
-                      {
-                        selectedCampaign.preview_text
-                      }
-                    </p>
-                  )}
-                </div>
-
-                <div
-                  style={{
-                    fontFamily:
-                      selectedCampaign.brand_font ||
-                      undefined,
-                  }}
-                >
-                  {selectedCampaign.header_image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={
-                        selectedCampaign.header_image_url
-                      }
-                      alt=""
-                      className="h-48 w-full object-cover"
-                    />
-                  )}
-
-                  <div
-                    className="p-10 leading-relaxed text-stone-700"
-                    dangerouslySetInnerHTML={{
-                      __html:
-                        selectedCampaign.content ||
-                        "",
-                    }}
-                  />
-
-                  {selectedCampaign.cta_text &&
-                    selectedCampaign.cta_url && (
-                      <div className="pb-10 text-center">
-                        <a
-                          href={
-                            selectedCampaign.cta_url
-                          }
-                          className="inline-block px-10 py-4 text-[11px] font-black uppercase tracking-widest text-white"
-                          style={{
-                            backgroundColor:
-                              selectedCampaign.brand_color ||
-                              DEFAULT_BRAND_COLOR,
-
-                            borderRadius:
-                              "14px",
-                          }}
-                        >
-                          {
-                            selectedCampaign.cta_text
-                          }
-                        </a>
-                      </div>
-                    )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-      {/* ==================================================
-          LIST DETAILS
-      ================================================== */}
+      {/* LIST DETAILS */}
 
       <AnimatePresence>
         {showListDetailModal &&
           selectedList && (
-            <div className="fixed inset-0 z-[210] flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-sm md:p-6">
+            <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 p-4">
               <motion.div
                 initial={{
                   opacity: 0,
@@ -5324,19 +3263,15 @@ export default function CampaignsPage() {
                   opacity: 1,
                   scale: 1,
                 }}
-                exit={{
-                  opacity: 0,
-                  scale: 0.95,
-                }}
-                className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[3rem] border border-stone-200 bg-white shadow-2xl"
+                className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[3rem] bg-white"
               >
-                <div className="flex items-center justify-between border-b border-stone-100 p-7 md:p-10">
+                <div className="flex justify-between border-b p-8">
                   <div>
-                    <p className="mb-2 text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                    <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
                       Campaign List
                     </p>
 
-                    <h2 className="font-serif text-2xl italic">
+                    <h2 className="mt-2 font-serif text-2xl italic">
                       {
                         selectedList.name
                       }
@@ -5344,16 +3279,11 @@ export default function CampaignsPage() {
                   </div>
 
                   <button
-                    onClick={() => {
+                    onClick={() =>
                       setShowListDetailModal(
                         false
-                      );
-
-                      setSelectedList(
-                        null
-                      );
-                    }}
-                    className="rounded-full border border-stone-200 p-3 text-stone-500 transition hover:bg-stone-50"
+                      )
+                    }
                   >
                     <X
                       size={18}
@@ -5361,10 +3291,9 @@ export default function CampaignsPage() {
                   </button>
                 </div>
 
-                <div className="no-scrollbar flex-1 overflow-y-auto p-7 md:p-10">
-                  <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">
-                      Active
+                <div className="flex-1 overflow-y-auto p-8">
+                  <div className="mb-6 flex justify-between">
+                    <p className="text-[10px] font-black uppercase text-stone-400">
                       Subscribers (
                       {
                         listSubscribers.length
@@ -5374,72 +3303,50 @@ export default function CampaignsPage() {
 
                     <button
                       onClick={() => {
-                        setSelectedProfiles(
-                          []
-                        );
-
                         setManualEmails(
                           ""
+                        );
+
+                        setSelectedProfiles(
+                          []
                         );
 
                         setShowSubscriberManager(
                           true
                         );
                       }}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-wider text-[#a9b897]"
+                      className="rounded-xl bg-stone-900 px-5 py-3 text-[9px] font-black uppercase text-[#a9b897]"
                     >
-                      <Plus
-                        size={13}
-                      />
-
-                      Add
-                      Subscribers
+                      Add Subscribers
                     </button>
                   </div>
 
                   <div className="space-y-3">
-                    {listSubscribers.length ===
-                      0 && (
-                      <div className="rounded-2xl border border-dashed border-stone-200 p-10 text-center">
-                        <Mail
-                          size={24}
-                          className="mx-auto mb-4 text-stone-200"
-                        />
-
-                        <p className="font-serif text-sm italic text-stone-400">
-                          No subscribers
-                          found.
-                        </p>
-                      </div>
-                    )}
-
                     {listSubscribers.map(
                       (
                         subscriber
                       ) => (
                         <div
-                          key={
-                            `${subscriber.source}-${subscriber.id}`
-                          }
-                          className="flex items-center justify-between gap-4 rounded-2xl border border-stone-100 bg-stone-50 p-4"
+                          key={`${subscriber.source}-${subscriber.id}`}
+                          className="flex items-center justify-between rounded-2xl bg-stone-50 p-4"
                         >
                           <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-sm font-bold text-stone-800">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-bold">
                                 {subscriber.name ||
                                   subscriber.email}
                               </p>
 
                               {subscriber.source ===
                                 "manual" && (
-                                <span className="shrink-0 rounded-full bg-[#a9b897]/20 px-2 py-1 text-[7px] font-black uppercase tracking-wider text-[#71805f]">
+                                <span className="rounded-full bg-[#a9b897]/20 px-2 py-1 text-[7px] font-black uppercase text-[#71805f]">
                                   Manual
                                 </span>
                               )}
                             </div>
 
                             {subscriber.name && (
-                              <p className="mt-1 truncate text-xs text-stone-500">
+                              <p className="mt-1 text-xs text-stone-500">
                                 {
                                   subscriber.email
                                 }
@@ -5449,44 +3356,30 @@ export default function CampaignsPage() {
 
                           <button
                             onClick={async () => {
-                              try {
-                                if (
-                                  subscriber.source ===
-                                    "manual" &&
+                              if (
+                                subscriber.source ===
+                                  "manual" &&
+                                subscriber.manual_email_id
+                              ) {
+                                await removeManualSubscriber(
                                   subscriber.manual_email_id
-                                ) {
-                                  await removeManualSubscriber(
-                                    subscriber.manual_email_id
-                                  );
-                                } else if (
+                                );
+                              } else if (
+                                subscriber.profile_id
+                              ) {
+                                await removeSubscriber(
+                                  selectedList.id,
                                   subscriber.profile_id
-                                ) {
-                                  await removeSubscriber(
-                                    selectedList.id,
-                                    subscriber.profile_id
-                                  );
-                                }
-
-                                const updated =
-                                  await loadListSubscribers(
-                                    selectedList.id
-                                  );
-
-                                setListSubscribers(
-                                  updated
-                                );
-                              } catch (error) {
-                                console.error(
-                                  "Remove subscriber error:",
-                                  error
-                                );
-
-                                alert(
-                                  "Failed to remove subscriber."
                                 );
                               }
+
+                              setListSubscribers(
+                                await loadListSubscribers(
+                                  selectedList.id
+                                )
+                              );
                             }}
-                            className="shrink-0 text-[9px] font-black uppercase tracking-wider text-red-600"
+                            className="text-[9px] font-black uppercase text-red-600"
                           >
                             Remove
                           </button>
@@ -5496,7 +3389,7 @@ export default function CampaignsPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col justify-end gap-3 border-t border-stone-100 bg-stone-50 p-6 sm:flex-row">
+                <div className="flex justify-end gap-3 border-t p-6">
                   <button
                     onClick={async () => {
                       if (
@@ -5507,21 +3400,9 @@ export default function CampaignsPage() {
                         return;
                       }
 
-                      try {
-                        await deleteList(
-                          selectedList.id
-                        );
-                      } catch (error) {
-                        console.error(
-                          error
-                        );
-
-                        alert(
-                          "Failed to delete list."
-                        );
-
-                        return;
-                      }
+                      await deleteList(
+                        selectedList.id
+                      );
 
                       setShowListDetailModal(
                         false
@@ -5529,27 +3410,19 @@ export default function CampaignsPage() {
 
                       setSelectedList(
                         null
-                      );
-
-                      setListSubscribers(
-                        []
                       );
                     }}
                     className="rounded-xl bg-red-600 px-6 py-3 text-[10px] font-black uppercase text-white"
                   >
-                    Delete List
+                    Delete
                   </button>
 
                   <button
-                    onClick={() => {
+                    onClick={() =>
                       setShowListDetailModal(
                         false
-                      );
-
-                      setSelectedList(
-                        null
-                      );
-                    }}
+                      )
+                    }
                     className="rounded-xl bg-stone-900 px-6 py-3 text-[10px] font-black uppercase text-[#a9b897]"
                   >
                     Close
@@ -5560,42 +3433,31 @@ export default function CampaignsPage() {
           )}
       </AnimatePresence>
 
-      {/* ==================================================
-          SUBSCRIBER MANAGER
-      ================================================== */}
+      {/* SUBSCRIBER MANAGER */}
 
       {showSubscriberManager &&
         selectedList && (
-          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm md:p-6">
-            <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[3rem] border border-stone-200 bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-stone-100 p-7 md:p-8">
+          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 p-4">
+            <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[3rem] bg-white">
+              <div className="flex justify-between border-b p-8">
                 <div>
-                  <p className="mb-2 text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                  <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
                     {
                       selectedList.name
                     }
                   </p>
 
-                  <h3 className="text-xl font-bold text-stone-900">
+                  <h3 className="mt-2 text-xl font-bold">
                     Add Subscribers
                   </h3>
                 </div>
 
                 <button
-                  onClick={() => {
+                  onClick={() =>
                     setShowSubscriberManager(
                       false
-                    );
-
-                    setManualEmails(
-                      ""
-                    );
-
-                    setSelectedProfiles(
-                      []
-                    );
-                  }}
-                  className="rounded-full border border-stone-200 p-3 text-stone-500 transition hover:bg-stone-50"
+                    )
+                  }
                 >
                   <X
                     size={18}
@@ -5603,26 +3465,25 @@ export default function CampaignsPage() {
                 </button>
               </div>
 
-              <div className="no-scrollbar flex-1 space-y-8 overflow-y-auto p-7 md:p-8">
+              <div className="flex-1 space-y-8 overflow-y-auto p-8">
 
-                {/* MANUAL EMAILS */}
+                {/* MANUAL EMAIL */}
 
-                <div>
+                <section>
                   <div className="mb-4 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#71805f]">
+                    <div className="rounded-xl bg-[#a9b897]/20 p-3">
                       <Mail
                         size={16}
                       />
                     </div>
 
                     <div>
-                      <p className="text-sm font-black text-stone-800">
+                      <p className="text-sm font-black">
                         Add Any Email
                       </p>
 
                       <p className="text-[10px] text-stone-400">
-                        They do not need
-                        a TOTS-OS account.
+                        They do not need a TOTS-OS account.
                       </p>
                     </div>
                   </div>
@@ -5640,203 +3501,144 @@ export default function CampaignsPage() {
                       )
                     }
                     placeholder={`hello@example.com
-marketing@business.co.uk
-customer@email.com`}
-                    className="min-h-[150px] w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 p-5 text-sm leading-relaxed outline-none transition focus:border-stone-900 focus:bg-white"
+marketing@business.com
+another@email.co.uk`}
+                    className="min-h-[150px] w-full rounded-2xl border bg-stone-50 p-5 outline-none"
                   />
 
-                  <div className="mt-3 flex items-start justify-between gap-4">
-                    <p className="max-w-md text-[9px] leading-relaxed text-stone-400">
-                      Enter one email per
-                      line, or separate
-                      addresses with
-                      commas or
-                      semicolons.
-                      Duplicates are
-                      removed
-                      automatically.
+                  <p className="mt-3 text-[9px] text-stone-400">
+                    One email per
+                    line, or separate
+                    with commas or
+                    semicolons.
+                  </p>
+
+                  {manualEmails.trim() && (
+                    <p className="mt-2 text-[9px] font-black text-[#71805f]">
+                      {
+                        parseManualEmails(
+                          manualEmails
+                        ).length
+                      }{" "}
+                      valid email(s)
                     </p>
-
-                    {manualEmails.trim() && (
-                      <span className="shrink-0 rounded-full bg-stone-100 px-3 py-1 text-[8px] font-black uppercase text-stone-500">
-                        {
-                          parseManualEmails(
-                            manualEmails
-                          ).length
-                        }{" "}
-                        valid
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* DIVIDER */}
+                  )}
+                </section>
 
                 <div className="flex items-center gap-4">
-                  <div className="h-px flex-1 bg-stone-100" />
+                  <div className="h-px flex-1 bg-stone-200" />
 
-                  <span className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-300">
-                    Or choose existing
-                    contacts
+                  <span className="text-[8px] uppercase tracking-widest text-stone-400">
+                    Or existing
+                    subscribers
                   </span>
 
-                  <div className="h-px flex-1 bg-stone-100" />
+                  <div className="h-px flex-1 bg-stone-200" />
                 </div>
 
-                {/* EXISTING PROFILES */}
+                {/* PROFILES */}
 
-                <div>
-                  <div className="mb-4 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-100 text-stone-500">
-                        <Users
-                          size={16}
-                        />
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-black text-stone-800">
-                          Existing
-                          Subscribers
-                        </p>
-
-                        <p className="text-[10px] text-stone-400">
-                          Select people
-                          already stored
-                          in TOTS-OS.
-                        </p>
-                      </div>
-                    </div>
-
-                    {selectedProfiles.length >
-                      0 && (
-                      <span className="shrink-0 rounded-full bg-stone-900 px-3 py-1 text-[8px] font-black text-white">
-                        {
-                          selectedProfiles.length
-                        }{" "}
-                        selected
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="max-h-[300px] space-y-2 overflow-y-auto">
-                    {profiles.length ===
-                      0 && (
-                      <div className="rounded-2xl border border-dashed border-stone-200 p-8 text-center">
-                        <p className="text-xs italic text-stone-400">
-                          No existing
-                          subscribed
-                          contacts found.
-                        </p>
-                      </div>
-                    )}
-
-                    {profiles.map(
-                      (
-                        profile: any
-                      ) => {
-                        const checked =
-                          selectedProfiles.includes(
-                            profile.id
-                          );
-
-                        return (
-                          <label
-                            key={
-                              profile.id
-                            }
-                            className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition ${
-                              checked
-                                ? "border-[#a9b897] bg-[#a9b897]/10"
-                                : "border-stone-100 bg-stone-50 hover:border-stone-200"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={
-                                checked
-                              }
-                              onChange={(
-                                event
-                              ) => {
-                                if (
-                                  event
-                                    .target
-                                    .checked
-                                ) {
-                                  setSelectedProfiles(
-                                    (
-                                      previous
-                                    ) =>
-                                      previous.includes(
-                                        profile.id
-                                      )
-                                        ? previous
-                                        : [
-                                            ...previous,
-                                            profile.id,
-                                          ]
-                                  );
-                                } else {
-                                  setSelectedProfiles(
-                                    (
-                                      previous
-                                    ) =>
-                                      previous.filter(
-                                        (
-                                          id
-                                        ) =>
-                                          id !==
-                                          profile.id
-                                      )
-                                  );
-                                }
-                              }}
-                              className="h-4 w-4"
-                            />
-
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-stone-800">
-                                {profile.full_name ||
-                                  profile.name ||
-                                  profile.email ||
-                                  "Unnamed contact"}
-                              </p>
-
-                              <p className="truncate text-xs text-stone-500">
-                                {profile.email ||
-                                  "No email"}
-                              </p>
-                            </div>
-                          </label>
+                <section className="space-y-2">
+                  {profiles.map(
+                    (
+                      profile: any
+                    ) => {
+                      const checked =
+                        selectedProfiles.includes(
+                          profile.id
                         );
-                      }
-                    )}
-                  </div>
-                </div>
+
+                      return (
+                        <label
+                          key={
+                            profile.id
+                          }
+                          className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 ${
+                            checked
+                              ? "border-[#a9b897] bg-[#a9b897]/10"
+                              : "bg-stone-50"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              checked
+                            }
+                            onChange={(
+                              event
+                            ) => {
+                              if (
+                                event
+                                  .target
+                                  .checked
+                              ) {
+                                setSelectedProfiles(
+                                  (
+                                    previous
+                                  ) =>
+                                    previous.includes(
+                                      profile.id
+                                    )
+                                      ? previous
+                                      : [
+                                          ...previous,
+                                          profile.id,
+                                        ]
+                                );
+                              } else {
+                                setSelectedProfiles(
+                                  (
+                                    previous
+                                  ) =>
+                                    previous.filter(
+                                      (
+                                        id
+                                      ) =>
+                                        id !==
+                                        profile.id
+                                    )
+                                );
+                              }
+                            }}
+                          />
+
+                          <div>
+                            <p className="text-sm font-bold">
+                              {profile.full_name ||
+                                profile.name ||
+                                profile.email}
+                            </p>
+
+                            <p className="text-xs text-stone-500">
+                              {
+                                profile.email
+                              }
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    }
+                  )}
+                </section>
               </div>
 
-              {/* SAVE */}
-
-              <div className="border-t border-stone-100 bg-stone-50 p-6 md:p-8">
+              <div className="border-t bg-stone-50 p-8">
                 <button
                   disabled={
                     savingSubscribers
                   }
                   onClick={async () => {
-                    const parsedEmails =
+                    const emails =
                       parseManualEmails(
                         manualEmails
                       );
 
                     if (
-                      selectedProfiles.length ===
-                        0 &&
-                      parsedEmails.length ===
-                        0
+                      !emails.length &&
+                      !selectedProfiles.length
                     ) {
                       alert(
-                        "Select an existing subscriber or enter at least one valid email address."
+                        "Enter at least one valid email or select a subscriber."
                       );
 
                       return;
@@ -5848,8 +3650,7 @@ customer@email.com`}
 
                     try {
                       if (
-                        selectedProfiles.length >
-                        0
+                        selectedProfiles.length
                       ) {
                         await addSubscribersToList(
                           selectedList.id,
@@ -5858,22 +3659,18 @@ customer@email.com`}
                       }
 
                       if (
-                        parsedEmails.length >
-                        0
+                        emails.length
                       ) {
                         await addManualSubscribersToList(
                           selectedList.id,
-                          parsedEmails
+                          emails
                         );
                       }
 
-                      const result =
+                      setListSubscribers(
                         await loadListSubscribers(
                           selectedList.id
-                        );
-
-                      setListSubscribers(
-                        result
+                        )
                       );
 
                       setManualEmails(
@@ -5887,14 +3684,16 @@ customer@email.com`}
                       setShowSubscriberManager(
                         false
                       );
-                    } catch (error) {
+                    } catch (
+                      error
+                    ) {
                       console.error(
                         "Save subscribers error:",
                         error
                       );
 
                       alert(
-                        "Failed to save subscribers."
+                        "Failed to save subscribers. Check the browser console for the exact Supabase error."
                       );
                     } finally {
                       setSavingSubscribers(
@@ -5902,7 +3701,7 @@ customer@email.com`}
                       );
                     }
                   }}
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-[#a9b897] shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 py-5 text-[10px] font-black uppercase tracking-widest text-[#a9b897] disabled:opacity-50"
                 >
                   {savingSubscribers ? (
                     <Loader2
@@ -5924,9 +3723,1069 @@ customer@email.com`}
           </div>
         )}
 
-      {/* ==================================================
-          GLOBAL STYLES
-      ================================================== */}
+      {/* CAMPAIGN VIEW */}
+
+      {showViewModal &&
+        selectedCampaign && (
+          <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-3xl rounded-[3rem] bg-white p-8">
+              <div className="flex justify-between">
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-[#8fa07d]">
+                    Campaign
+                  </p>
+
+                  <h2 className="mt-2 text-2xl font-black">
+                    {
+                      selectedCampaign.title
+                    }
+                  </h2>
+                </div>
+
+                <button
+                  onClick={() =>
+                    setShowViewModal(
+                      false
+                    )
+                  }
+                >
+                  <X
+                    size={18}
+                  />
+                </button>
+              </div>
+
+              <p className="mt-8 font-serif text-2xl italic">
+                {
+                  selectedCampaign.subject
+                }
+              </p>
+
+              <div
+                className="mt-8 rounded-2xl bg-stone-50 p-6"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    selectedCampaign.content ||
+                    "",
+                }}
+              />
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <button
+                  onClick={() => {
+                    setEditingCampaignId(
+                      selectedCampaign.id
+                    );
+
+                    setForm({
+                      ...selectedCampaign,
+
+                      content:
+                        stripAutomaticCompanyFooter(
+                          selectedCampaign.content ||
+                            ""
+                        ),
+                    });
+
+                    setStep(
+                      "editor"
+                    );
+
+                    setShowViewModal(
+                      false
+                    );
+
+                    setShowModal(
+                      true
+                    );
+                  }}
+                  className="rounded-xl bg-stone-100 px-6 py-3 text-[10px] font-black uppercase"
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={() =>
+                    setShowEmailPreview(
+                      true
+                    )
+                  }
+                  className="rounded-xl bg-stone-100 px-6 py-3 text-[10px] font-black uppercase"
+                >
+                  Preview
+                </button>
+
+                <button
+                  onClick={() =>
+                    void sendCampaignNow(
+                      selectedCampaign.id
+                    )
+                  }
+                  className="rounded-xl bg-emerald-700 px-6 py-3 text-[10px] font-black uppercase text-white"
+                >
+                  Send Now
+                </button>
+
+                <button
+                  onClick={async () => {
+                    await deleteCampaign(
+                      selectedCampaign.id
+                    );
+
+                    setShowViewModal(
+                      false
+                    );
+                  }}
+                  className="rounded-xl bg-red-600 px-6 py-3 text-[10px] font-black uppercase text-white"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* CAMPAIGN EDITOR */}
+
+      {showModal && (
+        <div className="fixed inset-0 z-[700] overflow-y-auto bg-stone-900/70 p-4 backdrop-blur-lg">
+          <div className="relative mx-auto min-h-[90vh] max-w-6xl rounded-[3rem] bg-[#faf9f6] p-6 md:p-12">
+            <button
+              onClick={() =>
+                setShowModal(
+                  false
+                )
+              }
+              className="absolute right-8 top-8"
+            >
+              <X
+                size={20}
+              />
+            </button>
+
+            {step ===
+            "editor" ? (
+              <div className="grid gap-10 lg:grid-cols-[300px_1fr]">
+
+                {/* SIDEBAR */}
+
+                <aside className="space-y-5">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                      Campaign Studio
+                    </p>
+
+                    <h2 className="mt-3 font-serif text-3xl italic">
+                      Build Email
+                    </h2>
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-4">
+                    <button
+                      onClick={() =>
+                        setShowTemplates(
+                          (
+                            previous
+                          ) =>
+                            !previous
+                        )
+                      }
+                      className="flex w-full justify-between text-[9px] font-black uppercase"
+                    >
+                      <span className="flex items-center gap-2">
+                        <LayoutTemplate
+                          size={13}
+                        />
+
+                        Templates
+                      </span>
+
+                      <span>
+                        {showTemplates
+                          ? "Hide"
+                          : "Show"}
+                      </span>
+                    </button>
+
+                    {showTemplates && (
+                      <div className="mt-4 space-y-2">
+                        {CAMPAIGN_TEMPLATES.map(
+                          (
+                            template
+                          ) => (
+                            <button
+                              key={
+                                template.id
+                              }
+                              onClick={() =>
+                                applyTemplate(
+                                  template
+                                )
+                              }
+                              className="w-full rounded-xl bg-stone-50 p-3 text-left"
+                            >
+                              <p className="text-[9px] font-black uppercase">
+                                {
+                                  template.name
+                                }
+                              </p>
+
+                              <p className="mt-1 text-[8px] text-stone-400">
+                                {
+                                  template.description
+                                }
+                              </p>
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-4">
+                    <p className="mb-3 text-[8px] font-black uppercase text-stone-400">
+                      Insert Block
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={
+                          insertHeadingBlock
+                        }
+                        className="rounded-xl bg-stone-50 p-3 text-[9px]"
+                      >
+                        Heading
+                      </button>
+
+                      <button
+                        onClick={
+                          insertQuote
+                        }
+                        className="rounded-xl bg-stone-50 p-3 text-[9px]"
+                      >
+                        Quote
+                      </button>
+
+                      <button
+                        onClick={
+                          insertDivider
+                        }
+                        className="rounded-xl bg-stone-50 p-3 text-[9px]"
+                      >
+                        Divider
+                      </button>
+
+                      <button
+                        onClick={
+                          insertTwoColumn
+                        }
+                        className="rounded-xl bg-stone-50 p-3 text-[9px]"
+                      >
+                        Columns
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-4">
+                    <label className="text-[8px] font-black uppercase text-stone-400">
+                      Company Name
+                    </label>
+
+                    <input
+                      value={
+                        companyNameInput
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setCompanyNameInput(
+                          event.target
+                            .value
+                        )
+                      }
+                      className="mt-2 w-full rounded-xl bg-stone-50 p-3 text-xs"
+                    />
+
+                    <button
+                      onClick={() =>
+                        void updateCompanyName(
+                          companyNameInput
+                        )
+                      }
+                      className="mt-3 w-full rounded-xl bg-stone-900 py-3 text-[9px] font-black uppercase text-[#a9b897]"
+                    >
+                      Save
+                    </button>
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-4">
+                    <label className="text-[8px] font-black uppercase text-stone-400">
+                      Sender Name
+                    </label>
+
+                    <input
+                      value={
+                        form.sender_name
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setForm({
+                          ...form,
+
+                          sender_name:
+                            event.target
+                              .value,
+                        })
+                      }
+                      className="mt-2 w-full rounded-xl bg-stone-50 p-3 text-xs"
+                    />
+
+                    <label className="mt-4 block text-[8px] font-black uppercase text-stone-400">
+                      Reply To
+                    </label>
+
+                    <input
+                      value={
+                        form.reply_to
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setForm({
+                          ...form,
+
+                          reply_to:
+                            event.target
+                              .value,
+                        })
+                      }
+                      className="mt-2 w-full rounded-xl bg-stone-50 p-3 text-xs"
+                    />
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-4">
+                    <label className="text-[8px] font-black uppercase text-stone-400">
+                      Header Image URL
+                    </label>
+
+                    <input
+                      value={
+                        form.header_image_url
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setForm({
+                          ...form,
+
+                          header_image_url:
+                            event.target
+                              .value,
+                        })
+                      }
+                      className="mt-2 w-full rounded-xl bg-stone-50 p-3 text-xs"
+                    />
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-4">
+                    <label className="text-[8px] font-black uppercase text-stone-400">
+                      Brand Colour
+                    </label>
+
+                    <input
+                      type="color"
+                      value={
+                        form.brand_color
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setForm({
+                          ...form,
+
+                          brand_color:
+                            event.target
+                              .value,
+                        })
+                      }
+                      className="mt-3 h-10 w-full"
+                    />
+
+                    <select
+                      value={
+                        form.brand_font
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setForm({
+                          ...form,
+
+                          brand_font:
+                            event.target
+                              .value,
+                        })
+                      }
+                      className="mt-4 w-full rounded-xl bg-stone-50 p-3 text-xs"
+                    >
+                      {FONT_OPTIONS.map(
+                        (
+                          font
+                        ) => (
+                          <option
+                            key={
+                              font.value
+                            }
+                            value={
+                              font.value
+                            }
+                          >
+                            {
+                              font.label
+                            }
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-4">
+                    <label className="text-[8px] font-black uppercase text-stone-400">
+                      CTA Text
+                    </label>
+
+                    <input
+                      value={
+                        form.cta_text
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setForm({
+                          ...form,
+
+                          cta_text:
+                            event.target
+                              .value,
+                        })
+                      }
+                      className="mt-2 w-full rounded-xl bg-stone-50 p-3 text-xs"
+                    />
+
+                    <label className="mt-4 block text-[8px] font-black uppercase text-stone-400">
+                      CTA URL
+                    </label>
+
+                    <input
+                      value={
+                        form.cta_url
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setForm({
+                          ...form,
+
+                          cta_url:
+                            event.target
+                              .value,
+                        })
+                      }
+                      className="mt-2 w-full rounded-xl bg-stone-50 p-3 text-xs"
+                    />
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-4">
+                    <p className="mb-3 flex items-center gap-2 text-[8px] font-black uppercase text-stone-400">
+                      <Share2
+                        size={11}
+                      />
+
+                      Social Links
+                    </p>
+
+                    {(
+                      [
+                        "instagram",
+                        "facebook",
+                        "linkedin",
+                        "twitter",
+                      ] as (
+                        keyof SocialLinks
+                      )[]
+                    ).map(
+                      (
+                        platform
+                      ) => (
+                        <input
+                          key={
+                            platform
+                          }
+                          value={
+                            form
+                              .social_links?.[
+                              platform
+                            ] ||
+                            ""
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setForm({
+                              ...form,
+
+                              social_links:
+                                {
+                                  ...form.social_links,
+
+                                  [platform]:
+                                    event.target
+                                      .value,
+                                },
+                            })
+                          }
+                          placeholder={`${platform} URL`}
+                          className="mb-2 w-full rounded-xl bg-stone-50 p-3 text-xs"
+                        />
+                      )
+                    )}
+                  </div>
+                </aside>
+
+                {/* EMAIL CANVAS */}
+
+                <main>
+                  <div className="mb-6 flex justify-between">
+                    <p className="text-[9px] font-black uppercase text-stone-400">
+                      Email Design Canvas
+                    </p>
+
+                    <button
+                      onClick={() =>
+                        setShowClarityPrompt(
+                          true
+                        )
+                      }
+                      className="flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-[9px] font-black uppercase text-[#a9b897]"
+                    >
+                      <Zap
+                        size={13}
+                      />
+
+                      Clarity Assistant
+                    </button>
+                  </div>
+
+                  {showClarityPrompt && (
+                    <div className="mb-6 rounded-2xl bg-stone-900 p-6">
+                      <input
+                        value={
+                          clarityTopic
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setClarityTopic(
+                            event.target
+                              .value
+                          )
+                        }
+                        placeholder="Campaign topic"
+                        className="w-full rounded-xl bg-white/10 p-4 text-white"
+                      />
+
+                      <button
+                        onClick={
+                          executeGeneration
+                        }
+                        className="mt-3 flex items-center gap-2 rounded-xl bg-[#a9b897] px-5 py-3 text-[9px] font-black uppercase"
+                      >
+                        {isGenerating ? (
+                          <Loader2
+                            size={13}
+                            className="animate-spin"
+                          />
+                        ) : (
+                          <Sparkles
+                            size={13}
+                          />
+                        )}
+
+                        Generate
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="min-h-[800px] rounded-[3rem] bg-white p-8 shadow-xl md:p-14">
+                    <input
+                      value={
+                        form.title
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setForm({
+                          ...form,
+
+                          title:
+                            event.target
+                              .value,
+                        })
+                      }
+                      placeholder="Campaign title..."
+                      className="mb-5 w-full border-b pb-4 text-xl font-bold outline-none"
+                    />
+
+                    <input
+                      value={
+                        form.preview_text
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setForm({
+                          ...form,
+
+                          preview_text:
+                            event.target
+                              .value,
+                        })
+                      }
+                      placeholder="Inbox preview..."
+                      className="mb-5 w-full text-xs italic outline-none"
+                    />
+
+                    <textarea
+                      value={
+                        form.subject
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setForm({
+                          ...form,
+
+                          subject:
+                            event.target
+                              .value,
+                        })
+                      }
+                      placeholder="Email subject..."
+                      className="mb-8 h-28 w-full resize-none border-b font-serif text-4xl italic outline-none"
+                    />
+
+                    <div className="mb-5 flex flex-wrap gap-1 rounded-xl bg-stone-50 p-2">
+                      <button
+                        onClick={() =>
+                          applyFormat(
+                            "bold"
+                          )
+                        }
+                        className="p-2"
+                      >
+                        <Bold
+                          size={14}
+                        />
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          applyFormat(
+                            "italic"
+                          )
+                        }
+                        className="p-2"
+                      >
+                        <Italic
+                          size={14}
+                        />
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          applyFormat(
+                            "formatBlock",
+                            "H2"
+                          )
+                        }
+                        className="p-2"
+                      >
+                        <Heading2
+                          size={14}
+                        />
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          applyFormat(
+                            "justifyLeft"
+                          )
+                        }
+                        className="p-2"
+                      >
+                        <AlignLeft
+                          size={14}
+                        />
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          applyFormat(
+                            "justifyCenter"
+                          )
+                        }
+                        className="p-2"
+                      >
+                        <AlignCenter
+                          size={14}
+                        />
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          applyFormat(
+                            "justifyRight"
+                          )
+                        }
+                        className="p-2"
+                      >
+                        <AlignRight
+                          size={14}
+                        />
+                      </button>
+
+                      <button
+                        onClick={
+                          handleInsertLink
+                        }
+                        className="p-2"
+                      >
+                        <Link2
+                          size={14}
+                        />
+                      </button>
+
+                      <button
+                        onClick={
+                          handleInsertImage
+                        }
+                        className="p-2"
+                      >
+                        <ImageIcon
+                          size={14}
+                        />
+                      </button>
+
+                      <div className="relative">
+                        <button
+                          onClick={() =>
+                            setShowColorPicker(
+                              (
+                                previous
+                              ) =>
+                                !previous
+                            )
+                          }
+                          className="p-2"
+                        >
+                          <Palette
+                            size={14}
+                          />
+                        </button>
+
+                        {showColorPicker && (
+                          <div className="absolute z-20 flex gap-2 rounded-xl bg-white p-3 shadow-xl">
+                            {COLOR_SWATCHES.map(
+                              (
+                                color
+                              ) => (
+                                <button
+                                  key={
+                                    color
+                                  }
+                                  onClick={() => {
+                                    applyFormat(
+                                      "foreColor",
+                                      color
+                                    );
+
+                                    setShowColorPicker(
+                                      false
+                                    );
+                                  }}
+                                  className="h-6 w-6 rounded-full"
+                                  style={{
+                                    backgroundColor:
+                                      color,
+                                  }}
+                                />
+                              )
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      ref={
+                        contentEditableRef
+                      }
+                      contentEditable
+                      suppressContentEditableWarning
+                      onInput={
+                        handleContentInput
+                      }
+                      className="min-h-[400px] outline-none"
+                      style={{
+                        fontFamily:
+                          activeBrandFont,
+                      }}
+                    />
+
+                    {form.cta_text && (
+                      <div className="mt-12 text-center">
+                        <a
+                          href={
+                            form.cta_url ||
+                            "#"
+                          }
+                          className="inline-block rounded-xl px-10 py-5 text-[10px] font-black uppercase text-white"
+                          style={{
+                            backgroundColor:
+                              activeBrandColor,
+                          }}
+                        >
+                          {
+                            form.cta_text
+                          }
+                        </a>
+                      </div>
+                    )}
+
+                    <div className="mt-16 border-t pt-8 text-center">
+                      <p className="font-black uppercase tracking-widest">
+                        {
+                          companyBranding.name
+                        }
+                      </p>
+
+                      <p className="mt-3 text-xs text-stone-400">
+                        {
+                          companyBranding.email
+                        }
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      setStep(
+                        "schedule"
+                      )
+                    }
+                    className="mx-auto mt-10 block rounded-2xl bg-stone-900 px-12 py-5 text-[10px] font-black uppercase text-[#a9b897]"
+                  >
+                    Proceed to Scheduling
+                  </button>
+                </main>
+              </div>
+            ) : (
+              <div className="mx-auto max-w-2xl py-20">
+                <div className="rounded-[3rem] bg-white p-10 shadow-xl">
+                  <Users
+                    size={30}
+                    className="mx-auto mb-5 text-stone-300"
+                  />
+
+                  <h2 className="mb-8 text-center font-serif text-4xl italic">
+                    Scheduling
+                  </h2>
+
+                  <label className="text-[9px] font-black uppercase text-stone-400">
+                    Target List
+                  </label>
+
+                  <select
+                    value={
+                      form.list_id
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setForm({
+                        ...form,
+
+                        list_id:
+                          event.target
+                            .value,
+                      })
+                    }
+                    className="mt-2 w-full rounded-2xl border bg-stone-50 p-5"
+                  >
+                    <option value="">
+                      Select list
+                    </option>
+
+                    {lists.map(
+                      (
+                        list
+                      ) => (
+                        <option
+                          key={
+                            list.id
+                          }
+                          value={
+                            list.id
+                          }
+                        >
+                          {
+                            list.name
+                          }{" "}
+                          (
+                          {subscriberCounts[
+                            list.id
+                          ] || 0}
+                          )
+                        </option>
+                      )
+                    )}
+                  </select>
+
+                  <label className="mt-6 block text-[9px] font-black uppercase text-stone-400">
+                    Scheduled Time
+                  </label>
+
+                  <input
+                    type="datetime-local"
+                    value={
+                      form.scheduled_for
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setForm({
+                        ...form,
+
+                        scheduled_for:
+                          event.target
+                            .value,
+                      })
+                    }
+                    className="mt-2 w-full rounded-2xl border bg-stone-50 p-5"
+                  />
+
+                  <div className="mt-8 flex gap-3">
+                    <button
+                      onClick={() =>
+                        setStep(
+                          "editor"
+                        )
+                      }
+                      className="flex-1 rounded-2xl bg-stone-100 py-4 text-[10px] font-black uppercase"
+                    >
+                      Back
+                    </button>
+
+                    <button
+                      onClick={async () => {
+                        if (
+                          !form.title ||
+                          !form.subject ||
+                          !form.list_id
+                        ) {
+                          alert(
+                            "Please fill in title, subject and target list."
+                          );
+
+                          return;
+                        }
+
+                        const payload = {
+                          ...form,
+
+                          content:
+                            withAutomaticCompanyDetails(
+                              form.content
+                            ),
+                        };
+
+                        if (
+                          editingCampaignId
+                        ) {
+                          await updateCampaign(
+                            payload,
+                            editingCampaignId
+                          );
+                        } else {
+                          await scheduleCampaign(
+                            payload
+                          );
+                        }
+
+                        setEditingCampaignId(
+                          null
+                        );
+
+                        setShowModal(
+                          false
+                        );
+
+                        setStep(
+                          "editor"
+                        );
+                      }}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-stone-900 py-4 text-[10px] font-black uppercase text-[#a9b897]"
+                    >
+                      <CalendarIcon
+                        size={14}
+                      />
+
+                      Schedule
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* PREVIEW */}
+
+      {showEmailPreview &&
+        selectedCampaign && (
+          <div className="fixed inset-0 z-[800] flex items-center justify-center bg-black/70 p-4">
+            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[3rem] bg-white">
+              <div className="flex justify-between border-b p-8">
+                <h2 className="font-serif text-xl italic">
+                  Email Preview
+                </h2>
+
+                <button
+                  onClick={() =>
+                    setShowEmailPreview(
+                      false
+                    )
+                  }
+                >
+                  <X
+                    size={18}
+                  />
+                </button>
+              </div>
+
+              <div
+                className="p-10"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    selectedCampaign.content ||
+                    "",
+                }}
+              />
+            </div>
+          </div>
+        )}
 
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar {
@@ -5945,10 +4804,6 @@ customer@email.com`}
         [contenteditable="true"] img {
           max-width: 100%;
           height: auto;
-        }
-
-        [contenteditable="true"]:empty:before {
-          pointer-events: none;
         }
       `}</style>
     </div>

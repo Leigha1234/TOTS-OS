@@ -224,8 +224,6 @@ export default function PaymentsPage() {
 
             {activeTab === "expenses" && (
               <FinanceExpenses
-  expenses={finance.expenses}
-  refresh={finance.refresh}
   notify={notify}
   onCreate={() =>
     setActiveModal("expense")

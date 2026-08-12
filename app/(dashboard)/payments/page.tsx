@@ -247,7 +247,6 @@ export default function PaymentsPage() {
   <FinancePayroll
     employees={finance.payrollEmployees ?? []}
     payslips={finance.payslips ?? []}
-    notify={notify}
     onCreate={() =>
       setActiveModal("employee")
     }

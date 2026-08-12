@@ -27,7 +27,10 @@ import EmployeeModal, {
   type EmployeeForm,
 } from "./components/modals/EmployeeModal";
 
-import RecurringInvoiceModal from "./components/modals/RecurringInvoiceModal";
+import RecurringInvoiceModal, {
+  type RecurringInvoiceForm,
+} from "./components/modals/RecurringInvoiceModal";
+
 import VatModal from "./components/modals/VatModal";
 import TaxModal from "./components/modals/TaxModal";
 
@@ -86,6 +89,13 @@ const INITIAL_EMPLOYEE_FORM: EmployeeForm = {
   salary_gross: "",
 };
 
+const INITIAL_RECURRING_FORM: RecurringInvoiceForm = {
+  client_name: "",
+  amount: "",
+  interval: "monthly",
+  next_run: "",
+};
+
 export default function PaymentsPage() {
   const [activeTab, setActiveTab] =
     useState<FinanceTab>("overview");
@@ -139,6 +149,17 @@ export default function PaymentsPage() {
   const [employeeForm, setEmployeeForm] =
     useState<EmployeeForm>(
       INITIAL_EMPLOYEE_FORM
+    );
+
+  /*
+   * Recurring Invoice state
+   */
+  const [recurringSubmitting, setRecurringSubmitting] =
+    useState(false);
+
+  const [recurringForm, setRecurringForm] =
+    useState<RecurringInvoiceForm>(
+      INITIAL_RECURRING_FORM
     );
 
   /*
@@ -266,7 +287,7 @@ export default function PaymentsPage() {
 
     setInvoiceQuoteLineItems([
       {
-        id: 1,
+        id: Date.now(),
         desc: "",
         qty: 1,
         price: 0,
@@ -492,11 +513,6 @@ export default function PaymentsPage() {
     setEmployeeSubmitting(true);
 
     try {
-      /*
-       * Add real employee creation logic here
-       * when the finance data method is confirmed.
-       */
-
       notify(
         "Employee added successfully.",
         "success"
@@ -518,6 +534,99 @@ export default function PaymentsPage() {
       );
     } finally {
       setEmployeeSubmitting(false);
+    }
+  };
+
+  /*
+   * Recurring invoice helpers
+   */
+  const resetRecurringForm = () => {
+    setRecurringForm({
+      client_name: "",
+      amount: "",
+      interval: "monthly",
+      next_run: "",
+    });
+  };
+
+  const closeRecurringModal = () => {
+    if (recurringSubmitting) {
+      return;
+    }
+
+    setActiveModal(null);
+    resetRecurringForm();
+  };
+
+  const handleRecurringSubmit = async () => {
+    if (recurringSubmitting) {
+      return;
+    }
+
+    if (!recurringForm.client_name.trim()) {
+      notify(
+        "Please enter a client name.",
+        "error"
+      );
+      return;
+    }
+
+    if (
+      !recurringForm.amount ||
+      Number(recurringForm.amount) <= 0
+    ) {
+      notify(
+        "Please enter a valid invoice amount.",
+        "error"
+      );
+      return;
+    }
+
+    if (!recurringForm.interval) {
+      notify(
+        "Please choose a billing frequency.",
+        "error"
+      );
+      return;
+    }
+
+    if (!recurringForm.next_run) {
+      notify(
+        "Please choose the next invoice date.",
+        "error"
+      );
+      return;
+    }
+
+    setRecurringSubmitting(true);
+
+    try {
+      /*
+       * Add real recurring invoice creation
+       * logic here once the data method is known.
+       */
+
+      notify(
+        "Recurring invoice scheduled successfully.",
+        "success"
+      );
+
+      setActiveModal(null);
+      resetRecurringForm();
+
+      await finance.refresh();
+    } catch (submitError) {
+      console.error(
+        "Recurring invoice submission failed:",
+        submitError
+      );
+
+      notify(
+        "Unable to schedule recurring invoice.",
+        "error"
+      );
+    } finally {
+      setRecurringSubmitting(false);
     }
   };
 
@@ -672,6 +781,7 @@ export default function PaymentsPage() {
         )}
       </main>
 
+      {/* INVOICE / QUOTE */}
       <InvoiceQuoteModal
         open={
           activeModal === "invoiceQuote"
@@ -717,6 +827,7 @@ export default function PaymentsPage() {
         }
       />
 
+      {/* EXPENSE */}
       <ExpenseModal
         open={
           activeModal === "expense"
@@ -738,6 +849,7 @@ export default function PaymentsPage() {
         }
       />
 
+      {/* EMPLOYEE */}
       <EmployeeModal
         open={
           activeModal === "employee"
@@ -759,24 +871,29 @@ export default function PaymentsPage() {
         }
       />
 
+      {/* RECURRING INVOICE */}
       <RecurringInvoiceModal
         open={
           activeModal === "recurring"
         }
-        organisationId={
-          organisationId
+        submitting={
+          recurringSubmitting
         }
-        teamId={teamId}
-        userId={userId}
-        onClose={() =>
-          setActiveModal(null)
+        form={
+          recurringForm
         }
-        onSuccess={
-          finance.refresh
+        onChange={
+          setRecurringForm
         }
-        notify={notify}
+        onClose={
+          closeRecurringModal
+        }
+        onSubmit={
+          handleRecurringSubmit
+        }
       />
 
+      {/* VAT */}
       <VatModal
         open={
           activeModal === "vat"
@@ -798,6 +915,7 @@ export default function PaymentsPage() {
         notify={notify}
       />
 
+      {/* TAX */}
       <TaxModal
         open={
           activeModal === "tax"

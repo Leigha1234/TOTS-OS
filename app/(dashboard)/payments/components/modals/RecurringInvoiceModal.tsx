@@ -7,7 +7,7 @@ import {
   X,
 } from "lucide-react";
 
-type RecurringInvoiceForm = {
+export type RecurringInvoiceForm = {
   client_name: string;
   amount: string;
   interval: string;
@@ -33,13 +33,27 @@ export default function RecurringInvoiceModal({
   onClose,
   onSubmit,
 }: RecurringInvoiceModalProps) {
+  const canSubmit =
+    !submitting &&
+    form.client_name.trim().length > 0 &&
+    form.amount.trim().length > 0 &&
+    Number(form.amount) > 0 &&
+    form.interval.trim().length > 0 &&
+    form.next_run.trim().length > 0;
+
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          initial={{
+            opacity: 0,
+          }}
+          animate={{
+            opacity: 1,
+          }}
+          exit={{
+            opacity: 0,
+          }}
           onClick={onClose}
           className="fixed inset-0 z-[999] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm"
         >
@@ -58,6 +72,10 @@ export default function RecurringInvoiceModal({
               scale: 0.96,
               opacity: 0,
               y: 12,
+            }}
+            transition={{
+              duration: 0.2,
+              ease: "easeOut",
             }}
             onClick={(event) =>
               event.stopPropagation()
@@ -82,8 +100,10 @@ export default function RecurringInvoiceModal({
               </div>
 
               <button
+                type="button"
                 onClick={onClose}
-                className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-900"
+                aria-label="Close recurring invoice modal"
+                className="rounded-full p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-900"
               >
                 <X size={18} />
               </button>
@@ -91,14 +111,16 @@ export default function RecurringInvoiceModal({
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="recurring-client"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Client Name
                 </label>
 
                 <input
-                  value={
-                    form.client_name
-                  }
+                  id="recurring-client"
+                  value={form.client_name}
                   onChange={(event) =>
                     onChange({
                       ...form,
@@ -112,7 +134,10 @@ export default function RecurringInvoiceModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="recurring-amount"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Invoice Amount
                 </label>
 
@@ -122,9 +147,11 @@ export default function RecurringInvoiceModal({
                   </span>
 
                   <input
+                    id="recurring-amount"
                     type="number"
                     min="0"
                     step="0.01"
+                    inputMode="decimal"
                     value={form.amount}
                     onChange={(event) =>
                       onChange({
@@ -140,11 +167,15 @@ export default function RecurringInvoiceModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="recurring-frequency"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Frequency
                 </label>
 
                 <select
+                  id="recurring-frequency"
                   value={form.interval}
                   onChange={(event) =>
                     onChange({
@@ -174,11 +205,15 @@ export default function RecurringInvoiceModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+                <label
+                  htmlFor="recurring-next-run"
+                  className="mb-2 block text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                >
                   Next Invoice Date
                 </label>
 
                 <input
+                  id="recurring-next-run"
                   type="date"
                   value={form.next_run}
                   onChange={(event) =>
@@ -194,9 +229,10 @@ export default function RecurringInvoiceModal({
             </div>
 
             <button
+              type="button"
               onClick={onSubmit}
-              disabled={submitting}
-              className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:opacity-50"
+              disabled={!canSubmit}
+              className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (
                 <Loader2

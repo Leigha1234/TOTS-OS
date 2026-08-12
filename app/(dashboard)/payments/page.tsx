@@ -125,7 +125,7 @@ export default function PaymentsPage() {
       type,
     });
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setNotification((previous) => ({
         ...previous,
         visible: false,
@@ -179,14 +179,12 @@ export default function PaymentsPage() {
                 metrics={metrics}
                 invoices={invoices}
                 quotes={quotes}
-                expenses={finance.expenses}
+                expenses={finance.expenses ?? []}
                 subscriptions={
-                  finance.subscriptions
+                  finance.subscriptions ?? []
                 }
                 onCreateInvoice={() =>
-                  setActiveModal(
-                    "invoiceQuote"
-                  )
+                  setActiveModal("invoiceQuote")
                 }
                 onLogExpense={() =>
                   setActiveModal("expense")
@@ -212,7 +210,7 @@ export default function PaymentsPage() {
                 quotes={quotes}
                 customers={finance.customers}
                 subscriptions={
-                  finance.subscriptions
+                  finance.subscriptions ?? []
                 }
                 metrics={metrics}
                 refresh={finance.refresh}
@@ -222,18 +220,21 @@ export default function PaymentsPage() {
               />
             )}
 
-           {activeTab === "expenses" && (
-  <FinanceExpenses />
-)}
-              
+            {activeTab === "expenses" && (
+              <FinanceExpenses
+                expenses={
+                  finance.expenses ?? []
+                }
+              />
+            )}
 
             {activeTab === "tax" && (
               <FinanceTax
                 vatReturns={
-                  finance.vatReturns
+                  finance.vatReturns ?? []
                 }
                 taxReturns={
-                  finance.selfAssessments
+                  finance.selfAssessments ?? []
                 }
                 metrics={metrics}
                 refresh={finance.refresh}
@@ -250,10 +251,10 @@ export default function PaymentsPage() {
             {activeTab === "payroll" && (
               <FinancePayroll
                 employees={
-                  finance.payrollEmployees
+                  finance.payrollEmployees ?? []
                 }
                 payslips={
-                  finance.payslips
+                  finance.payslips ?? []
                 }
                 metrics={metrics}
                 refresh={finance.refresh}
@@ -267,10 +268,10 @@ export default function PaymentsPage() {
             {activeTab === "timesheets" && (
               <FinanceTimesheets
                 timesheets={
-                  finance.timesheets
+                  finance.timesheets ?? []
                 }
                 employees={
-                  finance.payrollEmployees
+                  finance.payrollEmployees ?? []
                 }
                 organisationId={
                   organisationId

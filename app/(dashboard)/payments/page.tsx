@@ -1,6 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  createBrowserClient,
+} from "@supabase/ssr";
 
 import FinanceHeader from "./components/FinanceHeader";
 import FinanceNav from "./components/FinanceNav";
@@ -15,6 +23,7 @@ import FinanceTimesheets from "./components/FinanceTimesheets";
 
 import InvoiceQuoteModal, {
   type FinanceLineItem,
+  type FinanceProject,
   type InvoiceQuoteDocType,
   type InvoiceQuoteFormData,
 } from "./components/modals/InvoiceQuoteModal";
@@ -39,9 +48,21 @@ import TaxModal, {
   type TaxForm,
 } from "./components/modals/TaxModal";
 
-import { useFinanceContext } from "./hooks/useFinanceContext";
-import { useFinanceData } from "./hooks/useFinanceData";
-import { useFinanceMetrics } from "./hooks/useFinanceMetrics";
+import {
+  useFinanceContext,
+} from "./hooks/useFinanceContext";
+
+import {
+  useFinanceData,
+} from "./hooks/useFinanceData";
+
+import {
+  useFinanceMetrics,
+} from "./hooks/useFinanceMetrics";
+
+// ============================================================
+// TYPES
+// ============================================================
 
 type FinanceTab =
   | "overview"
@@ -66,8 +87,13 @@ type NotificationType = {
   type: "success" | "error";
 };
 
+// ============================================================
+// INITIAL STATE
+// ============================================================
+
 const INITIAL_INVOICE_QUOTE_FORM: InvoiceQuoteFormData = {
   customerId: "",
+  projectId: "",
   newClientName: "",
   dueDate: "",
 };
@@ -86,6 +112,8 @@ const INITIAL_EXPENSE_FORM: ExpenseForm = {
   amount: "",
   date: "",
   status: "pending",
+  customerId: "",
+  projectId: "",
 };
 
 const INITIAL_EMPLOYEE_FORM: EmployeeForm = {
@@ -111,12 +139,39 @@ const INITIAL_TAX_FORM: TaxForm = {
   description: "",
 };
 
+// ============================================================
+// PAGE
+// ============================================================
+
 export default function PaymentsPage() {
+  // ==========================================================
+  // SUPABASE
+  // ==========================================================
+
+  const supabase = useMemo(
+    () =>
+      createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      ),
+    []
+  );
+
+  // ==========================================================
+  // MAIN STATE
+  // ==========================================================
+
   const [activeTab, setActiveTab] =
     useState<FinanceTab>("overview");
 
   const [activeModal, setActiveModal] =
     useState<ModalType>(null);
+
+  const [projects, setProjects] =
+    useState<FinanceProject[]>([]);
+
+  const [projectsLoading, setProjectsLoading] =
+    useState(false);
 
   const [notification, setNotification] =
     useState<NotificationType>({
@@ -125,83 +180,121 @@ export default function PaymentsPage() {
       type: "success",
     });
 
-  /*
-   * Invoice / Quote state
-   */
-  const [invoiceQuoteSubmitting, setInvoiceQuoteSubmitting] =
-    useState(false);
+  // ==========================================================
+  // INVOICE / QUOTE
+  // ==========================================================
 
-  const [invoiceQuoteDocType, setInvoiceQuoteDocType] =
-    useState<InvoiceQuoteDocType>("Invoice");
+  const [
+    invoiceQuoteSubmitting,
+    setInvoiceQuoteSubmitting,
+  ] = useState(false);
 
-  const [invoiceQuoteForm, setInvoiceQuoteForm] =
+  const [
+    invoiceQuoteDocType,
+    setInvoiceQuoteDocType,
+  ] =
+    useState<InvoiceQuoteDocType>(
+      "Invoice"
+    );
+
+  const [
+    invoiceQuoteForm,
+    setInvoiceQuoteForm,
+  ] =
     useState<InvoiceQuoteFormData>(
       INITIAL_INVOICE_QUOTE_FORM
     );
 
-  const [invoiceQuoteLineItems, setInvoiceQuoteLineItems] =
-    useState<FinanceLineItem[]>(
-      INITIAL_LINE_ITEMS
-    );
+  const [
+    invoiceQuoteLineItems,
+    setInvoiceQuoteLineItems,
+  ] = useState<FinanceLineItem[]>(
+    INITIAL_LINE_ITEMS
+  );
 
-  /*
-   * Expense state
-   */
-  const [expenseSubmitting, setExpenseSubmitting] =
-    useState(false);
+  // ==========================================================
+  // EXPENSE
+  // ==========================================================
 
-  const [expenseForm, setExpenseForm] =
+  const [
+    expenseSubmitting,
+    setExpenseSubmitting,
+  ] = useState(false);
+
+  const [
+    expenseForm,
+    setExpenseForm,
+  ] =
     useState<ExpenseForm>(
       INITIAL_EXPENSE_FORM
     );
 
-  /*
-   * Employee state
-   */
-  const [employeeSubmitting, setEmployeeSubmitting] =
-    useState(false);
+  // ==========================================================
+  // EMPLOYEE
+  // ==========================================================
 
-  const [employeeForm, setEmployeeForm] =
+  const [
+    employeeSubmitting,
+    setEmployeeSubmitting,
+  ] = useState(false);
+
+  const [
+    employeeForm,
+    setEmployeeForm,
+  ] =
     useState<EmployeeForm>(
       INITIAL_EMPLOYEE_FORM
     );
 
-  /*
-   * Recurring Invoice state
-   */
-  const [recurringSubmitting, setRecurringSubmitting] =
-    useState(false);
+  // ==========================================================
+  // RECURRING
+  // ==========================================================
 
-  const [recurringForm, setRecurringForm] =
+  const [
+    recurringSubmitting,
+    setRecurringSubmitting,
+  ] = useState(false);
+
+  const [
+    recurringForm,
+    setRecurringForm,
+  ] =
     useState<RecurringInvoiceForm>(
       INITIAL_RECURRING_FORM
     );
 
-  /*
-   * VAT state
-   */
-  const [vatSubmitting, setVatSubmitting] =
-    useState(false);
+  // ==========================================================
+  // VAT
+  // ==========================================================
+
+  const [
+    vatSubmitting,
+    setVatSubmitting,
+  ] = useState(false);
 
   const [vatForm, setVatForm] =
     useState<VatForm>(
       INITIAL_VAT_FORM
     );
 
-  /*
-   * Tax state
-   */
-  const [taxSubmitting, setTaxSubmitting] =
-    useState(false);
+  // ==========================================================
+  // TAX
+  // ==========================================================
+
+  const [
+    taxSubmitting,
+    setTaxSubmitting,
+  ] = useState(false);
 
   const [taxForm, setTaxForm] =
     useState<TaxForm>(
       INITIAL_TAX_FORM
     );
 
-  /*
-   * Finance context
-   */
+  // ==========================================================
+  // FINANCE CONTEXT
+  // ==========================================================
+
   const {
     orgId: contextOrgId,
     teamId: contextTeamId,
@@ -210,91 +303,235 @@ export default function PaymentsPage() {
     error: contextError,
   } = useFinanceContext();
 
-  /*
-   * Finance data
-   */
-  const finance = useFinanceData();
+  const finance =
+    useFinanceData();
 
   const organisationId =
-    contextOrgId ?? finance.orgId;
+    contextOrgId ??
+    finance.orgId;
 
   const teamId =
-    contextTeamId ?? finance.teamId;
+    contextTeamId ??
+    finance.teamId;
 
   const userId =
-    contextUserId ?? finance.userId;
+    contextUserId ??
+    finance.userId;
 
-  /*
-   * Ledger groups
-   */
+  // ==========================================================
+  // LOAD PROJECTS
+  // ==========================================================
+
+  useEffect(() => {
+    if (!organisationId) {
+      setProjects([]);
+      return;
+    }
+
+    let active = true;
+
+    async function loadProjects() {
+      setProjectsLoading(true);
+
+      try {
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("projects")
+          .select(
+            "id, name, customer_id, status"
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .is(
+            "deleted_at",
+            null
+          )
+          .order(
+            "name",
+            {
+              ascending: true,
+            }
+          );
+
+        if (error) {
+          console.error(
+            "Finance projects load error:",
+            error
+          );
+
+          return;
+        }
+
+        if (!active) {
+          return;
+        }
+
+        setProjects(
+          (data || []).map(
+            (project: any) => ({
+              id: project.id,
+
+              name:
+                project.name ||
+                "Untitled Project",
+
+              customer_id:
+                project.customer_id ||
+                null,
+
+              status:
+                project.status ||
+                null,
+            })
+          )
+        );
+      } catch (error) {
+        console.error(
+          "Unexpected project load error:",
+          error
+        );
+      } finally {
+        if (active) {
+          setProjectsLoading(false);
+        }
+      }
+    }
+
+    loadProjects();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    organisationId,
+    supabase,
+  ]);
+
+  // ==========================================================
+  // LEDGER GROUPS
+  // ==========================================================
+
   const invoices = useMemo(
     () =>
-      (finance.ledger ?? []).filter(
+      (
+        finance.ledger ?? []
+      ).filter(
         (entry) =>
-          String(entry.type ?? "")
+          String(
+            entry.type ?? ""
+          )
             .trim()
-            .toLowerCase() === "invoice"
+            .toLowerCase() ===
+          "invoice"
       ),
     [finance.ledger]
   );
 
   const quotes = useMemo(
     () =>
-      (finance.ledger ?? []).filter(
+      (
+        finance.ledger ?? []
+      ).filter(
         (entry) =>
-          String(entry.type ?? "")
+          String(
+            entry.type ?? ""
+          )
             .trim()
-            .toLowerCase() === "quote"
+            .toLowerCase() ===
+          "quote"
       ),
     [finance.ledger]
   );
 
-  /*
-   * Finance metrics
-   */
-  const metrics = useFinanceMetrics({
-    invoices,
-    quotes,
-    expenses: finance.expenses ?? [],
-    vatReturns: finance.vatReturns ?? [],
-    taxReturns: finance.selfAssessments ?? [],
-    payrollEmployees:
-      finance.payrollEmployees ?? [],
-    payslips: finance.payslips ?? [],
-    timesheets: finance.timesheets ?? [],
-    subscriptions:
-      finance.subscriptions ?? [],
-    bankTransactions: [],
-  });
+  // ==========================================================
+  // METRICS
+  // ==========================================================
 
-  /*
-   * Invoice totals
-   */
-  const invoiceQuoteNetTotal = useMemo(
-    () =>
-      invoiceQuoteLineItems.reduce(
-        (total, item) =>
-          total +
-          Number(item.qty || 0) *
-            Number(item.price || 0),
-        0
-      ),
-    [invoiceQuoteLineItems]
-  );
+  const metrics =
+    useFinanceMetrics({
+      invoices,
+      quotes,
+
+      expenses:
+        finance.expenses ??
+        [],
+
+      vatReturns:
+        finance.vatReturns ??
+        [],
+
+      taxReturns:
+        finance.selfAssessments ??
+        [],
+
+      payrollEmployees:
+        finance.payrollEmployees ??
+        [],
+
+      payslips:
+        finance.payslips ??
+        [],
+
+      timesheets:
+        finance.timesheets ??
+        [],
+
+      subscriptions:
+        finance.subscriptions ??
+        [],
+
+      bankTransactions: [],
+    });
+
+  // ==========================================================
+  // INVOICE TOTALS
+  // ==========================================================
+
+  const invoiceQuoteNetTotal =
+    useMemo(
+      () =>
+        invoiceQuoteLineItems.reduce(
+          (
+            total,
+            item
+          ) =>
+            total +
+            Number(
+              item.qty ||
+                0
+            ) *
+              Number(
+                item.price ||
+                  0
+              ),
+          0
+        ),
+      [
+        invoiceQuoteLineItems,
+      ]
+    );
 
   const invoiceQuoteVatTotal =
-    invoiceQuoteNetTotal * 0.2;
+    invoiceQuoteNetTotal *
+    0.2;
 
   const invoiceQuoteGrandTotal =
     invoiceQuoteNetTotal +
     invoiceQuoteVatTotal;
 
-  /*
-   * Notifications
-   */
+  // ==========================================================
+  // NOTIFICATIONS
+  // ==========================================================
+
   const notify = (
     message: string,
-    type: "success" | "error" = "success"
+    type:
+      | "success"
+      | "error" = "success"
   ) => {
     setNotification({
       visible: true,
@@ -302,511 +539,1238 @@ export default function PaymentsPage() {
       type,
     });
 
-    window.setTimeout(() => {
-      setNotification((previous) => ({
-        ...previous,
-        visible: false,
-      }));
-    }, 3000);
-  };
-
-  /*
-   * Invoice / Quote helpers
-   */
-  const resetInvoiceQuote = () => {
-    setInvoiceQuoteDocType("Invoice");
-
-    setInvoiceQuoteForm({
-      customerId: "",
-      newClientName: "",
-      dueDate: "",
-    });
-
-    setInvoiceQuoteLineItems([
-      {
-        id: Date.now(),
-        desc: "",
-        qty: 1,
-        price: 0,
+    window.setTimeout(
+      () => {
+        setNotification(
+          (previous) => ({
+            ...previous,
+            visible: false,
+          })
+        );
       },
-    ]);
+      3000
+    );
   };
 
-  const closeInvoiceQuoteModal = () => {
-    if (invoiceQuoteSubmitting) {
-      return;
-    }
+  // ==========================================================
+  // INVOICE / QUOTE RESET
+  // ==========================================================
 
-    setActiveModal(null);
-    resetInvoiceQuote();
-  };
-
-  const handleInvoiceQuoteSubmit = async () => {
-    if (invoiceQuoteSubmitting) {
-      return;
-    }
-
-    const hasCustomer =
-      invoiceQuoteForm.customerId.trim().length > 0;
-
-    const hasNewQuoteCustomer =
-      invoiceQuoteDocType === "Quote" &&
-      invoiceQuoteForm.newClientName.trim().length > 0;
-
-    if (!hasCustomer && !hasNewQuoteCustomer) {
-      notify(
-        "Please select or enter a client.",
-        "error"
+  const resetInvoiceQuote =
+    () => {
+      setInvoiceQuoteDocType(
+        "Invoice"
       );
-      return;
-    }
 
-    if (
-      invoiceQuoteDocType === "Invoice" &&
-      !invoiceQuoteForm.dueDate
-    ) {
-      notify(
-        "Please choose an invoice due date.",
-        "error"
+      setInvoiceQuoteForm({
+        customerId: "",
+        projectId: "",
+        newClientName: "",
+        dueDate: "",
+      });
+
+      setInvoiceQuoteLineItems(
+        [
+          {
+            id: Date.now(),
+            desc: "",
+            qty: 1,
+            price: 0,
+          },
+        ]
       );
-      return;
-    }
+    };
 
-    if (
-      invoiceQuoteLineItems.length === 0 ||
-      invoiceQuoteLineItems.some(
-        (item) =>
-          !item.desc.trim() ||
-          item.qty <= 0 ||
-          item.price < 0
-      )
-    ) {
-      notify(
-        "Please complete all line items.",
-        "error"
-      );
-      return;
-    }
-
-    setInvoiceQuoteSubmitting(true);
-
-    try {
-      notify(
-        `${invoiceQuoteDocType} prepared successfully.`,
-        "success"
-      );
+  const closeInvoiceQuoteModal =
+    () => {
+      if (
+        invoiceQuoteSubmitting
+      ) {
+        return;
+      }
 
       setActiveModal(null);
+
       resetInvoiceQuote();
+    };
 
-      await finance.refresh();
-    } catch (submitError) {
-      console.error(
-        "Invoice / quote submission failed:",
+  // ==========================================================
+  // CREATE CUSTOMER FOR NEW QUOTE
+  // ==========================================================
+
+  const createQuoteCustomer =
+    async () => {
+      if (
+        !organisationId ||
+        !userId
+      ) {
+        throw new Error(
+          "Organisation context is unavailable."
+        );
+      }
+
+      const name =
+        invoiceQuoteForm.newClientName.trim();
+
+      if (!name) {
+        throw new Error(
+          "Client name is required."
+        );
+      }
+
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("customers")
+        .insert({
+          name,
+
+          organisation_id:
+            organisationId,
+
+          user_id:
+            userId,
+
+          team_id:
+            teamId || null,
+
+          status:
+            "active",
+
+          stage:
+            "lead",
+        })
+        .select(
+          "id, name, email"
+        )
+        .single();
+
+      if (error) {
+        console.error(
+          "New quote customer create error:",
+          error
+        );
+
+        throw new Error(
+          error.message ||
+            "Unable to create client."
+        );
+      }
+
+      return data;
+    };
+
+  // ==========================================================
+  // CREATE INVOICE / QUOTE
+  // ==========================================================
+
+  const handleInvoiceQuoteSubmit =
+    async () => {
+      if (
+        invoiceQuoteSubmitting
+      ) {
+        return;
+      }
+
+      if (!organisationId) {
+        notify(
+          "Organisation context is unavailable.",
+          "error"
+        );
+
+        return;
+      }
+
+      const hasCustomer =
+        invoiceQuoteForm.customerId
+          .trim()
+          .length > 0;
+
+      const hasNewQuoteCustomer =
+        invoiceQuoteDocType ===
+          "Quote" &&
+        invoiceQuoteForm.newClientName
+          .trim()
+          .length > 0;
+
+      if (
+        !hasCustomer &&
+        !hasNewQuoteCustomer
+      ) {
+        notify(
+          "Please select or enter a client.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        invoiceQuoteDocType ===
+          "Invoice" &&
+        !invoiceQuoteForm.dueDate
+      ) {
+        notify(
+          "Please choose an invoice due date.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        invoiceQuoteLineItems.length ===
+          0 ||
+        invoiceQuoteLineItems.some(
+          (item) =>
+            !item.desc.trim() ||
+            item.qty <= 0 ||
+            item.price < 0
+        )
+      ) {
+        notify(
+          "Please complete all line items.",
+          "error"
+        );
+
+        return;
+      }
+
+      setInvoiceQuoteSubmitting(
+        true
+      );
+
+      try {
+        // ------------------------------------------------------
+        // RESOLVE CUSTOMER
+        // ------------------------------------------------------
+
+        let customerId =
+          invoiceQuoteForm.customerId ||
+          null;
+
+        let clientName =
+          "";
+
+        if (customerId) {
+          const customer =
+            (
+              finance.customers ??
+              []
+            ).find(
+              (record) =>
+                record.id ===
+                customerId
+            );
+
+          clientName =
+            customer?.name ||
+            "Client";
+        }
+
+        if (
+          !customerId &&
+          invoiceQuoteDocType ===
+            "Quote"
+        ) {
+          const customer =
+            await createQuoteCustomer();
+
+          customerId =
+            customer.id;
+
+          clientName =
+            customer.name;
+        }
+
+        if (!customerId) {
+          throw new Error(
+            "A client could not be resolved."
+          );
+        }
+
+        // ------------------------------------------------------
+        // NORMALISE ITEMS
+        // ------------------------------------------------------
+
+        const items =
+          invoiceQuoteLineItems.map(
+            (item) => ({
+              description:
+                item.desc.trim(),
+
+              qty:
+                Number(
+                  item.qty
+                ),
+
+              price:
+                Number(
+                  item.price
+                ),
+
+              total:
+                Number(
+                  item.qty
+                ) *
+                Number(
+                  item.price
+                ),
+            })
+          );
+
+        // ------------------------------------------------------
+        // INVOICE
+        // ------------------------------------------------------
+
+        if (
+          invoiceQuoteDocType ===
+          "Invoice"
+        ) {
+          const {
+            error,
+          } = await supabase
+            .from("invoices")
+            .insert({
+              customer_id:
+                customerId,
+
+              project_id:
+                invoiceQuoteForm.projectId ||
+                null,
+
+              organisation_id:
+                organisationId,
+
+              team_id:
+                teamId ||
+                null,
+
+              amount:
+                invoiceQuoteGrandTotal,
+
+              tax:
+                invoiceQuoteVatTotal,
+
+              status:
+                "pending",
+
+              type:
+                "invoice",
+
+              doc_type:
+                "Invoice",
+
+              items,
+
+              due_date:
+                invoiceQuoteForm.dueDate,
+
+              recurring:
+                false,
+
+              data: {
+                client_name:
+                  clientName,
+
+                net_total:
+                  invoiceQuoteNetTotal,
+
+                vat_total:
+                  invoiceQuoteVatTotal,
+
+                grand_total:
+                  invoiceQuoteGrandTotal,
+
+                project_id:
+                  invoiceQuoteForm.projectId ||
+                  null,
+              },
+            });
+
+          if (error) {
+            console.error(
+              "Invoice insert error:",
+              error
+            );
+
+            throw new Error(
+              error.message ||
+                "Unable to create invoice."
+            );
+          }
+        }
+
+        // ------------------------------------------------------
+        // QUOTE
+        // ------------------------------------------------------
+
+        if (
+          invoiceQuoteDocType ===
+          "Quote"
+        ) {
+          const quoteDescription =
+            items
+              .map(
+                (item) =>
+                  `${item.description} × ${item.qty}`
+              )
+              .join(", ");
+
+          const {
+            error,
+          } = await supabase
+            .from("quotes")
+            .insert({
+              customer_id:
+                customerId,
+
+              project_id:
+                invoiceQuoteForm.projectId ||
+                null,
+
+              organisation_id:
+                organisationId,
+
+              team_id:
+                teamId ||
+                null,
+
+              client_name:
+                clientName,
+
+              description:
+                quoteDescription ||
+                null,
+
+              amount:
+                invoiceQuoteGrandTotal,
+
+              date:
+                new Date()
+                  .toISOString()
+                  .slice(
+                    0,
+                    10
+                  ),
+
+              status:
+                "draft",
+            });
+
+          if (error) {
+            console.error(
+              "Quote insert error:",
+              error
+            );
+
+            throw new Error(
+              error.message ||
+                "Unable to create quote."
+            );
+          }
+        }
+
+        await finance.refresh();
+
+        notify(
+          `${invoiceQuoteDocType} created successfully.`,
+          "success"
+        );
+
+        setActiveModal(null);
+
+        resetInvoiceQuote();
+      } catch (
         submitError
-      );
+      ) {
+        console.error(
+          "Invoice / quote submission failed:",
+          submitError
+        );
 
-      notify(
-        `Unable to create ${invoiceQuoteDocType.toLowerCase()}.`,
-        "error"
-      );
-    } finally {
-      setInvoiceQuoteSubmitting(false);
-    }
-  };
+        const message =
+          submitError instanceof
+          Error
+            ? submitError.message
+            : `Unable to create ${invoiceQuoteDocType.toLowerCase()}.`;
 
-  /*
-   * Expense helpers
-   */
-  const resetExpenseForm = () => {
-    setExpenseForm({
-      description: "",
-      amount: "",
-      date: "",
-      status: "pending",
-    });
-  };
+        notify(
+          message,
+          "error"
+        );
+      } finally {
+        setInvoiceQuoteSubmitting(
+          false
+        );
+      }
+    };
 
-  const closeExpenseModal = () => {
-    if (expenseSubmitting) {
-      return;
-    }
+  // ==========================================================
+  // EXPENSE
+  // ==========================================================
 
-    setActiveModal(null);
-    resetExpenseForm();
-  };
+  const resetExpenseForm =
+    () => {
+      setExpenseForm({
+        description: "",
+        amount: "",
+        date: "",
+        status: "pending",
 
-  const handleExpenseSubmit = async () => {
-    if (expenseSubmitting) {
-      return;
-    }
+        customerId: "",
+        projectId: "",
+      });
+    };
 
-    if (!expenseForm.description.trim()) {
-      notify(
-        "Please enter an expense description.",
-        "error"
-      );
-      return;
-    }
-
-    if (
-      !expenseForm.amount ||
-      Number(expenseForm.amount) <= 0
-    ) {
-      notify(
-        "Please enter a valid expense amount.",
-        "error"
-      );
-      return;
-    }
-
-    if (!expenseForm.date) {
-      notify(
-        "Please select an expense date.",
-        "error"
-      );
-      return;
-    }
-
-    setExpenseSubmitting(true);
-
-    try {
-      notify(
-        "Expense logged successfully.",
-        "success"
-      );
+  const closeExpenseModal =
+    () => {
+      if (
+        expenseSubmitting
+      ) {
+        return;
+      }
 
       setActiveModal(null);
+
       resetExpenseForm();
+    };
 
-      await finance.refresh();
-    } catch (submitError) {
-      console.error(
-        "Expense submission failed:",
+  const handleExpenseSubmit =
+    async () => {
+      if (
+        expenseSubmitting
+      ) {
+        return;
+      }
+
+      if (!organisationId) {
+        notify(
+          "Organisation context is unavailable.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !expenseForm.description.trim()
+      ) {
+        notify(
+          "Please enter an expense description.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !expenseForm.amount ||
+        Number(
+          expenseForm.amount
+        ) <= 0
+      ) {
+        notify(
+          "Please enter a valid expense amount.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !expenseForm.date
+      ) {
+        notify(
+          "Please select an expense date.",
+          "error"
+        );
+
+        return;
+      }
+
+      setExpenseSubmitting(
+        true
+      );
+
+      try {
+        const selectedCustomer =
+          (
+            finance.customers ??
+            []
+          ).find(
+            (customer) =>
+              customer.id ===
+              expenseForm.customerId
+          );
+
+        const {
+          error,
+        } = await supabase
+          .from("expenses")
+          .insert({
+            organisation_id:
+              organisationId,
+
+            team_id:
+              teamId || null,
+
+            customer_id:
+              expenseForm.customerId ||
+              null,
+
+            project_id:
+              expenseForm.projectId ||
+              null,
+
+            client_name:
+              selectedCustomer?.name ||
+              null,
+
+            description:
+              expenseForm.description.trim(),
+
+            amount:
+              Number(
+                expenseForm.amount
+              ),
+
+            date:
+              expenseForm.date,
+
+            status:
+              expenseForm.status ||
+              "pending",
+          });
+
+        if (error) {
+          console.error(
+            "Expense insert error:",
+            error
+          );
+
+          throw new Error(
+            error.message ||
+              "Unable to log expense."
+          );
+        }
+
+        await finance.refresh();
+
+        notify(
+          "Expense logged successfully.",
+          "success"
+        );
+
+        setActiveModal(null);
+
+        resetExpenseForm();
+      } catch (
         submitError
-      );
+      ) {
+        console.error(
+          "Expense submission failed:",
+          submitError
+        );
 
-      notify(
-        "Unable to log expense.",
-        "error"
-      );
-    } finally {
-      setExpenseSubmitting(false);
-    }
-  };
+        notify(
+          submitError instanceof
+            Error
+            ? submitError.message
+            : "Unable to log expense.",
+          "error"
+        );
+      } finally {
+        setExpenseSubmitting(
+          false
+        );
+      }
+    };
 
-  /*
-   * Employee helpers
-   */
-  const resetEmployeeForm = () => {
-    setEmployeeForm({
-      name: "",
-      role: "",
-      salary_gross: "",
-    });
-  };
+  // ==========================================================
+  // EMPLOYEE
+  // ==========================================================
 
-  const closeEmployeeModal = () => {
-    if (employeeSubmitting) {
-      return;
-    }
+  const resetEmployeeForm =
+    () => {
+      setEmployeeForm({
+        name: "",
+        role: "",
+        salary_gross: "",
+      });
+    };
 
-    setActiveModal(null);
-    resetEmployeeForm();
-  };
-
-  const handleEmployeeSubmit = async () => {
-    if (employeeSubmitting) {
-      return;
-    }
-
-    if (!employeeForm.name.trim()) {
-      notify(
-        "Please enter the employee name.",
-        "error"
-      );
-      return;
-    }
-
-    if (!employeeForm.role.trim()) {
-      notify(
-        "Please enter the employee role.",
-        "error"
-      );
-      return;
-    }
-
-    if (
-      !employeeForm.salary_gross ||
-      Number(employeeForm.salary_gross) <= 0
-    ) {
-      notify(
-        "Please enter a valid salary.",
-        "error"
-      );
-      return;
-    }
-
-    setEmployeeSubmitting(true);
-
-    try {
-      notify(
-        "Employee added successfully.",
-        "success"
-      );
+  const closeEmployeeModal =
+    () => {
+      if (
+        employeeSubmitting
+      ) {
+        return;
+      }
 
       setActiveModal(null);
+
       resetEmployeeForm();
+    };
 
-      await finance.refresh();
-    } catch (submitError) {
-      console.error(
-        "Employee submission failed:",
+  const handleEmployeeSubmit =
+    async () => {
+      if (
+        employeeSubmitting
+      ) {
+        return;
+      }
+
+      if (
+        !employeeForm.name.trim()
+      ) {
+        notify(
+          "Please enter the employee name.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !employeeForm.role.trim()
+      ) {
+        notify(
+          "Please enter the employee role.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !employeeForm.salary_gross ||
+        Number(
+          employeeForm.salary_gross
+        ) <= 0
+      ) {
+        notify(
+          "Please enter a valid salary.",
+          "error"
+        );
+
+        return;
+      }
+
+      setEmployeeSubmitting(
+        true
+      );
+
+      try {
+        if (!organisationId) {
+          throw new Error(
+            "Organisation context is unavailable."
+          );
+        }
+
+        const {
+          error,
+        } = await supabase
+          .from(
+            "payroll_employees"
+          )
+          .insert({
+            organisation_id:
+              organisationId,
+
+            name:
+              employeeForm.name.trim(),
+
+            role:
+              employeeForm.role.trim(),
+
+            salary_gross:
+              Number(
+                employeeForm.salary_gross
+              ),
+          });
+
+        if (error) {
+          throw new Error(
+            error.message
+          );
+        }
+
+        await finance.refresh();
+
+        notify(
+          "Employee added successfully.",
+          "success"
+        );
+
+        setActiveModal(null);
+
+        resetEmployeeForm();
+      } catch (
         submitError
-      );
+      ) {
+        console.error(
+          "Employee submission failed:",
+          submitError
+        );
 
-      notify(
-        "Unable to add employee.",
-        "error"
-      );
-    } finally {
-      setEmployeeSubmitting(false);
-    }
-  };
+        notify(
+          submitError instanceof
+            Error
+            ? submitError.message
+            : "Unable to add employee.",
+          "error"
+        );
+      } finally {
+        setEmployeeSubmitting(
+          false
+        );
+      }
+    };
 
-  /*
-   * Recurring invoice helpers
-   */
-  const resetRecurringForm = () => {
-    setRecurringForm({
-      client_name: "",
-      amount: "",
-      interval: "monthly",
-      next_run: "",
-    });
-  };
+  // ==========================================================
+  // RECURRING
+  // ==========================================================
 
-  const closeRecurringModal = () => {
-    if (recurringSubmitting) {
-      return;
-    }
+  const resetRecurringForm =
+    () => {
+      setRecurringForm({
+        client_name: "",
+        amount: "",
+        interval:
+          "monthly",
+        next_run: "",
+      });
+    };
 
-    setActiveModal(null);
-    resetRecurringForm();
-  };
-
-  const handleRecurringSubmit = async () => {
-    if (recurringSubmitting) {
-      return;
-    }
-
-    if (!recurringForm.client_name.trim()) {
-      notify(
-        "Please enter a client name.",
-        "error"
-      );
-      return;
-    }
-
-    if (
-      !recurringForm.amount ||
-      Number(recurringForm.amount) <= 0
-    ) {
-      notify(
-        "Please enter a valid invoice amount.",
-        "error"
-      );
-      return;
-    }
-
-    if (!recurringForm.interval) {
-      notify(
-        "Please choose a billing frequency.",
-        "error"
-      );
-      return;
-    }
-
-    if (!recurringForm.next_run) {
-      notify(
-        "Please choose the next invoice date.",
-        "error"
-      );
-      return;
-    }
-
-    setRecurringSubmitting(true);
-
-    try {
-      notify(
-        "Recurring invoice scheduled successfully.",
-        "success"
-      );
+  const closeRecurringModal =
+    () => {
+      if (
+        recurringSubmitting
+      ) {
+        return;
+      }
 
       setActiveModal(null);
+
       resetRecurringForm();
+    };
 
-      await finance.refresh();
-    } catch (submitError) {
-      console.error(
-        "Recurring invoice submission failed:",
+  const handleRecurringSubmit =
+    async () => {
+      if (
+        recurringSubmitting
+      ) {
+        return;
+      }
+
+      if (
+        !recurringForm.client_name.trim()
+      ) {
+        notify(
+          "Please enter a client name.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !recurringForm.amount ||
+        Number(
+          recurringForm.amount
+        ) <= 0
+      ) {
+        notify(
+          "Please enter a valid invoice amount.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !recurringForm.interval
+      ) {
+        notify(
+          "Please choose a billing frequency.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !recurringForm.next_run
+      ) {
+        notify(
+          "Please choose the next invoice date.",
+          "error"
+        );
+
+        return;
+      }
+
+      setRecurringSubmitting(
+        true
+      );
+
+      try {
+        if (!organisationId) {
+          throw new Error(
+            "Organisation context is unavailable."
+          );
+        }
+
+        const {
+          error,
+        } = await supabase
+          .from("subscriptions")
+          .insert({
+            organisation_id:
+              organisationId,
+
+            client_name:
+              recurringForm.client_name.trim(),
+
+            amount:
+              Number(
+                recurringForm.amount
+              ),
+
+            interval:
+              recurringForm.interval,
+
+            next_run:
+              recurringForm.next_run,
+
+            active:
+              true,
+          });
+
+        if (error) {
+          throw new Error(
+            error.message
+          );
+        }
+
+        await finance.refresh();
+
+        notify(
+          "Recurring invoice scheduled successfully.",
+          "success"
+        );
+
+        setActiveModal(null);
+
+        resetRecurringForm();
+      } catch (
         submitError
-      );
+      ) {
+        console.error(
+          "Recurring invoice submission failed:",
+          submitError
+        );
 
-      notify(
-        "Unable to schedule recurring invoice.",
-        "error"
-      );
-    } finally {
-      setRecurringSubmitting(false);
-    }
-  };
+        notify(
+          submitError instanceof
+            Error
+            ? submitError.message
+            : "Unable to schedule recurring invoice.",
+          "error"
+        );
+      } finally {
+        setRecurringSubmitting(
+          false
+        );
+      }
+    };
 
-  /*
-   * VAT helpers
-   */
-  const resetVatForm = () => {
-    setVatForm({
-      amount: "",
-      description: "",
-    });
-  };
+  // ==========================================================
+  // VAT
+  // ==========================================================
 
-  const closeVatModal = () => {
-    if (vatSubmitting) {
-      return;
-    }
+  const resetVatForm =
+    () => {
+      setVatForm({
+        amount: "",
+        description: "",
+      });
+    };
 
-    setActiveModal(null);
-    resetVatForm();
-  };
-
-  const handleVatSubmit = async () => {
-    if (vatSubmitting) {
-      return;
-    }
-
-    if (!vatForm.description.trim()) {
-      notify(
-        "Please enter a VAT return description.",
-        "error"
-      );
-      return;
-    }
-
-    if (
-      !vatForm.amount ||
-      Number(vatForm.amount) < 0
-    ) {
-      notify(
-        "Please enter a valid VAT amount.",
-        "error"
-      );
-      return;
-    }
-
-    setVatSubmitting(true);
-
-    try {
-      notify(
-        "VAT return saved successfully.",
-        "success"
-      );
+  const closeVatModal =
+    () => {
+      if (
+        vatSubmitting
+      ) {
+        return;
+      }
 
       setActiveModal(null);
+
       resetVatForm();
+    };
 
-      await finance.refresh();
-    } catch (submitError) {
-      console.error(
-        "VAT return submission failed:",
+  const handleVatSubmit =
+    async () => {
+      if (
+        vatSubmitting
+      ) {
+        return;
+      }
+
+      if (
+        !vatForm.description.trim()
+      ) {
+        notify(
+          "Please enter a VAT return description.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !vatForm.amount ||
+        Number(
+          vatForm.amount
+        ) < 0
+      ) {
+        notify(
+          "Please enter a valid VAT amount.",
+          "error"
+        );
+
+        return;
+      }
+
+      setVatSubmitting(true);
+
+      try {
+        if (!organisationId) {
+          throw new Error(
+            "Organisation context is unavailable."
+          );
+        }
+
+        const {
+          error,
+        } = await supabase
+          .from("vat_returns")
+          .insert({
+            organisation_id:
+              organisationId,
+
+            amount:
+              Number(
+                vatForm.amount
+              ),
+
+            description:
+              vatForm.description.trim(),
+
+            date:
+              new Date()
+                .toISOString()
+                .slice(
+                  0,
+                  10
+                ),
+
+            status:
+              "draft",
+          });
+
+        if (error) {
+          throw new Error(
+            error.message
+          );
+        }
+
+        await finance.refresh();
+
+        notify(
+          "VAT return saved successfully.",
+          "success"
+        );
+
+        setActiveModal(null);
+
+        resetVatForm();
+      } catch (
         submitError
-      );
+      ) {
+        console.error(
+          "VAT return submission failed:",
+          submitError
+        );
 
-      notify(
-        "Unable to save VAT return.",
-        "error"
-      );
-    } finally {
-      setVatSubmitting(false);
-    }
-  };
+        notify(
+          submitError instanceof
+            Error
+            ? submitError.message
+            : "Unable to save VAT return.",
+          "error"
+        );
+      } finally {
+        setVatSubmitting(
+          false
+        );
+      }
+    };
 
-  /*
-   * Tax helpers
-   */
-  const resetTaxForm = () => {
-    setTaxForm({
-      amount: "",
-      description: "",
-    });
-  };
+  // ==========================================================
+  // TAX
+  // ==========================================================
 
-  const closeTaxModal = () => {
-    if (taxSubmitting) {
-      return;
-    }
+  const resetTaxForm =
+    () => {
+      setTaxForm({
+        amount: "",
+        description: "",
+      });
+    };
 
-    setActiveModal(null);
-    resetTaxForm();
-  };
-
-  const handleTaxSubmit = async () => {
-    if (taxSubmitting) {
-      return;
-    }
-
-    if (!taxForm.description.trim()) {
-      notify(
-        "Please enter a tax record description.",
-        "error"
-      );
-      return;
-    }
-
-    if (
-      !taxForm.amount ||
-      Number(taxForm.amount) < 0
-    ) {
-      notify(
-        "Please enter a valid tax amount.",
-        "error"
-      );
-      return;
-    }
-
-    setTaxSubmitting(true);
-
-    try {
-      notify(
-        "Tax record saved successfully.",
-        "success"
-      );
+  const closeTaxModal =
+    () => {
+      if (
+        taxSubmitting
+      ) {
+        return;
+      }
 
       setActiveModal(null);
+
       resetTaxForm();
+    };
 
-      await finance.refresh();
-    } catch (submitError) {
-      console.error(
-        "Tax record submission failed:",
+  const handleTaxSubmit =
+    async () => {
+      if (
+        taxSubmitting
+      ) {
+        return;
+      }
+
+      if (
+        !taxForm.description.trim()
+      ) {
+        notify(
+          "Please enter a tax record description.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        !taxForm.amount ||
+        Number(
+          taxForm.amount
+        ) < 0
+      ) {
+        notify(
+          "Please enter a valid tax amount.",
+          "error"
+        );
+
+        return;
+      }
+
+      setTaxSubmitting(true);
+
+      try {
+        if (!organisationId) {
+          throw new Error(
+            "Organisation context is unavailable."
+          );
+        }
+
+        const {
+          error,
+        } = await supabase
+          .from(
+            "self_assessment"
+          )
+          .insert({
+            organisation_id:
+              organisationId,
+
+            amount:
+              Number(
+                taxForm.amount
+              ),
+
+            description:
+              taxForm.description.trim(),
+
+            date:
+              new Date()
+                .toISOString()
+                .slice(
+                  0,
+                  10
+                ),
+
+            status:
+              "draft",
+          });
+
+        if (error) {
+          throw new Error(
+            error.message
+          );
+        }
+
+        await finance.refresh();
+
+        notify(
+          "Tax record saved successfully.",
+          "success"
+        );
+
+        setActiveModal(null);
+
+        resetTaxForm();
+      } catch (
         submitError
-      );
+      ) {
+        console.error(
+          "Tax record submission failed:",
+          submitError
+        );
 
-      notify(
-        "Unable to save tax record.",
-        "error"
-      );
-    } finally {
-      setTaxSubmitting(false);
-    }
-  };
+        notify(
+          submitError instanceof
+            Error
+            ? submitError.message
+            : "Unable to save tax record.",
+          "error"
+        );
+      } finally {
+        setTaxSubmitting(
+          false
+        );
+      }
+    };
+
+  // ==========================================================
+  // PAGE STATE
+  // ==========================================================
 
   const loading =
-    contextLoading || finance.loading;
+    contextLoading ||
+    finance.loading ||
+    projectsLoading;
 
   const error =
-    contextError || finance.error;
+    contextError ||
+    finance.error;
+
+  // ==========================================================
+  // ERROR
+  // ==========================================================
 
   if (error) {
     return (
@@ -822,23 +1786,39 @@ export default function PaymentsPage() {
     );
   }
 
+  // ==========================================================
+  // RENDER
+  // ==========================================================
+
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900">
       <FinanceNotification
-        visible={notification.visible}
-        message={notification.message}
-        type={notification.type}
+        visible={
+          notification.visible
+        }
+        message={
+          notification.message
+        }
+        type={
+          notification.type
+        }
       />
 
       <main className="mx-auto max-w-[1400px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
         <FinanceHeader
           loading={loading}
-          onRefresh={finance.refresh}
+          onRefresh={
+            finance.refresh
+          }
         />
 
         <FinanceNav
-          activeTab={activeTab}
-          onChange={setActiveTab}
+          activeTab={
+            activeTab
+          }
+          onChange={
+            setActiveTab
+          }
         />
 
         {loading ? (
@@ -847,174 +1827,405 @@ export default function PaymentsPage() {
           </div>
         ) : (
           <>
-            {activeTab === "overview" && (
+            {activeTab ===
+              "overview" && (
               <FinanceOverview
-                metrics={metrics}
-                invoices={invoices}
-                quotes={quotes}
-                expenses={finance.expenses ?? []}
-                subscriptions={finance.subscriptions ?? []}
+                metrics={
+                  metrics
+                }
+                invoices={
+                  invoices
+                }
+                quotes={
+                  quotes
+                }
+                expenses={
+                  finance.expenses ??
+                  []
+                }
+                subscriptions={
+                  finance.subscriptions ??
+                  []
+                }
                 onCreateInvoice={() =>
-                  setActiveModal("invoiceQuote")
+                  setActiveModal(
+                    "invoiceQuote"
+                  )
                 }
                 onLogExpense={() =>
-                  setActiveModal("expense")
+                  setActiveModal(
+                    "expense"
+                  )
                 }
                 onAddEmployee={() =>
-                  setActiveModal("employee")
+                  setActiveModal(
+                    "employee"
+                  )
                 }
                 onRecurring={() =>
-                  setActiveModal("recurring")
+                  setActiveModal(
+                    "recurring"
+                  )
                 }
                 onVat={() =>
-                  setActiveModal("vat")
+                  setActiveModal(
+                    "vat"
+                  )
                 }
                 onTax={() =>
-                  setActiveModal("tax")
+                  setActiveModal(
+                    "tax"
+                  )
                 }
               />
             )}
 
-            {activeTab === "sales" && (
+            {activeTab ===
+              "sales" && (
               <FinanceSales
-                invoices={invoices}
-                quotes={quotes}
-                customers={finance.customers ?? []}
-                subscriptions={finance.subscriptions ?? []}
-                metrics={metrics}
-                refresh={finance.refresh}
+                invoices={
+                  invoices
+                }
+                quotes={
+                  quotes
+                }
+                customers={
+                  finance.customers ??
+                  []
+                }
+                subscriptions={
+                  finance.subscriptions ??
+                  []
+                }
+                metrics={
+                  metrics
+                }
+                refresh={
+                  finance.refresh
+                }
                 onRecurring={() =>
-                  setActiveModal("recurring")
+                  setActiveModal(
+                    "recurring"
+                  )
                 }
               />
             )}
 
-            {activeTab === "expenses" && (
+            {activeTab ===
+              "expenses" && (
               <FinanceExpenses
-                expenses={finance.expenses ?? []}
+                expenses={
+                  finance.expenses ??
+                  []
+                }
               />
             )}
 
-            {activeTab === "tax" && (
+            {activeTab ===
+              "tax" && (
               <FinanceTax
-                vatReturns={finance.vatReturns ?? []}
-                taxReturns={finance.selfAssessments ?? []}
-                metrics={metrics}
-                refresh={finance.refresh}
+                vatReturns={
+                  finance.vatReturns ??
+                  []
+                }
+                taxReturns={
+                  finance.selfAssessments ??
+                  []
+                }
+                metrics={
+                  metrics
+                }
+                refresh={
+                  finance.refresh
+                }
                 onVat={() =>
-                  setActiveModal("vat")
+                  setActiveModal(
+                    "vat"
+                  )
                 }
                 onTax={() =>
-                  setActiveModal("tax")
+                  setActiveModal(
+                    "tax"
+                  )
                 }
               />
             )}
 
-            {activeTab === "payroll" && (
+            {activeTab ===
+              "payroll" && (
               <FinancePayroll
-                employees={finance.payrollEmployees ?? []}
-                payslips={finance.payslips ?? []}
+                employees={
+                  finance.payrollEmployees ??
+                  []
+                }
+                payslips={
+                  finance.payslips ??
+                  []
+                }
               />
             )}
 
-            {activeTab === "timesheets" && (
+            {activeTab ===
+              "timesheets" && (
               <FinanceTimesheets
-                timesheets={finance.timesheets ?? []}
-                organisationId={organisationId}
-                teamId={teamId}
-                userId={userId}
+                timesheets={
+                  finance.timesheets ??
+                  []
+                }
+                organisationId={
+                  organisationId
+                }
+                teamId={
+                  teamId
+                }
+                userId={
+                  userId
+                }
               />
             )}
           </>
         )}
       </main>
 
+      {/* ======================================================
+          INVOICE / QUOTE
+      ====================================================== */}
+
       <InvoiceQuoteModal
-        open={activeModal === "invoiceQuote"}
-        submitting={invoiceQuoteSubmitting}
-        docType={invoiceQuoteDocType}
-        customers={finance.customers ?? []}
-        formData={invoiceQuoteForm}
-        lineItems={invoiceQuoteLineItems}
-        netTotal={invoiceQuoteNetTotal}
-        vatTotal={invoiceQuoteVatTotal}
-        grandTotal={invoiceQuoteGrandTotal}
-        onDocTypeChange={setInvoiceQuoteDocType}
-        onFormChange={setInvoiceQuoteForm}
-        onLineItemsChange={setInvoiceQuoteLineItems}
-        onClose={closeInvoiceQuoteModal}
-        onSubmit={handleInvoiceQuoteSubmit}
+        open={
+          activeModal ===
+          "invoiceQuote"
+        }
+        submitting={
+          invoiceQuoteSubmitting
+        }
+        docType={
+          invoiceQuoteDocType
+        }
+        customers={
+          finance.customers ??
+          []
+        }
+        projects={
+          projects
+        }
+        formData={
+          invoiceQuoteForm
+        }
+        lineItems={
+          invoiceQuoteLineItems
+        }
+        netTotal={
+          invoiceQuoteNetTotal
+        }
+        vatTotal={
+          invoiceQuoteVatTotal
+        }
+        grandTotal={
+          invoiceQuoteGrandTotal
+        }
+        onDocTypeChange={
+          setInvoiceQuoteDocType
+        }
+        onFormChange={
+          setInvoiceQuoteForm
+        }
+        onLineItemsChange={
+          setInvoiceQuoteLineItems
+        }
+        onClose={
+          closeInvoiceQuoteModal
+        }
+        onSubmit={
+          handleInvoiceQuoteSubmit
+        }
       />
+
+      {/* ======================================================
+          EXPENSE
+      ====================================================== */}
 
       <ExpenseModal
-        open={activeModal === "expense"}
-        submitting={expenseSubmitting}
-        expense={expenseForm}
-        onChange={setExpenseForm}
-        onClose={closeExpenseModal}
-        onSubmit={handleExpenseSubmit}
+        open={
+          activeModal ===
+          "expense"
+        }
+        submitting={
+          expenseSubmitting
+        }
+        expense={
+          expenseForm
+        }
+        customers={
+          finance.customers ??
+          []
+        }
+        projects={
+          projects
+        }
+        onChange={
+          setExpenseForm
+        }
+        onClose={
+          closeExpenseModal
+        }
+        onSubmit={
+          handleExpenseSubmit
+        }
       />
+
+      {/* ======================================================
+          EMPLOYEE
+      ====================================================== */}
 
       <EmployeeModal
-        open={activeModal === "employee"}
-        submitting={employeeSubmitting}
-        employee={employeeForm}
-        onChange={setEmployeeForm}
-        onClose={closeEmployeeModal}
-        onSubmit={handleEmployeeSubmit}
+        open={
+          activeModal ===
+          "employee"
+        }
+        submitting={
+          employeeSubmitting
+        }
+        employee={
+          employeeForm
+        }
+        onChange={
+          setEmployeeForm
+        }
+        onClose={
+          closeEmployeeModal
+        }
+        onSubmit={
+          handleEmployeeSubmit
+        }
       />
+
+      {/* ======================================================
+          RECURRING
+      ====================================================== */}
 
       <RecurringInvoiceModal
-        open={activeModal === "recurring"}
-        submitting={recurringSubmitting}
-        form={recurringForm}
-        onChange={setRecurringForm}
-        onClose={closeRecurringModal}
-        onSubmit={handleRecurringSubmit}
+        open={
+          activeModal ===
+          "recurring"
+        }
+        submitting={
+          recurringSubmitting
+        }
+        form={
+          recurringForm
+        }
+        onChange={
+          setRecurringForm
+        }
+        onClose={
+          closeRecurringModal
+        }
+        onSubmit={
+          handleRecurringSubmit
+        }
       />
+
+      {/* ======================================================
+          VAT
+      ====================================================== */}
 
       <VatModal
-        open={activeModal === "vat"}
-        submitting={vatSubmitting}
-        amount={vatForm.amount}
-        description={vatForm.description}
-        estimatedAmount={metrics.vatOwed ?? 0}
-        onAmountChange={(value) =>
-          setVatForm((previous) => ({
-            ...previous,
-            amount: value,
-          }))
+        open={
+          activeModal ===
+          "vat"
         }
-        onDescriptionChange={(value) =>
-          setVatForm((previous) => ({
-            ...previous,
-            description: value,
-          }))
+        submitting={
+          vatSubmitting
         }
-        onClose={closeVatModal}
-        onSubmit={handleVatSubmit}
+        amount={
+          vatForm.amount
+        }
+        description={
+          vatForm.description
+        }
+        estimatedAmount={
+          metrics.vatOwed ??
+          0
+        }
+        onAmountChange={(
+          value
+        ) =>
+          setVatForm(
+            (previous) => ({
+              ...previous,
+              amount: value,
+            })
+          )
+        }
+        onDescriptionChange={(
+          value
+        ) =>
+          setVatForm(
+            (previous) => ({
+              ...previous,
+              description:
+                value,
+            })
+          )
+        }
+        onClose={
+          closeVatModal
+        }
+        onSubmit={
+          handleVatSubmit
+        }
       />
 
+      {/* ======================================================
+          TAX
+      ====================================================== */}
+
       <TaxModal
-        open={activeModal === "tax"}
-        submitting={taxSubmitting}
-        amount={taxForm.amount}
-        description={taxForm.description}
-        estimatedAmount={metrics.taxExposure ?? 0}
-        onAmountChange={(value) =>
-          setTaxForm((previous) => ({
-            ...previous,
-            amount: value,
-          }))
+        open={
+          activeModal ===
+          "tax"
         }
-        onDescriptionChange={(value) =>
-          setTaxForm((previous) => ({
-            ...previous,
-            description: value,
-          }))
+        submitting={
+          taxSubmitting
         }
-        onClose={closeTaxModal}
-        onSubmit={handleTaxSubmit}
+        amount={
+          taxForm.amount
+        }
+        description={
+          taxForm.description
+        }
+        estimatedAmount={
+          metrics.taxExposure ??
+          0
+        }
+        onAmountChange={(
+          value
+        ) =>
+          setTaxForm(
+            (previous) => ({
+              ...previous,
+              amount: value,
+            })
+          )
+        }
+        onDescriptionChange={(
+          value
+        ) =>
+          setTaxForm(
+            (previous) => ({
+              ...previous,
+              description:
+                value,
+            })
+          )
+        }
+        onClose={
+          closeTaxModal
+        }
+        onSubmit={
+          handleTaxSubmit
+        }
       />
     </div>
   );

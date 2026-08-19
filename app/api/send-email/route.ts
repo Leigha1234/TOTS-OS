@@ -1,55 +1,325 @@
+import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// ============================================================
+// TYPES
+// ============================================================
 
-export async function POST(req: Request) {
+type SendEmailRequest = {
+  to?: string;
+  email?: string;
+  subject?: string;
+  body?: string;
+  html?: string;
+  message?: string;
+  type?: string;
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function normaliseEmail(value: unknown) {
+  return typeof value === "string"
+    ? value.trim().toLowerCase()
+    : "";
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+// ============================================================
+// POST
+// ============================================================
+
+export async function POST(req: NextRequest) {
   try {
-    const { to, subject, body } = await req.json();
+    const resendApiKey =
+      process.env.RESEND_API_KEY;
 
-    // 🔍 Debug: see exactly what is being sent into the API
-    console.log("EMAIL REQUEST RECEIVED:", { to, subject, body });
+    if (!resendApiKey) {
+      console.error(
+        "SEND EMAIL ERROR: RESEND_API_KEY is missing"
+      );
 
-    // 🚨 Guard: prevent accidental misrouting
-    if (!to || typeof to !== "string") {
-      return Response.json(
+      return NextResponse.json(
         {
           success: false,
-          error: "Missing or invalid 'to' email address",
+          error:
+            "Email service is not configured.",
         },
-        { status: 400 }
+        {
+          status: 500,
+        }
       );
     }
 
-    if (!subject || !body) {
-      return Response.json(
+    const resend =
+      new Resend(
+        resendApiKey
+      );
+
+    // ==========================================================
+    // BODY
+    // ==========================================================
+
+    let payload: SendEmailRequest;
+
+    try {
+      payload =
+        (await req.json()) as SendEmailRequest;
+    } catch {
+      return NextResponse.json(
         {
           success: false,
-          error: "Missing subject or body",
+          error:
+            "Invalid request body.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-   const data = await resend.emails.send({
-  from: "hello@tots-os.co.uk", // Change this to your verified domain email
-  to: [to],
-  subject,
-  html: `<p>${body}</p>`,
-});
+    const to =
+      normaliseEmail(
+        payload.to ||
+          payload.email
+      );
 
-    return Response.json({
-      success: true,
+    const subject =
+      typeof payload.subject ===
+      "string"
+        ? payload.subject.trim()
+        : "";
+
+    const body =
+      typeof payload.body ===
+      "string"
+        ? payload.body.trim()
+        : typeof payload.message ===
+            "string"
+          ? payload.message.trim()
+          : "";
+
+    const suppliedHtml =
+      typeof payload.html ===
+      "string"
+        ? payload.html.trim()
+        : "";
+
+    console.log(
+      "EMAIL REQUEST RECEIVED:",
+      {
+        to,
+        subject,
+        hasBody:
+          Boolean(body),
+        hasHtml:
+          Boolean(
+            suppliedHtml
+          ),
+        type:
+          payload.type ||
+          null,
+      }
+    );
+
+    // ==========================================================
+    // VALIDATION
+    // ==========================================================
+
+    if (!to) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Missing or invalid 'to' email address",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (!subject) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Missing subject",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      !body &&
+      !suppliedHtml
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Missing email body",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // ==========================================================
+    // EMAIL CONTENT
+    // ==========================================================
+
+    const html =
+      suppliedHtml ||
+      `
+        <div
+          style="
+            font-family:Arial,Helvetica,sans-serif;
+            line-height:1.6;
+            color:#4f4a46;
+          "
+        >
+          <p>
+            ${escapeHtml(body)}
+          </p>
+        </div>
+      `;
+
+    // ==========================================================
+    // SEND THROUGH RESEND
+    // ==========================================================
+
+    const {
       data,
-    });
-  } catch (error: any) {
-    console.error("EMAIL API ERROR:", error);
+      error,
+    } =
+      await resend.emails.send({
+        from:
+          "TOTS-OS <hello@tots-os.co.uk>",
 
-    return Response.json(
+        to: [
+          to,
+        ],
+
+        subject,
+
+        html,
+
+        text:
+          body ||
+          undefined,
+      });
+
+    // ==========================================================
+    // IMPORTANT:
+    // Resend SDK can return an error object without throwing.
+    // ==========================================================
+
+    if (error) {
+      console.error(
+        "RESEND SEND ERROR:",
+        {
+          to,
+          subject,
+          error,
+        }
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+
+          error:
+            error.message ||
+            "Resend rejected the email.",
+
+          resendError:
+            error,
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    if (!data?.id) {
+      console.error(
+        "RESEND SEND ERROR: No email ID returned",
+        {
+          to,
+          subject,
+          data,
+        }
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Resend did not return an email ID.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    console.log(
+      "EMAIL ACCEPTED BY RESEND:",
+      {
+        id:
+          data.id,
+        to,
+        subject,
+      }
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+
+        id:
+          data.id,
+
+        to,
+
+        message:
+          "Email accepted by Resend.",
+      },
+      {
+        status: 200,
+      }
+    );
+  } catch (error) {
+    console.error(
+      "EMAIL API ERROR:",
+      error
+    );
+
+    return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Unknown error sending email",
+
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown error sending email",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

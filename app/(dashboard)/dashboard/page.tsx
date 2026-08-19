@@ -13,12 +13,17 @@ import {
   useSearchParams,
 } from "next/navigation";
 
-import { createBrowserClient } from "@supabase/ssr";
+import {
+  createBrowserClient,
+} from "@supabase/ssr";
 
-import { useSettings } from "@/app/context/SettingsContext";
+import {
+  useSettings,
+} from "@/app/context/SettingsContext";
 
 import {
   Briefcase,
+  Check,
   Clock,
   FileText,
   Loader2,
@@ -42,11 +47,15 @@ type DashboardTodo = {
   text: string;
   completed: boolean;
   status?: string;
+  projectId?: string | null;
+  assignedTo?: string | null;
+  createdAt?: string | null;
 };
 
 type TeamMember = {
-  full_name: string;
-  role: string;
+  id?: string;
+  full_name?: string | null;
+  role?: string | null;
 };
 
 type ClarityMessage = {
@@ -56,11 +65,60 @@ type ClarityMessage = {
   created_at?: string;
 };
 
+type ClarityMemory = {
+  id: string;
+  user_id: string;
+  organisation_id?: string | null;
+  memory_key: string;
+  memory_value: string;
+  category?: string | null;
+  importance?: number | null;
+  confidence?: number | null;
+  source?: string | null;
+  is_active?: boolean | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 type NormalisedEvent = {
   id?: string;
   title: string;
   startAt: Date | null;
   endAt: Date | null;
+};
+
+type DashboardStats = {
+  activeProjects: number;
+  invoicesDue: number;
+  currentRevenue: number;
+};
+
+type DashboardProject = {
+  id: string;
+  name?: string | null;
+  status?: string | null;
+  customer_id?: string | null;
+  due_date?: string | null;
+  health?: string | null;
+  budget?: number | null;
+};
+
+type DashboardNote = {
+  id: string;
+  title?: string | null;
+  content?: string | null;
+  type?: string | null;
+  category?: string | null;
+  created_at?: string | null;
+};
+
+type DashboardEmail = {
+  id?: string;
+  subject?: string | null;
+  body?: string | null;
+  direction?: string | null;
+  status?: string | null;
+  created_at?: string | null;
 };
 
 // ==================================================
@@ -110,15 +168,18 @@ function getFirstName(
   value: string
 ) {
   const cleaned =
-    cleanName(value);
+    cleanName(
+      value
+    );
 
   if (!cleaned) {
     return "";
   }
 
   return (
-    cleaned.split(/\s+/)[0] ??
-    ""
+    cleaned.split(
+      /\s+/
+    )[0] ?? ""
   );
 }
 
@@ -128,10 +189,17 @@ function formatDashboardDate(
   return date.toLocaleDateString(
     "en-GB",
     {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
+      weekday:
+        "long",
+
+      day:
+        "numeric",
+
+      month:
+        "long",
+
+      year:
+        "numeric",
     }
   );
 }
@@ -144,8 +212,11 @@ function formatCurrency(
   ).toLocaleString(
     "en-GB",
     {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      minimumFractionDigits:
+        0,
+
+      maximumFractionDigits:
+        0,
     }
   );
 }
@@ -154,7 +225,8 @@ function getHealthScore(
   riskLevel: RiskLevel
 ) {
   if (
-    riskLevel === "high"
+    riskLevel ===
+    "high"
   ) {
     return 51;
   }
@@ -167,6 +239,28 @@ function getHealthScore(
   }
 
   return 92;
+}
+
+function isCompletedTaskStatus(
+  status:
+    | string
+    | null
+    | undefined
+) {
+  const value =
+    String(
+      status ?? ""
+    )
+      .trim()
+      .toLowerCase();
+
+  return [
+    "done",
+    "completed",
+    "complete",
+  ].includes(
+    value
+  );
 }
 
 function normaliseEvent(
@@ -200,7 +294,9 @@ function normaliseEvent(
 
     const parsed =
       new Date(
-        String(value)
+        String(
+          value
+        )
       );
 
     return Number.isNaN(
@@ -213,7 +309,8 @@ function normaliseEvent(
   return {
     id:
       event?.id ||
-      event?.payload?.new?.id,
+      event?.payload?.new
+        ?.id,
 
     title:
       event?.title ||
@@ -222,11 +319,21 @@ function normaliseEvent(
       "Event",
 
     startAt:
-      parseDate(rawStart),
+      parseDate(
+        rawStart
+      ),
 
     endAt:
-      parseDate(rawEnd),
+      parseDate(
+        rawEnd
+      ),
   };
+}
+
+function createMemoryKey() {
+  return `dashboard_clarity_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
 // ==================================================
@@ -241,8 +348,10 @@ function DashboardContent() {
     useSearchParams();
 
   const {
-    organisationId,
-  } = useSettings();
+    organisationId:
+      settingsOrganisationId,
+  } =
+    useSettings();
 
   const authError =
     searchParams.get(
@@ -259,6 +368,7 @@ function DashboardContent() {
         createBrowserClient(
           process.env
             .NEXT_PUBLIC_SUPABASE_URL!,
+
           process.env
             .NEXT_PUBLIC_SUPABASE_ANON_KEY!
         ),
@@ -276,6 +386,25 @@ function DashboardContent() {
     useState("");
 
   const [
+    currentUserId,
+    setCurrentUserId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    resolvedOrganisationId,
+    setResolvedOrganisationId,
+  ] =
+    useState<
+      string | null
+    >(
+      settingsOrganisationId ||
+        null
+    );
+
+  const [
     currentTime,
     setCurrentTime,
   ] =
@@ -287,7 +416,17 @@ function DashboardContent() {
     loading,
     setLoading,
   ] =
-    useState(true);
+    useState(
+      true
+    );
+
+  const [
+    dashboardError,
+    setDashboardError,
+  ] =
+    useState<
+      string | null
+    >(null);
 
   // ==================================================
   // BUSINESS DATA
@@ -297,12 +436,15 @@ function DashboardContent() {
     stats,
     setStats,
   ] =
-    useState({
-      activeProjects: 0,
-      invoicesDue: 0,
-      socialsPending: 0,
-      emailsScheduled: 0,
-      currentProfit: 0,
+    useState<DashboardStats>({
+      activeProjects:
+        0,
+
+      invoicesDue:
+        0,
+
+      currentRevenue:
+        0,
     });
 
   const [
@@ -333,19 +475,25 @@ function DashboardContent() {
     emails,
     setEmails,
   ] =
-    useState<any[]>([]);
+    useState<
+      DashboardEmail[]
+    >([]);
 
   const [
     projects,
     setProjects,
   ] =
-    useState<any[]>([]);
+    useState<
+      DashboardProject[]
+    >([]);
 
   const [
     notes,
     setNotes,
   ] =
-    useState<any[]>([]);
+    useState<
+      DashboardNote[]
+    >([]);
 
   // ==================================================
   // CLARITY
@@ -391,7 +539,9 @@ function DashboardContent() {
     clarityStreaming,
     setClarityStreaming,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     clarityChatId,
@@ -413,13 +563,17 @@ function DashboardContent() {
     clarityChats,
     setClarityChats,
   ] =
-    useState<any[]>([]);
+    useState<
+      any[]
+    >([]);
 
   const [
     clarityMemory,
     setClarityMemory,
   ] =
-    useState<any[]>([]);
+    useState<
+      ClarityMemory[]
+    >([]);
 
   const [
     clarityNotifications,
@@ -433,13 +587,17 @@ function DashboardContent() {
     showClarityWidget,
     setShowClarityWidget,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     showBriefModal,
     setShowBriefModal,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   // ==================================================
   // INPUTS
@@ -456,6 +614,14 @@ function DashboardContent() {
     setNoteInput,
   ] =
     useState("");
+
+  // ==================================================
+  // ACTIVE ORGANISATION
+  // ==================================================
+
+  const activeOrganisationId =
+    settingsOrganisationId ||
+    resolvedOrganisationId;
 
   // ==================================================
   // DERIVED VALUES
@@ -478,13 +644,46 @@ function DashboardContent() {
 
   const openTasks =
     todos.filter(
-      (task) =>
+      (
+        task
+      ) =>
         !task.completed
     );
 
   const healthScore =
     getHealthScore(
       riskLevel
+    );
+
+  const clarityMemoryContext =
+    useMemo(
+      () =>
+        clarityMemory.map(
+          (
+            memory
+          ) => ({
+            key:
+              memory.memory_key,
+
+            value:
+              memory.memory_value,
+
+            category:
+              memory.category,
+
+            importance:
+              memory.importance,
+
+            confidence:
+              memory.confidence,
+
+            source:
+              memory.source,
+          })
+        ),
+      [
+        clarityMemory,
+      ]
     );
 
   // ==================================================
@@ -494,18 +693,36 @@ function DashboardContent() {
   useEffect(() => {
     const timer =
       window.setInterval(
-        () =>
+        () => {
           setCurrentTime(
             new Date()
-          ),
+          );
+        },
         60000
       );
 
-    return () =>
+    return () => {
       window.clearInterval(
         timer
       );
+    };
   }, []);
+
+  // ==================================================
+  // KEEP SETTINGS ORG IN SYNC
+  // ==================================================
+
+  useEffect(() => {
+    if (
+      settingsOrganisationId
+    ) {
+      setResolvedOrganisationId(
+        settingsOrganisationId
+      );
+    }
+  }, [
+    settingsOrganisationId,
+  ]);
 
   // ==================================================
   // CLARITY LOADERS
@@ -515,7 +732,7 @@ function DashboardContent() {
     useCallback(
       async () => {
         if (
-          !organisationId
+          !activeOrganisationId
         ) {
           return;
         }
@@ -533,7 +750,7 @@ function DashboardContent() {
             )
             .eq(
               "organisation_id",
-              organisationId
+              activeOrganisationId
             )
             .order(
               "created_at",
@@ -541,16 +758,40 @@ function DashboardContent() {
                 ascending:
                   false,
               }
+            )
+            .limit(
+              20
             );
 
-        if (!error) {
-          setClarityChats(
-            data || []
+        if (
+          error
+        ) {
+          console.warn(
+            "Clarity chats load error:",
+            {
+              code:
+                error.code,
+
+              message:
+                error.message,
+
+              details:
+                error.details,
+
+              hint:
+                error.hint,
+            }
           );
+
+          return;
         }
+
+        setClarityChats(
+          data || []
+        );
       },
       [
-        organisationId,
+        activeOrganisationId,
         supabase,
       ]
     );
@@ -560,7 +801,9 @@ function DashboardContent() {
       async (
         chatId: string
       ) => {
-        if (!chatId) {
+        if (
+          !chatId
+        ) {
           return;
         }
 
@@ -587,23 +830,50 @@ function DashboardContent() {
               }
             );
 
-        if (!error) {
-          setClarityMessages(
-            (data as ClarityMessage[]) ||
-              []
+        if (
+          error
+        ) {
+          console.warn(
+            "Clarity messages load error:",
+            {
+              code:
+                error.code,
+
+              message:
+                error.message,
+
+              details:
+                error.details,
+
+              hint:
+                error.hint,
+            }
           );
+
+          return;
         }
+
+        setClarityMessages(
+          (
+            data as
+              ClarityMessage[]
+          ) || []
+        );
       },
       [
         supabase,
       ]
     );
 
+  // ==================================================
+  // CLARITY MEMORY
+  // ==================================================
+
   const loadClarityMemory =
     useCallback(
       async () => {
         if (
-          !organisationId
+          !activeOrganisationId
         ) {
           return;
         }
@@ -617,11 +887,38 @@ function DashboardContent() {
               "clarity_memory"
             )
             .select(
-              "id, memory, created_at"
+              `
+                id,
+                user_id,
+                organisation_id,
+                memory_key,
+                memory_value,
+                category,
+                importance,
+                confidence,
+                source,
+                is_active,
+                created_at,
+                updated_at
+              `
             )
             .eq(
               "organisation_id",
-              organisationId
+              activeOrganisationId
+            )
+            .eq(
+              "is_active",
+              true
+            )
+            .order(
+              "importance",
+              {
+                ascending:
+                  false,
+
+                nullsFirst:
+                  false,
+              }
             )
             .order(
               "created_at",
@@ -630,16 +927,42 @@ function DashboardContent() {
                   false,
               }
             )
-            .limit(20);
+            .limit(
+              20
+            );
 
-        if (!error) {
-          setClarityMemory(
-            data || []
+        if (
+          error
+        ) {
+          console.warn(
+            "Clarity memory load error:",
+            {
+              code:
+                error.code,
+
+              message:
+                error.message,
+
+              details:
+                error.details,
+
+              hint:
+                error.hint,
+            }
           );
+
+          return;
         }
+
+        setClarityMemory(
+          (
+            data as
+              ClarityMemory[]
+          ) || []
+        );
       },
       [
-        organisationId,
+        activeOrganisationId,
         supabase,
       ]
     );
@@ -648,7 +971,7 @@ function DashboardContent() {
     useCallback(
       async () => {
         if (
-          !organisationId
+          !activeOrganisationId
         ) {
           return;
         }
@@ -663,7 +986,7 @@ function DashboardContent() {
             )
             .insert({
               organisation_id:
-                organisationId,
+                activeOrganisationId,
 
               title:
                 "New Clarity Conversation",
@@ -672,31 +995,38 @@ function DashboardContent() {
             .single();
 
         if (
-          !error &&
-          data
+          error ||
+          !data
         ) {
-          setClarityChatId(
-            data.id
+          console.error(
+            "New Clarity chat error:",
+            error
           );
 
-          localStorage.setItem(
-            "clarity_active_chat",
-            data.id
-          );
-
-          setClarityMessages(
-            []
-          );
-
-          setClarityResponse(
-            null
-          );
-
-          await loadClarityChats();
+          return;
         }
+
+        setClarityChatId(
+          data.id
+        );
+
+        localStorage.setItem(
+          "clarity_active_chat",
+          data.id
+        );
+
+        setClarityMessages(
+          []
+        );
+
+        setClarityResponse(
+          null
+        );
+
+        await loadClarityChats();
       },
       [
-        organisationId,
+        activeOrganisationId,
         supabase,
         loadClarityChats,
       ]
@@ -709,7 +1039,9 @@ function DashboardContent() {
   const loadDashboardData =
     useCallback(
       async () => {
-        if (authError) {
+        if (
+          authError
+        ) {
           setLoading(
             false
           );
@@ -717,25 +1049,43 @@ function DashboardContent() {
           return;
         }
 
-        try {
-          setLoading(
-            true
-          );
+        setLoading(
+          true
+        );
 
+        setDashboardError(
+          null
+        );
+
+        try {
           const {
             data: {
               user,
             },
+            error:
+              authLookupError,
           } =
             await supabase.auth.getUser();
 
-          if (!user) {
+          if (
+            authLookupError
+          ) {
+            throw authLookupError;
+          }
+
+          if (
+            !user
+          ) {
             router.replace(
               "/login"
             );
 
             return;
           }
+
+          setCurrentUserId(
+            user.id
+          );
 
           // ------------------------------------------
           // PROFILE
@@ -752,7 +1102,7 @@ function DashboardContent() {
                 "profiles"
               )
               .select(
-                "full_name, name, organisation_id"
+                "full_name, organisation_id"
               )
               .eq(
                 "id",
@@ -774,9 +1124,6 @@ function DashboardContent() {
               profile?.full_name
             ) ||
             cleanName(
-              profile?.name
-            ) ||
-            cleanName(
               user.user_metadata
                 ?.full_name
             ) ||
@@ -793,192 +1140,355 @@ function DashboardContent() {
             resolvedName
           );
 
-          const activeOrganisationId =
-            organisationId ||
-            profile?.organisation_id;
+          const organisationId =
+            settingsOrganisationId ||
+            profile?.organisation_id ||
+            null;
 
           if (
-            !activeOrganisationId ||
-            activeOrganisationId ===
+            !organisationId ||
+            organisationId ===
               "undefined"
           ) {
-            console.warn(
-              "Dashboard: no organisation ID available."
+            setDashboardError(
+              "This account is not linked to an organisation."
             );
 
             return;
           }
 
+          setResolvedOrganisationId(
+            organisationId
+          );
+
           // ------------------------------------------
-          // LOAD BUSINESS DATA
+          // LOAD ALL DASHBOARD DATA
           // ------------------------------------------
 
           const [
             projectsRes,
             invoicesRes,
             membersRes,
+            tasksRes,
             notesRes,
             eventsRes,
             emailsRes,
           ] =
-            await Promise.all(
-              [
-                supabase
-                  .from(
-                    "projects"
-                  )
-                  .select(
-                    "id, name, status"
-                  )
-                  .eq(
-                    "organisation_id",
-                    activeOrganisationId
-                  )
-                  .limit(
-                    20
-                  ),
+            await Promise.all([
+              supabase
+                .from(
+                  "projects"
+                )
+                .select(
+                  "id, name, status, customer_id, due_date, health, budget, deleted_at"
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .is(
+                  "deleted_at",
+                  null
+                )
+                .order(
+                  "created_at",
+                  {
+                    ascending:
+                      false,
+                  }
+                )
+                .limit(
+                  30
+                ),
 
-                supabase
-                  .from(
-                    "invoices"
-                  )
-                  .select(
-                    "amount, status"
-                  )
-                  .eq(
-                    "organisation_id",
-                    activeOrganisationId
-                  ),
+              supabase
+                .from(
+                  "invoices"
+                )
+                .select(
+                  "id, amount, status, customer_id, project_id, due_date, created_at"
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                ),
 
-                supabase
-                  .from(
-                    "profiles"
-                  )
-                  .select(
-                    "full_name, role"
-                  )
-                  .eq(
-                    "organisation_id",
-                    activeOrganisationId
-                  )
-                  .limit(
-                    12
-                  ),
+              supabase
+                .from(
+                  "profiles"
+                )
+                .select(
+                  "id, full_name, role"
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .limit(
+                  50
+                ),
 
-                supabase
-                  .from(
-                    "notes"
-                  )
-                  .select(
-                    "id, title, content, completed, status, type, created_at"
-                  )
-                  .eq(
-                    "organisation_id",
-                    activeOrganisationId
-                  )
-                  .order(
-                    "created_at",
-                    {
-                      ascending:
-                        false,
-                    }
-                  ),
+              supabase
+                .from(
+                  "tasks"
+                )
+                .select(
+                  "id, title, description, status, project_id, assigned_to, user_id, created_at"
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .order(
+                  "created_at",
+                  {
+                    ascending:
+                      false,
+                  }
+                )
+                .limit(
+                  100
+                ),
 
-                supabase
-                  .from(
-                    "events"
-                  )
-                  .select(
-                    "*"
-                  )
-                  .eq(
-                    "organisation_id",
-                    activeOrganisationId
-                  )
-                  .order(
-                    "created_at",
-                    {
-                      ascending:
-                        false,
-                    }
-                  )
-                  .limit(
-                    30
-                  ),
+              supabase
+                .from(
+                  "notes"
+                )
+                .select(
+                  "*"
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .order(
+                  "created_at",
+                  {
+                    ascending:
+                      false,
+                  }
+                )
+                .limit(
+                  30
+                ),
 
-                supabase
-                  .from(
-                    "emails"
-                  )
-                  .select(
-                    "*"
-                  )
-                  .eq(
-                    "organisation_id",
-                    activeOrganisationId
-                  )
-                  .order(
-                    "created_at",
-                    {
-                      ascending:
-                        false,
-                    }
-                  )
-                  .limit(
-                    10
-                  ),
-              ]
+              supabase
+                .from(
+                  "events"
+                )
+                .select(
+                  "*"
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .order(
+                  "created_at",
+                  {
+                    ascending:
+                      false,
+                  }
+                )
+                .limit(
+                  50
+                ),
+
+              supabase
+                .from(
+                  "email_messages"
+                )
+                .select(
+                  "id, subject, body, direction, status, created_at"
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .order(
+                  "created_at",
+                  {
+                    ascending:
+                      false,
+                  }
+                )
+                .limit(
+                  10
+                ),
+            ]);
+
+          // ------------------------------------------
+          // LOG NON-FATAL QUERY ERRORS
+          // ------------------------------------------
+
+          if (
+            projectsRes.error
+          ) {
+            console.warn(
+              "Dashboard projects error:",
+              projectsRes.error
             );
+          }
+
+          if (
+            invoicesRes.error
+          ) {
+            console.warn(
+              "Dashboard invoices error:",
+              invoicesRes.error
+            );
+          }
+
+          if (
+            membersRes.error
+          ) {
+            console.warn(
+              "Dashboard members error:",
+              membersRes.error
+            );
+          }
+
+          if (
+            tasksRes.error
+          ) {
+            console.warn(
+              "Dashboard tasks error:",
+              tasksRes.error
+            );
+          }
+
+          if (
+            notesRes.error
+          ) {
+            console.warn(
+              "Dashboard notes error:",
+              notesRes.error
+            );
+          }
+
+          if (
+            eventsRes.error
+          ) {
+            console.warn(
+              "Dashboard events error:",
+              eventsRes.error
+            );
+          }
+
+          if (
+            emailsRes.error
+          ) {
+            console.warn(
+              "Dashboard email messages error:",
+              emailsRes.error
+            );
+          }
 
           // ------------------------------------------
           // NORMALISE DATA
           // ------------------------------------------
 
           const invoiceData =
-            (invoicesRes.data as any[]) ||
-            [];
+            (
+              invoicesRes.data as
+                any[]
+            ) || [];
 
           const projectData =
-            (projectsRes.data as any[]) ||
-            [];
+            (
+              projectsRes.data as
+                DashboardProject[]
+            ) || [];
+
+          const taskData =
+            (
+              tasksRes.data as
+                any[]
+            ) || [];
 
           const noteData =
-            (notesRes.data as any[]) ||
-            [];
+            (
+              notesRes.data as
+                DashboardNote[]
+            ) || [];
 
           const eventData =
             (
-              (eventsRes.data as any[]) ||
-              []
+              (
+                eventsRes.data as
+                  any[]
+              ) || []
             ).map(
               normaliseEvent
             );
 
           const emailData =
-            (emailsRes.data as any[]) ||
-            [];
+            (
+              emailsRes.data as
+                DashboardEmail[]
+            ) || [];
+
+          const memberData =
+            (
+              membersRes.data as
+                TeamMember[]
+            ) || [];
+
+          // ------------------------------------------
+          // ACTIVE PROJECTS
+          // ------------------------------------------
+
+          const liveProjects =
+            projectData.filter(
+              (
+                project
+              ) =>
+                ![
+                  "completed",
+                  "done",
+                  "archived",
+                ].includes(
+                  String(
+                    project.status ||
+                      ""
+                  )
+                    .trim()
+                    .toLowerCase()
+                )
+            );
 
           // ------------------------------------------
           // FINANCE
           // ------------------------------------------
 
-          const totalProfit =
+          const currentRevenue =
             invoiceData.reduce(
               (
                 total,
                 invoice
               ) => {
-                return String(
-                  invoice.status ||
-                    ""
-                ).toLowerCase() ===
+                const status =
+                  String(
+                    invoice.status ||
+                      ""
+                  )
+                    .trim()
+                    .toLowerCase();
+
+                if (
+                  status !==
                   "paid"
-                  ? total +
-                      Number(
-                        invoice.amount ||
-                          0
-                      )
-                  : total;
+                ) {
+                  return total;
+                }
+
+                return (
+                  total +
+                  Number(
+                    invoice.amount ||
+                      0
+                  )
+                );
               },
               0
             );
@@ -992,11 +1502,15 @@ function DashboardContent() {
                   "pending",
                   "due",
                   "overdue",
+                  "sent",
+                  "unpaid",
                 ].includes(
                   String(
                     invoice.status ||
                       ""
-                  ).toLowerCase()
+                  )
+                    .trim()
+                    .toLowerCase()
                 )
             ).length;
 
@@ -1004,83 +1518,46 @@ function DashboardContent() {
           // TASKS
           // ------------------------------------------
 
-          const normaliseStatus =
-            (
-              note: any
-            ) => {
-              if (
-                note.completed
-              ) {
-                return "done";
-              }
-
-              const status =
-                String(
-                  note.status ||
-                    ""
-                )
-                  .toLowerCase()
-                  .trim();
-
-              if (
-                [
-                  "todo",
-                  "in_progress",
-                  "blocked",
-                  "done",
-                ].includes(
-                  status
-                )
-              ) {
-                return status;
-              }
-
-              return "todo";
-            };
-
-          const loadedTodos =
-            noteData
-              .filter(
-                (
-                  note
-                ) => {
-                  const type =
-                    String(
-                      note.type ||
-                        ""
-                    ).toLowerCase();
-
-                  return (
-                    type ===
-                      "task" ||
-                    type ===
-                      "todo"
+          const loadedTodos:
+            DashboardTodo[] =
+            taskData.map(
+              (
+                task
+              ) => {
+                const completed =
+                  isCompletedTaskStatus(
+                    task.status
                   );
-                }
-              )
-              .map(
-                (
-                  note
-                ) => ({
+
+                return {
                   id:
-                    note.id,
+                    task.id,
 
                   text:
-                    note.content ||
-                    note.title ||
+                    task.title ||
+                    task.description ||
                     "Untitled Task",
 
-                  completed:
-                    Boolean(
-                      note.completed
-                    ),
+                  completed,
 
                   status:
-                    normaliseStatus(
-                      note
-                    ),
-                })
-              );
+                    task.status ||
+                    "todo",
+
+                  projectId:
+                    task.project_id ||
+                    null,
+
+                  assignedTo:
+                    task.assigned_to ||
+                    null,
+
+                  createdAt:
+                    task.created_at ||
+                    null,
+                };
+              }
+            );
 
           // ------------------------------------------
           // SET STATE
@@ -1088,24 +1565,16 @@ function DashboardContent() {
 
           setStats({
             activeProjects:
-              projectData.length,
+              liveProjects.length,
 
             invoicesDue:
               pendingInvoices,
 
-            socialsPending:
-              0,
-
-            emailsScheduled:
-              0,
-
-            currentProfit:
-              totalProfit,
+            currentRevenue,
           });
 
           setTeamMembers(
-            (membersRes.data as TeamMember[]) ||
-              []
+            memberData
           );
 
           setTodos(
@@ -1144,7 +1613,14 @@ function DashboardContent() {
             emailData.length;
 
           const eventLoad =
-            eventData.length;
+            eventData.filter(
+              (
+                event
+              ) =>
+                event.startAt &&
+                event.startAt >=
+                  new Date()
+            ).length;
 
           let nextRisk:
             RiskLevel =
@@ -1152,7 +1628,9 @@ function DashboardContent() {
 
           if (
             taskLoad >
-              8 ||
+              10 ||
+            pendingInvoices >
+              5 ||
             emailLoad >
               10
           ) {
@@ -1160,7 +1638,9 @@ function DashboardContent() {
               "high";
           } else if (
             taskLoad >
-              4 ||
+              5 ||
+            pendingInvoices >
+              2 ||
             emailLoad >
               5
           ) {
@@ -1177,14 +1657,14 @@ function DashboardContent() {
             "high"
           ) {
             setAiSummary(
-              "Activity is elevated. Focus on the work most likely to affect delivery and cash flow."
+              "Activity is elevated. Focus on delivery, overdue work and anything affecting cash flow first."
             );
           } else if (
             nextRisk ===
             "medium"
           ) {
             setAiSummary(
-              "Your workload is manageable, but a few areas would benefit from deliberate prioritisation today."
+              "Your workload is manageable, but a few areas need deliberate prioritisation today."
             );
           } else {
             setAiSummary(
@@ -1197,10 +1677,11 @@ function DashboardContent() {
             [];
 
           if (
-            taskLoad > 0
+            taskLoad >
+            0
           ) {
             priorities.push(
-              "Focus on highest-impact tasks"
+              "Focus on the highest-impact open tasks"
             );
           }
 
@@ -1209,23 +1690,34 @@ function DashboardContent() {
             0
           ) {
             priorities.push(
-              "Review outstanding revenue"
+              "Review outstanding invoices and cash flow"
             );
           }
 
           if (
-            eventLoad > 0
+            eventLoad >
+            0
           ) {
             priorities.push(
-              "Align today's schedule with priorities"
+              "Check upcoming meetings and deadlines"
             );
           }
 
           if (
-            emailLoad > 0
+            liveProjects.length >
+            0
           ) {
             priorities.push(
-              "Clear important inbox items"
+              "Review active project delivery"
+            );
+          }
+
+          if (
+            emailLoad >
+            0
+          ) {
+            priorities.push(
+              "Clear important client communications"
             );
           }
 
@@ -1241,7 +1733,8 @@ function DashboardContent() {
             [];
 
           if (
-            taskLoad > 5
+            taskLoad >
+            5
           ) {
             notifications.push(
               "Your task backlog is growing."
@@ -1263,10 +1756,11 @@ function DashboardContent() {
           }
 
           if (
-            emailLoad > 8
+            emailLoad >
+            8
           ) {
             notifications.push(
-              "Inbox activity is elevated."
+              "Client communication activity is elevated."
             );
           }
 
@@ -1280,6 +1774,13 @@ function DashboardContent() {
             "Dashboard sync error:",
             loadError
           );
+
+          setDashboardError(
+            loadError instanceof
+              Error
+              ? loadError.message
+              : "Unable to load the dashboard."
+          );
         } finally {
           setLoading(
             false
@@ -1288,8 +1789,8 @@ function DashboardContent() {
       },
       [
         authError,
-        organisationId,
         router,
+        settingsOrganisationId,
         supabase,
       ]
     );
@@ -1310,7 +1811,7 @@ function DashboardContent() {
 
   useEffect(() => {
     if (
-      !organisationId
+      !activeOrganisationId
     ) {
       return;
     }
@@ -1336,7 +1837,7 @@ function DashboardContent() {
       );
     }
   }, [
-    organisationId,
+    activeOrganisationId,
     loadClarityChats,
     loadClarityMessages,
     loadClarityMemory,
@@ -1348,7 +1849,8 @@ function DashboardContent() {
 
   const getTaskScore =
     (
-      task: DashboardTodo
+      task:
+        DashboardTodo
     ) => {
       const text =
         String(
@@ -1356,14 +1858,17 @@ function DashboardContent() {
             ""
         ).toLowerCase();
 
-      let score = 0;
+      let score =
+        0;
 
       if (
         !task.completed
       ) {
-        score += 3;
+        score +=
+          3;
       } else {
-        score -= 5;
+        score -=
+          5;
       }
 
       if (
@@ -1383,7 +1888,8 @@ function DashboardContent() {
           "now"
         )
       ) {
-        score += 4;
+        score +=
+          4;
       }
 
       if (
@@ -1391,7 +1897,16 @@ function DashboardContent() {
           "!!!"
         )
       ) {
-        score += 2;
+        score +=
+          2;
+      }
+
+      if (
+        task.status ===
+          "blocked"
+      ) {
+        score +=
+          3;
       }
 
       return score;
@@ -1399,14 +1914,14 @@ function DashboardContent() {
 
   const getTaskPriorityLabel =
     (
-      task: DashboardTodo
-    ) => {
-      return getTaskScore(
+      task:
+        DashboardTodo
+    ) =>
+      getTaskScore(
         task
       ) >= 6
         ? "HIGH"
         : "NORMAL";
-    };
 
   // ==================================================
   // TASK ACTIONS
@@ -1417,8 +1932,24 @@ function DashboardContent() {
       id: string,
       currentStatus: boolean
     ) => {
-      const newStatus =
+      const newCompleted =
         !currentStatus;
+
+      /*
+       * IMPORTANT:
+       * TOTS-OS uses "done" as its completed task state.
+       */
+      const nextStatus =
+        newCompleted
+          ? "done"
+          : "todo";
+
+      const previousTodos =
+        todos;
+
+      // ------------------------------------------
+      // OPTIMISTIC UPDATE
+      // ------------------------------------------
 
       setTodos(
         (
@@ -1432,46 +1963,152 @@ function DashboardContent() {
               id
                 ? {
                     ...task,
+
                     completed:
-                      newStatus,
+                      newCompleted,
 
                     status:
-                      newStatus
-                        ? "done"
-                        : "todo",
+                      nextStatus,
                   }
                 : task
           )
       );
 
-      const {
-        error,
-      } =
-        await supabase
-          .from(
-            "notes"
-          )
-          .update({
-            completed:
-              newStatus,
+      try {
+        let query =
+          supabase
+            .from(
+              "tasks"
+            )
+            .update({
+              status:
+                nextStatus,
+            })
+            .eq(
+              "id",
+              id
+            );
 
-            status:
-              newStatus
-                ? "done"
-                : "todo",
-          })
-          .eq(
-            "id",
-            id
+        if (
+          activeOrganisationId
+        ) {
+          query =
+            query.eq(
+              "organisation_id",
+              activeOrganisationId
+            );
+        }
+
+        const {
+          data,
+          error,
+        } =
+          await query
+            .select(
+              "id, status, organisation_id"
+            )
+            .maybeSingle();
+
+        if (
+          error
+        ) {
+          console.error(
+            "Task update failed:",
+            {
+              code:
+                error.code,
+
+              message:
+                error.message,
+
+              details:
+                error.details,
+
+              hint:
+                error.hint,
+
+              taskId:
+                id,
+
+              statusAttempted:
+                nextStatus,
+
+              organisationId:
+                activeOrganisationId,
+            }
           );
 
-      if (error) {
+          setTodos(
+            previousTodos
+          );
+
+          return;
+        }
+
+        if (
+          !data
+        ) {
+          console.error(
+            "Task update returned no row. Possible RLS or organisation mismatch:",
+            {
+              taskId:
+                id,
+
+              statusAttempted:
+                nextStatus,
+
+              organisationId:
+                activeOrganisationId,
+            }
+          );
+
+          setTodos(
+            previousTodos
+          );
+
+          return;
+        }
+
+        // ------------------------------------------
+        // SYNC UI WITH DATABASE RESULT
+        // ------------------------------------------
+
+        setTodos(
+          (
+            previous
+          ) =>
+            previous.map(
+              (
+                task
+              ) =>
+                task.id ===
+                id
+                  ? {
+                      ...task,
+
+                      completed:
+                        isCompletedTaskStatus(
+                          data.status
+                        ),
+
+                      status:
+                        data.status ||
+                        nextStatus,
+                    }
+                  : task
+            )
+        );
+      } catch (
+        updateError
+      ) {
         console.error(
-          "Task update failed:",
-          error
+          "Unexpected task update error:",
+          updateError
         );
 
-        await loadDashboardData();
+        setTodos(
+          previousTodos
+        );
       }
     };
 
@@ -1482,56 +2119,135 @@ function DashboardContent() {
 
       if (
         !cleaned ||
-        !organisationId
+        !activeOrganisationId
+      ) {
+        return;
+      }
+
+      let userId =
+        currentUserId;
+
+      if (
+        !userId
+      ) {
+        const {
+          data: {
+            user,
+          },
+        } =
+          await supabase.auth.getUser();
+
+        userId =
+          user?.id ||
+          null;
+      }
+
+      if (
+        !userId
       ) {
         return;
       }
 
       const {
-        data: {
-          user,
-        },
-      } =
-        await supabase.auth.getUser();
-
-      const {
+        data,
         error,
       } =
         await supabase
           .from(
-            "notes"
+            "tasks"
           )
           .insert({
             title:
               cleaned,
 
-            content:
-              cleaned,
-
-            completed:
-              false,
+            description:
+              "",
 
             status:
               "todo",
 
-            type:
-              "task",
-
             organisation_id:
-              organisationId,
+              activeOrganisationId,
 
             user_id:
-              user?.id ||
-              null,
-          });
+              userId,
 
-      if (!error) {
-        setTaskInput(
-          ""
+            assigned_to:
+              userId,
+          })
+          .select(
+            "id, title, status, project_id, assigned_to, created_at"
+          )
+          .single();
+
+      if (
+        error
+      ) {
+        console.error(
+          "Quick task create failed:",
+          {
+            code:
+              error.code,
+
+            message:
+              error.message,
+
+            details:
+              error.details,
+
+            hint:
+              error.hint,
+          }
         );
 
-        await loadDashboardData();
+        return;
       }
+
+      if (
+        data
+      ) {
+        setTodos(
+          (
+            previous
+          ) => [
+            {
+              id:
+                data.id,
+
+              text:
+                data.title ||
+                cleaned,
+
+              completed:
+                isCompletedTaskStatus(
+                  data.status
+                ),
+
+              status:
+                data.status ||
+                "todo",
+
+              projectId:
+                data.project_id ||
+                null,
+
+              assignedTo:
+                data.assigned_to ||
+                null,
+
+              createdAt:
+                data.created_at ||
+                null,
+            },
+
+            ...previous,
+          ]
+        );
+      }
+
+      setTaskInput(
+        ""
+      );
     };
 
   // ==================================================
@@ -1545,19 +2261,37 @@ function DashboardContent() {
 
       if (
         !cleaned ||
-        !organisationId
+        !activeOrganisationId
+      ) {
+        return;
+      }
+
+      let userId =
+        currentUserId;
+
+      if (
+        !userId
+      ) {
+        const {
+          data: {
+            user,
+          },
+        } =
+          await supabase.auth.getUser();
+
+        userId =
+          user?.id ||
+          null;
+      }
+
+      if (
+        !userId
       ) {
         return;
       }
 
       const {
-        data: {
-          user,
-        },
-      } =
-        await supabase.auth.getUser();
-
-      const {
+        data,
         error,
       } =
         await supabase
@@ -1571,27 +2305,57 @@ function DashboardContent() {
             content:
               cleaned,
 
-            completed:
-              false,
-
             type:
               "note",
 
             organisation_id:
-              organisationId,
+              activeOrganisationId,
 
             user_id:
-              user?.id ||
-              null,
-          });
+              userId,
+          })
+          .select()
+          .single();
 
-      if (!error) {
-        setNoteInput(
-          ""
+      if (
+        error
+      ) {
+        console.error(
+          "Quick note create failed:",
+          {
+            code:
+              error.code,
+
+            message:
+              error.message,
+
+            details:
+              error.details,
+
+            hint:
+              error.hint,
+          }
         );
 
-        await loadDashboardData();
+        return;
       }
+
+      if (
+        data
+      ) {
+        setNotes(
+          (
+            previous
+          ) => [
+            data,
+            ...previous,
+          ]
+        );
+      }
+
+      setNoteInput(
+        ""
+      );
     };
 
   // ==================================================
@@ -1603,7 +2367,52 @@ function DashboardContent() {
       const query =
         clarityCommand.trim();
 
-      if (!query) {
+      if (
+        !query ||
+        clarityStreaming
+      ) {
+        return;
+      }
+
+      if (
+        !activeOrganisationId
+      ) {
+        return;
+      }
+
+      let userId =
+        currentUserId;
+
+      if (
+        !userId
+      ) {
+        const {
+          data: {
+            user,
+          },
+        } =
+          await supabase.auth.getUser();
+
+        userId =
+          user?.id ||
+          null;
+
+        if (
+          userId
+        ) {
+          setCurrentUserId(
+            userId
+          );
+        }
+      }
+
+      if (
+        !userId
+      ) {
+        console.error(
+          "Clarity cannot run without an authenticated user."
+        );
+
         return;
       }
 
@@ -1613,12 +2422,6 @@ function DashboardContent() {
       if (
         !activeChatId
       ) {
-        if (
-          !organisationId
-        ) {
-          return;
-        }
-
         const {
           data,
           error,
@@ -1629,7 +2432,7 @@ function DashboardContent() {
             )
             .insert({
               organisation_id:
-                organisationId,
+                activeOrganisationId,
 
               title:
                 query.length >
@@ -1666,7 +2469,31 @@ function DashboardContent() {
           "clarity_active_chat",
           data.id
         );
+
+        await loadClarityChats();
       }
+
+      const userMessage:
+        ClarityMessage = {
+        role:
+          "user",
+
+        content:
+          query,
+      };
+
+      setClarityMessages(
+        (
+          previous
+        ) => [
+          ...previous,
+          userMessage,
+        ]
+      );
+
+      setClarityCommand(
+        ""
+      );
 
       setClarityStreaming(
         true
@@ -1684,20 +2511,52 @@ function DashboardContent() {
                 message:
                   query,
 
+                organisationId:
+                  activeOrganisationId,
+
+                chatId:
+                  activeChatId,
+
                 context: {
                   tasks:
                     openTasks,
 
                   projects,
 
-                  events,
+                  events:
+                    events.map(
+                      (
+                        event
+                      ) => ({
+                        id:
+                          event.id,
+
+                        title:
+                          event.title,
+
+                        startAt:
+                          event.startAt
+                            ?.toISOString() ||
+                          null,
+
+                        endAt:
+                          event.endAt
+                            ?.toISOString() ||
+                          null,
+                      })
+                    ),
 
                   emails,
 
                   notes,
 
-                  finance:
-                    stats.currentProfit,
+                  finance: {
+                    revenue:
+                      stats.currentRevenue,
+
+                    invoicesDue:
+                      stats.invoicesDue,
+                  },
 
                   risk:
                     riskLevel,
@@ -1705,13 +2564,15 @@ function DashboardContent() {
                   aiActions,
 
                   memory:
-                    clarityMemory,
+                    clarityMemoryContext,
                 },
               },
             }
           );
 
-        if (error) {
+        if (
+          error
+        ) {
           throw error;
         }
 
@@ -1722,87 +2583,136 @@ function DashboardContent() {
               ""
           ).trim();
 
-        if (!answer) {
+        if (
+          !answer
+        ) {
           throw new Error(
             "Clarity returned no response"
           );
         }
 
-        const newMessages:
-          ClarityMessage[] =
-          [
-            ...clarityMessages,
+        const assistantMessage:
+          ClarityMessage = {
+          role:
+            "assistant",
 
-            {
-              role:
-                "user",
-
-              content:
-                query,
-            },
-
-            {
-              role:
-                "assistant",
-
-              content:
-                answer,
-            },
-          ];
+          content:
+            answer,
+        };
 
         setClarityMessages(
-          newMessages
+          (
+            previous
+          ) => [
+            ...previous,
+            assistantMessage,
+          ]
         );
 
         setClarityResponse(
           answer
         );
 
+        // ------------------------------------------
+        // SAVE CHAT MESSAGES
+        // ------------------------------------------
+
         if (
           activeChatId
         ) {
-          await supabase
-            .from(
-              "clarity_messages"
-            )
-            .insert([
-              {
-                chat_id:
-                  activeChatId,
+          const {
+            error:
+              messagesError,
+          } =
+            await supabase
+              .from(
+                "clarity_messages"
+              )
+              .insert([
+                {
+                  chat_id:
+                    activeChatId,
 
-                role:
-                  "user",
+                  role:
+                    "user",
 
-                content:
-                  query,
-              },
-              {
-                chat_id:
-                  activeChatId,
+                  content:
+                    query,
+                },
 
-                role:
-                  "assistant",
+                {
+                  chat_id:
+                    activeChatId,
 
-                content:
-                  answer,
-              },
-            ]);
+                  role:
+                    "assistant",
+
+                  content:
+                    answer,
+                },
+              ]);
+
+          if (
+            messagesError
+          ) {
+            console.warn(
+              "Clarity message persistence error:",
+              messagesError
+            );
+          }
         }
 
-        if (
-          organisationId
-        ) {
+        // ------------------------------------------
+        // SAVE CLARITY MEMORY
+        // ------------------------------------------
+
+        const memoryValue =
+          `User asked: ${query}\n\nClarity answered: ${answer}`;
+
+        const {
+          error:
+            memoryError,
+        } =
           await supabase
             .from(
               "clarity_memory"
             )
             .insert({
-              organisation_id:
-                organisationId,
+              user_id:
+                userId,
 
-              memory:
-                `User asked: ${query}. Clarity answered: ${answer}`,
+              organisation_id:
+                activeOrganisationId,
+
+              memory_key:
+                createMemoryKey(),
+
+              memory_value:
+                memoryValue,
+
+              category:
+                "conversation",
+
+              importance:
+                5,
+
+              confidence:
+                1,
+
+              source:
+                "dashboard_clarity",
+
+              is_active:
+                true,
             });
+
+        if (
+          memoryError
+        ) {
+          console.warn(
+            "Clarity memory persistence error:",
+            memoryError
+          );
         }
 
         await Promise.all([
@@ -1817,22 +2727,35 @@ function DashboardContent() {
           clarityError
         );
 
+        const fallback =
+          `Open tasks: ${openTasks.length}\n` +
+          `Active projects: ${stats.activeProjects}\n` +
+          `Upcoming events: ${events.length}\n` +
+          `Invoices due: ${stats.invoicesDue}\n` +
+          `Paid revenue: £${formatCurrency(
+            stats.currentRevenue
+          )}`;
+
         setClarityResponse(
-          `Open tasks: ${
-            openTasks.length
-          }\nActive projects: ${
-            projects.length
-          }\nUpcoming events: ${
-            events.length
-          }\nTracked revenue: £${formatCurrency(
-            stats.currentProfit
-          )}`
-        );
-      } finally {
-        setClarityCommand(
-          ""
+          fallback
         );
 
+        setClarityMessages(
+          (
+            previous
+          ) => [
+            ...previous,
+
+            {
+              role:
+                "assistant",
+
+              content:
+                fallback,
+            },
+          ]
+        );
+      } finally {
         setClarityStreaming(
           false
         );
@@ -1849,11 +2772,11 @@ function DashboardContent() {
         `CLARITY DAILY BRIEF\n\n` +
         `${aiSummary}\n\n` +
         `Open Tasks: ${openTasks.length}\n` +
-        `Active Projects: ${projects.length}\n` +
-        `Events: ${events.length}\n` +
+        `Active Projects: ${stats.activeProjects}\n` +
+        `Upcoming Events: ${events.length}\n` +
         `Invoices Due: ${stats.invoicesDue}\n` +
-        `Revenue: £${formatCurrency(
-          stats.currentProfit
+        `Paid Revenue: £${formatCurrency(
+          stats.currentRevenue
         )}\n\n` +
         `Priorities:\n${
           aiActions.length
@@ -1888,10 +2811,12 @@ function DashboardContent() {
     };
 
   // ==================================================
-  // ERROR
+  // AUTH ERROR
   // ==================================================
 
-  if (authError) {
+  if (
+    authError
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#faf9f6] p-6">
         <div className="w-full max-w-md rounded-[2rem] border border-stone-200 bg-white p-8 text-center">
@@ -1923,13 +2848,53 @@ function DashboardContent() {
   // LOADING
   // ==================================================
 
-  if (loading) {
+  if (
+    loading
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
         <Loader2
           size={24}
           className="animate-spin text-[#A3B18A]"
         />
+      </div>
+    );
+  }
+
+  // ==================================================
+  // DASHBOARD ERROR
+  // ==================================================
+
+  if (
+    dashboardError
+  ) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#faf9f6] p-6">
+        <div className="w-full max-w-lg rounded-[2rem] border border-red-100 bg-white p-8 text-center shadow-sm">
+          <p className="text-[8px] font-black uppercase tracking-[0.2em] text-red-400">
+            Dashboard Error
+          </p>
+
+          <h1 className="mt-2 font-serif text-3xl italic text-stone-800">
+            We couldn&apos;t load your business overview
+          </h1>
+
+          <p className="mt-3 text-sm leading-6 text-stone-500">
+            {
+              dashboardError
+            }
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              void loadDashboardData()
+            }
+            className="mt-6 rounded-xl bg-stone-900 px-6 py-3 text-[9px] font-black uppercase tracking-widest text-white"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -1942,7 +2907,9 @@ function DashboardContent() {
     new Date();
 
   const startOfToday =
-    new Date(now);
+    new Date(
+      now
+    );
 
   startOfToday.setHours(
     0,
@@ -1952,7 +2919,9 @@ function DashboardContent() {
   );
 
   const endOfToday =
-    new Date(now);
+    new Date(
+      now
+    );
 
   endOfToday.setHours(
     23,
@@ -1974,7 +2943,9 @@ function DashboardContent() {
     );
 
   const upcomingEvents =
-    [...events]
+    [
+      ...events,
+    ]
       .filter(
         (
           event
@@ -1989,11 +2960,13 @@ function DashboardContent() {
           b
         ) =>
           (
-            a.startAt?.getTime() ??
+            a.startAt
+              ?.getTime() ??
             Infinity
           ) -
           (
-            b.startAt?.getTime() ??
+            b.startAt
+              ?.getTime() ??
             Infinity
           )
       )
@@ -2016,7 +2989,9 @@ function DashboardContent() {
             String(
               project.status ||
                 ""
-            ).toLowerCase()
+            )
+              .trim()
+              .toLowerCase()
           )
       )
       .slice(
@@ -2037,7 +3012,9 @@ function DashboardContent() {
             String(
               note.type ||
                 ""
-            ).toLowerCase()
+            )
+              .trim()
+              .toLowerCase()
           )
       )
       .slice(
@@ -2046,7 +3023,9 @@ function DashboardContent() {
       );
 
   const priorityTasks =
-    [...openTasks]
+    [
+      ...openTasks,
+    ]
       .sort(
         (
           a,
@@ -2070,10 +3049,6 @@ function DashboardContent() {
 
   return (
     <div className="mx-auto min-h-screen max-w-[1500px] bg-[#faf9f6] p-4 font-sans text-stone-900 sm:p-6 lg:p-8">
-
-      {/* ==================================================
-          CLARITY BUTTON
-      ================================================== */}
 
       <button
         type="button"
@@ -2101,10 +3076,6 @@ function DashboardContent() {
           </span>
         )}
       </button>
-
-      {/* ==================================================
-          CLARITY WIDGET
-      ================================================== */}
 
       {showClarityWidget && (
         <div className="fixed right-4 top-20 z-50 flex max-h-[calc(100vh-100px)] w-[calc(100vw-2rem)] max-w-[390px] flex-col overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-2xl sm:right-6">
@@ -2138,6 +3109,7 @@ function DashboardContent() {
                 )
               }
               className="rounded-full p-2 text-stone-400 hover:bg-stone-100"
+              aria-label="Close Clarity"
             >
               <X
                 size={16}
@@ -2208,11 +3180,15 @@ function DashboardContent() {
                               chat.id
                             );
                           }}
-                          className="w-full truncate rounded-xl bg-[#faf9f6] p-2.5 text-left text-[9px] font-bold text-stone-600"
+                          className={`w-full truncate rounded-xl p-2.5 text-left text-[9px] font-bold ${
+                            clarityChatId ===
+                            chat.id
+                              ? "bg-[#A3B18A]/10 text-stone-800"
+                              : "bg-[#faf9f6] text-stone-600"
+                          }`}
                         >
-                          {
-                            chat.title
-                          }
+                          {chat.title ||
+                            "Clarity conversation"}
                         </button>
                       )
                     )}
@@ -2230,8 +3206,7 @@ function DashboardContent() {
                   event
                 ) =>
                   setClarityCommand(
-                    event
-                      .target
+                    event.target
                       .value
                   )
                 }
@@ -2274,7 +3249,12 @@ function DashboardContent() {
               <div className="mt-3 flex items-center gap-2 rounded-xl bg-[#faf9f6] p-3">
 
                 <div className="flex gap-1">
-                  {[0, 1, 2].map(
+
+                  {[
+                    0,
+                    1,
+                    2,
+                  ].map(
                     (
                       item
                     ) => (
@@ -2335,6 +3315,17 @@ function DashboardContent() {
               </div>
             )}
 
+            {!clarityStreaming &&
+              clarityMessages.length ===
+                0 &&
+              clarityResponse && (
+                <div className="mt-4 whitespace-pre-wrap rounded-2xl border border-stone-200 p-3 text-[10px] leading-relaxed text-stone-600">
+                  {
+                    clarityResponse
+                  }
+                </div>
+              )}
+
             <button
               type="button"
               onClick={() =>
@@ -2350,10 +3341,6 @@ function DashboardContent() {
         </div>
       )}
 
-      {/* ==================================================
-          BRIEF MODAL
-      ================================================== */}
-
       {showBriefModal && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm">
 
@@ -2367,6 +3354,7 @@ function DashboardContent() {
                 )
               }
               className="absolute right-5 top-5 rounded-full p-2 text-stone-400 hover:bg-stone-100"
+              aria-label="Close daily brief"
             >
               <X
                 size={18}
@@ -2378,35 +3366,29 @@ function DashboardContent() {
             </p>
 
             <h2 className="mt-2 font-serif text-3xl italic">
-              Today's brief
+              Today&apos;s brief
             </h2>
 
             <div className="mt-6 whitespace-pre-wrap rounded-2xl bg-[#faf9f6] p-5 text-[11px] leading-relaxed text-stone-700">
-              {
-                clarityResponse
-              }
+              {clarityResponse ||
+                "No brief is available yet."}
             </div>
           </div>
         </div>
       )}
 
-      {/* ==================================================
-          HEADER
-      ================================================== */}
-
       <header className="mb-5 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
 
         <div>
+
           <div className="flex items-center gap-2">
 
             <span className="h-2 w-2 rounded-full bg-[#A3B18A]" />
 
             <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
-              {
-                formatDashboardDate(
-                  currentTime
-                )
-              }
+              {formatDashboardDate(
+                currentTime
+              )}
             </p>
           </div>
 
@@ -2414,17 +3396,26 @@ function DashboardContent() {
             {
               greetingText
             }
+
             <span className="text-[#A3B18A]">
               .
             </span>
           </h1>
 
           <p className="mt-2 text-xs text-stone-400">
-            Here's everything happening across your business.
+            Here&apos;s everything happening across your business.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3">
+        <button
+          type="button"
+          onClick={() =>
+            setShowClarityWidget(
+              true
+            )
+          }
+          className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[#A3B18A]"
+        >
 
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#A3B18A]/10 text-[#8b9c74]">
             <Sparkles
@@ -2433,6 +3424,7 @@ function DashboardContent() {
           </div>
 
           <div>
+
             <p className="text-[7px] font-black uppercase tracking-widest text-stone-400">
               Clarity says
             </p>
@@ -2447,12 +3439,8 @@ function DashboardContent() {
                   : "Your workload needs attention"}
             </p>
           </div>
-        </div>
+        </button>
       </header>
-
-      {/* ==================================================
-          METRICS
-      ================================================== */}
 
       <section className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-6">
 
@@ -2464,6 +3452,7 @@ function DashboardContent() {
             value:
               `${healthScore}%`,
           },
+
           {
             label:
               "Open Tasks",
@@ -2471,6 +3460,7 @@ function DashboardContent() {
             value:
               openTasks.length,
           },
+
           {
             label:
               "Projects",
@@ -2478,6 +3468,7 @@ function DashboardContent() {
             value:
               stats.activeProjects,
           },
+
           {
             label:
               "Today",
@@ -2485,6 +3476,7 @@ function DashboardContent() {
             value:
               todayEvents.length,
           },
+
           {
             label:
               "Invoices Due",
@@ -2492,13 +3484,14 @@ function DashboardContent() {
             value:
               stats.invoicesDue,
           },
+
           {
             label:
               "Revenue",
 
             value:
               `£${formatCurrency(
-                stats.currentProfit
+                stats.currentRevenue
               )}`,
           },
         ].map(
@@ -2511,6 +3504,7 @@ function DashboardContent() {
               }
               className="rounded-2xl border border-stone-200 bg-white p-4"
             >
+
               <p className="text-[7px] font-black uppercase tracking-widest text-stone-400">
                 {
                   item.label
@@ -2527,30 +3521,38 @@ function DashboardContent() {
         )}
       </section>
 
-      {/* ==================================================
-          MAIN OVERVIEW
-      ================================================== */}
-
       <section className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-12">
-
-        {/* PRIORITIES */}
 
         <div className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:col-span-5">
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
 
             <div>
+
               <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#A3B18A]">
                 Focus
               </p>
 
               <h2 className="mt-1 font-serif text-2xl italic">
-                Today's priorities
+                Today&apos;s priorities
               </h2>
             </div>
 
-            <span className="rounded-full bg-[#A3B18A]/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-[#7f9069]">
-              {riskLevel} risk
+            <span
+              className={`rounded-full px-3 py-1.5 text-[8px] font-black uppercase tracking-widest ${
+                riskLevel ===
+                "high"
+                  ? "bg-red-50 text-red-500"
+                  : riskLevel ===
+                      "medium"
+                    ? "bg-amber-50 text-amber-600"
+                    : "bg-[#A3B18A]/10 text-[#7f9069]"
+              }`}
+            >
+              {
+                riskLevel
+              }{" "}
+              risk
             </span>
           </div>
 
@@ -2575,11 +3577,10 @@ function DashboardContent() {
                     index
                   ) => (
                     <div
-                      key={
-                        index
-                      }
+                      key={`${action}-${index}`}
                       className="flex items-center gap-3 rounded-xl bg-[#faf9f6] p-3"
                     >
+
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stone-900 text-[8px] font-black text-white">
                         {index +
                           1}
@@ -2611,17 +3612,17 @@ function DashboardContent() {
           </button>
         </div>
 
-        {/* SCHEDULE */}
-
         <div className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:col-span-4">
 
           <div className="flex items-center justify-between">
 
             <h2 className="flex items-center gap-2 font-serif text-2xl italic">
+
               <Clock
                 size={15}
                 className="text-[#A3B18A]"
               />
+
               Coming up
             </h2>
 
@@ -2632,7 +3633,7 @@ function DashboardContent() {
                   "/calendar"
                 )
               }
-              className="text-[7px] font-black uppercase tracking-widest text-stone-400"
+              className="text-[7px] font-black uppercase tracking-widest text-stone-400 transition hover:text-stone-900"
             >
               Calendar
             </button>
@@ -2646,13 +3647,20 @@ function DashboardContent() {
                 (
                   event
                 ) => (
-                  <div
+                  <button
+                    type="button"
                     key={
                       event.id ||
                       `${event.title}-${event.startAt?.toISOString()}`
                     }
-                    className="flex items-center gap-3 rounded-xl bg-[#faf9f6] p-3"
+                    onClick={() =>
+                      router.push(
+                        "/calendar"
+                      )
+                    }
+                    className="flex w-full items-center gap-3 rounded-xl bg-[#faf9f6] p-3 text-left transition hover:bg-stone-100"
                   >
+
                     <div className="min-w-[42px] text-center">
 
                       <p className="text-[8px] font-black uppercase text-[#8b9c74]">
@@ -2671,6 +3679,7 @@ function DashboardContent() {
                           {
                             hour:
                               "2-digit",
+
                             minute:
                               "2-digit",
                           }
@@ -2685,11 +3694,12 @@ function DashboardContent() {
                         event.title
                       }
                     </p>
-                  </div>
+                  </button>
                 )
               )
             ) : (
               <div className="rounded-xl bg-[#faf9f6] p-6 text-center">
+
                 <p className="text-[10px] text-stone-400">
                   Nothing coming up.
                 </p>
@@ -2697,8 +3707,6 @@ function DashboardContent() {
             )}
           </div>
         </div>
-
-        {/* SNAPSHOT */}
 
         <div className="rounded-[2rem] bg-stone-900 p-5 text-white lg:col-span-3">
 
@@ -2713,14 +3721,15 @@ function DashboardContent() {
           <div className="mt-5 space-y-4">
 
             <div>
+
               <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">
-                Revenue
+                Paid Revenue
               </p>
 
               <p className="mt-1 font-serif text-2xl italic">
                 £
                 {formatCurrency(
-                  stats.currentProfit
+                  stats.currentRevenue
                 )}
               </p>
             </div>
@@ -2730,6 +3739,7 @@ function DashboardContent() {
             <div className="grid grid-cols-2 gap-4">
 
               <div>
+
                 <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">
                   Team
                 </p>
@@ -2742,6 +3752,7 @@ function DashboardContent() {
               </div>
 
               <div>
+
                 <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">
                   Emails
                 </p>
@@ -2754,18 +3765,20 @@ function DashboardContent() {
               </div>
 
               <div>
+
                 <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">
                   Projects
                 </p>
 
                 <p className="mt-1 text-xl font-bold">
                   {
-                    projects.length
+                    stats.activeProjects
                   }
                 </p>
               </div>
 
               <div>
+
                 <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">
                   Events
                 </p>
@@ -2781,15 +3794,12 @@ function DashboardContent() {
         </div>
       </section>
 
-      {/* ==================================================
-          PRIORITY TASKS
-      ================================================== */}
-
       <section className="mb-5 rounded-[2rem] border border-stone-200 bg-white p-5">
 
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
 
           <div>
+
             <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#A3B18A]">
               Work Queue
             </p>
@@ -2809,7 +3819,8 @@ function DashboardContent() {
                 event
               ) =>
                 setTaskInput(
-                  event.target.value
+                  event.target
+                    .value
                 )
               }
               onKeyDown={(
@@ -2823,7 +3834,7 @@ function DashboardContent() {
                 }
               }}
               placeholder="Add task..."
-              className="w-full rounded-xl border border-stone-200 bg-[#faf9f6] px-3 py-2.5 text-[10px] outline-none sm:w-52"
+              className="w-full rounded-xl border border-stone-200 bg-[#faf9f6] px-3 py-2.5 text-[10px] outline-none transition focus:border-[#A3B18A] sm:w-52"
             />
 
             <button
@@ -2831,7 +3842,11 @@ function DashboardContent() {
               onClick={() =>
                 void addTask()
               }
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-white"
+              disabled={
+                !taskInput.trim()
+              }
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-white transition hover:bg-[#A3B18A] disabled:opacity-40"
+              aria-label="Add task"
             >
               <Plus
                 size={13}
@@ -2854,6 +3869,7 @@ function DashboardContent() {
                   }
                   className="flex min-w-0 items-center gap-3 rounded-xl border border-stone-200 bg-[#faf9f6] p-3"
                 >
+
                   <button
                     type="button"
                     onClick={() =>
@@ -2862,8 +3878,15 @@ function DashboardContent() {
                         todo.completed
                       )
                     }
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-stone-300"
-                  />
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-stone-300 bg-white transition hover:border-[#A3B18A]"
+                    aria-label={`Complete ${todo.text}`}
+                  >
+                    {todo.completed && (
+                      <Check
+                        size={11}
+                      />
+                    )}
+                  </button>
 
                   <p className="min-w-0 flex-1 truncate text-[10px] font-bold text-stone-700">
                     {
@@ -2884,8 +3907,9 @@ function DashboardContent() {
             )
           ) : (
             <div className="col-span-full rounded-xl bg-[#faf9f6] p-5 text-center">
+
               <p className="text-[10px] text-stone-400">
-                You're all caught up.
+                You&apos;re all caught up.
               </p>
             </div>
           )}
@@ -2900,7 +3924,7 @@ function DashboardContent() {
                 "/notes"
               )
             }
-            className="mt-4 text-[8px] font-black uppercase tracking-widest text-stone-400"
+            className="mt-4 text-[8px] font-black uppercase tracking-widest text-stone-400 transition hover:text-stone-900"
           >
             View all{" "}
             {
@@ -2911,23 +3935,19 @@ function DashboardContent() {
         )}
       </section>
 
-      {/* ==================================================
-          BOTTOM OVERVIEW
-      ================================================== */}
-
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-
-        {/* PROJECTS */}
 
         <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
 
           <div className="flex items-center justify-between">
 
             <h2 className="flex items-center gap-2 font-serif text-xl italic">
+
               <Briefcase
                 size={14}
                 className="text-[#A3B18A]"
               />
+
               Projects
             </h2>
 
@@ -2938,7 +3958,7 @@ function DashboardContent() {
                   "/projects"
                 )
               }
-              className="text-[7px] font-black uppercase tracking-widest text-stone-400"
+              className="text-[7px] font-black uppercase tracking-widest text-stone-400 transition hover:text-stone-900"
             >
               View all
             </button>
@@ -2962,13 +3982,13 @@ function DashboardContent() {
                         `/projects/${project.id}`
                       )
                     }
-                    className="flex w-full items-center justify-between rounded-xl bg-[#faf9f6] p-3 text-left"
+                    className="flex w-full items-center justify-between rounded-xl bg-[#faf9f6] p-3 text-left transition hover:bg-stone-100"
                   >
+
                     <div className="min-w-0">
 
                       <p className="truncate text-[10px] font-bold text-stone-700">
                         {project.name ||
-                          project.title ||
                           "Project"}
                       </p>
 
@@ -2978,7 +3998,22 @@ function DashboardContent() {
                       </p>
                     </div>
 
-                    <span className="h-2 w-2 rounded-full bg-[#A3B18A]" />
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        String(
+                          project.health ||
+                            ""
+                        ).toLowerCase() ===
+                          "good" ||
+                        String(
+                          project.health ||
+                            ""
+                        ).toLowerCase() ===
+                          "stable"
+                          ? "bg-[#A3B18A]"
+                          : "bg-stone-300"
+                      }`}
+                    />
                   </button>
                 )
               )
@@ -2988,19 +4023,35 @@ function DashboardContent() {
               </p>
             )}
           </div>
-        </div>
 
-        {/* NOTES */}
+          <button
+            type="button"
+            onClick={() =>
+              router.push(
+                "/projects"
+              )
+            }
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 py-3 text-[8px] font-black uppercase tracking-widest text-stone-400 transition hover:border-[#A3B18A] hover:text-stone-700"
+          >
+            <Plus
+              size={11}
+            />
+
+            New Project
+          </button>
+        </div>
 
         <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
 
           <div className="flex items-center justify-between">
 
             <h2 className="flex items-center gap-2 font-serif text-xl italic">
+
               <FileText
                 size={14}
                 className="text-[#A3B18A]"
               />
+
               Notes
             </h2>
 
@@ -3011,7 +4062,7 @@ function DashboardContent() {
                   "/notes"
                 )
               }
-              className="text-[7px] font-black uppercase tracking-widest text-stone-400"
+              className="text-[7px] font-black uppercase tracking-widest text-stone-400 transition hover:text-stone-900"
             >
               View all
             </button>
@@ -3027,7 +4078,8 @@ function DashboardContent() {
                 event
               ) =>
                 setNoteInput(
-                  event.target.value
+                  event.target
+                    .value
                 )
               }
               onKeyDown={(
@@ -3041,7 +4093,7 @@ function DashboardContent() {
                 }
               }}
               placeholder="Quick note..."
-              className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-[#faf9f6] px-3 py-2.5 text-[10px] outline-none"
+              className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-[#faf9f6] px-3 py-2.5 text-[10px] outline-none transition focus:border-[#A3B18A]"
             />
 
             <button
@@ -3049,7 +4101,11 @@ function DashboardContent() {
               onClick={() =>
                 void addNote()
               }
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-white"
+              disabled={
+                !noteInput.trim()
+              }
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-white transition hover:bg-[#A3B18A] disabled:opacity-40"
+              aria-label="Add note"
             >
               <Plus
                 size={12}
@@ -3072,10 +4128,10 @@ function DashboardContent() {
                     }
                     onClick={() =>
                       router.push(
-                        `/notes/${note.id}`
+                        "/notes"
                       )
                     }
-                    className="w-full truncate rounded-xl bg-[#faf9f6] p-3 text-left text-[10px] font-medium text-stone-600"
+                    className="w-full truncate rounded-xl bg-[#faf9f6] p-3 text-left text-[10px] font-medium text-stone-600 transition hover:bg-stone-100"
                   >
                     {note.content ||
                       note.title ||
@@ -3091,17 +4147,17 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* EMAILS */}
-
         <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
 
           <div className="flex items-center justify-between">
 
             <h2 className="flex items-center gap-2 font-serif text-xl italic">
+
               <Mail
                 size={14}
                 className="text-[#A3B18A]"
               />
+
               Recent emails
             </h2>
 
@@ -3126,40 +4182,72 @@ function DashboardContent() {
                     email,
                     index
                   ) => (
-                    <div
+                    <button
+                      type="button"
                       key={
                         email.id ||
                         index
                       }
-                      className="rounded-xl bg-[#faf9f6] p-3"
+                      onClick={() =>
+                        router.push(
+                          "/crm"
+                        )
+                      }
+                      className="w-full rounded-xl bg-[#faf9f6] p-3 text-left transition hover:bg-stone-100"
                     >
-                      <p className="truncate text-[10px] font-bold text-stone-700">
-                        {email.subject ||
-                          "New Email"}
-                      </p>
+
+                      <div className="flex items-center justify-between gap-2">
+
+                        <p className="min-w-0 truncate text-[10px] font-bold text-stone-700">
+                          {email.subject ||
+                            "Email"}
+                        </p>
+
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-1 text-[6px] font-black uppercase ${
+                            email.direction ===
+                            "outbound"
+                              ? "bg-[#A3B18A]/10 text-[#7f9069]"
+                              : "bg-stone-200 text-stone-500"
+                          }`}
+                        >
+                          {email.direction ===
+                          "outbound"
+                            ? "Sent"
+                            : "Received"}
+                        </span>
+                      </div>
 
                       <p className="mt-1 truncate text-[8px] text-stone-400">
-                        {email.from ||
-                          email.sender ||
-                          "Unknown sender"}
+                        {email.created_at
+                          ? new Date(
+                              email.created_at
+                            ).toLocaleDateString(
+                              "en-GB",
+                              {
+                                day:
+                                  "numeric",
+
+                                month:
+                                  "short",
+                              }
+                            )
+                          : "Recent activity"}
                       </p>
-                    </div>
+                    </button>
                   )
                 )
             ) : (
               <div className="rounded-xl bg-[#faf9f6] p-5 text-center">
+
                 <p className="text-[10px] text-stone-400">
-                  Inbox clear.
+                  No recent email activity.
                 </p>
               </div>
             )}
           </div>
         </div>
       </section>
-
-      {/* ==================================================
-          FOOTER STATUS
-      ================================================== */}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 px-2 pb-4">
 

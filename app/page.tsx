@@ -1657,7 +1657,7 @@ export default function TotsOSLanding() {
             <p>&copy; {new Date().getFullYear()} TOTS-OS. All rights reserved.</p>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span className="tots-status-dot" />
-              <span style={{ textTransform: "uppercase", letterSpacing: "0.14em" }}>system nominal</span>
+              <span style={{ textTransform: "uppercase", letterSpacing: "0.14em" }}></span>
             </div>
           </div>
         </div>

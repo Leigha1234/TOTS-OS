@@ -862,7 +862,7 @@ export default function AccountProfilePage() {
       if (!userId) {
         throw new Error("Unable to identify the signed-in user.");
       }
-
+    
       // ----------------------------------------------
       // SEND ACTUAL EMAIL
       // ----------------------------------------------
@@ -946,15 +946,18 @@ export default function AccountProfilePage() {
       setNewEmail({ subject: "", body: "" });
 
       await fetchThreads();
-      await fetchMessages(threadId);
+    await fetchThreads();
+
+if (threadId) {
+  await fetchMessages(threadId);
+}
     } catch (error) {
-      console.error("Email send failed:", error);
-      alert(`Failed to send email${error instanceof Error ? `: ${error.message}` : ". Please try again."}`);
+      console.error("Email send error:", error);
+      alert(error instanceof Error ? error.message : "Failed to send email");
     } finally {
       setEmailSaving(false);
     }
   };
-
   // ==========================================================
   // UPDATE CONTACT
   // ==========================================================

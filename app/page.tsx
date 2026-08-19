@@ -2334,9 +2334,6 @@ export default function TotsOSLanding() {
   width:
     100%;
 
-  max-width:
-    690px;
-
   margin:
     28px auto 0;
 

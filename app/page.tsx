@@ -2330,26 +2330,32 @@ export default function TotsOSLanding() {
             transparent;
         }
 
-        .tots-hero-lede {
-          max-width:
-            690px;
+       .tots-hero-lede {
+  width: 100%;
+  max-width: 690px;
 
-          margin:
-            28px auto 0;
+  margin:
+    28px auto 0;
 
-          color:
-            var(--ink-dim);
+  padding:
+    0;
 
-          font-size:
-            clamp(
-              1rem,
-              1.4vw,
-              1.15rem
-            );
+  text-align:
+    center;
 
-          line-height:
-            1.75;
-        }
+  color:
+    var(--ink-dim);
+
+  font-size:
+    clamp(
+      1rem,
+      1.4vw,
+      1.15rem
+    );
+
+  line-height:
+    1.75;
+}
 
         .tots-hero-ctas {
           margin-top:

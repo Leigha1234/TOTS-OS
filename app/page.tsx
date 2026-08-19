@@ -2332,7 +2332,7 @@ export default function TotsOSLanding() {
 
         .tots-hero-lede {
   width:
-    80%;
+    100%;
 
   margin:
     28px auto 0;

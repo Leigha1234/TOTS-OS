@@ -2331,17 +2331,31 @@ export default function TotsOSLanding() {
         }
 
         .tots-hero-lede {
-          display: block;
-          width: 100%;
-          max-width: 690px;
-          margin: 28px auto 0;
-          margin-inline: auto;
-          padding: 0;
-          text-align: center;
-          color: var(--ink-dim);
-          font-size: clamp(1rem, 1.4vw, 1.15rem);
-          line-height: 1.75;
-        }
+  width:
+    100%;
+
+  max-width:
+    690px;
+
+  margin:
+    28px auto 0;
+
+  text-align:
+    center;
+
+  color:
+    var(--ink-dim);
+
+  font-size:
+    clamp(
+      1rem,
+      1.4vw,
+      1.15rem
+    );
+
+  line-height:
+    1.75;
+}
 
         .tots-hero-ctas {
           margin-top:

@@ -8,16 +8,16 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata = {
   title: "TOTS-OS",
-  description: "Infrastructure for clarity and growth",
+  description: "All in one productivity suite for the modern business.",
   icons: {
     icon: [
       {
-        url: "/images/tots-os%20favicon.png",
+        url: "/images/icon.png",
         type: "image/png",
       },
     ],
-    shortcut: "/images/tots-os%20favicon.png",
-    apple: "/images/tots-os%20favicon.png",
+    shortcut: "/images/icon.png",
+    apple: "/images/icon.png",
   },
 };
 

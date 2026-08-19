@@ -839,10 +839,7 @@ function ProductDemo() {
       id="demo"
     >
       <div className="tots-window-glow" />
-      <div className="tots-window-frame-label">
-        <span className="tots-status-dot" />
-        this is the actual TOTS&ndash;OS interface &mdash; click around
-      </div>
+  
 
       <div className="tots-window">
         {/* browser-style chrome, matching the real product */}
@@ -928,20 +925,10 @@ function ProductDemo() {
 
 export default function TotsOSLanding() {
   const reduceMotion = useReducedMotion();
-  const [bootDone, setBootDone] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-
-  useEffect(() => {
-    if (reduceMotion) {
-      setBootDone(true);
-      return;
-    }
-    const timer = window.setTimeout(() => setBootDone(true), 2600);
-    return () => window.clearTimeout(timer);
-  }, [reduceMotion]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1072,9 +1059,9 @@ export default function TotsOSLanding() {
         .tots-mobile-link:hover { background: rgba(255,255,255,0.05); }
 
         /* hero */
-        .tots-hero { position: relative; z-index: 10; padding: 150px 20px 90px; min-height: 100vh; }
+        .tots-hero { position: relative; z-index: 10; padding: 120px 20px 60px; min-height: auto; }
         .tots-hero-inner { max-width: 1400px; margin: 0 auto; text-align: center; }
-        .tots-hero h1 { margin: 28px auto 0; max-width: 1160px; font-size: clamp(2.6rem, 7.6vw, 7.2rem); line-height: 0.94; font-weight: 600; }
+        .tots-hero h1 { margin: 24px auto 0; max-width: 1100px; font-size: clamp(2.5rem, 6.6vw, 6.4rem); line-height: 0.96; font-weight: 600; }
         .tots-hero-line2 { display: block; font-family: var(--font-serif); font-style: italic; font-weight: 500; background: linear-gradient(90deg, #fff, var(--accent) 60%, rgba(255,255,255,0.4)); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .tots-hero p.lede { max-width: 640px; margin: 26px auto 0; font-size: clamp(0.95rem, 1.4vw, 1.1rem); line-height: 1.7; color: var(--ink-dim); }
         .tots-hero-ctas { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; margin-top: 38px; }
@@ -1083,7 +1070,7 @@ export default function TotsOSLanding() {
         .tots-hero-meta span { display: inline-flex; align-items: center; gap: 6px; }
 
         /* demo window */
-        .tots-window-wrap { position: relative; margin: 88px auto 0; max-width: 1180px; }
+        .tots-window-wrap { position: relative; margin: 54px auto 0; max-width: 1180px; }
         .tots-window-glow { position: absolute; inset: -30px; background: radial-gradient(ellipse, rgba(215,224,168,0.10), transparent 70%); filter: blur(40px); }
         .tots-window-frame-label { position: relative; display: inline-flex; align-items: center; gap: 8px; margin: 0 auto 16px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: rgba(0,0,0,0.3); font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); left: 50%; transform: translateX(-50%); white-space: nowrap; }
         .tots-window { position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--line); background: #f7f6f1; box-shadow: 0 60px 160px rgba(0,0,0,0.6), 0 0 0 1px rgba(215,224,168,0.08); }
@@ -1168,8 +1155,8 @@ export default function TotsOSLanding() {
         @media (min-width: 640px) { .tots-marquee-item { padding: 0 48px; } }
 
         /* section */
-        .tots-section { position: relative; z-index: 10; padding: 100px 20px; }
-        @media (min-width: 1024px) { .tots-section { padding: 140px 24px; } }
+        .tots-section { position: relative; z-index: 10; padding: 80px 20px; }
+        @media (min-width: 1024px) { .tots-section { padding: 110px 24px; } }
         .tots-section.bordered { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255,255,255,0.008); }
         .tots-wrap { max-width: 1400px; margin: 0 auto; }
         .tots-wrap-narrow { max-width: 1150px; margin: 0 auto; }
@@ -1226,7 +1213,7 @@ export default function TotsOSLanding() {
         /* pricing */
         .tots-price-grid { margin-top: 60px; display: grid; gap: 12px; }
         @media (min-width: 1024px) { .tots-price-grid { grid-template-columns: repeat(3, 1fr); } }
-        .tots-price-card { position: relative; display: flex; flex-direction: column; min-height: 640px; border-radius: 28px; border: 1px solid var(--line); background: rgba(255,255,255,0.018); padding: 30px; height: 100%; }
+        .tots-price-card { position: relative; display: flex; flex-direction: column; min-height: 540px; border-radius: 28px; border: 1px solid var(--line); background: rgba(255,255,255,0.018); padding: 30px; height: 100%; }
         .tots-price-card.featured { border-color: rgba(215,224,168,0.35); background: rgba(215,224,168,0.045); }
         .tots-price-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
         .tots-price-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; }
@@ -1248,8 +1235,8 @@ export default function TotsOSLanding() {
         .tots-faq-answer { font-size: 13.5px; line-height: 1.7; color: var(--ink-dim); max-width: 640px; padding-bottom: 26px; }
 
         /* email CTA */
-        .tots-cta-card { position: relative; overflow: hidden; border-radius: 40px; border: 1px solid var(--line); background: #0b0b0a; padding: 60px 24px; text-align: center; }
-        @media (min-width: 1024px) { .tots-cta-card { padding: 96px 40px; } }
+        .tots-cta-card { position: relative; overflow: hidden; border-radius: 32px; border: 1px solid var(--line); background: #0b0b0a; padding: 42px 20px; text-align: center; }
+        @media (min-width: 1024px) { .tots-cta-card { padding: 72px 32px; } }
         .tots-cta-icon { margin: 0 auto; width: 52px; height: 52px; border-radius: 15px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center; color: var(--accent); }
         .tots-cta-form { margin: 34px auto 0; max-width: 560px; display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--line); border-radius: 20px; background: rgba(0,0,0,0.3); padding: 8px; }
         @media (min-width: 640px) { .tots-cta-form { flex-direction: row; } }
@@ -1257,7 +1244,7 @@ export default function TotsOSLanding() {
         .tots-cta-input::placeholder { color: var(--ink-ghost); }
 
         /* footer */
-        .tots-footer { position: relative; z-index: 10; border-top: 1px solid var(--line); padding: 60px 20px 30px; }
+        .tots-footer { position: relative; z-index: 10; border-top: 1px solid var(--line); padding: 42px 20px 24px; }
         .tots-footer-grid { display: grid; gap: 40px; padding-bottom: 50px; }
         @media (min-width: 768px) { .tots-footer-grid { grid-template-columns: 1.5fr repeat(3, 1fr); } }
         .tots-footer h5 { margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); }
@@ -1273,8 +1260,6 @@ export default function TotsOSLanding() {
       <div className="tots-bg-grid" />
       <div className="tots-bg-glow" />
       <div className="tots-grain" />
-
-      <BootSequence done={bootDone} onSkip={() => setBootDone(true)} />
 
       {/* NAV */}
       <div className="tots-nav-shell">
@@ -1345,7 +1330,6 @@ export default function TotsOSLanding() {
       {/* HERO */}
       <section className="tots-hero">
         <div className="tots-hero-inner">
-          <Eyebrow>[ business os &mdash; v1.0 ]</Eyebrow>
 
           <h1>
             Run your business

@@ -460,7 +460,11 @@ export async function POST(
             },
 
             setAll(
-              cookiesToSet
+              cookiesToSet: Array<{
+                name: string;
+                value: string;
+                options?: Record<string, unknown>;
+              }>
             ) {
               try {
                 cookiesToSet.forEach(
@@ -472,7 +476,7 @@ export async function POST(
                     cookieStore.set(
                       name,
                       value,
-                      options
+                      options as any
                     );
                   }
                 );
@@ -888,26 +892,17 @@ export async function POST(
         );
       }
 
-      if (
-        recipientData
-      ) {
-        recipientProfile =
-          recipientData as
-            RecipientProfile;
+      if (recipientData) {
+  recipientProfile =
+    recipientData as RecipientProfile;
 
-        if (
-          !recipientEmail
-        ) {
-          recipientEmail =
-            String(
-              recipientData
-                .email ||
-                ""
-            )
-              .trim()
-              .toLowerCase();
-        }
-      }
+  recipientEmail =
+    String(
+      recipientData.email || ""
+    )
+      .trim()
+      .toLowerCase();
+}
     }
 
     // ========================================================

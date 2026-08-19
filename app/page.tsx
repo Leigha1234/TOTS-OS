@@ -126,6 +126,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Product", href: "#product" },
   { label: "Modules", href: "#features" },
   { label: "Demo", href: "#demo" },
+  { label: "Clarity", href: "#clarity" },
   { label: "Pricing", href: "#pricing" },
   { label: "About", href: "#about" },
 ];
@@ -1210,6 +1211,49 @@ export default function TotsOSLanding() {
         .tots-sec-item h4 { margin: 16px 0 0; font-size: 13px; font-weight: 500; }
         .tots-sec-item p { margin-top: 6px; font-size: 11.5px; line-height: 1.6; color: var(--ink-faint); }
 
+        /* clarity */
+        .tots-clarity-section { position: relative; z-index: 10; padding: 80px 20px; }
+        @media (min-width: 1024px) { .tots-clarity-section { padding: 110px 24px; } }
+        .tots-clarity-grid { display: grid; gap: 28px; }
+        @media (min-width: 1024px) { .tots-clarity-grid { grid-template-columns: 1.06fr 0.94fr; align-items: center; gap: 44px; } }
+        .tots-clarity-copy { max-width: 640px; }
+        .tots-clarity-heading { margin-top: 22px; font-size: clamp(2.2rem, 4.8vw, 4.7rem); line-height: 0.96; letter-spacing: -0.05em; font-weight: 500; }
+        .tots-clarity-tagline { margin-top: 18px; font-family: var(--font-serif); font-style: italic; font-size: clamp(1.8rem, 3vw, 3rem); line-height: 1; color: var(--accent); }
+        .tots-clarity-body { margin-top: 20px; max-width: 620px; font-size: 14.5px; line-height: 1.8; color: var(--ink-dim); }
+        .tots-clarity-cards { margin-top: 28px; display: grid; gap: 12px; }
+        @media (min-width: 768px) { .tots-clarity-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .tots-clarity-card { position: relative; border: 1px solid var(--line); background: rgba(255,255,255,0.018); border-radius: 18px; padding: 18px 18px 16px; min-height: 190px; }
+        .tots-clarity-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .tots-clarity-card-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
+        .tots-clarity-card h3 { margin-top: 18px; font-size: 19px; font-weight: 500; }
+        .tots-clarity-card p { margin-top: 10px; font-size: 12.8px; line-height: 1.7; color: var(--ink-dim); }
+        .tots-clarity-demo { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 30px; background: rgba(8, 8, 10, 0.96); padding: 20px; box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 30px 60px rgba(0,0,0,0.28); }
+        .tots-clarity-demo::before { content: ''; position: absolute; inset: -35% 12% auto 12%; height: 180px; background: radial-gradient(circle, rgba(215,224,168,0.12), transparent 60%); pointer-events: none; }
+        .tots-clarity-demo-head { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .tots-clarity-badge { display: inline-flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.14em; font-size: 9px; text-transform: uppercase; color: var(--accent); }
+        .tots-clarity-status { display: inline-flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.08em; font-size: 8.5px; color: var(--ink-faint); }
+        .tots-clarity-status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px rgba(215,224,168,0.75); }
+        .tots-clarity-label { position: relative; z-index: 1; margin-top: 18px; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+        .tots-clarity-message { position: relative; z-index: 1; margin-top: 18px; padding: 16px 18px; border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; background: rgba(255,255,255,0.02); color: rgba(243,244,238,0.8); font-size: 13.5px; line-height: 1.6; }
+        .tots-clarity-response { position: relative; z-index: 1; margin-top: 18px; padding: 16px 16px 14px; border-radius: 18px; border: 1px solid rgba(215,224,168,0.18); background: rgba(215,224,168,0.04); }
+        .tots-clarity-mini-label { font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+        .tots-clarity-response p { margin-top: 10px; font-size: 13px; line-height: 1.7; color: rgba(243,244,238,0.82); }
+        .tots-clarity-priority-list { position: relative; z-index: 1; margin-top: 18px; display: grid; gap: 10px; }
+        .tots-clarity-priority { display: flex; gap: 12px; align-items: flex-start; border: 1px solid rgba(255,255,255,0.05); border-radius: 14px; background: rgba(255,255,255,0.015); padding: 12px; }
+        .tots-clarity-priority-num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; background: rgba(215,224,168,0.09); border: 1px solid rgba(215,224,168,0.2); color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 8px; }
+        .tots-clarity-priority-copy { display: flex; flex-direction: column; gap: 4px; }
+        .tots-clarity-priority-copy strong { font-size: 12.8px; font-weight: 500; color: rgba(243,244,238,0.86); }
+        .tots-clarity-priority-copy span { font-size: 10.5px; line-height: 1.5; color: var(--ink-faint); }
+        .tots-clarity-divider { position: relative; z-index: 1; margin-top: 18px; border-top: 1px solid var(--line); }
+        .tots-clarity-insight { position: relative; z-index: 1; margin-top: 18px; }
+        .tots-clarity-insight p { margin-top: 10px; font-size: 12.5px; line-height: 1.7; color: var(--ink-dim); }
+        .tots-clarity-button { margin-top: 14px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(215,224,168,0.24); background: rgba(215,224,168,0.04); border-radius: 999px; padding: 7px 12px; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+        .tots-clarity-input { position: relative; z-index: 1; margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,255,255,0.02); padding: 12px 14px; }
+        .tots-clarity-input span { font-size: 12.8px; color: var(--ink-faint); }
+        .tots-clarity-input button { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(215,224,168,0.24); border-radius: 999px; background: rgba(215,224,168,0.08); color: var(--accent); }
+        .tots-clarity-context { margin-top: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
+        .tots-clarity-dot { color: var(--accent); }
+
         /* pricing */
         .tots-price-grid { margin-top: 60px; display: grid; gap: 12px; }
         @media (min-width: 1024px) { .tots-price-grid { grid-template-columns: repeat(3, 1fr); } }
@@ -1341,7 +1385,7 @@ export default function TotsOSLanding() {
 
           <p className="lede">
             TOTS-OS boots your business into one connected system &mdash; projects, clients, finances, planning and
-            content, running from a single, quietly beautiful workspace.
+            content, with Clarity, your built-in AI PA, helping you understand what needs your attention.
           </p>
 
           <div className="tots-hero-ctas">
@@ -1358,7 +1402,7 @@ export default function TotsOSLanding() {
           <div className="tots-hero-meta">
             <span><Check size={12} color="var(--accent)" /> web based</span>
             <span><Check size={12} color="var(--accent)" /> secure account access</span>
-            <span><Check size={12} color="var(--accent)" /> 6 modules, one system</span>
+            <span><Check size={12} color="var(--accent)" /> 6 modules + Clarity AI</span>
           </div>
 
           <ProductDemo />
@@ -1373,7 +1417,7 @@ export default function TotsOSLanding() {
           className="tots-marquee-track"
         >
           {[0, 1].flatMap((group) =>
-            ["CRM", "PROJECTS", "FINANCE", "CALENDAR", "SOCIALS", "NOTES", "TASKS", "BUSINESS KPIS"].map((item, index) => (
+            ["CRM", "PROJECTS", "FINANCE", "CALENDAR", "SOCIALS", "NOTES", "CLARITY AI", "TASKS", "BUSINESS KPIS"].map((item, index) => (
               <span key={`${group}-${index}`} className="tots-marquee-item">
                 {item}
                 <Sparkles size={11} color="var(--accent)" opacity={0.4} />
@@ -1522,6 +1566,141 @@ export default function TotsOSLanding() {
         </div>
       </section>
 
+      {/* CLARITY */}
+      <section id="clarity" className="tots-clarity-section">
+        <div className="tots-wrap">
+          <div className="tots-clarity-grid">
+            <Reveal delay={0.08}>
+              <div className="tots-clarity-copy">
+                <Eyebrow>AI PERSONAL ASSISTANT</Eyebrow>
+                <h2 className="tots-clarity-heading">Meet Clarity.</h2>
+                <p className="tots-clarity-tagline">Your AI PA, built into your business.</p>
+                <p className="tots-clarity-body">
+                  Clarity is the intelligence inside TOTS-OS. Instead of digging through projects, clients,
+                  finances, tasks and content to work out what needs your attention, simply ask. Clarity uses the
+                  information already inside your workspace to help you understand your business, prioritise your day
+                  and turn information into action.
+                </p>
+
+                <div className="tots-clarity-cards">
+                  <div className="tots-clarity-card">
+                    <div className="tots-clarity-card-head">
+                      <span className="tots-clarity-card-label">01</span>
+                      <Sparkles size={16} color="var(--accent)" />
+                    </div>
+                    <h3>Ask your business</h3>
+                    <p>Ask questions in plain English and get useful answers from the information already inside your TOTS-OS workspace.</p>
+                  </div>
+
+                  <div className="tots-clarity-card">
+                    <div className="tots-clarity-card-head">
+                      <span className="tots-clarity-card-label">02</span>
+                      <Zap size={16} color="var(--accent)" />
+                    </div>
+                    <h3>Know what matters</h3>
+                    <p>Clarity surfaces priorities, overdue work and important changes so you know where your attention is needed.</p>
+                  </div>
+
+                  <div className="tots-clarity-card">
+                    <div className="tots-clarity-card-head">
+                      <span className="tots-clarity-card-label">03</span>
+                      <Target size={16} color="var(--accent)" />
+                    </div>
+                    <h3>Turn insight into action</h3>
+                    <p>Move from knowing to doing. Clarity helps turn what is happening across your business into clear next steps.</p>
+                  </div>
+
+                  <div className="tots-clarity-card">
+                    <div className="tots-clarity-card-head">
+                      <span className="tots-clarity-card-label">04</span>
+                      <Gauge size={16} color="var(--accent)" />
+                    </div>
+                    <h3>Always in context</h3>
+                    <p>Because Clarity lives inside TOTS-OS, it understands the context around your clients, projects, planning and operations.</p>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+
+            <Reveal delay={0.18}>
+              <div className="tots-clarity-demo">
+                <div className="tots-clarity-demo-head">
+                  <div className="tots-clarity-badge">
+                    <Sparkles size={14} color="var(--accent)" />
+                    <span>CLARITY</span>
+                  </div>
+                  <div className="tots-clarity-status">
+                    <motion.span
+                      className="tots-clarity-status-dot"
+                      animate={reduceMotion ? undefined : { scale: [1, 1.25, 1] }}
+                      transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    AI PA · READY
+                  </div>
+                </div>
+
+                <div className="tots-clarity-label">AI PERSONAL ASSISTANT</div>
+
+                <div className="tots-clarity-message">What should I focus on today?</div>
+
+                <div className="tots-clarity-response">
+                  <div className="tots-clarity-mini-label">CLARITY</div>
+                  <p>Good morning. I&apos;ve looked across your workspace. These are the three things I&apos;d prioritise today.</p>
+                </div>
+
+                <div className="tots-clarity-priority-list">
+                  <div className="tots-clarity-priority">
+                    <span className="tots-clarity-priority-num">01</span>
+                    <div className="tots-clarity-priority-copy">
+                      <strong>Send the Halstead proposal</strong>
+                      <span>Due today · High priority</span>
+                    </div>
+                  </div>
+
+                  <div className="tots-clarity-priority">
+                    <span className="tots-clarity-priority-num">02</span>
+                    <div className="tots-clarity-priority-copy">
+                      <strong>Chase 2 overdue invoices</strong>
+                      <span>£1,860 outstanding</span>
+                    </div>
+                  </div>
+
+                  <div className="tots-clarity-priority">
+                    <span className="tots-clarity-priority-num">03</span>
+                    <div className="tots-clarity-priority-copy">
+                      <strong>Approve this week&apos;s content</strong>
+                      <span>4 posts waiting for approval</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tots-clarity-divider" />
+
+                <div className="tots-clarity-insight">
+                  <div className="tots-clarity-mini-label">CLARITY NOTICED</div>
+                  <p>Your active project workload is healthy, but one project has moved past its due date.</p>
+                  <button type="button" className="tots-clarity-button">
+                    Show me <ArrowRight size={12} />
+                  </button>
+                </div>
+
+                <div className="tots-clarity-input">
+                  <span>Ask Clarity about your business...</span>
+                  <button type="button" aria-label="Send prompt">
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+
+          <div className="tots-clarity-context">
+            <span>CONNECTED CONTEXT</span>
+            <span>CRM <span className="tots-clarity-dot">•</span> PROJECTS <span className="tots-clarity-dot">•</span> FINANCE <span className="tots-clarity-dot">•</span> CALENDAR <span className="tots-clarity-dot">•</span> SOCIALS <span className="tots-clarity-dot">•</span> NOTES</span>
+          </div>
+        </div>
+      </section>
+
       {/* PRICING */}
       <section id="pricing" className="tots-section">
         <div className="tots-wrap">
@@ -1631,6 +1810,7 @@ export default function TotsOSLanding() {
               <div className="tots-footer-links">
                 <a href="#features">Features</a>
                 <a href="#demo">Demo</a>
+                <a href="#clarity">Clarity AI PA</a>
                 <a href="#pricing">Pricing</a>
                 <a href="/login">Log in</a>
               </div>

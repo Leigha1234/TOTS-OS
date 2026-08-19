@@ -251,7 +251,7 @@ function DashboardLayoutInner({
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
                       <img
-                        src="/images/tots-os%20favicon.png"
+                        src="/icon.png"
                         alt="TOTS-OS"
                         className="h-10 w-10 rounded-xl object-contain"
                       />

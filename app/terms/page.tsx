@@ -8,7 +8,7 @@ export default function TermsOfServicePage() {
         <header className="mb-16 flex items-center justify-between gap-6">
           <Link href="/" className="flex items-center gap-3">
             <img
-              src="/images/tots-os%20favicon.png"
+              src="/icon.png"
               alt="TOTS-OS"
               className="h-10 w-10 rounded-xl object-contain"
             />

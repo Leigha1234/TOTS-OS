@@ -2786,30 +2786,37 @@ export default function TotsOSLanding() {
 
       <div className="tots-nav-shell">
         <div className="tots-nav">
+        
+
           <a
-            href="#"
-            className="tots-brand"
-          >
-            <span className="tots-brand-mark">
-              T
-            </span>
+  href="/"
+  className="tots-brand"
+  aria-label="TOTS-OS home"
+>
+  <img
+    src="/icon.png"
+    alt="TOTS-OS"
+    width={42}
+    height={42}
+    style={{
+      width: "42px",
+      height: "42px",
+      objectFit: "contain",
+      borderRadius: "10px",
+      display: "block",
+    }}
+  />
 
-            <span>
-              <span
-                className="tots-brand-name"
-                style={{
-                  display:
-                    "block",
-                }}
-              >
-                TOTS-OS
-              </span>
+  <div>
+    <div className="tots-brand-name">
+      TOTS-OS
+    </div>
 
-              <span className="tots-brand-sub">
-                business os
-              </span>
-            </span>
-          </a>
+    <div className="tots-brand-sub">
+      business operating system
+    </div>
+  </div>
+</a>
 
           <nav className="tots-nav-links">
             {NAV_ITEMS.map(

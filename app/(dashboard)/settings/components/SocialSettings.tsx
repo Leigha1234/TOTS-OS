@@ -1,7 +1,5 @@
 "use client";
 
-import SocialConnections from "@/app/components/SocialConnections";
-
 import type {
   ConnectionHealth,
   SocialAccount,
@@ -78,7 +76,7 @@ export default function SocialSettings({
       </div>
 
       {/* =========================================
-          CONNECTION MANAGER
+          CONNECTION LINKS
       ========================================= */}
 
       <div className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm">
@@ -86,18 +84,22 @@ export default function SocialSettings({
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
             Account Connections
           </p>
-
-          <h3 className="mt-2 font-serif text-2xl italic text-stone-900">
-            Manage Connected Accounts
-          </h3>
-
-          <p className="mt-2 text-sm text-stone-500">
-            Connect, reconnect or disconnect your
-            supported social media platforms.
-          </p>
         </div>
 
-        <SocialConnections />
+        <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-6 text-center">
+          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-[#829473]">
+            Coming Soon
+          </p>
+
+          <h3 className="mt-2 font-serif text-2xl italic text-stone-900">
+            Social connection links are on the way
+          </h3>
+
+          <p className="mt-2 text-xs text-stone-500">
+            We are finalising account linking for Meta, LinkedIn and TikTok.
+            This section will unlock as soon as the rollout is complete.
+          </p>
+        </div>
       </div>
     </div>
   );

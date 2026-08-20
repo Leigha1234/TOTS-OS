@@ -2799,10 +2799,21 @@ export default function SocialStudioUnified() {
                     </p>
 
                     <p className="mb-5 text-[10px] text-stone-400">
-                      Choose one or more
-                      connected
-                      platforms.
+                      Social account
+                      connections are
+                      temporarily
+                      unavailable.
                     </p>
+
+                    <div className="mb-4 rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-4 text-center">
+                      <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#829473]">
+                        Coming Soon
+                      </p>
+
+                      <p className="mt-1 text-[10px] leading-5 text-stone-500">
+                        Social connection links are being finalized and will return in an upcoming release.
+                      </p>
+                    </div>
 
                     <div className="space-y-2">
                       {platformOptions.map(

@@ -3044,25 +3044,6 @@ export default function SocialStudioUnified() {
 
               {/* HERO */}
 
-              <div className="rounded-[2rem] bg-gradient-to-br from-stone-900 via-stone-900 to-stone-800 p-5 text-white md:p-6 lg:p-7">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                  <div className="max-w-2xl">
-                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#a9b897] text-stone-900 shadow-lg shadow-[#a9b897]/20">
-                      <Brain size={18} />
-                    </div>
-
-                    <p className="mb-2 text-[8px] font-black uppercase tracking-[0.32em] text-[#a9b897]">
-                      Content ideas, tailored to you
-                    </p>
-
-                    <h2 className="font-serif text-3xl italic leading-[1] md:text-4xl lg:text-5xl">
-                      Fresh ideas for your next post.
-                    </h2>
-
-                    <p className="mt-3 max-w-xl text-sm leading-6 text-stone-300">
-                      TOTS-OS pulls from your business context so you can go from blank page to publishable content in a few clicks.
-                    </p>
-                  </div>
 
                   <button
                     disabled={generatingIdeas}
@@ -3077,79 +3058,9 @@ export default function SocialStudioUnified() {
 
                     {generatedConcepts.length ? "More ideas" : "Generate ideas"}
                   </button>
-                </div>
-              </div>
+           
 
-              {/* BUSINESS UNDERSTANDING */}
-
-              <section className="rounded-[2rem] border border-stone-200 bg-white p-5 md:p-6">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
-                      Your business context
-                    </p>
-
-                    <h3 className="mt-2 text-lg font-black text-stone-900">
-                      What TOTS-OS already knows
-                    </h3>
-                  </div>
-
-                  <button
-                    onClick={() => void loadBusinessKnowledge()}
-                    disabled={businessLoading}
-                    className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-500 transition hover:bg-stone-100"
-                  >
-                    <RefreshCcw
-                      size={12}
-                      className={businessLoading ? "animate-spin" : ""}
-                    />
-
-                    Refresh
-                  </button>
-                </div>
-
-                {businessLoading ? (
-                  <div className="flex justify-center py-6">
-                    <Loader2 className="animate-spin text-stone-300" />
-                  </div>
-                ) : (
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-2xl bg-stone-50 p-4">
-                      <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
-                        Business
-                      </p>
-
-                      <p className="mt-2 text-sm font-black text-stone-900">
-                        {businessProfile.name}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-stone-50 p-4">
-                      <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
-                        Audience
-                      </p>
-
-                      <p className="mt-2 text-xs leading-5 text-stone-600">
-                        {businessProfile.audience ||
-                          "TOTS-OS will use your existing business profile."}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl bg-stone-50 p-4">
-                      <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
-                        What you offer
-                      </p>
-
-                      <p className="mt-2 text-xs leading-5 text-stone-600">
-                        {businessProfile.services ||
-                          businessProfile.description ||
-                          "Your business information"}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </section>
-
+             
               {/* IDEA EMPTY STATE */}
 
               {generatedConcepts.length === 0 && (

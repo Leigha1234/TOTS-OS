@@ -620,19 +620,6 @@ function SettingsInner() {
       />
 
       {/* ==================================================
-          NAV
-      ================================================== */}
-
-      <nav className="mb-8 flex flex-wrap gap-3">
-        <button
-          type="button"
-          className="rounded-full bg-stone-900 px-8 py-4 text-[9px] font-black uppercase text-white"
-        >
-          Profile
-        </button>
-      </nav>
-
-      {/* ==================================================
           CONTENT
       ================================================== */}
 

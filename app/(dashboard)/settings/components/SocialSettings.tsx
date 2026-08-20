@@ -42,21 +42,6 @@ export default function SocialSettings({
       ========================================= */}
 
       <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
-        <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
-            Social Connections
-          </p>
-
-          <h3 className="font-serif text-xl italic text-stone-900">
-            Connected Platforms
-          </h3>
-
-          <p className="text-sm text-stone-500">
-            Connect your social media accounts so
-            TOTS-OS can publish and manage content
-            through your connected platforms.
-          </p>
-        </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
           {PLATFORMS.map((platform) => {

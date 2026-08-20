@@ -194,12 +194,6 @@ export default function ProfileSettings({
               </span>
             )}
           </div>
-
-          <p className="ml-1 text-[10px] leading-relaxed text-stone-400">
-            Your company logo is used as the
-            main profile image for your
-            workspace.
-          </p>
         </div>
       </div>
     </div>

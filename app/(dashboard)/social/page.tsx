@@ -2473,14 +2473,6 @@ export default function SocialStudioUnified() {
               />
             </button>
 
-            <Link
-              href="/reports"
-              className="rounded-xl border border-stone-200 bg-white p-3 text-stone-400 hover:text-stone-900"
-            >
-              <BarChart3
-                size={15}
-              />
-            </Link>
           </div>
         </div>
       </header>

@@ -19,9 +19,6 @@ export default function SettingsHeader({
     <header className="mb-12 flex flex-col gap-8 border-b border-stone-200 pb-10 lg:flex-row lg:items-end lg:justify-between">
       <div className="space-y-6">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
-            Administrative Centre
-          </p>
 
           <h1 className="mt-3 break-words font-serif text-4xl italic tracking-tighter sm:text-5xl lg:text-6xl xl:text-7xl">
             Settings

@@ -254,6 +254,54 @@ function formatCurrency(
   );
 }
 
+function formatBriefDate(
+  value:
+    | string
+    | null
+    | undefined
+) {
+  if (!value) {
+    return "No date";
+  }
+
+  const parsed =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      parsed.getTime()
+    )
+  ) {
+    return "No date";
+  }
+
+  return parsed.toLocaleDateString(
+    "en-GB",
+    {
+      day: "2-digit",
+      month: "short",
+    }
+  );
+}
+
+function formatBriefDateTime(
+  value: Date | null
+) {
+  if (!value) {
+    return "No date";
+  }
+
+  return value.toLocaleString(
+    "en-GB",
+    {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
+}
+
 function getHealthScore(
   riskLevel: RiskLevel
 ) {
@@ -640,6 +688,12 @@ function DashboardContent() {
       false
     );
 
+  const [
+    shouldShowBriefOnRefresh,
+    setShouldShowBriefOnRefresh,
+  ] =
+    useState(false);
+
   // ==================================================
   // INPUTS
   // ==================================================
@@ -755,7 +809,33 @@ function DashboardContent() {
   }, []);
 
   useEffect(() => {
+    const navigationEntries =
+      performance.getEntriesByType(
+        "navigation"
+      ) as PerformanceNavigationTiming[];
+
+    const navigationType =
+      navigationEntries[0]?.type;
+
+    const legacyNavigationType =
+      (performance as any)
+        ?.navigation
+        ?.type;
+
+    const isRefreshLoad =
+      navigationType ===
+        "reload" ||
+      legacyNavigationType ===
+        1;
+
+    setShouldShowBriefOnRefresh(
+      isRefreshLoad
+    );
+  }, []);
+
+  useEffect(() => {
     if (
+      shouldShowBriefOnRefresh &&
       !loading &&
       !dailyBriefShown &&
       aiSummary
@@ -763,9 +843,7 @@ function DashboardContent() {
       const timer =
         window.setTimeout(
           () => {
-            setShowBriefModal(
-              true
-            );
+            handleClarityBrief();
             setDailyBriefShown(
               true
             );
@@ -783,6 +861,7 @@ function DashboardContent() {
     aiSummary,
     dailyBriefShown,
     loading,
+    shouldShowBriefOnRefresh,
   ]);
 
   // ==================================================
@@ -3120,6 +3199,224 @@ function DashboardContent() {
         0,
         5
       );
+
+  const upcomingProjects =
+    [
+      ...projects,
+    ]
+      .filter(
+        (
+          project
+        ) =>
+          ![
+            "completed",
+            "done",
+            "archived",
+          ].includes(
+            String(
+              project.status ||
+                ""
+            )
+              .trim()
+              .toLowerCase()
+          )
+      )
+      .sort(
+        (
+          a,
+          b
+        ) => {
+          const aDue =
+            a.due_date
+              ? new Date(
+                  a.due_date
+                ).getTime()
+              : Infinity;
+
+          const bDue =
+            b.due_date
+              ? new Date(
+                  b.due_date
+                ).getTime()
+              : Infinity;
+
+          return (
+            aDue - bDue
+          );
+        }
+      )
+      .slice(
+        0,
+        4
+      );
+
+  const clarityBriefText =
+    useMemo(() => {
+      const priorityBlock =
+        aiActions.length >
+        0
+          ? aiActions
+              .slice(
+                0,
+                4
+              )
+              .map(
+                (
+                  action,
+                  index
+                ) =>
+                  `${
+                    index +
+                    1
+                  }. ${action}`
+              )
+              .join(
+                "\n"
+              )
+          : "No urgent priorities detected.";
+
+      const taskBlock =
+        priorityTasks.length >
+        0
+          ? priorityTasks
+              .slice(
+                0,
+                5
+              )
+              .map(
+                (
+                  task,
+                  index
+                ) =>
+                  `${
+                    index +
+                    1
+                  }. ${task.text}${
+                    task.status
+                      ? ` [${task.status}]`
+                      : ""
+                  }`
+              )
+              .join(
+                "\n"
+              )
+          : "No open tasks.";
+
+      const noteBlock =
+        recentNotes.length >
+        0
+          ? recentNotes
+              .slice(
+                0,
+                4
+              )
+              .map(
+                (
+                  note,
+                  index
+                ) => {
+                  const title =
+                    note.title ||
+                    note.content ||
+                    "Untitled note";
+
+                  return `${
+                    index +
+                    1
+                  }. ${title} (${formatBriefDate(
+                    note.created_at
+                  )})`;
+                }
+              )
+              .join(
+                "\n"
+              )
+          : "No notes.";
+
+      const projectBlock =
+        upcomingProjects.length >
+        0
+          ? upcomingProjects
+              .map(
+                (
+                  project,
+                  index
+                ) =>
+                  `${
+                    index +
+                    1
+                  }. ${
+                    project.name ||
+                    "Untitled project"
+                  }${
+                    project.due_date
+                      ? ` (due ${formatBriefDate(
+                          project.due_date
+                        )})`
+                      : ""
+                  }`
+              )
+              .join(
+                "\n"
+              )
+          : "No active projects.";
+
+      const eventBlock =
+        upcomingEvents.length >
+        0
+          ? upcomingEvents
+              .slice(
+                0,
+                5
+              )
+              .map(
+                (
+                  event,
+                  index
+                ) =>
+                  `${
+                    index +
+                    1
+                  }. ${event.title} (${formatBriefDateTime(
+                    event.startAt
+                  )})`
+              )
+              .join(
+                "\n"
+              )
+          : "No upcoming events.";
+
+      return (
+        `CLARITY DAILY BRIEF\n\n` +
+        `${greeting} - ${dailyAffirmation}\n\n` +
+        `${aiSummary}\n\n` +
+        `Open Tasks: ${openTasks.length}\n` +
+        `Active Projects: ${stats.activeProjects}\n` +
+        `Upcoming Events: ${upcomingEvents.length}\n` +
+        `Invoices Due: ${stats.invoicesDue}\n` +
+        `Paid Revenue: GBP ${formatCurrency(
+          stats.currentRevenue
+        )}\n\n` +
+        `Priorities:\n${priorityBlock}\n\n` +
+        `Upcoming Tasks:\n${taskBlock}\n\n` +
+        `Upcoming Notes:\n${noteBlock}\n\n` +
+        `Upcoming Projects:\n${projectBlock}\n\n` +
+        `Calendar Events:\n${eventBlock}`
+      );
+    }, [
+      aiActions,
+      aiSummary,
+      dailyAffirmation,
+      greeting,
+      openTasks.length,
+      priorityTasks,
+      recentNotes,
+      stats.activeProjects,
+      stats.currentRevenue,
+      stats.invoicesDue,
+      upcomingEvents,
+      upcomingProjects,
+    ]);
 
   // ==================================================
   // RENDER

@@ -50,6 +50,11 @@ type DashboardLink = {
   icon: LucideIcon;
 };
 
+type MobileNavSection = {
+  title?: string;
+  links: DashboardLink[];
+};
+
 export default function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
@@ -119,9 +124,86 @@ function DashboardLayoutInner({
       icon: Globe,
     },
     {
+      href: "/payments",
+      label: "Finance",
+      icon: Briefcase,
+    },
+    {
       href: "/settings",
       label: "Settings",
       icon: Settings,
+    },
+  ];
+
+  const mobileSections: MobileNavSection[] = [
+    {
+      links: [
+        {
+          href: "/dashboard",
+          label: "Home",
+          icon: LayoutDashboard,
+        },
+      ],
+    },
+    {
+      title: "My Business",
+      links: [
+        {
+          href: "/crm",
+          label: "Contacts",
+          icon: Users,
+        },
+        {
+          href: "/campaigns",
+          label: "Campaigns",
+          icon: Megaphone,
+        },
+        {
+          href: "/social",
+          label: "Social",
+          icon: Globe,
+        },
+        {
+          href: "/payments",
+          label: "Finance",
+          icon: Briefcase,
+        },
+        {
+          href: "/notes",
+          label: "Notes",
+          icon: StickyNote,
+        },
+      ],
+    },
+    {
+      title: "Clients & Projects",
+      links: [
+        {
+          href: "/projects",
+          label: "Workspace",
+          icon: Briefcase,
+        },
+      ],
+    },
+    {
+      title: "Planning",
+      links: [
+        {
+          href: "/calendar",
+          label: "Calendar",
+          icon: Calendar,
+        },
+      ],
+    },
+    {
+      title: "Settings",
+      links: [
+        {
+          href: "/settings",
+          label: "Settings",
+          icon: Settings,
+        },
+      ],
     },
   ];
 
@@ -257,42 +339,57 @@ function DashboardLayoutInner({
 
                 <div
                   data-tour="mobile-system-menu"
-                  className="grid grid-cols-3 gap-2.5"
+                  className="space-y-5"
                 >
-                  {allLinks.map((link) => {
-                    const Icon = link.icon;
-                    const isActive = pathname === link.href;
+                  {mobileSections.map((section, index) => (
+                    <div key={section.title || `mobile-section-${index}`}>
+                      {section.title && (
+                        <p className="mb-2 px-1 text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                          {section.title}
+                        </p>
+                      )}
 
-                    return (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        data-tour={`nav-${link.label.toLowerCase().replaceAll(" ", "-")}`}
-                        className={`flex h-20 flex-col justify-between rounded-[1.4rem] border p-3 transition-all duration-300 ${
-                          isActive
-                            ? "scale-[1.01] border-stone-200 bg-white shadow-md"
-                            : "border-stone-100 bg-white/60 hover:bg-white active:scale-95"
-                        }`}
-                      >
-                        <div
-                          style={{
-                            color: isActive ? "var(--brand-primary)" : "#d6d3d1",
-                          }}
-                        >
-                          <Icon size={18} strokeWidth={1.5} />
-                        </div>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {section.links.map((link) => {
+                          const Icon = link.icon;
 
-                        <span
-                          className={`text-[7px] font-black uppercase tracking-[0.18em] ${
-                            isActive ? "text-stone-900" : "text-stone-400"
-                          }`}
-                        >
-                          {link.label}
-                        </span>
-                      </Link>
-                    );
-                  })}
+                          const isActive =
+                            pathname === link.href ||
+                            pathname.startsWith(`${link.href}/`);
+
+                          return (
+                            <Link
+                              key={link.href}
+                              href={link.href}
+                              onClick={() => setMobileMenuOpen(false)}
+                              data-tour={`nav-${link.label.toLowerCase().replaceAll(" ", "-")}`}
+                              className={`flex h-20 flex-col justify-between rounded-[1.4rem] border p-3 transition-all duration-300 ${
+                                isActive
+                                  ? "scale-[1.01] border-stone-200 bg-white shadow-md"
+                                  : "border-stone-100 bg-white/60 hover:bg-white active:scale-95"
+                              }`}
+                            >
+                              <div
+                                style={{
+                                  color: isActive ? "var(--brand-primary)" : "#d6d3d1",
+                                }}
+                              >
+                                <Icon size={18} strokeWidth={1.5} />
+                              </div>
+
+                              <span
+                                className={`text-[7px] font-black uppercase tracking-[0.18em] ${
+                                  isActive ? "text-stone-900" : "text-stone-400"
+                                }`}
+                              >
+                                {link.label}
+                              </span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </motion.div>

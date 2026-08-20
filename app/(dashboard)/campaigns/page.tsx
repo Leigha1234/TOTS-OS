@@ -170,6 +170,21 @@ type CompanyBranding = {
   logoUrl: string;
 };
 
+type CampaignBlock = {
+  id: string;
+  type: "text" | "image" | "button";
+  content: string;
+  imageUrl?: string;
+  url?: string;
+};
+
+type CampaignTemplate = {
+  id: string;
+  name: string;
+  blocks: CampaignBlock[];
+  brandColor: string;
+};
+
 type CampaignForm = {
   title: string;
   subject: string;
@@ -189,6 +204,7 @@ type CampaignForm = {
   ctaUrl: string;
 
   brandColor: string;
+  blocks: CampaignBlock[];
 };
 
 // ==================================================
@@ -207,6 +223,28 @@ const MESSAGE_END =
 // ==================================================
 // FORM
 // ==================================================
+
+function createCampaignBlock(
+  type: CampaignBlock["type"]
+): CampaignBlock {
+  return {
+    id: `${type}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`,
+    type,
+    content:
+      type === "text"
+        ? "Add a new paragraph here..."
+        : type === "button"
+          ? "Learn more"
+          : "",
+    imageUrl: "",
+    url:
+      type === "button"
+        ? "https://"
+        : "",
+  };
+}
 
 function emptyForm(
   company?: CompanyBranding
@@ -236,6 +274,11 @@ function emptyForm(
 
     brandColor:
       DEFAULT_BRAND_COLOR,
+    blocks: [
+      createCampaignBlock(
+        "text"
+      ),
+    ],
   };
 }
 
@@ -464,6 +507,7 @@ function buildCampaignHtml({
   ctaText,
   ctaUrl,
   brandColor,
+  blocks,
 }: {
   message: string;
   company: CompanyBranding;
@@ -472,6 +516,7 @@ function buildCampaignHtml({
   ctaText: string;
   ctaUrl: string;
   brandColor: string;
+  blocks?: CampaignBlock[];
 }) {
   const logo =
     campaignLogoUrl.trim() ||
@@ -491,6 +536,75 @@ function buildCampaignHtml({
     escapeHtml(
       ctaUrl
     );
+
+  const blockHtml =
+    (blocks || []).length > 0
+      ? (blocks || [])
+          .map(
+            (block) => {
+              if (
+                block.type ===
+                "image"
+              ) {
+                const imageSrc =
+                  block.imageUrl ||
+                  "";
+
+                return imageSrc
+                  ? `
+                      <div style="margin:0 0 24px;">
+                        <img
+                          src="${escapeHtml(
+                            imageSrc
+                          )}"
+                          alt=""
+                          style="display:block;width:100%;height:auto;border-radius:18px;"
+                        />
+                      </div>
+                    `
+                  : "";
+              }
+
+              if (
+                block.type ===
+                "button"
+              ) {
+                const label =
+                  block.content ||
+                  "Learn more";
+                const href =
+                  block.url ||
+                  ctaUrl ||
+                  "#";
+
+                return `
+                  <div style="text-align:center;margin:28px 0;">
+                    <a
+                      href="${escapeHtml(href)}"
+                      data-tots-click-url="${escapeHtml(href)}"
+                      style="display:inline-block;background:${brandColor};color:#ffffff;text-decoration:none;padding:16px 26px;border-radius:12px;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;"
+                    >
+                      ${escapeHtml(label)}
+                    </a>
+                  </div>
+                `;
+              }
+
+              return `
+                <div>
+                  ${plainTextToHtml(
+                    block.content ||
+                      message ||
+                      ""
+                  )}
+                </div>
+              `;
+            }
+          )
+          .join("")
+      : plainTextToHtml(
+          message
+        );
 
   return `
     <div
@@ -552,9 +666,7 @@ function buildCampaignHtml({
       ${MESSAGE_START}
 
       <div>
-        ${plainTextToHtml(
-          message
-        )}
+        ${blockHtml}
       </div>
 
       ${MESSAGE_END}
@@ -1073,6 +1185,20 @@ export default function CampaignsPage() {
     );
 
   const [
+    savedTemplates,
+    setSavedTemplates,
+  ] = useState<
+    CampaignTemplate[]
+  >([]);
+
+  const [
+    draggingBlockId,
+    setDraggingBlockId,
+  ] = useState<
+    string | null
+  >(null);
+
+  const [
     savingCampaign,
     setSavingCampaign,
   ] =
@@ -1295,6 +1421,253 @@ export default function CampaignsPage() {
   }, [
     supabase,
   ]);
+
+  useEffect(() => {
+    try {
+      const stored =
+        window.localStorage.getItem(
+          "tots_campaign_templates"
+        );
+
+      if (stored) {
+        const parsed =
+          JSON.parse(
+            stored
+          ) as CampaignTemplate[];
+
+        if (
+          Array.isArray(
+            parsed
+          )
+        ) {
+          setSavedTemplates(
+            parsed
+          );
+        }
+      }
+    } catch (
+      error
+    ) {
+      console.warn(
+        "Campaign template load error:",
+        error
+      );
+    }
+  }, []);
+
+  const addBlock = (
+    type: CampaignBlock["type"]
+  ) => {
+    const block =
+      createCampaignBlock(
+        type
+      );
+
+    setCampaignForm(
+      (
+        previous
+      ) => ({
+        ...previous,
+        blocks: [
+          ...previous.blocks,
+          block,
+        ],
+      })
+    );
+  };
+
+  const updateBlock = (
+    id: string,
+    changes: Partial<CampaignBlock>
+  ) => {
+    setCampaignForm(
+      (
+        previous
+      ) => ({
+        ...previous,
+        blocks:
+          previous.blocks.map(
+            (
+              block
+            ) =>
+              block.id ===
+              id
+                ? {
+                    ...block,
+                    ...changes,
+                  }
+                : block
+          ),
+      })
+    );
+  };
+
+  const deleteBlock = (
+    id: string
+  ) => {
+    setCampaignForm(
+      (
+        previous
+      ) => ({
+        ...previous,
+        blocks:
+          previous.blocks.filter(
+            (
+              block
+            ) =>
+              block.id !==
+              id
+          ),
+      })
+    );
+  };
+
+  const moveBlock = (
+    fromId: string,
+    toId: string
+  ) => {
+    setCampaignForm(
+      (
+        previous
+      ) => {
+        const currentBlocks =
+          [...previous.blocks];
+        const fromIndex =
+          currentBlocks.findIndex(
+            (
+              block
+            ) =>
+              block.id ===
+              fromId
+          );
+        const toIndex =
+          currentBlocks.findIndex(
+            (
+              block
+            ) =>
+              block.id ===
+              toId
+          );
+
+        if (
+          fromIndex ===
+            -1 ||
+          toIndex ===
+            -1
+        ) {
+          return previous;
+        }
+
+        const [moved] =
+          currentBlocks.splice(
+            fromIndex,
+            1
+          );
+        currentBlocks.splice(
+          toIndex,
+          0,
+          moved
+        );
+
+        return {
+          ...previous,
+          blocks:
+            currentBlocks,
+        };
+      }
+    );
+  };
+
+  const saveCampaignTemplate =
+    () => {
+      const name =
+        campaignForm.title.trim() ||
+        "Untitled template";
+      const nextTemplates = [
+        {
+          id: `template-${Date.now()}`,
+          name,
+          blocks:
+            campaignForm.blocks,
+          brandColor:
+            campaignForm.brandColor,
+        },
+        ...savedTemplates,
+      ].slice(
+        0,
+        8
+      );
+
+      setSavedTemplates(
+        nextTemplates
+      );
+      window.localStorage.setItem(
+        "tots_campaign_templates",
+        JSON.stringify(
+          nextTemplates
+        )
+      );
+      alert(
+        "Template saved locally."
+      );
+    };
+
+  const applyTemplate = (
+    template: CampaignTemplate
+  ) => {
+    setCampaignForm(
+      (
+        previous
+      ) => ({
+        ...previous,
+        title:
+          template.name,
+        blocks:
+          template.blocks.map(
+            (
+              block
+            ) => ({
+              ...block,
+              id: `${block.type}-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 8)}`,
+            })
+          ),
+        brandColor:
+          template.brandColor ||
+          previous.brandColor,
+      })
+    );
+  };
+
+  const handleBlockImageUpload =
+    async (
+      blockId: string,
+      file: File
+    ) => {
+      const reader =
+        new FileReader();
+
+      reader.onload = () => {
+        const result =
+          String(
+            reader.result ||
+              ""
+          );
+
+        updateBlock(
+          blockId,
+          {
+            imageUrl:
+              result,
+          }
+        );
+      };
+
+      reader.readAsDataURL(
+        file
+      );
+    };
 
   // ==================================================
   // LOAD CAMPAIGNS + ANALYTICS
@@ -2878,6 +3251,52 @@ export default function CampaignsPage() {
         campaign.id
       );
 
+      const contentText =
+        extractMessage(
+          campaign.content ||
+            ""
+        );
+
+      const templateBlocks: CampaignBlock[] = [
+        {
+          id: "text-existing",
+          type: "text",
+          content:
+            contentText ||
+            "Write your message here...",
+        },
+      ];
+
+      if (
+        campaign.header_image_url
+      ) {
+        templateBlocks.unshift(
+          {
+            id: "image-existing",
+            type: "image",
+            imageUrl:
+              campaign.header_image_url,
+            content: "",
+          }
+        );
+      }
+
+      if (
+        campaign.cta_text ||
+        campaign.cta_url
+      ) {
+        templateBlocks.push({
+          id: "button-existing",
+          type: "button",
+          content:
+            campaign.cta_text ||
+            "Learn more",
+          url:
+            campaign.cta_url ||
+            "https://",
+        });
+      }
+
       setCampaignForm({
         title:
           campaign.title ||
@@ -2892,10 +3311,7 @@ export default function CampaignsPage() {
           "",
 
         message:
-          extractMessage(
-            campaign.content ||
-              ""
-          ),
+          contentText,
 
         listId:
           campaign.list_id ||
@@ -2936,6 +3352,8 @@ export default function CampaignsPage() {
         brandColor:
           campaign.brand_color ||
           DEFAULT_BRAND_COLOR,
+        blocks:
+          templateBlocks,
       });
 
       setShowCampaignView(
@@ -2990,6 +3408,8 @@ export default function CampaignsPage() {
             brandColor:
               campaignForm.brandColor ||
               DEFAULT_BRAND_COLOR,
+            blocks:
+              campaignForm.blocks,
           }),
 
         list_id:
@@ -4928,11 +5348,245 @@ another@email.com`}
                     )}
                   </div>
 
+                  {/* BUILDER */}
+
+                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-wider text-stone-400">
+                          Layout Builder
+                        </p>
+                        <p className="mt-1 text-[10px] text-stone-400">
+                          Add text, images and buttons and drag to reorder.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            addBlock(
+                              "text"
+                            )
+                          }
+                          className="rounded-xl border border-stone-200 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-600"
+                        >
+                          + Text
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            addBlock(
+                              "image"
+                            )
+                          }
+                          className="rounded-xl border border-stone-200 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-600"
+                        >
+                          + Image
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            addBlock(
+                              "button"
+                            )
+                          }
+                          className="rounded-xl border border-stone-200 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-600"
+                        >
+                          + Button
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {campaignForm.blocks.map(
+                        (
+                          block,
+                          index
+                        ) => (
+                          <div
+                            key={
+                              block.id
+                            }
+                            draggable
+                            onDragStart={() =>
+                              setDraggingBlockId(
+                                block.id
+                              )
+                            }
+                            onDragOver={(
+                              event
+                            ) =>
+                              event.preventDefault()
+                            }
+                            onDrop={() => {
+                              if (
+                                draggingBlockId &&
+                                draggingBlockId !==
+                                  block.id
+                              ) {
+                                moveBlock(
+                                  draggingBlockId,
+                                  block.id
+                                );
+                              }
+                              setDraggingBlockId(
+                                null
+                              );
+                            }}
+                            className="rounded-[1.5rem] border border-stone-200 bg-[#faf9f6] p-3"
+                          >
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[8px] font-black uppercase tracking-wider text-stone-500">
+                                  {index + 1}
+                                </span>
+
+                                <span className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                                  {block.type}
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  deleteBlock(
+                                    block.id
+                                  )
+                                }
+                                className="text-[8px] font-black uppercase tracking-wider text-red-400"
+                              >
+                                Remove
+                              </button>
+                            </div>
+
+                            {block.type ===
+                              "text" && (
+                              <textarea
+                                value={
+                                  block.content
+                                }
+                                onChange={(event) =>
+                                  updateBlock(
+                                    block.id,
+                                    {
+                                      content:
+                                        event.target.value,
+                                    }
+                                  )
+                                }
+                                rows={5}
+                                className="w-full resize-y rounded-xl border border-stone-200 bg-white p-3 text-sm leading-7 outline-none"
+                                placeholder="Write a paragraph or section of your campaign..."
+                              />
+                            )}
+
+                            {block.type ===
+                              "image" && (
+                              <div className="space-y-3">
+                                <input
+                                  type="url"
+                                  value={
+                                    block.imageUrl ||
+                                    ""
+                                  }
+                                  onChange={(event) =>
+                                    updateBlock(
+                                      block.id,
+                                      {
+                                        imageUrl:
+                                          event.target.value,
+                                      }
+                                    )
+                                  }
+                                  placeholder="https://example.com/image.jpg"
+                                  className="w-full rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none"
+                                />
+
+                                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 bg-white px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-500">
+                                  <ImageIcon size={12} />
+                                  Upload image
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(event) => {
+                                      const file =
+                                        event.target.files?.[0];
+                                      if (file) {
+                                        void handleBlockImageUpload(
+                                          block.id,
+                                          file
+                                        );
+                                      }
+                                    }}
+                                  />
+                                </label>
+
+                                {block.imageUrl && (
+                                  <img
+                                    src={
+                                      block.imageUrl
+                                    }
+                                    alt=""
+                                    className="max-h-52 w-full rounded-xl object-cover"
+                                  />
+                                )}
+                              </div>
+                            )}
+
+                            {block.type ===
+                              "button" && (
+                              <div className="space-y-3">
+                                <input
+                                  value={
+                                    block.content
+                                  }
+                                  onChange={(event) =>
+                                    updateBlock(
+                                      block.id,
+                                      {
+                                        content:
+                                          event.target.value,
+                                      }
+                                    )
+                                  }
+                                  placeholder="Button label"
+                                  className="w-full rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none"
+                                />
+
+                                <input
+                                  value={
+                                    block.url ||
+                                    ""
+                                  }
+                                  onChange={(event) =>
+                                    updateBlock(
+                                      block.id,
+                                      {
+                                        url:
+                                          event.target.value,
+                                      }
+                                    )
+                                  }
+                                  placeholder="https://..."
+                                  className="w-full rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+
                   {/* MESSAGE */}
 
                   <div>
                     <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      Message
+                      Plain text fallback
                     </label>
 
                     <textarea
@@ -4959,7 +5613,7 @@ another@email.com`}
 We wanted to share a quick update...
 
 Write your email exactly how you want it to read.`}
-                      className="min-h-[360px] w-full resize-y rounded-[2rem] border border-stone-200 bg-white p-6 text-base leading-8 outline-none focus:border-stone-900"
+                      className="min-h-[240px] w-full resize-y rounded-[2rem] border border-stone-200 bg-white p-6 text-base leading-8 outline-none focus:border-stone-900"
                     />
                   </div>
 
@@ -5179,6 +5833,51 @@ Write your email exactly how you want it to read.`}
                   </div>
 
                   {/* SENDER */}
+
+                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+                    <p className="mb-4 text-[9px] font-black uppercase tracking-wider text-stone-400">
+                      Template Library
+                    </p>
+
+                    {savedTemplates.length === 0 ? (
+                      <p className="text-[10px] text-stone-400">
+                        No saved templates yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {savedTemplates.map(
+                          (
+                            template
+                          ) => (
+                            <button
+                              key={
+                                template.id
+                              }
+                              type="button"
+                              onClick={() =>
+                                applyTemplate(
+                                  template
+                                )
+                              }
+                              className="w-full rounded-xl border border-stone-100 bg-stone-50 px-3 py-2 text-left text-[10px] font-bold text-stone-600"
+                            >
+                              {template.name}
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={
+                        saveCampaignTemplate
+                      }
+                      className="mt-4 w-full rounded-xl bg-[#a9b897] px-4 py-3 text-[9px] font-black uppercase tracking-wider text-stone-900"
+                    >
+                      Save as template
+                    </button>
+                  </div>
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <p className="mb-4 text-[9px] font-black uppercase tracking-wider text-stone-400">

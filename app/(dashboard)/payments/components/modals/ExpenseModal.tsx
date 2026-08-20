@@ -35,6 +35,8 @@ export type ExpenseForm = {
 
   customerId: string;
   projectId: string;
+  receiptName?: string;
+  receiptUrl?: string;
 };
 
 // ============================================================
@@ -44,6 +46,7 @@ export type ExpenseForm = {
 type ExpenseModalProps = {
   open: boolean;
   submitting?: boolean;
+  uploadingReceipt?: boolean;
 
   expense: ExpenseForm;
 
@@ -53,6 +56,7 @@ type ExpenseModalProps = {
   onChange: (
     expense: ExpenseForm
   ) => void;
+  onReceiptChange?: (file: File | null) => void;
 
   onClose: () => void;
   onSubmit: () => void;
@@ -65,10 +69,12 @@ type ExpenseModalProps = {
 export default function ExpenseModal({
   open,
   submitting = false,
+  uploadingReceipt = false,
   expense,
   customers,
   projects,
   onChange,
+  onReceiptChange,
   onClose,
   onSubmit,
 }: ExpenseModalProps) {
@@ -440,6 +446,59 @@ export default function ExpenseModal({
                   </option>
                 </select>
               </div>
+
+              {/* RECEIPT */}
+
+              <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <label
+                    htmlFor="expense-receipt"
+                    className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400"
+                  >
+                    Receipt
+                  </label>
+
+                  {expense.receiptName && (
+                    <button
+                      type="button"
+                      onClick={() => onReceiptChange?.(null)}
+                      className="rounded-full border border-stone-200 bg-white px-2 py-1 text-[7px] font-black uppercase tracking-widest text-stone-500"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                {expense.receiptName ? (
+                  <div className="flex items-center justify-between rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600">
+                    <span className="truncate">{expense.receiptName}</span>
+                    <span className="ml-2 text-[8px] font-black uppercase tracking-wider text-[#829473]">
+                      Attached
+                    </span>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="expense-receipt"
+                    className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-3 text-[8px] font-black uppercase tracking-widest text-stone-500 transition hover:border-stone-300 hover:text-stone-900"
+                  >
+                    <Plus size={12} />
+                    Upload Receipt
+                  </label>
+                )}
+
+                <input
+                  id="expense-receipt"
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(event) => {
+                    const nextFile = event.target.files?.[0] ?? null;
+                    onReceiptChange?.(nextFile);
+                    event.target.value = "";
+                  }}
+                  disabled={submitting || uploadingReceipt}
+                  className="hidden"
+                />
+              </div>
             </div>
 
             {/* =================================================
@@ -449,10 +508,10 @@ export default function ExpenseModal({
             <button
               type="button"
               onClick={onSubmit}
-              disabled={!canSubmit}
+              disabled={!canSubmit || uploadingReceipt}
               className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? (
+              {submitting || uploadingReceipt ? (
                 <Loader2
                   size={15}
                   className="animate-spin"
@@ -462,7 +521,7 @@ export default function ExpenseModal({
               )}
 
               <span className="text-[9px] font-black uppercase tracking-[0.25em]">
-                {submitting
+                {submitting || uploadingReceipt
                   ? "Saving..."
                   : "Log Expense"}
               </span>

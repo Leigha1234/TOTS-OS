@@ -3044,96 +3044,65 @@ export default function SocialStudioUnified() {
 
               {/* HERO */}
 
-              <div className="rounded-[3rem] bg-stone-900 p-7 text-white md:p-10 lg:p-12">
-                <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
+              <div className="rounded-[2.25rem] bg-stone-900 p-5 text-white md:p-7 lg:p-8">
+                <div className="grid gap-5 lg:grid-cols-[1fr_260px] lg:items-end">
                   <div>
-                    <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#a9b897] text-stone-900">
-                      <Brain
-                        size={20}
-                      />
+                    <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#a9b897] text-stone-900">
+                      <Brain size={18} />
                     </div>
 
-                    <p className="mb-3 text-[9px] font-black uppercase tracking-[0.35em] text-[#a9b897]">
-                      Powered by your
-                      business context
+                    <p className="mb-2 text-[8px] font-black uppercase tracking-[0.32em] text-[#a9b897]">
+                      Powered by your business context
                     </p>
 
-                    <h2 className="max-w-3xl font-serif text-5xl italic leading-[0.95] md:text-7xl">
-                      Ideas that actually
-                      make sense for your
-                      business.
+                    <h2 className="max-w-3xl font-serif text-4xl italic leading-[0.95] md:text-5xl lg:text-6xl">
+                      Ideas that fit your business.
                     </h2>
 
-                    <p className="mt-6 max-w-2xl text-sm leading-7 text-stone-400">
-                      TOTS-OS already
-                      knows about your
-                      business through
-                      your profile and
-                      Clarity context, so
-                      you should not need
-                      to start from zero
-                      every time.
+                    <p className="mt-4 max-w-xl text-sm leading-6 text-stone-400">
+                      TOTS-OS already understands your offer, audience and workflows,
+                      so you can move from idea to post without starting from scratch.
                     </p>
                   </div>
 
                   <button
-                    disabled={
-                      generatingIdeas
-                    }
-                    onClick={() =>
-                      void generateBusinessIdeas()
-                    }
-                    className="flex items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-stone-900 disabled:opacity-50"
+                    disabled={generatingIdeas}
+                    onClick={() => void generateBusinessIdeas()}
+                    className="flex items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-5 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-stone-900 transition hover:bg-[#b8caa4] disabled:opacity-50"
                   >
                     {generatingIdeas ? (
-                      <Loader2
-                        size={15}
-                        className="animate-spin"
-                      />
+                      <Loader2 size={14} className="animate-spin" />
                     ) : (
-                      <Sparkles
-                        size={15}
-                      />
+                      <Sparkles size={14} />
                     )}
 
-                    {generatedConcepts.length
-                      ? "Give Me More Ideas"
-                      : "Generate Ideas"}
+                    {generatedConcepts.length ? "More ideas" : "Generate ideas"}
                   </button>
                 </div>
               </div>
 
               {/* BUSINESS UNDERSTANDING */}
 
-              <section className="rounded-[2.5rem] border border-stone-200 bg-white p-6 md:p-8">
-                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <section className="rounded-[2rem] border border-stone-200 bg-white p-5 md:p-6">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
                       Clarity
                     </p>
 
-                    <h3 className="mt-2 text-xl font-black">
-                      What TOTS-OS knows
-                      about your business
+                    <h3 className="mt-2 text-lg font-black text-stone-900">
+                      What TOTS-OS knows about your business
                     </h3>
                   </div>
 
                   <button
-                    onClick={() =>
-                      void loadBusinessKnowledge()
-                    }
-                    disabled={
-                      businessLoading
-                    }
-                    className="flex items-center gap-2 rounded-xl bg-stone-50 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-stone-400"
+                    onClick={() => void loadBusinessKnowledge()}
+                    disabled={businessLoading}
+                    className="flex items-center gap-2 rounded-xl bg-stone-50 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-400"
                   >
                     <RefreshCcw
                       size={12}
-                      className={
-                        businessLoading
-                          ? "animate-spin"
-                          : ""
-                      }
+                      className={businessLoading ? "animate-spin" : ""}
                     />
 
                     Refresh
@@ -3141,25 +3110,22 @@ export default function SocialStudioUnified() {
                 </div>
 
                 {businessLoading ? (
-                  <div className="flex justify-center py-8">
+                  <div className="flex justify-center py-6">
                     <Loader2 className="animate-spin text-stone-300" />
                   </div>
                 ) : (
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-
-                    <div className="rounded-2xl bg-stone-50 p-5">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-2xl bg-stone-50 p-4">
                       <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
                         Business
                       </p>
 
-                      <p className="mt-2 text-sm font-black">
-                        {
-                          businessProfile.name
-                        }
+                      <p className="mt-2 text-sm font-black text-stone-900">
+                        {businessProfile.name}
                       </p>
                     </div>
 
-                    <div className="rounded-2xl bg-stone-50 p-5">
+                    <div className="rounded-2xl bg-stone-50 p-4">
                       <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
                         Audience
                       </p>
@@ -3170,7 +3136,7 @@ export default function SocialStudioUnified() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl bg-stone-50 p-5">
+                    <div className="rounded-2xl bg-stone-50 p-4">
                       <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
                         What you offer
                       </p>
@@ -3218,99 +3184,60 @@ export default function SocialStudioUnified() {
 
               {generatedConcepts.length >
                 0 && (
-                <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                  {generatedConcepts.map(
-                    (
-                      concept,
-                      index
-                    ) => (
-                      <div
-                        key={
-                          concept.id
-                        }
-                        className="flex min-h-[390px] flex-col rounded-[2.5rem] border border-stone-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-                      >
-                        <div className="mb-6 flex items-start justify-between">
-                          <span className="rounded-full bg-[#a9b897]/15 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-[#71805f]">
-                            Idea{" "}
-                            {String(
-                              index +
-                                1
-                            ).padStart(
-                              2,
-                              "0"
-                            )}
-                          </span>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {generatedConcepts.map((concept, index) => (
+                    <div
+                      key={concept.id}
+                      className="flex min-h-[310px] flex-col rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <span className="rounded-full bg-[#a9b897]/15 px-2.5 py-1.5 text-[8px] font-black uppercase tracking-wider text-[#71805f]">
+                          Idea {String(index + 1).padStart(2, "0")}
+                        </span>
 
-                          <span className="rounded-full bg-stone-50 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-400">
-                            {
-                              concept.format
-                            }
-                          </span>
-                        </div>
+                        <span className="rounded-full bg-stone-50 px-2.5 py-1.5 text-[7px] font-black uppercase tracking-wider text-stone-400">
+                          {concept.format}
+                        </span>
+                      </div>
 
-                        <h3 className="font-serif text-3xl italic leading-none">
-                          {
-                            concept.title
-                          }
-                        </h3>
+                      <h3 className="font-serif text-2xl italic leading-none text-stone-900">
+                        {concept.title}
+                      </h3>
 
-                        <div className="mt-5 rounded-2xl bg-stone-50 p-4">
-                          <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
-                            Hook
-                          </p>
-
-                          <p className="mt-2 text-sm font-bold leading-5 text-stone-700">
-                            “
-                            {
-                              concept.hook
-                            }
-                            ”
-                          </p>
-                        </div>
-
-                        <p className="mt-5 flex-1 text-xs leading-6 text-stone-400">
-                          {
-                            concept.whyItWorks
-                          }
+                      <div className="mt-4 rounded-2xl bg-stone-50 p-3">
+                        <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
+                          Hook
                         </p>
 
-                        <div className="mt-6 flex flex-wrap gap-2">
-                          {concept.platforms.map(
-                            (
-                              platform
-                            ) => (
-                              <span
-                                key={
-                                  platform
-                                }
-                                className="rounded-full bg-stone-100 px-3 py-1.5 text-[7px] font-black uppercase tracking-wider text-stone-400"
-                              >
-                                {
-                                  platform
-                                }
-                              </span>
-                            )
-                          )}
-                        </div>
-
-                        <button
-                          onClick={() =>
-                            createFromIdea(
-                              concept
-                            )
-                          }
-                          className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-wider text-[#a9b897]"
-                        >
-                          <Wand2
-                            size={13}
-                          />
-
-                          Create This Post
-                        </button>
+                        <p className="mt-2 text-sm font-bold leading-5 text-stone-700">
+                          “{concept.hook}”
+                        </p>
                       </div>
-                    )
-                  )}
+
+                      <p className="mt-4 flex-1 text-xs leading-5 text-stone-500">
+                        {concept.whyItWorks}
+                      </p>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {concept.platforms.map((platform) => (
+                          <span
+                            key={platform}
+                            className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-wider text-stone-400"
+                          >
+                            {platform}
+                          </span>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => createFromIdea(concept)}
+                        className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 py-3 text-[8px] font-black uppercase tracking-wider text-[#a9b897]"
+                      >
+                        <Wand2 size={12} />
+                        Create this post
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </motion.div>

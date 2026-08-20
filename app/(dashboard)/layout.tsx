@@ -184,39 +184,27 @@ function DashboardLayoutInner({
 
         <nav
           data-tour="mobile-navigation"
-          className="fixed bottom-0 left-0 right-0 z-[90] flex h-20 items-center justify-between border-t border-stone-100 bg-white/80 px-8 pb-safe backdrop-blur-2xl md:hidden"
+          className="fixed bottom-0 left-0 right-0 z-[90] flex h-14 items-center justify-between border-t border-stone-100 bg-white/90 px-3 pb-safe backdrop-blur-2xl md:hidden"
         >
-          {pinnedMobileLinks.map(
-            (link) => (
-              <MobileNavItem
-                key={link.href}
-                href={link.href}
-                icon={link.icon}
-                label={link.label}
-                isActive={
-                  pathname ===
-                  link.href
-                }
-              />
-            )
-          )}
+          {pinnedMobileLinks.map((link) => (
+            <MobileNavItem
+              key={link.href}
+              href={link.href}
+              icon={link.icon}
+              label={link.label}
+              isActive={pathname === link.href}
+            />
+          ))}
 
           <button
             type="button"
-            onClick={() =>
-              setMobileMenuOpen(
-                true
-              )
-            }
+            onClick={() => setMobileMenuOpen(true)}
             className="flex flex-col items-center gap-1 text-stone-400 transition-colors active:scale-90"
           >
-            <Menu
-              size={22}
-              strokeWidth={1.5}
-            />
+            <Menu size={18} strokeWidth={1.5} />
 
             <span className="text-[7px] font-black uppercase tracking-tighter">
-              System
+              More
             </span>
           </button>
         </nav>
@@ -244,111 +232,67 @@ function DashboardLayoutInner({
               }}
               className="fixed inset-0 z-[200] overflow-y-auto bg-[#fcfaf7]"
             >
-              <div className="min-h-full p-8 pb-32">
-                {/* HEADER */}
+              <div className="min-h-full p-5 pb-24">
+                <div className="mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/icon.png"
+                      alt="TOTS-OS"
+                      className="h-9 w-9 rounded-xl object-contain"
+                    />
 
-                <div className="mb-12 flex items-start justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src="/icon.png"
-                        alt="TOTS-OS"
-                        className="h-10 w-10 rounded-xl object-contain"
-                      />
-
-                      <span className="font-serif text-4xl italic tracking-tighter text-stone-900">
-                        TOTS-OS
-                      </span>
-                    </div>
+                    <span className="font-serif text-2xl italic tracking-tighter text-stone-900">
+                      TOTS-OS
+                    </span>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setMobileMenuOpen(
-                        false
-                      )
-                    }
-                    className="rounded-[1.5rem] border border-stone-200 bg-white p-4 shadow-sm transition-transform active:scale-95"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-[1.25rem] border border-stone-200 bg-white p-3 shadow-sm transition-transform active:scale-95"
                   >
-                    <X
-                      size={24}
-                      className="text-stone-900"
-                    />
+                    <X size={20} className="text-stone-900" />
                   </button>
                 </div>
 
-                {/* APP GRID */}
-
                 <div
                   data-tour="mobile-system-menu"
-                  className="grid grid-cols-2 gap-4"
+                  className="grid grid-cols-3 gap-2.5"
                 >
-                  {allLinks.map(
-                    (link) => {
-                      const Icon =
-                        link.icon;
+                  {allLinks.map((link) => {
+                    const Icon = link.icon;
+                    const isActive = pathname === link.href;
 
-                      const isActive =
-                        pathname ===
-                        link.href;
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        data-tour={`nav-${link.label.toLowerCase().replaceAll(" ", "-")}`}
+                        className={`flex h-20 flex-col justify-between rounded-[1.4rem] border p-3 transition-all duration-300 ${
+                          isActive
+                            ? "scale-[1.01] border-stone-200 bg-white shadow-md"
+                            : "border-stone-100 bg-white/60 hover:bg-white active:scale-95"
+                        }`}
+                      >
+                        <div
+                          style={{
+                            color: isActive ? "var(--brand-primary)" : "#d6d3d1",
+                          }}
+                        >
+                          <Icon size={18} strokeWidth={1.5} />
+                        </div>
 
-                      return (
-                        <Link
-                          key={
-                            link.href
-                          }
-                          href={
-                            link.href
-                          }
-                          onClick={() =>
-                            setMobileMenuOpen(
-                              false
-                            )
-                          }
-                          data-tour={`nav-${link.label
-                            .toLowerCase()
-                            .replaceAll(
-                              " ",
-                              "-"
-                            )}`}
-                          className={`flex h-32 flex-col justify-between rounded-[2.5rem] border p-6 transition-all duration-300 ${
-                            isActive
-                              ? "scale-[1.02] border-stone-200 bg-white shadow-xl"
-                              : "border-stone-100 bg-white/50 hover:bg-white active:scale-95"
+                        <span
+                          className={`text-[7px] font-black uppercase tracking-[0.18em] ${
+                            isActive ? "text-stone-900" : "text-stone-400"
                           }`}
                         >
-                          <div
-                            style={{
-                              color:
-                                isActive
-                                  ? "var(--brand-primary)"
-                                  : "#d6d3d1",
-                            }}
-                          >
-                            <Icon
-                              size={24}
-                              strokeWidth={
-                                1.5
-                              }
-                            />
-                          </div>
-
-                          <span
-                            className={`text-[10px] font-black uppercase tracking-widest ${
-                              isActive
-                                ? "text-stone-900"
-                                : "text-stone-400"
-                            }`}
-                          >
-                            {
-                              link.label
-                            }
-                          </span>
-                        </Link>
-                      );
-                    }
-                  )}
+                          {link.label}
+                        </span>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>

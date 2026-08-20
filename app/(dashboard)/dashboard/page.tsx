@@ -142,6 +142,39 @@ function getGreeting(
   return "Good evening";
 }
 
+function getDailyAffirmation(
+  date: Date
+) {
+  const hour =
+    date.getHours();
+
+  const affirmations =
+    hour < 12
+      ? [
+          "Hope you slept well. Keep the pace calm and steady.",
+          "A clear morning creates a focused day.",
+          "You do not need to rush the important work.",
+        ]
+      : hour < 18
+        ? [
+            "Keep momentum on what moves the business forward.",
+            "You are already doing the work that matters.",
+            "Let clarity lead your next best action.",
+          ]
+        : [
+            "You have already done enough for today.",
+            "Close the day with intention and a little ease.",
+            "Rest is part of the operation, not a detour from it.",
+          ];
+
+  return affirmations[
+    Math.abs(
+      date.getMinutes() +
+        date.getHours()
+    ) % affirmations.length
+  ];
+}
+
 function cleanName(
   value:
     | string
@@ -599,6 +632,14 @@ function DashboardContent() {
       false
     );
 
+  const [
+    dailyBriefShown,
+    setDailyBriefShown,
+  ] =
+    useState(
+      false
+    );
+
   // ==================================================
   // INPUTS
   // ==================================================
@@ -641,6 +682,11 @@ function DashboardContent() {
     firstName
       ? `${greeting}, ${firstName}`
       : greeting;
+
+  const dailyAffirmation =
+    getDailyAffirmation(
+      currentTime
+    );
 
   const openTasks =
     todos.filter(
@@ -707,6 +753,37 @@ function DashboardContent() {
       );
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      !loading &&
+      !dailyBriefShown &&
+      aiSummary
+    ) {
+      const timer =
+        window.setTimeout(
+          () => {
+            setShowBriefModal(
+              true
+            );
+            setDailyBriefShown(
+              true
+            );
+          },
+          450
+        );
+
+      return () => {
+        window.clearTimeout(
+          timer
+        );
+      };
+    }
+  }, [
+    aiSummary,
+    dailyBriefShown,
+    loading,
+  ]);
 
   // ==================================================
   // KEEP SETTINGS ORG IN SYNC
@@ -2770,6 +2847,7 @@ function DashboardContent() {
     () => {
       const brief =
         `CLARITY DAILY BRIEF\n\n` +
+        `Good morning — hope you slept well. ${dailyAffirmation}\n\n` +
         `${aiSummary}\n\n` +
         `Open Tasks: ${openTasks.length}\n` +
         `Active Projects: ${stats.activeProjects}\n` +
@@ -3344,7 +3422,7 @@ function DashboardContent() {
       {showBriefModal && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm">
 
-          <div className="relative max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-[2rem] bg-white p-7 shadow-2xl">
+          <div className="relative max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl sm:p-6">
 
             <button
               type="button"
@@ -3369,7 +3447,16 @@ function DashboardContent() {
               Today&apos;s brief
             </h2>
 
-            <div className="mt-6 whitespace-pre-wrap rounded-2xl bg-[#faf9f6] p-5 text-[11px] leading-relaxed text-stone-700">
+            <div className="mt-4 rounded-2xl border border-[#A3B18A]/20 bg-[#f7f8f3] p-4">
+              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                Daily affirmation
+              </p>
+              <p className="mt-2 font-serif text-xl italic leading-snug text-stone-900">
+                “{dailyAffirmation}”
+              </p>
+            </div>
+
+            <div className="mt-4 whitespace-pre-wrap rounded-2xl bg-[#faf9f6] p-4 text-[11px] leading-relaxed text-stone-700">
               {clarityResponse ||
                 "No brief is available yet."}
             </div>
@@ -3377,7 +3464,7 @@ function DashboardContent() {
         </div>
       )}
 
-      <header className="mb-5 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+      <header className="mb-4 flex flex-col justify-between gap-4 lg:mb-5 lg:flex-row lg:items-end lg:gap-5">
 
         <div>
 
@@ -3442,7 +3529,7 @@ function DashboardContent() {
         </button>
       </header>
 
-      <section className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-6">
+      <section className="mb-4 grid grid-cols-2 gap-3 lg:mb-5 lg:grid-cols-6">
 
         {[
           {
@@ -3502,7 +3589,7 @@ function DashboardContent() {
               key={
                 item.label
               }
-              className="rounded-2xl border border-stone-200 bg-white p-4"
+              className="rounded-2xl border border-stone-200 bg-white p-3.5"
             >
 
               <p className="text-[7px] font-black uppercase tracking-widest text-stone-400">
@@ -3521,9 +3608,9 @@ function DashboardContent() {
         )}
       </section>
 
-      <section className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-12">
+      <section className="mb-4 grid grid-cols-1 gap-3 lg:mb-5 lg:grid-cols-12 lg:gap-4">
 
-        <div className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:col-span-5">
+        <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 lg:col-span-5 lg:p-5">
 
           <div className="flex items-center justify-between gap-4">
 
@@ -3612,7 +3699,7 @@ function DashboardContent() {
           </button>
         </div>
 
-        <div className="rounded-[2rem] border border-stone-200 bg-white p-5 lg:col-span-4">
+        <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 lg:col-span-4 lg:p-5">
 
           <div className="flex items-center justify-between">
 
@@ -3708,7 +3795,7 @@ function DashboardContent() {
           </div>
         </div>
 
-        <div className="rounded-[2rem] bg-stone-900 p-5 text-white lg:col-span-3">
+        <div className="rounded-[1.6rem] bg-stone-900 p-4 text-white lg:col-span-3 lg:p-5">
 
           <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#A3B18A]">
             Snapshot
@@ -3794,7 +3881,7 @@ function DashboardContent() {
         </div>
       </section>
 
-      <section className="mb-5 rounded-[2rem] border border-stone-200 bg-white p-5">
+      <section className="mb-4 rounded-[1.6rem] border border-stone-200 bg-white p-4 lg:mb-5 lg:p-5">
 
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
 
@@ -3935,9 +4022,9 @@ function DashboardContent() {
         )}
       </section>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <section className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4">
 
-        <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+        <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 lg:p-5">
 
           <div className="flex items-center justify-between">
 

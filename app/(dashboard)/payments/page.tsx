@@ -114,6 +114,8 @@ const INITIAL_EXPENSE_FORM: ExpenseForm = {
   status: "pending",
   customerId: "",
   projectId: "",
+  receiptName: "",
+  receiptUrl: "",
 };
 
 const INITIAL_EMPLOYEE_FORM: EmployeeForm = {
@@ -220,6 +222,9 @@ export default function PaymentsPage() {
     expenseSubmitting,
     setExpenseSubmitting,
   ] = useState(false);
+
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
 
   const [
     expenseForm,
@@ -1021,8 +1026,20 @@ export default function PaymentsPage() {
 
         customerId: "",
         projectId: "",
+        receiptName: "",
+        receiptUrl: "",
       });
+      setReceiptFile(null);
     };
+
+  const handleExpenseReceiptChange = (file: File | null) => {
+    setReceiptFile(file);
+    setExpenseForm((previous) => ({
+      ...previous,
+      receiptName: file?.name ?? "",
+      receiptUrl: file ? URL.createObjectURL(file) : "",
+    }));
+  };
 
   const closeExpenseModal =
     () => {
@@ -1105,6 +1122,18 @@ export default function PaymentsPage() {
               expenseForm.customerId
           );
 
+        let receiptUrl: string | null = null;
+        if (receiptFile) {
+          setUploadingReceipt(true);
+
+          const reader = new FileReader();
+          receiptUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(String(reader.result ?? ""));
+            reader.onerror = () => reject(new Error("Unable to read receipt file."));
+            reader.readAsDataURL(receiptFile);
+          });
+        }
+
         const {
           error,
         } = await supabase
@@ -1142,6 +1171,11 @@ export default function PaymentsPage() {
             status:
               expenseForm.status ||
               "pending",
+
+            receipt_url:
+              receiptUrl ||
+              expenseForm.receiptUrl ||
+              null,
           });
 
         if (error) {
@@ -1182,6 +1216,7 @@ export default function PaymentsPage() {
           "error"
         );
       } finally {
+        setUploadingReceipt(false);
         setExpenseSubmitting(
           false
         );
@@ -1807,9 +1842,12 @@ export default function PaymentsPage() {
       <main className="mx-auto max-w-[1400px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
         <FinanceHeader
           loading={loading}
-          onRefresh={
-            finance.refresh
-          }
+          onRefresh={finance.refresh}
+          onCreateInvoice={() => setActiveModal("invoiceQuote")}
+          onCreateQuote={() => {
+            setInvoiceQuoteDocType("Quote");
+            setActiveModal("invoiceQuote");
+          }}
         />
 
         <FinanceNav
@@ -1827,6 +1865,20 @@ export default function PaymentsPage() {
           </div>
         ) : (
           <>
+            {(["tax", "payroll", "timesheets"] as FinanceTab[]).includes(activeTab) && (
+              <div className="rounded-[1.5rem] border border-dashed border-stone-200 bg-white/80 p-6 text-center shadow-sm">
+                <p className="text-[8px] font-black uppercase tracking-[0.28em] text-[#829473]">
+                  Coming Soon
+                </p>
+                <h2 className="mt-2 font-serif text-3xl italic text-stone-900">
+                  {activeTab === "tax" ? "Tax & VAT" : activeTab === "payroll" ? "Payroll" : "Timesheets"}
+                </h2>
+                <p className="mt-2 text-sm text-stone-500">
+                  This area is in active build and will open with the next finance release.
+                </p>
+              </div>
+            )}
+
             {activeTab ===
               "overview" && (
               <FinanceOverview
@@ -2053,6 +2105,9 @@ export default function PaymentsPage() {
         submitting={
           expenseSubmitting
         }
+        uploadingReceipt={
+          uploadingReceipt
+        }
         expense={
           expenseForm
         }
@@ -2065,6 +2120,9 @@ export default function PaymentsPage() {
         }
         onChange={
           setExpenseForm
+        }
+        onReceiptChange={
+          handleExpenseReceiptChange
         }
         onClose={
           closeExpenseModal

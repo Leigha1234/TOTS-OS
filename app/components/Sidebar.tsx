@@ -484,8 +484,8 @@ export default function Sidebar() {
             <Image
               src="/icon.png"
               alt="TOTS-OS"
-              width={38}
-              height={38}
+              width={60}
+              height={60}
               priority
             />
 
@@ -509,39 +509,7 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* =====================================================
-          COLLAPSE
-      ===================================================== */}
-
-      <button
-        type="button"
-        onClick={() =>
-          setCollapsed((current) => !current)
-        }
-        aria-label={
-          collapsed
-            ? "Expand sidebar"
-            : "Collapse sidebar"
-        }
-        className={`
-          mx-4
-          flex
-          rounded-lg
-          p-2
-          text-stone-500
-          transition
-          hover:bg-stone-200
-          hover:text-stone-900
-          ${
-            collapsed
-              ? "justify-center"
-              : "justify-start"
-          }
-        `}
-      >
-        <Menu size={16} />
-      </button>
-
+     
       {/* =====================================================
           NAVIGATION
       ===================================================== */}

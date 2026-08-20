@@ -560,7 +560,7 @@ export const CLARITY_TOUR_STEPS: ClarityTourStep[] = [
     target: "[data-tour='dashboard-content']",
     title: "Make TOTS-OS feel like your business.",
     description:
-      "Settings personalizes the workspace and controls key defaults. Tip: finalize profile, branding and navigation preferences early to reduce friction everywhere else.",
+      "Settings personalizes the workspace and controls key defaults. Tip: finalise profile, branding and navigation preferences early to reduce friction everywhere else.",
     placement: "bottom",
   },
 

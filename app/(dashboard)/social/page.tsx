@@ -2811,7 +2811,7 @@ export default function SocialStudioUnified() {
                       </p>
 
                       <p className="mt-1 text-[10px] leading-5 text-stone-500">
-                        Social connection links are being finalized and will return in an upcoming release.
+                        Social connection links are being finalised and will return in an upcoming release.
                       </p>
                     </div>
 

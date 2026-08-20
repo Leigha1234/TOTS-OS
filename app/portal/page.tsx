@@ -197,9 +197,6 @@ export default function OperationalPulse() {
                     size={48}
                     className="mx-auto text-[#a9b897] opacity-20"
                   />
-                  <p className="font-serif italic text-stone-400 text-xl text-center">
-                    All operational tasks finalized.
-                  </p>
                 </div>
               )}
             </div>

@@ -3251,7 +3251,7 @@ function DashboardContent() {
       );
 
   const clarityBriefText =
-    useMemo(() => {
+    (() => {
       const priorityBlock =
         aiActions.length >
         0
@@ -3403,20 +3403,7 @@ function DashboardContent() {
         `Upcoming Projects:\n${projectBlock}\n\n` +
         `Calendar Events:\n${eventBlock}`
       );
-    }, [
-      aiActions,
-      aiSummary,
-      dailyAffirmation,
-      greeting,
-      openTasks.length,
-      priorityTasks,
-      recentNotes,
-      stats.activeProjects,
-      stats.currentRevenue,
-      stats.invoicesDue,
-      upcomingEvents,
-      upcomingProjects,
-    ]);
+    })();
 
   // ==================================================
   // RENDER

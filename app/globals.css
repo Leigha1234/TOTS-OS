@@ -62,6 +62,30 @@ img, video, canvas, svg {
   height: auto;
 }
 
+/* Keep all headings consistent with dashboard heading style. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif !important;
+  font-style: italic !important;
+  font-size: 2.25rem !important;
+  line-height: 1.1 !important;
+}
+
+@media (min-width: 640px) {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-size: 3rem !important;
+  }
+}
+
 /* ✨ BACKGROUND BLOOM - Uses dynamic brand primary */
 body::before {
   content: "";

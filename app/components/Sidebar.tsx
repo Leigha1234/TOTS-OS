@@ -76,6 +76,7 @@ export default function Sidebar() {
   }
 
   const [collapsed, setCollapsed] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
   const [allowedSlugs, setAllowedSlugs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -189,6 +190,19 @@ export default function Sidebar() {
   // =========================================================
   // PERMISSIONS
   // =========================================================
+
+  useEffect(() => {
+    function syncCompactMode() {
+      setIsCompact(window.innerHeight <= 820);
+    }
+
+    syncCompactMode();
+    window.addEventListener("resize", syncCompactMode);
+
+    return () => {
+      window.removeEventListener("resize", syncCompactMode);
+    };
+  }, []);
 
   useEffect(() => {
     async function syncPermissions() {
@@ -456,7 +470,7 @@ export default function Sidebar() {
     <aside
       className={`
         flex
-        h-screen
+        h-[100dvh]
         flex-col
         border-r
         border-stone-200
@@ -475,7 +489,13 @@ export default function Sidebar() {
           HEADER
       ===================================================== */}
 
-      <div className="flex h-24 items-center justify-between px-5">
+      <div
+        className={`flex items-center justify-between ${
+          isCompact
+            ? "h-16 px-4"
+            : "h-24 px-5"
+        }`}
+      >
         {!collapsed ? (
           <Link
             href="/dashboard"
@@ -484,8 +504,8 @@ export default function Sidebar() {
             <Image
               src="/icon.png"
               alt="TOTS-OS"
-              width={60}
-              height={60}
+              width={isCompact ? 44 : 60}
+              height={isCompact ? 44 : 60}
               priority
             />
 
@@ -501,8 +521,8 @@ export default function Sidebar() {
             <Image
               src="/icon.png"
               alt="TOTS-OS"
-              width={34}
-              height={34}
+              width={isCompact ? 28 : 34}
+              height={isCompact ? 28 : 34}
               priority
             />
           </Link>
@@ -514,7 +534,13 @@ export default function Sidebar() {
           NAVIGATION
       ===================================================== */}
 
-      <nav className="mt-5 flex-1 overflow-y-auto px-3 pb-4">
+      <nav
+        className={`flex-1 px-3 ${
+          isCompact
+            ? "mt-2 overflow-y-hidden pb-2"
+            : "mt-5 overflow-y-auto pb-4"
+        }`}
+      >
         {loading ? (
           <div className="flex h-32 items-center justify-center">
             <Loader2
@@ -523,7 +549,13 @@ export default function Sidebar() {
             />
           </div>
         ) : (
-          <div className="space-y-6">
+          <div
+            className={
+              isCompact
+                ? "space-y-3"
+                : "space-y-6"
+            }
+          >
             {sections.map(
               (section, sectionIndex) => {
                 const sectionLinks =
@@ -549,14 +581,26 @@ export default function Sidebar() {
 
                     {!collapsed &&
                       section.title && (
-                        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">
+                        <p
+                          className={`px-3 font-semibold uppercase text-stone-400 ${
+                            isCompact
+                              ? "mb-1 text-[9px] tracking-[0.14em]"
+                              : "mb-2 text-[10px] tracking-[0.16em]"
+                          }`}
+                        >
                           {section.title}
                         </p>
                       )}
 
                     {/* LINKS */}
 
-                    <div className="space-y-1">
+                    <div
+                      className={
+                        isCompact
+                          ? "space-y-0.5"
+                          : "space-y-1"
+                      }
+                    >
                       {sectionLinks.map(
                         (item) => {
                           const active =
@@ -590,10 +634,11 @@ export default function Sidebar() {
                                 group
                                 flex
                                 items-center
-                                rounded-xl
-                                px-3
-                                py-2.5
-                                text-sm
+                                ${
+                                  isCompact
+                                    ? "rounded-lg px-2.5 py-1.5 text-[12px]"
+                                    : "rounded-xl px-3 py-2.5 text-sm"
+                                }
                                 font-medium
                                 transition-all
                                 duration-200
@@ -610,7 +655,7 @@ export default function Sidebar() {
                               `}
                             >
                               <Icon
-                                size={18}
+                                size={isCompact ? 16 : 18}
                                 strokeWidth={
                                   active
                                     ? 2.2
@@ -644,7 +689,11 @@ export default function Sidebar() {
 
       {!loading &&
         canSee("/settings") && (
-          <div className="px-3 pb-2">
+          <div
+            className={`px-3 ${
+              isCompact ? "pb-1" : "pb-2"
+            }`}
+          >
             <Link
               href="/settings"
               title={
@@ -661,10 +710,11 @@ export default function Sidebar() {
               className={`
                 flex
                 items-center
-                rounded-xl
-                px-3
-                py-2.5
-                text-sm
+                ${
+                  isCompact
+                    ? "rounded-lg px-2.5 py-1.5 text-[12px]"
+                    : "rounded-xl px-3 py-2.5 text-sm"
+                }
                 font-medium
                 transition-all
                 ${
@@ -681,7 +731,9 @@ export default function Sidebar() {
                 }
               `}
             >
-              <Settings size={18} />
+              <Settings
+                size={isCompact ? 16 : 18}
+              />
 
               {!collapsed && (
                 <span>Settings</span>
@@ -694,7 +746,11 @@ export default function Sidebar() {
           LOGOUT
       ===================================================== */}
 
-      <div className="border-t border-stone-200 p-3">
+      <div
+        className={`border-t border-stone-200 ${
+          isCompact ? "p-2" : "p-3"
+        }`}
+      >
         <button
           type="button"
           onClick={handleLogout}
@@ -707,10 +763,11 @@ export default function Sidebar() {
             flex
             w-full
             items-center
-            rounded-xl
-            px-3
-            py-2.5
-            text-sm
+            ${
+              isCompact
+                ? "rounded-lg px-2.5 py-1.5 text-[12px]"
+                : "rounded-xl px-3 py-2.5 text-sm"
+            }
             font-medium
             text-stone-500
             transition
@@ -723,7 +780,7 @@ export default function Sidebar() {
             }
           `}
         >
-          <LogOut size={17} />
+          <LogOut size={isCompact ? 15 : 17} />
 
           {!collapsed && (
             <span>Logout</span>

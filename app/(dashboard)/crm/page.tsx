@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { 
-  Plus, Search, User, X, ChevronRight, Loader2, 
+  Plus, User, X, ChevronRight, Loader2, 
   Building2, Mail, Phone, MapPin, Hash, AlertCircle, Radio, Database, Paperclip
 } from "lucide-react";
 import Link from "next/link";
@@ -189,12 +189,11 @@ async function loadData() {
 
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
                 placeholder="Search ..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-4 rounded-2xl border border-stone-200 bg-white outline-none focus:ring-2 focus:ring-[#a9b897]/20 transition-all text-xs w-full md:w-64"
+                className="px-4 py-4 rounded-2xl border border-stone-200 bg-white outline-none focus:ring-2 focus:ring-[#a9b897]/20 transition-all text-xs w-full md:w-64"
               />
             </div>
             <button onClick={() => { setError(null); setShowModal(true); }} className="bg-stone-900 hover:bg-[#a9b897] p-5 rounded-2xl text-white transition-all shadow-xl active:scale-95 flex items-center gap-2">

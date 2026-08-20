@@ -482,7 +482,7 @@ export default function Sidebar() {
             className="flex items-center gap-3"
           >
             <Image
-              src="icon.png"
+              src="/icon.png"
               alt="TOTS-OS"
               width={38}
               height={38}
@@ -490,13 +490,7 @@ export default function Sidebar() {
             />
 
             <div>
-              <h1 className="text-xs font-black tracking-wide text-stone-900">
-                TOTS-OS
-              </h1>
-
-              <p className="mt-0.5 text-[10px] text-stone-400">
-                Business Operating System
-              </p>
+     
             </div>
           </Link>
         ) : (

@@ -3044,31 +3044,30 @@ export default function SocialStudioUnified() {
 
               {/* HERO */}
 
-              <div className="rounded-[2.25rem] bg-stone-900 p-5 text-white md:p-7 lg:p-8">
-                <div className="grid gap-5 lg:grid-cols-[1fr_260px] lg:items-end">
-                  <div>
-                    <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#a9b897] text-stone-900">
+              <div className="rounded-[2rem] bg-gradient-to-br from-stone-900 via-stone-900 to-stone-800 p-5 text-white md:p-6 lg:p-7">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="max-w-2xl">
+                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#a9b897] text-stone-900 shadow-lg shadow-[#a9b897]/20">
                       <Brain size={18} />
                     </div>
 
                     <p className="mb-2 text-[8px] font-black uppercase tracking-[0.32em] text-[#a9b897]">
-                      Powered by your business context
+                      Content ideas, tailored to you
                     </p>
 
-                    <h2 className="max-w-3xl font-serif text-4xl italic leading-[0.95] md:text-5xl lg:text-6xl">
-                      Ideas that fit your business.
+                    <h2 className="font-serif text-3xl italic leading-[1] md:text-4xl lg:text-5xl">
+                      Fresh ideas for your next post.
                     </h2>
 
-                    <p className="mt-4 max-w-xl text-sm leading-6 text-stone-400">
-                      TOTS-OS already understands your offer, audience and workflows,
-                      so you can move from idea to post without starting from scratch.
+                    <p className="mt-3 max-w-xl text-sm leading-6 text-stone-300">
+                      TOTS-OS pulls from your business context so you can go from blank page to publishable content in a few clicks.
                     </p>
                   </div>
 
                   <button
                     disabled={generatingIdeas}
                     onClick={() => void generateBusinessIdeas()}
-                    className="flex items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-5 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-stone-900 transition hover:bg-[#b8caa4] disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-[#a9b897] px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-stone-900 transition hover:bg-[#b8caa4] disabled:opacity-50"
                   >
                     {generatingIdeas ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -3087,18 +3086,18 @@ export default function SocialStudioUnified() {
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
-                      Clarity
+                      Your business context
                     </p>
 
                     <h3 className="mt-2 text-lg font-black text-stone-900">
-                      What TOTS-OS knows about your business
+                      What TOTS-OS already knows
                     </h3>
                   </div>
 
                   <button
                     onClick={() => void loadBusinessKnowledge()}
                     disabled={businessLoading}
-                    className="flex items-center gap-2 rounded-xl bg-stone-50 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-400"
+                    className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-500 transition hover:bg-stone-100"
                   >
                     <RefreshCcw
                       size={12}
@@ -3153,49 +3152,40 @@ export default function SocialStudioUnified() {
 
               {/* IDEA EMPTY STATE */}
 
-              {generatedConcepts.length ===
-                0 && (
+              {generatedConcepts.length === 0 && (
                 <button
-                  onClick={() =>
-                    void generateBusinessIdeas()
-                  }
-                  className="flex w-full flex-col items-center justify-center rounded-[3rem] border border-dashed border-stone-200 bg-white p-16 text-center transition hover:border-[#a9b897]"
+                  onClick={() => void generateBusinessIdeas()}
+                  className="flex w-full flex-col items-center justify-center rounded-[2rem] border border-dashed border-stone-200 bg-white p-12 text-center transition hover:border-[#a9b897] hover:bg-[#f7f9f2]"
                 >
-                  <Lightbulb
-                    size={30}
-                    className="mb-5 text-[#a9b897]"
-                  />
+                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#edf3e7] text-[#7f8d69]">
+                    <Lightbulb size={26} />
+                  </div>
 
-                  <p className="font-serif text-3xl italic">
-                    Need something to
-                    post?
+                  <p className="font-serif text-3xl italic text-stone-900">
+                    Need a post idea?
                   </p>
 
-                  <p className="mt-3 max-w-md text-sm leading-6 text-stone-400">
-                    Tap here and TOTS-OS
-                    will create ideas
-                    around your actual
-                    business.
+                  <p className="mt-3 max-w-md text-sm leading-6 text-stone-500">
+                    Generate a few ideas that fit your business and your audience.
                   </p>
                 </button>
               )}
 
               {/* IDEAS */}
 
-              {generatedConcepts.length >
-                0 && (
+              {generatedConcepts.length > 0 && (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {generatedConcepts.map((concept, index) => (
                     <div
                       key={concept.id}
-                      className="flex min-h-[310px] flex-col rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                      className="flex min-h-[315px] flex-col rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                     >
                       <div className="mb-4 flex items-start justify-between gap-3">
-                        <span className="rounded-full bg-[#a9b897]/15 px-2.5 py-1.5 text-[8px] font-black uppercase tracking-wider text-[#71805f]">
+                        <span className="rounded-full bg-[#edf3e7] px-2.5 py-1.5 text-[8px] font-black uppercase tracking-wider text-[#6a7a5b]">
                           Idea {String(index + 1).padStart(2, "0")}
                         </span>
 
-                        <span className="rounded-full bg-stone-50 px-2.5 py-1.5 text-[7px] font-black uppercase tracking-wider text-stone-400">
+                        <span className="rounded-full bg-stone-100 px-2.5 py-1.5 text-[7px] font-black uppercase tracking-wider text-stone-500">
                           {concept.format}
                         </span>
                       </div>
@@ -3222,7 +3212,7 @@ export default function SocialStudioUnified() {
                         {concept.platforms.map((platform) => (
                           <span
                             key={platform}
-                            className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-wider text-stone-400"
+                            className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-wider text-stone-500"
                           >
                             {platform}
                           </span>
@@ -3231,10 +3221,10 @@ export default function SocialStudioUnified() {
 
                       <button
                         onClick={() => createFromIdea(concept)}
-                        className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 py-3 text-[8px] font-black uppercase tracking-wider text-[#a9b897]"
+                        className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 py-3 text-[8px] font-black uppercase tracking-wider text-[#a9b897] transition hover:bg-stone-800"
                       >
                         <Wand2 size={12} />
-                        Create this post
+                        Use this idea
                       </button>
                     </div>
                   ))}

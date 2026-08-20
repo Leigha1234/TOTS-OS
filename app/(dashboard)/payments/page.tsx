@@ -17,9 +17,6 @@ import FinanceNotification from "./components/FinanceNotification";
 import FinanceOverview from "./components/FinanceOverview";
 import FinanceSales from "./components/FinanceSales";
 import FinanceExpenses from "./components/FinanceExpenses";
-import FinanceTax from "./components/FinanceTax";
-import FinancePayroll from "./components/FinancePayroll";
-import FinanceTimesheets from "./components/FinanceTimesheets";
 
 import InvoiceQuoteModal, {
   type FinanceLineItem,
@@ -1919,16 +1916,6 @@ export default function PaymentsPage() {
                     "recurring"
                   )
                 }
-                onVat={() =>
-                  setActiveModal(
-                    "vat"
-                  )
-                }
-                onTax={() =>
-                  setActiveModal(
-                    "tax"
-                  )
-                }
               />
             )}
 
@@ -1970,68 +1957,10 @@ export default function PaymentsPage() {
                   finance.expenses ??
                   []
                 }
-              />
-            )}
-
-            {activeTab ===
-              "tax" && (
-              <FinanceTax
-                vatReturns={
-                  finance.vatReturns ??
-                  []
-                }
-                taxReturns={
-                  finance.selfAssessments ??
-                  []
-                }
-                metrics={
-                  metrics
-                }
-                refresh={
-                  finance.refresh
-                }
-                onVat={() =>
+                onAddExpense={() =>
                   setActiveModal(
-                    "vat"
+                    "expense"
                   )
-                }
-                onTax={() =>
-                  setActiveModal(
-                    "tax"
-                  )
-                }
-              />
-            )}
-
-            {activeTab ===
-              "payroll" && (
-              <FinancePayroll
-                employees={
-                  finance.payrollEmployees ??
-                  []
-                }
-                payslips={
-                  finance.payslips ??
-                  []
-                }
-              />
-            )}
-
-            {activeTab ===
-              "timesheets" && (
-              <FinanceTimesheets
-                timesheets={
-                  finance.timesheets ??
-                  []
-                }
-                organisationId={
-                  organisationId
-                }
-                teamId={
-                  teamId
-                }
-                userId={
-                  userId
                 }
               />
             )}

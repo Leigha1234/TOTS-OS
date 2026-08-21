@@ -1297,97 +1297,69 @@ export default function PaymentsPage() {
   // ==========================================================
 
   const resolveFinanceTeamId =
-    async () => {
-      const {
-        data:
-          authData,
+  async (): Promise<string | null> => {
+    const {
+      data: authData,
+      error: authError,
+    } =
+      await supabase.auth.getUser();
 
-        error:
-          authError,
-      } =
-        await supabase.auth.getUser();
+    if (
+      authError ||
+      !authData.user
+    ) {
+      throw new Error(
+        "You are not signed in. Please refresh and try again."
+      );
+    }
 
-      if (
-        authError ||
-        !authData.user
-      ) {
-        throw new Error(
-          "You are not signed in. Please refresh and try again."
+    const authenticatedUserId =
+      authData.user.id;
+
+    // If finance context already has a team ID,
+    // use it without blocking the user.
+    if (
+      teamId
+    ) {
+      return teamId;
+    }
+
+    const {
+      data: memberships,
+      error: membershipError,
+    } =
+      await supabase
+        .from(
+          "team_members"
+        )
+        .select(
+          "team_id"
+        )
+        .eq(
+          "user_id",
+          authenticatedUserId
+        )
+        .limit(
+          1
         );
-      }
 
-      const authenticatedUserId =
-        authData.user.id;
-
-      const {
-        data:
-          memberships,
-
-        error:
-          membershipError,
-      } =
-        await supabase
-          .from(
-            "team_members"
-          )
-          .select(
-            "team_id"
-          )
-          .eq(
-            "user_id",
-            authenticatedUserId
-          );
-
-      if (
+    if (
+      membershipError
+    ) {
+      console.warn(
+        "Finance team lookup failed:",
         membershipError
-      ) {
-        throw new Error(
-          membershipError.message ||
-            "Unable to resolve your finance team."
-        );
-      }
+      );
 
-      const membershipTeamIds =
-        (
-          memberships ??
-          []
-        )
-          .map(
-            (
-              membership:
-                any
-            ) =>
-              membership.team_id
-          )
-          .filter(
-            Boolean
-          );
+      return null;
+    }
 
-      if (
-        teamId &&
-        membershipTeamIds.includes(
-          teamId
-        )
-      ) {
-        return teamId;
-      }
-
-      const fallbackTeamId =
-        membershipTeamIds[
-          0
-        ] ??
-        null;
-
-      if (
-        !fallbackTeamId
-      ) {
-        throw new Error(
-          "Your account is not linked to a finance team yet."
-        );
-      }
-
-      return fallbackTeamId as string;
-    };
+    return (
+      memberships?.[0]
+        ?.team_id ??
+      null
+    );
+  };
 
   // ==========================================================
   // CREATE QUOTE CUSTOMER

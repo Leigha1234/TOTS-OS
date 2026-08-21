@@ -3,28 +3,39 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import { createBrowserClient } from "@supabase/ssr";
 
 import {
+  ArrowLeft,
+  ArrowRight,
   BarChart3,
   Calendar,
   Check,
+  ChevronRight,
   Clock,
+  Code2,
+  Copy,
   Edit3,
   Eye,
+  FileText,
+  GripVertical,
   Hash,
   Image as ImageIcon,
+  LayoutTemplate,
   Loader2,
   Mail,
   MousePointerClick,
   Plus,
   RefreshCw,
   Send,
+  Sparkles,
   Trash2,
   Users,
+  Wand2,
   X,
 } from "lucide-react";
 
@@ -40,79 +51,27 @@ import {
 type Campaign = {
   id: string;
   title: string;
-
-  subject:
-    | string
-    | null;
-
-  preview_text?:
-    | string
-    | null;
-
-  content:
-    | string
-    | null;
-
-  list_id:
-    | string
-    | null;
-
-  scheduled_for:
-    | string
-    | null;
-
-  status?:
-    | string
-    | null;
-
-  sent_at?:
-    | string
-    | null;
-
-  sent_count?:
-    | number
-    | null;
-
-  open_count?:
-    | number
-    | null;
-
-  click_count?:
-    | number
-    | null;
-
-  sender_name?:
-    | string
-    | null;
-
-  reply_to?:
-    | string
-    | null;
-
-  header_image_url?:
-    | string
-    | null;
-
-  brand_color?:
-    | string
-    | null;
-
-  cta_text?:
-    | string
-    | null;
-
-  cta_url?:
-    | string
-    | null;
-
-  organisation_id?:
-    | string
-    | null;
-
+  subject: string | null;
+  preview_text?: string | null;
+  content: string | null;
+  list_id: string | null;
+  scheduled_for: string | null;
+  status?: string | null;
+  sent_at?: string | null;
+  sent_count?: number | null;
+  open_count?: number | null;
+  click_count?: number | null;
+  sender_name?: string | null;
+  reply_to?: string | null;
+  header_image_url?: string | null;
+  brand_color?: string | null;
+  cta_text?: string | null;
+  cta_url?: string | null;
+  organisation_id?: string | null;
+  editor_mode?: "blocks" | "html" | null;
+  custom_html?: string | null;
   subscriber_lists?: {
-    name:
-      | string
-      | null;
+    name: string | null;
   } | null;
 };
 
@@ -124,43 +83,18 @@ type SubscriberList = {
 
 type ExistingProfile = {
   id: string;
-
-  name?:
-    | string
-    | null;
-
-  full_name?:
-    | string
-    | null;
-
-  email?:
-    | string
-    | null;
-
-  is_subscribed?:
-    | boolean
-    | null;
+  name?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  is_subscribed?: boolean | null;
 };
 
 type ListSubscriber = {
   id: string;
-
-  source:
-    | "profile"
-    | "manual";
-
-  profileId:
-    | string
-    | null;
-
-  manualId:
-    | string
-    | null;
-
-  name:
-    | string
-    | null;
-
+  source: "profile" | "manual";
+  profileId: string | null;
+  manualId: string | null;
+  name: string | null;
   email: string;
 };
 
@@ -172,7 +106,12 @@ type CompanyBranding = {
 
 type CampaignBlock = {
   id: string;
-  type: "text" | "image" | "button";
+  type:
+    | "text"
+    | "image"
+    | "button"
+    | "divider"
+    | "spacer";
   content: string;
   imageUrl?: string;
   url?: string;
@@ -183,7 +122,12 @@ type CampaignTemplate = {
   name: string;
   blocks: CampaignBlock[];
   brandColor: string;
+  builtIn?: boolean;
 };
+
+type EditorMode =
+  | "blocks"
+  | "html";
 
 type CampaignForm = {
   title: string;
@@ -191,21 +135,30 @@ type CampaignForm = {
   previewText: string;
   message: string;
   listId: string;
-
   scheduledFor: string;
-
   senderName: string;
   replyTo: string;
-
   campaignLogoUrl: string;
   headerImageUrl: string;
-
   ctaText: string;
   ctaUrl: string;
-
   brandColor: string;
   blocks: CampaignBlock[];
+  mode: EditorMode;
+  customHtml: string;
 };
+
+type MainScreen =
+  | "campaigns"
+  | "audiences"
+  | "editor"
+  | "analytics";
+
+type EditorStep =
+  | "details"
+  | "audience"
+  | "design"
+  | "review";
 
 // ==================================================
 // CONSTANTS
@@ -220,8 +173,135 @@ const MESSAGE_START =
 const MESSAGE_END =
   "<!-- TOTS_MESSAGE_END -->";
 
+const IMAGE_BUCKET =
+  "campaign-images";
+
+const EDITOR_STEPS: {
+  id: EditorStep;
+  label: string;
+  description: string;
+}[] = [
+  {
+    id: "details",
+    label: "Details",
+    description:
+      "Subject, sender and campaign name",
+  },
+  {
+    id: "audience",
+    label: "Audience",
+    description:
+      "Choose who receives it",
+  },
+  {
+    id: "design",
+    label: "Design",
+    description:
+      "Build your email",
+  },
+  {
+    id: "review",
+    label: "Review",
+    description:
+      "Test, schedule and send",
+  },
+];
+
+const STARTER_TEMPLATES: CampaignTemplate[] =
+  [
+    {
+      id: "starter-newsletter",
+      name: "Newsletter",
+      brandColor: "#1c1917",
+      builtIn: true,
+      blocks: [
+        {
+          id: "newsletter-1",
+          type: "text",
+          content:
+            "Hi there,\n\nHere's what's new this month...",
+        },
+        {
+          id: "newsletter-2",
+          type: "image",
+          content: "",
+          imageUrl: "",
+        },
+        {
+          id: "newsletter-3",
+          type: "text",
+          content:
+            "Add your second story or update here.",
+        },
+        {
+          id: "newsletter-4",
+          type: "button",
+          content: "Read more",
+          url: "https://",
+        },
+      ],
+    },
+    {
+      id: "starter-announcement",
+      name: "Announcement",
+      brandColor: "#1c1917",
+      builtIn: true,
+      blocks: [
+        {
+          id: "announcement-1",
+          type: "text",
+          content:
+            "We have some exciting news to share...",
+        },
+        {
+          id: "announcement-2",
+          type: "divider",
+          content: "",
+        },
+        {
+          id: "announcement-3",
+          type: "text",
+          content:
+            "Here's everything you need to know.",
+        },
+        {
+          id: "announcement-4",
+          type: "button",
+          content: "Learn more",
+          url: "https://",
+        },
+      ],
+    },
+    {
+      id: "starter-promotion",
+      name: "Promotion",
+      brandColor: "#b45309",
+      builtIn: true,
+      blocks: [
+        {
+          id: "promo-1",
+          type: "image",
+          content: "",
+          imageUrl: "",
+        },
+        {
+          id: "promo-2",
+          type: "text",
+          content:
+            "Limited time offer — don't miss out.",
+        },
+        {
+          id: "promo-3",
+          type: "button",
+          content: "Shop now",
+          url: "https://",
+        },
+      ],
+    },
+  ];
+
 // ==================================================
-// FORM
+// GENERAL HELPERS
 // ==================================================
 
 function createCampaignBlock(
@@ -234,7 +314,7 @@ function createCampaignBlock(
     type,
     content:
       type === "text"
-        ? "Add a new paragraph here..."
+        ? "Add your content here..."
         : type === "button"
           ? "Learn more"
           : "",
@@ -255,23 +335,16 @@ function emptyForm(
     previewText: "",
     message: "",
     listId: "",
-
     scheduledFor: "",
-
     senderName:
       company?.name || "",
-
     replyTo:
       company?.email || "",
-
     campaignLogoUrl:
       company?.logoUrl || "",
-
     headerImageUrl: "",
-
     ctaText: "",
     ctaUrl: "",
-
     brandColor:
       DEFAULT_BRAND_COLOR,
     blocks: [
@@ -279,12 +352,10 @@ function emptyForm(
         "text"
       ),
     ],
+    mode: "blocks",
+    customHtml: "",
   };
 }
-
-// ==================================================
-// EMAIL HELPERS
-// ==================================================
 
 function isValidEmail(
   value: string
@@ -303,8 +374,7 @@ function cleanEmail(
   return (
     value
       ?.trim()
-      .toLowerCase() ||
-    ""
+      .toLowerCase() || ""
   );
 }
 
@@ -314,19 +384,14 @@ function parseEmails(
   return Array.from(
     new Set(
       value
-        .split(
-          /[\n,;]+/
-        )
-        .map(
-          (email) =>
-            email
-              .trim()
-              .toLowerCase()
+        .split(/[\n,;]+/)
+        .map((email) =>
+          email
+            .trim()
+            .toLowerCase()
         )
         .filter(Boolean)
-        .filter(
-          isValidEmail
-        )
+        .filter(isValidEmail)
     )
   );
 }
@@ -368,19 +433,25 @@ function plainTextToHtml(
   }
 
   return clean
-    .split(
-      /\n{2,}/
-    )
+    .split(/\n{2,}/)
     .map(
-      (
-        paragraph
-      ) =>
-        `<p style="font-size:16px;line-height:1.8;margin:0 0 20px;color:#44403c;">${escapeHtml(
-          paragraph
-        ).replace(
-          /\n/g,
-          "<br />"
-        )}</p>`
+      (paragraph) => `
+        <p
+          style="
+            font-size:16px;
+            line-height:1.8;
+            margin:0 0 20px;
+            color:#44403c;
+          "
+        >
+          ${escapeHtml(
+            paragraph
+          ).replace(
+            /\n/g,
+            "<br />"
+          )}
+        </p>
+      `
     )
     .join("");
 }
@@ -456,14 +527,10 @@ function extractMessage(
         end
       );
 
-    return stripHtml(
-      raw
-    );
+    return stripHtml(raw);
   }
 
-  return stripHtml(
-    html
-  );
+  return stripHtml(html);
 }
 
 function extractCampaignLogoUrl(
@@ -496,8 +563,144 @@ function extractCampaignLogoUrl(
 }
 
 // ==================================================
-// EMAIL HTML
+// EMAIL BUILDER
 // ==================================================
+
+function buildBlockHtml(
+  blocks: CampaignBlock[],
+  message: string,
+  brandColor: string,
+  ctaUrl: string
+) {
+  if (
+    !blocks ||
+    blocks.length === 0
+  ) {
+    return plainTextToHtml(
+      message
+    );
+  }
+
+  return blocks
+    .map((block) => {
+      if (
+        block.type ===
+        "image"
+      ) {
+        if (
+          !block.imageUrl
+        ) {
+          return "";
+        }
+
+        return `
+          <div style="margin:0 0 24px;">
+            <img
+              src="${escapeHtml(
+                block.imageUrl
+              )}"
+              alt=""
+              style="
+                display:block;
+                width:100%;
+                height:auto;
+                border-radius:18px;
+              "
+            />
+          </div>
+        `;
+      }
+
+      if (
+        block.type ===
+        "divider"
+      ) {
+        return `
+          <div
+            style="
+              margin:28px 0;
+              border-top:1px solid #e7e5e4;
+            "
+          ></div>
+        `;
+      }
+
+      if (
+        block.type ===
+        "spacer"
+      ) {
+        return `
+          <div
+            style="
+              height:32px;
+              line-height:32px;
+            "
+          >
+            &nbsp;
+          </div>
+        `;
+      }
+
+      if (
+        block.type ===
+        "button"
+      ) {
+        const label =
+          block.content ||
+          "Learn more";
+
+        const href =
+          block.url ||
+          ctaUrl ||
+          "#";
+
+        return `
+          <div
+            style="
+              text-align:center;
+              margin:28px 0;
+            "
+          >
+            <a
+              href="${escapeHtml(
+                href
+              )}"
+              data-tots-click-url="${escapeHtml(
+                href
+              )}"
+              style="
+                display:inline-block;
+                background:${brandColor};
+                color:#ffffff;
+                text-decoration:none;
+                padding:16px 26px;
+                border-radius:12px;
+                font-size:12px;
+                font-weight:700;
+                letter-spacing:0.08em;
+                text-transform:uppercase;
+              "
+            >
+              ${escapeHtml(
+                label
+              )}
+            </a>
+          </div>
+        `;
+      }
+
+      return `
+        <div>
+          ${plainTextToHtml(
+            block.content ||
+              message ||
+              ""
+          )}
+        </div>
+      `;
+    })
+    .join("");
+}
 
 function buildCampaignHtml({
   message,
@@ -508,6 +711,8 @@ function buildCampaignHtml({
   ctaUrl,
   brandColor,
   blocks,
+  mode,
+  customHtml,
 }: {
   message: string;
   company: CompanyBranding;
@@ -517,15 +722,15 @@ function buildCampaignHtml({
   ctaUrl: string;
   brandColor: string;
   blocks?: CampaignBlock[];
+  mode?: EditorMode;
+  customHtml?: string;
 }) {
   const logo =
     campaignLogoUrl.trim() ||
     company.logoUrl.trim();
 
   const safeLogo =
-    escapeHtml(
-      logo
-    );
+    escapeHtml(logo);
 
   const safeHeaderImage =
     escapeHtml(
@@ -533,77 +738,16 @@ function buildCampaignHtml({
     );
 
   const safeCtaUrl =
-    escapeHtml(
-      ctaUrl
-    );
+    escapeHtml(ctaUrl);
 
-  const blockHtml =
-    (blocks || []).length > 0
-      ? (blocks || [])
-          .map(
-            (block) => {
-              if (
-                block.type ===
-                "image"
-              ) {
-                const imageSrc =
-                  block.imageUrl ||
-                  "";
-
-                return imageSrc
-                  ? `
-                      <div style="margin:0 0 24px;">
-                        <img
-                          src="${escapeHtml(
-                            imageSrc
-                          )}"
-                          alt=""
-                          style="display:block;width:100%;height:auto;border-radius:18px;"
-                        />
-                      </div>
-                    `
-                  : "";
-              }
-
-              if (
-                block.type ===
-                "button"
-              ) {
-                const label =
-                  block.content ||
-                  "Learn more";
-                const href =
-                  block.url ||
-                  ctaUrl ||
-                  "#";
-
-                return `
-                  <div style="text-align:center;margin:28px 0;">
-                    <a
-                      href="${escapeHtml(href)}"
-                      data-tots-click-url="${escapeHtml(href)}"
-                      style="display:inline-block;background:${brandColor};color:#ffffff;text-decoration:none;padding:16px 26px;border-radius:12px;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;"
-                    >
-                      ${escapeHtml(label)}
-                    </a>
-                  </div>
-                `;
-              }
-
-              return `
-                <div>
-                  ${plainTextToHtml(
-                    block.content ||
-                      message ||
-                      ""
-                  )}
-                </div>
-              `;
-            }
-          )
-          .join("")
-      : plainTextToHtml(
-          message
+  const bodyHtml =
+    mode === "html"
+      ? customHtml || ""
+      : buildBlockHtml(
+          blocks || [],
+          message,
+          brandColor,
+          ctaUrl
         );
 
   return `
@@ -615,7 +759,6 @@ function buildCampaignHtml({
         color:#292524;
       "
     >
-
       ${
         logo
           ? `
@@ -666,14 +809,15 @@ function buildCampaignHtml({
       ${MESSAGE_START}
 
       <div>
-        ${blockHtml}
+        ${bodyHtml}
       </div>
 
       ${MESSAGE_END}
 
       ${
         ctaText &&
-        ctaUrl
+        ctaUrl &&
+        mode !== "html"
           ? `
             <div
               style="
@@ -714,7 +858,6 @@ function buildCampaignHtml({
           text-align:center;
         "
       >
-
         ${
           logo
             ? `
@@ -786,7 +929,7 @@ function buildCampaignHtml({
 }
 
 // ==================================================
-// DATE HELPERS
+// DATE / ANALYTICS
 // ==================================================
 
 function localInputToIso(
@@ -844,10 +987,7 @@ function isoToLocalInput(
 
   return local
     .toISOString()
-    .slice(
-      0,
-      16
-    );
+    .slice(0, 16);
 }
 
 function formatDate(
@@ -874,27 +1014,14 @@ function formatDate(
   return date.toLocaleString(
     "en-GB",
     {
-      day:
-        "numeric",
-
-      month:
-        "short",
-
-      year:
-        "numeric",
-
-      hour:
-        "2-digit",
-
-      minute:
-        "2-digit",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     }
   );
 }
-
-// ==================================================
-// ANALYTICS HELPERS
-// ==================================================
 
 function getOpenRate(
   campaign: Campaign
@@ -911,17 +1038,14 @@ function getOpenRate(
         0
     );
 
-  if (
-    sent <= 0
-  ) {
+  if (sent <= 0) {
     return 0;
   }
 
   return Math.min(
     100,
     Math.round(
-      (opens / sent) *
-        100
+      (opens / sent) * 100
     )
   );
 }
@@ -941,9 +1065,7 @@ function getClickRate(
         0
     );
 
-  if (
-    sent <= 0
-  ) {
+  if (sent <= 0) {
     return 0;
   }
 
@@ -977,10 +1099,6 @@ function getStatusLabel(
   );
 }
 
-// ==================================================
-// UNIQUE TRACKING COUNTS
-// ==================================================
-
 function createUniqueTrackingCounts(
   rows: any[]
 ) {
@@ -989,16 +1107,11 @@ function createUniqueTrackingCounts(
     Set<string>
   > = {};
 
-  for (
-    const row of
-      rows
-  ) {
+  for (const row of rows) {
     const campaignId =
       row?.campaign_id;
 
-    if (
-      !campaignId
-    ) {
+    if (!campaignId) {
       continue;
     }
 
@@ -1009,17 +1122,9 @@ function createUniqueTrackingCounts(
     ) {
       grouped[
         campaignId
-      ] =
-        new Set();
+      ] = new Set();
     }
 
-    /*
-     * profile_id is now acting as the stable
-     * recipient identifier for both profile and
-     * manual recipients.
-     *
-     * The row ID fallback preserves old analytics.
-     */
     const recipientKey =
       row.profile_id
         ? `recipient-${String(
@@ -1041,21 +1146,170 @@ function createUniqueTrackingCounts(
     number
   > = {};
 
-  for (
-    const [
+  Object.entries(
+    grouped
+  ).forEach(
+    ([
       campaignId,
       recipients,
-    ] of Object.entries(
-      grouped
-    )
-  ) {
-    counts[
-      campaignId
-    ] =
-      recipients.size;
-  }
+    ]) => {
+      counts[
+        campaignId
+      ] =
+        recipients.size;
+    }
+  );
 
   return counts;
+}
+
+// ==================================================
+// SMALL UI COMPONENTS
+// ==================================================
+
+function FieldLabel({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
+      {children}
+    </label>
+  );
+}
+
+function StatusBadge({
+  status,
+}: {
+  status: string;
+}) {
+  const className =
+    status === "sent"
+      ? "bg-emerald-50 text-emerald-700"
+      : status ===
+            "sending" ||
+          status ===
+            "processing"
+        ? "bg-amber-50 text-amber-700"
+        : status ===
+            "failed"
+          ? "bg-red-50 text-red-700"
+          : status ===
+              "queued"
+            ? "bg-blue-50 text-blue-700"
+            : "bg-stone-100 text-stone-500";
+
+  return (
+    <span
+      className={`rounded-full px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] ${className}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function StepBar({
+  current,
+  onStep,
+}: {
+  current: EditorStep;
+  onStep: (
+    step: EditorStep
+  ) => void;
+}) {
+  const currentIndex =
+    EDITOR_STEPS.findIndex(
+      (step) =>
+        step.id === current
+    );
+
+  return (
+    <div className="border-b border-stone-200 bg-white px-5 py-5 md:px-10">
+      <div className="mx-auto flex max-w-5xl items-center overflow-x-auto">
+        {EDITOR_STEPS.map(
+          (
+            step,
+            index
+          ) => {
+            const active =
+              step.id ===
+              current;
+
+            const complete =
+              index <
+              currentIndex;
+
+            return (
+              <div
+                key={
+                  step.id
+                }
+                className="flex min-w-fit flex-1 items-center"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    onStep(
+                      step.id
+                    )
+                  }
+                  className="flex items-center gap-3 text-left"
+                >
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black transition ${
+                      active
+                        ? "bg-stone-900 text-[#a9b897]"
+                        : complete
+                          ? "bg-[#a9b897] text-stone-900"
+                          : "bg-stone-100 text-stone-400"
+                    }`}
+                  >
+                    {complete ? (
+                      <Check
+                        size={
+                          15
+                        }
+                      />
+                    ) : (
+                      index +
+                      1
+                    )}
+                  </span>
+
+                  <span className="hidden md:block">
+                    <span
+                      className={`block text-[10px] font-black uppercase tracking-[0.12em] ${
+                        active
+                          ? "text-stone-900"
+                          : "text-stone-400"
+                      }`}
+                    >
+                      {
+                        step.label
+                      }
+                    </span>
+
+                    <span className="mt-1 block text-[9px] text-stone-400">
+                      {
+                        step.description
+                      }
+                    </span>
+                  </span>
+                </button>
+
+                {index <
+                  EDITOR_STEPS.length -
+                    1 && (
+                  <div className="mx-4 h-px min-w-8 flex-1 bg-stone-200 md:mx-6" />
+                )}
+              </div>
+            );
+          }
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ==================================================
@@ -1063,10 +1317,6 @@ function createUniqueTrackingCounts(
 // ==================================================
 
 export default function CampaignsPage() {
-  // ==================================================
-  // SUPABASE
-  // ==================================================
-
   const supabase =
     useMemo(
       () =>
@@ -1080,65 +1330,88 @@ export default function CampaignsPage() {
     );
 
   // ==================================================
+  // MAIN NAVIGATION
+  // ==================================================
+
+  const [
+    screen,
+    setScreen,
+  ] =
+    useState<MainScreen>(
+      "campaigns"
+    );
+
+  const [
+    editorStep,
+    setEditorStep,
+  ] =
+    useState<EditorStep>(
+      "details"
+    );
+
+  // ==================================================
   // CORE STATE
   // ==================================================
 
   const [
     organisationId,
     setOrganisationId,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<
+      string | null
+    >(null);
 
   const [
     company,
     setCompany,
   ] =
-    useState<CompanyBranding>({
-      name:
-        "Your Company",
-
-      email: "",
-
-      logoUrl: "",
-    });
+    useState<CompanyBranding>(
+      {
+        name: "Your Company",
+        email: "",
+        logoUrl: "",
+      }
+    );
 
   const [
     campaigns,
     setCampaigns,
-  ] = useState<
-    Campaign[]
-  >([]);
+  ] =
+    useState<Campaign[]>(
+      []
+    );
 
   const [
     lists,
     setLists,
-  ] = useState<
-    SubscriberList[]
-  >([]);
+  ] =
+    useState<
+      SubscriberList[]
+    >([]);
 
   const [
     profiles,
     setProfiles,
-  ] = useState<
-    ExistingProfile[]
-  >([]);
+  ] =
+    useState<
+      ExistingProfile[]
+    >([]);
 
   const [
     subscriberCounts,
     setSubscriberCounts,
-  ] = useState<
-    Record<
-      string,
-      number
-    >
-  >({});
+  ] =
+    useState<
+      Record<
+        string,
+        number
+      >
+    >({});
 
   const [
     loading,
     setLoading,
-  ] =
-    useState(true);
+  ] = useState(true);
 
   const [
     refreshingStats,
@@ -1147,34 +1420,24 @@ export default function CampaignsPage() {
     useState(false);
 
   // ==================================================
-  // CAMPAIGN UI
+  // EDITOR STATE
   // ==================================================
-
-  const [
-    showEditor,
-    setShowEditor,
-  ] =
-    useState(false);
-
-  const [
-    showCampaignView,
-    setShowCampaignView,
-  ] =
-    useState(false);
-
-  const [
-    selectedCampaign,
-    setSelectedCampaign,
-  ] = useState<
-    Campaign | null
-  >(null);
 
   const [
     editingCampaignId,
     setEditingCampaignId,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    selectedCampaign,
+    setSelectedCampaign,
+  ] =
+    useState<
+      Campaign | null
+    >(null);
 
   const [
     campaignForm,
@@ -1185,20 +1448,6 @@ export default function CampaignsPage() {
     );
 
   const [
-    savedTemplates,
-    setSavedTemplates,
-  ] = useState<
-    CampaignTemplate[]
-  >([]);
-
-  const [
-    draggingBlockId,
-    setDraggingBlockId,
-  ] = useState<
-    string | null
-  >(null);
-
-  const [
     savingCampaign,
     setSavingCampaign,
   ] =
@@ -1207,12 +1456,59 @@ export default function CampaignsPage() {
   const [
     sendingCampaignId,
     setSendingCampaignId,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    savedTemplates,
+    setSavedTemplates,
+  ] =
+    useState<
+      CampaignTemplate[]
+    >([]);
+
+  const [
+    draggingBlockId,
+    setDraggingBlockId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    showTemplatePicker,
+    setShowTemplatePicker,
+  ] =
+    useState(false);
 
   // ==================================================
-  // LIST UI
+  // IMAGE STATE
+  // ==================================================
+
+  const [
+    uploadingBlockId,
+    setUploadingBlockId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    uploadingHeaderImage,
+    setUploadingHeaderImage,
+  ] =
+    useState(false);
+
+  const [
+    uploadingLogo,
+    setUploadingLogo,
+  ] =
+    useState(false);
+
+  // ==================================================
+  // LIST STATE
   // ==================================================
 
   const [
@@ -1228,24 +1524,20 @@ export default function CampaignsPage() {
     useState("");
 
   const [
-    showListDetails,
-    setShowListDetails,
-  ] =
-    useState(false);
-
-  const [
     selectedList,
     setSelectedList,
-  ] = useState<
-    SubscriberList | null
-  >(null);
+  ] =
+    useState<
+      SubscriberList | null
+    >(null);
 
   const [
     listSubscribers,
     setListSubscribers,
-  ] = useState<
-    ListSubscriber[]
-  >([]);
+  ] =
+    useState<
+      ListSubscriber[]
+    >([]);
 
   const [
     loadingList,
@@ -1262,9 +1554,10 @@ export default function CampaignsPage() {
   const [
     selectedProfiles,
     setSelectedProfiles,
-  ] = useState<
-    string[]
-  >([]);
+  ] =
+    useState<string[]>(
+      []
+    );
 
   const [
     manualEmails,
@@ -1279,7 +1572,82 @@ export default function CampaignsPage() {
     useState(false);
 
   // ==================================================
-  // COMPANY / USER
+  // TEST SEND
+  // ==================================================
+
+  const [
+    testEmail,
+    setTestEmail,
+  ] =
+    useState("");
+
+  const [
+    sendingTest,
+    setSendingTest,
+  ] =
+    useState(false);
+
+  const [
+    testSendResult,
+    setTestSendResult,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  // ==================================================
+  // AI
+  // ==================================================
+
+  const [
+    showAiAssist,
+    setShowAiAssist,
+  ] =
+    useState(false);
+
+  const [
+    aiPrompt,
+    setAiPrompt,
+  ] =
+    useState("");
+
+  const [
+    aiTone,
+    setAiTone,
+  ] =
+    useState(
+      "friendly"
+    );
+
+  const [
+    aiTarget,
+    setAiTarget,
+  ] =
+    useState<
+      "blocks" | "html"
+    >("blocks");
+
+  const [
+    aiGenerating,
+    setAiGenerating,
+  ] =
+    useState(false);
+
+  const [
+    aiError,
+    setAiError,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const htmlFileInputRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
+  // ==================================================
+  // LOAD USER / COMPANY
   // ==================================================
 
   useEffect(() => {
@@ -1296,13 +1664,11 @@ export default function CampaignsPage() {
           setLoading(
             false
           );
-
           return;
         }
 
         const {
-          data:
-            profile,
+          data: profile,
           error:
             profileError,
         } =
@@ -1333,8 +1699,7 @@ export default function CampaignsPage() {
         }
 
         const orgId =
-          profile
-            ?.organisation_id ||
+          profile?.organisation_id ||
           null;
 
         setOrganisationId(
@@ -1343,7 +1708,8 @@ export default function CampaignsPage() {
 
         let team:
           | any
-          | null = null;
+          | null =
+          null;
 
         if (orgId) {
           const {
@@ -1368,7 +1734,7 @@ export default function CampaignsPage() {
             teamError
           ) {
             console.warn(
-              "Team branding load error:",
+              "Team branding error:",
               teamError
             );
           }
@@ -1381,15 +1747,11 @@ export default function CampaignsPage() {
         const companyData: CompanyBranding =
           {
             name:
-              team
-                ?.company_name ||
+              team?.company_name ||
               team?.name ||
-              profile
-                ?.company_name ||
-              profile
-                ?.business_name ||
-              profile
-                ?.full_name ||
+              profile?.company_name ||
+              profile?.business_name ||
+              profile?.full_name ||
               profile?.name ||
               "Your Company",
 
@@ -1398,10 +1760,8 @@ export default function CampaignsPage() {
               "",
 
             logoUrl:
-              profile
-                ?.logo_url ||
-              profile
-                ?.company_logo_url ||
+              profile?.logo_url ||
+              profile?.company_logo_url ||
               team?.logo_url ||
               "",
           };
@@ -1418,9 +1778,11 @@ export default function CampaignsPage() {
       };
 
     void loadUser();
-  }, [
-    supabase,
-  ]);
+  }, [supabase]);
+
+  // ==================================================
+  // TEMPLATES
+  // ==================================================
 
   useEffect(() => {
     try {
@@ -1429,31 +1791,37 @@ export default function CampaignsPage() {
           "tots_campaign_templates"
         );
 
-      if (stored) {
-        const parsed =
-          JSON.parse(
-            stored
-          ) as CampaignTemplate[];
+      if (!stored) {
+        return;
+      }
 
-        if (
-          Array.isArray(
-            parsed
-          )
-        ) {
-          setSavedTemplates(
-            parsed
-          );
-        }
+      const parsed =
+        JSON.parse(
+          stored
+        ) as CampaignTemplate[];
+
+      if (
+        Array.isArray(
+          parsed
+        )
+      ) {
+        setSavedTemplates(
+          parsed
+        );
       }
     } catch (
       error
     ) {
       console.warn(
-        "Campaign template load error:",
+        "Template load error:",
         error
       );
     }
   }, []);
+
+  // ==================================================
+  // BLOCK EDITING
+  // ==================================================
 
   const addBlock = (
     type: CampaignBlock["type"]
@@ -1464,9 +1832,7 @@ export default function CampaignsPage() {
       );
 
     setCampaignForm(
-      (
-        previous
-      ) => ({
+      (previous) => ({
         ...previous,
         blocks: [
           ...previous.blocks,
@@ -1481,9 +1847,7 @@ export default function CampaignsPage() {
     changes: Partial<CampaignBlock>
   ) => {
     setCampaignForm(
-      (
-        previous
-      ) => ({
+      (previous) => ({
         ...previous,
         blocks:
           previous.blocks.map(
@@ -1506,9 +1870,7 @@ export default function CampaignsPage() {
     id: string
   ) => {
     setCampaignForm(
-      (
-        previous
-      ) => ({
+      (previous) => ({
         ...previous,
         blocks:
           previous.blocks.filter(
@@ -1522,26 +1884,87 @@ export default function CampaignsPage() {
     );
   };
 
+  const duplicateBlock = (
+    id: string
+  ) => {
+    setCampaignForm(
+      (previous) => {
+        const index =
+          previous.blocks.findIndex(
+            (
+              block
+            ) =>
+              block.id ===
+              id
+          );
+
+        if (
+          index === -1
+        ) {
+          return previous;
+        }
+
+        const source =
+          previous.blocks[
+            index
+          ];
+
+        const copy: CampaignBlock =
+          {
+            ...source,
+            id: `${
+              source.type
+            }-${Date.now()}-${Math.random()
+              .toString(
+                36
+              )
+              .slice(
+                2,
+                8
+              )}`,
+          };
+
+        const nextBlocks =
+          [
+            ...previous.blocks,
+          ];
+
+        nextBlocks.splice(
+          index + 1,
+          0,
+          copy
+        );
+
+        return {
+          ...previous,
+          blocks:
+            nextBlocks,
+        };
+      }
+    );
+  };
+
   const moveBlock = (
     fromId: string,
     toId: string
   ) => {
     setCampaignForm(
-      (
-        previous
-      ) => {
-        const currentBlocks =
-          [...previous.blocks];
+      (previous) => {
+        const blocks = [
+          ...previous.blocks,
+        ];
+
         const fromIndex =
-          currentBlocks.findIndex(
+          blocks.findIndex(
             (
               block
             ) =>
               block.id ===
               fromId
           );
+
         const toIndex =
-          currentBlocks.findIndex(
+          blocks.findIndex(
             (
               block
             ) =>
@@ -1552,18 +1975,18 @@ export default function CampaignsPage() {
         if (
           fromIndex ===
             -1 ||
-          toIndex ===
-            -1
+          toIndex === -1
         ) {
           return previous;
         }
 
         const [moved] =
-          currentBlocks.splice(
+          blocks.splice(
             fromIndex,
             1
           );
-        currentBlocks.splice(
+
+        blocks.splice(
           toIndex,
           0,
           moved
@@ -1571,8 +1994,7 @@ export default function CampaignsPage() {
 
         return {
           ...previous,
-          blocks:
-            currentBlocks,
+          blocks,
         };
       }
     );
@@ -1583,32 +2005,33 @@ export default function CampaignsPage() {
       const name =
         campaignForm.title.trim() ||
         "Untitled template";
-      const nextTemplates = [
-        {
-          id: `template-${Date.now()}`,
-          name,
-          blocks:
-            campaignForm.blocks,
-          brandColor:
-            campaignForm.brandColor,
-        },
-        ...savedTemplates,
-      ].slice(
-        0,
-        8
-      );
+
+      const nextTemplates =
+        [
+          {
+            id: `template-${Date.now()}`,
+            name,
+            blocks:
+              campaignForm.blocks,
+            brandColor:
+              campaignForm.brandColor,
+          },
+          ...savedTemplates,
+        ].slice(0, 8);
 
       setSavedTemplates(
         nextTemplates
       );
+
       window.localStorage.setItem(
         "tots_campaign_templates",
         JSON.stringify(
           nextTemplates
         )
       );
+
       alert(
-        "Template saved locally."
+        "Template saved."
       );
     };
 
@@ -1616,61 +2039,249 @@ export default function CampaignsPage() {
     template: CampaignTemplate
   ) => {
     setCampaignForm(
-      (
-        previous
-      ) => ({
+      (previous) => ({
         ...previous,
+        mode: "blocks",
+
         title:
-          template.name,
+          template.builtIn
+            ? previous.title
+            : template.name,
+
         blocks:
           template.blocks.map(
             (
               block
             ) => ({
               ...block,
-              id: `${block.type}-${Date.now()}-${Math.random()
-                .toString(36)
-                .slice(2, 8)}`,
+              id: `${
+                block.type
+              }-${Date.now()}-${Math.random()
+                .toString(
+                  36
+                )
+                .slice(
+                  2,
+                  8
+                )}`,
             })
           ),
+
         brandColor:
           template.brandColor ||
           previous.brandColor,
       })
     );
+
+    setShowTemplatePicker(
+      false
+    );
   };
+
+  const deleteSavedTemplate =
+    (id: string) => {
+      const next =
+        savedTemplates.filter(
+          (
+            template
+          ) =>
+            template.id !==
+            id
+        );
+
+      setSavedTemplates(
+        next
+      );
+
+      window.localStorage.setItem(
+        "tots_campaign_templates",
+        JSON.stringify(
+          next
+        )
+      );
+    };
+
+  // ==================================================
+  // IMAGE UPLOAD
+  // ==================================================
+
+  const uploadImageFile =
+    async (
+      file: File
+    ): Promise<string> => {
+      const extension =
+        file.name
+          .split(".")
+          .pop() ||
+        "png";
+
+      const path = `${
+        organisationId ||
+        "shared"
+      }/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(
+          2,
+          8
+        )}.${extension}`;
+
+      const {
+        error,
+      } =
+        await supabase.storage
+          .from(
+            IMAGE_BUCKET
+          )
+          .upload(
+            path,
+            file,
+            {
+              cacheControl:
+                "3600",
+              upsert:
+                false,
+            }
+          );
+
+      if (error) {
+        throw error;
+      }
+
+      const {
+        data,
+      } =
+        supabase.storage
+          .from(
+            IMAGE_BUCKET
+          )
+          .getPublicUrl(
+            path
+          );
+
+      return data.publicUrl;
+    };
 
   const handleBlockImageUpload =
     async (
       blockId: string,
       file: File
     ) => {
-      const reader =
-        new FileReader();
+      setUploadingBlockId(
+        blockId
+      );
 
-      reader.onload = () => {
-        const result =
-          String(
-            reader.result ||
-              ""
+      try {
+        const url =
+          await uploadImageFile(
+            file
           );
 
         updateBlock(
           blockId,
           {
             imageUrl:
-              result,
+              url,
           }
         );
-      };
+      } catch (
+        error
+      ) {
+        console.error(
+          error
+        );
 
-      reader.readAsDataURL(
-        file
+        alert(
+          "Could not upload image."
+        );
+      } finally {
+        setUploadingBlockId(
+          null
+        );
+      }
+    };
+
+  const handleHeaderImageUpload =
+    async (
+      file: File
+    ) => {
+      setUploadingHeaderImage(
+        true
       );
+
+      try {
+        const url =
+          await uploadImageFile(
+            file
+          );
+
+        setCampaignForm(
+          (
+            previous
+          ) => ({
+            ...previous,
+            headerImageUrl:
+              url,
+          })
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          error
+        );
+
+        alert(
+          "Could not upload image."
+        );
+      } finally {
+        setUploadingHeaderImage(
+          false
+        );
+      }
+    };
+
+  const handleLogoUpload =
+    async (
+      file: File
+    ) => {
+      setUploadingLogo(
+        true
+      );
+
+      try {
+        const url =
+          await uploadImageFile(
+            file
+          );
+
+        setCampaignForm(
+          (
+            previous
+          ) => ({
+            ...previous,
+            campaignLogoUrl:
+              url,
+          })
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          error
+        );
+
+        alert(
+          "Could not upload logo."
+        );
+      } finally {
+        setUploadingLogo(
+          false
+        );
+      }
     };
 
   // ==================================================
-  // LOAD CAMPAIGNS + ANALYTICS
+  // LOAD CAMPAIGNS
   // ==================================================
 
   const loadCampaigns =
@@ -1717,14 +2328,12 @@ export default function CampaignsPage() {
         return;
       }
 
-      const loadedCampaigns =
-        (
-          campaignData ||
-          []
-        ) as Campaign[];
+      const loaded =
+        (campaignData ||
+          []) as Campaign[];
 
       if (
-        loadedCampaigns.length ===
+        loaded.length ===
         0
       ) {
         setCampaigns(
@@ -1735,68 +2344,44 @@ export default function CampaignsPage() {
       }
 
       const campaignIds =
-        loadedCampaigns.map(
+        loaded.map(
           (
             campaign
           ) =>
             campaign.id
         );
 
-      // ==================================================
-      // LOAD TRACKING EVENTS
-      // ==================================================
-
       const [
         openResult,
         clickResult,
       ] =
-        await Promise.all([
-          supabase
-            .from(
-              "campaign_opens"
-            )
-            .select(
-              "id,campaign_id,profile_id"
-            )
-            .in(
-              "campaign_id",
-              campaignIds
-            ),
+        await Promise.all(
+          [
+            supabase
+              .from(
+                "campaign_opens"
+              )
+              .select(
+                "id,campaign_id,profile_id"
+              )
+              .in(
+                "campaign_id",
+                campaignIds
+              ),
 
-          supabase
-            .from(
-              "campaign_clicks"
-            )
-            .select(
-              "id,campaign_id,profile_id"
-            )
-            .in(
-              "campaign_id",
-              campaignIds
-            ),
-        ]);
-
-      if (
-        openResult.error
-      ) {
-        console.warn(
-          "Campaign open stats error:",
-          openResult.error
+            supabase
+              .from(
+                "campaign_clicks"
+              )
+              .select(
+                "id,campaign_id,profile_id"
+              )
+              .in(
+                "campaign_id",
+                campaignIds
+              ),
+          ]
         );
-      }
-
-      if (
-        clickResult.error
-      ) {
-        console.warn(
-          "Campaign click stats error:",
-          clickResult.error
-        );
-      }
-
-      // ==================================================
-      // UNIQUE OPENS
-      // ==================================================
 
       const openCounts =
         openResult.error
@@ -1806,10 +2391,6 @@ export default function CampaignsPage() {
                 []
             );
 
-      // ==================================================
-      // UNIQUE CLICKS
-      // ==================================================
-
       const clickCounts =
         clickResult.error
           ? {}
@@ -1818,73 +2399,55 @@ export default function CampaignsPage() {
                 []
             );
 
-      // ==================================================
-      // MERGE CAMPAIGNS
-      // ==================================================
-
-      const enrichedCampaigns: Campaign[] =
-        loadedCampaigns.map(
+      const enriched =
+        loaded.map(
           (
             campaign
-          ) => {
-            const sentCount =
+          ) => ({
+            ...campaign,
+
+            status:
+              campaign.sent_at ||
               Number(
                 campaign.sent_count ||
                   0
-              );
-
-            const resolvedStatus =
-              campaign.sent_at ||
-              sentCount > 0
+              ) > 0
                 ? "sent"
                 : campaign.status ||
-                  "draft";
+                  "draft",
 
-            const trackedOpenCount =
+            open_count:
               openCounts[
                 campaign.id
-              ];
+              ] !==
+              undefined
+                ? openCounts[
+                    campaign.id
+                  ]
+                : Number(
+                    campaign.open_count ||
+                      0
+                  ),
 
-            const trackedClickCount =
+            click_count:
               clickCounts[
                 campaign.id
-              ];
-
-            return {
-              ...campaign,
-
-              status:
-                resolvedStatus,
-
-              open_count:
-                trackedOpenCount !==
-                undefined
-                  ? trackedOpenCount
-                  : Number(
-                      campaign.open_count ||
-                        0
-                    ),
-
-              click_count:
-                trackedClickCount !==
-                undefined
-                  ? trackedClickCount
-                  : Number(
-                      campaign.click_count ||
-                        0
-                    ),
-            };
-          }
+              ] !==
+              undefined
+                ? clickCounts[
+                    campaign.id
+                  ]
+                : Number(
+                    campaign.click_count ||
+                      0
+                  ),
+          })
         );
 
       setCampaigns(
-        enrichedCampaigns
+        enriched
       );
     };
-
-  // ==================================================
-  // REFRESH STATS
-  // ==================================================
 
   const refreshStats =
     async () => {
@@ -1908,41 +2471,7 @@ export default function CampaignsPage() {
     };
 
   // ==================================================
-  // KEEP SELECTED CAMPAIGN CURRENT
-  // ==================================================
-
-  useEffect(() => {
-    if (
-      !selectedCampaign
-    ) {
-      return;
-    }
-
-    const latest =
-      campaigns.find(
-        (
-          campaign
-        ) =>
-          campaign.id ===
-          selectedCampaign.id
-      );
-
-    if (
-      !latest
-    ) {
-      return;
-    }
-
-    setSelectedCampaign(
-      latest
-    );
-  }, [
-    campaigns,
-    selectedCampaign?.id,
-  ]);
-
-  // ==================================================
-  // LOAD LISTS
+  // LISTS
   // ==================================================
 
   const loadLists =
@@ -1966,19 +2495,13 @@ export default function CampaignsPage() {
             "organisation_id",
             organisationId
           )
-          .order(
-            "name",
-            {
-              ascending:
-                true,
-            }
-          );
+          .order("name", {
+            ascending:
+              true,
+          });
 
-      if (
-        error
-      ) {
+      if (error) {
         console.error(
-          "List load error:",
           error
         );
 
@@ -1989,10 +2512,6 @@ export default function CampaignsPage() {
         data || []
       );
     };
-
-  // ==================================================
-  // LOAD PROFILES
-  // ==================================================
 
   const loadProfiles =
     async () => {
@@ -2022,11 +2541,8 @@ export default function CampaignsPage() {
             true
           );
 
-      if (
-        error
-      ) {
+      if (error) {
         console.error(
-          "Profiles load error:",
           error
         );
 
@@ -2037,10 +2553,6 @@ export default function CampaignsPage() {
         data || []
       );
     };
-
-  // ==================================================
-  // SUBSCRIBER COUNTS
-  // ==================================================
 
   const loadSubscriberCounts =
     async () => {
@@ -2054,57 +2566,33 @@ export default function CampaignsPage() {
         profileResult,
         manualResult,
       ] =
-        await Promise.all([
-          supabase
-            .from(
-              "profile_subscriber_lists"
-            )
-            .select(
-              "list_id,profile_id,profiles:profiles(email)"
-            )
-            .eq(
-              "organisation_id",
-              organisationId
-            ),
+        await Promise.all(
+          [
+            supabase
+              .from(
+                "profile_subscriber_lists"
+              )
+              .select(
+                "list_id,profile_id,profiles:profiles(email)"
+              )
+              .eq(
+                "organisation_id",
+                organisationId
+              ),
 
-          supabase
-            .from(
-              "campaign_list_emails"
-            )
-            .select(
-              "list_id,id,email"
-            )
-            .eq(
-              "organisation_id",
-              organisationId
-            ),
-        ]);
-
-      if (
-        profileResult.error
-      ) {
-        console.error(
-          "Profile subscriber count error:",
-          profileResult.error
+            supabase
+              .from(
+                "campaign_list_emails"
+              )
+              .select(
+                "list_id,id,email"
+              )
+              .eq(
+                "organisation_id",
+                organisationId
+              ),
+          ]
         );
-      }
-
-      if (
-        manualResult.error
-      ) {
-        console.error(
-          "Manual subscriber count error:",
-          manualResult.error
-        );
-      }
-
-      /*
-       * Count unique email addresses rather than
-       * database rows.
-       *
-       * This prevents the same email being counted twice
-       * when it exists as both a contact and manual email.
-       */
 
       const countMap: Record<
         string,
@@ -2115,9 +2603,7 @@ export default function CampaignsPage() {
         profileResult.data ||
         []
       ).forEach(
-        (
-          row: any
-        ) => {
+        (row: any) => {
           if (
             !row.list_id
           ) {
@@ -2148,14 +2634,11 @@ export default function CampaignsPage() {
               profile?.email
             );
 
-          const key =
-            email ||
-            `profile-${row.profile_id}`;
-
           countMap[
             row.list_id
           ].add(
-            key
+            email ||
+              `profile-${row.profile_id}`
           );
         }
       );
@@ -2164,9 +2647,7 @@ export default function CampaignsPage() {
         manualResult.data ||
         []
       ).forEach(
-        (
-          row: any
-        ) => {
+        (row: any) => {
           if (
             !row.list_id
           ) {
@@ -2189,14 +2670,11 @@ export default function CampaignsPage() {
               row.email
             );
 
-          const key =
-            email ||
-            `manual-${row.id}`;
-
           countMap[
             row.list_id
           ].add(
-            key
+            email ||
+              `manual-${row.id}`
           );
         }
       );
@@ -2210,13 +2688,13 @@ export default function CampaignsPage() {
         countMap
       ).forEach(
         ([
-          listId,
-          values,
+          id,
+          set,
         ]) => {
           finalCounts[
-            listId
+            id
           ] =
-            values.size;
+            set.size;
         }
       );
 
@@ -2226,7 +2704,7 @@ export default function CampaignsPage() {
     };
 
   // ==================================================
-  // INITIAL ORG LOAD
+  // INITIAL LOAD
   // ==================================================
 
   useEffect(() => {
@@ -2245,12 +2723,14 @@ export default function CampaignsPage() {
           true
         );
 
-        await Promise.all([
-          loadCampaigns(),
-          loadLists(),
-          loadProfiles(),
-          loadSubscriberCounts(),
-        ]);
+        await Promise.all(
+          [
+            loadCampaigns(),
+            loadLists(),
+            loadProfiles(),
+            loadSubscriberCounts(),
+          ]
+        );
 
         if (
           !cancelled
@@ -2267,9 +2747,7 @@ export default function CampaignsPage() {
       cancelled =
         true;
     };
-  }, [
-    organisationId,
-  ]);
+  }, [organisationId]);
 
   // ==================================================
   // ACTIVE CAMPAIGN POLLING
@@ -2310,90 +2788,17 @@ export default function CampaignsPage() {
         2500
       );
 
-    return () => {
+    return () =>
       window.clearInterval(
         interval
       );
-    };
   }, [
     organisationId,
     hasActiveCampaign,
   ]);
 
   // ==================================================
-  // ANALYTICS POLLING WHILE VIEWING CAMPAIGN
-  // ==================================================
-
-  useEffect(() => {
-    if (
-      !showCampaignView ||
-      !selectedCampaign
-    ) {
-      return;
-    }
-
-    const status =
-      getStatusLabel(
-        selectedCampaign
-      );
-
-    if (
-      status !==
-      "sent"
-    ) {
-      return;
-    }
-
-    const interval =
-      window.setInterval(
-        () => {
-          void loadCampaigns();
-        },
-        10000
-      );
-
-    return () => {
-      window.clearInterval(
-        interval
-      );
-    };
-  }, [
-    showCampaignView,
-    selectedCampaign?.id,
-    selectedCampaign?.status,
-    selectedCampaign?.sent_at,
-  ]);
-
-  // ==================================================
-  // PAGE-LEVEL ANALYTICS REFRESH
-  // ==================================================
-
-  useEffect(() => {
-    if (
-      !organisationId
-    ) {
-      return;
-    }
-
-    const interval =
-      window.setInterval(
-        () => {
-          void loadCampaigns();
-        },
-        30000
-      );
-
-    return () => {
-      window.clearInterval(
-        interval
-      );
-    };
-  }, [
-    organisationId,
-  ]);
-
-  // ==================================================
-  // CREATE LIST
+  // LIST MANAGEMENT
   // ==================================================
 
   const createList =
@@ -2411,7 +2816,6 @@ export default function CampaignsPage() {
         alert(
           "Enter a list name."
         );
-
         return;
       }
 
@@ -2424,22 +2828,13 @@ export default function CampaignsPage() {
           )
           .insert({
             name,
-
             organisation_id:
               organisationId,
           });
 
-      if (
-        error
-      ) {
-        console.error(
-          "Create list error:",
-          error
-        );
-
+      if (error) {
         alert(
-          error.message ||
-            "Could not create list."
+          error.message
         );
 
         return;
@@ -2453,15 +2848,13 @@ export default function CampaignsPage() {
         false
       );
 
-      await Promise.all([
-        loadLists(),
-        loadSubscriberCounts(),
-      ]);
+      await Promise.all(
+        [
+          loadLists(),
+          loadSubscriberCounts(),
+        ]
+      );
     };
-
-  // ==================================================
-  // LOAD LIST SUBSCRIBERS
-  // ==================================================
 
   const loadListSubscribers =
     async (
@@ -2482,60 +2875,37 @@ export default function CampaignsPage() {
           profileResult,
           manualResult,
         ] =
-          await Promise.all([
-            supabase
-              .from(
-                "profile_subscriber_lists"
-              )
-              .select(
-                "profile_id, profiles:profiles(id,name,full_name,email)"
-              )
-              .eq(
-                "list_id",
-                listId
-              ),
+          await Promise.all(
+            [
+              supabase
+                .from(
+                  "profile_subscriber_lists"
+                )
+                .select(
+                  "profile_id,profiles:profiles(id,name,full_name,email)"
+                )
+                .eq(
+                  "list_id",
+                  listId
+                ),
 
-            supabase
-              .from(
-                "campaign_list_emails"
-              )
-              .select(
-                "id,email"
-              )
-              .eq(
-                "organisation_id",
-                organisationId
-              )
-              .eq(
-                "list_id",
-                listId
-              )
-              .order(
-                "created_at",
-                {
-                  ascending:
-                    false,
-                }
-              ),
-          ]);
-
-        if (
-          profileResult.error
-        ) {
-          console.error(
-            "Profile subscriber load error:",
-            profileResult.error
+              supabase
+                .from(
+                  "campaign_list_emails"
+                )
+                .select(
+                  "id,email"
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .eq(
+                  "list_id",
+                  listId
+                ),
+            ]
           );
-        }
-
-        if (
-          manualResult.error
-        ) {
-          console.error(
-            "Manual subscriber load error:",
-            manualResult.error
-          );
-        }
 
         const combined: ListSubscriber[] =
           [];
@@ -2544,9 +2914,7 @@ export default function CampaignsPage() {
           profileResult.data ||
           []
         ).forEach(
-          (
-            row: any
-          ) => {
+          (row: any) => {
             const profile =
               Array.isArray(
                 row.profiles
@@ -2560,38 +2928,30 @@ export default function CampaignsPage() {
                 profile?.email
               );
 
-            if (
-              !email
-            ) {
+            if (!email) {
               return;
             }
 
-            combined.push({
-              id:
-                String(
+            combined.push(
+              {
+                id: String(
                   row.profile_id
                 ),
-
-              source:
-                "profile",
-
-              profileId:
-                String(
-                  row.profile_id
-                ),
-
-              manualId:
-                null,
-
-              name:
-                profile
-                  ?.full_name ||
-                profile
-                  ?.name ||
-                null,
-
-              email,
-            });
+                source:
+                  "profile",
+                profileId:
+                  String(
+                    row.profile_id
+                  ),
+                manualId:
+                  null,
+                name:
+                  profile?.full_name ||
+                  profile?.name ||
+                  null,
+                email,
+              }
+            );
           }
         );
 
@@ -2599,49 +2959,41 @@ export default function CampaignsPage() {
           manualResult.data ||
           []
         ).forEach(
-          (
-            row: any
-          ) => {
+          (row: any) => {
             const email =
               cleanEmail(
                 row.email
               );
 
-            if (
-              !email
-            ) {
+            if (!email) {
               return;
             }
 
-            combined.push({
-              id:
-                String(
+            combined.push(
+              {
+                id: String(
                   row.id
                 ),
-
-              source:
-                "manual",
-
-              profileId:
-                null,
-
-              manualId:
-                String(
-                  row.id
-                ),
-
-              name:
-                null,
-
-              email,
-            });
+                source:
+                  "manual",
+                profileId:
+                  null,
+                manualId:
+                  String(
+                    row.id
+                  ),
+                name:
+                  null,
+                email,
+              }
+            );
           }
         );
 
         const seen =
           new Set<string>();
 
-        const unique =
+        setListSubscribers(
           combined.filter(
             (
               subscriber
@@ -2660,17 +3012,7 @@ export default function CampaignsPage() {
 
               return true;
             }
-          );
-
-        setListSubscribers(
-          unique
-        );
-      } catch (
-        error
-      ) {
-        console.error(
-          "List subscriber loading error:",
-          error
+          )
         );
       } finally {
         setLoadingList(
@@ -2679,11 +3021,7 @@ export default function CampaignsPage() {
       }
     };
 
-  // ==================================================
-  // OPEN LIST
-  // ==================================================
-
-  const openList =
+  const openAudience =
     async (
       list: SubscriberList
     ) => {
@@ -2691,22 +3029,14 @@ export default function CampaignsPage() {
         list
       );
 
-      setShowListDetails(
-        true
-      );
-
-      setListSubscribers(
-        []
+      setScreen(
+        "audiences"
       );
 
       await loadListSubscribers(
         list.id
       );
     };
-
-  // ==================================================
-  // ADD EXISTING PROFILES
-  // ==================================================
 
   const addSelectedProfiles =
     async (
@@ -2727,10 +3057,8 @@ export default function CampaignsPage() {
           ) => ({
             profile_id:
               profileId,
-
             list_id:
               listId,
-
             organisation_id:
               organisationId,
           })
@@ -2751,21 +3079,10 @@ export default function CampaignsPage() {
             }
           );
 
-      if (
-        error
-      ) {
-        console.error(
-          "Add profile subscribers error:",
-          error
-        );
-
+      if (error) {
         throw error;
       }
     };
-
-  // ==================================================
-  // ADD MANUAL EMAILS
-  // ==================================================
 
   const addManualEmails =
     async (
@@ -2785,12 +3102,7 @@ export default function CampaignsPage() {
           new Set(
             emails
               .map(
-                (
-                  email
-                ) =>
-                  cleanEmail(
-                    email
-                  )
+                cleanEmail
               )
               .filter(
                 (
@@ -2814,8 +3126,6 @@ export default function CampaignsPage() {
       const {
         data:
           existing,
-        error:
-          existingError,
       } =
         await supabase
           .from(
@@ -2833,32 +3143,17 @@ export default function CampaignsPage() {
             listId
           );
 
-      if (
-        existingError
-      ) {
-        console.error(
-          "Existing manual email lookup error:",
-          existingError
-        );
-
-        throw existingError;
-      }
-
       const existingSet =
         new Set(
           (
             existing ||
             []
+          ).map(
+            (row: any) =>
+              cleanEmail(
+                row.email
+              )
           )
-            .map(
-              (
-                row: any
-              ) =>
-                cleanEmail(
-                  row.email
-                )
-            )
-            .filter(Boolean)
         );
 
       const newEmails =
@@ -2878,21 +3173,6 @@ export default function CampaignsPage() {
         return;
       }
 
-      const rows =
-        newEmails.map(
-          (
-            email
-          ) => ({
-            organisation_id:
-              organisationId,
-
-            list_id:
-              listId,
-
-            email,
-          })
-        );
-
       const {
         error,
       } =
@@ -2901,24 +3181,23 @@ export default function CampaignsPage() {
             "campaign_list_emails"
           )
           .insert(
-            rows
+            newEmails.map(
+              (
+                email
+              ) => ({
+                organisation_id:
+                  organisationId,
+                list_id:
+                  listId,
+                email,
+              })
+            )
           );
 
-      if (
-        error
-      ) {
-        console.error(
-          "Manual subscriber insert error:",
-          error
-        );
-
+      if (error) {
         throw error;
       }
     };
-
-  // ==================================================
-  // SAVE SUBSCRIBERS
-  // ==================================================
 
   const saveSubscribers =
     async () => {
@@ -2936,11 +3215,10 @@ export default function CampaignsPage() {
       if (
         selectedProfiles.length ===
           0 &&
-        parsed.length ===
-          0
+        parsed.length === 0
       ) {
         alert(
-          "Select a contact or enter at least one valid email."
+          "Choose contacts or enter an email."
         );
 
         return;
@@ -2972,18 +3250,18 @@ export default function CampaignsPage() {
           false
         );
 
-        await Promise.all([
-          loadListSubscribers(
-            selectedList.id
-          ),
-
-          loadSubscriberCounts(),
-        ]);
+        await Promise.all(
+          [
+            loadListSubscribers(
+              selectedList.id
+            ),
+            loadSubscriberCounts(),
+          ]
+        );
       } catch (
         error
       ) {
         console.error(
-          "Save subscribers error:",
           error
         );
 
@@ -2997,10 +3275,6 @@ export default function CampaignsPage() {
       }
     };
 
-  // ==================================================
-  // REMOVE SUBSCRIBER
-  // ==================================================
-
   const removeSubscriber =
     async (
       subscriber: ListSubscriber
@@ -3011,220 +3285,63 @@ export default function CampaignsPage() {
         return;
       }
 
-      try {
-        if (
-          subscriber.source ===
-            "profile" &&
-          subscriber.profileId
-        ) {
-          const {
-            error,
-          } =
-            await supabase
-              .from(
-                "profile_subscriber_lists"
-              )
-              .delete()
-              .eq(
-                "list_id",
-                selectedList.id
-              )
-              .eq(
-                "profile_id",
-                subscriber.profileId
-              );
+      if (
+        subscriber.source ===
+          "profile" &&
+        subscriber.profileId
+      ) {
+        await supabase
+          .from(
+            "profile_subscriber_lists"
+          )
+          .delete()
+          .eq(
+            "list_id",
+            selectedList.id
+          )
+          .eq(
+            "profile_id",
+            subscriber.profileId
+          );
+      }
 
-          if (
-            error
-          ) {
-            throw error;
-          }
-        }
+      if (
+        subscriber.source ===
+          "manual" &&
+        subscriber.manualId
+      ) {
+        await supabase
+          .from(
+            "campaign_list_emails"
+          )
+          .delete()
+          .eq(
+            "id",
+            subscriber.manualId
+          );
+      }
 
-        if (
-          subscriber.source ===
-            "manual" &&
-          subscriber.manualId
-        ) {
-          const {
-            error,
-          } =
-            await supabase
-              .from(
-                "campaign_list_emails"
-              )
-              .delete()
-              .eq(
-                "id",
-                subscriber.manualId
-              );
-
-          if (
-            error
-          ) {
-            throw error;
-          }
-        }
-
-        await Promise.all([
+      await Promise.all(
+        [
           loadListSubscribers(
             selectedList.id
           ),
-
           loadSubscriberCounts(),
-        ]);
-      } catch (
-        error
-      ) {
-        console.error(
-          "Remove subscriber error:",
-          error
-        );
-
-        alert(
-          "Could not remove subscriber."
-        );
-      }
+        ]
+      );
     };
 
   // ==================================================
-  // DELETE LIST
-  // ==================================================
-
-  const deleteList =
-    async () => {
-      if (
-        !selectedList
-      ) {
-        return;
-      }
-
-      if (
-        !window.confirm(
-          `Delete "${selectedList.name}"?`
-        )
-      ) {
-        return;
-      }
-
-      try {
-        const {
-          error:
-            campaignError,
-        } =
-          await supabase
-            .from(
-              "campaigns"
-            )
-            .update({
-              list_id:
-                null,
-            })
-            .eq(
-              "list_id",
-              selectedList.id
-            );
-
-        if (
-          campaignError
-        ) {
-          throw campaignError;
-        }
-
-        const {
-          error:
-            profileLinkError,
-        } =
-          await supabase
-            .from(
-              "profile_subscriber_lists"
-            )
-            .delete()
-            .eq(
-              "list_id",
-              selectedList.id
-            );
-
-        if (
-          profileLinkError
-        ) {
-          throw profileLinkError;
-        }
-
-        const {
-          error:
-            manualError,
-        } =
-          await supabase
-            .from(
-              "campaign_list_emails"
-            )
-            .delete()
-            .eq(
-              "list_id",
-              selectedList.id
-            );
-
-        if (
-          manualError
-        ) {
-          throw manualError;
-        }
-
-        const {
-          error:
-            listError,
-        } =
-          await supabase
-            .from(
-              "subscriber_lists"
-            )
-            .delete()
-            .eq(
-              "id",
-              selectedList.id
-            );
-
-        if (
-          listError
-        ) {
-          throw listError;
-        }
-
-        setShowListDetails(
-          false
-        );
-
-        setSelectedList(
-          null
-        );
-
-        await Promise.all([
-          loadLists(),
-          loadSubscriberCounts(),
-          loadCampaigns(),
-        ]);
-      } catch (
-        error
-      ) {
-        console.error(
-          "Delete list error:",
-          error
-        );
-
-        alert(
-          "Could not delete list."
-        );
-      }
-    };
-
-  // ==================================================
-  // NEW CAMPAIGN
+  // CAMPAIGN OPEN / EDIT
   // ==================================================
 
   const openNewCampaign =
     () => {
       setEditingCampaignId(
+        null
+      );
+
+      setSelectedCampaign(
         null
       );
 
@@ -3234,22 +3351,24 @@ export default function CampaignsPage() {
         )
       );
 
-      setShowEditor(
-        true
+      setEditorStep(
+        "details"
+      );
+
+      setScreen(
+        "editor"
       );
     };
-
-  // ==================================================
-  // EDIT CAMPAIGN
-  // ==================================================
 
   const editCampaign =
     (
       campaign: Campaign
     ) => {
-      setEditingCampaignId(
-        campaign.id
-      );
+      const mode: EditorMode =
+        campaign.editor_mode ===
+        "html"
+          ? "html"
+          : "blocks";
 
       const contentText =
         extractMessage(
@@ -3257,26 +3376,27 @@ export default function CampaignsPage() {
             ""
         );
 
-      const templateBlocks: CampaignBlock[] = [
-        {
-          id: "text-existing",
-          type: "text",
-          content:
-            contentText ||
-            "Write your message here...",
-        },
-      ];
+      const blocks: CampaignBlock[] =
+        [
+          {
+            id: "existing-text",
+            type: "text",
+            content:
+              contentText ||
+              "Write your message here...",
+          },
+        ];
 
       if (
         campaign.header_image_url
       ) {
-        templateBlocks.unshift(
+        blocks.unshift(
           {
-            id: "image-existing",
+            id: "existing-image",
             type: "image",
+            content: "",
             imageUrl:
               campaign.header_image_url,
-            content: "",
           }
         );
       }
@@ -3285,8 +3405,8 @@ export default function CampaignsPage() {
         campaign.cta_text ||
         campaign.cta_url
       ) {
-        templateBlocks.push({
-          id: "button-existing",
+        blocks.push({
+          id: "existing-button",
           type: "button",
           content:
             campaign.cta_text ||
@@ -3297,71 +3417,110 @@ export default function CampaignsPage() {
         });
       }
 
-      setCampaignForm({
-        title:
-          campaign.title ||
-          "",
-
-        subject:
-          campaign.subject ||
-          "",
-
-        previewText:
-          campaign.preview_text ||
-          "",
-
-        message:
-          contentText,
-
-        listId:
-          campaign.list_id ||
-          "",
-
-        scheduledFor:
-          isoToLocalInput(
-            campaign.scheduled_for
-          ),
-
-        senderName:
-          campaign.sender_name ||
-          company.name,
-
-        replyTo:
-          campaign.reply_to ||
-          company.email,
-
-        campaignLogoUrl:
-          extractCampaignLogoUrl(
-            campaign.content ||
-              ""
-          ) ||
-          company.logoUrl,
-
-        headerImageUrl:
-          campaign.header_image_url ||
-          "",
-
-        ctaText:
-          campaign.cta_text ||
-          "",
-
-        ctaUrl:
-          campaign.cta_url ||
-          "",
-
-        brandColor:
-          campaign.brand_color ||
-          DEFAULT_BRAND_COLOR,
-        blocks:
-          templateBlocks,
-      });
-
-      setShowCampaignView(
-        false
+      setEditingCampaignId(
+        campaign.id
       );
 
-      setShowEditor(
-        true
+      setCampaignForm(
+        {
+          title:
+            campaign.title ||
+            "",
+
+          subject:
+            campaign.subject ||
+            "",
+
+          previewText:
+            campaign.preview_text ||
+            "",
+
+          message:
+            contentText,
+
+          listId:
+            campaign.list_id ||
+            "",
+
+          scheduledFor:
+            isoToLocalInput(
+              campaign.scheduled_for
+            ),
+
+          senderName:
+            campaign.sender_name ||
+            company.name,
+
+          replyTo:
+            campaign.reply_to ||
+            company.email,
+
+          campaignLogoUrl:
+            extractCampaignLogoUrl(
+              campaign.content ||
+                ""
+            ) ||
+            company.logoUrl,
+
+          headerImageUrl:
+            campaign.header_image_url ||
+            "",
+
+          ctaText:
+            campaign.cta_text ||
+            "",
+
+          ctaUrl:
+            campaign.cta_url ||
+            "",
+
+          brandColor:
+            campaign.brand_color ||
+            DEFAULT_BRAND_COLOR,
+
+          blocks,
+
+          mode,
+
+          customHtml:
+            campaign.custom_html ||
+            (mode ===
+            "html"
+              ? contentText
+              : ""),
+        }
+      );
+
+      setEditorStep(
+        "details"
+      );
+
+      setScreen(
+        "editor"
+      );
+    };
+
+  const duplicateCampaign =
+    (
+      campaign: Campaign
+    ) => {
+      editCampaign(
+        campaign
+      );
+
+      setEditingCampaignId(
+        null
+      );
+
+      setCampaignForm(
+        (
+          previous
+        ) => ({
+          ...previous,
+          title: `${previous.title} (copy)`,
+          scheduledFor:
+            "",
+        })
       );
     };
 
@@ -3369,90 +3528,116 @@ export default function CampaignsPage() {
   // PAYLOAD
   // ==================================================
 
-  const buildPayload =
-    (
-      scheduledFor:
-        | string
-        | null
-    ) => {
-      return {
-        title:
-          campaignForm.title.trim(),
+  const buildPayload = (
+    scheduledFor:
+      | string
+      | null
+  ) => ({
+    title:
+      campaignForm.title.trim(),
 
-        subject:
-          campaignForm.subject.trim(),
+    subject:
+      campaignForm.subject.trim(),
 
-        preview_text:
-          campaignForm.previewText.trim() ||
+    preview_text:
+      campaignForm.previewText.trim() ||
+      null,
+
+    content:
+      buildCampaignHtml(
+        {
+          message:
+            campaignForm.message,
+
+          company,
+
+          campaignLogoUrl:
+            campaignForm.campaignLogoUrl.trim(),
+
+          headerImageUrl:
+            campaignForm.headerImageUrl.trim(),
+
+          ctaText:
+            campaignForm.ctaText.trim(),
+
+          ctaUrl:
+            campaignForm.ctaUrl.trim(),
+
+          brandColor:
+            campaignForm.brandColor ||
+            DEFAULT_BRAND_COLOR,
+
+          blocks:
+            campaignForm.blocks,
+
+          mode:
+            campaignForm.mode,
+
+          customHtml:
+            campaignForm.customHtml,
+        }
+      ),
+
+    list_id:
+      campaignForm.listId,
+
+    scheduled_for:
+      scheduledFor,
+
+    sender_name:
+      campaignForm.senderName.trim() ||
+      company.name,
+
+    reply_to:
+      campaignForm.replyTo.trim() ||
+      company.email,
+
+    header_image_url:
+      campaignForm.headerImageUrl.trim() ||
+      null,
+
+    brand_color:
+      campaignForm.brandColor ||
+      DEFAULT_BRAND_COLOR,
+
+    cta_text:
+      campaignForm.mode ===
+      "html"
+        ? null
+        : campaignForm.ctaText.trim() ||
           null,
 
-        content:
-          buildCampaignHtml({
-            message:
-              campaignForm.message,
-
-            company,
-
-            campaignLogoUrl:
-              campaignForm.campaignLogoUrl.trim(),
-
-            headerImageUrl:
-              campaignForm.headerImageUrl.trim(),
-
-            ctaText:
-              campaignForm.ctaText.trim(),
-
-            ctaUrl:
-              campaignForm.ctaUrl.trim(),
-
-            brandColor:
-              campaignForm.brandColor ||
-              DEFAULT_BRAND_COLOR,
-            blocks:
-              campaignForm.blocks,
-          }),
-
-        list_id:
-          campaignForm.listId,
-
-        scheduled_for:
-          scheduledFor,
-
-        sender_name:
-          campaignForm.senderName.trim() ||
-          company.name,
-
-        reply_to:
-          campaignForm.replyTo.trim() ||
-          company.email,
-
-        header_image_url:
-          campaignForm.headerImageUrl.trim() ||
+    cta_url:
+      campaignForm.mode ===
+      "html"
+        ? null
+        : campaignForm.ctaUrl.trim() ||
           null,
 
-        brand_color:
-          campaignForm.brandColor ||
-          DEFAULT_BRAND_COLOR,
+    organisation_id:
+      organisationId,
 
-        cta_text:
-          campaignForm.ctaText.trim() ||
-          null,
+    editor_mode:
+      campaignForm.mode,
 
-        cta_url:
-          campaignForm.ctaUrl.trim() ||
-          null,
-
-        organisation_id:
-          organisationId,
-      };
-    };
+    custom_html:
+      campaignForm.mode ===
+      "html"
+        ? campaignForm.customHtml
+        : null,
+  });
 
   // ==================================================
-  // VALIDATION
+  // WIZARD VALIDATION
   // ==================================================
 
-  const validateCampaign =
-    () => {
+  const validateStep = (
+    step: EditorStep
+  ) => {
+    if (
+      step ===
+      "details"
+    ) {
       if (
         !campaignForm.title.trim()
       ) {
@@ -3474,20 +3659,28 @@ export default function CampaignsPage() {
       }
 
       if (
-        !campaignForm.message.trim()
+        campaignForm.replyTo.trim() &&
+        !isValidEmail(
+          campaignForm.replyTo.trim()
+        )
       ) {
         alert(
-          "Write your email message."
+          "Enter a valid reply-to email."
         );
 
         return false;
       }
+    }
 
+    if (
+      step ===
+      "audience"
+    ) {
       if (
         !campaignForm.listId
       ) {
         alert(
-          "Choose a campaign list."
+          "Choose an audience."
         );
 
         return false;
@@ -3496,205 +3689,134 @@ export default function CampaignsPage() {
       if (
         (subscriberCounts[
           campaignForm.listId
-        ] || 0) ===
-        0
+        ] || 0) === 0
       ) {
         alert(
-          "This campaign list has no recipients."
+          "This audience has no subscribers."
         );
 
         return false;
       }
+    }
 
+    if (
+      step ===
+      "design"
+    ) {
       if (
-        campaignForm.replyTo.trim() &&
-        !isValidEmail(
-          campaignForm.replyTo.trim()
-        )
+        campaignForm.mode ===
+        "html"
       ) {
-        alert(
-          "Enter a valid reply-to email address."
-        );
+        if (
+          !campaignForm.customHtml.trim()
+        ) {
+          alert(
+            "Add your custom HTML."
+          );
 
-        return false;
-      }
-
-      if (
-        Boolean(
-          campaignForm.ctaText.trim()
-        ) !==
-        Boolean(
-          campaignForm.ctaUrl.trim()
-        )
-      ) {
-        alert(
-          "Enter both button text and a button URL, or leave both blank."
-        );
-
-        return false;
-      }
-
-      return true;
-    };
-
-  // ==================================================
-  // SCHEDULE CAMPAIGN
-  // ==================================================
-
-  const scheduleCampaign =
-    async () => {
-      if (
-        !validateCampaign() ||
-        !organisationId
-      ) {
-        return;
-      }
-
-      if (
-        !campaignForm.scheduledFor
-      ) {
-        alert(
-          "Choose a date and time, or use Send Now."
-        );
-
-        return;
-      }
-
-      const isoDate =
-        localInputToIso(
-          campaignForm.scheduledFor
-        );
-
-      if (
-        !isoDate
-      ) {
-        alert(
-          "Invalid scheduled date."
-        );
-
-        return;
-      }
-
-      if (
-        new Date(
-          isoDate
-        ).getTime() <=
-        Date.now()
-      ) {
-        alert(
-          "Scheduled time must be in the future."
-        );
-
-        return;
-      }
-
-      setSavingCampaign(
-        true
-      );
-
-      try {
-        const payload = {
-          ...buildPayload(
-            isoDate
-          ),
-
-          status:
-            "queued",
-
-          sent_at:
-            null,
-
-          sent_count:
-            0,
-
-          open_count:
-            0,
-
-          click_count:
-            0,
-        };
+          return false;
+        }
+      } else {
+        const hasContent =
+          campaignForm.blocks.some(
+            (
+              block
+            ) =>
+              Boolean(
+                block.content?.trim()
+              ) ||
+              Boolean(
+                block.imageUrl
+              )
+          );
 
         if (
-          editingCampaignId
+          !hasContent
         ) {
-          const {
-            error,
-          } =
-            await supabase
-              .from(
-                "campaigns"
-              )
-              .update(
-                payload
-              )
-              .eq(
-                "id",
-                editingCampaignId
-              );
+          alert(
+            "Add some content to your email."
+          );
 
-          if (
-            error
-          ) {
-            throw error;
-          }
-        } else {
-          const {
-            data: {
-              user,
-            },
-          } =
-            await supabase.auth.getUser();
-
-          const {
-            error,
-          } =
-            await supabase
-              .from(
-                "campaigns"
-              )
-              .insert({
-                ...payload,
-
-                user_id:
-                  user?.id,
-              });
-
-          if (
-            error
-          ) {
-            throw error;
-          }
+          return false;
         }
+      }
+    }
 
-        setShowEditor(
-          false
-        );
+    return true;
+  };
 
-        setEditingCampaignId(
-          null
-        );
-
-        await loadCampaigns();
-      } catch (
-        error
+  const goNext =
+    () => {
+      if (
+        !validateStep(
+          editorStep
+        )
       ) {
-        console.error(
-          "Schedule campaign error:",
-          error
+        return;
+      }
+
+      const index =
+        EDITOR_STEPS.findIndex(
+          (
+            step
+          ) =>
+            step.id ===
+            editorStep
         );
 
-        alert(
-          "Could not schedule campaign."
-        );
-      } finally {
-        setSavingCampaign(
-          false
+      if (
+        index <
+        EDITOR_STEPS.length -
+          1
+      ) {
+        setEditorStep(
+          EDITOR_STEPS[
+            index + 1
+          ].id
         );
       }
     };
 
+  const goPrevious =
+    () => {
+      const index =
+        EDITOR_STEPS.findIndex(
+          (
+            step
+          ) =>
+            step.id ===
+            editorStep
+        );
+
+      if (
+        index > 0
+      ) {
+        setEditorStep(
+          EDITOR_STEPS[
+            index - 1
+          ].id
+        );
+      } else {
+        setScreen(
+          "campaigns"
+        );
+      }
+    };
+
+  const validateCampaign =
+    () =>
+      validateStep(
+        "details"
+      ) &&
+      validateStep(
+        "audience"
+      ) &&
+      validateStep(
+        "design"
+      );
+
   // ==================================================
-  // SEND API
+  // SEND / SCHEDULE
   // ==================================================
 
   const callSendApi =
@@ -3713,10 +3835,11 @@ export default function CampaignsPage() {
                 "application/json",
             },
 
-            body:
-              JSON.stringify({
+            body: JSON.stringify(
+              {
                 campaignId,
-              }),
+              }
+            ),
           }
         );
 
@@ -3740,110 +3863,6 @@ export default function CampaignsPage() {
       return result;
     };
 
-  // ==================================================
-  // SEND EXISTING
-  // ==================================================
-
-  const sendExistingCampaign =
-    async (
-      campaignId: string
-    ) => {
-      setSendingCampaignId(
-        campaignId
-      );
-
-      /*
-       * Immediate optimistic state so the UI responds
-       * before the server request completes.
-       */
-      setCampaigns(
-        (
-          previous
-        ) =>
-          previous.map(
-            (
-              campaign
-            ) =>
-              campaign.id ===
-              campaignId
-                ? {
-                    ...campaign,
-
-                    status:
-                      "processing",
-                  }
-                : campaign
-          )
-      );
-
-      try {
-        const result =
-          await callSendApi(
-            campaignId
-          );
-
-        /*
-         * The fixed send API returns the final campaign
-         * row. Use it immediately when available.
-         */
-        if (
-          result?.campaign
-        ) {
-          setCampaigns(
-            (
-              previous
-            ) =>
-              previous.map(
-                (
-                  campaign
-                ) =>
-                  campaign.id ===
-                  campaignId
-                    ? {
-                        ...campaign,
-
-                        ...result.campaign,
-
-                        status:
-                          result.campaign.status ||
-                          "sent",
-                      }
-                    : campaign
-              )
-          );
-        }
-
-        await loadCampaigns();
-      } catch (
-        error
-      ) {
-        const message =
-          error instanceof
-          Error
-            ? error.message
-            : "Campaign could not be sent.";
-
-        console.error(
-          "Send existing campaign error:",
-          error
-        );
-
-        alert(
-          message
-        );
-
-        await loadCampaigns();
-      } finally {
-        setSendingCampaignId(
-          null
-        );
-      }
-    };
-
-  // ==================================================
-  // SAVE + SEND
-  // ==================================================
-
   const saveAndSendNow =
     async () => {
       if (
@@ -3858,36 +3877,35 @@ export default function CampaignsPage() {
       );
 
       try {
-        const payload = {
-          ...buildPayload(
-            null
-          ),
+        const payload =
+          {
+            ...buildPayload(
+              null
+            ),
 
-          scheduled_for:
-            null,
+            scheduled_for:
+              null,
 
-          status:
-            "queued",
+            status:
+              "queued",
 
-          /*
-           * A resend/edit starts a fresh campaign run.
-           */
-          sent_at:
-            null,
+            sent_at:
+              null,
 
-          sent_count:
-            0,
+            sent_count:
+              0,
 
-          open_count:
-            0,
+            open_count:
+              0,
 
-          click_count:
-            0,
-        };
+            click_count:
+              0,
+          };
 
         let campaignId:
           | string
-          | null = null;
+          | null =
+          null;
 
         if (
           editingCampaignId
@@ -3912,9 +3930,7 @@ export default function CampaignsPage() {
               )
               .single();
 
-          if (
-            error
-          ) {
+          if (error) {
             throw error;
           }
 
@@ -3938,7 +3954,6 @@ export default function CampaignsPage() {
               )
               .insert({
                 ...payload,
-
                 user_id:
                   user?.id,
               })
@@ -3947,9 +3962,7 @@ export default function CampaignsPage() {
               )
               .single();
 
-          if (
-            error
-          ) {
+          if (error) {
             throw error;
           }
 
@@ -3957,94 +3970,32 @@ export default function CampaignsPage() {
             data.id;
         }
 
-        if (
-          !campaignId
-        ) {
-          throw new Error(
-            "Campaign ID was not returned."
-          );
-        }
-
-        const result =
-          await callSendApi(
-            campaignId
-          );
-
-        setShowEditor(
-          false
+        await callSendApi(
+          campaignId
         );
+
+        await loadCampaigns();
 
         setEditingCampaignId(
           null
         );
 
-        if (
-          result?.campaign
-        ) {
-          setCampaigns(
-            (
-              previous
-            ) => {
-              const exists =
-                previous.some(
-                  (
-                    campaign
-                  ) =>
-                    campaign.id ===
-                    campaignId
-                );
-
-              if (
-                exists
-              ) {
-                return previous.map(
-                  (
-                    campaign
-                  ) =>
-                    campaign.id ===
-                    campaignId
-                      ? {
-                          ...campaign,
-
-                          ...result.campaign,
-
-                          status:
-                            result.campaign
-                              .status ||
-                            "sent",
-                        }
-                      : campaign
-                );
-              }
-
-              return [
-                result.campaign,
-                ...previous,
-              ];
-            }
-          );
-        }
-
-        await loadCampaigns();
+        setScreen(
+          "campaigns"
+        );
       } catch (
         error
       ) {
-        const message =
-          error instanceof
-          Error
-            ? error.message
-            : "Campaign could not be sent.";
-
         console.error(
-          "Send campaign error:",
           error
         );
 
         alert(
-          message
+          error instanceof
+            Error
+            ? error.message
+            : "Could not send campaign."
         );
-
-        await loadCampaigns();
       } finally {
         setSavingCampaign(
           false
@@ -4052,9 +4003,176 @@ export default function CampaignsPage() {
       }
     };
 
-  // ==================================================
-  // DELETE CAMPAIGN
-  // ==================================================
+  const scheduleCampaign =
+    async () => {
+      if (
+        !validateCampaign() ||
+        !organisationId
+      ) {
+        return;
+      }
+
+      if (
+        !campaignForm.scheduledFor
+      ) {
+        alert(
+          "Choose a date and time."
+        );
+
+        return;
+      }
+
+      const isoDate =
+        localInputToIso(
+          campaignForm.scheduledFor
+        );
+
+      if (!isoDate) {
+        alert(
+          "Invalid date."
+        );
+
+        return;
+      }
+
+      if (
+        new Date(
+          isoDate
+        ).getTime() <=
+        Date.now()
+      ) {
+        alert(
+          "Scheduled time must be in the future."
+        );
+
+        return;
+      }
+
+      setSavingCampaign(
+        true
+      );
+
+      try {
+        const payload =
+          {
+            ...buildPayload(
+              isoDate
+            ),
+
+            status:
+              "queued",
+
+            sent_at:
+              null,
+
+            sent_count:
+              0,
+
+            open_count:
+              0,
+
+            click_count:
+              0,
+          };
+
+        if (
+          editingCampaignId
+        ) {
+          const {
+            error,
+          } =
+            await supabase
+              .from(
+                "campaigns"
+              )
+              .update(
+                payload
+              )
+              .eq(
+                "id",
+                editingCampaignId
+              );
+
+          if (error) {
+            throw error;
+          }
+        } else {
+          const {
+            data: {
+              user,
+            },
+          } =
+            await supabase.auth.getUser();
+
+          const {
+            error,
+          } =
+            await supabase
+              .from(
+                "campaigns"
+              )
+              .insert({
+                ...payload,
+                user_id:
+                  user?.id,
+              });
+
+          if (error) {
+            throw error;
+          }
+        }
+
+        await loadCampaigns();
+
+        setScreen(
+          "campaigns"
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          error
+        );
+
+        alert(
+          "Could not schedule campaign."
+        );
+      } finally {
+        setSavingCampaign(
+          false
+        );
+      }
+    };
+
+  const sendExistingCampaign =
+    async (
+      campaignId: string
+    ) => {
+      setSendingCampaignId(
+        campaignId
+      );
+
+      try {
+        await callSendApi(
+          campaignId
+        );
+
+        await loadCampaigns();
+      } catch (
+        error
+      ) {
+        alert(
+          error instanceof
+            Error
+            ? error.message
+            : "Could not send campaign."
+        );
+      } finally {
+        setSendingCampaignId(
+          null
+        );
+      }
+    };
 
   const deleteCampaign =
     async (
@@ -4081,14 +4199,7 @@ export default function CampaignsPage() {
             campaign.id
           );
 
-      if (
-        error
-      ) {
-        console.error(
-          "Delete campaign error:",
-          error
-        );
-
+      if (error) {
         alert(
           "Could not delete campaign."
         );
@@ -4096,1714 +4207,1857 @@ export default function CampaignsPage() {
         return;
       }
 
-      setShowCampaignView(
-        false
-      );
-
       setSelectedCampaign(
         null
+      );
+
+      setScreen(
+        "campaigns"
       );
 
       await loadCampaigns();
     };
 
   // ==================================================
+  // TEST SEND
+  // ==================================================
+
+  const sendTestEmail =
+    async () => {
+      if (
+        !isValidEmail(
+          testEmail
+        )
+      ) {
+        setTestSendResult(
+          "Enter a valid email."
+        );
+
+        return;
+      }
+
+      if (
+        !validateStep(
+          "details"
+        ) ||
+        !validateStep(
+          "design"
+        )
+      ) {
+        return;
+      }
+
+      setSendingTest(
+        true
+      );
+
+      setTestSendResult(
+        null
+      );
+
+      try {
+        const html =
+          buildCampaignHtml(
+            {
+              message:
+                campaignForm.message,
+
+              company,
+
+              campaignLogoUrl:
+                campaignForm.campaignLogoUrl,
+
+              headerImageUrl:
+                campaignForm.headerImageUrl,
+
+              ctaText:
+                campaignForm.ctaText,
+
+              ctaUrl:
+                campaignForm.ctaUrl,
+
+              brandColor:
+                campaignForm.brandColor,
+
+              blocks:
+                campaignForm.blocks,
+
+              mode:
+                campaignForm.mode,
+
+              customHtml:
+                campaignForm.customHtml,
+            }
+          );
+
+        const response =
+          await fetch(
+            "/api/campaigns/send-test",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify(
+                {
+                  to: testEmail.trim(),
+
+                  subject: `[TEST] ${
+                    campaignForm.subject ||
+                    "(no subject)"
+                  }`,
+
+                  html,
+
+                  senderName:
+                    campaignForm.senderName ||
+                    company.name,
+
+                  replyTo:
+                    campaignForm.replyTo ||
+                    company.email,
+                }
+              ),
+            }
+          );
+
+        const result =
+          await response
+            .json()
+            .catch(
+              () => ({})
+            );
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result.error ||
+              "Could not send test."
+          );
+        }
+
+        setTestSendResult(
+          `Test sent to ${testEmail}`
+        );
+      } catch (
+        error
+      ) {
+        setTestSendResult(
+          error instanceof
+            Error
+            ? error.message
+            : "Could not send test."
+        );
+      } finally {
+        setSendingTest(
+          false
+        );
+      }
+    };
+
+  // ==================================================
+  // AI
+  // ==================================================
+
+  const generateWithAi =
+    async () => {
+      if (
+        !aiPrompt.trim()
+      ) {
+        setAiError(
+          "Tell TOTS what you want to write."
+        );
+
+        return;
+      }
+
+      setAiGenerating(
+        true
+      );
+
+      setAiError(
+        null
+      );
+
+      try {
+        const response =
+          await fetch(
+            "/api/campaigns/ai-generate",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify(
+                {
+                  prompt:
+                    aiPrompt,
+
+                  tone:
+                    aiTone,
+
+                  format:
+                    aiTarget,
+
+                  companyName:
+                    company.name,
+                }
+              ),
+            }
+          );
+
+        const result =
+          await response
+            .json()
+            .catch(
+              () => ({})
+            );
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result.error ||
+              "Could not generate content."
+          );
+        }
+
+        if (
+          aiTarget ===
+            "html" &&
+          result.html
+        ) {
+          setCampaignForm(
+            (
+              previous
+            ) => ({
+              ...previous,
+
+              mode:
+                "html",
+
+              customHtml:
+                result.html,
+            })
+          );
+        }
+
+        if (
+          aiTarget ===
+            "blocks" &&
+          Array.isArray(
+            result.blocks
+          )
+        ) {
+          setCampaignForm(
+            (
+              previous
+            ) => ({
+              ...previous,
+
+              mode:
+                "blocks",
+
+              blocks:
+                result.blocks.map(
+                  (
+                    block: any
+                  ) => ({
+                    id: `${
+                      block.type ||
+                      "text"
+                    }-${Date.now()}-${Math.random()
+                      .toString(
+                        36
+                      )
+                      .slice(
+                        2,
+                        8
+                      )}`,
+
+                    type:
+                      [
+                        "text",
+                        "image",
+                        "button",
+                        "divider",
+                        "spacer",
+                      ].includes(
+                        block.type
+                      )
+                        ? block.type
+                        : "text",
+
+                    content:
+                      block.content ||
+                      "",
+
+                    url:
+                      block.url ||
+                      "",
+
+                    imageUrl:
+                      block.imageUrl ||
+                      "",
+                  })
+                ),
+            })
+          );
+        }
+
+        if (
+          result.subject &&
+          !campaignForm.subject
+        ) {
+          setCampaignForm(
+            (
+              previous
+            ) => ({
+              ...previous,
+              subject:
+                result.subject,
+            })
+          );
+        }
+
+        setShowAiAssist(
+          false
+        );
+
+        setAiPrompt(
+          ""
+        );
+      } catch (
+        error
+      ) {
+        setAiError(
+          error instanceof
+            Error
+            ? error.message
+            : "Could not generate."
+        );
+      } finally {
+        setAiGenerating(
+          false
+        );
+      }
+    };
+
+  // ==================================================
+  // PREVIEW
+  // ==================================================
+
+  const previewHtml =
+    buildCampaignHtml(
+      {
+        message:
+          campaignForm.message,
+
+        company,
+
+        campaignLogoUrl:
+          campaignForm.campaignLogoUrl.trim(),
+
+        headerImageUrl:
+          campaignForm.headerImageUrl.trim(),
+
+        ctaText:
+          campaignForm.ctaText.trim(),
+
+        ctaUrl:
+          campaignForm.ctaUrl.trim(),
+
+        brandColor:
+          campaignForm.brandColor,
+
+        blocks:
+          campaignForm.blocks,
+
+        mode:
+          campaignForm.mode,
+
+        customHtml:
+          campaignForm.customHtml,
+      }
+    );
+
+  // ==================================================
   // LOADING
   // ==================================================
 
-  if (
-    loading
-  ) {
+  if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
+      <div className="flex min-h-screen items-center justify-center bg-[#f8f8f7]">
         <Loader2 className="h-7 w-7 animate-spin text-stone-400" />
       </div>
     );
   }
 
   // ==================================================
-  // RENDER
+  // EDITOR SCREEN
   // ==================================================
 
-  return (
-    <div className="min-h-screen bg-[#faf9f6] p-4 text-stone-900 md:p-12">
-      {/* ==================================================
-          HEADER
-      ================================================== */}
+  if (
+    screen ===
+    "editor"
+  ) {
+    return (
+      <div className="min-h-screen bg-[#f7f7f5] text-stone-900">
+        {/* EDITOR HEADER */}
 
-      <header className="mx-auto mb-12 flex max-w-7xl flex-col gap-6 border-b border-stone-200 pb-10 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="mb-3 text-[9px] font-black uppercase tracking-[0.5em] text-[#8fa07d]">
-            Campaign Dashboard
-          </p>
-
-          <h1 className="font-serif text-5xl italic tracking-tight md:text-7xl">
-            Campaigns
-          </h1>
-
-          <p className="mt-4 max-w-xl text-sm leading-relaxed text-stone-500">
-            Create branded email campaigns,
-            manage your audience and track
-            performance.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button
-            onClick={() =>
-              void refreshStats()
-            }
-            disabled={
-              refreshingStats
-            }
-            className="flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-5 py-4 text-[9px] font-black uppercase tracking-wider text-stone-500 shadow-sm disabled:opacity-50"
-          >
-            <RefreshCw
-              size={14}
-              className={
-                refreshingStats
-                  ? "animate-spin"
-                  : ""
-              }
-            />
-
-            Refresh Stats
-          </button>
-
-          <button
-            onClick={
-              openNewCampaign
-            }
-            className="flex items-center justify-center gap-3 rounded-2xl bg-stone-900 px-7 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-[#a9b897] shadow-lg"
-          >
-            <Plus
-              size={16}
-            />
-
-            New Campaign
-          </button>
-        </div>
-      </header>
-
-      {/* ==================================================
-          GRID
-      ================================================== */}
-
-      <main className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_360px]">
-        {/* ==================================================
-            CAMPAIGNS
-        ================================================== */}
-
-        <section>
-          <div className="mb-5 flex items-center justify-between">
-            <p className="text-[9px] font-black uppercase tracking-[0.35em] text-stone-400">
-              Your Campaigns
-            </p>
-
-            <span className="rounded-full bg-white px-3 py-2 text-[9px] font-black text-stone-400 shadow-sm">
-              {
-                campaigns.length
-              }
-            </span>
-          </div>
-
-          <div className="space-y-4">
-            {campaigns.length ===
-              0 && (
-              <div className="rounded-[2.5rem] border border-stone-100 bg-white p-16 text-center shadow-sm">
-                <Mail
-                  size={28}
-                  className="mx-auto mb-5 text-stone-200"
-                />
-
-                <p className="font-serif text-xl italic text-stone-300">
-                  No campaigns yet.
-                </p>
-              </div>
-            )}
-
-            {campaigns.map(
-              (
-                campaign
-              ) => {
-                const status =
-                  getStatusLabel(
-                    campaign
-                  );
-
-                return (
-                  <button
-                    type="button"
-                    key={
-                      campaign.id
-                    }
-                    onClick={() => {
-                      setSelectedCampaign(
-                        campaign
-                      );
-
-                      setShowCampaignView(
-                        true
-                      );
-                    }}
-                    className="w-full rounded-[2rem] border border-stone-100 bg-white p-6 text-left shadow-sm transition hover:border-stone-200 hover:shadow-md"
-                  >
-                    <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <h2 className="truncate text-lg font-black text-stone-800">
-                            {
-                              campaign.title
-                            }
-                          </h2>
-
-                          <span className="rounded-full bg-stone-100 px-3 py-1 text-[8px] font-black uppercase tracking-wider text-stone-500">
-                            {campaign
-                              .subscriber_lists
-                              ?.name ||
-                              "No list"}
-                          </span>
-                        </div>
-
-                        <p className="truncate font-serif text-sm italic text-stone-500">
-                          {campaign.subject ||
-                            "No subject"}
-                        </p>
-
-                        <div className="mt-4 flex flex-wrap items-center gap-4 text-[9px] font-bold uppercase tracking-wider text-stone-400">
-                          {campaign.sent_at ? (
-                            <span className="flex items-center gap-1.5">
-                              <Check
-                                size={
-                                  11
-                                }
-                              />
-
-                              Sent{" "}
-                              {formatDate(
-                                campaign.sent_at
-                              )}
-                            </span>
-                          ) : campaign.scheduled_for ? (
-                            <span className="flex items-center gap-1.5">
-                              <Calendar
-                                size={
-                                  11
-                                }
-                              />
-
-                              Scheduled{" "}
-                              {formatDate(
-                                campaign.scheduled_for
-                              )}
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1.5">
-                              <Clock
-                                size={
-                                  11
-                                }
-                              />
-
-                              Not scheduled
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="shrink-0">
-                        <div className="mb-3 flex justify-start md:justify-end">
-                          <span
-                            className={`rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-wider ${
-                              status ===
-                              "sent"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : status ===
-                                      "sending" ||
-                                    status ===
-                                      "processing"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : status ===
-                                      "failed"
-                                    ? "bg-red-100 text-red-700"
-                                    : status ===
-                                        "queued"
-                                      ? "bg-blue-50 text-blue-600"
-                                      : "bg-stone-100 text-stone-500"
-                            }`}
-                          >
-                            {
-                              status
-                            }
-                          </span>
-                        </div>
-
-                        {status ===
-                          "sent" && (
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="min-w-[62px] rounded-xl bg-stone-50 px-3 py-2 text-center">
-                              <p className="text-sm font-black text-stone-700">
-                                {campaign.sent_count ||
-                                  0}
-                              </p>
-
-                              <p className="mt-1 text-[7px] font-black uppercase tracking-wider text-stone-300">
-                                Sent
-                              </p>
-                            </div>
-
-                            <div className="min-w-[62px] rounded-xl bg-stone-50 px-3 py-2 text-center">
-                              <p className="text-sm font-black text-stone-700">
-                                {campaign.open_count ||
-                                  0}
-                              </p>
-
-                              <p className="mt-1 text-[7px] font-black uppercase tracking-wider text-stone-300">
-                                Opens
-                              </p>
-                            </div>
-
-                            <div className="min-w-[62px] rounded-xl bg-stone-50 px-3 py-2 text-center">
-                              <p className="text-sm font-black text-stone-700">
-                                {campaign.click_count ||
-                                  0}
-                              </p>
-
-                              <p className="mt-1 text-[7px] font-black uppercase tracking-wider text-stone-300">
-                                Clicks
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              }
-            )}
-          </div>
-        </section>
-
-        {/* ==================================================
-            LISTS
-        ================================================== */}
-
-        <aside>
-          <div className="sticky top-6 rounded-[2.5rem] border border-stone-200 bg-stone-50 p-7 shadow-sm">
-            <div className="mb-7 flex items-center justify-between">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
-                  Campaign Lists
-                </p>
-
-                <p className="mt-2 text-xs text-stone-400">
-                  Manage your audiences.
-                </p>
-              </div>
-
+        <header className="sticky top-0 z-40 border-b border-stone-200 bg-white">
+          <div className="flex items-center justify-between gap-4 px-5 py-4 md:px-8">
+            <div className="flex min-w-0 items-center gap-4">
               <button
+                type="button"
                 onClick={() =>
-                  setShowCreateList(
-                    true
+                  setScreen(
+                    "campaigns"
                   )
                 }
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50"
               >
-                <Plus
-                  size={15}
+                <ArrowLeft
+                  size={16}
                 />
               </button>
+
+              <div className="min-w-0">
+                <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#82916f]">
+                  {editingCampaignId
+                    ? "Edit Campaign"
+                    : "New Campaign"}
+                </p>
+
+                <h1 className="truncate text-lg font-black">
+                  {campaignForm.title ||
+                    "Untitled campaign"}
+                </h1>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              {lists.length ===
-                0 && (
-                <p className="py-6 text-center font-serif text-sm italic text-stone-300">
-                  No lists yet.
-                </p>
-              )}
-
-              {lists.map(
-                (
-                  list
-                ) => (
-                  <button
-                    type="button"
-                    key={
-                      list.id
-                    }
-                    onClick={() =>
-                      void openList(
-                        list
-                      )
-                    }
-                    className="flex w-full items-center justify-between rounded-xl px-3 py-4 text-left transition hover:bg-white"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Hash
-                        size={
-                          12
-                        }
-                        className="shrink-0 text-stone-300"
-                      />
-
-                      <span className="truncate text-xs font-bold text-stone-700">
-                        {
-                          list.name
-                        }
-                      </span>
-                    </div>
-
-                    <span className="ml-3 shrink-0 rounded-full bg-white px-2.5 py-1 text-[8px] font-black text-stone-400">
-                      {subscriberCounts[
-                        list.id
-                      ] || 0}
-                    </span>
-                  </button>
+            <button
+              type="button"
+              onClick={() =>
+                setShowAiAssist(
+                  true
                 )
-              )}
-            </div>
-          </div>
-        </aside>
-      </main>
-
-      {/* ==================================================
-          CREATE LIST MODAL
-      ================================================== */}
-
-      <AnimatePresence>
-        {showCreateList && (
-          <div className="fixed inset-0 z-[300] flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-sm">
-            <motion.div
-              initial={{
-                opacity:
-                  0,
-                scale:
-                  0.96,
-              }}
-              animate={{
-                opacity:
-                  1,
-                scale:
-                  1,
-              }}
-              exit={{
-                opacity:
-                  0,
-                scale:
-                  0.96,
-              }}
-              className="relative w-full max-w-md rounded-[2.5rem] bg-white p-8 shadow-2xl"
+              }
+              className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-3 text-[9px] font-black uppercase tracking-[0.12em] text-white"
             >
-              <button
-                onClick={() =>
-                  setShowCreateList(
-                    false
-                  )
-                }
-                className="absolute right-7 top-7 rounded-full p-2 text-stone-400 hover:bg-stone-50"
-              >
-                <X
-                  size={
-                    17
-                  }
-                />
-              </button>
-
-              <p className="mb-2 text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
-                New Audience
-              </p>
-
-              <h2 className="mb-6 font-serif text-3xl italic">
-                Create a list
-              </h2>
-
-              <input
-                value={
-                  newListName
-                }
-                onChange={(
-                  event
-                ) =>
-                  setNewListName(
-                    event.target
-                      .value
-                  )
-                }
-                onKeyDown={(
-                  event
-                ) => {
-                  if (
-                    event.key ===
-                    "Enter"
-                  ) {
-                    void createList();
-                  }
-                }}
-                placeholder="e.g. Newsletter"
-                className="w-full rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm outline-none focus:border-stone-900"
+              <Sparkles
+                size={13}
               />
-
-              <button
-                onClick={() =>
-                  void createList()
-                }
-                className="mt-5 w-full rounded-2xl bg-stone-900 py-4 text-[10px] font-black uppercase tracking-wider text-white"
-              >
-                Create List
-              </button>
-            </motion.div>
+              AI Assist
+            </button>
           </div>
-        )}
-      </AnimatePresence>
 
-      {/* ==================================================
-          LIST DETAILS
-      ================================================== */}
+          <StepBar
+            current={
+              editorStep
+            }
+            onStep={
+              setEditorStep
+            }
+          />
+        </header>
 
-      <AnimatePresence>
-        {showListDetails &&
-          selectedList && (
-            <div className="fixed inset-0 z-[350] flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-sm">
-              <motion.div
-                initial={{
-                  opacity:
-                    0,
-                  scale:
-                    0.96,
-                }}
-                animate={{
-                  opacity:
-                    1,
-                  scale:
-                    1,
-                }}
-                exit={{
-                  opacity:
-                    0,
-                  scale:
-                    0.96,
-                }}
-                className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[2.5rem] bg-white shadow-2xl"
-              >
-                <div className="flex items-center justify-between border-b border-stone-100 p-7">
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
-                      Campaign List
-                    </p>
+        {/* EDITOR BODY */}
 
-                    <h2 className="mt-2 font-serif text-3xl italic">
-                      {
-                        selectedList.name
-                      }
-                    </h2>
-                  </div>
+        <main className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-12">
+          {/* STEP 1 DETAILS */}
 
-                  <button
-                    onClick={() => {
-                      setShowListDetails(
-                        false
-                      );
+          {editorStep ===
+            "details" && (
+            <div className="mx-auto max-w-3xl">
+              <div className="mb-8">
+                <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#82916f]">
+                  Step 1
+                </p>
 
-                      setSelectedList(
-                        null
-                      );
-                    }}
-                    className="rounded-full p-3 hover:bg-stone-50"
-                  >
-                    <X
-                      size={
-                        18
-                      }
-                    />
-                  </button>
-                </div>
+                <h2 className="mt-3 text-3xl font-black md:text-4xl">
+                  Campaign
+                  details
+                </h2>
 
-                <div className="flex-1 overflow-y-auto p-7">
-                  <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                    <div>
-                      <p className="text-sm font-black text-stone-800">
-                        {
-                          listSubscribers.length
-                        }{" "}
-                        subscriber
-                        {listSubscribers.length ===
-                        1
-                          ? ""
-                          : "s"}
-                      </p>
+                <p className="mt-3 text-sm leading-7 text-stone-500">
+                  Start with
+                  what your
+                  subscribers will
+                  see in their
+                  inbox.
+                </p>
+              </div>
 
-                      <p className="mt-1 text-[10px] text-stone-400">
-                        Contacts and manually
-                        added emails.
-                      </p>
-                    </div>
+              <div className="space-y-5 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm md:p-8">
+                <div>
+                  <FieldLabel>
+                    Campaign
+                    name
+                  </FieldLabel>
 
-                    <button
-                      onClick={() => {
-                        setSelectedProfiles(
-                          []
-                        );
-
-                        setManualEmails(
-                          ""
-                        );
-
-                        setShowSubscriberManager(
-                          true
-                        );
-                      }}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-wider text-[#a9b897]"
-                    >
-                      <Plus
-                        size={
-                          13
-                        }
-                      />
-
-                      Add Subscribers
-                    </button>
-                  </div>
-
-                  {loadingList ? (
-                    <div className="flex justify-center py-12">
-                      <Loader2 className="animate-spin text-stone-300" />
-                    </div>
-                  ) : listSubscribers.length ===
-                    0 ? (
-                    <div className="rounded-2xl border border-dashed border-stone-200 p-10 text-center">
-                      <Mail
-                        size={
-                          23
-                        }
-                        className="mx-auto mb-4 text-stone-200"
-                      />
-
-                      <p className="font-serif italic text-stone-400">
-                        This list is empty.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {listSubscribers.map(
+                  <input
+                    value={
+                      campaignForm.title
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setCampaignForm(
                         (
-                          subscriber
-                        ) => (
-                          <div
-                            key={`${subscriber.source}-${subscriber.id}`}
-                            className="flex items-center justify-between gap-4 rounded-2xl border border-stone-100 bg-stone-50 p-4"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate text-sm font-bold text-stone-800">
-                                  {subscriber.name ||
-                                    subscriber.email}
-                                </p>
-
-                                {subscriber.source ===
-                                  "manual" && (
-                                  <span className="rounded-full bg-[#a9b897]/20 px-2 py-1 text-[7px] font-black uppercase tracking-wider text-[#71805f]">
-                                    Email
-                                  </span>
-                                )}
-                              </div>
-
-                              {subscriber.name && (
-                                <p className="mt-1 truncate text-xs text-stone-500">
-                                  {
-                                    subscriber.email
-                                  }
-                                </p>
-                              )}
-                            </div>
-
-                            <button
-                              onClick={() =>
-                                void removeSubscriber(
-                                  subscriber
-                                )
-                              }
-                              className="shrink-0 rounded-lg p-2 text-red-500 hover:bg-red-50"
-                            >
-                              <Trash2
-                                size={
-                                  14
-                                }
-                              />
-                            </button>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-between border-t border-stone-100 bg-stone-50 p-6">
-                  <button
-                    onClick={() =>
-                      void deleteList()
-                    }
-                    className="text-[9px] font-black uppercase tracking-wider text-red-500"
-                  >
-                    Delete List
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setShowListDetails(
-                        false
+                          previous
+                        ) => ({
+                          ...previous,
+                          title:
+                            event
+                              .target
+                              .value,
+                        })
                       )
                     }
-                    className="rounded-xl bg-stone-900 px-6 py-3 text-[9px] font-black uppercase tracking-wider text-[#a9b897]"
-                  >
-                    Done
-                  </button>
+                    placeholder="August launch campaign"
+                    className="w-full rounded-xl border border-stone-200 bg-white px-4 py-4 text-sm font-semibold outline-none transition focus:border-stone-900"
+                  />
+
+                  <p className="mt-2 text-[10px] text-stone-400">
+                    Only you
+                    will see
+                    this name.
+                  </p>
                 </div>
-              </motion.div>
-            </div>
-          )}
-      </AnimatePresence>
 
-      {/* ==================================================
-          SUBSCRIBER MANAGER
-      ================================================== */}
+                <div>
+                  <FieldLabel>
+                    Subject
+                    line
+                  </FieldLabel>
 
-      <AnimatePresence>
-        {showSubscriberManager &&
-          selectedList && (
-            <div className="fixed inset-0 z-[500] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm">
-              <motion.div
-                initial={{
-                  opacity:
-                    0,
-                  scale:
-                    0.96,
-                }}
-                animate={{
-                  opacity:
-                    1,
-                  scale:
-                    1,
-                }}
-                exit={{
-                  opacity:
-                    0,
-                  scale:
-                    0.96,
-                }}
-                className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[2.5rem] bg-white shadow-2xl"
-              >
-                <div className="flex items-center justify-between border-b border-stone-100 p-7">
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                  <input
+                    value={
+                      campaignForm.subject
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setCampaignForm(
+                        (
+                          previous
+                        ) => ({
+                          ...previous,
+                          subject:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
+                    }
+                    placeholder="Something exciting is here..."
+                    className="w-full rounded-xl border border-stone-200 px-4 py-4 text-lg font-bold outline-none transition focus:border-stone-900"
+                  />
+
+                  <div className="mt-2 flex justify-between text-[10px] text-stone-400">
+                    <span>
+                      Aim for
+                      something
+                      clear and
+                      catchy.
+                    </span>
+
+                    <span>
                       {
-                        selectedList.name
+                        campaignForm
+                          .subject
+                          .length
                       }
-                    </p>
-
-                    <h2 className="mt-2 text-xl font-black">
-                      Add Subscribers
-                    </h2>
+                      /60
+                    </span>
                   </div>
-
-                  <button
-                    onClick={() =>
-                      setShowSubscriberManager(
-                        false
-                      )
-                    }
-                    className="rounded-full p-3 hover:bg-stone-50"
-                  >
-                    <X
-                      size={
-                        18
-                      }
-                    />
-                  </button>
                 </div>
 
-                <div className="flex-1 space-y-8 overflow-y-auto p-7">
-                  {/* MANUAL EMAILS */}
+                <div>
+                  <FieldLabel>
+                    Preview
+                    text
+                  </FieldLabel>
 
-                  <section>
-                    <div className="mb-4 flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#71805f]">
-                        <Mail
-                          size={
-                            16
-                          }
-                        />
-                      </div>
+                  <input
+                    value={
+                      campaignForm.previewText
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setCampaignForm(
+                        (
+                          previous
+                        ) => ({
+                          ...previous,
+                          previewText:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
+                    }
+                    placeholder="Shown beside the subject in many inboxes"
+                    className="w-full rounded-xl border border-stone-200 px-4 py-4 text-sm outline-none focus:border-stone-900"
+                  />
+                </div>
 
-                      <div>
-                        <p className="text-sm font-black">
-                          Add email addresses
-                        </p>
+                <div className="grid gap-5 border-t border-stone-100 pt-6 md:grid-cols-2">
+                  <div>
+                    <FieldLabel>
+                      Sender
+                      name
+                    </FieldLabel>
 
-                        <p className="text-[10px] text-stone-400">
-                          Paste one or multiple
-                          emails.
-                        </p>
-                      </div>
-                    </div>
-
-                    <textarea
+                    <input
                       value={
-                        manualEmails
+                        campaignForm.senderName
                       }
                       onChange={(
                         event
                       ) =>
-                        setManualEmails(
-                          event.target
-                            .value
+                        setCampaignForm(
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
+                            senderName:
+                              event
+                                .target
+                                .value,
+                          })
                         )
                       }
-                      placeholder={`hello@example.com
-client@business.co.uk
-another@email.com`}
-                      className="min-h-[140px] w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm leading-relaxed outline-none focus:border-stone-900"
+                      className="w-full rounded-xl border border-stone-200 px-4 py-4 text-sm outline-none focus:border-stone-900"
                     />
-
-                    <div className="mt-2 flex justify-between gap-3 text-[9px] text-stone-400">
-                      <span>
-                        Separate with commas,
-                        lines or semicolons.
-                      </span>
-
-                      {manualEmails.trim() && (
-                        <span className="shrink-0 font-black text-[#71805f]">
-                          {
-                            parseEmails(
-                              manualEmails
-                            ).length
-                          }{" "}
-                          valid
-                        </span>
-                      )}
-                    </div>
-                  </section>
-
-                  <div className="flex items-center gap-4">
-                    <div className="h-px flex-1 bg-stone-100" />
-
-                    <span className="text-[8px] font-black uppercase tracking-wider text-stone-300">
-                      Existing contacts
-                    </span>
-
-                    <div className="h-px flex-1 bg-stone-100" />
                   </div>
 
-                  {/* EXISTING CONTACTS */}
+                  <div>
+                    <FieldLabel>
+                      Reply-to
+                      email
+                    </FieldLabel>
 
-                  <section className="space-y-2">
-                    {profiles.length ===
-                      0 && (
-                      <p className="py-6 text-center text-xs italic text-stone-400">
-                        No subscribed contacts
-                        found.
-                      </p>
-                    )}
-
-                    {profiles.map(
-                      (
-                        profile
-                      ) => {
-                        const checked =
-                          selectedProfiles.includes(
-                            profile.id
-                          );
-
-                        return (
-                          <label
-                            key={
-                              profile.id
-                            }
-                            className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition ${
-                              checked
-                                ? "border-[#a9b897] bg-[#a9b897]/10"
-                                : "border-stone-100 bg-stone-50"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={
-                                checked
-                              }
-                              onChange={(
-                                event
-                              ) => {
-                                if (
-                                  event
-                                    .target
-                                    .checked
-                                ) {
-                                  setSelectedProfiles(
-                                    (
-                                      previous
-                                    ) =>
-                                      previous.includes(
-                                        profile.id
-                                      )
-                                        ? previous
-                                        : [
-                                            ...previous,
-                                            profile.id,
-                                          ]
-                                  );
-                                } else {
-                                  setSelectedProfiles(
-                                    (
-                                      previous
-                                    ) =>
-                                      previous.filter(
-                                        (
-                                          id
-                                        ) =>
-                                          id !==
-                                          profile.id
-                                      )
-                                  );
-                                }
-                              }}
-                            />
-
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-bold">
-                                {profile.full_name ||
-                                  profile.name ||
-                                  profile.email ||
-                                  "Contact"}
-                              </p>
-
-                              <p className="truncate text-xs text-stone-500">
-                                {
-                                  profile.email
-                                }
-                              </p>
-                            </div>
-                          </label>
-                        );
+                    <input
+                      type="email"
+                      value={
+                        campaignForm.replyTo
                       }
-                    )}
-                  </section>
+                      onChange={(
+                        event
+                      ) =>
+                        setCampaignForm(
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
+                            replyTo:
+                              event
+                                .target
+                                .value,
+                          })
+                        )
+                      }
+                      className="w-full rounded-xl border border-stone-200 px-4 py-4 text-sm outline-none focus:border-stone-900"
+                    />
+                  </div>
                 </div>
-
-                <div className="border-t border-stone-100 bg-stone-50 p-6">
-                  <button
-                    disabled={
-                      savingSubscribers
-                    }
-                    onClick={() =>
-                      void saveSubscribers()
-                    }
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 py-4 text-[10px] font-black uppercase tracking-wider text-[#a9b897] disabled:opacity-50"
-                  >
-                    {savingSubscribers ? (
-                      <Loader2
-                        size={
-                          15
-                        }
-                        className="animate-spin"
-                      />
-                    ) : (
-                      <Check
-                        size={
-                          15
-                        }
-                      />
-                    )}
-
-                    {savingSubscribers
-                      ? "Saving..."
-                      : "Save Subscribers"}
-                  </button>
-                </div>
-              </motion.div>
+              </div>
             </div>
           )}
-      </AnimatePresence>
 
-      {/* ==================================================
-          CAMPAIGN EDITOR
-      ================================================== */}
+          {/* STEP 2 AUDIENCE */}
 
-      <AnimatePresence>
-        {showEditor && (
-          <div className="fixed inset-0 z-[600] overflow-y-auto bg-stone-900/60 p-3 backdrop-blur-xl md:p-6">
-            <motion.div
-              initial={{
-                opacity:
-                  0,
-                y:
-                  25,
-              }}
-              animate={{
-                opacity:
-                  1,
-                y:
-                  0,
-              }}
-              exit={{
-                opacity:
-                  0,
-                y:
-                  25,
-              }}
-              className="relative mx-auto w-full max-w-5xl rounded-[2.5rem] bg-[#faf9f6] shadow-2xl"
-            >
-              <div className="flex items-center justify-between border-b border-stone-200 p-6 md:p-8">
+          {editorStep ===
+            "audience" && (
+            <div className="mx-auto max-w-4xl">
+              <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
-                  <p className="text-[8px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
-                    {editingCampaignId
-                      ? "Edit Campaign"
-                      : "New Campaign"}
+                  <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#82916f]">
+                    Step 2
                   </p>
 
-                  <h2 className="mt-2 font-serif text-3xl italic">
-                    Write your email
+                  <h2 className="mt-3 text-3xl font-black md:text-4xl">
+                    Choose your
+                    audience
                   </h2>
+
+                  <p className="mt-3 text-sm leading-7 text-stone-500">
+                    Select the
+                    subscriber list
+                    that should
+                    receive this
+                    campaign.
+                  </p>
                 </div>
 
                 <button
+                  type="button"
                   onClick={() =>
-                    setShowEditor(
-                      false
+                    setShowCreateList(
+                      true
                     )
                   }
-                  className="rounded-full border border-stone-200 bg-white p-3"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-5 py-3 text-[9px] font-black uppercase tracking-[0.14em]"
                 >
-                  <X
+                  <Plus
                     size={
-                      18
+                      13
                     }
                   />
+                  New
+                  audience
                 </button>
               </div>
 
-              <div className="grid gap-8 p-6 md:p-8 lg:grid-cols-[1fr_300px]">
-                {/* ==================================================
-                    MAIN FORM
-                ================================================== */}
+              <div className="grid gap-4 md:grid-cols-2">
+                {lists.map(
+                  (
+                    list
+                  ) => {
+                    const selected =
+                      campaignForm.listId ===
+                      list.id;
 
-                <div className="space-y-6">
-                  {/* CAMPAIGN NAME */}
+                    return (
+                      <button
+                        key={
+                          list.id
+                        }
+                        type="button"
+                        onClick={() =>
+                          setCampaignForm(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
+                              listId:
+                                list.id,
+                            })
+                          )
+                        }
+                        className={`group flex items-center justify-between rounded-[1.75rem] border p-6 text-left transition ${
+                          selected
+                            ? "border-[#a9b897] bg-[#a9b897]/10 shadow-sm"
+                            : "border-stone-200 bg-white hover:border-stone-400"
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div
+                            className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+                              selected
+                                ? "bg-[#a9b897] text-stone-900"
+                                : "bg-stone-100 text-stone-500"
+                            }`}
+                          >
+                            <Users
+                              size={
+                                18
+                              }
+                            />
+                          </div>
 
-                  <div>
-                    <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      Campaign Name
-                    </label>
+                          <div>
+                            <p className="font-black">
+                              {
+                                list.name
+                              }
+                            </p>
 
-                    <input
-                      value={
-                        campaignForm.title
+                            <p className="mt-1 text-xs text-stone-400">
+                              {subscriberCounts[
+                                list
+                                  .id
+                              ] ||
+                                0}{" "}
+                              subscribers
+                            </p>
+                          </div>
+                        </div>
+
+                        {selected ? (
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-900 text-white">
+                            <Check
+                              size={
+                                13
+                              }
+                            />
+                          </div>
+                        ) : (
+                          <ChevronRight
+                            size={
+                              16
+                            }
+                            className="text-stone-300"
+                          />
+                        )}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+
+              {lists.length ===
+                0 && (
+                <div className="rounded-[2rem] border border-dashed border-stone-300 bg-white p-12 text-center">
+                  <Users
+                    size={28}
+                    className="mx-auto text-stone-300"
+                  />
+
+                  <h3 className="mt-5 text-lg font-black">
+                    Create your
+                    first audience
+                  </h3>
+
+                  <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-stone-400">
+                    Add a list,
+                    then add
+                    subscribers
+                    before sending
+                    your campaign.
+                  </p>
+
+                  <button
+                    onClick={() =>
+                      setShowCreateList(
+                        true
+                      )
+                    }
+                    className="mt-6 rounded-xl bg-stone-900 px-6 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+                  >
+                    Create
+                    audience
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 3 DESIGN */}
+
+          {editorStep ===
+            "design" && (
+            <div>
+              <div className="mb-7 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#82916f]">
+                    Step 3
+                  </p>
+
+                  <h2 className="mt-3 text-3xl font-black md:text-4xl">
+                    Design your
+                    email
+                  </h2>
+
+                  <p className="mt-3 max-w-xl text-sm leading-7 text-stone-500">
+                    Build it with
+                    blocks or paste
+                    completely
+                    custom HTML.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 rounded-xl bg-stone-200/70 p-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCampaignForm(
+                        (
+                          previous
+                        ) => ({
+                          ...previous,
+                          mode:
+                            "blocks",
+                        })
+                      )
+                    }
+                    className={`flex items-center gap-2 rounded-lg px-4 py-3 text-[9px] font-black uppercase tracking-[0.12em] ${
+                      campaignForm.mode ===
+                      "blocks"
+                        ? "bg-white text-stone-900 shadow-sm"
+                        : "text-stone-500"
+                    }`}
+                  >
+                    <LayoutTemplate
+                      size={
+                        13
                       }
-                      onChange={(
-                        event
-                      ) =>
-                        setCampaignForm(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
-
-                            title:
-                              event.target
-                                .value,
-                          })
-                        )
-                      }
-                      placeholder="e.g. August Newsletter"
-                      className="w-full rounded-2xl border border-stone-200 bg-white p-4 text-sm font-bold outline-none focus:border-stone-900"
                     />
-                  </div>
+                    Builder
+                  </button>
 
-                  {/* SUBJECT */}
-
-                  <div>
-                    <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      Email Subject
-                    </label>
-
-                    <input
-                      value={
-                        campaignForm.subject
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCampaignForm(
+                        (
+                          previous
+                        ) => ({
+                          ...previous,
+                          mode:
+                            "html",
+                        })
+                      )
+                    }
+                    className={`flex items-center gap-2 rounded-lg px-4 py-3 text-[9px] font-black uppercase tracking-[0.12em] ${
+                      campaignForm.mode ===
+                      "html"
+                        ? "bg-white text-stone-900 shadow-sm"
+                        : "text-stone-500"
+                    }`}
+                  >
+                    <Code2
+                      size={
+                        13
                       }
-                      onChange={(
-                        event
-                      ) =>
-                        setCampaignForm(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
-
-                            subject:
-                              event.target
-                                .value,
-                          })
-                        )
-                      }
-                      placeholder="What will people see in their inbox?"
-                      className="w-full rounded-2xl border border-stone-200 bg-white p-4 font-serif text-xl italic outline-none focus:border-stone-900"
                     />
-                  </div>
+                    Custom
+                    HTML
+                  </button>
+                </div>
+              </div>
 
-                  {/* PREVIEW */}
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+                {/* DESIGN AREA */}
 
-                  <div>
-                    <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      Preview Text
-                    </label>
+                <section className="space-y-5">
+                  {/* EMAIL BRANDING */}
 
-                    <input
-                      value={
-                        campaignForm.previewText
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setCampaignForm(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
+                  <div className="rounded-[1.75rem] border border-stone-200 bg-white p-6">
+                    <div className="mb-5">
+                      <p className="text-xs font-black">
+                        Email
+                        branding
+                      </p>
 
-                            previewText:
-                              event.target
-                                .value,
-                          })
-                        )
-                      }
-                      placeholder="Optional short line shown after the subject"
-                      className="w-full rounded-2xl border border-stone-200 bg-white p-4 text-sm outline-none focus:border-stone-900"
-                    />
-                  </div>
-
-                  {/* ==================================================
-                      CAMPAIGN LOGO
-                  ================================================== */}
-
-                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
-                    <div className="mb-4 flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-50">
-                        <ImageIcon
-                          size={
-                            16
-                          }
-                          className="text-stone-500"
-                        />
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-black">
-                          Campaign Logo
-                        </p>
-
-                        <p className="text-[10px] text-stone-400">
-                          Paste a logo URL or use
-                          your company logo.
-                        </p>
-                      </div>
+                      <p className="mt-1 text-[10px] text-stone-400">
+                        Optional
+                        logo and
+                        hero image.
+                      </p>
                     </div>
 
-                    <input
-                      value={
-                        campaignForm.campaignLogoUrl
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setCampaignForm(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
+                    <div className="grid gap-5 md:grid-cols-2">
+                      <div>
+                        <FieldLabel>
+                          Campaign
+                          logo
+                        </FieldLabel>
 
-                            campaignLogoUrl:
-                              event.target
-                                .value,
-                          })
-                        )
-                      }
-                      placeholder="https://yourwebsite.com/logo.png"
-                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-sm outline-none focus:border-stone-900"
-                    />
-
-                    {campaignForm.campaignLogoUrl ? (
-                      <div className="mt-4 flex items-center justify-center rounded-2xl border border-stone-100 bg-[#faf9f6] p-6">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={
-                            campaignForm.campaignLogoUrl
-                          }
-                          alt="Campaign logo preview"
-                          className="max-h-20 max-w-[180px] object-contain"
-                        />
-                      </div>
-                    ) : (
-                      <div className="mt-4 rounded-2xl border border-dashed border-stone-200 p-5 text-center">
-                        <p className="text-[10px] italic text-stone-400">
-                          No campaign logo selected.
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="mt-4 flex flex-wrap gap-4">
-                      {company.logoUrl &&
-                        campaignForm.campaignLogoUrl !==
-                          company.logoUrl && (
-                          <button
-                            type="button"
-                            onClick={() =>
+                        <div className="flex gap-2">
+                          <input
+                            value={
+                              campaignForm.campaignLogoUrl
+                            }
+                            onChange={(
+                              event
+                            ) =>
                               setCampaignForm(
                                 (
                                   previous
                                 ) => ({
                                   ...previous,
-
                                   campaignLogoUrl:
-                                    company.logoUrl,
+                                    event
+                                      .target
+                                      .value,
                                 })
                               )
                             }
-                            className="text-[9px] font-black uppercase tracking-wider text-[#71805f]"
-                          >
-                            Use company logo
-                          </button>
-                        )}
+                            placeholder="Logo URL"
+                            className="min-w-0 flex-1 rounded-xl border border-stone-200 px-3 py-3 text-xs outline-none"
+                          />
 
-                      {campaignForm.campaignLogoUrl && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCampaignForm(
-                              (
-                                previous
-                              ) => ({
-                                ...previous,
-
-                                campaignLogoUrl:
-                                  "",
-                              })
-                            )
-                          }
-                          className="text-[9px] font-black uppercase tracking-wider text-red-400"
-                        >
-                          Remove logo
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* HEADER IMAGE */}
-
-                  <div>
-                    <label className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      <ImageIcon
-                        size={
-                          12
-                        }
-                      />
-
-                      Header Image
-
-                      <span className="font-medium normal-case tracking-normal">
-                        (optional)
-                      </span>
-                    </label>
-
-                    <input
-                      value={
-                        campaignForm.headerImageUrl
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setCampaignForm(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
-
-                            headerImageUrl:
-                              event.target
-                                .value,
-                          })
-                        )
-                      }
-                      placeholder="https://..."
-                      className="w-full rounded-2xl border border-stone-200 bg-white p-4 text-sm outline-none focus:border-stone-900"
-                    />
-
-                    {campaignForm.headerImageUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={
-                          campaignForm.headerImageUrl
-                        }
-                        alt=""
-                        className="mt-4 max-h-64 w-full rounded-2xl object-cover"
-                      />
-                    )}
-                  </div>
-
-                  {/* BUILDER */}
-
-                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[9px] font-black uppercase tracking-wider text-stone-400">
-                          Layout Builder
-                        </p>
-                        <p className="mt-1 text-[10px] text-stone-400">
-                          Add text, images and buttons and drag to reorder.
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            addBlock(
-                              "text"
-                            )
-                          }
-                          className="rounded-xl border border-stone-200 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-600"
-                        >
-                          + Text
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            addBlock(
-                              "image"
-                            )
-                          }
-                          className="rounded-xl border border-stone-200 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-600"
-                        >
-                          + Image
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            addBlock(
-                              "button"
-                            )
-                          }
-                          className="rounded-xl border border-stone-200 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-600"
-                        >
-                          + Button
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {campaignForm.blocks.map(
-                        (
-                          block,
-                          index
-                        ) => (
-                          <div
-                            key={
-                              block.id
-                            }
-                            draggable
-                            onDragStart={() =>
-                              setDraggingBlockId(
-                                block.id
-                              )
-                            }
-                            onDragOver={(
-                              event
-                            ) =>
-                              event.preventDefault()
-                            }
-                            onDrop={() => {
-                              if (
-                                draggingBlockId &&
-                                draggingBlockId !==
-                                  block.id
-                              ) {
-                                moveBlock(
-                                  draggingBlockId,
-                                  block.id
-                                );
-                              }
-                              setDraggingBlockId(
-                                null
-                              );
-                            }}
-                            className="rounded-[1.5rem] border border-stone-200 bg-[#faf9f6] p-3"
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[8px] font-black uppercase tracking-wider text-stone-500">
-                                  {index + 1}
-                                </span>
-
-                                <span className="text-[8px] font-black uppercase tracking-wider text-stone-400">
-                                  {block.type}
-                                </span>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  deleteBlock(
-                                    block.id
-                                  )
+                          <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-stone-100 px-3 text-[8px] font-black uppercase">
+                            {uploadingLogo ? (
+                              <Loader2
+                                size={
+                                  12
                                 }
-                                className="text-[8px] font-black uppercase tracking-wider text-red-400"
-                              >
-                                Remove
-                              </button>
-                            </div>
-
-                            {block.type ===
-                              "text" && (
-                              <textarea
-                                value={
-                                  block.content
+                                className="animate-spin"
+                              />
+                            ) : (
+                              <ImageIcon
+                                size={
+                                  12
                                 }
-                                onChange={(event) =>
-                                  updateBlock(
-                                    block.id,
-                                    {
-                                      content:
-                                        event.target.value,
-                                    }
-                                  )
-                                }
-                                rows={5}
-                                className="w-full resize-y rounded-xl border border-stone-200 bg-white p-3 text-sm leading-7 outline-none"
-                                placeholder="Write a paragraph or section of your campaign..."
                               />
                             )}
 
-                            {block.type ===
-                              "image" && (
-                              <div className="space-y-3">
-                                <input
-                                  type="url"
-                                  value={
-                                    block.imageUrl ||
-                                    ""
-                                  }
-                                  onChange={(event) =>
-                                    updateBlock(
-                                      block.id,
-                                      {
-                                        imageUrl:
-                                          event.target.value,
-                                      }
-                                    )
-                                  }
-                                  placeholder="https://example.com/image.jpg"
-                                  className="w-full rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none"
-                                />
+                            Upload
 
-                                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 bg-white px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-500">
-                                  <ImageIcon size={12} />
-                                  Upload image
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(event) => {
-                                      const file =
-                                        event.target.files?.[0];
-                                      if (file) {
-                                        void handleBlockImageUpload(
-                                          block.id,
-                                          file
-                                        );
-                                      }
-                                    }}
-                                  />
-                                </label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(
+                                event
+                              ) => {
+                                const file =
+                                  event
+                                    .target
+                                    .files?.[0];
 
-                                {block.imageUrl && (
-                                  <img
-                                    src={
-                                      block.imageUrl
-                                    }
-                                    alt=""
-                                    className="max-h-52 w-full rounded-xl object-cover"
-                                  />
-                                )}
-                              </div>
+                                if (
+                                  file
+                                ) {
+                                  void handleLogoUpload(
+                                    file
+                                  );
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <FieldLabel>
+                          Header
+                          image
+                        </FieldLabel>
+
+                        <div className="flex gap-2">
+                          <input
+                            value={
+                              campaignForm.headerImageUrl
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              setCampaignForm(
+                                (
+                                  previous
+                                ) => ({
+                                  ...previous,
+                                  headerImageUrl:
+                                    event
+                                      .target
+                                      .value,
+                                })
+                              )
+                            }
+                            placeholder="Image URL"
+                            className="min-w-0 flex-1 rounded-xl border border-stone-200 px-3 py-3 text-xs outline-none"
+                          />
+
+                          <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-stone-100 px-3 text-[8px] font-black uppercase">
+                            {uploadingHeaderImage ? (
+                              <Loader2
+                                size={
+                                  12
+                                }
+                                className="animate-spin"
+                              />
+                            ) : (
+                              <ImageIcon
+                                size={
+                                  12
+                                }
+                              />
                             )}
 
-                            {block.type ===
-                              "button" && (
-                              <div className="space-y-3">
-                                <input
+                            Upload
+
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(
+                                event
+                              ) => {
+                                const file =
+                                  event
+                                    .target
+                                    .files?.[0];
+
+                                if (
+                                  file
+                                ) {
+                                  void handleHeaderImageUpload(
+                                    file
+                                  );
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* BLOCK MODE */}
+
+                  {campaignForm.mode ===
+                    "blocks" && (
+                    <>
+                      <div className="rounded-[1.75rem] border border-stone-200 bg-white p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div>
+                            <p className="text-xs font-black">
+                              Content
+                              blocks
+                            </p>
+
+                            <p className="mt-1 text-[10px] text-stone-400">
+                              Add,
+                              duplicate
+                              and
+                              rearrange
+                              sections.
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              "text",
+                              "image",
+                              "button",
+                              "divider",
+                              "spacer",
+                            ].map(
+                              (
+                                type
+                              ) => (
+                                <button
+                                  key={
+                                    type
+                                  }
+                                  type="button"
+                                  onClick={() =>
+                                    addBlock(
+                                      type as CampaignBlock["type"]
+                                    )
+                                  }
+                                  className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] hover:bg-stone-50"
+                                >
+                                  +
+                                  {
+                                    type
+                                  }
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {campaignForm.blocks.map(
+                          (
+                            block,
+                            index
+                          ) => (
+                            <div
+                              key={
+                                block.id
+                              }
+                              onDragOver={(
+                                event
+                              ) =>
+                                event.preventDefault()
+                              }
+                              onDrop={() => {
+                                if (
+                                  draggingBlockId &&
+                                  draggingBlockId !==
+                                    block.id
+                                ) {
+                                  moveBlock(
+                                    draggingBlockId,
+                                    block.id
+                                  );
+                                }
+
+                                setDraggingBlockId(
+                                  null
+                                );
+                              }}
+                              className="rounded-[1.5rem] border border-stone-200 bg-white p-4 shadow-sm"
+                            >
+                              <div className="mb-4 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    draggable
+                                    onDragStart={() =>
+                                      setDraggingBlockId(
+                                        block.id
+                                      )
+                                    }
+                                    className="cursor-grab text-stone-300"
+                                  >
+                                    <GripVertical
+                                      size={
+                                        16
+                                      }
+                                    />
+                                  </span>
+
+                                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-100 text-[9px] font-black">
+                                    {index +
+                                      1}
+                                  </span>
+
+                                  <span className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                                    {
+                                      block.type
+                                    }
+                                  </span>
+                                </div>
+
+                                <div className="flex gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      duplicateBlock(
+                                        block.id
+                                      )
+                                    }
+                                    className="text-stone-400 hover:text-stone-900"
+                                  >
+                                    <Copy
+                                      size={
+                                        14
+                                      }
+                                    />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      deleteBlock(
+                                        block.id
+                                      )
+                                    }
+                                    className="text-stone-300 hover:text-red-500"
+                                  >
+                                    <Trash2
+                                      size={
+                                        14
+                                      }
+                                    />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {block.type ===
+                                "text" && (
+                                <textarea
                                   value={
                                     block.content
                                   }
-                                  onChange={(event) =>
+                                  onChange={(
+                                    event
+                                  ) =>
                                     updateBlock(
                                       block.id,
                                       {
                                         content:
-                                          event.target.value,
+                                          event
+                                            .target
+                                            .value,
                                       }
                                     )
                                   }
-                                  placeholder="Button label"
-                                  className="w-full rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none"
-                                />
-
-                                <input
-                                  value={
-                                    block.url ||
-                                    ""
+                                  rows={
+                                    6
                                   }
-                                  onChange={(event) =>
-                                    updateBlock(
-                                      block.id,
-                                      {
-                                        url:
-                                          event.target.value,
+                                  className="w-full resize-y rounded-xl border border-stone-100 bg-[#fafafa] p-4 text-sm leading-7 outline-none focus:border-stone-300"
+                                />
+                              )}
+
+                              {block.type ===
+                                "image" && (
+                                <div className="space-y-3">
+                                  <input
+                                    value={
+                                      block.imageUrl ||
+                                      ""
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      updateBlock(
+                                        block.id,
+                                        {
+                                          imageUrl:
+                                            event
+                                              .target
+                                              .value,
+                                        }
+                                      )
+                                    }
+                                    placeholder="Image URL"
+                                    className="w-full rounded-xl border border-stone-200 px-4 py-3 text-sm outline-none"
+                                  />
+
+                                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 py-3 text-[8px] font-black uppercase">
+                                    {uploadingBlockId ===
+                                    block.id ? (
+                                      <Loader2
+                                        size={
+                                          12
+                                        }
+                                        className="animate-spin"
+                                      />
+                                    ) : (
+                                      <ImageIcon
+                                        size={
+                                          12
+                                        }
+                                      />
+                                    )}
+
+                                    Upload
+                                    image
+
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(
+                                        event
+                                      ) => {
+                                        const file =
+                                          event
+                                            .target
+                                            .files?.[0];
+
+                                        if (
+                                          file
+                                        ) {
+                                          void handleBlockImageUpload(
+                                            block.id,
+                                            file
+                                          );
+                                        }
+                                      }}
+                                    />
+                                  </label>
+
+                                  {block.imageUrl && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={
+                                        block.imageUrl
                                       }
-                                    )
-                                  }
-                                  placeholder="https://..."
-                                  className="w-full rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
+                                      alt=""
+                                      className="max-h-72 w-full rounded-xl object-cover"
+                                    />
+                                  )}
+                                </div>
+                              )}
 
-                  {/* MESSAGE */}
+                              {block.type ===
+                                "button" && (
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <input
+                                    value={
+                                      block.content
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      updateBlock(
+                                        block.id,
+                                        {
+                                          content:
+                                            event
+                                              .target
+                                              .value,
+                                        }
+                                      )
+                                    }
+                                    placeholder="Button text"
+                                    className="rounded-xl border border-stone-200 px-4 py-3 text-sm outline-none"
+                                  />
 
-                  <div>
-                    <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      Plain text fallback
-                    </label>
+                                  <input
+                                    value={
+                                      block.url ||
+                                      ""
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      updateBlock(
+                                        block.id,
+                                        {
+                                          url:
+                                            event
+                                              .target
+                                              .value,
+                                        }
+                                      )
+                                    }
+                                    placeholder="https://..."
+                                    className="rounded-xl border border-stone-200 px-4 py-3 text-sm outline-none"
+                                  />
+                                </div>
+                              )}
 
-                    <textarea
-                      value={
-                        campaignForm.message
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setCampaignForm(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
+                              {block.type ===
+                                "divider" && (
+                                <div className="py-6">
+                                  <div className="h-px bg-stone-200" />
+                                </div>
+                              )}
 
-                            message:
-                              event.target
-                                .value,
-                          })
-                        )
-                      }
-                      placeholder={`Hi,
-
-We wanted to share a quick update...
-
-Write your email exactly how you want it to read.`}
-                      className="min-h-[240px] w-full resize-y rounded-[2rem] border border-stone-200 bg-white p-6 text-base leading-8 outline-none focus:border-stone-900"
-                    />
-                  </div>
-
-                  {/* CTA */}
-
-                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
-                    <p className="mb-1 text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      Optional Button
-                    </p>
-
-                    <p className="mb-4 text-[10px] text-stone-400">
-                      Add a button if you want
-                      readers to visit a page.
-                    </p>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <input
-                        value={
-                          campaignForm.ctaText
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setCampaignForm(
-                            (
-                              previous
-                            ) => ({
-                              ...previous,
-
-                              ctaText:
-                                event.target
-                                  .value,
-                            })
+                              {block.type ===
+                                "spacer" && (
+                                <div className="rounded-xl border border-dashed border-stone-200 py-8 text-center text-[9px] text-stone-300">
+                                  32px
+                                  spacer
+                                </div>
+                              )}
+                            </div>
                           )
-                        }
-                        placeholder="Button text"
-                        className="rounded-xl border border-stone-100 bg-stone-50 p-3 text-sm outline-none"
-                      />
-
-                      <input
-                        value={
-                          campaignForm.ctaUrl
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setCampaignForm(
-                            (
-                              previous
-                            ) => ({
-                              ...previous,
-
-                              ctaUrl:
-                                event.target
-                                  .value,
-                            })
-                          )
-                        }
-                        placeholder="https://..."
-                        className="rounded-xl border border-stone-100 bg-stone-50 p-3 text-sm outline-none"
-                      />
-                    </div>
-
-                    {campaignForm.ctaText && (
-                      <div className="mt-5 text-center">
-                        <span
-                          className="inline-block rounded-xl px-6 py-3 text-[9px] font-black uppercase tracking-wider text-white"
-                          style={{
-                            backgroundColor:
-                              campaignForm.brandColor,
-                          }}
-                        >
-                          {
-                            campaignForm.ctaText
-                          }
-                        </span>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
 
-                {/* ==================================================
-                    SIDEBAR
-                ================================================== */}
+                      <div className="rounded-[1.75rem] border border-stone-200 bg-white p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-black">
+                              Button
+                              colour
+                            </p>
 
-                <aside className="space-y-5">
-                  {/* AUDIENCE */}
+                            <p className="mt-1 text-[10px] text-stone-400">
+                              Used by
+                              CTA
+                              buttons.
+                            </p>
+                          </div>
 
-                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
-                    <div className="mb-4 flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100">
-                        <Users
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="color"
+                              value={
+                                campaignForm.brandColor
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                setCampaignForm(
+                                  (
+                                    previous
+                                  ) => ({
+                                    ...previous,
+                                    brandColor:
+                                      event
+                                        .target
+                                        .value,
+                                  })
+                                )
+                              }
+                              className="h-10 w-10 cursor-pointer"
+                            />
+
+                            <span className="font-mono text-xs text-stone-500">
+                              {
+                                campaignForm.brandColor
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* HTML MODE */}
+
+                  {campaignForm.mode ===
+                    "html" && (
+                    <div className="overflow-hidden rounded-[1.75rem] border border-stone-200 bg-white">
+                      <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+                        <div>
+                          <p className="text-xs font-black">
+                            Custom
+                            HTML
+                          </p>
+
+                          <p className="mt-1 text-[10px] text-stone-400">
+                            Paste a
+                            complete
+                            email
+                            template.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            htmlFileInputRef.current?.click()
+                          }
+                          className="rounded-lg border border-stone-200 px-3 py-2 text-[8px] font-black uppercase"
+                        >
+                          Import
+                          .html
+                        </button>
+
+                        <input
+                          ref={
+                            htmlFileInputRef
+                          }
+                          type="file"
+                          accept=".html,text/html"
+                          className="hidden"
+                          onChange={(
+                            event
+                          ) => {
+                            const file =
+                              event
+                                .target
+                                .files?.[0];
+
+                            if (
+                              !file
+                            ) {
+                              return;
+                            }
+
+                            const reader =
+                              new FileReader();
+
+                            reader.onload =
+                              () =>
+                                setCampaignForm(
+                                  (
+                                    previous
+                                  ) => ({
+                                    ...previous,
+                                    customHtml:
+                                      String(
+                                        reader.result ||
+                                          ""
+                                      ),
+                                  })
+                                );
+
+                            reader.readAsText(
+                              file
+                            );
+                          }}
+                        />
+                      </div>
+
+                      <textarea
+                        value={
+                          campaignForm.customHtml
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setCampaignForm(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
+                              customHtml:
+                                event
+                                  .target
+                                  .value,
+                            })
+                          )
+                        }
+                        rows={
+                          30
+                        }
+                        spellCheck={
+                          false
+                        }
+                        placeholder="<table>...</table>"
+                        className="w-full resize-y bg-[#171717] p-6 font-mono text-xs leading-6 text-emerald-300 outline-none"
+                      />
+                    </div>
+                  )}
+                </section>
+
+                {/* PREVIEW */}
+
+                <aside className="xl:sticky xl:top-44 xl:self-start">
+                  <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm">
+                    <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <Eye
                           size={
-                            15
+                            14
+                          }
+                          className="text-stone-400"
+                        />
+
+                        <p className="text-[9px] font-black uppercase tracking-[0.14em] text-stone-500">
+                          Live
+                          preview
+                        </p>
+                      </div>
+
+                      <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase text-stone-400">
+                        Desktop
+                      </span>
+                    </div>
+
+                    <div className="max-h-[650px] overflow-y-auto bg-[#efefed] p-4">
+                      <div
+                        className="mx-auto bg-white p-5 shadow-sm"
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            previewHtml,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4 REVIEW */}
+
+          {editorStep ===
+            "review" && (
+            <div className="mx-auto max-w-5xl">
+              <div className="mb-8">
+                <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#82916f]">
+                  Final step
+                </p>
+
+                <h2 className="mt-3 text-3xl font-black md:text-4xl">
+                  Review &
+                  send
+                </h2>
+
+                <p className="mt-3 text-sm leading-7 text-stone-500">
+                  Check
+                  everything
+                  before your
+                  campaign leaves
+                  the building.
+                </p>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-[1fr_350px]">
+                <section className="space-y-4">
+                  <div className="rounded-[1.75rem] border border-stone-200 bg-white p-6">
+                    <div className="mb-5 flex items-center justify-between">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-stone-400">
+                        Campaign
+                        summary
+                      </p>
+
+                      <button
+                        onClick={() =>
+                          setEditorStep(
+                            "details"
+                          )
+                        }
+                        className="text-[8px] font-black uppercase text-[#71805f]"
+                      >
+                        Edit
+                      </button>
+                    </div>
+
+                    <div className="space-y-5">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wider text-stone-400">
+                          Subject
+                        </p>
+
+                        <p className="mt-1 font-black">
+                          {
+                            campaignForm.subject
+                          }
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wider text-stone-400">
+                          From
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold">
+                          {
+                            campaignForm.senderName
+                          }
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wider text-stone-400">
+                          Audience
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold">
+                          {lists.find(
+                            (
+                              list
+                            ) =>
+                              list.id ===
+                              campaignForm.listId
+                          )
+                            ?.name ||
+                            "Not selected"}
+                        </p>
+
+                        <p className="mt-1 text-xs text-stone-400">
+                          {subscriberCounts[
+                            campaignForm
+                              .listId
+                          ] ||
+                            0}{" "}
+                          recipients
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wider text-stone-400">
+                          Editor
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold">
+                          {campaignForm.mode ===
+                          "html"
+                            ? "Custom HTML"
+                            : "Block Builder"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.75rem] border border-stone-200 bg-white p-6">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                        <Send
+                          size={
+                            16
                           }
                         />
                       </div>
 
                       <div>
-                        <p className="text-xs font-black">
-                          Audience
+                        <p className="text-sm font-black">
+                          Send a
+                          test
                         </p>
 
-                        <p className="text-[9px] text-stone-400">
-                          Who receives this email?
+                        <p className="text-[10px] text-stone-400">
+                          Make
+                          sure it
+                          looks
+                          right in
+                          your
+                          inbox.
                         </p>
                       </div>
                     </div>
 
-                    <select
-                      value={
-                        campaignForm.listId
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setCampaignForm(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        type="email"
+                        value={
+                          testEmail
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setTestEmail(
+                            event
+                              .target
+                              .value
+                          )
+                        }
+                        placeholder="you@example.com"
+                        className="flex-1 rounded-xl border border-stone-200 px-4 py-3 text-sm outline-none"
+                      />
 
-                            listId:
-                              event.target
-                                .value,
-                          })
-                        )
-                      }
-                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
-                    >
-                      <option value="">
-                        Choose list...
-                      </option>
-
-                      {lists.map(
-                        (
-                          list
-                        ) => (
-                          <option
-                            key={
-                              list.id
+                      <button
+                        disabled={
+                          sendingTest
+                        }
+                        onClick={() =>
+                          void sendTestEmail()
+                        }
+                        className="flex items-center justify-center gap-2 rounded-xl bg-blue-50 px-5 py-3 text-[9px] font-black uppercase text-blue-700 disabled:opacity-50"
+                      >
+                        {sendingTest ? (
+                          <Loader2
+                            size={
+                              13
                             }
-                            value={
-                              list.id
+                            className="animate-spin"
+                          />
+                        ) : (
+                          <Send
+                            size={
+                              13
                             }
-                          >
-                            {
-                              list.name
-                            }{" "}
-                            (
-                            {subscriberCounts[
-                              list.id
-                            ] || 0}
-                            )
-                          </option>
-                        )
-                      )}
-                    </select>
+                          />
+                        )}
 
-                    {campaignForm.listId && (
-                      <p className="mt-3 text-[9px] text-stone-400">
-                        <strong className="text-stone-700">
-                          {subscriberCounts[
-                            campaignForm.listId
-                          ] || 0}
-                        </strong>{" "}
-                        unique recipient(s).
+                        Send
+                        test
+                      </button>
+                    </div>
+
+                    {testSendResult && (
+                      <p className="mt-3 text-xs font-semibold text-stone-500">
+                        {
+                          testSendResult
+                        }
                       </p>
                     )}
                   </div>
 
-                  {/* SCHEDULE */}
+                  <div className="rounded-[1.75rem] border border-stone-200 bg-white p-5">
+                    <p className="mb-3 text-[9px] font-black uppercase tracking-[0.14em] text-stone-400">
+                      Email
+                      preview
+                    </p>
 
-                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+                    <div
+                      className="rounded-xl border border-stone-100 bg-white p-4"
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          previewHtml,
+                      }}
+                    />
+                  </div>
+                </section>
+
+                <aside className="space-y-4">
+                  <div className="rounded-[1.75rem] border border-stone-200 bg-white p-6">
                     <div className="mb-4 flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100">
-                        <Calendar
-                          size={
-                            15
-                          }
-                        />
-                      </div>
+                      <Calendar
+                        size={
+                          17
+                        }
+                      />
 
                       <div>
-                        <p className="text-xs font-black">
-                          Schedule
+                        <p className="text-sm font-black">
+                          When
+                          should
+                          it send?
                         </p>
 
-                        <p className="text-[9px] text-stone-400">
-                          Leave blank for Send Now.
+                        <p className="text-[10px] text-stone-400">
+                          Send
+                          immediately
+                          or choose
+                          a date.
                         </p>
                       </div>
                     </div>
@@ -5821,243 +6075,136 @@ Write your email exactly how you want it to read.`}
                             previous
                           ) => ({
                             ...previous,
-
                             scheduledFor:
-                              event.target
+                              event
+                                .target
                                 .value,
                           })
                         )
                       }
-                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
+                      className="w-full rounded-xl border border-stone-200 px-4 py-3 text-sm outline-none"
                     />
                   </div>
 
-                  {/* SENDER */}
-
-                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
-                    <p className="mb-4 text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      Template Library
-                    </p>
-
-                    {savedTemplates.length === 0 ? (
-                      <p className="text-[10px] text-stone-400">
-                        No saved templates yet.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {savedTemplates.map(
-                          (
-                            template
-                          ) => (
-                            <button
-                              key={
-                                template.id
-                              }
-                              type="button"
-                              onClick={() =>
-                                applyTemplate(
-                                  template
-                                )
-                              }
-                              className="w-full rounded-xl border border-stone-100 bg-stone-50 px-3 py-2 text-left text-[10px] font-bold text-stone-600"
-                            >
-                              {template.name}
-                            </button>
-                          )
-                        )}
-                      </div>
-                    )}
-
+                  {campaignForm.scheduledFor ? (
                     <button
                       type="button"
-                      onClick={
-                        saveCampaignTemplate
+                      disabled={
+                        savingCampaign
                       }
-                      className="mt-4 w-full rounded-xl bg-[#a9b897] px-4 py-3 text-[9px] font-black uppercase tracking-wider text-stone-900"
+                      onClick={() =>
+                        void scheduleCampaign()
+                      }
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-stone-900 disabled:opacity-50"
                     >
-                      Save as template
+                      {savingCampaign ? (
+                        <Loader2
+                          size={
+                            14
+                          }
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <Calendar
+                          size={
+                            14
+                          }
+                        />
+                      )}
+
+                      Schedule
+                      campaign
                     </button>
-                  </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={
+                        savingCampaign
+                      }
+                      onClick={() =>
+                        void saveAndSendNow()
+                      }
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-[#a9b897] disabled:opacity-50"
+                    >
+                      {savingCampaign ? (
+                        <Loader2
+                          size={
+                            14
+                          }
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <Send
+                          size={
+                            14
+                          }
+                        />
+                      )}
 
-                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
-                    <p className="mb-4 text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      Sender
+                      Send
+                      campaign
+                      now
+                    </button>
+                  )}
+
+                  <div className="rounded-[1.75rem] border border-amber-100 bg-amber-50 p-5">
+                    <p className="text-[9px] font-black uppercase tracking-wider text-amber-700">
+                      Final
+                      check
                     </p>
 
-                    <input
-                      value={
-                        campaignForm.senderName
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setCampaignForm(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
-
-                            senderName:
-                              event.target
-                                .value,
-                          })
-                        )
-                      }
-                      placeholder="Sender name"
-                      className="mb-3 w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
-                    />
-
-                    <input
-                      type="email"
-                      value={
-                        campaignForm.replyTo
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setCampaignForm(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
-
-                            replyTo:
-                              event.target
-                                .value,
-                          })
-                        )
-                      }
-                      placeholder="Reply-to email"
-                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
-                    />
-                  </div>
-
-                  {/* BUTTON COLOUR */}
-
-                  <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
-                    <p className="mb-3 text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      Button Colour
+                    <p className="mt-2 text-xs leading-6 text-amber-700/80">
+                      Once you
+                      send, the
+                      campaign
+                      cannot be
+                      recalled.
                     </p>
-
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="color"
-                        value={
-                          campaignForm.brandColor
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setCampaignForm(
-                            (
-                              previous
-                            ) => ({
-                              ...previous,
-
-                              brandColor:
-                                event.target
-                                  .value,
-                            })
-                          )
-                        }
-                        className="h-10 w-10 cursor-pointer rounded-lg"
-                      />
-
-                      <span className="text-xs font-mono text-stone-500">
-                        {
-                          campaignForm.brandColor
-                        }
-                      </span>
-                    </div>
                   </div>
                 </aside>
               </div>
+            </div>
+          )}
 
-              {/* ==================================================
-                  EDITOR ACTIONS
-              ================================================== */}
+          {/* WIZARD FOOTER */}
 
-              <div className="flex flex-col gap-3 rounded-b-[2.5rem] border-t border-stone-200 bg-white p-6 md:flex-row md:justify-end">
-                <button
-                  onClick={() =>
-                    setShowEditor(
-                      false
-                    )
-                  }
-                  className="rounded-2xl bg-stone-100 px-7 py-4 text-[10px] font-black uppercase tracking-wider text-stone-500"
-                >
-                  Cancel
-                </button>
+          {editorStep !==
+            "review" && (
+            <div className="mx-auto mt-10 flex max-w-6xl items-center justify-between border-t border-stone-200 pt-6">
+              <button
+                type="button"
+                onClick={
+                  goPrevious
+                }
+                className="flex items-center gap-2 rounded-xl px-5 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-stone-500 hover:bg-white"
+              >
+                <ArrowLeft
+                  size={13}
+                />
+                Back
+              </button>
 
-                {campaignForm.scheduledFor && (
-                  <button
-                    disabled={
-                      savingCampaign
-                    }
-                    onClick={() =>
-                      void scheduleCampaign()
-                    }
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-[#a9b897] px-7 py-4 text-[10px] font-black uppercase tracking-wider text-stone-900 disabled:opacity-50"
-                  >
-                    {savingCampaign ? (
-                      <Loader2
-                        size={
-                          15
-                        }
-                        className="animate-spin"
-                      />
-                    ) : (
-                      <Calendar
-                        size={
-                          15
-                        }
-                      />
-                    )}
+              <button
+                type="button"
+                onClick={
+                  goNext
+                }
+                className="flex items-center gap-2 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+              >
+                Continue
+                <ArrowRight
+                  size={13}
+                />
+              </button>
+            </div>
+          )}
+        </main>
 
-                    Schedule
-                  </button>
-                )}
+        {/* TEMPLATE MODAL */}
 
-                <button
-                  disabled={
-                    savingCampaign
-                  }
-                  onClick={() =>
-                    void saveAndSendNow()
-                  }
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-stone-900 px-8 py-4 text-[10px] font-black uppercase tracking-wider text-[#a9b897] disabled:opacity-50"
-                >
-                  {savingCampaign ? (
-                    <Loader2
-                      size={
-                        15
-                      }
-                      className="animate-spin"
-                    />
-                  ) : (
-                    <Send
-                      size={
-                        15
-                      }
-                    />
-                  )}
-
-                  Send Now
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* ==================================================
-          CAMPAIGN VIEW
-      ================================================== */}
-
-      <AnimatePresence>
-        {showCampaignView &&
-          selectedCampaign && (
-            <div className="fixed inset-0 z-[550] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-lg">
+        <AnimatePresence>
+          {showTemplatePicker && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm">
               <motion.div
                 initial={{
                   opacity:
@@ -6077,72 +6224,28 @@ Write your email exactly how you want it to read.`}
                   scale:
                     0.96,
                 }}
-                className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2.5rem] bg-white shadow-2xl"
+                className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-7 shadow-2xl"
               >
-                {/* HEADER */}
-
-                <div className="flex items-start justify-between border-b border-stone-100 p-7">
+                <div className="mb-6 flex items-center justify-between">
                   <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-3">
-                      <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
-                        Campaign
-                      </p>
-
-                      <span
-                        className={`rounded-full px-3 py-1 text-[7px] font-black uppercase tracking-wider ${
-                          getStatusLabel(
-                            selectedCampaign
-                          ) ===
-                          "sent"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : getStatusLabel(
-                                  selectedCampaign
-                                ) ===
-                                  "processing" ||
-                                getStatusLabel(
-                                  selectedCampaign
-                                ) ===
-                                  "sending"
-                              ? "bg-amber-100 text-amber-700"
-                              : getStatusLabel(
-                                    selectedCampaign
-                                  ) ===
-                                  "failed"
-                                ? "bg-red-100 text-red-700"
-                                : getStatusLabel(
-                                      selectedCampaign
-                                    ) ===
-                                    "queued"
-                                  ? "bg-blue-50 text-blue-600"
-                                  : "bg-stone-100 text-stone-500"
-                        }`}
-                      >
-                        {getStatusLabel(
-                          selectedCampaign
-                        )}
-                      </span>
-                    </div>
-
-                    <h2 className="text-2xl font-black">
-                      {
-                        selectedCampaign.title
-                      }
-                    </h2>
-
-                    <p className="mt-2 font-serif italic text-stone-500">
-                      {
-                        selectedCampaign.subject
-                      }
+                    <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#82916f]">
+                      Templates
                     </p>
+
+                    <h2 className="mt-2 text-2xl font-black">
+                      Choose a
+                      starting
+                      point
+                    </h2>
                   </div>
 
                   <button
                     onClick={() =>
-                      setShowCampaignView(
+                      setShowTemplatePicker(
                         false
                       )
                     }
-                    className="rounded-full p-3 hover:bg-stone-50"
+                    className="rounded-full p-2 hover:bg-stone-100"
                   >
                     <X
                       size={
@@ -6152,379 +6255,1517 @@ Write your email exactly how you want it to read.`}
                   </button>
                 </div>
 
-                {/* BODY */}
-
-                <div className="flex-1 overflow-y-auto bg-[#faf9f6] p-5 md:p-8">
-                  {/* ==================================================
-                      ANALYTICS
-                  ================================================== */}
-
-                  <div className="mx-auto mb-6 max-w-3xl">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
-                          Performance
-                        </p>
-
-                        <h3 className="mt-1 text-lg font-black text-stone-800">
-                          Campaign analytics
-                        </h3>
-                      </div>
-
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {STARTER_TEMPLATES.map(
+                    (
+                      template
+                    ) => (
                       <button
+                        key={
+                          template.id
+                        }
                         onClick={() =>
-                          void refreshStats()
+                          applyTemplate(
+                            template
+                          )
                         }
-                        disabled={
-                          refreshingStats
-                        }
-                        className="flex shrink-0 items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 text-[8px] font-black uppercase tracking-wider text-stone-400 disabled:opacity-50"
+                        className="rounded-2xl border border-stone-200 p-5 text-left transition hover:border-stone-900"
                       >
-                        <RefreshCw
+                        <LayoutTemplate
                           size={
-                            12
-                          }
-                          className={
-                            refreshingStats
-                              ? "animate-spin"
-                              : ""
+                            19
                           }
                         />
 
-                        Refresh
+                        <p className="mt-5 text-sm font-black">
+                          {
+                            template.name
+                          }
+                        </p>
+
+                        <p className="mt-1 text-[10px] text-stone-400">
+                          {
+                            template
+                              .blocks
+                              .length
+                          }{" "}
+                          blocks
+                        </p>
                       </button>
+                    )
+                  )}
+                </div>
+
+                {savedTemplates.length >
+                  0 && (
+                  <div className="mt-8 border-t border-stone-100 pt-7">
+                    <p className="mb-4 text-[9px] font-black uppercase tracking-wider text-stone-400">
+                      Saved
+                      templates
+                    </p>
+
+                    <div className="space-y-2">
+                      {savedTemplates.map(
+                        (
+                          template
+                        ) => (
+                          <div
+                            key={
+                              template.id
+                            }
+                            className="flex items-center justify-between rounded-xl bg-stone-50 p-4"
+                          >
+                            <button
+                              onClick={() =>
+                                applyTemplate(
+                                  template
+                                )
+                              }
+                              className="flex-1 text-left text-sm font-bold"
+                            >
+                              {
+                                template.name
+                              }
+                            </button>
+
+                            <button
+                              onClick={() =>
+                                deleteSavedTemplate(
+                                  template.id
+                                )
+                              }
+                              className="text-red-400"
+                            >
+                              <Trash2
+                                size={
+                                  14
+                                }
+                              />
+                            </button>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* AI MODAL */}
+
+        <AnimatePresence>
+          {showAiAssist && (
+            <div className="fixed inset-0 z-[250] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm">
+              <motion.div
+                initial={{
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
+                }}
+                animate={{
+                  opacity:
+                    1,
+                  scale:
+                    1,
+                }}
+                exit={{
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
+                }}
+                className="w-full max-w-lg rounded-[2rem] bg-white p-7 shadow-2xl"
+              >
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.25em] text-violet-500">
+                      TOTS AI
+                    </p>
+
+                    <h2 className="mt-2 text-2xl font-black">
+                      Write
+                      campaign
+                      content
+                    </h2>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      setShowAiAssist(
+                        false
+                      )
+                    }
+                  >
+                    <X
+                      size={
+                        18
+                      }
+                    />
+                  </button>
+                </div>
+
+                <FieldLabel>
+                  What should the
+                  email be about?
+                </FieldLabel>
+
+                <textarea
+                  value={
+                    aiPrompt
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setAiPrompt(
+                      event
+                        .target
+                        .value
+                    )
+                  }
+                  rows={5}
+                  placeholder="Launch our new service and encourage people to book..."
+                  className="w-full rounded-xl border border-stone-200 p-4 text-sm outline-none"
+                />
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <select
+                    value={
+                      aiTone
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setAiTone(
+                        event
+                          .target
+                          .value
+                      )
+                    }
+                    className="rounded-xl border border-stone-200 p-3 text-xs"
+                  >
+                    <option value="friendly">
+                      Friendly
+                    </option>
+
+                    <option value="professional">
+                      Professional
+                    </option>
+
+                    <option value="playful">
+                      Playful
+                    </option>
+
+                    <option value="urgent">
+                      Promotional
+                    </option>
+                  </select>
+
+                  <select
+                    value={
+                      aiTarget
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setAiTarget(
+                        event
+                          .target
+                          .value as
+                          | "blocks"
+                          | "html"
+                      )
+                    }
+                    className="rounded-xl border border-stone-200 p-3 text-xs"
+                  >
+                    <option value="blocks">
+                      Editable
+                      blocks
+                    </option>
+
+                    <option value="html">
+                      Custom HTML
+                    </option>
+                  </select>
+                </div>
+
+                {aiError && (
+                  <p className="mt-3 text-xs font-bold text-red-500">
+                    {
+                      aiError
+                    }
+                  </p>
+                )}
+
+                <button
+                  disabled={
+                    aiGenerating
+                  }
+                  onClick={() =>
+                    void generateWithAi()
+                  }
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-white disabled:opacity-50"
+                >
+                  {aiGenerating ? (
+                    <Loader2
+                      size={
+                        14
+                      }
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Wand2
+                      size={
+                        14
+                      }
+                    />
+                  )}
+
+                  Generate
+                  campaign
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* CREATE LIST MODAL */}
+
+        <AnimatePresence>
+          {showCreateList && (
+            <div className="fixed inset-0 z-[300] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm">
+              <motion.div
+                initial={{
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
+                }}
+                animate={{
+                  opacity:
+                    1,
+                  scale:
+                    1,
+                }}
+                exit={{
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
+                }}
+                className="w-full max-w-md rounded-[2rem] bg-white p-7 shadow-2xl"
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-black">
+                    New
+                    audience
+                  </h2>
+
+                  <button
+                    onClick={() =>
+                      setShowCreateList(
+                        false
+                      )
+                    }
+                  >
+                    <X
+                      size={
+                        18
+                      }
+                    />
+                  </button>
+                </div>
+
+                <input
+                  value={
+                    newListName
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setNewListName(
+                      event
+                        .target
+                        .value
+                    )
+                  }
+                  placeholder="Newsletter subscribers"
+                  className="mt-6 w-full rounded-xl border border-stone-200 px-4 py-4 text-sm outline-none"
+                />
+
+                <button
+                  onClick={() =>
+                    void createList()
+                  }
+                  className="mt-4 w-full rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase text-[#a9b897]"
+                >
+                  Create
+                  audience
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // ==================================================
+  // AUDIENCE DETAIL SCREEN
+  // ==================================================
+
+  if (
+    screen ===
+      "audiences" &&
+    selectedList
+  ) {
+    return (
+      <div className="min-h-screen bg-[#f8f8f7] p-5 text-stone-900 md:p-10">
+        <div className="mx-auto max-w-6xl">
+          <button
+            onClick={() =>
+              setScreen(
+                "campaigns"
+              )
+            }
+            className="mb-8 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-stone-500"
+          >
+            <ArrowLeft
+              size={13}
+            />
+            Campaigns
+          </button>
+
+          <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#82916f]">
+                Audience
+              </p>
+
+              <h1 className="mt-3 text-4xl font-black md:text-5xl">
+                {
+                  selectedList.name
+                }
+              </h1>
+
+              <p className="mt-3 text-sm text-stone-400">
+                {
+                  listSubscribers.length
+                }{" "}
+                subscriber
+                {listSubscribers.length ===
+                1
+                  ? ""
+                  : "s"}
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setSelectedProfiles(
+                  []
+                );
+
+                setManualEmails(
+                  ""
+                );
+
+                setShowSubscriberManager(
+                  true
+                );
+              }}
+              className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+            >
+              <Plus
+                size={13}
+              />
+              Add
+              subscribers
+            </button>
+          </div>
+
+          <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm">
+            <div className="grid grid-cols-[1fr_auto] border-b border-stone-100 bg-stone-50 px-6 py-4 text-[8px] font-black uppercase tracking-wider text-stone-400">
+              <span>
+                Subscriber
+              </span>
+
+              <span>
+                Actions
+              </span>
+            </div>
+
+            {loadingList ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="animate-spin text-stone-300" />
+              </div>
+            ) : listSubscribers.length ===
+              0 ? (
+              <div className="py-16 text-center">
+                <Mail
+                  size={26}
+                  className="mx-auto text-stone-200"
+                />
+
+                <p className="mt-4 text-sm font-semibold text-stone-400">
+                  This
+                  audience is
+                  empty.
+                </p>
+              </div>
+            ) : (
+              listSubscribers.map(
+                (
+                  subscriber
+                ) => (
+                  <div
+                    key={`${subscriber.source}-${subscriber.id}`}
+                    className="flex items-center justify-between border-b border-stone-100 px-6 py-5 last:border-0"
+                  >
+                    <div>
+                      <p className="text-sm font-bold">
+                        {subscriber.name ||
+                          subscriber.email}
+                      </p>
+
+                      {subscriber.name && (
+                        <p className="mt-1 text-xs text-stone-400">
+                          {
+                            subscriber.email
+                          }
+                        </p>
+                      )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                      {/* SENT */}
+                    <button
+                      onClick={() =>
+                        void removeSubscriber(
+                          subscriber
+                        )
+                      }
+                      className="rounded-lg p-2 text-red-400 hover:bg-red-50"
+                    >
+                      <Trash2
+                        size={
+                          14
+                        }
+                      />
+                    </button>
+                  </div>
+                )
+              )
+            )}
+          </div>
+        </div>
 
-                      <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
-                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
-                          <Send
-                            size={
-                              14
-                            }
-                            className="text-stone-500"
-                          />
-                        </div>
+        {/* SUBSCRIBER MANAGER */}
 
-                        <p className="text-2xl font-black text-stone-800">
-                          {selectedCampaign.sent_count ||
-                            0}
-                        </p>
+        <AnimatePresence>
+          {showSubscriberManager && (
+            <div className="fixed inset-0 z-[300] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm">
+              <motion.div
+                initial={{
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
+                }}
+                animate={{
+                  opacity:
+                    1,
+                  scale:
+                    1,
+                }}
+                exit={{
+                  opacity:
+                    0,
+                  scale:
+                    0.96,
+                }}
+                className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl"
+              >
+                <div className="flex items-center justify-between border-b border-stone-100 p-6">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#82916f]">
+                      {
+                        selectedList.name
+                      }
+                    </p>
 
-                        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
-                          Sent
-                        </p>
-                      </div>
+                    <h2 className="mt-2 text-xl font-black">
+                      Add
+                      subscribers
+                    </h2>
+                  </div>
 
-                      {/* OPENS */}
+                  <button
+                    onClick={() =>
+                      setShowSubscriberManager(
+                        false
+                      )
+                    }
+                  >
+                    <X
+                      size={
+                        18
+                      }
+                    />
+                  </button>
+                </div>
 
-                      <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
-                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
-                          <Eye
-                            size={
-                              14
-                            }
-                            className="text-stone-500"
-                          />
-                        </div>
+                <div className="flex-1 space-y-7 overflow-y-auto p-6">
+                  <div>
+                    <FieldLabel>
+                      Add email
+                      addresses
+                    </FieldLabel>
 
-                        <p className="text-2xl font-black text-stone-800">
-                          {selectedCampaign.open_count ||
-                            0}
-                        </p>
+                    <textarea
+                      value={
+                        manualEmails
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setManualEmails(
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      rows={6}
+                      placeholder={`hello@example.com\nclient@business.co.uk`}
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm leading-7 outline-none"
+                    />
 
-                        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
-                          Unique Opens
-                        </p>
-                      </div>
-
-                      {/* OPEN RATE */}
-
-                      <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
-                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
-                          <BarChart3
-                            size={
-                              14
-                            }
-                            className="text-stone-500"
-                          />
-                        </div>
-
-                        <p className="text-2xl font-black text-stone-800">
-                          {getOpenRate(
-                            selectedCampaign
-                          )}
-                          %
-                        </p>
-
-                        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
-                          Open Rate
-                        </p>
-                      </div>
-
-                      {/* CLICKS */}
-
-                      <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
-                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
-                          <MousePointerClick
-                            size={
-                              14
-                            }
-                            className="text-stone-500"
-                          />
-                        </div>
-
-                        <p className="text-2xl font-black text-stone-800">
-                          {selectedCampaign.click_count ||
-                            0}
-                        </p>
-
-                        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
-                          Unique Clicks
-                        </p>
-                      </div>
-
-                      {/* CLICK RATE */}
-
-                      <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
-                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50">
-                          <BarChart3
-                            size={
-                              14
-                            }
-                            className="text-stone-500"
-                          />
-                        </div>
-
-                        <p className="text-2xl font-black text-stone-800">
-                          {getClickRate(
-                            selectedCampaign
-                          )}
-                          %
-                        </p>
-
-                        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
-                          Click Rate
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* DELIVERY STATUS */}
-
-                    <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-stone-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
-                          Delivery Status
-                        </p>
-
-                        <p
-                          className={`mt-1 text-sm font-black uppercase ${
-                            getStatusLabel(
-                              selectedCampaign
-                            ) ===
-                            "sent"
-                              ? "text-emerald-600"
-                              : getStatusLabel(
-                                    selectedCampaign
-                                  ) ===
-                                    "processing" ||
-                                  getStatusLabel(
-                                    selectedCampaign
-                                  ) ===
-                                    "sending"
-                                ? "text-amber-600"
-                                : getStatusLabel(
-                                      selectedCampaign
-                                    ) ===
-                                    "failed"
-                                  ? "text-red-600"
-                                  : "text-stone-500"
-                          }`}
-                        >
-                          {getStatusLabel(
-                            selectedCampaign
-                          )}
-                        </p>
-                      </div>
-
-                      {selectedCampaign.sent_at ? (
-                        <div className="sm:text-right">
-                          <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
-                            Sent At
-                          </p>
-
-                          <p className="mt-1 text-xs font-bold text-stone-600">
-                            {formatDate(
-                              selectedCampaign.sent_at
-                            )}
-                          </p>
-                        </div>
-                      ) : selectedCampaign.scheduled_for ? (
-                        <div className="sm:text-right">
-                          <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
-                            Scheduled For
-                          </p>
-
-                          <p className="mt-1 text-xs font-bold text-stone-600">
-                            {formatDate(
-                              selectedCampaign.scheduled_for
-                            )}
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <p className="mt-3 text-[9px] leading-relaxed text-stone-400">
-                      Opens are unique tracked
-                      recipients. Some email providers
-                      may block or preload tracking
-                      images, so open statistics are
-                      best treated as an estimate.
+                    <p className="mt-2 text-[10px] text-stone-400">
+                      {
+                        parseEmails(
+                          manualEmails
+                        ).length
+                      }{" "}
+                      valid
+                      email(s)
                     </p>
                   </div>
 
-                  {/* ==================================================
-                      EMAIL PREVIEW
-                  ================================================== */}
+                  <div className="border-t border-stone-100 pt-6">
+                    <FieldLabel>
+                      Existing
+                      contacts
+                    </FieldLabel>
 
-                  <div className="mx-auto max-w-3xl">
-                    <p className="mb-3 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">
-                      Email Preview
-                    </p>
+                    <div className="space-y-2">
+                      {profiles.map(
+                        (
+                          profile
+                        ) => {
+                          const selected =
+                            selectedProfiles.includes(
+                              profile.id
+                            );
 
-                    <div
-                      className="rounded-[2rem] bg-white p-7 shadow-sm md:p-10"
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          selectedCampaign.content ||
-                          "",
-                      }}
-                    />
+                          return (
+                            <label
+                              key={
+                                profile.id
+                              }
+                              className={`flex cursor-pointer items-center gap-4 rounded-xl border p-4 ${
+                                selected
+                                  ? "border-[#a9b897] bg-[#a9b897]/10"
+                                  : "border-stone-100 bg-stone-50"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={
+                                  selected
+                                }
+                                onChange={(
+                                  event
+                                ) => {
+                                  if (
+                                    event
+                                      .target
+                                      .checked
+                                  ) {
+                                    setSelectedProfiles(
+                                      (
+                                        previous
+                                      ) => [
+                                        ...previous,
+                                        profile.id,
+                                      ]
+                                    );
+                                  } else {
+                                    setSelectedProfiles(
+                                      (
+                                        previous
+                                      ) =>
+                                        previous.filter(
+                                          (
+                                            id
+                                          ) =>
+                                            id !==
+                                            profile.id
+                                        )
+                                    );
+                                  }
+                                }}
+                              />
+
+                              <div>
+                                <p className="text-sm font-bold">
+                                  {profile.full_name ||
+                                    profile.name ||
+                                    profile.email}
+                                </p>
+
+                                <p className="mt-1 text-xs text-stone-400">
+                                  {
+                                    profile.email
+                                  }
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        }
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* ==================================================
-                    ACTIONS
-                ================================================== */}
-
-                <div className="flex flex-wrap gap-3 border-t border-stone-100 bg-white p-6">
-                  {getStatusLabel(
-                    selectedCampaign
-                  ) !==
-                    "sent" && (
-                    <button
-                      onClick={() =>
-                        editCampaign(
-                          selectedCampaign
-                        )
-                      }
-                      className="flex items-center gap-2 rounded-xl bg-stone-100 px-5 py-3 text-[9px] font-black uppercase tracking-wider"
-                    >
-                      <Edit3
+                <div className="border-t border-stone-100 p-6">
+                  <button
+                    disabled={
+                      savingSubscribers
+                    }
+                    onClick={() =>
+                      void saveSubscribers()
+                    }
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+                  >
+                    {savingSubscribers ? (
+                      <Loader2
                         size={
-                          13
+                          14
+                        }
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Check
+                        size={
+                          14
                         }
                       />
+                    )}
 
-                      Edit
-                    </button>
-                  )}
-
-                  {getStatusLabel(
-                    selectedCampaign
-                  ) !==
-                    "sent" && (
-                    <button
-                      disabled={
-                        sendingCampaignId ===
-                          selectedCampaign.id ||
-                        getStatusLabel(
-                          selectedCampaign
-                        ) ===
-                          "processing" ||
-                        getStatusLabel(
-                          selectedCampaign
-                        ) ===
-                          "sending"
-                      }
-                      onClick={() =>
-                        void sendExistingCampaign(
-                          selectedCampaign.id
-                        )
-                      }
-                      className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-[9px] font-black uppercase tracking-wider text-white disabled:opacity-50"
-                    >
-                      {sendingCampaignId ===
-                      selectedCampaign.id ? (
-                        <Loader2
-                          size={
-                            13
-                          }
-                          className="animate-spin"
-                        />
-                      ) : (
-                        <Send
-                          size={
-                            13
-                          }
-                        />
-                      )}
-
-                      {getStatusLabel(
-                        selectedCampaign
-                      ) ===
-                        "processing" ||
-                      getStatusLabel(
-                        selectedCampaign
-                      ) ===
-                        "sending"
-                        ? "Sending..."
-                        : "Send Now"}
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() =>
-                      void refreshStats()
-                    }
-                    className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-5 py-3 text-[9px] font-black uppercase tracking-wider text-stone-500"
-                  >
-                    <RefreshCw
-                      size={
-                        13
-                      }
-                      className={
-                        refreshingStats
-                          ? "animate-spin"
-                          : ""
-                      }
-                    />
-
-                    Refresh
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      void deleteCampaign(
-                        selectedCampaign
-                      )
-                    }
-                    className="ml-auto flex items-center gap-2 rounded-xl bg-red-50 px-5 py-3 text-[9px] font-black uppercase tracking-wider text-red-600"
-                  >
-                    <Trash2
-                      size={
-                        13
-                      }
-                    />
-
-                    Delete
+                    Save
+                    subscribers
                   </button>
                 </div>
               </motion.div>
             </div>
           )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // ==================================================
+  // ANALYTICS SCREEN
+  // ==================================================
+
+  if (
+    screen ===
+      "analytics" &&
+    selectedCampaign
+  ) {
+    const status =
+      getStatusLabel(
+        selectedCampaign
+      );
+
+    return (
+      <div className="min-h-screen bg-[#f8f8f7] p-5 text-stone-900 md:p-10">
+        <div className="mx-auto max-w-6xl">
+          <button
+            onClick={() =>
+              setScreen(
+                "campaigns"
+              )
+            }
+            className="mb-8 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-stone-500"
+          >
+            <ArrowLeft
+              size={13}
+            />
+            Campaigns
+          </button>
+
+          <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#82916f]">
+                  Campaign
+                  report
+                </p>
+
+                <StatusBadge
+                  status={
+                    status
+                  }
+                />
+              </div>
+
+              <h1 className="mt-3 text-4xl font-black md:text-5xl">
+                {
+                  selectedCampaign.title
+                }
+              </h1>
+
+              <p className="mt-3 font-serif italic text-stone-500">
+                {
+                  selectedCampaign.subject
+                }
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {status !==
+                "sent" && (
+                <button
+                  onClick={() =>
+                    editCampaign(
+                      selectedCampaign
+                    )
+                  }
+                  className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[9px] font-black uppercase"
+                >
+                  <Edit3
+                    size={
+                      13
+                    }
+                  />
+                  Edit
+                </button>
+              )}
+
+              <button
+                onClick={() =>
+                  duplicateCampaign(
+                    selectedCampaign
+                  )
+                }
+                className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[9px] font-black uppercase"
+              >
+                <Copy
+                  size={13}
+                />
+                Duplicate
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              {
+                label:
+                  "Sent",
+                value:
+                  selectedCampaign.sent_count ||
+                  0,
+                icon:
+                  Send,
+              },
+              {
+                label:
+                  "Opens",
+                value:
+                  selectedCampaign.open_count ||
+                  0,
+                icon:
+                  Eye,
+              },
+              {
+                label:
+                  "Open rate",
+                value: `${getOpenRate(
+                  selectedCampaign
+                )}%`,
+                icon:
+                  BarChart3,
+              },
+              {
+                label:
+                  "Clicks",
+                value:
+                  selectedCampaign.click_count ||
+                  0,
+                icon:
+                  MousePointerClick,
+              },
+              {
+                label:
+                  "Click rate",
+                value: `${getClickRate(
+                  selectedCampaign
+                )}%`,
+                icon:
+                  BarChart3,
+              },
+            ].map(
+              (
+                stat
+              ) => {
+                const Icon =
+                  stat.icon;
+
+                return (
+                  <div
+                    key={
+                      stat.label
+                    }
+                    className="rounded-[1.5rem] border border-stone-200 bg-white p-5 shadow-sm"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100 text-stone-500">
+                      <Icon
+                        size={
+                          15
+                        }
+                      />
+                    </div>
+
+                    <p className="mt-5 text-3xl font-black">
+                      {
+                        stat.value
+                      }
+                    </p>
+
+                    <p className="mt-1 text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                      {
+                        stat.label
+                      }
+                    </p>
+                  </div>
+                );
+              }
+            )}
+          </div>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+            <div className="rounded-[2rem] border border-stone-200 bg-white p-6">
+              <p className="mb-5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-400">
+                Email
+                preview
+              </p>
+
+              <div
+                dangerouslySetInnerHTML={{
+                  __html:
+                    selectedCampaign.content ||
+                    "",
+                }}
+              />
+            </div>
+
+            <aside className="space-y-4">
+              <div className="rounded-[1.5rem] border border-stone-200 bg-white p-5">
+                <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                  Audience
+                </p>
+
+                <p className="mt-2 text-sm font-bold">
+                  {selectedCampaign
+                    .subscriber_lists
+                    ?.name ||
+                    "Unknown"}
+                </p>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-stone-200 bg-white p-5">
+                <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                  Sent
+                </p>
+
+                <p className="mt-2 text-sm font-bold">
+                  {selectedCampaign.sent_at
+                    ? formatDate(
+                        selectedCampaign.sent_at
+                      )
+                    : selectedCampaign.scheduled_for
+                      ? formatDate(
+                          selectedCampaign.scheduled_for
+                        )
+                      : "Not sent"}
+                </p>
+              </div>
+
+              {status !==
+                "sent" && (
+                <button
+                  disabled={
+                    sendingCampaignId ===
+                    selectedCampaign.id
+                  }
+                  onClick={() =>
+                    void sendExistingCampaign(
+                      selectedCampaign.id
+                    )
+                  }
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+                >
+                  <Send
+                    size={
+                      13
+                    }
+                  />
+                  Send now
+                </button>
+              )}
+
+              <button
+                onClick={() =>
+                  void deleteCampaign(
+                    selectedCampaign
+                  )
+                }
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-red-600"
+              >
+                <Trash2
+                  size={13}
+                />
+                Delete
+                campaign
+              </button>
+            </aside>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================================================
+  // CAMPAIGN DASHBOARD
+  // ==================================================
+
+  return (
+    <div className="min-h-screen bg-[#f8f8f7] p-4 text-stone-900 md:p-10">
+      <div className="mx-auto max-w-7xl">
+        {/* PAGE HEADER */}
+
+        <header className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#82916f]">
+              Marketing
+            </p>
+
+            <h1 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">
+              Email
+              Campaigns
+            </h1>
+
+            <p className="mt-3 max-w-xl text-sm leading-7 text-stone-500">
+              Create,
+              schedule and
+              track email
+              campaigns from
+              one place.
+            </p>
+          </div>
+
+          <button
+            onClick={
+              openNewCampaign
+            }
+            className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-[#a9b897] shadow-lg"
+          >
+            <Plus
+              size={14}
+            />
+            Create
+            campaign
+          </button>
+        </header>
+
+        {/* TABS */}
+
+        <div className="mb-7 flex items-center justify-between border-b border-stone-200">
+          <div className="flex gap-7">
+            <button className="border-b-2 border-stone-900 pb-4 text-[10px] font-black uppercase tracking-[0.12em] text-stone-900">
+              Campaigns
+            </button>
+
+            <button
+              onClick={() => {
+                if (
+                  lists[0]
+                ) {
+                  void openAudience(
+                    lists[0]
+                  );
+                }
+              }}
+              className="pb-4 text-[10px] font-black uppercase tracking-[0.12em] text-stone-400"
+            >
+              Audiences
+            </button>
+          </div>
+
+          <button
+            onClick={() =>
+              void refreshStats()
+            }
+            disabled={
+              refreshingStats
+            }
+            className="mb-3 flex items-center gap-2 text-[8px] font-black uppercase tracking-wider text-stone-400"
+          >
+            <RefreshCw
+              size={12}
+              className={
+                refreshingStats
+                  ? "animate-spin"
+                  : ""
+              }
+            />
+
+            Refresh
+          </button>
+        </div>
+
+        {/* SUMMARY CARDS */}
+
+        <div className="mb-8 grid gap-4 md:grid-cols-4">
+          <div className="rounded-[1.5rem] border border-stone-200 bg-white p-5">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+              Campaigns
+            </p>
+
+            <p className="mt-2 text-3xl font-black">
+              {
+                campaigns.length
+              }
+            </p>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-stone-200 bg-white p-5">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+              Sent
+            </p>
+
+            <p className="mt-2 text-3xl font-black">
+              {
+                campaigns.filter(
+                  (
+                    campaign
+                  ) =>
+                    getStatusLabel(
+                      campaign
+                    ) ===
+                    "sent"
+                ).length
+              }
+            </p>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-stone-200 bg-white p-5">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+              Audiences
+            </p>
+
+            <p className="mt-2 text-3xl font-black">
+              {
+                lists.length
+              }
+            </p>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-stone-200 bg-white p-5">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+              Subscribers
+            </p>
+
+            <p className="mt-2 text-3xl font-black">
+              {Object.values(
+                subscriberCounts
+              ).reduce(
+                (
+                  total,
+                  count
+                ) =>
+                  total +
+                  count,
+                0
+              )}
+            </p>
+          </div>
+        </div>
+
+        {/* CAMPAIGNS TABLE */}
+
+        <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm">
+          {campaigns.length ===
+          0 ? (
+            <div className="py-20 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100">
+                <Mail
+                  size={
+                    22
+                  }
+                  className="text-stone-400"
+                />
+              </div>
+
+              <h2 className="mt-5 text-xl font-black">
+                No
+                campaigns
+                yet
+              </h2>
+
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-stone-400">
+                Create your
+                first email,
+                choose your
+                audience and
+                send it from
+                TOTS-OS.
+              </p>
+
+              <button
+                onClick={
+                  openNewCampaign
+                }
+                className="mt-6 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+              >
+                Create
+                campaign
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="hidden grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_auto] gap-4 border-b border-stone-100 bg-stone-50 px-6 py-4 text-[8px] font-black uppercase tracking-[0.14em] text-stone-400 md:grid">
+                <span>
+                  Campaign
+                </span>
+                <span>
+                  Audience
+                </span>
+                <span>
+                  Status
+                </span>
+                <span>
+                  Results
+                </span>
+                <span />
+              </div>
+
+              {campaigns.map(
+                (
+                  campaign
+                ) => {
+                  const status =
+                    getStatusLabel(
+                      campaign
+                    );
+
+                  return (
+                    <button
+                      key={
+                        campaign.id
+                      }
+                      type="button"
+                      onClick={() => {
+                        setSelectedCampaign(
+                          campaign
+                        );
+
+                        setScreen(
+                          "analytics"
+                        );
+                      }}
+                      className="grid w-full gap-4 border-b border-stone-100 px-6 py-5 text-left transition last:border-0 hover:bg-stone-50 md:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_auto] md:items-center"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-black">
+                            {
+                              campaign.title
+                            }
+                          </p>
+
+                          {campaign.editor_mode ===
+                            "html" && (
+                            <span className="flex items-center gap-1 rounded-full bg-violet-50 px-2 py-1 text-[7px] font-black uppercase text-violet-600">
+                              <Code2
+                                size={
+                                  8
+                                }
+                              />
+                              HTML
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="mt-1 truncate text-xs text-stone-400">
+                          {campaign.subject ||
+                            "No subject"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold text-stone-600">
+                          {campaign
+                            .subscriber_lists
+                            ?.name ||
+                            "No audience"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <StatusBadge
+                          status={
+                            status
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        {status ===
+                        "sent" ? (
+                          <div className="flex gap-4 text-xs">
+                            <span>
+                              <strong>
+                                {getOpenRate(
+                                  campaign
+                                )}
+                                %
+                              </strong>
+                              <span className="ml-1 text-stone-400">
+                                open
+                              </span>
+                            </span>
+
+                            <span>
+                              <strong>
+                                {getClickRate(
+                                  campaign
+                                )}
+                                %
+                              </strong>
+                              <span className="ml-1 text-stone-400">
+                                click
+                              </span>
+                            </span>
+                          </div>
+                        ) : campaign.scheduled_for ? (
+                          <p className="text-[10px] text-stone-400">
+                            {formatDate(
+                              campaign.scheduled_for
+                            )}
+                          </p>
+                        ) : (
+                          <span className="text-[10px] text-stone-300">
+                            —
+                          </span>
+                        )}
+                      </div>
+
+                      <ChevronRight
+                        size={
+                          15
+                        }
+                        className="text-stone-300"
+                      />
+                    </button>
+                  );
+                }
+              )}
+            </>
+          )}
+        </section>
+
+        {/* AUDIENCE SECTION */}
+
+        <section className="mt-10">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
+                Audiences
+              </p>
+
+              <p className="mt-1 text-xs text-stone-400">
+                Your
+                subscriber
+                lists
+              </p>
+            </div>
+
+            <button
+              onClick={() =>
+                setShowCreateList(
+                  true
+                )
+              }
+              className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase"
+            >
+              <Plus
+                size={12}
+              />
+              New list
+            </button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {lists.map(
+              (
+                list
+              ) => (
+                <button
+                  key={
+                    list.id
+                  }
+                  onClick={() =>
+                    void openAudience(
+                      list
+                    )
+                  }
+                  className="flex items-center justify-between rounded-[1.5rem] border border-stone-200 bg-white p-5 text-left transition hover:border-stone-400"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#71805f]">
+                      <Hash
+                        size={
+                          15
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-black">
+                        {
+                          list.name
+                        }
+                      </p>
+
+                      <p className="mt-1 text-[10px] text-stone-400">
+                        {subscriberCounts[
+                          list.id
+                        ] ||
+                          0}{" "}
+                        subscribers
+                      </p>
+                    </div>
+                  </div>
+
+                  <ChevronRight
+                    size={
+                      14
+                    }
+                    className="text-stone-300"
+                  />
+                </button>
+              )
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* CREATE LIST MODAL */}
+
+      <AnimatePresence>
+        {showCreateList && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center bg-stone-900/60 p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{
+                opacity:
+                  0,
+                scale:
+                  0.96,
+              }}
+              animate={{
+                opacity:
+                  1,
+                scale:
+                  1,
+              }}
+              exit={{
+                opacity:
+                  0,
+                scale:
+                  0.96,
+              }}
+              className="w-full max-w-md rounded-[2rem] bg-white p-7 shadow-2xl"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#82916f]">
+                    Audience
+                  </p>
+
+                  <h2 className="mt-2 text-xl font-black">
+                    Create a
+                    subscriber
+                    list
+                  </h2>
+                </div>
+
+                <button
+                  onClick={() =>
+                    setShowCreateList(
+                      false
+                    )
+                  }
+                >
+                  <X
+                    size={
+                      18
+                    }
+                  />
+                </button>
+              </div>
+
+              <input
+                value={
+                  newListName
+                }
+                onChange={(
+                  event
+                ) =>
+                  setNewListName(
+                    event
+                      .target
+                      .value
+                  )
+                }
+                onKeyDown={(
+                  event
+                ) => {
+                  if (
+                    event.key ===
+                    "Enter"
+                  ) {
+                    void createList();
+                  }
+                }}
+                placeholder="Newsletter"
+                className="mt-6 w-full rounded-xl border border-stone-200 px-4 py-4 text-sm outline-none"
+              />
+
+              <button
+                onClick={() =>
+                  void createList()
+                }
+                className="mt-4 w-full rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+              >
+                Create
+                audience
+              </button>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
     </div>
   );

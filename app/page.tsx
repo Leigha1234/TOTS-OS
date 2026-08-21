@@ -223,7 +223,7 @@ const PRICING: PricingPlan[] = [
   },
   {
     name: "Elite",
-    price: 149,
+    price: 99,
     tag: "scale",
     description:
       "A complete operating environment for established businesses and ambitious teams.",

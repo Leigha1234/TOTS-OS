@@ -1238,12 +1238,11 @@ export default function PaymentsPage() {
 
         return;
       }
-
-      if (
-        options?.sendAfterCreate &&
-        !invoiceQuoteForm.sendToEmail.trim() &&
-        !invoiceQuoteForm.sendToContactId
-      ) {
+if (
+  options?.sendAfterCreate &&
+  !(invoiceQuoteForm.sendToEmail ?? "").trim() &&
+  !invoiceQuoteForm.sendToContactId
+) {
         notify(
           "Please choose a recipient or enter an email address.",
           "error"

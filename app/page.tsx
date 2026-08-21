@@ -1,5 +1,7 @@
 "use client";
 
+import Script from "next/script";
+
 import {
   AnimatePresence,
   motion,
@@ -1483,12 +1485,140 @@ export default function TotsOSLanding() {
       number | null
     >(0);
 
-  return (
+    return (
     <div className="tots-root">
+      {/* ======================================================
+          TIKTOK PIXEL
+      ====================================================== */}
+
+      <Script
+        id="tiktok-pixel"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+            !function (w, d, t) {
+              w.TiktokAnalyticsObject = t;
+
+              var ttq = w[t] = w[t] || [];
+
+              ttq.methods = [
+                "page",
+                "track",
+                "identify",
+                "instances",
+                "debug",
+                "on",
+                "off",
+                "once",
+                "ready",
+                "alias",
+                "group",
+                "enableCookie",
+                "disableCookie",
+                "holdConsent",
+                "revokeConsent",
+                "grantConsent"
+              ];
+
+              ttq.setAndDefer = function (target, method) {
+                target[method] = function () {
+                  target.push(
+                    [method].concat(
+                      Array.prototype.slice.call(arguments, 0)
+                    )
+                  );
+                };
+              };
+
+              for (
+                var i = 0;
+                i < ttq.methods.length;
+                i++
+              ) {
+                ttq.setAndDefer(
+                  ttq,
+                  ttq.methods[i]
+                );
+              }
+
+              ttq.instance = function (pixelId) {
+                var instance =
+                  ttq._i[pixelId] || [];
+
+                for (
+                  var i = 0;
+                  i < ttq.methods.length;
+                  i++
+                ) {
+                  ttq.setAndDefer(
+                    instance,
+                    ttq.methods[i]
+                  );
+                }
+
+                return instance;
+              };
+
+              ttq.load = function (pixelId, options) {
+                var url =
+                  "https://analytics.tiktok.com/i18n/pixel/events.js";
+
+                var script;
+
+                ttq._i = ttq._i || {};
+                ttq._i[pixelId] = [];
+                ttq._i[pixelId]._u = url;
+
+                ttq._t = ttq._t || {};
+                ttq._t[pixelId] = +new Date();
+
+                ttq._o = ttq._o || {};
+                ttq._o[pixelId] =
+                  options || {};
+
+                script =
+                  document.createElement("script");
+
+                script.type =
+                  "text/javascript";
+
+                script.async = true;
+
+                script.src =
+                  url +
+                  "?sdkid=" +
+                  pixelId +
+                  "&lib=" +
+                  t;
+
+                var firstScript =
+                  document.getElementsByTagName(
+                    "script"
+                  )[0];
+
+                firstScript.parentNode.insertBefore(
+                  script,
+                  firstScript
+                );
+              };
+
+              ttq.load(
+                "DA46CLRC77U4BICJ0VF0"
+              );
+
+              ttq.page();
+            }(
+              window,
+              document,
+              "ttq"
+            );
+          `,
+        }}
+      />
+
       {/* ======================================================
           STYLES
       ====================================================== */}
-
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:ital,wght@0,500;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
 

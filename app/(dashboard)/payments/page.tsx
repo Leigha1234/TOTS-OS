@@ -87,6 +87,27 @@ type NotificationType = {
 };
 
 // ============================================================
+// HELPERS
+// ============================================================
+
+function safeTrim(
+  value: string | null | undefined
+) {
+  return (value ?? "").trim();
+}
+
+function escapeHtml(
+  value: string | null | undefined
+) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// ============================================================
 // INITIAL STATE
 // ============================================================
 
@@ -97,15 +118,12 @@ const createInitialInvoiceQuoteForm =
     const timezoneOffset =
       today.getTimezoneOffset();
 
-    const localToday =
-      new Date(
-        today.getTime() -
-          timezoneOffset *
-            60 *
-            1000
-      )
-        .toISOString()
-        .slice(0, 10);
+    const localToday = new Date(
+      today.getTime() -
+        timezoneOffset * 60 * 1000
+    )
+      .toISOString()
+      .slice(0, 10);
 
     return {
       customerId: "",
@@ -115,9 +133,7 @@ const createInitialInvoiceQuoteForm =
       invoiceNumber: "",
       orderNumber: "",
 
-      invoiceDate:
-        localToday,
-
+      invoiceDate: localToday,
       dueDate: "",
 
       customerName: "",
@@ -138,19 +154,13 @@ const createInitialInvoiceQuoteForm =
       vatRate: "20",
 
       repeatInvoice: false,
-      repeatFrequency:
-        "monthly",
+      repeatFrequency: "monthly",
       repeatStartDate: "",
       repeatEndDate: "",
 
-      remindersEnabled:
-        false,
-
-      reminderDaysBefore:
-        "3",
-
-      reminderDaysAfter:
-        "1",
+      remindersEnabled: false,
+      reminderDaysBefore: "3",
+      reminderDaysAfter: "1",
 
       terms:
         "Payment is due by the date shown on this document. Please use the invoice number as your payment reference.",
@@ -159,15 +169,14 @@ const createInitialInvoiceQuoteForm =
     };
   };
 
-const INITIAL_LINE_ITEMS: FinanceLineItem[] =
-  [
-    {
-      id: 1,
-      desc: "",
-      qty: 1,
-      price: 0,
-    },
-  ];
+const INITIAL_LINE_ITEMS: FinanceLineItem[] = [
+  {
+    id: 1,
+    desc: "",
+    qty: 1,
+    price: 0,
+  },
+];
 
 const INITIAL_EXPENSE_FORM: ExpenseForm = {
   description: "",
@@ -180,20 +189,18 @@ const INITIAL_EXPENSE_FORM: ExpenseForm = {
   receiptUrl: "",
 };
 
-const INITIAL_EMPLOYEE_FORM: EmployeeForm =
-  {
-    name: "",
-    role: "",
-    salary_gross: "",
-  };
+const INITIAL_EMPLOYEE_FORM: EmployeeForm = {
+  name: "",
+  role: "",
+  salary_gross: "",
+};
 
-const INITIAL_RECURRING_FORM: RecurringInvoiceForm =
-  {
-    client_name: "",
-    amount: "",
-    interval: "monthly",
-    next_run: "",
-  };
+const INITIAL_RECURRING_FORM: RecurringInvoiceForm = {
+  client_name: "",
+  amount: "",
+  interval: "monthly",
+  next_run: "",
+};
 
 const INITIAL_VAT_FORM: VatForm = {
   amount: "",
@@ -232,58 +239,51 @@ export default function PaymentsPage() {
   const [
     activeTab,
     setActiveTab,
-  ] =
-    useState<FinanceTab>(
-      "overview"
-    );
+  ] = useState<FinanceTab>(
+    "overview"
+  );
 
   const [
     activeModal,
     setActiveModal,
-  ] =
-    useState<ModalType>(
-      null
-    );
+  ] = useState<ModalType>(
+    null
+  );
 
   const [
     projects,
     setProjects,
-  ] =
-    useState<
-      FinanceProject[]
-    >([]);
+  ] = useState<
+    FinanceProject[]
+  >([]);
 
   const [
     contacts,
     setContacts,
-  ] =
-    useState<
-      FinanceContact[]
-    >([]);
+  ] = useState<
+    FinanceContact[]
+  >([]);
 
   const [
     staffMembers,
     setStaffMembers,
-  ] =
-    useState<
-      FinanceStaffMember[]
-    >([]);
+  ] = useState<
+    FinanceStaffMember[]
+  >([]);
 
   const [
     projectsLoading,
     setProjectsLoading,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     notification,
     setNotification,
-  ] =
-    useState<NotificationType>({
-      visible: false,
-      message: "",
-      type: "success",
-    });
+  ] = useState<NotificationType>({
+    visible: false,
+    message: "",
+    type: "success",
+  });
 
   // ==========================================================
   // INVOICE / QUOTE
@@ -292,8 +292,7 @@ export default function PaymentsPage() {
   const [
     invoiceQuoteSubmitting,
     setInvoiceQuoteSubmitting,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     invoiceQuoteDocType,
@@ -315,12 +314,9 @@ export default function PaymentsPage() {
   const [
     invoiceQuoteLineItems,
     setInvoiceQuoteLineItems,
-  ] =
-    useState<
-      FinanceLineItem[]
-    >(
-      INITIAL_LINE_ITEMS
-    );
+  ] = useState<
+    FinanceLineItem[]
+  >(INITIAL_LINE_ITEMS);
 
   // ==========================================================
   // EXPENSE
@@ -329,30 +325,26 @@ export default function PaymentsPage() {
   const [
     expenseSubmitting,
     setExpenseSubmitting,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     receiptFile,
     setReceiptFile,
-  ] =
-    useState<File | null>(
-      null
-    );
+  ] = useState<File | null>(
+    null
+  );
 
   const [
     uploadingReceipt,
     setUploadingReceipt,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     expenseForm,
     setExpenseForm,
-  ] =
-    useState<ExpenseForm>(
-      INITIAL_EXPENSE_FORM
-    );
+  ] = useState<ExpenseForm>(
+    INITIAL_EXPENSE_FORM
+  );
 
   // ==========================================================
   // EMPLOYEE
@@ -361,16 +353,14 @@ export default function PaymentsPage() {
   const [
     employeeSubmitting,
     setEmployeeSubmitting,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     employeeForm,
     setEmployeeForm,
-  ] =
-    useState<EmployeeForm>(
-      INITIAL_EMPLOYEE_FORM
-    );
+  ] = useState<EmployeeForm>(
+    INITIAL_EMPLOYEE_FORM
+  );
 
   // ==========================================================
   // RECURRING
@@ -379,8 +369,7 @@ export default function PaymentsPage() {
   const [
     recurringSubmitting,
     setRecurringSubmitting,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     recurringForm,
@@ -397,16 +386,14 @@ export default function PaymentsPage() {
   const [
     vatSubmitting,
     setVatSubmitting,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     vatForm,
     setVatForm,
-  ] =
-    useState<VatForm>(
-      INITIAL_VAT_FORM
-    );
+  ] = useState<VatForm>(
+    INITIAL_VAT_FORM
+  );
 
   // ==========================================================
   // TAX
@@ -415,16 +402,14 @@ export default function PaymentsPage() {
   const [
     taxSubmitting,
     setTaxSubmitting,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     taxForm,
     setTaxForm,
-  ] =
-    useState<TaxForm>(
-      INITIAL_TAX_FORM
-    );
+  ] = useState<TaxForm>(
+    INITIAL_TAX_FORM
+  );
 
   // ==========================================================
   // FINANCE CONTEXT
@@ -436,8 +421,7 @@ export default function PaymentsPage() {
     userId: contextUserId,
     loading: contextLoading,
     error: contextError,
-  } =
-    useFinanceContext();
+  } = useFinanceContext();
 
   const finance =
     useFinanceData();
@@ -462,8 +446,7 @@ export default function PaymentsPage() {
     message: string,
     type:
       | "success"
-      | "error" =
-      "success"
+      | "error" = "success"
   ) => {
     setNotification({
       visible: true,
@@ -489,9 +472,7 @@ export default function PaymentsPage() {
   // ==========================================================
 
   useEffect(() => {
-    if (
-      !organisationId
-    ) {
+    if (!organisationId) {
       setProjects([]);
       return;
     }
@@ -499,37 +480,31 @@ export default function PaymentsPage() {
     let active = true;
 
     async function loadProjects() {
-      setProjectsLoading(
-        true
-      );
+      setProjectsLoading(true);
 
       try {
         const {
           data,
           error,
-        } =
-          await supabase
-            .from(
-              "projects"
-            )
-            .select(
-              "id, name, customer_id, status"
-            )
-            .eq(
-              "organisation_id",
-              organisationId
-            )
-            .is(
-              "deleted_at",
-              null
-            )
-            .order(
-              "name",
-              {
-                ascending:
-                  true,
-              }
-            );
+        } = await supabase
+          .from("projects")
+          .select(
+            "id, name, customer_id, status"
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .is(
+            "deleted_at",
+            null
+          )
+          .order(
+            "name",
+            {
+              ascending: true,
+            }
+          );
 
         if (error) {
           console.error(
@@ -545,9 +520,7 @@ export default function PaymentsPage() {
         }
 
         setProjects(
-          (
-            data || []
-          ).map(
+          (data || []).map(
             (
               project: any
             ) => ({
@@ -568,9 +541,7 @@ export default function PaymentsPage() {
             })
           )
         );
-      } catch (
-        error
-      ) {
+      } catch (error) {
         console.error(
           "Unexpected project load error:",
           error
@@ -599,9 +570,7 @@ export default function PaymentsPage() {
   // ==========================================================
 
   useEffect(() => {
-    if (
-      !organisationId
-    ) {
+    if (!organisationId) {
       setContacts([]);
       return;
     }
@@ -613,25 +582,21 @@ export default function PaymentsPage() {
         const {
           data,
           error,
-        } =
-          await supabase
-            .from(
-              "contacts"
-            )
-            .select(
-              "id, name, email, customer_id"
-            )
-            .eq(
-              "organisation_id",
-              organisationId
-            )
-            .order(
-              "name",
-              {
-                ascending:
-                  true,
-              }
-            );
+        } = await supabase
+          .from("contacts")
+          .select(
+            "id, name, email, customer_id"
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .order(
+            "name",
+            {
+              ascending: true,
+            }
+          );
 
         if (error) {
           console.error(
@@ -647,9 +612,7 @@ export default function PaymentsPage() {
         }
 
         setContacts(
-          (
-            data || []
-          ).map(
+          (data || []).map(
             (
               contact: any
             ) => ({
@@ -671,9 +634,7 @@ export default function PaymentsPage() {
             })
           )
         );
-      } catch (
-        error
-      ) {
+      } catch (error) {
         console.error(
           "Unexpected contacts load error:",
           error
@@ -696,13 +657,8 @@ export default function PaymentsPage() {
   // ==========================================================
 
   useEffect(() => {
-    if (
-      !organisationId
-    ) {
-      setStaffMembers(
-        []
-      );
-
+    if (!organisationId) {
+      setStaffMembers([]);
       return;
     }
 
@@ -713,25 +669,21 @@ export default function PaymentsPage() {
         const {
           data,
           error,
-        } =
-          await supabase
-            .from(
-              "profiles"
-            )
-            .select(
-              "id, full_name, email"
-            )
-            .eq(
-              "organisation_id",
-              organisationId
-            )
-            .order(
-              "full_name",
-              {
-                ascending:
-                  true,
-              }
-            );
+        } = await supabase
+          .from("profiles")
+          .select(
+            "id, full_name, email"
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .order(
+            "full_name",
+            {
+              ascending: true,
+            }
+          );
 
         if (error) {
           console.error(
@@ -747,9 +699,7 @@ export default function PaymentsPage() {
         }
 
         setStaffMembers(
-          (
-            data || []
-          ).map(
+          (data || []).map(
             (
               profile: any
             ) => ({
@@ -767,9 +717,7 @@ export default function PaymentsPage() {
             })
           )
         );
-      } catch (
-        error
-      ) {
+      } catch (error) {
         console.error(
           "Unexpected staff load error:",
           error
@@ -887,12 +835,10 @@ export default function PaymentsPage() {
           ) =>
             total +
             Number(
-              item.qty ||
-                0
+              item.qty || 0
             ) *
               Number(
-                item.price ||
-                  0
+                item.price || 0
               ),
           0
         ),
@@ -911,7 +857,8 @@ export default function PaymentsPage() {
 
       const rate =
         Number(
-          invoiceQuoteForm.vatRate
+          invoiceQuoteForm.vatRate ??
+            0
         );
 
       if (
@@ -956,94 +903,87 @@ export default function PaymentsPage() {
   // DOCUMENT NUMBER
   // ==========================================================
 
-  const generateDocumentNumber =
-    (
-      type: InvoiceQuoteDocType
-    ) => {
-      const now =
-        new Date();
+  const generateDocumentNumber = (
+    type: InvoiceQuoteDocType
+  ) => {
+    const now =
+      new Date();
 
-      const year =
-        now.getFullYear();
+    const year =
+      now.getFullYear();
 
-      const month =
-        String(
-          now.getMonth() +
-            1
-        ).padStart(
-          2,
-          "0"
-        );
+    const month =
+      String(
+        now.getMonth() + 1
+      ).padStart(
+        2,
+        "0"
+      );
 
-      const day =
-        String(
-          now.getDate()
-        ).padStart(
-          2,
-          "0"
-        );
+    const day =
+      String(
+        now.getDate()
+      ).padStart(
+        2,
+        "0"
+      );
 
-      const suffix =
-        Math.random()
-          .toString(36)
-          .slice(2, 6)
-          .toUpperCase();
+    const suffix =
+      Math.random()
+        .toString(36)
+        .slice(2, 6)
+        .toUpperCase();
 
-      return `${
-        type ===
-        "Invoice"
-          ? "INV"
-          : "QUO"
-      }-${year}${month}${day}-${suffix}`;
-    };
+    return `${
+      type === "Invoice"
+        ? "INV"
+        : "QUO"
+    }-${year}${month}${day}-${suffix}`;
+  };
 
   // ==========================================================
   // OPEN INVOICE / QUOTE
   // ==========================================================
 
-  const openInvoiceQuoteModal =
-    (
-      type: InvoiceQuoteDocType
-    ) => {
-      const fresh =
-        createInitialInvoiceQuoteForm();
+  const openInvoiceQuoteModal = (
+    type: InvoiceQuoteDocType
+  ) => {
+    const fresh =
+      createInitialInvoiceQuoteForm();
 
-      setInvoiceQuoteDocType(
-        type
-      );
+    setInvoiceQuoteDocType(
+      type
+    );
 
-      setInvoiceQuoteForm({
-        ...fresh,
+    setInvoiceQuoteForm({
+      ...fresh,
 
-        invoiceNumber:
-          generateDocumentNumber(
-            type
-          ),
+      invoiceNumber:
+        generateDocumentNumber(
+          type
+        ),
 
-        salesPerson:
-          staffMembers.find(
-            (member) =>
-              member.id ===
-              userId
-          )?.name || "",
-      });
+      salesPerson:
+        staffMembers.find(
+          (member) =>
+            member.id ===
+            userId
+        )?.name || "",
+    });
 
-      setInvoiceQuoteLineItems(
-        [
-          {
-            id:
-              Date.now(),
-            desc: "",
-            qty: 1,
-            price: 0,
-          },
-        ]
-      );
+    setInvoiceQuoteLineItems([
+      {
+        id: Date.now(),
+        desc: "",
+        qty: 1,
+        price: 0,
+      },
+    ]);
 
-      setActiveModal(
-        "invoiceQuote"
-      );
-    };
+    setActiveModal(
+      "invoiceQuote"
+    );
+  };
 
   // ==========================================================
   // RESET INVOICE / QUOTE
@@ -1059,17 +999,14 @@ export default function PaymentsPage() {
         createInitialInvoiceQuoteForm()
       );
 
-      setInvoiceQuoteLineItems(
-        [
-          {
-            id:
-              Date.now(),
-            desc: "",
-            qty: 1,
-            price: 0,
-          },
-        ]
-      );
+      setInvoiceQuoteLineItems([
+        {
+          id: Date.now(),
+          desc: "",
+          qty: 1,
+          price: 0,
+        },
+      ]);
     };
 
   const closeInvoiceQuoteModal =
@@ -1080,9 +1017,7 @@ export default function PaymentsPage() {
         return;
       }
 
-      setActiveModal(
-        null
-      );
+      setActiveModal(null);
 
       resetInvoiceQuote();
     };
@@ -1103,7 +1038,9 @@ export default function PaymentsPage() {
       }
 
       const name =
-        invoiceQuoteForm.newClientName.trim();
+        safeTrim(
+          invoiceQuoteForm.newClientName
+        );
 
       if (!name) {
         throw new Error(
@@ -1114,34 +1051,30 @@ export default function PaymentsPage() {
       const {
         data,
         error,
-      } =
-        await supabase
-          .from(
-            "customers"
-          )
-          .insert({
-            name,
+      } = await supabase
+        .from("customers")
+        .insert({
+          name,
 
-            organisation_id:
-              organisationId,
+          organisation_id:
+            organisationId,
 
-            user_id:
-              userId,
+          user_id:
+            userId,
 
-            team_id:
-              teamId ||
-              null,
+          team_id:
+            teamId || null,
 
-            status:
-              "active",
+          status:
+            "active",
 
-            stage:
-              "lead",
-          })
-          .select(
-            "id, name, email"
-          )
-          .single();
+          stage:
+            "lead",
+        })
+        .select(
+          "id, name, email"
+        )
+        .single();
 
       if (error) {
         throw new Error(
@@ -1169,9 +1102,7 @@ export default function PaymentsPage() {
         return;
       }
 
-      if (
-        !organisationId
-      ) {
+      if (!organisationId) {
         notify(
           "Organisation context is unavailable.",
           "error"
@@ -1182,14 +1113,18 @@ export default function PaymentsPage() {
 
       const hasCustomer =
         Boolean(
-          invoiceQuoteForm.customerId.trim()
+          safeTrim(
+            invoiceQuoteForm.customerId
+          )
         );
 
       const hasNewQuoteCustomer =
         invoiceQuoteDocType ===
           "Quote" &&
         Boolean(
-          invoiceQuoteForm.newClientName.trim()
+          safeTrim(
+            invoiceQuoteForm.newClientName
+          )
         );
 
       if (
@@ -1222,7 +1157,9 @@ export default function PaymentsPage() {
           0 ||
         invoiceQuoteLineItems.some(
           (item) =>
-            !item.desc.trim() ||
+            !safeTrim(
+              item.desc
+            ) ||
             Number(
               item.qty
             ) <= 0 ||
@@ -1238,11 +1175,14 @@ export default function PaymentsPage() {
 
         return;
       }
-if (
-  options?.sendAfterCreate &&
-  !(invoiceQuoteForm.sendToEmail ?? "").trim() &&
-  !invoiceQuoteForm.sendToContactId
-) {
+
+      if (
+        options?.sendAfterCreate &&
+        !safeTrim(
+          invoiceQuoteForm.sendToEmail
+        ) &&
+        !invoiceQuoteForm.sendToContactId
+      ) {
         notify(
           "Please choose a recipient or enter an email address.",
           "error"
@@ -1273,18 +1213,21 @@ if (
         // ----------------------------------------------------
 
         let customerId =
-          invoiceQuoteForm.customerId ||
-          null;
+          safeTrim(
+            invoiceQuoteForm.customerId
+          ) || null;
 
         let clientName =
-          invoiceQuoteForm.customerName.trim();
+          safeTrim(
+            invoiceQuoteForm.customerName
+          );
 
         let clientEmail =
-          invoiceQuoteForm.sendToEmail.trim();
+          safeTrim(
+            invoiceQuoteForm.sendToEmail
+          );
 
-        if (
-          customerId
-        ) {
+        if (customerId) {
           const customer =
             (
               finance.customers ??
@@ -1326,9 +1269,7 @@ if (
             "";
         }
 
-        if (
-          !customerId
-        ) {
+        if (!customerId) {
           throw new Error(
             "A client could not be resolved."
           );
@@ -1361,7 +1302,9 @@ if (
           invoiceQuoteLineItems.map(
             (item) => ({
               description:
-                item.desc.trim(),
+                safeTrim(
+                  item.desc
+                ),
 
               qty:
                 Number(
@@ -1384,7 +1327,9 @@ if (
           );
 
         const documentNumber =
-          invoiceQuoteForm.invoiceNumber.trim() ||
+          safeTrim(
+            invoiceQuoteForm.invoiceNumber
+          ) ||
           generateDocumentNumber(
             invoiceQuoteDocType
           );
@@ -1393,18 +1338,16 @@ if (
           invoiceQuoteForm.invoiceDate ||
           new Date()
             .toISOString()
-            .slice(
-              0,
-              10
-            );
+            .slice(0, 10);
 
         const documentData = {
           document_number:
             documentNumber,
 
           order_number:
-            invoiceQuoteForm.orderNumber.trim() ||
-            null,
+            safeTrim(
+              invoiceQuoteForm.orderNumber
+            ) || null,
 
           invoice_date:
             invoiceDate,
@@ -1417,11 +1360,15 @@ if (
             clientName,
 
           customer_name:
-            invoiceQuoteForm.customerName.trim() ||
+            safeTrim(
+              invoiceQuoteForm.customerName
+            ) ||
             clientName,
 
           customer_address:
-            invoiceQuoteForm.customerAddress.trim() ||
+            safeTrim(
+              invoiceQuoteForm.customerAddress
+            ) ||
             null,
 
           customer_email:
@@ -1449,19 +1396,27 @@ if (
             null,
 
           sales_person:
-            invoiceQuoteForm.salesPerson.trim() ||
+            safeTrim(
+              invoiceQuoteForm.salesPerson
+            ) ||
             null,
 
           payment_method:
-            invoiceQuoteForm.paymentMethod ||
+            safeTrim(
+              invoiceQuoteForm.paymentMethod
+            ) ||
             null,
 
           payment_instructions:
-            invoiceQuoteForm.paymentInstructions.trim() ||
+            safeTrim(
+              invoiceQuoteForm.paymentInstructions
+            ) ||
             null,
 
           vat_enabled:
-            invoiceQuoteForm.vatEnabled,
+            Boolean(
+              invoiceQuoteForm.vatEnabled
+            ),
 
           vat_rate:
             invoiceQuoteVatRate,
@@ -1476,11 +1431,14 @@ if (
             invoiceQuoteGrandTotal,
 
           recurring:
-            invoiceQuoteForm.repeatInvoice,
+            Boolean(
+              invoiceQuoteForm.repeatInvoice
+            ),
 
           repeat_frequency:
             invoiceQuoteForm.repeatInvoice
-              ? invoiceQuoteForm.repeatFrequency
+              ? invoiceQuoteForm.repeatFrequency ||
+                null
               : null,
 
           repeat_start_date:
@@ -1496,12 +1454,14 @@ if (
               : null,
 
           reminders_enabled:
-            invoiceQuoteForm.remindersEnabled,
+            Boolean(
+              invoiceQuoteForm.remindersEnabled
+            ),
 
           reminder_days_before:
             invoiceQuoteForm.remindersEnabled
               ? Number(
-                  invoiceQuoteForm.reminderDaysBefore ||
+                  invoiceQuoteForm.reminderDaysBefore ??
                     0
                 )
               : null,
@@ -1509,17 +1469,21 @@ if (
           reminder_days_after:
             invoiceQuoteForm.remindersEnabled
               ? Number(
-                  invoiceQuoteForm.reminderDaysAfter ||
+                  invoiceQuoteForm.reminderDaysAfter ??
                     0
                 )
               : null,
 
           terms:
-            invoiceQuoteForm.terms.trim() ||
+            safeTrim(
+              invoiceQuoteForm.terms
+            ) ||
             null,
 
           notes:
-            invoiceQuoteForm.notes.trim() ||
+            safeTrim(
+              invoiceQuoteForm.notes
+            ) ||
             null,
 
           items,
@@ -1537,58 +1501,54 @@ if (
             data:
               createdInvoice,
             error,
-          } =
-            await supabase
-              .from(
-                "invoices"
-              )
-              .insert({
-                customer_id:
-                  customerId,
+          } = await supabase
+            .from("invoices")
+            .insert({
+              customer_id:
+                customerId,
 
-                project_id:
-                  invoiceQuoteForm.projectId ||
-                  null,
+              project_id:
+                invoiceQuoteForm.projectId ||
+                null,
 
-                organisation_id:
-                  organisationId,
+              organisation_id:
+                organisationId,
 
-                team_id:
-                  teamId ||
-                  null,
+              team_id:
+                teamId || null,
 
-                amount:
-                  invoiceQuoteGrandTotal,
+              amount:
+                invoiceQuoteGrandTotal,
 
-                tax:
-                  invoiceQuoteVatTotal,
+              tax:
+                invoiceQuoteVatTotal,
 
-                status:
-                  options?.sendAfterCreate
-                    ? "pending"
-                    : "draft",
+              status:
+                options?.sendAfterCreate
+                  ? "pending"
+                  : "draft",
 
-                type:
-                  "invoice",
+              type:
+                "invoice",
 
-                doc_type:
-                  "Invoice",
+              doc_type:
+                "Invoice",
 
-                items,
+              items,
 
-                due_date:
-                  invoiceQuoteForm.dueDate,
+              due_date:
+                invoiceQuoteForm.dueDate,
 
-                recurring:
-                  invoiceQuoteForm.repeatInvoice,
+              recurring:
+                Boolean(
+                  invoiceQuoteForm.repeatInvoice
+                ),
 
-                data:
-                  documentData,
-              })
-              .select(
-                "id"
-              )
-              .single();
+              data:
+                documentData,
+            })
+            .select("id")
+            .single();
 
           if (
             error ||
@@ -1615,30 +1575,30 @@ if (
             const {
               error:
                 recurringError,
-            } =
-              await supabase
-                .from(
-                  "subscriptions"
-                )
-                .insert({
-                  organisation_id:
-                    organisationId,
+            } = await supabase
+              .from(
+                "subscriptions"
+              )
+              .insert({
+                organisation_id:
+                  organisationId,
 
-                  client_name:
-                    clientName,
+                client_name:
+                  clientName,
 
-                  amount:
-                    invoiceQuoteGrandTotal,
+                amount:
+                  invoiceQuoteGrandTotal,
 
-                  interval:
-                    invoiceQuoteForm.repeatFrequency,
+                interval:
+                  invoiceQuoteForm.repeatFrequency ||
+                  "monthly",
 
-                  next_run:
-                    invoiceQuoteForm.repeatStartDate,
+                next_run:
+                  invoiceQuoteForm.repeatStartDate,
 
-                  active:
-                    true,
-                });
+                active:
+                  true,
+              });
 
             if (
               recurringError
@@ -1657,9 +1617,7 @@ if (
           if (
             options?.sendAfterCreate
           ) {
-            if (
-              !clientEmail
-            ) {
+            if (!clientEmail) {
               throw new Error(
                 "The invoice was created, but no recipient email is available."
               );
@@ -1724,52 +1682,44 @@ if (
                 (item) =>
                   `${item.description} × ${item.qty}`
               )
-              .join(
-                ", "
-              );
+              .join(", ");
 
           const {
             error,
-          } =
-            await supabase
-              .from(
-                "quotes"
-              )
-              .insert({
-                customer_id:
-                  customerId,
+          } = await supabase
+            .from("quotes")
+            .insert({
+              customer_id:
+                customerId,
 
-                project_id:
-                  invoiceQuoteForm.projectId ||
-                  null,
+              project_id:
+                invoiceQuoteForm.projectId ||
+                null,
 
-                organisation_id:
-                  organisationId,
+              organisation_id:
+                organisationId,
 
-                team_id:
-                  teamId ||
-                  null,
+              team_id:
+                teamId || null,
 
-                client_name:
-                  clientName,
+              client_name:
+                clientName,
 
-                description:
-                  description ||
-                  null,
+              description:
+                description ||
+                null,
 
-                amount:
-                  invoiceQuoteGrandTotal,
+              amount:
+                invoiceQuoteGrandTotal,
 
-                date:
-                  invoiceDate,
+              date:
+                invoiceDate,
 
-                status:
-                  "draft",
-              });
+              status:
+                "draft",
+            });
 
-          if (
-            error
-          ) {
+          if (error) {
             throw new Error(
               error.message ||
                 "Unable to create quote."
@@ -1786,9 +1736,7 @@ if (
           "success"
         );
 
-        setActiveModal(
-          null
-        );
+        setActiveModal(null);
 
         resetInvoiceQuote();
       } catch (
@@ -1888,43 +1836,22 @@ if (
         );
 
       const clientName =
-        invoiceQuoteForm.customerName.trim() ||
+        safeTrim(
+          invoiceQuoteForm.customerName
+        ) ||
         customer?.name ||
-        invoiceQuoteForm.newClientName ||
+        safeTrim(
+          invoiceQuoteForm.newClientName
+        ) ||
         "Customer";
 
       const documentNumber =
-        invoiceQuoteForm.invoiceNumber ||
+        safeTrim(
+          invoiceQuoteForm.invoiceNumber
+        ) ||
         generateDocumentNumber(
           invoiceQuoteDocType
         );
-
-      const escapeHtml =
-        (
-          value:
-            string
-        ) =>
-          value
-            .replace(
-              /&/g,
-              "&amp;"
-            )
-            .replace(
-              /</g,
-              "&lt;"
-            )
-            .replace(
-              />/g,
-              "&gt;"
-            )
-            .replace(
-              /"/g,
-              "&quot;"
-            )
-            .replace(
-              /'/g,
-              "&#039;"
-            );
 
       const itemsHtml =
         invoiceQuoteLineItems
@@ -1946,9 +1873,7 @@ if (
                 <td style="text-align:right">
                   £${Number(
                     item.price
-                  ).toFixed(
-                    2
-                  )}
+                  ).toFixed(2)}
                 </td>
 
                 <td style="text-align:right">
@@ -1959,14 +1884,47 @@ if (
                     Number(
                       item.price
                     )
-                  ).toFixed(
-                    2
-                  )}
+                  ).toFixed(2)}
                 </td>
               </tr>
             `
           )
           .join("");
+
+      const orderNumber =
+        safeTrim(
+          invoiceQuoteForm.orderNumber
+        );
+
+      const customerAddress =
+        safeTrim(
+          invoiceQuoteForm.customerAddress
+        );
+
+      const salesPerson =
+        safeTrim(
+          invoiceQuoteForm.salesPerson
+        );
+
+      const paymentMethod =
+        safeTrim(
+          invoiceQuoteForm.paymentMethod
+        );
+
+      const paymentInstructions =
+        safeTrim(
+          invoiceQuoteForm.paymentInstructions
+        );
+
+      const terms =
+        safeTrim(
+          invoiceQuoteForm.terms
+        );
+
+      const notes =
+        safeTrim(
+          invoiceQuoteForm.notes
+        );
 
       return `
         <!doctype html>
@@ -1982,17 +1940,27 @@ if (
             </title>
 
             <style>
+              * {
+                box-sizing: border-box;
+              }
+
               body {
                 font-family: Arial, sans-serif;
                 color: #292524;
                 padding: 48px;
+                margin: 0;
+                background: #ffffff;
               }
 
               h1 {
                 font-family: Georgia, serif;
                 font-style: italic;
                 font-size: 38px;
-                margin-bottom: 8px;
+                margin: 0 0 8px;
+              }
+
+              p {
+                line-height: 1.6;
               }
 
               .muted {
@@ -2023,10 +1991,12 @@ if (
                 font-size: 10px;
                 text-transform: uppercase;
                 letter-spacing: .12em;
+                color: #78716c;
               }
 
               .totals {
                 width: 320px;
+                max-width: 100%;
                 margin-left: auto;
                 margin-top: 30px;
               }
@@ -2050,6 +2020,12 @@ if (
                 border-top: 1px solid #e7e5e4;
                 padding-top: 20px;
               }
+
+              @media print {
+                body {
+                  padding: 24px;
+                }
+              }
             </style>
           </head>
 
@@ -2067,12 +2043,12 @@ if (
             </p>
 
             ${
-              invoiceQuoteForm.orderNumber
+              orderNumber
                 ? `
                   <p class="muted">
                     Order reference:
                     ${escapeHtml(
-                      invoiceQuoteForm.orderNumber
+                      orderNumber
                     )}
                   </p>
                 `
@@ -2092,11 +2068,11 @@ if (
                 </p>
 
                 ${
-                  invoiceQuoteForm.customerAddress
+                  customerAddress
                     ? `
                       <p class="muted">
                         ${escapeHtml(
-                          invoiceQuoteForm.customerAddress
+                          customerAddress
                         ).replace(
                           /\n/g,
                           "<br>"
@@ -2138,7 +2114,7 @@ if (
                 }
 
                 ${
-                  invoiceQuoteForm.salesPerson
+                  salesPerson
                     ? `
                       <p>
                         <strong>
@@ -2146,7 +2122,7 @@ if (
                         </strong>
 
                         ${escapeHtml(
-                          invoiceQuoteForm.salesPerson
+                          salesPerson
                         )}
                       </p>
                     `
@@ -2226,7 +2202,7 @@ if (
             </div>
 
             ${
-              invoiceQuoteForm.paymentMethod
+              paymentMethod
                 ? `
                   <div class="section">
                     <strong>
@@ -2235,16 +2211,16 @@ if (
 
                     <p>
                       ${escapeHtml(
-                        invoiceQuoteForm.paymentMethod
+                        paymentMethod
                       )}
                     </p>
 
                     ${
-                      invoiceQuoteForm.paymentInstructions
+                      paymentInstructions
                         ? `
                           <p>
                             ${escapeHtml(
-                              invoiceQuoteForm.paymentInstructions
+                              paymentInstructions
                             ).replace(
                               /\n/g,
                               "<br>"
@@ -2259,7 +2235,7 @@ if (
             }
 
             ${
-              invoiceQuoteForm.terms
+              terms
                 ? `
                   <div class="section">
                     <strong>
@@ -2268,7 +2244,28 @@ if (
 
                     <p>
                       ${escapeHtml(
-                        invoiceQuoteForm.terms
+                        terms
+                      ).replace(
+                        /\n/g,
+                        "<br>"
+                      )}
+                    </p>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              notes
+                ? `
+                  <div class="section">
+                    <strong>
+                      Notes
+                    </strong>
+
+                    <p>
+                      ${escapeHtml(
+                        notes
                       ).replace(
                         /\n/g,
                         "<br>"
@@ -2292,9 +2289,7 @@ if (
           "width=900,height=900"
         );
 
-      if (
-        !printWindow
-      ) {
+      if (!printWindow) {
         notify(
           "Your browser blocked the print window.",
           "error"
@@ -2321,6 +2316,10 @@ if (
 
   const saveInvoiceQuotePdf =
     () => {
+      /*
+       * Browser print dialog allows
+       * the user to choose "Save as PDF".
+       */
       printInvoiceQuote();
     };
 
@@ -2412,7 +2411,9 @@ if (
       }
 
       if (
-        !expenseForm.description.trim()
+        !safeTrim(
+          expenseForm.description
+        )
       ) {
         notify(
           "Please enter an expense description.",
@@ -2467,9 +2468,7 @@ if (
           | null =
           null;
 
-        if (
-          receiptFile
-        ) {
+        if (receiptFile) {
           setUploadingReceipt(
             true
           );
@@ -2509,55 +2508,53 @@ if (
 
         const {
           error,
-        } =
-          await supabase
-            .from(
-              "expenses"
-            )
-            .insert({
-              organisation_id:
-                organisationId,
+        } = await supabase
+          .from(
+            "expenses"
+          )
+          .insert({
+            organisation_id:
+              organisationId,
 
-              team_id:
-                teamId ||
-                null,
+            team_id:
+              teamId || null,
 
-              customer_id:
-                expenseForm.customerId ||
-                null,
+            customer_id:
+              expenseForm.customerId ||
+              null,
 
-              project_id:
-                expenseForm.projectId ||
-                null,
+            project_id:
+              expenseForm.projectId ||
+              null,
 
-              client_name:
-                selectedCustomer?.name ||
-                null,
+            client_name:
+              selectedCustomer?.name ||
+              null,
 
-              description:
-                expenseForm.description.trim(),
+            description:
+              safeTrim(
+                expenseForm.description
+              ),
 
-              amount:
-                Number(
-                  expenseForm.amount
-                ),
+            amount:
+              Number(
+                expenseForm.amount
+              ),
 
-              date:
-                expenseForm.date,
+            date:
+              expenseForm.date,
 
-              status:
-                expenseForm.status ||
-                "pending",
+            status:
+              expenseForm.status ||
+              "pending",
 
-              receipt_url:
-                receiptUrl ||
-                expenseForm.receiptUrl ||
-                null,
-            });
+            receipt_url:
+              receiptUrl ||
+              expenseForm.receiptUrl ||
+              null,
+          });
 
-        if (
-          error
-        ) {
+        if (error) {
           throw new Error(
             error.message ||
               "Unable to log expense."
@@ -2639,7 +2636,9 @@ if (
       }
 
       if (
-        !employeeForm.name.trim()
+        !safeTrim(
+          employeeForm.name
+        )
       ) {
         notify(
           "Please enter the employee name.",
@@ -2650,7 +2649,9 @@ if (
       }
 
       if (
-        !employeeForm.role.trim()
+        !safeTrim(
+          employeeForm.role
+        )
       ) {
         notify(
           "Please enter the employee role.",
@@ -2689,30 +2690,31 @@ if (
 
         const {
           error,
-        } =
-          await supabase
-            .from(
-              "payroll_employees"
-            )
-            .insert({
-              organisation_id:
-                organisationId,
+        } = await supabase
+          .from(
+            "payroll_employees"
+          )
+          .insert({
+            organisation_id:
+              organisationId,
 
-              name:
-                employeeForm.name.trim(),
+            name:
+              safeTrim(
+                employeeForm.name
+              ),
 
-              role:
-                employeeForm.role.trim(),
+            role:
+              safeTrim(
+                employeeForm.role
+              ),
 
-              salary_gross:
-                Number(
-                  employeeForm.salary_gross
-                ),
-            });
+            salary_gross:
+              Number(
+                employeeForm.salary_gross
+              ),
+          });
 
-        if (
-          error
-        ) {
+        if (error) {
           throw new Error(
             error.message
           );
@@ -2790,7 +2792,9 @@ if (
       }
 
       if (
-        !recurringForm.client_name.trim()
+        !safeTrim(
+          recurringForm.client_name
+        )
       ) {
         notify(
           "Please enter a client name.",
@@ -2851,36 +2855,35 @@ if (
 
         const {
           error,
-        } =
-          await supabase
-            .from(
-              "subscriptions"
-            )
-            .insert({
-              organisation_id:
-                organisationId,
+        } = await supabase
+          .from(
+            "subscriptions"
+          )
+          .insert({
+            organisation_id:
+              organisationId,
 
-              client_name:
-                recurringForm.client_name.trim(),
+            client_name:
+              safeTrim(
+                recurringForm.client_name
+              ),
 
-              amount:
-                Number(
-                  recurringForm.amount
-                ),
+            amount:
+              Number(
+                recurringForm.amount
+              ),
 
-              interval:
-                recurringForm.interval,
+            interval:
+              recurringForm.interval,
 
-              next_run:
-                recurringForm.next_run,
+            next_run:
+              recurringForm.next_run,
 
-              active:
-                true,
-            });
+            active:
+              true,
+          });
 
-        if (
-          error
-        ) {
+        if (error) {
           throw new Error(
             error.message
           );
@@ -2956,7 +2959,9 @@ if (
       }
 
       if (
-        !vatForm.description.trim()
+        !safeTrim(
+          vatForm.description
+        )
       ) {
         notify(
           "Please enter a VAT return description.",
@@ -2995,38 +3000,37 @@ if (
 
         const {
           error,
-        } =
-          await supabase
-            .from(
-              "vat_returns"
-            )
-            .insert({
-              organisation_id:
-                organisationId,
+        } = await supabase
+          .from(
+            "vat_returns"
+          )
+          .insert({
+            organisation_id:
+              organisationId,
 
-              amount:
-                Number(
-                  vatForm.amount
+            amount:
+              Number(
+                vatForm.amount
+              ),
+
+            description:
+              safeTrim(
+                vatForm.description
+              ),
+
+            date:
+              new Date()
+                .toISOString()
+                .slice(
+                  0,
+                  10
                 ),
 
-              description:
-                vatForm.description.trim(),
+            status:
+              "draft",
+          });
 
-              date:
-                new Date()
-                  .toISOString()
-                  .slice(
-                    0,
-                    10
-                  ),
-
-              status:
-                "draft",
-            });
-
-        if (
-          error
-        ) {
+        if (error) {
           throw new Error(
             error.message
           );
@@ -3102,7 +3106,9 @@ if (
       }
 
       if (
-        !taxForm.description.trim()
+        !safeTrim(
+          taxForm.description
+        )
       ) {
         notify(
           "Please enter a tax record description.",
@@ -3141,38 +3147,37 @@ if (
 
         const {
           error,
-        } =
-          await supabase
-            .from(
-              "self_assessment"
-            )
-            .insert({
-              organisation_id:
-                organisationId,
+        } = await supabase
+          .from(
+            "self_assessment"
+          )
+          .insert({
+            organisation_id:
+              organisationId,
 
-              amount:
-                Number(
-                  taxForm.amount
+            amount:
+              Number(
+                taxForm.amount
+              ),
+
+            description:
+              safeTrim(
+                taxForm.description
+              ),
+
+            date:
+              new Date()
+                .toISOString()
+                .slice(
+                  0,
+                  10
                 ),
 
-              description:
-                taxForm.description.trim(),
+            status:
+              "draft",
+          });
 
-              date:
-                new Date()
-                  .toISOString()
-                  .slice(
-                    0,
-                    10
-                  ),
-
-              status:
-                "draft",
-            });
-
-        if (
-          error
-        ) {
+        if (error) {
           throw new Error(
             error.message
           );
@@ -3485,7 +3490,9 @@ if (
               repeatInvoice:
                 type ===
                 "Invoice"
-                  ? previous.repeatInvoice
+                  ? Boolean(
+                      previous.repeatInvoice
+                    )
                   : false,
             })
           );

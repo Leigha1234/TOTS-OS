@@ -3,66 +3,146 @@
 import { useState } from "react";
 
 const TIERS = [
-  { name: "Standard", priceId: process.env.NEXT_PUBLIC_STRIPE_STANDARD_PRICE_ID, price: "29" },
-  { name: "Professional", priceId: process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID, price: "59" },
-  { name: "Elite", priceId: process.env.NEXT_PUBLIC_STRIPE_ELITE_PRICE_ID, price: "149" },
-];
+  {
+    name: "Standard",
+    price: "29",
+  },
+  {
+    name: "Professional",
+    price: "59",
+  },
+  {
+    name: "Elite",
+    price: "149",
+  },
+] as const;
 
 export default function BillingPage() {
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading] =
+    useState<string | null>(null);
 
-  const handleCheckout = async (tier: typeof TIERS[number]) => {
+  const handleCheckout = async (
+    tier: (typeof TIERS)[number]
+  ) => {
     setLoading(tier.name);
 
     try {
-      const registration = JSON.parse(sessionStorage.getItem("pendingRegistration") || "null");
+      const registration =
+        JSON.parse(
+          sessionStorage.getItem(
+            "pendingRegistration"
+          ) || "null"
+        );
 
-      const response = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...registration,
-          tier: tier.name,
-          priceId: tier.priceId,
-        }),
-      });
+      if (!registration) {
+        throw new Error(
+          "Your registration details could not be found. Please return to signup and try again."
+        );
+      }
 
-      const data = await response.json();
+      const response =
+        await fetch(
+          "/api/create-checkout-session",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              ...registration,
+
+              /*
+               * Only send the plan name.
+               *
+               * The server decides which
+               * Stripe Price ID belongs
+               * to this tier.
+               */
+              tier: tier.name,
+            }),
+          }
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.error || "Unable to create checkout session.");
+        throw new Error(
+          data.error ||
+            "Unable to create checkout session."
+        );
       }
 
-      if (data.url) {
-        window.location.href = data.url;
+      if (!data.url) {
+        throw new Error(
+          "Stripe checkout URL was not returned."
+        );
       }
-    } catch (error: any) {
-      console.error("Checkout failed:", error);
-      alert(error.message);
+
+      window.location.href =
+        data.url;
+    } catch (error) {
+      console.error(
+        "Checkout failed:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to start checkout."
+      );
     } finally {
       setLoading(null);
     }
   };
 
   return (
-    <main className="min-h-screen p-10 bg-[#fcfaf7]">
-      <h1 className="text-5xl mb-10">Choose your plan</h1>
+    <main className="min-h-screen bg-[#fcfaf7] p-10">
+      <h1 className="mb-10 text-5xl">
+        Choose your plan
+      </h1>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {TIERS.map((tier) => (
-          <div key={tier.name} className="bg-white rounded-3xl p-8 border">
-            <h2 className="text-3xl">{tier.name}</h2>
-            <p className="text-4xl mt-4">£{tier.price}/mo</p>
-
-            <button
-              onClick={() => handleCheckout(tier)}
-              disabled={loading !== null}
-              className="mt-8 w-full rounded-xl bg-stone-900 text-white p-4"
+      <div className="grid gap-6 md:grid-cols-3">
+        {TIERS.map(
+          (tier) => (
+            <div
+              key={tier.name}
+              className="rounded-3xl border bg-white p-8"
             >
-              {loading === tier.name ? "Loading..." : `Select ${tier.name}`}
-            </button>
-          </div>
-        ))}
+              <h2 className="text-3xl">
+                {tier.name}
+              </h2>
+
+              <p className="mt-4 text-4xl">
+                £{tier.price}/mo
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleCheckout(
+                    tier
+                  )
+                }
+                disabled={
+                  loading !== null
+                }
+                className="mt-8 w-full rounded-xl bg-stone-900 p-4 text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ===
+                tier.name
+                  ? "Loading..."
+                  : `Select ${tier.name}`}
+              </button>
+            </div>
+          )
+        )}
       </div>
     </main>
   );

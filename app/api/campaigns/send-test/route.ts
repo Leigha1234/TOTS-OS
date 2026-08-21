@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { Resend } from "resend";
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-
     const supabaseUrl =
       process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -18,16 +18,37 @@ export async function POST(req: Request) {
       );
     }
 
-    const supabase = createClient(
+    // -----------------------------------------
+    // AUTHENTICATE USING THE LOGGED-IN SESSION
+    // -----------------------------------------
+
+    const cookieStore = await cookies();
+
+    const supabase = createServerClient(
       supabaseUrl,
       supabaseAnonKey,
       {
-        global: {
-          headers: authHeader
-            ? {
-                Authorization: authHeader,
-              }
-            : {},
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(
+                ({ name, value, options }) => {
+                  cookieStore.set(
+                    name,
+                    value,
+                    options
+                  );
+                }
+              );
+            } catch {
+              // This route only needs to read
+              // the current auth session.
+            }
+          },
         },
       }
     );
@@ -38,11 +59,20 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
+      console.error(
+        "Campaign test auth error:",
+        userError
+      );
+
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
+
+    // -----------------------------------------
+    // REQUEST BODY
+    // -----------------------------------------
 
     const body = await req.json();
 
@@ -64,9 +94,12 @@ export async function POST(req: Request) {
       );
     }
 
+    const recipientEmail =
+      String(to).trim();
+
     const validEmail =
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        String(to).trim()
+        recipientEmail
       );
 
     if (!validEmail) {
@@ -79,23 +112,21 @@ export async function POST(req: Request) {
       );
     }
 
-    /*
-     * This route expects your existing email provider.
-     *
-     * If TOTS-OS already uses Resend, replace this section
-     * with the exact same Resend setup used elsewhere.
-     *
-     * For now this uses Resend because it is the most likely
-     * provider in a Next.js campaign setup.
-     */
+    // -----------------------------------------
+    // RESEND CONFIGURATION
+    // -----------------------------------------
 
     const resendApiKey =
       process.env.RESEND_API_KEY;
 
-    const fromEmail =
+    const configuredFrom =
       process.env.RESEND_FROM_EMAIL;
 
-    if (!resendApiKey || !fromEmail) {
+    if (!resendApiKey || !configuredFrom) {
+      console.error(
+        "Campaign test email configuration missing."
+      );
+
       return NextResponse.json(
         {
           error:
@@ -105,33 +136,66 @@ export async function POST(req: Request) {
       );
     }
 
-    const { Resend } = await import("resend");
+    const resend =
+      new Resend(resendApiKey);
 
-    const resend = new Resend(
-      resendApiKey
-    );
+    const resolvedSenderName =
+      String(
+        senderName ||
+          "The Organised Types"
+      ).trim();
 
- const resolvedSenderName =
-  String(senderName || "TOTS-OS").trim();
+    /*
+     * If RESEND_FROM_EMAIL already contains:
+     *
+     * TheOrganisedTypes <hello@tots-os.co.uk>
+     *
+     * use it exactly as configured.
+     *
+     * Otherwise wrap the plain email with
+     * the campaign sender name.
+     */
 
-const from = fromEmail.includes("<")
-  ? fromEmail
-  : `${resolvedSenderName} <${fromEmail}>`;
+    const from =
+      configuredFrom.includes("<")
+        ? configuredFrom
+        : `${resolvedSenderName} <${configuredFrom}>`;
+
+    // -----------------------------------------
+    // OPTIONAL REPLY-TO
+    // -----------------------------------------
+
+    let resolvedReplyTo:
+      | string
+      | undefined;
+
+    if (replyTo) {
+      const cleanReplyTo =
+        String(replyTo).trim();
+
+      if (
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+          cleanReplyTo
+        )
+      ) {
+        resolvedReplyTo =
+          cleanReplyTo;
+      }
+    }
+
+    // -----------------------------------------
+    // SEND TEST EMAIL
+    // -----------------------------------------
 
     const result =
       await resend.emails.send({
         from,
-        to: [String(to).trim()],
+        to: [recipientEmail],
         subject:
           String(subject).trim(),
         html: String(html),
         replyTo:
-          replyTo &&
-          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-            String(replyTo).trim()
-          )
-            ? String(replyTo).trim()
-            : undefined,
+          resolvedReplyTo,
       });
 
     if (result.error) {
@@ -150,10 +214,22 @@ const from = fromEmail.includes("<")
       );
     }
 
+    console.log(
+      "Campaign test email sent:",
+      {
+        userId: user.id,
+        to: recipientEmail,
+        emailId:
+          result.data?.id || null,
+      }
+    );
+
     return NextResponse.json({
       success: true,
-      message: "Test email sent.",
-      id: result.data?.id || null,
+      message:
+        "Test email sent.",
+      id:
+        result.data?.id || null,
     });
   } catch (error) {
     console.error(

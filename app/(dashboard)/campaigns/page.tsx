@@ -3970,9 +3970,11 @@ export default function CampaignsPage() {
             data.id;
         }
 
-        await callSendApi(
-          campaignId
-        );
+        if (!campaignId) {
+  throw new Error("Campaign ID was not returned.");
+}
+
+await callSendApi(campaignId);
 
         await loadCampaigns();
 

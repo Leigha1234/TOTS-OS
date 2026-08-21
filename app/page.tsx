@@ -102,30 +102,12 @@ type DemoKey =
 const LOGO_SRC = "/icon.png";
 
 const NAV_ITEMS: NavItem[] = [
-  {
-    label: "Product",
-    href: "#product",
-  },
-  {
-    label: "Modules",
-    href: "#features",
-  },
-  {
-    label: "Demo",
-    href: "#demo",
-  },
-  {
-    label: "Clarity",
-    href: "#clarity",
-  },
-  {
-    label: "Pricing",
-    href: "#pricing",
-  },
-  {
-    label: "About",
-    href: "#about",
-  },
+  { label: "Product", href: "#product" },
+  { label: "Modules", href: "#features" },
+  { label: "Demo", href: "#demo" },
+  { label: "Clarity", href: "#clarity" },
+  { label: "Pricing", href: "#pricing" },
+  { label: "About", href: "#about" },
 ];
 
 const FEATURES: Feature[] = [
@@ -133,43 +115,37 @@ const FEATURES: Feature[] = [
     icon: ContactRound,
     id: "01",
     title: "Know your clients",
-    text:
-      "Keep contacts, businesses, notes, projects and conversations connected so you always know the history behind a relationship.",
+    text: "Every contact, note, and project — connected, so history never gets lost.",
   },
   {
     icon: FolderKanban,
     id: "02",
     title: "Keep work moving",
-    text:
-      "Turn client work into projects, projects into tasks and tasks into clear next actions without jumping between different tools.",
+    text: "Clients become projects. Projects become tasks. Tasks become done.",
   },
   {
     icon: CalendarDays,
     id: "03",
     title: "See what's coming",
-    text:
-      "Bring events, bookings, project deadlines and important dates together in one business calendar.",
+    text: "Events, bookings, and deadlines — one calendar, zero surprises.",
   },
   {
     icon: CircleDollarSign,
     id: "04",
     title: "Understand your finances",
-    text:
-      "Track quotes, invoices, expenses, outstanding payments and your wider financial position from the same workspace.",
+    text: "Quotes, invoices, and cash position — always in view.",
   },
   {
     icon: MessageSquareText,
     id: "05",
     title: "Plan your content",
-    text:
-      "Create, organise and publish social content alongside everything else happening inside your business.",
+    text: "Create and publish alongside everything else you run.",
   },
   {
     icon: NotebookPen,
     id: "06",
     title: "Capture everything",
-    text:
-      "Keep notes, reminders, thoughts and business brain-dumps somewhere they can actually become useful later.",
+    text: "Notes and ideas, kept somewhere they'll actually get used.",
   },
 ];
 
@@ -178,8 +154,7 @@ const PRICING: PricingPlan[] = [
     name: "Standard",
     price: 29,
     tag: "start",
-    description:
-      "The essential operating system for a founder who wants their business organised in one place.",
+    description: "The essentials, organised. Everything a founder needs to run lean.",
     features: [
       "Business dashboard",
       "Projects & tasks",
@@ -196,8 +171,7 @@ const PRICING: PricingPlan[] = [
     tag: "grow",
     featured: true,
     badge: "Most popular",
-    description:
-      "For growing businesses that need deeper workflows, automation and visibility.",
+    description: "Deeper workflows and sharper visibility, built for growth.",
     features: [
       "Everything in Standard",
       "Advanced finance features",
@@ -212,8 +186,7 @@ const PRICING: PricingPlan[] = [
     name: "Elite",
     price: 99,
     tag: "scale",
-    description:
-      "A complete operating environment for established businesses and ambitious teams.",
+    description: "Full power. Built for teams that don't slow down.",
     features: [
       "Everything in Professional",
       "Advanced team access",
@@ -229,33 +202,27 @@ const PRICING: PricingPlan[] = [
 const FAQS: FAQ[] = [
   {
     q: "What exactly is TOTS-OS?",
-    a:
-      "TOTS-OS is an all-in-one business operating system. Instead of running projects, clients, finances, planning, notes and content across separate apps, TOTS-OS keeps them together in one connected workspace.",
+    a: "One workspace for your whole business — clients, projects, finances, planning, notes, and content, connected instead of scattered.",
   },
   {
     q: "Who is TOTS-OS for?",
-    a:
-      "It is designed for founders, freelancers, small businesses and growing teams who are tired of managing their business across spreadsheets, notes apps, project tools and endless browser tabs.",
+    a: "Founders, freelancers, and small teams done juggling spreadsheets, notes apps, and a dozen browser tabs.",
   },
   {
     q: "What is Clarity?",
-    a:
-      "Clarity is the AI personal assistant built into TOTS-OS. It can use the context already inside your workspace to help you understand what needs attention, what is overdue, what is coming next and where you should focus.",
+    a: "Your built-in AI PA. It reads your workspace and tells you what's overdue, what's next, and where to focus.",
   },
   {
     q: "Is TOTS-OS web based?",
-    a:
-      "Yes. TOTS-OS runs securely in your browser, so your workspace can be accessed across supported devices through your account.",
+    a: "Yes — it runs in your browser, accessible anywhere through your account.",
   },
   {
     q: "Can TOTS-OS help with social media?",
-    a:
-      "Yes. TOTS-OS includes social content planning and publishing tools so your content workflow can live alongside your projects, clients and wider business activity.",
+    a: "Yes. Plan and publish content right alongside your projects and clients.",
   },
   {
     q: "Can I try it before subscribing?",
-    a:
-      "Yes. Start with a 14-day free trial and explore TOTS-OS with your own business before deciding whether you want to continue.",
+    a: "Start with a 14-day free trial — no commitment.",
   },
 ];
 
@@ -269,102 +236,27 @@ const DEMO_NAV: {
   icon: LucideIcon;
   group: string;
 }[] = [
-  {
-    key: "home",
-    label: "Home",
-    icon: LayoutDashboard,
-    group: "",
-  },
-  {
-    key: "contacts",
-    label: "Contacts",
-    icon: Users,
-    group: "My business",
-  },
-  {
-    key: "campaigns",
-    label: "Campaigns",
-    icon: Megaphone,
-    group: "My business",
-  },
-  {
-    key: "social",
-    label: "Social",
-    icon: MessageSquareText,
-    group: "My business",
-  },
-  {
-    key: "finance",
-    label: "Finances",
-    icon: CircleDollarSign,
-    group: "My business",
-  },
-  {
-    key: "notes",
-    label: "Notes",
-    icon: NotebookPen,
-    group: "My business",
-  },
-  {
-    key: "workspace",
-    label: "Projects",
-    icon: FolderKanban,
-    group: "Clients & projects",
-  },
-  {
-    key: "calendar",
-    label: "Calendar",
-    icon: CalendarDays,
-    group: "Planning",
-  },
-  {
-    key: "settings",
-    label: "Settings",
-    icon: SettingsIcon,
-    group: "",
-  },
+  { key: "home", label: "Home", icon: LayoutDashboard, group: "" },
+  { key: "contacts", label: "Contacts", icon: Users, group: "My business" },
+  { key: "campaigns", label: "Campaigns", icon: Megaphone, group: "My business" },
+  { key: "social", label: "Social", icon: MessageSquareText, group: "My business" },
+  { key: "finance", label: "Finances", icon: CircleDollarSign, group: "My business" },
+  { key: "notes", label: "Notes", icon: NotebookPen, group: "My business" },
+  { key: "workspace", label: "Projects", icon: FolderKanban, group: "Clients & projects" },
+  { key: "calendar", label: "Calendar", icon: CalendarDays, group: "Planning" },
+  { key: "settings", label: "Settings", icon: SettingsIcon, group: "" },
 ];
 
 const DEMO_CONTACTS = [
-  {
-    name: "Ava Stone",
-    org: "Halstead & Co",
-    tag: "Strategic partner",
-  },
-  {
-    name: "Leo Bennett",
-    org: "Halstead & Co",
-    tag: "Client",
-  },
-  {
-    name: "Priya N.",
-    org: "Northfield Studio",
-    tag: "Client",
-  },
-  {
-    name: "Tom R.",
-    org: "Marlow Fitness",
-    tag: "Client",
-  },
+  { name: "Ava Stone", org: "Halstead & Co", tag: "Strategic partner" },
+  { name: "Leo Bennett", org: "Halstead & Co", tag: "Client" },
+  { name: "Priya N.", org: "Northfield Studio", tag: "Client" },
+  { name: "Tom R.", org: "Marlow Fitness", tag: "Client" },
 ];
 
 const DEMO_CAMPAIGNS = [
-  {
-    name: "Summer launch",
-    list: "VIP clients",
-    status: "SENT",
-    sent: 128,
-    opens: 74,
-    clicks: 19,
-  },
-  {
-    name: "Autumn preview",
-    list: "Newsletter",
-    status: "DRAFT",
-    sent: 0,
-    opens: 0,
-    clicks: 0,
-  },
+  { name: "Summer launch", list: "VIP clients", status: "SENT", sent: 128, opens: 74, clicks: 19 },
+  { name: "Autumn preview", list: "Newsletter", status: "DRAFT", sent: 0, opens: 0, clicks: 0 },
 ];
 
 // ============================================================
@@ -386,32 +278,20 @@ function Logo({
         width={size}
         height={size}
         className="tots-logo-mark"
-        style={{
-          width: size,
-          height: size,
-        }}
+        style={{ width: size, height: size }}
       />
 
       {showWordmark && (
         <span className="tots-logo-word">
-          <span className="tots-logo-name">
-            TOTS-OS
-          </span>
-
-          <span className="tots-logo-sub">
-            business operating system
-          </span>
+          <span className="tots-logo-name">TOTS-OS</span>
+          <span className="tots-logo-sub">business operating system</span>
         </span>
       )}
     </span>
   );
 }
 
-function Eyebrow({
-  children,
-}: {
-  children: ReactNode;
-}) {
+function Eyebrow({ children }: { children: ReactNode }) {
   return (
     <div className="tots-eyebrow">
       <span className="tots-eyebrow-dot" />
@@ -420,45 +300,15 @@ function Eyebrow({
   );
 }
 
-function Reveal({
-  children,
-  delay = 0,
-  className = "",
-  style,
-}: RevealProps) {
-  const reduceMotion =
-    useReducedMotion();
+function Reveal({ children, delay = 0, className = "", style }: RevealProps) {
+  const reduceMotion = useReducedMotion();
 
   return (
     <motion.div
-      initial={
-        reduceMotion
-          ? {
-              opacity: 1,
-            }
-          : {
-              opacity: 0,
-              y: 30,
-            }
-      }
-      whileInView={{
-        opacity: 1,
-        y: 0,
-      }}
-      viewport={{
-        once: true,
-        amount: 0.14,
-      }}
-      transition={{
-        duration: 0.8,
-        delay,
-        ease: [
-          0.19,
-          1,
-          0.22,
-          1,
-        ],
-      }}
+      initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.14 }}
+      transition={{ duration: 0.8, delay, ease: [0.19, 1, 0.22, 1] }}
       className={className}
       style={style}
     >
@@ -478,19 +328,9 @@ function DemoStat({
 }) {
   return (
     <div className="tots-demo-stat">
-      <p className="tots-demo-label">
-        {label}
-      </p>
-
-      <p className="tots-demo-value">
-        {value}
-      </p>
-
-      {note && (
-        <p className="tots-demo-note">
-          {note}
-        </p>
-      )}
+      <p className="tots-demo-label">{label}</p>
+      <p className="tots-demo-value">{value}</p>
+      {note && <p className="tots-demo-note">{note}</p>}
     </div>
   );
 }
@@ -506,16 +346,8 @@ function DemoPanel({
 }) {
   return (
     <div className="tots-demo-panel">
-      <p className="tots-demo-label">
-        {eyebrow}
-      </p>
-
-      {title && (
-        <p className="tots-demo-panel-title">
-          {title}
-        </p>
-      )}
-
+      <p className="tots-demo-label">{eyebrow}</p>
+      {title && <p className="tots-demo-panel-title">{title}</p>}
       {children}
     </div>
   );
@@ -530,17 +362,9 @@ function DemoHome() {
     <>
       <div className="tots-demo-mainhead">
         <div>
-          <p className="tots-demo-label">
-            wed · 19 aug
-          </p>
-
-          <h3 className="tots-demo-serif">
-            Good afternoon.
-          </h3>
-
-          <p className="tots-demo-dim">
-            Here&apos;s everything happening across your business.
-          </p>
+          <p className="tots-demo-label">wed · 19 aug</p>
+          <h3 className="tots-demo-serif">Good afternoon.</h3>
+          <p className="tots-demo-dim">Here&apos;s everything happening across your business.</p>
         </div>
 
         <div className="tots-demo-ai">
@@ -554,53 +378,33 @@ function DemoHome() {
         <DemoStat label="Projects" value="4" />
         <DemoStat label="Today" value="3" />
         <DemoStat label="Invoices due" value="2" />
-        <DemoStat
-          label="Revenue"
-          value="£8,240"
-          note="+11.4%"
-        />
+        <DemoStat label="Revenue" value="£8,240" note="+11.4%" />
       </div>
 
       <div className="tots-demo-grid-2">
-        <DemoPanel
-          eyebrow="focus"
-          title="Today's priorities"
-        >
+        <DemoPanel eyebrow="focus" title="Today's priorities">
           <div className="tots-demo-list">
             {[
               "Send the Halstead proposal",
               "Review Q3 campaign performance",
               "Approve this week's content",
             ].map((item, index) => (
-              <div
-                className="tots-demo-row"
-                key={item}
-              >
-                <span className="tots-demo-num">
-                  {index + 1}
-                </span>
-
+              <div className="tots-demo-row" key={item}>
+                <span className="tots-demo-num">{index + 1}</span>
                 {item}
               </div>
             ))}
           </div>
         </DemoPanel>
 
-        <DemoPanel
-          eyebrow="clarity"
-          title="What needs attention"
-        >
+        <DemoPanel eyebrow="clarity" title="What needs attention">
           <p className="tots-demo-dim demo-copy">
-            One invoice is overdue and your website project has three
-            tasks due this week.
+            One invoice is overdue, and your website project has three tasks due this week.
           </p>
 
           <div className="tots-demo-ai-response">
             <Sparkles size={14} />
-
-            <span>
-              Ask Clarity what to prioritise.
-            </span>
+            <span>Ask Clarity what to prioritise.</span>
           </div>
         </DemoPanel>
       </div>
@@ -612,9 +416,7 @@ function DemoContacts() {
   return (
     <>
       <div className="tots-demo-mainhead">
-        <h3 className="tots-demo-serif">
-          Contacts
-        </h3>
+        <h3 className="tots-demo-serif">Contacts</h3>
 
         <div className="tots-demo-searchbar">
           <Search size={13} />
@@ -624,19 +426,11 @@ function DemoContacts() {
 
       <div className="tots-demo-list demo-top">
         {DEMO_CONTACTS.map((contact) => (
-          <div
-            key={contact.name}
-            className="tots-demo-contact-row"
-          >
-            <span className="tots-demo-avatar">
-              {contact.name.charAt(0)}
-            </span>
+          <div key={contact.name} className="tots-demo-contact-row">
+            <span className="tots-demo-avatar">{contact.name.charAt(0)}</span>
 
             <div className="demo-flex">
-              <p className="tots-demo-contact-name">
-                {contact.name}
-              </p>
-
+              <p className="tots-demo-contact-name">{contact.name}</p>
               <p className="tots-demo-dim">
                 {contact.org} · {contact.tag}
               </p>
@@ -654,9 +448,7 @@ function DemoCampaigns() {
   return (
     <>
       <div className="tots-demo-mainhead">
-        <h3 className="tots-demo-serif">
-          Campaigns
-        </h3>
+        <h3 className="tots-demo-serif">Campaigns</h3>
 
         <span className="tots-demo-pill-btn">
           <Plus size={13} />
@@ -666,41 +458,20 @@ function DemoCampaigns() {
 
       <div className="tots-demo-grid-2">
         {DEMO_CAMPAIGNS.map((campaign) => (
-          <div
-            key={campaign.name}
-            className="tots-demo-panel"
-          >
+          <div key={campaign.name} className="tots-demo-panel">
             <div className="tots-demo-between">
               <div>
-                <p className="tots-demo-contact-name">
-                  {campaign.name}
-                </p>
-
-                <p className="tots-demo-dim">
-                  {campaign.list}
-                </p>
+                <p className="tots-demo-contact-name">{campaign.name}</p>
+                <p className="tots-demo-dim">{campaign.list}</p>
               </div>
 
-              <span className="tots-demo-pill">
-                {campaign.status}
-              </span>
+              <span className="tots-demo-pill">{campaign.status}</span>
             </div>
 
             <div className="tots-demo-stats tots-demo-stats-3">
-              <DemoStat
-                label="Sent"
-                value={String(campaign.sent)}
-              />
-
-              <DemoStat
-                label="Opens"
-                value={String(campaign.opens)}
-              />
-
-              <DemoStat
-                label="Clicks"
-                value={String(campaign.clicks)}
-              />
+              <DemoStat label="Sent" value={String(campaign.sent)} />
+              <DemoStat label="Opens" value={String(campaign.opens)} />
+              <DemoStat label="Clicks" value={String(campaign.clicks)} />
             </div>
           </div>
         ))}
@@ -714,13 +485,8 @@ function DemoSocial() {
     <>
       <div className="tots-demo-mainhead">
         <div>
-          <p className="tots-demo-label">
-            create content
-          </p>
-
-          <h3 className="tots-demo-serif">
-            What are we posting?
-          </h3>
+          <p className="tots-demo-label">create content</p>
+          <h3 className="tots-demo-serif">What are we posting?</h3>
         </div>
 
         <span className="tots-demo-pill-btn">
@@ -732,42 +498,17 @@ function DemoSocial() {
       <div className="tots-demo-grid-2">
         <div className="tots-demo-upload">
           <ImageIcon size={22} />
-
-          <p className="tots-demo-contact-name demo-upload-title">
-            Add your content
-          </p>
-
-          <p className="tots-demo-dim">
-            Upload an image or video
-          </p>
+          <p className="tots-demo-contact-name demo-upload-title">Add your content</p>
+          <p className="tots-demo-dim">Upload an image or video</p>
         </div>
 
-        <DemoPanel
-          eyebrow="publishing"
-          title="Connected platforms"
-        >
+        <DemoPanel eyebrow="publishing" title="Connected platforms">
           <div className="tots-demo-list">
-            {[
-              "Instagram",
-              "TikTok",
-              "Facebook",
-              "LinkedIn",
-            ].map((platform, index) => (
-              <div
-                key={platform}
-                className="tots-demo-row"
-              >
-                <span className="demo-flex">
-                  {platform}
-                </span>
+            {["Instagram", "TikTok", "Facebook", "LinkedIn"].map((platform, index) => (
+              <div key={platform} className="tots-demo-row">
+                <span className="demo-flex">{platform}</span>
 
-                <span
-                  className={`tots-demo-toggle ${
-                    index < 2
-                      ? "is-on"
-                      : ""
-                  }`}
-                >
+                <span className={`tots-demo-toggle ${index < 2 ? "is-on" : ""}`}>
                   <span />
                 </span>
               </div>
@@ -783,9 +524,7 @@ function DemoFinance() {
   return (
     <>
       <div className="tots-demo-mainhead">
-        <h3 className="tots-demo-serif">
-          Finances
-        </h3>
+        <h3 className="tots-demo-serif">Finances</h3>
 
         <span className="tots-demo-pill-btn">
           <RefreshCw size={12} />
@@ -794,55 +533,22 @@ function DemoFinance() {
       </div>
 
       <div className="tots-demo-tabs">
-        {[
-          "Overview",
-          "Sales",
-          "Expenses",
-          "Tax & VAT",
-          "Payroll",
-        ].map((tab, index) => (
-          <span
-            key={tab}
-            className={`tots-demo-tab ${
-              index === 0
-                ? "is-active"
-                : ""
-            }`}
-          >
+        {["Overview", "Sales", "Expenses", "Tax & VAT", "Payroll"].map((tab, index) => (
+          <span key={tab} className={`tots-demo-tab ${index === 0 ? "is-active" : ""}`}>
             {tab}
           </span>
         ))}
       </div>
 
       <div className="tots-demo-panel tots-demo-panel-dark demo-top">
-        <p className="tots-demo-label label-light">
-          financial control centre
-        </p>
-
-        <p className="tots-demo-serif serif-light">
-          Business position at a glance
-        </p>
+        <p className="tots-demo-label label-light">financial control centre</p>
+        <p className="tots-demo-serif serif-light">Business position at a glance</p>
 
         <div className="tots-demo-stats tots-demo-stats-4">
-          <DemoStat
-            label="Net position"
-            value="£4,120"
-          />
-
-          <DemoStat
-            label="Outstanding"
-            value="£1,860"
-          />
-
-          <DemoStat
-            label="VAT owed"
-            value="£640"
-          />
-
-          <DemoStat
-            label="Tax exposure"
-            value="£1,050"
-          />
+          <DemoStat label="Net position" value="£4,120" />
+          <DemoStat label="Outstanding" value="£1,860" />
+          <DemoStat label="VAT owed" value="£640" />
+          <DemoStat label="Tax exposure" value="£1,050" />
         </div>
       </div>
     </>
@@ -854,58 +560,24 @@ function DemoNotes() {
     <>
       <div className="tots-demo-mainhead">
         <div>
-          <p className="tots-demo-label">
-            notes & tasks
-          </p>
-
-          <h3 className="tots-demo-serif">
-            Keep everything visible.
-          </h3>
+          <p className="tots-demo-label">notes & tasks</p>
+          <h3 className="tots-demo-serif">Keep everything visible.</h3>
         </div>
       </div>
 
       <div className="tots-demo-kanban">
         {[
-          {
-            name: "To do",
-            tasks: [
-              "Send proposal",
-              "Create launch content",
-            ],
-          },
-          {
-            name: "In progress",
-            tasks: [
-              "Website refresh",
-            ],
-          },
-          {
-            name: "Done",
-            tasks: [
-              "Client onboarding",
-            ],
-          },
+          { name: "To do", tasks: ["Send proposal", "Create launch content"] },
+          { name: "In progress", tasks: ["Website refresh"] },
+          { name: "Done", tasks: ["Client onboarding"] },
         ].map((column) => (
-          <div
-            key={column.name}
-            className="tots-demo-kanban-col"
-          >
-            <p className="tots-demo-label">
-              {column.name}
-            </p>
+          <div key={column.name} className="tots-demo-kanban-col">
+            <p className="tots-demo-label">{column.name}</p>
 
             {column.tasks.map((task) => (
-              <div
-                key={task}
-                className="tots-demo-card"
-              >
-                <p className="tots-demo-contact-name">
-                  {task}
-                </p>
-
-                <p className="tots-demo-dim demo-small-top">
-                  TOTS-OS
-                </p>
+              <div key={task} className="tots-demo-card">
+                <p className="tots-demo-contact-name">{task}</p>
+                <p className="tots-demo-dim demo-small-top">TOTS-OS</p>
               </div>
             ))}
           </div>
@@ -920,13 +592,8 @@ function DemoWorkspace() {
     <>
       <div className="tots-demo-mainhead">
         <div>
-          <p className="tots-demo-label">
-            commercial workspace
-          </p>
-
-          <h3 className="tots-demo-serif">
-            Clients & Projects
-          </h3>
+          <p className="tots-demo-label">commercial workspace</p>
+          <h3 className="tots-demo-serif">Clients & Projects</h3>
         </div>
 
         <span className="tots-demo-pill-btn">
@@ -936,43 +603,17 @@ function DemoWorkspace() {
       </div>
 
       <div className="tots-demo-stats tots-demo-stats-4">
-        <DemoStat
-          label="Active projects"
-          value="4"
-        />
-
-        <DemoStat
-          label="Active clients"
-          value="6"
-        />
-
-        <DemoStat
-          label="Overdue"
-          value="1"
-        />
-
-        <DemoStat
-          label="Project value"
-          value="£6,400"
-        />
+        <DemoStat label="Active projects" value="4" />
+        <DemoStat label="Active clients" value="6" />
+        <DemoStat label="Overdue" value="1" />
+        <DemoStat label="Project value" value="£6,400" />
       </div>
 
       <div className="tots-demo-list">
-        {[
-          "Website redesign",
-          "Autumn campaign",
-          "Brand refresh",
-        ].map((project) => (
-          <div
-            className="tots-demo-row"
-            key={project}
-          >
+        {["Website redesign", "Autumn campaign", "Brand refresh"].map((project) => (
+          <div className="tots-demo-row" key={project}>
             <FolderKanban size={14} />
-
-            <span className="demo-flex">
-              {project}
-            </span>
-
+            <span className="demo-flex">{project}</span>
             <ChevronRight size={14} />
           </div>
         ))}
@@ -986,13 +627,8 @@ function DemoCalendar() {
     <>
       <div className="tots-demo-mainhead">
         <div>
-          <p className="tots-demo-label">
-            your time
-          </p>
-
-          <h3 className="tots-demo-serif">
-            Bookings & Schedule
-          </h3>
+          <p className="tots-demo-label">your time</p>
+          <h3 className="tots-demo-serif">Bookings & Schedule</h3>
         </div>
 
         <span className="tots-demo-pill-btn">
@@ -1004,14 +640,8 @@ function DemoCalendar() {
       <div className="tots-demo-stats tots-demo-stats-4">
         <DemoStat label="Today" value="1" />
         <DemoStat label="Upcoming" value="5" />
-        <DemoStat
-          label="Booking days"
-          value="4"
-        />
-        <DemoStat
-          label="Booking page"
-          value="Live"
-        />
+        <DemoStat label="Booking days" value="4" />
+        <DemoStat label="Booking page" value="Live" />
       </div>
     </>
   );
@@ -1022,39 +652,21 @@ function DemoSettings() {
     <>
       <div className="tots-demo-mainhead">
         <div>
-          <p className="tots-demo-label">
-            administrative centre
-          </p>
-
-          <h3 className="tots-demo-serif">
-            Settings
-          </h3>
+          <p className="tots-demo-label">administrative centre</p>
+          <h3 className="tots-demo-serif">Settings</h3>
         </div>
       </div>
 
-      <DemoPanel
-        eyebrow="business"
-        title="Workspace settings"
-      >
+      <DemoPanel eyebrow="business" title="Workspace settings">
         <div className="tots-demo-grid-2">
           <div>
-            <p className="tots-demo-label">
-              Business name
-            </p>
-
-            <div className="tots-demo-field">
-              Your Business
-            </div>
+            <p className="tots-demo-label">Business name</p>
+            <div className="tots-demo-field">Your Business</div>
           </div>
 
           <div>
-            <p className="tots-demo-label">
-              Email
-            </p>
-
-            <div className="tots-demo-field">
-              hello@yourbusiness.com
-            </div>
+            <p className="tots-demo-label">Email</p>
+            <div className="tots-demo-field">hello@yourbusiness.com</div>
           </div>
         </div>
       </DemoPanel>
@@ -1062,10 +674,7 @@ function DemoSettings() {
   );
 }
 
-const DEMO_VIEWS: Record<
-  DemoKey,
-  () => ReactNode
-> = {
+const DEMO_VIEWS: Record<DemoKey, () => ReactNode> = {
   home: DemoHome,
   contacts: DemoContacts,
   campaigns: DemoCampaigns,
@@ -1082,25 +691,14 @@ const DEMO_VIEWS: Record<
 // ============================================================
 
 function ProductDemo() {
-  const [
-    active,
-    setActive,
-  ] = useState<DemoKey>(
-    "home"
-  );
-
-  const ActiveView =
-    DEMO_VIEWS[active];
+  const [active, setActive] = useState<DemoKey>("home");
+  const ActiveView = DEMO_VIEWS[active];
 
   return (
     <Reveal>
-      <div
-        className="tots-window-wrap"
-        id="demo"
-      >
+      <div className="tots-window-wrap" id="demo">
         <div className="tots-demo-heading">
           <span className="tots-status-dot" />
-
           INTERACTIVE PRODUCT WALKTHROUGH
         </div>
 
@@ -1116,13 +714,11 @@ function ProductDemo() {
 
             <div className="tots-window-url">
               <LockKeyhole size={9} />
-
               tots-os.co.uk
             </div>
 
             <div className="tots-window-status">
               <span className="tots-status-dot" />
-
               demo
             </div>
           </div>
@@ -1130,54 +726,29 @@ function ProductDemo() {
           <div className="tots-window-body">
             <aside className="tots-window-side">
               <div className="tots-window-side-brand">
-                <Logo
-                  size={28}
-                  showWordmark={false}
-                />
-
-                <span className="tots-window-side-label">
-                  workspace
-                </span>
+                <Logo size={28} showWordmark={false} />
+                <span className="tots-window-side-label">workspace</span>
               </div>
 
               <div className="tots-window-nav">
                 {DEMO_NAV.map((item, index) => {
-                  const Icon =
-                    item.icon;
-
+                  const Icon = item.icon;
                   const showGroup =
-                    item.group &&
-                    DEMO_NAV[index - 1]
-                      ?.group !==
-                      item.group;
+                    item.group && DEMO_NAV[index - 1]?.group !== item.group;
 
                   return (
                     <div key={item.key}>
-                      {showGroup && (
-                        <p className="tots-window-navgroup">
-                          {item.group}
-                        </p>
-                      )}
+                      {showGroup && <p className="tots-window-navgroup">{item.group}</p>}
 
                       <button
                         type="button"
-                        onClick={() =>
-                          setActive(
-                            item.key
-                          )
-                        }
+                        onClick={() => setActive(item.key)}
                         className={`tots-window-navitem ${
-                          active ===
-                          item.key
-                            ? "is-active"
-                            : ""
+                          active === item.key ? "is-active" : ""
                         }`}
                       >
                         <Icon size={15} />
-
-                        <span>
-                          {item.label}
-                        </span>
+                        <span>{item.label}</span>
                       </button>
                     </div>
                   );
@@ -1189,21 +760,10 @@ function ProductDemo() {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={active}
-                  initial={{
-                    opacity: 0,
-                    y: 8,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  exit={{
-                    opacity: 0,
-                    y: -5,
-                  }}
-                  transition={{
-                    duration: 0.25,
-                  }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  transition={{ duration: 0.25 }}
                 >
                   <ActiveView />
                 </motion.div>
@@ -1212,26 +772,15 @@ function ProductDemo() {
           </div>
         </div>
 
-        <p className="tots-demo-instruction">
-          Click through the modules to explore the TOTS-OS workspace.
-        </p>
+        <p className="tots-demo-instruction">Click through to explore the workspace.</p>
 
         <div className="tots-window-nav-hint">
           {DEMO_NAV.map((item) => (
             <button
               key={item.key}
               type="button"
-              onClick={() =>
-                setActive(
-                  item.key
-                )
-              }
-              className={`tots-window-hint-chip ${
-                active ===
-                item.key
-                  ? "is-active"
-                  : ""
-              }`}
+              onClick={() => setActive(item.key)}
+              className={`tots-window-hint-chip ${active === item.key ? "is-active" : ""}`}
             >
               {item.label}
             </button>
@@ -1240,26 +789,13 @@ function ProductDemo() {
 
         <div className="tots-demo-conversion">
           <div>
-            <span className="tots-demo-conversion-kicker">
-              Like what you see?
-            </span>
-
-            <h3>
-              Put your actual business inside it.
-            </h3>
-
-            <p>
-              Start your 14-day free trial and build your own connected
-              TOTS-OS workspace.
-            </p>
+            <span className="tots-demo-conversion-kicker">Like what you see?</span>
+            <h3>Put your actual business inside it.</h3>
+            <p>Start your 14-day free trial and build your own TOTS-OS workspace.</p>
           </div>
 
-          <a
-            href="/join"
-            className="tots-btn-solid tots-btn-large"
-          >
+          <a href="/join" className="tots-btn-solid tots-btn-large">
             Start free trial
-
             <ArrowRight size={15} />
           </a>
         </div>
@@ -1273,34 +809,17 @@ function ProductDemo() {
 // ============================================================
 
 export default function TotsOSLanding() {
-  const reduceMotion =
-    useReducedMotion();
-
-  const [
-    mobileMenuOpen,
-    setMobileMenuOpen,
-  ] = useState(false);
-
-  const [
-    openFaq,
-    setOpenFaq,
-  ] = useState<number | null>(
-    0
-  );
+  const reduceMotion = useReducedMotion();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   return (
     <div className="tots-root">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:ital,wght@0,500;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
 
-        html {
-          scroll-behavior: smooth;
-        }
-
-        body {
-          margin: 0;
-          background: #08080a;
-        }
+        html { scroll-behavior: smooth; }
+        body { margin: 0; background: #08080a; }
 
         .tots-root {
           --bg: #08080a;
@@ -1327,549 +846,268 @@ export default function TotsOSLanding() {
           overflow-x: hidden;
 
           background:
-            radial-gradient(
-              ellipse 60% 30% at 50% 0%,
-              rgba(215,224,168,0.08),
-              transparent 70%
-            ),
+            radial-gradient(ellipse 60% 30% at 50% 0%, rgba(215,224,168,0.08), transparent 70%),
             #08080a;
 
           color: var(--ink);
-
-          font-family:
-            'Inter',
-            system-ui,
-            sans-serif;
+          font-family: 'Inter', system-ui, sans-serif;
         }
 
-        .tots-root * {
-          box-sizing: border-box;
-        }
+        .tots-root * { box-sizing: border-box; }
 
         .tots-root h1,
         .tots-root h2,
         .tots-root h3 {
           margin: 0;
-
-          font-family:
-            'Space Grotesk',
-            sans-serif;
-
+          font-family: 'Space Grotesk', sans-serif;
           letter-spacing: -0.045em;
         }
 
-        .tots-root p {
-          margin: 0;
-        }
+        .tots-root p { margin: 0; }
+        .tots-root ::selection { background: var(--accent); color: #08080a; }
 
-        .tots-root ::selection {
-          background: var(--accent);
-          color: #08080a;
-        }
-
-        /* =============================================
-           BACKGROUND
-        ============================================= */
+        /* BACKGROUND */
 
         .tots-bg-grid {
           position: fixed;
           inset: 0;
           pointer-events: none;
           z-index: 0;
-
           opacity: 0.24;
 
           background-image:
-            linear-gradient(
-              rgba(243,244,238,0.04) 1px,
-              transparent 1px
-            ),
-            linear-gradient(
-              90deg,
-              rgba(243,244,238,0.04) 1px,
-              transparent 1px
-            );
+            linear-gradient(rgba(243,244,238,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(243,244,238,0.04) 1px, transparent 1px);
 
           background-size: 64px 64px;
 
           mask-image:
-            radial-gradient(
-              ellipse 70% 55% at 50% 0%,
-              black 10%,
-              transparent 78%
-            );
+            radial-gradient(ellipse 70% 55% at 50% 0%, black 10%, transparent 78%);
         }
 
-        /* =============================================
-           GENERIC
-        ============================================= */
+        /* GENERIC */
 
-        .tots-wrap {
-          width: 100%;
-          max-width: 1400px;
-          margin: 0 auto;
-        }
+        .tots-wrap { width: 100%; max-width: 1400px; margin: 0 auto; }
+        .tots-wrap-narrow { width: 100%; max-width: 1120px; margin: 0 auto; }
 
-        .tots-wrap-narrow {
-          width: 100%;
-          max-width: 1120px;
-          margin: 0 auto;
-        }
-
-        .tots-section {
-          position: relative;
-          z-index: 5;
-
-          padding: 90px 20px;
-        }
+        .tots-section { position: relative; z-index: 5; padding: 90px 20px; }
 
         .tots-section-bordered {
           border-top: 1px solid var(--line);
           border-bottom: 1px solid var(--line);
-
-          background:
-            rgba(255,255,255,0.008);
+          background: rgba(255,255,255,0.008);
         }
 
-        @media (min-width: 1024px) {
-          .tots-section {
-            padding: 130px 24px;
-          }
-        }
+        @media (min-width: 1024px) { .tots-section { padding: 130px 24px; } }
 
         .tots-eyebrow {
           display: inline-flex;
           align-items: center;
           gap: 9px;
-
           padding: 8px 14px;
-
           border: 1px solid var(--line);
-
           border-radius: 999px;
-
-          background:
-            rgba(255,255,255,0.02);
-
+          background: rgba(255,255,255,0.02);
           color: var(--ink-dim);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 9px;
-
           letter-spacing: 0.17em;
-
           text-transform: uppercase;
         }
 
         .tots-eyebrow-dot {
           width: 6px;
           height: 6px;
-
           border-radius: 999px;
-
           background: var(--accent);
-
-          box-shadow:
-            0 0 12px
-            rgba(215,224,168,0.75);
+          box-shadow: 0 0 12px rgba(215,224,168,0.75);
         }
 
         .tots-section-heading {
           max-width: 900px;
-
           margin-top: 26px;
-
-          font-size:
-            clamp(
-              2.5rem,
-              5.5vw,
-              5.6rem
-            );
-
+          font-size: clamp(2.5rem, 5.5vw, 5.6rem);
           line-height: 0.98;
-
           font-weight: 500;
         }
 
         .tots-section-copy {
           max-width: 580px;
-
           margin-top: 24px;
-
           color: var(--ink-dim);
-
           font-size: 14.5px;
-
           line-height: 1.8;
         }
 
-        .tots-serif {
-          font-family: var(--serif);
-          font-style: italic;
-        }
+        .tots-serif { font-family: var(--serif); font-style: italic; }
+        .tots-accent { color: var(--accent); }
 
-        .tots-accent {
-          color: var(--accent);
-        }
+        /* LOGO */
 
-        /* =============================================
-           LOGO
-        ============================================= */
-
-        .tots-logo-unit {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .tots-logo-mark {
-          display: block;
-          object-fit: contain;
-          border-radius: 9px;
-        }
-
-        .tots-logo-word {
-          display: flex;
-          flex-direction: column;
-          line-height: 1.2;
-        }
-
-        .tots-logo-name {
-          color: var(--ink);
-
-          font-size: 12px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-        }
+        .tots-logo-unit { display: inline-flex; align-items: center; gap: 10px; }
+        .tots-logo-mark { display: block; object-fit: contain; border-radius: 9px; }
+        .tots-logo-word { display: flex; flex-direction: column; line-height: 1.2; }
+        .tots-logo-name { color: var(--ink); font-size: 12px; font-weight: 600; letter-spacing: 0.14em; }
 
         .tots-logo-sub {
           margin-top: 2px;
-
           color: var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 7px;
           letter-spacing: 0.15em;
           text-transform: uppercase;
         }
 
-        /* =============================================
-           BUTTONS
-        ============================================= */
+        /* BUTTONS */
 
         .tots-btn-solid,
         .tots-btn-ghost {
           min-height: 42px;
-
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-
           padding: 0 18px;
-
           border-radius: 999px;
-
           text-decoration: none;
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 9px;
           font-weight: 600;
           letter-spacing: 0.13em;
           text-transform: uppercase;
-
           transition: 0.2s ease;
         }
 
         .tots-btn-solid {
           border: none;
-
           color: #08080a;
-
-          background:
-            linear-gradient(
-              135deg,
-              var(--accent),
-              var(--accent-gold)
-            );
-
-          box-shadow:
-            0 8px 30px
-            rgba(215,224,168,0.08);
+          background: linear-gradient(135deg, var(--accent), var(--accent-gold));
+          box-shadow: 0 8px 30px rgba(215,224,168,0.08);
         }
 
-        .tots-btn-solid:hover {
-          transform: translateY(-2px);
-          filter: brightness(1.06);
-        }
+        .tots-btn-solid:hover { transform: translateY(-2px); filter: brightness(1.06); }
 
         .tots-btn-ghost {
           color: var(--ink-dim);
-
           border: 1px solid var(--line);
-
-          background:
-            rgba(255,255,255,0.015);
+          background: rgba(255,255,255,0.015);
         }
 
         .tots-btn-ghost:hover {
           color: var(--ink);
-
-          border-color:
-            rgba(243,244,238,0.25);
-
+          border-color: rgba(243,244,238,0.25);
           transform: translateY(-2px);
         }
 
-        .tots-btn-large {
-          min-height: 56px;
+        .tots-btn-large { min-height: 56px; padding: 0 28px; font-size: 10px; }
 
-          padding: 0 28px;
+        /* NAV */
 
-          font-size: 10px;
-        }
-
-        /* =============================================
-           NAV
-        ============================================= */
-
-        .tots-nav-shell {
-          position: fixed;
-
-          top: 0;
-          left: 0;
-          right: 0;
-
-          z-index: 50;
-
-          padding: 16px 16px 0;
-        }
+        .tots-nav-shell { position: fixed; top: 0; left: 0; right: 0; z-index: 50; padding: 16px 16px 0; }
 
         .tots-nav {
           max-width: 1400px;
           height: 64px;
-
           margin: 0 auto;
-
           padding: 0 10px 0 16px;
-
           display: flex;
           align-items: center;
           justify-content: space-between;
-
           border: 1px solid var(--line);
-
           border-radius: 18px;
-
-          background:
-            rgba(8,8,10,0.78);
-
+          background: rgba(8,8,10,0.78);
           backdrop-filter: blur(22px);
         }
 
-        .tots-brand {
-          display: flex;
-          align-items: center;
-
-          color: inherit;
-          text-decoration: none;
-        }
-
-        .tots-nav-links {
-          display: none;
-          align-items: center;
-        }
+        .tots-brand { display: flex; align-items: center; color: inherit; text-decoration: none; }
+        .tots-nav-links { display: none; align-items: center; }
 
         .tots-nav-link {
           padding: 9px 14px;
-
           border-radius: 999px;
-
           text-decoration: none;
-
           color: var(--ink-dim);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 9px;
           letter-spacing: 0.11em;
           text-transform: uppercase;
-
           transition: 0.2s ease;
         }
 
-        .tots-nav-link:hover {
-          background:
-            rgba(255,255,255,0.04);
-
-          color: var(--ink);
-        }
-
-        .tots-nav-actions {
-          display: none;
-          gap: 8px;
-        }
+        .tots-nav-link:hover { background: rgba(255,255,255,0.04); color: var(--ink); }
+        .tots-nav-actions { display: none; gap: 8px; }
 
         .tots-menu-btn {
           width: 40px;
           height: 40px;
-
           display: flex;
           align-items: center;
           justify-content: center;
-
           border: 1px solid var(--line);
           border-radius: 999px;
-
           background: transparent;
           color: var(--ink);
-
           cursor: pointer;
         }
 
         @media (min-width: 650px) {
-          .tots-nav-actions {
-            display: flex;
-          }
-
-          .tots-menu-btn {
-            display: none;
-          }
+          .tots-nav-actions { display: flex; }
+          .tots-menu-btn { display: none; }
         }
 
-        @media (min-width: 1050px) {
-          .tots-nav-links {
-            display: flex;
-          }
-        }
+        @media (min-width: 1050px) { .tots-nav-links { display: flex; } }
 
-        /* =============================================
-           MOBILE NAV
-        ============================================= */
+        /* MOBILE NAV */
 
         .tots-mobile-menu {
           position: fixed;
           inset: 0;
-
           z-index: 100;
-
           padding: 16px;
-
-          background:
-            rgba(4,4,5,0.94);
-
+          background: rgba(4,4,5,0.94);
           backdrop-filter: blur(30px);
         }
 
         .tots-mobile-panel {
-          max-height:
-            calc(100vh - 32px);
-
+          max-height: calc(100vh - 32px);
           overflow-y: auto;
-
           border: 1px solid var(--line);
           border-radius: 24px;
-
           background: var(--bg1);
-
           padding: 20px;
         }
 
-        .tots-mobile-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .tots-mobile-links {
-          margin-top: 24px;
-
-          display: grid;
-          gap: 4px;
-        }
+        .tots-mobile-head { display: flex; align-items: center; justify-content: space-between; }
+        .tots-mobile-links { margin-top: 24px; display: grid; gap: 4px; }
 
         .tots-mobile-link {
           display: flex;
           align-items: center;
           justify-content: space-between;
-
           padding: 15px 14px;
-
           border-radius: 14px;
-
           color: var(--ink-dim);
-
           text-decoration: none;
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 11px;
           letter-spacing: 0.08em;
           text-transform: uppercase;
         }
 
-        .tots-mobile-link:hover {
-          background:
-            rgba(255,255,255,0.04);
+        .tots-mobile-link:hover { background: rgba(255,255,255,0.04); color: var(--ink); }
+        .tots-mobile-actions { margin-top: 22px; display: grid; grid-template-columns: 1fr; gap: 8px; }
 
-          color: var(--ink);
-        }
+        /* HERO */
 
-        .tots-mobile-actions {
-          margin-top: 22px;
-
-          display: grid;
-
-          grid-template-columns:
-            1fr;
-
-          gap: 8px;
-        }
-
-        /* =============================================
-           HERO
-        ============================================= */
-
-        .tots-hero {
-          position: relative;
-          z-index: 5;
-
-          padding:
-            145px 20px 95px;
-        }
-
-        .tots-hero-inner {
-          max-width: 1400px;
-
-          margin: 0 auto;
-
-          text-align: center;
-        }
+        .tots-hero { position: relative; z-index: 5; padding: 145px 20px 95px; }
+        .tots-hero-inner { max-width: 1400px; margin: 0 auto; text-align: center; }
 
         .tots-hero-kicker {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-
           color: var(--accent);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 9px;
           letter-spacing: 0.17em;
           text-transform: uppercase;
@@ -1877,175 +1115,89 @@ export default function TotsOSLanding() {
 
         .tots-hero h1 {
           max-width: 1100px;
-
           margin: 24px auto 0;
-
-          font-size:
-            clamp(
-              3rem,
-              7.2vw,
-              7rem
-            );
-
+          font-size: clamp(3rem, 7.2vw, 7rem);
           font-weight: 600;
-
           line-height: 0.94;
         }
 
         .tots-hero-line2 {
           display: block;
-
           margin-top: 4px;
-
           font-family: var(--serif);
-
           font-weight: 500;
           font-style: italic;
-
-          background:
-            linear-gradient(
-              90deg,
-              #fff,
-              var(--accent) 65%,
-              var(--accent-gold)
-            );
-
+          background: linear-gradient(90deg, #fff, var(--accent) 65%, var(--accent-gold));
           background-clip: text;
           -webkit-background-clip: text;
-
           color: transparent;
         }
 
         .tots-hero-lede {
           width: 100%;
           max-width: 850px;
-
           margin: 28px auto 0;
-
           text-align: center;
-
           color: var(--ink-dim);
-
-          font-size:
-            clamp(
-              1rem,
-              1.4vw,
-              1.15rem
-            );
-
+          font-size: clamp(1rem, 1.4vw, 1.15rem);
           line-height: 1.75;
         }
 
         .tots-hero-ctas {
           margin-top: 38px;
-
           display: flex;
-
           flex-direction: column;
-
           align-items: center;
           justify-content: center;
-
           gap: 12px;
         }
 
-        @media (min-width: 600px) {
-          .tots-hero-ctas {
-            flex-direction: row;
-          }
-        }
+        @media (min-width: 600px) { .tots-hero-ctas { flex-direction: row; } }
 
         .tots-trial-note {
           margin-top: 18px;
-
           display: flex;
           flex-wrap: wrap;
-
           align-items: center;
           justify-content: center;
-
           gap: 8px 18px;
-
-          color:
-            rgba(243,244,238,0.52);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          color: rgba(243,244,238,0.52);
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8.5px;
-
           letter-spacing: 0.08em;
-
           text-transform: uppercase;
         }
 
-        .tots-trial-note span {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-        }
+        .tots-trial-note span { display: inline-flex; align-items: center; gap: 6px; }
 
         .tots-hero-meta {
           margin-top: 24px;
-
           display: flex;
           flex-wrap: wrap;
-
           align-items: center;
           justify-content: center;
-
           gap: 18px;
-
           color: var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8.5px;
-
           letter-spacing: 0.1em;
-
           text-transform: uppercase;
         }
 
-        .tots-hero-meta span {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-        }
+        .tots-hero-meta span { display: inline-flex; align-items: center; gap: 6px; }
 
-        /* =============================================
-           DEMO
-        ============================================= */
+        /* DEMO */
 
-        .tots-window-wrap {
-          position: relative;
-
-          max-width: 1180px;
-
-          margin: 85px auto 0;
-
-          text-align: left;
-        }
+        .tots-window-wrap { position: relative; max-width: 1180px; margin: 85px auto 0; text-align: left; }
 
         .tots-demo-heading {
           margin-bottom: 14px;
-
           display: flex;
-
           align-items: center;
           justify-content: center;
-
           gap: 8px;
-
           color: var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
           letter-spacing: 0.15em;
         }
@@ -2053,2542 +1205,1053 @@ export default function TotsOSLanding() {
         .tots-window-glow {
           position: absolute;
           inset: -50px;
-
-          background:
-            radial-gradient(
-              ellipse,
-              rgba(215,224,168,0.09),
-              transparent 68%
-            );
-
+          background: radial-gradient(ellipse, rgba(215,224,168,0.09), transparent 68%);
           filter: blur(45px);
-
           pointer-events: none;
         }
 
         .tots-window {
           position: relative;
-
           overflow: hidden;
-
           border: 1px solid var(--line);
           border-radius: 22px;
-
           background: #f7f6f1;
-
-          box-shadow:
-            0 50px 150px
-            rgba(0,0,0,0.55);
+          box-shadow: 0 50px 150px rgba(0,0,0,0.55);
         }
 
         .tots-window-bar {
           height: 42px;
-
           display: flex;
           align-items: center;
-
           gap: 12px;
-
           padding: 0 14px;
-
           background: #ebe9e0;
-
-          border-bottom:
-            1px solid
-            rgba(20,20,18,0.08);
+          border-bottom: 1px solid rgba(20,20,18,0.08);
         }
 
-        .tots-window-dots {
-          display: flex;
-          gap: 5px;
-        }
-
-        .tots-window-dots span {
-          width: 7px;
-          height: 7px;
-
-          border-radius: 999px;
-
-          background:
-            rgba(20,20,18,0.18);
-        }
+        .tots-window-dots { display: flex; gap: 5px; }
+        .tots-window-dots span { width: 7px; height: 7px; border-radius: 999px; background: rgba(20,20,18,0.18); }
 
         .tots-window-url {
           margin: 0 auto;
-
           display: flex;
-
           align-items: center;
-
           gap: 5px;
-
           padding: 5px 12px;
-
           border-radius: 999px;
-
-          background:
-            rgba(255,255,255,0.65);
-
-          color:
-            rgba(20,20,18,0.48);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          background: rgba(255,255,255,0.65);
+          color: rgba(20,20,18,0.48);
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
         }
 
         .tots-window-status {
           display: flex;
           align-items: center;
-
           gap: 5px;
-
           color: var(--accent-deep);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
           text-transform: uppercase;
         }
 
         .tots-status-dot {
           display: inline-block;
-
           width: 6px;
           height: 6px;
-
           flex-shrink: 0;
-
           border-radius: 999px;
-
           background: var(--accent);
-
-          box-shadow:
-            0 0 10px
-            rgba(215,224,168,0.75);
+          box-shadow: 0 0 10px rgba(215,224,168,0.75);
         }
 
-        .tots-window-body {
-          display: grid;
+        .tots-window-body { display: grid; grid-template-columns: 60px 1fr; min-height: 520px; }
 
-          grid-template-columns:
-            60px 1fr;
-
-          min-height: 520px;
-        }
-
-        @media (min-width: 760px) {
-          .tots-window-body {
-            grid-template-columns:
-              190px 1fr;
-          }
-        }
+        @media (min-width: 760px) { .tots-window-body { grid-template-columns: 190px 1fr; } }
 
         .tots-window-side {
           padding: 15px 10px;
-
-          border-right:
-            1px solid
-            rgba(20,20,18,0.07);
-
+          border-right: 1px solid rgba(20,20,18,0.07);
           background: #fbfaf6;
         }
 
-        .tots-window-side-brand {
-          display: flex;
-          align-items: center;
-
-          gap: 8px;
-
-          padding-left: 4px;
-        }
+        .tots-window-side-brand { display: flex; align-items: center; gap: 8px; padding-left: 4px; }
 
         .tots-window-side-label {
           display: none;
-
-          color:
-            rgba(20,20,18,0.35);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          color: rgba(20,20,18,0.35);
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
           letter-spacing: 0.12em;
           text-transform: uppercase;
         }
 
-        @media (min-width: 760px) {
-          .tots-window-side-label {
-            display: inline;
-          }
-        }
+        @media (min-width: 760px) { .tots-window-side-label { display: inline; } }
 
-        .tots-window-nav {
-          margin-top: 24px;
-
-          display: flex;
-          flex-direction: column;
-
-          gap: 2px;
-        }
+        .tots-window-nav { margin-top: 24px; display: flex; flex-direction: column; gap: 2px; }
 
         .tots-window-navgroup {
           display: none;
-
           margin: 14px 0 5px 9px;
-
-          color:
-            rgba(20,20,18,0.28);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          color: rgba(20,20,18,0.28);
+          font-family: 'JetBrains Mono', monospace;
           font-size: 7px;
           letter-spacing: 0.12em;
           text-transform: uppercase;
         }
 
-        @media (min-width: 760px) {
-          .tots-window-navgroup {
-            display: block;
-          }
-        }
+        @media (min-width: 760px) { .tots-window-navgroup { display: block; } }
 
         .tots-window-navitem {
           width: 100%;
-
           display: flex;
           align-items: center;
-
           gap: 9px;
-
           padding: 9px 10px;
-
           border: none;
           border-radius: 10px;
-
           background: transparent;
-
-          color:
-            rgba(20,20,18,0.55);
-
+          color: rgba(20,20,18,0.55);
           cursor: pointer;
-
           text-align: left;
         }
 
-        .tots-window-navitem:hover {
-          background:
-            rgba(20,20,18,0.04);
-        }
+        .tots-window-navitem:hover { background: rgba(20,20,18,0.04); }
+        .tots-window-navitem.is-active { background: var(--accent); color: #11110e; }
+        .tots-window-navitem span { display: none; font-size: 10px; }
 
-        .tots-window-navitem.is-active {
-          background: var(--accent);
+        @media (min-width: 760px) { .tots-window-navitem span { display: inline; } }
 
-          color: #11110e;
-        }
+        .tots-window-main { min-width: 0; padding: 18px; color: #16160f; }
 
-        .tots-window-navitem span {
-          display: none;
-
-          font-size: 10px;
-        }
-
-        @media (min-width: 760px) {
-          .tots-window-navitem span {
-            display: inline;
-          }
-        }
-
-        .tots-window-main {
-          min-width: 0;
-
-          padding: 18px;
-
-          color: #16160f;
-        }
-
-        @media (min-width: 650px) {
-          .tots-window-main {
-            padding: 28px;
-          }
-        }
+        @media (min-width: 650px) { .tots-window-main { padding: 28px; } }
 
         .tots-demo-instruction {
           margin-top: 18px;
-
           text-align: center;
-
           color: var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
-
           letter-spacing: 0.1em;
-
           text-transform: uppercase;
         }
 
-        .tots-window-nav-hint {
-          margin-top: 14px;
-
-          display: flex;
-
-          flex-wrap: wrap;
-
-          justify-content: center;
-
-          gap: 6px;
-        }
+        .tots-window-nav-hint { margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 
         .tots-window-hint-chip {
           padding: 7px 10px;
-
           border: 1px solid var(--line);
-
           border-radius: 999px;
-
           background: transparent;
-
           color: var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 7px;
-
           letter-spacing: 0.08em;
-
           text-transform: uppercase;
-
           cursor: pointer;
         }
 
-        .tots-window-hint-chip.is-active {
-          border-color:
-            rgba(215,224,168,0.4);
-
-          color: var(--accent);
-        }
+        .tots-window-hint-chip.is-active { border-color: rgba(215,224,168,0.4); color: var(--accent); }
 
         .tots-demo-conversion {
           position: relative;
-
           margin-top: 34px;
-
           padding: 26px;
-
           display: flex;
-
           flex-direction: column;
-
           align-items: flex-start;
-
           gap: 22px;
-
-          border:
-            1px solid
-            rgba(215,224,168,0.22);
-
+          border: 1px solid rgba(215,224,168,0.22);
           border-radius: 22px;
-
-          background:
-            linear-gradient(
-              135deg,
-              rgba(215,224,168,0.07),
-              rgba(255,255,255,0.018)
-            );
+          background: linear-gradient(135deg, rgba(215,224,168,0.07), rgba(255,255,255,0.018));
         }
 
         .tots-demo-conversion-kicker {
           color: var(--accent);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
-
           letter-spacing: 0.14em;
-
           text-transform: uppercase;
         }
 
-        .tots-demo-conversion h3 {
-          margin-top: 7px;
-
-          font-size:
-            clamp(
-              1.5rem,
-              3vw,
-              2.4rem
-            );
-
-          font-weight: 500;
-        }
-
-        .tots-demo-conversion p {
-          max-width: 600px;
-
-          margin-top: 9px;
-
-          color: var(--ink-dim);
-
-          font-size: 12.5px;
-
-          line-height: 1.7;
-        }
+        .tots-demo-conversion h3 { margin-top: 7px; font-size: clamp(1.5rem, 3vw, 2.4rem); font-weight: 500; }
+        .tots-demo-conversion p { max-width: 600px; margin-top: 9px; color: var(--ink-dim); font-size: 12.5px; line-height: 1.7; }
 
         @media (min-width: 760px) {
-          .tots-demo-conversion {
-            flex-direction: row;
-
-            align-items: center;
-
-            justify-content: space-between;
-          }
-
-          .tots-demo-conversion .tots-btn-solid {
-            flex-shrink: 0;
-          }
+          .tots-demo-conversion { flex-direction: row; align-items: center; justify-content: space-between; }
+          .tots-demo-conversion .tots-btn-solid { flex-shrink: 0; }
         }
 
-        /* =============================================
-           DEMO INTERNAL
-        ============================================= */
+        /* DEMO INTERNAL */
 
         .tots-demo-mainhead,
         .tots-demo-between {
           display: flex;
-
           align-items: flex-start;
-
           justify-content: space-between;
-
           gap: 12px;
-
           flex-wrap: wrap;
         }
 
         .tots-demo-serif {
           margin-top: 4px;
-
-          font-family:
-            var(--serif) !important;
-
+          font-family: var(--serif) !important;
           font-size: 25px;
-
           font-weight: 500;
-
           font-style: italic;
-
-          letter-spacing:
-            -0.01em !important;
-
+          letter-spacing: -0.01em !important;
           color: #16160f;
         }
 
         .tots-demo-label {
-          color:
-            rgba(20,20,18,0.38);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          color: rgba(20,20,18,0.38);
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
-
           letter-spacing: 0.12em;
-
           text-transform: uppercase;
         }
 
-        .tots-demo-dim {
-          color:
-            rgba(20,20,18,0.50);
-
-          font-size: 11px;
-
-          line-height: 1.55;
-        }
+        .tots-demo-dim { color: rgba(20,20,18,0.50); font-size: 11px; line-height: 1.55; }
 
         .tots-demo-ai {
           width: 31px;
           height: 31px;
-
           display: flex;
-
           align-items: center;
-
           justify-content: center;
-
           border-radius: 999px;
-
           background: #16160f;
-
           color: var(--accent);
         }
 
-        .tots-demo-stats {
-          display: grid;
-
-          gap: 8px;
-
-          margin-top: 18px;
-        }
-
-        .tots-demo-stats-6,
-        .tots-demo-stats-4 {
-          grid-template-columns:
-            repeat(2, 1fr);
-        }
-
-        .tots-demo-stats-3 {
-          grid-template-columns:
-            repeat(3, 1fr);
-        }
+        .tots-demo-stats { display: grid; gap: 8px; margin-top: 18px; }
+        .tots-demo-stats-6, .tots-demo-stats-4 { grid-template-columns: repeat(2, 1fr); }
+        .tots-demo-stats-3 { grid-template-columns: repeat(3, 1fr); }
 
         @media (min-width: 650px) {
-          .tots-demo-stats-6 {
-            grid-template-columns:
-              repeat(3, 1fr);
-          }
-
-          .tots-demo-stats-4 {
-            grid-template-columns:
-              repeat(4, 1fr);
-          }
+          .tots-demo-stats-6 { grid-template-columns: repeat(3, 1fr); }
+          .tots-demo-stats-4 { grid-template-columns: repeat(4, 1fr); }
         }
 
-        @media (min-width: 1000px) {
-          .tots-demo-stats-6 {
-            grid-template-columns:
-              repeat(6, 1fr);
-          }
-        }
+        @media (min-width: 1000px) { .tots-demo-stats-6 { grid-template-columns: repeat(6, 1fr); } }
 
         .tots-demo-stat {
           min-width: 0;
-
           padding: 11px;
-
-          border:
-            1px solid
-            rgba(20,20,18,0.08);
-
+          border: 1px solid rgba(20,20,18,0.08);
           border-radius: 11px;
-
-          background:
-            rgba(255,255,255,0.55);
+          background: rgba(255,255,255,0.55);
         }
 
-        .tots-demo-value {
-          margin-top: 7px;
+        .tots-demo-value { margin-top: 7px; font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 500; }
+        .tots-demo-note { margin-top: 3px; color: var(--accent-deep); font-size: 8px; }
 
-          font-family:
-            'Space Grotesk',
-            sans-serif;
+        .tots-demo-grid-2 { margin-top: 14px; display: grid; gap: 10px; }
 
-          font-size: 17px;
-
-          font-weight: 500;
-        }
-
-        .tots-demo-note {
-          margin-top: 3px;
-
-          color: var(--accent-deep);
-
-          font-size: 8px;
-        }
-
-        .tots-demo-grid-2 {
-          margin-top: 14px;
-
-          display: grid;
-
-          gap: 10px;
-        }
-
-        @media (min-width: 900px) {
-          .tots-demo-grid-2 {
-            grid-template-columns:
-              1fr 1fr;
-          }
-        }
+        @media (min-width: 900px) { .tots-demo-grid-2 { grid-template-columns: 1fr 1fr; } }
 
         .tots-demo-panel {
           padding: 17px;
-
-          border:
-            1px solid
-            rgba(20,20,18,0.08);
-
+          border: 1px solid rgba(20,20,18,0.08);
           border-radius: 15px;
-
-          background:
-            rgba(255,255,255,0.55);
+          background: rgba(255,255,255,0.55);
         }
 
-        .tots-demo-panel-title {
-          margin-top: 3px;
+        .tots-demo-panel-title { margin-top: 3px; font-family: var(--serif); font-size: 15px; font-style: italic; }
+        .tots-demo-panel-dark { background: #16160f; color: #f3f4ee; }
+        .label-light { color: rgba(243,244,238,0.4); }
+        .serif-light { color: #f3f4ee; }
 
-          font-family: var(--serif);
+        .tots-demo-panel-dark .tots-demo-stat { border-color: rgba(255,255,255,0.07); background: rgba(255,255,255,0.03); }
+        .tots-demo-panel-dark .tots-demo-label { color: rgba(243,244,238,0.35); }
+        .tots-demo-panel-dark .tots-demo-value { color: #f3f4ee; }
 
-          font-size: 15px;
-
-          font-style: italic;
-        }
-
-        .tots-demo-panel-dark {
-          background: #16160f;
-
-          color: #f3f4ee;
-        }
-
-        .label-light {
-          color:
-            rgba(243,244,238,0.4);
-        }
-
-        .serif-light {
-          color: #f3f4ee;
-        }
-
-        .tots-demo-panel-dark .tots-demo-stat {
-          border-color:
-            rgba(255,255,255,0.07);
-
-          background:
-            rgba(255,255,255,0.03);
-        }
-
-        .tots-demo-panel-dark .tots-demo-label {
-          color:
-            rgba(243,244,238,0.35);
-        }
-
-        .tots-demo-panel-dark .tots-demo-value {
-          color: #f3f4ee;
-        }
-
-        .tots-demo-list {
-          margin-top: 12px;
-
-          display: flex;
-
-          flex-direction: column;
-
-          gap: 7px;
-        }
+        .tots-demo-list { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
 
         .tots-demo-row {
           display: flex;
-
           align-items: center;
-
           gap: 9px;
-
           padding: 9px 11px;
-
           border-radius: 10px;
-
-          background:
-            rgba(20,20,18,0.035);
-
-          color:
-            rgba(20,20,18,0.72);
-
+          background: rgba(20,20,18,0.035);
+          color: rgba(20,20,18,0.72);
           font-size: 11px;
         }
 
         .tots-demo-num {
           width: 18px;
           height: 18px;
-
           display: inline-flex;
-
           align-items: center;
-
           justify-content: center;
-
           flex-shrink: 0;
-
           border-radius: 999px;
-
           background: #16160f;
-
           color: var(--accent);
-
           font-size: 8px;
         }
 
         .tots-demo-ai-response {
           margin-top: 15px;
-
           display: flex;
-
           align-items: center;
-
           gap: 9px;
-
           padding: 11px;
-
-          border:
-            1px solid
-            rgba(124,138,82,0.18);
-
+          border: 1px solid rgba(124,138,82,0.18);
           border-radius: 11px;
-
-          background:
-            rgba(215,224,168,0.18);
-
+          background: rgba(215,224,168,0.18);
           color: #5f693e;
-
           font-size: 10px;
-
           font-weight: 600;
         }
 
         .tots-demo-pill-btn {
           display: inline-flex;
-
           align-items: center;
-
           gap: 6px;
-
           padding: 8px 12px;
-
           border-radius: 999px;
-
           background: #16160f;
-
           color: var(--accent);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
-
           text-transform: uppercase;
         }
 
         .tots-demo-pill {
           padding: 5px 8px;
-
           border-radius: 999px;
-
-          background:
-            rgba(20,20,18,0.06);
-
-          color:
-            rgba(20,20,18,0.5);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          background: rgba(20,20,18,0.06);
+          color: rgba(20,20,18,0.5);
+          font-family: 'JetBrains Mono', monospace;
           font-size: 7px;
         }
 
         .tots-demo-searchbar {
           display: flex;
-
           align-items: center;
-
           gap: 6px;
-
           padding: 8px 12px;
-
-          border:
-            1px solid
-            rgba(20,20,18,0.1);
-
+          border: 1px solid rgba(20,20,18,0.1);
           border-radius: 999px;
-
-          color:
-            rgba(20,20,18,0.4);
-
+          color: rgba(20,20,18,0.4);
           font-size: 10px;
         }
 
         .tots-demo-contact-row {
           display: flex;
-
           align-items: center;
-
           gap: 11px;
-
           padding: 11px;
-
-          border:
-            1px solid
-            rgba(20,20,18,0.07);
-
+          border: 1px solid rgba(20,20,18,0.07);
           border-radius: 11px;
-
-          background:
-            rgba(255,255,255,0.5);
+          background: rgba(255,255,255,0.5);
         }
 
         .tots-demo-avatar {
           width: 32px;
           height: 32px;
-
           display: flex;
-
           align-items: center;
-
           justify-content: center;
-
           border-radius: 999px;
-
           background: var(--accent);
-
           font-weight: 700;
         }
 
-        .tots-demo-contact-name {
-          color: #16160f;
-
-          font-size: 12px;
-
-          font-weight: 600;
-        }
+        .tots-demo-contact-name { color: #16160f; font-size: 12px; font-weight: 600; }
 
         .tots-demo-upload {
           min-height: 170px;
-
           display: flex;
-
           flex-direction: column;
-
           align-items: center;
-
           justify-content: center;
-
           padding: 30px;
-
-          border:
-            1px dashed
-            rgba(20,20,18,0.17);
-
+          border: 1px dashed rgba(20,20,18,0.17);
           border-radius: 15px;
-
-          color:
-            rgba(20,20,18,0.4);
+          color: rgba(20,20,18,0.4);
         }
 
-        .demo-upload-title {
-          margin-top: 10px;
-        }
+        .demo-upload-title { margin-top: 10px; }
 
         .tots-demo-toggle {
           width: 31px;
           height: 18px;
-
           display: flex;
-
           align-items: center;
-
           padding: 2px;
-
           border-radius: 999px;
-
-          background:
-            rgba(20,20,18,0.12);
+          background: rgba(20,20,18,0.12);
         }
 
-        .tots-demo-toggle span {
-          width: 14px;
-          height: 14px;
+        .tots-demo-toggle span { width: 14px; height: 14px; border-radius: 999px; background: white; }
+        .tots-demo-toggle.is-on { justify-content: flex-end; background: var(--accent-deep); }
 
-          border-radius: 999px;
-
-          background: white;
-        }
-
-        .tots-demo-toggle.is-on {
-          justify-content: flex-end;
-
-          background: var(--accent-deep);
-        }
-
-        .tots-demo-tabs {
-          margin-top: 16px;
-
-          display: flex;
-
-          gap: 4px;
-
-          flex-wrap: wrap;
-        }
+        .tots-demo-tabs { margin-top: 16px; display: flex; gap: 4px; flex-wrap: wrap; }
 
         .tots-demo-tab {
           padding: 7px 10px;
-
           border-radius: 999px;
-
-          color:
-            rgba(20,20,18,0.42);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          color: rgba(20,20,18,0.42);
+          font-family: 'JetBrains Mono', monospace;
           font-size: 7px;
-
           text-transform: uppercase;
         }
 
-        .tots-demo-tab.is-active {
-          background: #16160f;
+        .tots-demo-tab.is-active { background: #16160f; color: var(--accent); }
 
-          color: var(--accent);
-        }
+        .tots-demo-kanban { margin-top: 16px; display: grid; gap: 9px; }
 
-        .tots-demo-kanban {
-          margin-top: 16px;
-
-          display: grid;
-
-          gap: 9px;
-        }
-
-        @media (min-width: 760px) {
-          .tots-demo-kanban {
-            grid-template-columns:
-              repeat(3,1fr);
-          }
-        }
+        @media (min-width: 760px) { .tots-demo-kanban { grid-template-columns: repeat(3,1fr); } }
 
         .tots-demo-kanban-col {
           padding: 11px;
-
-          border:
-            1px solid
-            rgba(20,20,18,0.08);
-
+          border: 1px solid rgba(20,20,18,0.08);
           border-radius: 12px;
-
-          background:
-            rgba(20,20,18,0.02);
+          background: rgba(20,20,18,0.02);
         }
 
         .tots-demo-card {
           margin-top: 9px;
-
           padding: 11px;
-
-          border:
-            1px solid
-            rgba(20,20,18,0.07);
-
+          border: 1px solid rgba(20,20,18,0.07);
           border-radius: 10px;
-
           background: white;
         }
 
         .tots-demo-field {
           margin-top: 6px;
-
           min-height: 36px;
-
           padding: 10px;
-
-          border:
-            1px solid
-            rgba(20,20,18,0.1);
-
+          border: 1px solid rgba(20,20,18,0.1);
           border-radius: 9px;
-
-          color:
-            rgba(20,20,18,0.55);
-
+          color: rgba(20,20,18,0.55);
           font-size: 10px;
         }
 
-        .demo-top {
-          margin-top: 18px;
-        }
+        .demo-top { margin-top: 18px; }
+        .demo-small-top { margin-top: 5px; }
+        .demo-copy { margin-top: 12px; }
+        .demo-flex { flex: 1; min-width: 0; }
 
-        .demo-small-top {
-          margin-top: 5px;
-        }
-
-        .demo-copy {
-          margin-top: 12px;
-        }
-
-        .demo-flex {
-          flex: 1;
-
-          min-width: 0;
-        }
-
-        /* =============================================
-           MARQUEE
-        ============================================= */
+        /* MARQUEE */
 
         .tots-marquee {
           position: relative;
           z-index: 5;
-
           overflow: hidden;
-
           padding: 24px 0;
-
-          border-top:
-            1px solid var(--line);
-
-          border-bottom:
-            1px solid var(--line);
+          border-top: 1px solid var(--line);
+          border-bottom: 1px solid var(--line);
         }
 
-        .tots-marquee-track {
-          width: max-content;
-
-          display: flex;
-        }
+        .tots-marquee-track { width: max-content; display: flex; }
 
         .tots-marquee-item {
           display: flex;
-
           align-items: center;
-
           gap: 10px;
-
           padding: 0 34px;
-
           white-space: nowrap;
-
           color: var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 9px;
-
           letter-spacing: 0.17em;
         }
 
-        /* =============================================
-           PAIN STRIP
-        ============================================= */
+        /* PAIN STRIP */
 
-        .tots-pain {
-          position: relative;
-          z-index: 5;
-
-          padding: 85px 20px;
-        }
+        .tots-pain { position: relative; z-index: 5; padding: 85px 20px; }
 
         .tots-pain-card {
           max-width: 1100px;
-
           margin: 0 auto;
-
           padding: 38px 24px;
-
           border: 1px solid var(--line);
-
           border-radius: 28px;
-
-          background:
-            linear-gradient(
-              135deg,
-              rgba(255,255,255,0.025),
-              rgba(215,224,168,0.025)
-            );
-
+          background: linear-gradient(135deg, rgba(255,255,255,0.025), rgba(215,224,168,0.025));
           text-align: center;
         }
 
-        .tots-pain-card h2 {
-          font-size:
-            clamp(
-              2rem,
-              5vw,
-              4.5rem
-            );
+        .tots-pain-card h2 { font-size: clamp(2rem, 5vw, 4.5rem); line-height: 1; font-weight: 500; }
+        .tots-pain-card p { max-width: 650px; margin: 18px auto 0; color: var(--ink-dim); font-size: 13.5px; line-height: 1.7; }
 
-          line-height: 1;
-
-          font-weight: 500;
-        }
-
-        .tots-pain-card p {
-          max-width: 650px;
-
-          margin: 18px auto 0;
-
-          color: var(--ink-dim);
-
-          font-size: 13.5px;
-
-          line-height: 1.7;
-        }
-
-        .tots-pain-chips {
-          margin-top: 30px;
-
-          display: flex;
-
-          flex-wrap: wrap;
-
-          justify-content: center;
-
-          gap: 8px;
-        }
+        .tots-pain-chips { margin-top: 30px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
         .tots-pain-chip {
           padding: 9px 13px;
-
           border: 1px solid var(--line);
-
           border-radius: 999px;
-
-          background:
-            rgba(255,255,255,0.02);
-
-          color:
-            rgba(243,244,238,0.62);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          background: rgba(255,255,255,0.02);
+          color: rgba(243,244,238,0.62);
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
-
           letter-spacing: 0.08em;
-
           text-transform: uppercase;
         }
 
         .tots-pain-bottom {
           margin-top: 27px;
-
           color: var(--accent);
-
           font-family: var(--serif);
-
-          font-size:
-            clamp(
-              1.4rem,
-              3vw,
-              2rem
-            );
-
+          font-size: clamp(1.4rem, 3vw, 2rem);
           font-style: italic;
         }
 
-        /* =============================================
-           WHY
-        ============================================= */
+        /* WHY */
 
-        .tots-why-grid {
-          margin-top: 55px;
+        .tots-why-grid { margin-top: 55px; display: grid; gap: 12px; }
 
-          display: grid;
-
-          gap: 12px;
-        }
-
-        @media (min-width: 900px) {
-          .tots-why-grid {
-            grid-template-columns:
-              repeat(3,1fr);
-          }
-        }
+        @media (min-width: 900px) { .tots-why-grid { grid-template-columns: repeat(3,1fr); } }
 
         .tots-why-card {
           min-height: 330px;
-
           padding: 28px;
-
           display: flex;
-
           flex-direction: column;
-
           border: 1px solid var(--line);
-
           border-radius: 24px;
-
-          background:
-            rgba(255,255,255,0.018);
-
+          background: rgba(255,255,255,0.018);
           transition: 0.25s ease;
         }
 
-        .tots-why-card:hover {
-          transform: translateY(-3px);
-
-          border-color:
-            rgba(215,224,168,0.25);
-        }
+        .tots-why-card:hover { transform: translateY(-3px); border-color: rgba(215,224,168,0.25); }
 
         .tots-why-icon {
           width: 44px;
           height: 44px;
-
           display: flex;
-
           align-items: center;
-
           justify-content: center;
-
           border: 1px solid var(--line);
-
           border-radius: 13px;
-
-          background:
-            rgba(255,255,255,0.03);
-
+          background: rgba(255,255,255,0.03);
           color: var(--accent);
         }
 
-        .tots-why-card h3 {
-          margin-top: auto;
+        .tots-why-card h3 { margin-top: auto; padding-top: 80px; font-size: 23px; font-weight: 500; }
+        .tots-why-card p { max-width: 350px; margin-top: 12px; color: var(--ink-dim); font-size: 13px; line-height: 1.75; }
 
-          padding-top: 80px;
-
-          font-size: 23px;
-
-          font-weight: 500;
-        }
-
-        .tots-why-card p {
-          max-width: 350px;
-
-          margin-top: 12px;
-
-          color: var(--ink-dim);
-
-          font-size: 13px;
-
-          line-height: 1.75;
-        }
-
-        /* =============================================
-           FEATURES
-        ============================================= */
+        /* FEATURES */
 
         .tots-feat-grid {
           margin-top: 60px;
-
           display: grid;
-
           gap: 1px;
-
           overflow: hidden;
-
           border: 1px solid var(--line);
-
           border-radius: 26px;
-
           background: var(--line);
         }
 
-        @media (min-width: 700px) {
-          .tots-feat-grid {
-            grid-template-columns:
-              repeat(2,1fr);
-          }
-        }
+        @media (min-width: 700px) { .tots-feat-grid { grid-template-columns: repeat(2,1fr); } }
+        @media (min-width: 1024px) { .tots-feat-grid { grid-template-columns: repeat(3,1fr); } }
 
-        @media (min-width: 1024px) {
-          .tots-feat-grid {
-            grid-template-columns:
-              repeat(3,1fr);
-          }
-        }
-
-        .tots-feat-card {
-          min-height: 290px;
-
-          padding: 30px;
-
-          background: #08080a;
-
-          transition: 0.2s ease;
-        }
-
-        .tots-feat-card:hover {
-          background: #101012;
-        }
+        .tots-feat-card { min-height: 290px; padding: 30px; background: #08080a; transition: 0.2s ease; }
+        .tots-feat-card:hover { background: #101012; }
 
         .tots-feat-icon {
           width: 45px;
           height: 45px;
-
           display: flex;
-
           align-items: center;
-
           justify-content: center;
-
           border: 1px solid var(--line);
-
           border-radius: 13px;
-
           color: var(--accent);
         }
 
-        .tots-feat-card h3 {
-          margin-top: 42px;
+        .tots-feat-card h3 { margin-top: 42px; font-size: 21px; font-weight: 500; }
+        .tots-feat-card p { max-width: 340px; margin-top: 12px; color: var(--ink-dim); font-size: 12.5px; line-height: 1.75; }
 
-          font-size: 21px;
+        /* CONNECTED */
 
-          font-weight: 500;
-        }
+        .tots-connected-grid { display: grid; gap: 60px; align-items: center; }
 
-        .tots-feat-card p {
-          max-width: 340px;
+        @media (min-width: 1000px) { .tots-connected-grid { grid-template-columns: 1fr 1fr; } }
 
-          margin-top: 12px;
+        .tots-connection-board { display: grid; gap: 10px; grid-template-columns: repeat(2,1fr); }
 
-          color: var(--ink-dim);
-
-          font-size: 12.5px;
-
-          line-height: 1.75;
-        }
-
-        /* =============================================
-           CONNECTED
-        ============================================= */
-
-        .tots-connected-grid {
-          display: grid;
-
-          gap: 60px;
-
-          align-items: center;
-        }
-
-        @media (min-width: 1000px) {
-          .tots-connected-grid {
-            grid-template-columns:
-              1fr 1fr;
-          }
-        }
-
-        .tots-connection-board {
-          display: grid;
-
-          gap: 10px;
-
-          grid-template-columns:
-            repeat(2,1fr);
-        }
-
-        @media (min-width: 600px) {
-          .tots-connection-board {
-            grid-template-columns:
-              repeat(3,1fr);
-          }
-        }
+        @media (min-width: 600px) { .tots-connection-board { grid-template-columns: repeat(3,1fr); } }
 
         .tots-connection-item {
           min-height: 130px;
-
           padding: 18px;
-
           display: flex;
-
           flex-direction: column;
-
           justify-content: space-between;
-
           border: 1px solid var(--line);
-
           border-radius: 18px;
-
-          background:
-            rgba(255,255,255,0.018);
+          background: rgba(255,255,255,0.018);
         }
 
-        .tots-connection-item svg {
-          color: var(--accent);
-        }
+        .tots-connection-item svg { color: var(--accent); }
 
         .tots-connection-item span {
           color: var(--ink-dim);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 9px;
-
           text-transform: uppercase;
         }
 
-        /* =============================================
-           CLARITY
-        ============================================= */
+        /* CLARITY */
 
-        .tots-clarity-section {
-          position: relative;
-          z-index: 5;
+        .tots-clarity-section { position: relative; z-index: 5; padding: 100px 20px; }
 
-          padding: 100px 20px;
-        }
-
-        @media (min-width: 1024px) {
-          .tots-clarity-section {
-            padding: 140px 24px;
-          }
-        }
+        @media (min-width: 1024px) { .tots-clarity-section { padding: 140px 24px; } }
 
         .tots-clarity-shell {
           position: relative;
-
           overflow: hidden;
-
           padding: 35px;
-
-          border:
-            1px solid
-            rgba(215,224,168,0.20);
-
+          border: 1px solid rgba(215,224,168,0.20);
           border-radius: 32px;
-
-          background:
-            linear-gradient(
-              135deg,
-              rgba(215,224,168,0.05),
-              rgba(255,255,255,0.012)
-            );
+          background: linear-gradient(135deg, rgba(215,224,168,0.05), rgba(255,255,255,0.012));
         }
 
-        @media (min-width: 900px) {
-          .tots-clarity-shell {
-            padding: 60px;
-          }
-        }
+        @media (min-width: 900px) { .tots-clarity-shell { padding: 60px; } }
 
         .tots-clarity-glow {
           position: absolute;
-
           width: 600px;
           height: 600px;
-
           top: -350px;
           right: -100px;
-
           border-radius: 999px;
-
-          background:
-            rgba(215,224,168,0.1);
-
+          background: rgba(215,224,168,0.1);
           filter: blur(100px);
-
           pointer-events: none;
         }
 
-        .tots-clarity-grid {
-          position: relative;
+        .tots-clarity-grid { position: relative; display: grid; gap: 50px; align-items: center; }
 
-          display: grid;
+        @media (min-width: 1000px) { .tots-clarity-grid { grid-template-columns: 0.9fr 1.1fr; } }
 
-          gap: 50px;
+        .tots-clarity-title { margin-top: 25px; font-size: clamp(3rem, 6vw, 6rem); line-height: 0.92; font-weight: 500; }
+        .tots-clarity-title span { display: block; color: var(--accent); font-family: var(--serif); font-style: italic; }
 
-          align-items: center;
-        }
+        .tots-clarity-copy { max-width: 560px; margin-top: 26px; color: var(--ink-dim); font-size: 14px; line-height: 1.8; }
 
-        @media (min-width: 1000px) {
-          .tots-clarity-grid {
-            grid-template-columns:
-              0.9fr 1.1fr;
-          }
-        }
-
-        .tots-clarity-title {
-          margin-top: 25px;
-
-          font-size:
-            clamp(
-              3rem,
-              6vw,
-              6rem
-            );
-
-          line-height: 0.92;
-
-          font-weight: 500;
-        }
-
-        .tots-clarity-title span {
-          display: block;
-
-          color: var(--accent);
-
-          font-family: var(--serif);
-
-          font-style: italic;
-        }
-
-        .tots-clarity-copy {
-          max-width: 560px;
-
-          margin-top: 26px;
-
-          color: var(--ink-dim);
-
-          font-size: 14px;
-
-          line-height: 1.8;
-        }
-
-        .tots-clarity-points {
-          margin-top: 30px;
-
-          display: grid;
-
-          gap: 12px;
-        }
+        .tots-clarity-points { margin-top: 30px; display: grid; gap: 12px; }
 
         .tots-clarity-point {
           display: flex;
-
           align-items: flex-start;
-
           gap: 12px;
-
-          color:
-            rgba(243,244,238,0.72);
-
+          color: rgba(243,244,238,0.72);
           font-size: 13px;
-
           line-height: 1.6;
         }
 
         .tots-clarity-check {
           width: 26px;
           height: 26px;
-
           display: flex;
-
           align-items: center;
-
           justify-content: center;
-
           flex-shrink: 0;
-
-          border:
-            1px solid
-            rgba(215,224,168,0.25);
-
+          border: 1px solid rgba(215,224,168,0.25);
           border-radius: 999px;
-
-          background:
-            rgba(215,224,168,0.08);
-
+          background: rgba(215,224,168,0.08);
           color: var(--accent);
         }
 
         .tots-clarity-demo {
           padding: 20px;
-
           border: 1px solid var(--line);
-
           border-radius: 26px;
-
           background: #0b0b0d;
-
-          box-shadow:
-            0 40px 100px
-            rgba(0,0,0,0.35);
+          box-shadow: 0 40px 100px rgba(0,0,0,0.35);
         }
 
         .tots-clarity-demo-head {
           display: flex;
-
           align-items: center;
-
           justify-content: space-between;
-
           gap: 12px;
-
           padding-bottom: 16px;
-
-          border-bottom:
-            1px solid var(--line);
+          border-bottom: 1px solid var(--line);
         }
 
         .tots-clarity-brand {
           display: flex;
-
           align-items: center;
-
           gap: 9px;
-
           color: var(--accent);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 9px;
-
           letter-spacing: 0.12em;
-
           text-transform: uppercase;
         }
 
         .tots-clarity-online {
           display: flex;
-
           align-items: center;
-
           gap: 6px;
-
           color: var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
         }
 
         .tots-clarity-message {
           margin-top: 18px;
           margin-left: auto;
-
           max-width: 85%;
-
           padding: 14px 16px;
-
           border: 1px solid var(--line);
-
-          border-radius:
-            17px 17px 5px 17px;
-
-          background:
-            rgba(255,255,255,0.03);
-
-          color:
-            rgba(243,244,238,0.72);
-
+          border-radius: 17px 17px 5px 17px;
+          background: rgba(255,255,255,0.03);
+          color: rgba(243,244,238,0.72);
           font-size: 12px;
-
           line-height: 1.65;
         }
 
         .tots-clarity-response {
           margin-top: 16px;
-
           max-width: 94%;
-
           padding: 18px;
-
-          border:
-            1px solid
-            rgba(215,224,168,0.17);
-
-          border-radius:
-            5px 17px 17px 17px;
-
-          background:
-            rgba(215,224,168,0.05);
+          border: 1px solid rgba(215,224,168,0.17);
+          border-radius: 5px 17px 17px 17px;
+          background: rgba(215,224,168,0.05);
         }
 
         .tots-clarity-response-label {
           color: var(--accent);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
-
           letter-spacing: 0.12em;
-
           text-transform: uppercase;
         }
 
-        .tots-clarity-response p {
-          margin-top: 10px;
+        .tots-clarity-response p { margin-top: 10px; color: rgba(243,244,238,0.79); font-size: 12px; line-height: 1.75; }
 
-          color:
-            rgba(243,244,238,0.79);
-
-          font-size: 12px;
-
-          line-height: 1.75;
-        }
-
-        .tots-priority-list {
-          margin-top: 14px;
-
-          display: grid;
-
-          gap: 8px;
-        }
+        .tots-priority-list { margin-top: 14px; display: grid; gap: 8px; }
 
         .tots-priority {
           padding: 11px;
-
           display: flex;
-
           gap: 10px;
-
-          border:
-            1px solid
-            var(--line-light);
-
+          border: 1px solid var(--line-light);
           border-radius: 12px;
-
-          background:
-            rgba(255,255,255,0.02);
+          background: rgba(255,255,255,0.02);
         }
 
         .tots-priority-number {
           width: 22px;
           height: 22px;
-
           display: flex;
-
           align-items: center;
-
           justify-content: center;
-
           flex-shrink: 0;
-
           border-radius: 999px;
-
           background: var(--accent-soft);
-
           color: var(--accent);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
         }
 
-        .tots-priority strong {
-          display: block;
+        .tots-priority strong { display: block; color: rgba(243,244,238,0.83); font-size: 11px; font-weight: 500; }
+        .tots-priority small { display: block; margin-top: 3px; color: var(--ink-faint); font-size: 9px; line-height: 1.5; }
 
-          color:
-            rgba(243,244,238,0.83);
+        /* SECURITY */
 
-          font-size: 11px;
+        .tots-security-grid { display: grid; gap: 12px; margin-top: 55px; }
 
-          font-weight: 500;
-        }
-
-        .tots-priority small {
-          display: block;
-
-          margin-top: 3px;
-
-          color: var(--ink-faint);
-
-          font-size: 9px;
-
-          line-height: 1.5;
-        }
-
-        /* =============================================
-           SECURITY
-        ============================================= */
-
-        .tots-security-grid {
-          display: grid;
-
-          gap: 12px;
-
-          margin-top: 55px;
-        }
-
-        @media (min-width: 800px) {
-          .tots-security-grid {
-            grid-template-columns:
-              repeat(3,1fr);
-          }
-        }
+        @media (min-width: 800px) { .tots-security-grid { grid-template-columns: repeat(3,1fr); } }
 
         .tots-security-card {
           padding: 26px;
-
           border: 1px solid var(--line);
-
           border-radius: 22px;
-
-          background:
-            rgba(255,255,255,0.015);
+          background: rgba(255,255,255,0.015);
         }
 
-        .tots-security-card svg {
-          color: var(--accent);
-        }
+        .tots-security-card svg { color: var(--accent); }
+        .tots-security-card h3 { margin-top: 28px; font-size: 18px; font-weight: 500; }
+        .tots-security-card p { margin-top: 10px; color: var(--ink-dim); font-size: 12px; line-height: 1.7; }
 
-        .tots-security-card h3 {
-          margin-top: 28px;
-
-          font-size: 18px;
-
-          font-weight: 500;
-        }
-
-        .tots-security-card p {
-          margin-top: 10px;
-
-          color: var(--ink-dim);
-
-          font-size: 12px;
-
-          line-height: 1.7;
-        }
-
-        /* =============================================
-           PRICING
-        ============================================= */
+        /* PRICING */
 
         .tots-pricing-trial {
           margin-top: 26px;
-
           display: inline-flex;
-
           align-items: center;
-
           gap: 8px;
-
           padding: 10px 15px;
-
-          border:
-            1px solid
-            rgba(215,224,168,0.22);
-
+          border: 1px solid rgba(215,224,168,0.22);
           border-radius: 999px;
-
-          background:
-            rgba(215,224,168,0.055);
-
+          background: rgba(215,224,168,0.055);
           color: var(--accent);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
-
           letter-spacing: 0.1em;
-
           text-transform: uppercase;
         }
 
-        .tots-price-grid {
-          margin-top: 60px;
+        .tots-price-grid { margin-top: 60px; display: grid; gap: 12px; }
 
-          display: grid;
-
-          gap: 12px;
-        }
-
-        @media (min-width: 950px) {
-          .tots-price-grid {
-            grid-template-columns:
-              repeat(3,1fr);
-          }
-        }
+        @media (min-width: 950px) { .tots-price-grid { grid-template-columns: repeat(3,1fr); } }
 
         .tots-price-card {
           min-height: 570px;
-
           display: flex;
-
           flex-direction: column;
-
           padding: 30px;
-
           border: 1px solid var(--line);
-
           border-radius: 27px;
-
-          background:
-            rgba(255,255,255,0.018);
+          background: rgba(255,255,255,0.018);
         }
 
-        .tots-price-card.featured {
-          border-color:
-            rgba(215,224,168,0.35);
+        .tots-price-card.featured { border-color: rgba(215,224,168,0.35); background: rgba(215,224,168,0.045); }
 
-          background:
-            rgba(215,224,168,0.045);
-        }
-
-        .tots-price-head {
-          display: flex;
-
-          align-items: flex-start;
-
-          justify-content: space-between;
-
-          gap: 12px;
-        }
+        .tots-price-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 
         .tots-price-name {
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 11px;
-
           letter-spacing: 0.08em;
-
           text-transform: uppercase;
         }
 
         .tots-price-badge {
           padding: 5px 9px;
-
-          border:
-            1px solid
-            rgba(215,224,168,0.25);
-
+          border: 1px solid rgba(215,224,168,0.25);
           border-radius: 999px;
-
           color: var(--accent);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 7px;
-
           text-transform: uppercase;
         }
 
-        .tots-price-figure {
-          margin-top: 40px;
-
-          display: flex;
-
-          align-items: flex-end;
-        }
+        .tots-price-figure { margin-top: 40px; display: flex; align-items: flex-end; }
 
         .tots-price-amount {
-          font-family:
-            'Space Grotesk',
-            sans-serif;
-
+          font-family: 'Space Grotesk', sans-serif;
           font-size: 58px;
-
           font-weight: 600;
-
           letter-spacing: -0.05em;
         }
 
-        .tots-price-period {
-          margin:
-            0 0 9px 7px;
-
-          color: var(--ink-faint);
-
-          font-size: 11px;
-        }
-
-        .tots-price-desc {
-          min-height: 82px;
-
-          margin-top: 20px;
-
-          color: var(--ink-dim);
-
-          font-size: 13px;
-
-          line-height: 1.7;
-        }
+        .tots-price-period { margin: 0 0 9px 7px; color: var(--ink-faint); font-size: 11px; }
+        .tots-price-desc { min-height: 82px; margin-top: 20px; color: var(--ink-dim); font-size: 13px; line-height: 1.7; }
 
         .tots-price-features {
           margin-top: 26px;
-
           padding-top: 24px;
-
-          border-top:
-            1px solid var(--line);
-
+          border-top: 1px solid var(--line);
           display: grid;
-
           gap: 12px;
         }
 
-        .tots-price-feature {
-          display: flex;
+        .tots-price-feature { display: flex; align-items: flex-start; gap: 9px; color: rgba(243,244,238,0.6); font-size: 12px; line-height: 1.5; }
 
-          align-items: flex-start;
-
-          gap: 9px;
-
-          color:
-            rgba(243,244,238,0.6);
-
-          font-size: 12px;
-
-          line-height: 1.5;
-        }
-
-        .tots-price-button {
-          margin-top: auto;
-
-          padding-top: 30px;
-        }
-
-        .tots-price-button a {
-          width: 100%;
-        }
+        .tots-price-button { margin-top: auto; padding-top: 30px; }
+        .tots-price-button a { width: 100%; }
 
         .tots-price-trial-copy {
           margin-top: 10px;
-
           color: var(--ink-faint);
-
           text-align: center;
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 7px;
-
           letter-spacing: 0.07em;
-
           text-transform: uppercase;
         }
 
-        /* =============================================
-           ABOUT
-        ============================================= */
+        /* ABOUT */
 
-        .tots-about {
-          display: grid;
+        .tots-about { display: grid; gap: 40px; align-items: center; }
 
-          gap: 40px;
-
-          align-items: center;
-        }
-
-        @media (min-width: 950px) {
-          .tots-about {
-            grid-template-columns:
-              1fr 1fr;
-          }
-        }
+        @media (min-width: 950px) { .tots-about { grid-template-columns: 1fr 1fr; } }
 
         .tots-about-card {
           padding: 30px;
-
           border: 1px solid var(--line);
-
           border-radius: 28px;
-
-          background:
-            rgba(255,255,255,0.018);
+          background: rgba(255,255,255,0.018);
         }
 
-        .tots-about-card p {
-          color: var(--ink-dim);
+        .tots-about-card p { color: var(--ink-dim); font-size: 14px; line-height: 1.85; }
+        .tots-about-card p + p { margin-top: 18px; }
 
-          font-size: 14px;
+        /* FAQ */
 
-          line-height: 1.85;
-        }
+        .tots-faq-layout { display: grid; gap: 60px; }
 
-        .tots-about-card p + p {
-          margin-top: 18px;
-        }
+        @media (min-width: 950px) { .tots-faq-layout { grid-template-columns: 0.7fr 1fr; } }
 
-        /* =============================================
-           FAQ
-        ============================================= */
-
-        .tots-faq-layout {
-          display: grid;
-
-          gap: 60px;
-        }
-
-        @media (min-width: 950px) {
-          .tots-faq-layout {
-            grid-template-columns:
-              0.7fr 1fr;
-          }
-        }
-
-        .tots-faq-item {
-          border-bottom:
-            1px solid var(--line);
-        }
+        .tots-faq-item { border-bottom: 1px solid var(--line); }
 
         .tots-faq-btn {
           width: 100%;
-
           padding: 22px 0;
-
           display: flex;
-
           align-items: center;
-
           justify-content: space-between;
-
           gap: 20px;
-
           border: none;
-
           background: transparent;
-
-          color:
-            rgba(243,244,238,0.8);
-
+          color: rgba(243,244,238,0.8);
           text-align: left;
-
           cursor: pointer;
-
           font-size: 14px;
         }
 
-        .tots-faq-answer {
-          max-width: 650px;
+        .tots-faq-answer { max-width: 650px; padding-bottom: 24px; color: var(--ink-dim); font-size: 13px; line-height: 1.75; }
 
-          padding-bottom: 24px;
-
-          color: var(--ink-dim);
-
-          font-size: 13px;
-
-          line-height: 1.75;
-        }
-
-        /* =============================================
-           FINAL CTA
-        ============================================= */
+        /* FINAL CTA */
 
         .tots-final-card {
           position: relative;
-
           overflow: hidden;
-
           padding: 55px 25px;
-
-          border:
-            1px solid
-            rgba(215,224,168,0.2);
-
+          border: 1px solid rgba(215,224,168,0.2);
           border-radius: 32px;
-
-          background:
-            linear-gradient(
-              135deg,
-              rgba(215,224,168,0.07),
-              rgba(255,255,255,0.015)
-            );
-
+          background: linear-gradient(135deg, rgba(215,224,168,0.07), rgba(255,255,255,0.015));
           text-align: center;
         }
 
-        @media (min-width: 900px) {
-          .tots-final-card {
-            padding: 80px 40px;
-          }
-        }
+        @media (min-width: 900px) { .tots-final-card { padding: 80px 40px; } }
 
         .tots-final-icon {
           width: 55px;
           height: 55px;
-
           margin: 0 auto;
-
           display: flex;
-
           align-items: center;
-
           justify-content: center;
-
           border: 1px solid var(--line);
-
           border-radius: 17px;
-
           color: var(--accent);
-
-          background:
-            rgba(255,255,255,0.02);
+          background: rgba(255,255,255,0.02);
         }
 
         .tots-final-card h2 {
           max-width: 780px;
-
           margin: 28px auto 0;
-
-          font-size:
-            clamp(
-              2.5rem,
-              5vw,
-              5rem
-            );
-
+          font-size: clamp(2.5rem, 5vw, 5rem);
           line-height: 0.98;
-
           font-weight: 500;
         }
 
-        .tots-final-card p {
-          max-width: 580px;
-
-          margin: 22px auto 0;
-
-          color: var(--ink-dim);
-
-          font-size: 14px;
-
-          line-height: 1.75;
-        }
+        .tots-final-card p { max-width: 580px; margin: 22px auto 0; color: var(--ink-dim); font-size: 14px; line-height: 1.75; }
 
         .tots-final-actions {
           margin-top: 32px;
-
           display: flex;
-
           flex-direction: column;
-
           align-items: center;
-
           justify-content: center;
-
           gap: 10px;
         }
 
-        @media (min-width: 600px) {
-          .tots-final-actions {
-            flex-direction: row;
-          }
-        }
+        @media (min-width: 600px) { .tots-final-actions { flex-direction: row; } }
 
         .tots-final-trial {
           margin-top: 18px;
-
           color: var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
-
           letter-spacing: 0.09em;
-
           text-transform: uppercase;
         }
 
-        /* =============================================
-           FOOTER
-        ============================================= */
+        /* FOOTER */
 
-        .tots-footer {
-          position: relative;
-          z-index: 5;
+        .tots-footer { position: relative; z-index: 5; padding: 50px 20px 24px; border-top: 1px solid var(--line); }
+        .tots-footer-grid { display: grid; gap: 40px; padding-bottom: 45px; }
 
-          padding:
-            50px 20px 24px;
+        @media (min-width: 760px) { .tots-footer-grid { grid-template-columns: 1.5fr repeat(3,1fr); } }
 
-          border-top:
-            1px solid var(--line);
-        }
-
-        .tots-footer-grid {
-          display: grid;
-
-          gap: 40px;
-
-          padding-bottom: 45px;
-        }
-
-        @media (min-width: 760px) {
-          .tots-footer-grid {
-            grid-template-columns:
-              1.5fr repeat(3,1fr);
-          }
-        }
-
-        .tots-footer-copy {
-          max-width: 330px;
-
-          margin-top: 18px;
-
-          color: var(--ink-faint);
-
-          font-size: 11px;
-
-          line-height: 1.7;
-        }
+        .tots-footer-copy { max-width: 330px; margin-top: 18px; color: var(--ink-faint); font-size: 11px; line-height: 1.7; }
 
         .tots-footer h5 {
           margin: 0;
-
           color: var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
-
           letter-spacing: 0.14em;
-
           text-transform: uppercase;
         }
 
-        .tots-footer-links {
-          margin-top: 16px;
-
-          display: flex;
-
-          flex-direction: column;
-
-          gap: 10px;
-        }
-
-        .tots-footer-links a {
-          color: var(--ink-dim);
-
-          font-size: 12px;
-
-          text-decoration: none;
-        }
-
-        .tots-footer-links a:hover {
-          color: var(--ink);
-        }
+        .tots-footer-links { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .tots-footer-links a { color: var(--ink-dim); font-size: 12px; text-decoration: none; }
+        .tots-footer-links a:hover { color: var(--ink); }
 
         .tots-footer-bottom {
           padding-top: 20px;
-
           display: flex;
-
           flex-direction: column;
-
           gap: 10px;
-
-          border-top:
-            1px solid var(--line);
-
+          border-top: 1px solid var(--line);
           color: var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
+          font-family: 'JetBrains Mono', monospace;
           font-size: 8px;
-
           letter-spacing: 0.08em;
         }
 
         @media (min-width: 650px) {
-          .tots-footer-bottom {
-            flex-direction: row;
-
-            align-items: center;
-
-            justify-content: space-between;
-          }
+          .tots-footer-bottom { flex-direction: row; align-items: center; justify-content: space-between; }
         }
 
-        /* =============================================
-           MOBILE CONVERSION IMPROVEMENTS
-        ============================================= */
+        /* MOBILE CONVERSION IMPROVEMENTS */
 
         @media (max-width: 649px) {
-          .tots-nav-shell {
-            padding:
-              10px 10px 0;
-          }
-
-          .tots-nav {
-            height: 58px;
-
-            padding:
-              0 8px 0 12px;
-
-            border-radius: 15px;
-          }
-
-          .tots-logo-sub {
-            display: none;
-          }
-
-          .tots-hero {
-            padding:
-              118px 16px 70px;
-          }
-
-          .tots-hero h1 {
-            font-size:
-              clamp(
-                2.7rem,
-                13vw,
-                4.2rem
-              );
-          }
-
-          .tots-hero-lede {
-            margin-top: 22px;
-
-            font-size: 14px;
-
-            line-height: 1.65;
-          }
-
-          .tots-hero-ctas {
-            width: 100%;
-
-            margin-top: 28px;
-          }
-
-          .tots-hero-ctas a {
-            width: 100%;
-          }
-
-          .tots-trial-note {
-            gap: 8px 12px;
-
-            font-size: 7.5px;
-          }
-
-          .tots-hero-meta {
-            gap: 10px 14px;
-
-            font-size: 7.5px;
-          }
-
-          .tots-window-wrap {
-            margin-top: 55px;
-          }
-
-          .tots-window-body {
-            min-height: 470px;
-          }
-
-          .tots-window-main {
-            padding: 14px;
-          }
-
-          .tots-demo-serif {
-            font-size: 20px;
-          }
-
-          .tots-demo-conversion {
-            padding: 22px 18px;
-          }
-
-          .tots-demo-conversion .tots-btn-solid {
-            width: 100%;
-          }
-
-          .tots-pain {
-            padding:
-              60px 16px;
-          }
-
-          .tots-pain-card {
-            padding:
-              32px 18px;
-          }
-
-          .tots-section {
-            padding:
-              75px 16px;
-          }
-
-          .tots-section-heading {
-            font-size:
-              clamp(
-                2.2rem,
-                11vw,
-                3.6rem
-              );
-          }
-
-          .tots-clarity-section {
-            padding:
-              75px 16px;
-          }
-
-          .tots-clarity-shell {
-            padding:
-              26px 18px;
-
-            border-radius: 24px;
-          }
-
-          .tots-price-card {
-            min-height: auto;
-          }
-
-          .tots-final-actions a {
-            width: 100%;
-          }
+          .tots-nav-shell { padding: 10px 10px 0; }
+          .tots-nav { height: 58px; padding: 0 8px 0 12px; border-radius: 15px; }
+          .tots-logo-sub { display: none; }
+          .tots-hero { padding: 118px 16px 70px; }
+          .tots-hero h1 { font-size: clamp(2.7rem, 13vw, 4.2rem); }
+          .tots-hero-lede { margin-top: 22px; font-size: 14px; line-height: 1.65; }
+          .tots-hero-ctas { width: 100%; margin-top: 28px; }
+          .tots-hero-ctas a { width: 100%; }
+          .tots-trial-note { gap: 8px 12px; font-size: 7.5px; }
+          .tots-hero-meta { gap: 10px 14px; font-size: 7.5px; }
+          .tots-window-wrap { margin-top: 55px; }
+          .tots-window-body { min-height: 470px; }
+          .tots-window-main { padding: 14px; }
+          .tots-demo-serif { font-size: 20px; }
+          .tots-demo-conversion { padding: 22px 18px; }
+          .tots-demo-conversion .tots-btn-solid { width: 100%; }
+          .tots-pain { padding: 60px 16px; }
+          .tots-pain-card { padding: 32px 18px; }
+          .tots-section { padding: 75px 16px; }
+          .tots-section-heading { font-size: clamp(2.2rem, 11vw, 3.6rem); }
+          .tots-clarity-section { padding: 75px 16px; }
+          .tots-clarity-shell { padding: 26px 18px; border-radius: 24px; }
+          .tots-price-card { min-height: auto; }
+          .tots-final-actions a { width: 100%; }
         }
       `}</style>
 
       <div className="tots-bg-grid" />
 
-      {/* ======================================================
-          NAV
-      ====================================================== */}
+      {/* NAV */}
 
       <div className="tots-nav-shell">
         <div className="tots-nav">
-          <a
-            href="/"
-            className="tots-brand"
-            aria-label="TOTS-OS home"
-          >
+          <a href="/" className="tots-brand" aria-label="TOTS-OS home">
             <Logo size={38} />
           </a>
 
           <nav className="tots-nav-links">
             {NAV_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="tots-nav-link"
-              >
+              <a key={item.href} href={item.href} className="tots-nav-link">
                 {item.label}
               </a>
             ))}
           </nav>
 
           <div className="tots-nav-actions">
-            <a
-              href="/login"
-              className="tots-btn-ghost"
-            >
+            <a href="/login" className="tots-btn-ghost">
               <LogIn size={13} />
               Log in
             </a>
 
-            <a
-              href="/join"
-              className="tots-btn-solid"
-            >
+            <a href="/join" className="tots-btn-solid">
               Start free trial
-
               <ArrowRight size={13} />
             </a>
           </div>
@@ -4596,11 +2259,7 @@ export default function TotsOSLanding() {
           <button
             type="button"
             className="tots-menu-btn"
-            onClick={() =>
-              setMobileMenuOpen(
-                true
-              )
-            }
+            onClick={() => setMobileMenuOpen(true)}
             aria-label="Open menu"
           >
             <Menu size={16} />
@@ -4608,33 +2267,19 @@ export default function TotsOSLanding() {
         </div>
       </div>
 
-      {/* ======================================================
-          MOBILE MENU
-      ====================================================== */}
+      {/* MOBILE MENU */}
 
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="tots-mobile-menu"
           >
             <motion.div
-              initial={{
-                y: -20,
-                opacity: 0,
-              }}
-              animate={{
-                y: 0,
-                opacity: 1,
-              }}
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
               className="tots-mobile-panel"
             >
               <div className="tots-mobile-head">
@@ -4643,11 +2288,7 @@ export default function TotsOSLanding() {
                 <button
                   type="button"
                   className="tots-menu-btn"
-                  onClick={() =>
-                    setMobileMenuOpen(
-                      false
-                    )
-                  }
+                  onClick={() => setMobileMenuOpen(false)}
                   aria-label="Close menu"
                 >
                   <X size={16} />
@@ -4660,31 +2301,20 @@ export default function TotsOSLanding() {
                     href={item.href}
                     key={item.href}
                     className="tots-mobile-link"
-                    onClick={() =>
-                      setMobileMenuOpen(
-                        false
-                      )
-                    }
+                    onClick={() => setMobileMenuOpen(false)}
                   >
                     {item.label}
-
                     <ArrowUpRight size={13} />
                   </a>
                 ))}
               </div>
 
               <div className="tots-mobile-actions">
-                <a
-                  href="/join"
-                  className="tots-btn-solid"
-                >
+                <a href="/join" className="tots-btn-solid">
                   Start 14-day free trial
                 </a>
 
-                <a
-                  href="/login"
-                  className="tots-btn-ghost"
-                >
+                <a href="/login" className="tots-btn-ghost">
                   Log in
                 </a>
               </div>
@@ -4693,116 +2323,72 @@ export default function TotsOSLanding() {
         )}
       </AnimatePresence>
 
-      {/* ======================================================
-          HERO
-      ====================================================== */}
+      {/* HERO */}
 
       <section className="tots-hero">
         <div className="tots-hero-inner">
           <div className="tots-hero-kicker">
             <Sparkles size={12} />
-
-            Your business. One operating system.
+            One business. One system.
           </div>
 
           <h1>
             Run your business
-
-            <span className="tots-hero-line2">
-              without the chaos.
-            </span>
+            <span className="tots-hero-line2">without the chaos.</span>
           </h1>
 
           <p className="tots-hero-lede">
-            TOTS-OS brings your clients, projects, tasks, finances,
-            calendar, notes and content into one connected workspace —
-            with Clarity, your AI PA, helping you work out what needs
-            your attention next.
+            Clients, projects, finances, and content — one workspace, one source of
+            truth. Clarity, your AI PA, tells you what needs you next.
           </p>
 
           <div className="tots-hero-ctas">
-            <a
-              href="/join"
-              className="tots-btn-solid tots-btn-large"
-            >
+            <a href="/join" className="tots-btn-solid tots-btn-large">
               Start your 14-day free trial
-
               <ArrowRight size={15} />
             </a>
 
-            <a
-              href="#demo"
-              className="tots-btn-ghost tots-btn-large"
-            >
+            <a href="#demo" className="tots-btn-ghost tots-btn-large">
               <Play size={13} />
-
               See how it works
             </a>
           </div>
 
           <div className="tots-trial-note">
             <span>
-              <Check
-                size={11}
-                color="var(--accent)"
-              />
-
+              <Check size={11} color="var(--accent)" />
               14 days free
             </span>
 
             <span>
-              <Check
-                size={11}
-                color="var(--accent)"
-              />
-
+              <Check size={11} color="var(--accent)" />
               No commitment
             </span>
 
             <span>
-              <Check
-                size={11}
-                color="var(--accent)"
-              />
-
+              <Check size={11} color="var(--accent)" />
               Set up in minutes
             </span>
           </div>
 
           <div className="tots-hero-meta">
             <span>
-              <Check
-                size={12}
-                color="var(--accent)"
-              />
-
+              <Check size={12} color="var(--accent)" />
               Web based
             </span>
 
             <span>
-              <Check
-                size={12}
-                color="var(--accent)"
-              />
-
+              <Check size={12} color="var(--accent)" />
               Secure account access
             </span>
 
             <span>
-              <Check
-                size={12}
-                color="var(--accent)"
-              />
-
+              <Check size={12} color="var(--accent)" />
               One connected workspace
             </span>
 
             <span>
-              <Check
-                size={12}
-                color="var(--accent)"
-              />
-
+              <Check size={12} color="var(--accent)" />
               Built-in AI PA
             </span>
           </div>
@@ -4811,27 +2397,12 @@ export default function TotsOSLanding() {
         </div>
       </section>
 
-      {/* ======================================================
-          MARQUEE
-      ====================================================== */}
+      {/* MARQUEE */}
 
       <section className="tots-marquee">
         <motion.div
-          animate={
-            reduceMotion
-              ? undefined
-              : {
-                  x: [
-                    "0%",
-                    "-50%",
-                  ],
-                }
-          }
-          transition={{
-            duration: 30,
-            repeat: Infinity,
-            ease: "linear",
-          }}
+          animate={reduceMotion ? undefined : { x: ["0%", "-50%"] }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
           className="tots-marquee-track"
         >
           {[0, 1].flatMap((group) =>
@@ -4847,41 +2418,27 @@ export default function TotsOSLanding() {
               "CLARITY AI",
               "BUSINESS KPIS",
             ].map((item, index) => (
-              <span
-                key={`${group}-${index}`}
-                className="tots-marquee-item"
-              >
+              <span key={`${group}-${index}`} className="tots-marquee-item">
                 {item}
-
-                <Sparkles
-                  size={10}
-                  color="var(--accent)"
-                />
+                <Sparkles size={10} color="var(--accent)" />
               </span>
             ))
           )}
         </motion.div>
       </section>
 
-      {/* ======================================================
-          PAIN POINT BRIDGE
-      ====================================================== */}
+      {/* PAIN POINT BRIDGE */}
 
       <section className="tots-pain">
         <Reveal>
           <div className="tots-pain-card">
-            <Eyebrow>
-              Sound familiar?
-            </Eyebrow>
+            <Eyebrow>Sound familiar?</Eyebrow>
 
-            <h2 style={{ marginTop: 24 }}>
-              Still running your business from everywhere?
-            </h2>
+            <h2 style={{ marginTop: 24 }}>Still running your business from everywhere?</h2>
 
             <p>
-              One thing in your notes app. Another in a spreadsheet.
-              Client messages in WhatsApp. Deadlines in your calendar.
-              Ideas in your head. Invoices somewhere else entirely.
+              Notes here. Spreadsheet there. Clients in WhatsApp. Deadlines in your
+              head. That gap is where things slip through.
             </p>
 
             <div className="tots-pain-chips">
@@ -4895,50 +2452,33 @@ export default function TotsOSLanding() {
                 "Random tabs",
                 "Your own head",
               ].map((item) => (
-                <span
-                  key={item}
-                  className="tots-pain-chip"
-                >
+                <span key={item} className="tots-pain-chip">
                   {item}
                 </span>
               ))}
             </div>
 
-            <div className="tots-pain-bottom">
-              That&apos;s exactly why we built TOTS-OS.
-            </div>
+            <div className="tots-pain-bottom">That&apos;s why we built TOTS-OS.</div>
           </div>
         </Reveal>
       </section>
 
-      {/* ======================================================
-          PRODUCT / PROBLEM
-      ====================================================== */}
+      {/* PRODUCT / PROBLEM */}
 
-      <section
-        id="product"
-        className="tots-section"
-      >
+      <section id="product" className="tots-section">
         <div className="tots-wrap">
           <Reveal>
-            <Eyebrow>
-              Why TOTS-OS
-            </Eyebrow>
+            <Eyebrow>Why TOTS-OS</Eyebrow>
 
             <h2 className="tots-section-heading">
-              Your business should not need{" "}
-
-              <span className="tots-serif tots-accent">
-                ten different apps
-              </span>{" "}
-
-              just to stay organised.
+              Your business shouldn&apos;t need{" "}
+              <span className="tots-serif tots-accent">ten different apps</span>{" "}
+              to stay organised.
             </h2>
 
             <p className="tots-section-copy">
-              The problem is rarely that you need another productivity
-              tool. The problem is that everything you already use is
-              disconnected. TOTS-OS puts the pieces back together.
+              The problem was never another tool. It was that nothing talked to
+              each other. TOTS-OS puts it back together.
             </p>
           </Reveal>
 
@@ -4946,45 +2486,31 @@ export default function TotsOSLanding() {
             {[
               {
                 icon: Layers3,
-                title: "One connected workspace",
-                text:
-                  "Clients, projects, tasks, dates, money and business context stay connected instead of being scattered across different tools.",
+                title: "One workspace",
+                text: "Clients, projects, money, and context — never scattered again.",
               },
               {
                 icon: Gauge,
                 title: "Know what matters",
-                text:
-                  "See what is overdue, what is coming up and what needs your attention without rebuilding the picture every morning.",
+                text: "See what's overdue and what's next, instantly.",
               },
               {
                 icon: Zap,
-                title: "Less business admin",
-                text:
-                  "Stop maintaining a complicated organisation system and spend more time actually doing the work that moves your business forward.",
+                title: "Less admin",
+                text: "Spend less time organising, more time building.",
               },
             ].map((item, index) => {
-              const Icon =
-                item.icon;
+              const Icon = item.icon;
 
               return (
-                <Reveal
-                  key={item.title}
-                  delay={
-                    index * 0.07
-                  }
-                >
+                <Reveal key={item.title} delay={index * 0.07}>
                   <div className="tots-why-card">
                     <div className="tots-why-icon">
                       <Icon size={19} />
                     </div>
 
-                    <h3>
-                      {item.title}
-                    </h3>
-
-                    <p>
-                      {item.text}
-                    </p>
+                    <h3>{item.title}</h3>
+                    <p>{item.text}</p>
                   </div>
                 </Reveal>
               );
@@ -4993,57 +2519,36 @@ export default function TotsOSLanding() {
         </div>
       </section>
 
-      {/* ======================================================
-          FEATURES
-      ====================================================== */}
+      {/* FEATURES */}
 
-      <section
-        id="features"
-        className="tots-section tots-section-bordered"
-      >
+      <section id="features" className="tots-section tots-section-bordered">
         <div className="tots-wrap">
           <Reveal>
             <div className="tots-wrap-narrow">
-              <Eyebrow>
-                Inside the system
-              </Eyebrow>
+              <Eyebrow>Inside the system</Eyebrow>
 
-              <h2 className="tots-section-heading">
-                Everything has a place.
-              </h2>
+              <h2 className="tots-section-heading">Everything has a place.</h2>
 
               <p className="tots-section-copy">
-                Core business tools that work together as one system
-                rather than another collection of subscriptions.
+                Core tools, working as one system — not another subscription to
+                manage.
               </p>
             </div>
           </Reveal>
 
           <div className="tots-feat-grid">
             {FEATURES.map((feature, index) => {
-              const Icon =
-                feature.icon;
+              const Icon = feature.icon;
 
               return (
-                <Reveal
-                  key={feature.id}
-                  delay={
-                    (index % 3) *
-                    0.05
-                  }
-                >
+                <Reveal key={feature.id} delay={(index % 3) * 0.05}>
                   <div className="tots-feat-card">
                     <div className="tots-feat-icon">
                       <Icon size={19} />
                     </div>
 
-                    <h3>
-                      {feature.title}
-                    </h3>
-
-                    <p>
-                      {feature.text}
-                    </p>
+                    <h3>{feature.title}</h3>
+                    <p>{feature.text}</p>
                   </div>
                 </Reveal>
               );
@@ -5052,69 +2557,37 @@ export default function TotsOSLanding() {
         </div>
       </section>
 
-      {/* ======================================================
-          CONNECTED SYSTEM
-      ====================================================== */}
+      {/* CONNECTED SYSTEM */}
 
       <section className="tots-section">
         <div className="tots-wrap tots-connected-grid">
           <Reveal>
-            <Eyebrow>
-              Connected by design
-            </Eyebrow>
+            <Eyebrow>Connected by design</Eyebrow>
 
-            <h2 className="tots-section-heading">
-              Because your business is not six separate apps.
-            </h2>
+            <h2 className="tots-section-heading">Your business isn&apos;t six separate apps.</h2>
 
             <p className="tots-section-copy">
-              A contact becomes a client. A client has projects.
-              Projects create tasks. Tasks have deadlines. Work creates
-              revenue. TOTS-OS is built around those relationships.
+              A contact becomes a client. A client gets a project. Work becomes
+              revenue. TOTS-OS is built around how the pieces actually connect.
             </p>
           </Reveal>
 
           <Reveal delay={0.1}>
             <div className="tots-connection-board">
               {[
-                {
-                  icon: Users,
-                  label: "Clients",
-                },
-                {
-                  icon: FolderKanban,
-                  label: "Projects",
-                },
-                {
-                  icon: CalendarDays,
-                  label: "Calendar",
-                },
-                {
-                  icon: WalletCards,
-                  label: "Finances",
-                },
-                {
-                  icon: NotebookPen,
-                  label: "Notes",
-                },
-                {
-                  icon: MessageSquareText,
-                  label: "Social",
-                },
+                { icon: Users, label: "Clients" },
+                { icon: FolderKanban, label: "Projects" },
+                { icon: CalendarDays, label: "Calendar" },
+                { icon: WalletCards, label: "Finances" },
+                { icon: NotebookPen, label: "Notes" },
+                { icon: MessageSquareText, label: "Social" },
               ].map((item) => {
-                const Icon =
-                  item.icon;
+                const Icon = item.icon;
 
                 return (
-                  <div
-                    className="tots-connection-item"
-                    key={item.label}
-                  >
+                  <div className="tots-connection-item" key={item.label}>
                     <Icon size={21} />
-
-                    <span>
-                      {item.label}
-                    </span>
+                    <span>{item.label}</span>
                   </div>
                 );
               })}
@@ -5123,58 +2596,40 @@ export default function TotsOSLanding() {
         </div>
       </section>
 
-      {/* ======================================================
-          CLARITY
-      ====================================================== */}
+      {/* CLARITY */}
 
-      <section
-        id="clarity"
-        className="tots-clarity-section"
-      >
+      <section id="clarity" className="tots-clarity-section">
         <div className="tots-wrap">
           <div className="tots-clarity-shell">
             <div className="tots-clarity-glow" />
 
             <div className="tots-clarity-grid">
               <Reveal>
-                <Eyebrow>
-                  Built into TOTS-OS
-                </Eyebrow>
+                <Eyebrow>Built into TOTS-OS</Eyebrow>
 
                 <h2 className="tots-clarity-title">
                   Meet Clarity.
-
-                  <span>
-                    Your AI PA.
-                  </span>
+                  <span>Your AI PA.</span>
                 </h2>
 
                 <p className="tots-clarity-copy">
-                  Clarity is not a chatbot bolted onto the side of your
-                  business. It works with the information already
-                  inside your TOTS-OS workspace to help you understand
-                  what is happening and what deserves your attention.
+                  Not a chatbot bolted on the side. Clarity reads your workspace and
+                  tells you what deserves your attention right now.
                 </p>
 
                 <div className="tots-clarity-points">
                   {[
-                    "Ask what you should prioritise today.",
-                    "Surface overdue tasks and approaching deadlines.",
-                    "Understand what is happening across clients and projects.",
-                    "Spot outstanding invoices and business risks.",
-                    "Turn your business information into clear next actions.",
+                    "What should I prioritise today?",
+                    "Surface overdue tasks and looming deadlines.",
+                    "See what's happening across every client.",
+                    "Catch outstanding invoices before they slip.",
+                    "Turn your data into your next move.",
                   ].map((item) => (
-                    <div
-                      key={item}
-                      className="tots-clarity-point"
-                    >
+                    <div key={item} className="tots-clarity-point">
                       <span className="tots-clarity-check">
                         <Check size={12} />
                       </span>
-
-                      <span>
-                        {item}
-                      </span>
+                      <span>{item}</span>
                     </div>
                   ))}
                 </div>
@@ -5185,96 +2640,63 @@ export default function TotsOSLanding() {
                   <div className="tots-clarity-demo-head">
                     <div className="tots-clarity-brand">
                       <Sparkles size={14} />
-
                       Clarity
                     </div>
 
                     <div className="tots-clarity-online">
                       <span className="tots-status-dot" />
-
                       ready
                     </div>
                   </div>
 
-                  <div className="tots-clarity-message">
-                    What should I focus on today?
-                  </div>
+                  <div className="tots-clarity-message">What should I focus on today?</div>
 
                   <div className="tots-clarity-response">
-                    <div className="tots-clarity-response-label">
-                      Clarity
-                    </div>
+                    <div className="tots-clarity-response-label">Clarity</div>
 
                     <p>
-                      You have three things I&apos;d prioritise today.
-                      The website project has the nearest deadline and
-                      one invoice is already overdue.
+                      Three things I&apos;d prioritise: the website project has the
+                      nearest deadline, and one invoice is already overdue.
                     </p>
 
                     <div className="tots-priority-list">
                       <div className="tots-priority">
-                        <span className="tots-priority-number">
-                          1
-                        </span>
+                        <span className="tots-priority-number">1</span>
 
                         <div>
-                          <strong>
-                            Finish website approval
-                          </strong>
-
-                          <small>
-                            Client project · due tomorrow
-                          </small>
+                          <strong>Finish website approval</strong>
+                          <small>Client project · due tomorrow</small>
                         </div>
                       </div>
 
                       <div className="tots-priority">
-                        <span className="tots-priority-number">
-                          2
-                        </span>
+                        <span className="tots-priority-number">2</span>
 
                         <div>
-                          <strong>
-                            Chase outstanding invoice
-                          </strong>
-
-                          <small>
-                            £860 · currently overdue
-                          </small>
+                          <strong>Chase outstanding invoice</strong>
+                          <small>£860 · currently overdue</small>
                         </div>
                       </div>
 
                       <div className="tots-priority">
-                        <span className="tots-priority-number">
-                          3
-                        </span>
+                        <span className="tots-priority-number">3</span>
 
                         <div>
-                          <strong>
-                            Approve scheduled content
-                          </strong>
-
-                          <small>
-                            3 posts waiting for review
-                          </small>
+                          <strong>Approve scheduled content</strong>
+                          <small>3 posts waiting for review</small>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="tots-clarity-message">
-                    Which client needs the most attention?
-                  </div>
+                  <div className="tots-clarity-message">Which client needs the most attention?</div>
 
                   <div className="tots-clarity-response">
-                    <div className="tots-clarity-response-label">
-                      Clarity
-                    </div>
+                    <div className="tots-clarity-response-label">Clarity</div>
 
                     <p>
-                      Halstead & Co currently has an overdue payment
-                      and two incomplete project tasks. I&apos;d check
-                      that account first.
+                      Halstead &amp; Co has an overdue payment and two open project
+                      tasks. Start there.
                     </p>
                   </div>
                 </div>
@@ -5284,183 +2706,99 @@ export default function TotsOSLanding() {
         </div>
       </section>
 
-      {/* ======================================================
-          SECURITY
-      ====================================================== */}
+      {/* SECURITY */}
 
       <section className="tots-section tots-section-bordered">
         <div className="tots-wrap">
           <Reveal>
-            <Eyebrow>
-              Built for real businesses
-            </Eyebrow>
+            <Eyebrow>Built for real businesses</Eyebrow>
 
-            <h2 className="tots-section-heading">
-              Your business system should feel safe as well as simple.
-            </h2>
+            <h2 className="tots-section-heading">Simple on the surface. Solid underneath.</h2>
           </Reveal>
 
           <div className="tots-security-grid">
             <Reveal>
               <div className="tots-security-card">
                 <LockKeyhole size={21} />
-
-                <h3>
-                  Secure account access
-                </h3>
-
-                <p>
-                  Your workspace is accessed through authenticated
-                  accounts rather than public links or shared
-                  spreadsheets.
-                </p>
+                <h3>Secure account access</h3>
+                <p>Your workspace lives behind authenticated accounts — not public links or shared spreadsheets.</p>
               </div>
             </Reveal>
 
             <Reveal delay={0.05}>
               <div className="tots-security-card">
                 <ShieldCheck size={21} />
-
-                <h3>
-                  Organised permissions
-                </h3>
-
-                <p>
-                  Business information is structured around accounts
-                  and organisations so your data stays connected to
-                  the correct workspace.
-                </p>
+                <h3>Organised permissions</h3>
+                <p>Data is structured around accounts and organisations, so it stays in the right workspace.</p>
               </div>
             </Reveal>
 
             <Reveal delay={0.1}>
               <div className="tots-security-card">
                 <RefreshCw size={21} />
-
-                <h3>
-                  Built to keep improving
-                </h3>
-
-                <p>
-                  TOTS-OS is actively developed around real business
-                  workflows rather than trying to force every business
-                  into a generic template.
-                </p>
+                <h3>Built to keep improving</h3>
+                <p>Developed around real business workflows — not a generic template forced onto every business.</p>
               </div>
             </Reveal>
           </div>
         </div>
       </section>
 
-      {/* ======================================================
-          PRICING
-      ====================================================== */}
+      {/* PRICING */}
 
-      <section
-        id="pricing"
-        className="tots-section"
-      >
+      <section id="pricing" className="tots-section">
         <div className="tots-wrap">
           <Reveal>
-            <Eyebrow>
-              Pricing
-            </Eyebrow>
+            <Eyebrow>Pricing</Eyebrow>
 
-            <h2 className="tots-section-heading">
-              Start free. Choose what fits later.
-            </h2>
+            <h2 className="tots-section-heading">Start free. Choose what fits later.</h2>
 
             <p className="tots-section-copy">
-              Try TOTS-OS for 14 days and experience what it feels like
-              to have your business organised in one connected place.
-              Then choose the plan that suits the way you work.
+              Try TOTS-OS for 14 days and feel what an organised business feels
+              like. Then pick the plan that fits how you work.
             </p>
 
             <div className="tots-pricing-trial">
               <Check size={12} />
-
               14-day free trial available
             </div>
           </Reveal>
 
           <div className="tots-price-grid">
             {PRICING.map((plan, index) => (
-              <Reveal
-                key={plan.name}
-                delay={
-                  index * 0.06
-                }
-              >
-                <div
-                  className={`tots-price-card ${
-                    plan.featured
-                      ? "featured"
-                      : ""
-                  }`}
-                >
+              <Reveal key={plan.name} delay={index * 0.06}>
+                <div className={`tots-price-card ${plan.featured ? "featured" : ""}`}>
                   <div className="tots-price-head">
                     <div>
-                      <div className="tots-price-name">
-                        {plan.name}
-                      </div>
+                      <div className="tots-price-name">{plan.name}</div>
                     </div>
 
-                    {plan.badge && (
-                      <span className="tots-price-badge">
-                        {plan.badge}
-                      </span>
-                    )}
+                    {plan.badge && <span className="tots-price-badge">{plan.badge}</span>}
                   </div>
 
                   <div className="tots-price-figure">
-                    <span className="tots-price-amount">
-                      £{plan.price}
-                    </span>
-
-                    <span className="tots-price-period">
-                      / month
-                    </span>
+                    <span className="tots-price-amount">£{plan.price}</span>
+                    <span className="tots-price-period">/ month</span>
                   </div>
 
-                  <p className="tots-price-desc">
-                    {plan.description}
-                  </p>
+                  <p className="tots-price-desc">{plan.description}</p>
 
                   <div className="tots-price-features">
                     {plan.features.map((feature) => (
-                      <div
-                        className="tots-price-feature"
-                        key={feature}
-                      >
-                        <Check
-                          size={13}
-                          color="var(--accent)"
-                        />
-
-                        <span>
-                          {feature}
-                        </span>
+                      <div className="tots-price-feature" key={feature}>
+                        <Check size={13} color="var(--accent)" />
+                        <span>{feature}</span>
                       </div>
                     ))}
                   </div>
 
                   <div className="tots-price-button">
-                    <a
-                      href="/join"
-                      className={
-                        plan.featured
-                          ? "tots-btn-solid"
-                          : "tots-btn-ghost"
-                      }
-                    >
+                    <a href="/join" className={plan.featured ? "tots-btn-solid" : "tots-btn-ghost"}>
                       Start {plan.name} free
-
                       <ArrowRight size={13} />
                     </a>
 
-                    <p className="tots-price-trial-copy">
-                      Start with your 14-day free trial
-                    </p>
+                    <p className="tots-price-trial-copy">Start with your 14-day free trial</p>
                   </div>
                 </div>
               </Reveal>
@@ -5469,104 +2807,60 @@ export default function TotsOSLanding() {
         </div>
       </section>
 
-      {/* ======================================================
-          ABOUT
-      ====================================================== */}
+      {/* ABOUT */}
 
-      <section
-        id="about"
-        className="tots-section tots-section-bordered"
-      >
+      <section id="about" className="tots-section tots-section-bordered">
         <div className="tots-wrap tots-about">
           <Reveal>
-            <Eyebrow>
-              Why we built it
-            </Eyebrow>
+            <Eyebrow>Why we built it</Eyebrow>
 
-            <h2 className="tots-section-heading">
-              TOTS-OS was built because we were tired of the same chaos.
-            </h2>
+            <h2 className="tots-section-heading">Built because we were tired of the chaos too.</h2>
 
             <p className="tots-section-copy">
-              Running a business should not mean stitching together a
-              CRM, planner, finance tool, notes app, project manager and
-              social platform just to understand what is going on.
+              Running a business shouldn&apos;t mean stitching together a CRM, a
+              planner, a finance app, and a notes tool just to see what&apos;s
+              going on.
             </p>
           </Reveal>
 
           <Reveal delay={0.1}>
             <div className="tots-about-card">
               <p>
-                We wanted somewhere that felt like the actual home of a
-                business — where the client, their project, the work,
-                the deadlines, the financial side and the ideas around
-                it could all exist together.
+                We wanted one home for the business — clients, work, money, and
+                ideas, all in the same place.
               </p>
 
-              <p>
-                That became TOTS-OS: a business operating system built
-                around the way small businesses actually work.
-              </p>
+              <p>That became TOTS-OS.</p>
 
-              <p>
-                And Clarity takes that one step further by helping turn
-                everything inside that system into useful decisions.
-              </p>
+              <p>Clarity takes it further — turning everything inside into a clear next move.</p>
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* ======================================================
-          FAQ
-      ====================================================== */}
+      {/* FAQ */}
 
       <section className="tots-section">
         <div className="tots-wrap tots-faq-layout">
           <Reveal>
-            <Eyebrow>
-              Questions
-            </Eyebrow>
-
-            <h2 className="tots-section-heading">
-              Things worth knowing.
-            </h2>
+            <Eyebrow>Questions</Eyebrow>
+            <h2 className="tots-section-heading">Things worth knowing.</h2>
           </Reveal>
 
           <div>
             {FAQS.map((faq, index) => {
-              const open =
-                openFaq ===
-                index;
+              const open = openFaq === index;
 
               return (
-                <div
-                  className="tots-faq-item"
-                  key={faq.q}
-                >
+                <div className="tots-faq-item" key={faq.q}>
                   <button
                     type="button"
                     className="tots-faq-btn"
-                    onClick={() =>
-                      setOpenFaq(
-                        open
-                          ? null
-                          : index
-                      )
-                    }
+                    onClick={() => setOpenFaq(open ? null : index)}
                   >
-                    <span>
-                      {faq.q}
-                    </span>
+                    <span>{faq.q}</span>
 
-                    <motion.span
-                      animate={{
-                        rotate:
-                          open
-                            ? 180
-                            : 0,
-                      }}
-                    >
+                    <motion.span animate={{ rotate: open ? 180 : 0 }}>
                       <ChevronDown size={16} />
                     </motion.span>
                   </button>
@@ -5574,18 +2868,9 @@ export default function TotsOSLanding() {
                   <AnimatePresence initial={false}>
                     {open && (
                       <motion.div
-                        initial={{
-                          height: 0,
-                          opacity: 0,
-                        }}
-                        animate={{
-                          height: "auto",
-                          opacity: 1,
-                        }}
-                        exit={{
-                          height: 0,
-                          opacity: 0,
-                        }}
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
                         className="tots-faq-answer"
                       >
                         {faq.a}
@@ -5599,9 +2884,7 @@ export default function TotsOSLanding() {
         </div>
       </section>
 
-      {/* ======================================================
-          FINAL CTA
-      ====================================================== */}
+      {/* FINAL CTA */}
 
       <section className="tots-section">
         <div className="tots-wrap">
@@ -5614,139 +2897,80 @@ export default function TotsOSLanding() {
               <h2>
                 Less chaos.
                 <br />
-
-                <span className="tots-serif tots-accent">
-                  More clarity.
-                </span>
+                <span className="tots-serif tots-accent">More clarity.</span>
               </h2>
 
               <p>
-                Stop running your business around your software. Put
-                the business in one place and let the software work
-                around you.
+                Stop building your business around your software. Put the business
+                in one place — and let the software work around you.
               </p>
 
               <div className="tots-final-actions">
-                <a
-                  href="/join"
-                  className="tots-btn-solid tots-btn-large"
-                >
+                <a href="/join" className="tots-btn-solid tots-btn-large">
                   Start your 14-day free trial
-
                   <ArrowRight size={15} />
                 </a>
 
-                <a
-                  href="#demo"
-                  className="tots-btn-ghost tots-btn-large"
-                >
+                <a href="#demo" className="tots-btn-ghost tots-btn-large">
                   <Play size={13} />
-
                   Explore demo
                 </a>
               </div>
 
-              <div className="tots-final-trial">
-                14 days free · Get your workspace set up today
-              </div>
+              <div className="tots-final-trial">14 days free · Set up today</div>
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* ======================================================
-          FOOTER
-      ====================================================== */}
+      {/* FOOTER */}
 
       <footer className="tots-footer">
         <div className="tots-wrap">
           <div className="tots-footer-grid">
             <div>
               <Logo size={38} />
-
               <p className="tots-footer-copy">
-                One connected operating system for the people building
-                and running small businesses.
+                One connected system for the people building small businesses.
               </p>
             </div>
 
             <div>
-              <h5>
-                Product
-              </h5>
+              <h5>Product</h5>
 
               <div className="tots-footer-links">
-                <a href="#features">
-                  Modules
-                </a>
-
-                <a href="#demo">
-                  Demo
-                </a>
-
-                <a href="#clarity">
-                  Clarity AI
-                </a>
-
-                <a href="#pricing">
-                  Pricing
-                </a>
+                <a href="#features">Modules</a>
+                <a href="#demo">Demo</a>
+                <a href="#clarity">Clarity AI</a>
+                <a href="#pricing">Pricing</a>
               </div>
             </div>
 
             <div>
-              <h5>
-                Account
-              </h5>
+              <h5>Account</h5>
 
               <div className="tots-footer-links">
-                <a href="/login">
-                  Log in
-                </a>
-
-                <a href="/join">
-                  Start free trial
-                </a>
-
-                <a href="/manage-subscription">
-                  Manage subscription
-                </a>
+                <a href="/login">Log in</a>
+                <a href="/join">Start free trial</a>
+                <a href="/manage-subscription">Manage subscription</a>
               </div>
             </div>
 
             <div>
-              <h5>
-                Legal
-              </h5>
+              <h5>Legal</h5>
 
               <div className="tots-footer-links">
-                <a href="/docs/privacypolicy">
-                  Privacy Policy
-                </a>
-
-                <a href="/docs/termsconditions">
-                  Terms of Service
-                </a>
-
-                <a href="/docs/cookies">
-                  Cookies
-                </a>
-
-                <a href="/docs/securitypolicy">
-                  Security
-                </a>
+                <a href="/docs/privacypolicy">Privacy Policy</a>
+                <a href="/docs/termsconditions">Terms of Service</a>
+                <a href="/docs/cookies">Cookies</a>
+                <a href="/docs/securitypolicy">Security</a>
               </div>
             </div>
           </div>
 
           <div className="tots-footer-bottom">
-            <span>
-              © 2026 TOTS-OS
-            </span>
-
-            <span>
-              The Organised Types · Business Operating System
-            </span>
+            <span>© 2026 TOTS-OS</span>
+            <span>The Organised Types · Business Operating System</span>
           </div>
         </div>
       </footer>

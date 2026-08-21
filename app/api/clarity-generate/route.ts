@@ -36,7 +36,6 @@ export async function POST(req: Request) {
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt }
       ],
-      temperature: 0.7,
     });
 
     const aiContent = response.choices[0]?.message?.content || "Clarity failed to synthesize.";

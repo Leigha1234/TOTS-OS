@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     `;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "gpt-5.6-luna",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt }

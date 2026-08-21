@@ -7299,21 +7299,6 @@ await callSendApi(campaignId);
             <button className="border-b-2 border-stone-900 pb-4 text-[10px] font-black uppercase tracking-[0.12em] text-stone-900">
               Campaigns
             </button>
-
-            <button
-              onClick={() => {
-                if (
-                  lists[0]
-                ) {
-                  void openAudience(
-                    lists[0]
-                  );
-                }
-              }}
-              className="pb-4 text-[10px] font-black uppercase tracking-[0.12em] text-stone-400"
-            >
-              Audiences
-            </button>
           </div>
 
           <button

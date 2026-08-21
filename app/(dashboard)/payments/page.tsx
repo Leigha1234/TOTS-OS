@@ -19,8 +19,10 @@ import FinanceSales from "./components/FinanceSales";
 import FinanceExpenses from "./components/FinanceExpenses";
 
 import InvoiceQuoteModal, {
+  type FinanceContact,
   type FinanceLineItem,
   type FinanceProject,
+  type FinanceStaffMember,
   type InvoiceQuoteDocType,
   type InvoiceQuoteFormData,
 } from "./components/modals/InvoiceQuoteModal";
@@ -88,21 +90,84 @@ type NotificationType = {
 // INITIAL STATE
 // ============================================================
 
-const INITIAL_INVOICE_QUOTE_FORM: InvoiceQuoteFormData = {
-  customerId: "",
-  projectId: "",
-  newClientName: "",
-  dueDate: "",
-};
+const createInitialInvoiceQuoteForm =
+  (): InvoiceQuoteFormData => {
+    const today = new Date();
 
-const INITIAL_LINE_ITEMS: FinanceLineItem[] = [
-  {
-    id: 1,
-    desc: "",
-    qty: 1,
-    price: 0,
-  },
-];
+    const timezoneOffset =
+      today.getTimezoneOffset();
+
+    const localToday =
+      new Date(
+        today.getTime() -
+          timezoneOffset *
+            60 *
+            1000
+      )
+        .toISOString()
+        .slice(0, 10);
+
+    return {
+      customerId: "",
+      projectId: "",
+      newClientName: "",
+
+      invoiceNumber: "",
+      orderNumber: "",
+
+      invoiceDate:
+        localToday,
+
+      dueDate: "",
+
+      customerName: "",
+      customerAddress: "",
+
+      salesPerson: "",
+
+      assignedStaffId: "",
+      assignedContactId: "",
+
+      sendToContactId: "",
+      sendToEmail: "",
+
+      paymentMethod: "",
+      paymentInstructions: "",
+
+      vatEnabled: true,
+      vatRate: "20",
+
+      repeatInvoice: false,
+      repeatFrequency:
+        "monthly",
+      repeatStartDate: "",
+      repeatEndDate: "",
+
+      remindersEnabled:
+        false,
+
+      reminderDaysBefore:
+        "3",
+
+      reminderDaysAfter:
+        "1",
+
+      terms:
+        "Payment is due by the date shown on this document. Please use the invoice number as your payment reference.",
+
+      notes: "",
+    };
+  };
+
+const INITIAL_LINE_ITEMS: FinanceLineItem[] =
+  [
+    {
+      id: 1,
+      desc: "",
+      qty: 1,
+      price: 0,
+    },
+  ];
 
 const INITIAL_EXPENSE_FORM: ExpenseForm = {
   description: "",
@@ -115,18 +180,20 @@ const INITIAL_EXPENSE_FORM: ExpenseForm = {
   receiptUrl: "",
 };
 
-const INITIAL_EMPLOYEE_FORM: EmployeeForm = {
-  name: "",
-  role: "",
-  salary_gross: "",
-};
+const INITIAL_EMPLOYEE_FORM: EmployeeForm =
+  {
+    name: "",
+    role: "",
+    salary_gross: "",
+  };
 
-const INITIAL_RECURRING_FORM: RecurringInvoiceForm = {
-  client_name: "",
-  amount: "",
-  interval: "monthly",
-  next_run: "",
-};
+const INITIAL_RECURRING_FORM: RecurringInvoiceForm =
+  {
+    client_name: "",
+    amount: "",
+    interval: "monthly",
+    next_run: "",
+  };
 
 const INITIAL_VAT_FORM: VatForm = {
   amount: "",
@@ -150,8 +217,10 @@ export default function PaymentsPage() {
   const supabase = useMemo(
     () =>
       createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        process.env
+          .NEXT_PUBLIC_SUPABASE_URL!,
+        process.env
+          .NEXT_PUBLIC_SUPABASE_ANON_KEY!
       ),
     []
   );
@@ -160,19 +229,56 @@ export default function PaymentsPage() {
   // MAIN STATE
   // ==========================================================
 
-  const [activeTab, setActiveTab] =
-    useState<FinanceTab>("overview");
+  const [
+    activeTab,
+    setActiveTab,
+  ] =
+    useState<FinanceTab>(
+      "overview"
+    );
 
-  const [activeModal, setActiveModal] =
-    useState<ModalType>(null);
+  const [
+    activeModal,
+    setActiveModal,
+  ] =
+    useState<ModalType>(
+      null
+    );
 
-  const [projects, setProjects] =
-    useState<FinanceProject[]>([]);
+  const [
+    projects,
+    setProjects,
+  ] =
+    useState<
+      FinanceProject[]
+    >([]);
 
-  const [projectsLoading, setProjectsLoading] =
+  const [
+    contacts,
+    setContacts,
+  ] =
+    useState<
+      FinanceContact[]
+    >([]);
+
+  const [
+    staffMembers,
+    setStaffMembers,
+  ] =
+    useState<
+      FinanceStaffMember[]
+    >([]);
+
+  const [
+    projectsLoading,
+    setProjectsLoading,
+  ] =
     useState(false);
 
-  const [notification, setNotification] =
+  const [
+    notification,
+    setNotification,
+  ] =
     useState<NotificationType>({
       visible: false,
       message: "",
@@ -186,7 +292,8 @@ export default function PaymentsPage() {
   const [
     invoiceQuoteSubmitting,
     setInvoiceQuoteSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     invoiceQuoteDocType,
@@ -201,15 +308,19 @@ export default function PaymentsPage() {
     setInvoiceQuoteForm,
   ] =
     useState<InvoiceQuoteFormData>(
-      INITIAL_INVOICE_QUOTE_FORM
+      () =>
+        createInitialInvoiceQuoteForm()
     );
 
   const [
     invoiceQuoteLineItems,
     setInvoiceQuoteLineItems,
-  ] = useState<FinanceLineItem[]>(
-    INITIAL_LINE_ITEMS
-  );
+  ] =
+    useState<
+      FinanceLineItem[]
+    >(
+      INITIAL_LINE_ITEMS
+    );
 
   // ==========================================================
   // EXPENSE
@@ -218,10 +329,22 @@ export default function PaymentsPage() {
   const [
     expenseSubmitting,
     setExpenseSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [
+    receiptFile,
+    setReceiptFile,
+  ] =
+    useState<File | null>(
+      null
+    );
+
+  const [
+    uploadingReceipt,
+    setUploadingReceipt,
+  ] =
+    useState(false);
 
   const [
     expenseForm,
@@ -238,7 +361,8 @@ export default function PaymentsPage() {
   const [
     employeeSubmitting,
     setEmployeeSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     employeeForm,
@@ -255,7 +379,8 @@ export default function PaymentsPage() {
   const [
     recurringSubmitting,
     setRecurringSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     recurringForm,
@@ -272,9 +397,13 @@ export default function PaymentsPage() {
   const [
     vatSubmitting,
     setVatSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
-  const [vatForm, setVatForm] =
+  const [
+    vatForm,
+    setVatForm,
+  ] =
     useState<VatForm>(
       INITIAL_VAT_FORM
     );
@@ -286,9 +415,13 @@ export default function PaymentsPage() {
   const [
     taxSubmitting,
     setTaxSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
-  const [taxForm, setTaxForm] =
+  const [
+    taxForm,
+    setTaxForm,
+  ] =
     useState<TaxForm>(
       INITIAL_TAX_FORM
     );
@@ -303,7 +436,8 @@ export default function PaymentsPage() {
     userId: contextUserId,
     loading: contextLoading,
     error: contextError,
-  } = useFinanceContext();
+  } =
+    useFinanceContext();
 
   const finance =
     useFinanceData();
@@ -321,11 +455,43 @@ export default function PaymentsPage() {
     finance.userId;
 
   // ==========================================================
+  // NOTIFICATION
+  // ==========================================================
+
+  const notify = (
+    message: string,
+    type:
+      | "success"
+      | "error" =
+      "success"
+  ) => {
+    setNotification({
+      visible: true,
+      message,
+      type,
+    });
+
+    window.setTimeout(
+      () => {
+        setNotification(
+          (previous) => ({
+            ...previous,
+            visible: false,
+          })
+        );
+      },
+      3000
+    );
+  };
+
+  // ==========================================================
   // LOAD PROJECTS
   // ==========================================================
 
   useEffect(() => {
-    if (!organisationId) {
+    if (
+      !organisationId
+    ) {
       setProjects([]);
       return;
     }
@@ -333,31 +499,37 @@ export default function PaymentsPage() {
     let active = true;
 
     async function loadProjects() {
-      setProjectsLoading(true);
+      setProjectsLoading(
+        true
+      );
 
       try {
         const {
           data,
           error,
-        } = await supabase
-          .from("projects")
-          .select(
-            "id, name, customer_id, status"
-          )
-          .eq(
-            "organisation_id",
-            organisationId
-          )
-          .is(
-            "deleted_at",
-            null
-          )
-          .order(
-            "name",
-            {
-              ascending: true,
-            }
-          );
+        } =
+          await supabase
+            .from(
+              "projects"
+            )
+            .select(
+              "id, name, customer_id, status"
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .is(
+              "deleted_at",
+              null
+            )
+            .order(
+              "name",
+              {
+                ascending:
+                  true,
+              }
+            );
 
         if (error) {
           console.error(
@@ -373,9 +545,14 @@ export default function PaymentsPage() {
         }
 
         setProjects(
-          (data || []).map(
-            (project: any) => ({
-              id: project.id,
+          (
+            data || []
+          ).map(
+            (
+              project: any
+            ) => ({
+              id:
+                project.id,
 
               name:
                 project.name ||
@@ -391,19 +568,216 @@ export default function PaymentsPage() {
             })
           )
         );
-      } catch (error) {
+      } catch (
+        error
+      ) {
         console.error(
           "Unexpected project load error:",
           error
         );
       } finally {
         if (active) {
-          setProjectsLoading(false);
+          setProjectsLoading(
+            false
+          );
         }
       }
     }
 
-    loadProjects();
+    void loadProjects();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    organisationId,
+    supabase,
+  ]);
+
+  // ==========================================================
+  // LOAD CONTACTS
+  // ==========================================================
+
+  useEffect(() => {
+    if (
+      !organisationId
+    ) {
+      setContacts([]);
+      return;
+    }
+
+    let active = true;
+
+    async function loadContacts() {
+      try {
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "contacts"
+            )
+            .select(
+              "id, name, email, customer_id"
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .order(
+              "name",
+              {
+                ascending:
+                  true,
+              }
+            );
+
+        if (error) {
+          console.error(
+            "Finance contacts load error:",
+            error
+          );
+
+          return;
+        }
+
+        if (!active) {
+          return;
+        }
+
+        setContacts(
+          (
+            data || []
+          ).map(
+            (
+              contact: any
+            ) => ({
+              id:
+                contact.id,
+
+              name:
+                contact.name ||
+                contact.email ||
+                "Unnamed contact",
+
+              email:
+                contact.email ||
+                null,
+
+              customer_id:
+                contact.customer_id ||
+                null,
+            })
+          )
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          "Unexpected contacts load error:",
+          error
+        );
+      }
+    }
+
+    void loadContacts();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    organisationId,
+    supabase,
+  ]);
+
+  // ==========================================================
+  // LOAD STAFF
+  // ==========================================================
+
+  useEffect(() => {
+    if (
+      !organisationId
+    ) {
+      setStaffMembers(
+        []
+      );
+
+      return;
+    }
+
+    let active = true;
+
+    async function loadStaff() {
+      try {
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "profiles"
+            )
+            .select(
+              "id, full_name, email"
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .order(
+              "full_name",
+              {
+                ascending:
+                  true,
+              }
+            );
+
+        if (error) {
+          console.error(
+            "Finance staff load error:",
+            error
+          );
+
+          return;
+        }
+
+        if (!active) {
+          return;
+        }
+
+        setStaffMembers(
+          (
+            data || []
+          ).map(
+            (
+              profile: any
+            ) => ({
+              id:
+                profile.id,
+
+              name:
+                profile.full_name ||
+                profile.email ||
+                "Team member",
+
+              email:
+                profile.email ||
+                null,
+            })
+          )
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          "Unexpected staff load error:",
+          error
+        );
+      }
+    }
+
+    void loadStaff();
 
     return () => {
       active = false;
@@ -417,37 +791,47 @@ export default function PaymentsPage() {
   // LEDGER GROUPS
   // ==========================================================
 
-  const invoices = useMemo(
-    () =>
-      (
-        finance.ledger ?? []
-      ).filter(
-        (entry) =>
-          String(
-            entry.type ?? ""
-          )
-            .trim()
-            .toLowerCase() ===
-          "invoice"
-      ),
-    [finance.ledger]
-  );
+  const invoices =
+    useMemo(
+      () =>
+        (
+          finance.ledger ??
+          []
+        ).filter(
+          (entry) =>
+            String(
+              entry.type ??
+                ""
+            )
+              .trim()
+              .toLowerCase() ===
+            "invoice"
+        ),
+      [
+        finance.ledger,
+      ]
+    );
 
-  const quotes = useMemo(
-    () =>
-      (
-        finance.ledger ?? []
-      ).filter(
-        (entry) =>
-          String(
-            entry.type ?? ""
-          )
-            .trim()
-            .toLowerCase() ===
-          "quote"
-      ),
-    [finance.ledger]
-  );
+  const quotes =
+    useMemo(
+      () =>
+        (
+          finance.ledger ??
+          []
+        ).filter(
+          (entry) =>
+            String(
+              entry.type ??
+                ""
+            )
+              .trim()
+              .toLowerCase() ===
+            "quote"
+        ),
+      [
+        finance.ledger,
+      ]
+    );
 
   // ==========================================================
   // METRICS
@@ -517,45 +901,152 @@ export default function PaymentsPage() {
       ]
     );
 
+  const invoiceQuoteVatRate =
+    useMemo(() => {
+      if (
+        !invoiceQuoteForm.vatEnabled
+      ) {
+        return 0;
+      }
+
+      const rate =
+        Number(
+          invoiceQuoteForm.vatRate
+        );
+
+      if (
+        !Number.isFinite(
+          rate
+        ) ||
+        rate < 0
+      ) {
+        return 0;
+      }
+
+      return rate;
+    }, [
+      invoiceQuoteForm.vatEnabled,
+      invoiceQuoteForm.vatRate,
+    ]);
+
   const invoiceQuoteVatTotal =
-    invoiceQuoteNetTotal *
-    0.2;
+    useMemo(
+      () =>
+        invoiceQuoteNetTotal *
+        (invoiceQuoteVatRate /
+          100),
+      [
+        invoiceQuoteNetTotal,
+        invoiceQuoteVatRate,
+      ]
+    );
 
   const invoiceQuoteGrandTotal =
-    invoiceQuoteNetTotal +
-    invoiceQuoteVatTotal;
-
-  // ==========================================================
-  // NOTIFICATIONS
-  // ==========================================================
-
-  const notify = (
-    message: string,
-    type:
-      | "success"
-      | "error" = "success"
-  ) => {
-    setNotification({
-      visible: true,
-      message,
-      type,
-    });
-
-    window.setTimeout(
-      () => {
-        setNotification(
-          (previous) => ({
-            ...previous,
-            visible: false,
-          })
-        );
-      },
-      3000
+    useMemo(
+      () =>
+        invoiceQuoteNetTotal +
+        invoiceQuoteVatTotal,
+      [
+        invoiceQuoteNetTotal,
+        invoiceQuoteVatTotal,
+      ]
     );
-  };
 
   // ==========================================================
-  // INVOICE / QUOTE RESET
+  // DOCUMENT NUMBER
+  // ==========================================================
+
+  const generateDocumentNumber =
+    (
+      type: InvoiceQuoteDocType
+    ) => {
+      const now =
+        new Date();
+
+      const year =
+        now.getFullYear();
+
+      const month =
+        String(
+          now.getMonth() +
+            1
+        ).padStart(
+          2,
+          "0"
+        );
+
+      const day =
+        String(
+          now.getDate()
+        ).padStart(
+          2,
+          "0"
+        );
+
+      const suffix =
+        Math.random()
+          .toString(36)
+          .slice(2, 6)
+          .toUpperCase();
+
+      return `${
+        type ===
+        "Invoice"
+          ? "INV"
+          : "QUO"
+      }-${year}${month}${day}-${suffix}`;
+    };
+
+  // ==========================================================
+  // OPEN INVOICE / QUOTE
+  // ==========================================================
+
+  const openInvoiceQuoteModal =
+    (
+      type: InvoiceQuoteDocType
+    ) => {
+      const fresh =
+        createInitialInvoiceQuoteForm();
+
+      setInvoiceQuoteDocType(
+        type
+      );
+
+      setInvoiceQuoteForm({
+        ...fresh,
+
+        invoiceNumber:
+          generateDocumentNumber(
+            type
+          ),
+
+        salesPerson:
+          staffMembers.find(
+            (member) =>
+              member.id ===
+              userId
+          )?.name || "",
+      });
+
+      setInvoiceQuoteLineItems(
+        [
+          {
+            id:
+              Date.now(),
+            desc: "",
+            qty: 1,
+            price: 0,
+          },
+        ]
+      );
+
+      setActiveModal(
+        "invoiceQuote"
+      );
+    };
+
+  // ==========================================================
+  // RESET INVOICE / QUOTE
   // ==========================================================
 
   const resetInvoiceQuote =
@@ -564,17 +1055,15 @@ export default function PaymentsPage() {
         "Invoice"
       );
 
-      setInvoiceQuoteForm({
-        customerId: "",
-        projectId: "",
-        newClientName: "",
-        dueDate: "",
-      });
+      setInvoiceQuoteForm(
+        createInitialInvoiceQuoteForm()
+      );
 
       setInvoiceQuoteLineItems(
         [
           {
-            id: Date.now(),
+            id:
+              Date.now(),
             desc: "",
             qty: 1,
             price: 0,
@@ -591,13 +1080,15 @@ export default function PaymentsPage() {
         return;
       }
 
-      setActiveModal(null);
+      setActiveModal(
+        null
+      );
 
       resetInvoiceQuote();
     };
 
   // ==========================================================
-  // CREATE CUSTOMER FOR NEW QUOTE
+  // CREATE QUOTE CUSTOMER
   // ==========================================================
 
   const createQuoteCustomer =
@@ -623,37 +1114,36 @@ export default function PaymentsPage() {
       const {
         data,
         error,
-      } = await supabase
-        .from("customers")
-        .insert({
-          name,
+      } =
+        await supabase
+          .from(
+            "customers"
+          )
+          .insert({
+            name,
 
-          organisation_id:
-            organisationId,
+            organisation_id:
+              organisationId,
 
-          user_id:
-            userId,
+            user_id:
+              userId,
 
-          team_id:
-            teamId || null,
+            team_id:
+              teamId ||
+              null,
 
-          status:
-            "active",
+            status:
+              "active",
 
-          stage:
-            "lead",
-        })
-        .select(
-          "id, name, email"
-        )
-        .single();
+            stage:
+              "lead",
+          })
+          .select(
+            "id, name, email"
+          )
+          .single();
 
       if (error) {
-        console.error(
-          "New quote customer create error:",
-          error
-        );
-
         throw new Error(
           error.message ||
             "Unable to create client."
@@ -668,14 +1158,20 @@ export default function PaymentsPage() {
   // ==========================================================
 
   const handleInvoiceQuoteSubmit =
-    async () => {
+    async (
+      options?: {
+        sendAfterCreate?: boolean;
+      }
+    ) => {
       if (
         invoiceQuoteSubmitting
       ) {
         return;
       }
 
-      if (!organisationId) {
+      if (
+        !organisationId
+      ) {
         notify(
           "Organisation context is unavailable.",
           "error"
@@ -685,16 +1181,16 @@ export default function PaymentsPage() {
       }
 
       const hasCustomer =
-        invoiceQuoteForm.customerId
-          .trim()
-          .length > 0;
+        Boolean(
+          invoiceQuoteForm.customerId.trim()
+        );
 
       const hasNewQuoteCustomer =
         invoiceQuoteDocType ===
           "Quote" &&
-        invoiceQuoteForm.newClientName
-          .trim()
-          .length > 0;
+        Boolean(
+          invoiceQuoteForm.newClientName.trim()
+        );
 
       if (
         !hasCustomer &&
@@ -727,12 +1223,41 @@ export default function PaymentsPage() {
         invoiceQuoteLineItems.some(
           (item) =>
             !item.desc.trim() ||
-            item.qty <= 0 ||
-            item.price < 0
+            Number(
+              item.qty
+            ) <= 0 ||
+            Number(
+              item.price
+            ) < 0
         )
       ) {
         notify(
           "Please complete all line items.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        options?.sendAfterCreate &&
+        !invoiceQuoteForm.sendToEmail.trim() &&
+        !invoiceQuoteForm.sendToContactId
+      ) {
+        notify(
+          "Please choose a recipient or enter an email address.",
+          "error"
+        );
+
+        return;
+      }
+
+      if (
+        invoiceQuoteForm.repeatInvoice &&
+        !invoiceQuoteForm.repeatStartDate
+      ) {
+        notify(
+          "Please choose a recurring invoice start date.",
           "error"
         );
 
@@ -744,18 +1269,23 @@ export default function PaymentsPage() {
       );
 
       try {
-        // ------------------------------------------------------
-        // RESOLVE CUSTOMER
-        // ------------------------------------------------------
+        // ----------------------------------------------------
+        // CUSTOMER
+        // ----------------------------------------------------
 
         let customerId =
           invoiceQuoteForm.customerId ||
           null;
 
         let clientName =
-          "";
+          invoiceQuoteForm.customerName.trim();
 
-        if (customerId) {
+        let clientEmail =
+          invoiceQuoteForm.sendToEmail.trim();
+
+        if (
+          customerId
+        ) {
           const customer =
             (
               finance.customers ??
@@ -767,8 +1297,14 @@ export default function PaymentsPage() {
             );
 
           clientName =
+            clientName ||
             customer?.name ||
             "Client";
+
+          clientEmail =
+            clientEmail ||
+            customer?.email ||
+            "";
         }
 
         if (
@@ -784,17 +1320,43 @@ export default function PaymentsPage() {
 
           clientName =
             customer.name;
+
+          clientEmail =
+            clientEmail ||
+            customer.email ||
+            "";
         }
 
-        if (!customerId) {
+        if (
+          !customerId
+        ) {
           throw new Error(
             "A client could not be resolved."
           );
         }
 
-        // ------------------------------------------------------
-        // NORMALISE ITEMS
-        // ------------------------------------------------------
+        // ----------------------------------------------------
+        // CONTACT
+        // ----------------------------------------------------
+
+        const selectedContact =
+          contacts.find(
+            (contact) =>
+              contact.id ===
+              invoiceQuoteForm.sendToContactId
+          );
+
+        if (
+          !clientEmail &&
+          selectedContact?.email
+        ) {
+          clientEmail =
+            selectedContact.email;
+        }
+
+        // ----------------------------------------------------
+        // ITEMS
+        // ----------------------------------------------------
 
         const items =
           invoiceQuoteLineItems.map(
@@ -822,151 +1384,393 @@ export default function PaymentsPage() {
             })
           );
 
-        // ------------------------------------------------------
+        const documentNumber =
+          invoiceQuoteForm.invoiceNumber.trim() ||
+          generateDocumentNumber(
+            invoiceQuoteDocType
+          );
+
+        const invoiceDate =
+          invoiceQuoteForm.invoiceDate ||
+          new Date()
+            .toISOString()
+            .slice(
+              0,
+              10
+            );
+
+        const documentData = {
+          document_number:
+            documentNumber,
+
+          order_number:
+            invoiceQuoteForm.orderNumber.trim() ||
+            null,
+
+          invoice_date:
+            invoiceDate,
+
+          due_date:
+            invoiceQuoteForm.dueDate ||
+            null,
+
+          client_name:
+            clientName,
+
+          customer_name:
+            invoiceQuoteForm.customerName.trim() ||
+            clientName,
+
+          customer_address:
+            invoiceQuoteForm.customerAddress.trim() ||
+            null,
+
+          customer_email:
+            clientEmail ||
+            null,
+
+          project_id:
+            invoiceQuoteForm.projectId ||
+            null,
+
+          assigned_contact_id:
+            invoiceQuoteForm.assignedContactId ||
+            null,
+
+          assigned_staff_id:
+            invoiceQuoteForm.assignedStaffId ||
+            null,
+
+          send_to_contact_id:
+            invoiceQuoteForm.sendToContactId ||
+            null,
+
+          send_to_email:
+            clientEmail ||
+            null,
+
+          sales_person:
+            invoiceQuoteForm.salesPerson.trim() ||
+            null,
+
+          payment_method:
+            invoiceQuoteForm.paymentMethod ||
+            null,
+
+          payment_instructions:
+            invoiceQuoteForm.paymentInstructions.trim() ||
+            null,
+
+          vat_enabled:
+            invoiceQuoteForm.vatEnabled,
+
+          vat_rate:
+            invoiceQuoteVatRate,
+
+          net_total:
+            invoiceQuoteNetTotal,
+
+          vat_total:
+            invoiceQuoteVatTotal,
+
+          grand_total:
+            invoiceQuoteGrandTotal,
+
+          recurring:
+            invoiceQuoteForm.repeatInvoice,
+
+          repeat_frequency:
+            invoiceQuoteForm.repeatInvoice
+              ? invoiceQuoteForm.repeatFrequency
+              : null,
+
+          repeat_start_date:
+            invoiceQuoteForm.repeatInvoice
+              ? invoiceQuoteForm.repeatStartDate ||
+                null
+              : null,
+
+          repeat_end_date:
+            invoiceQuoteForm.repeatInvoice
+              ? invoiceQuoteForm.repeatEndDate ||
+                null
+              : null,
+
+          reminders_enabled:
+            invoiceQuoteForm.remindersEnabled,
+
+          reminder_days_before:
+            invoiceQuoteForm.remindersEnabled
+              ? Number(
+                  invoiceQuoteForm.reminderDaysBefore ||
+                    0
+                )
+              : null,
+
+          reminder_days_after:
+            invoiceQuoteForm.remindersEnabled
+              ? Number(
+                  invoiceQuoteForm.reminderDaysAfter ||
+                    0
+                )
+              : null,
+
+          terms:
+            invoiceQuoteForm.terms.trim() ||
+            null,
+
+          notes:
+            invoiceQuoteForm.notes.trim() ||
+            null,
+
+          items,
+        };
+
+        // ----------------------------------------------------
         // INVOICE
-        // ------------------------------------------------------
+        // ----------------------------------------------------
 
         if (
           invoiceQuoteDocType ===
           "Invoice"
         ) {
           const {
+            data:
+              createdInvoice,
             error,
-          } = await supabase
-            .from("invoices")
-            .insert({
-              customer_id:
-                customerId,
-
-              project_id:
-                invoiceQuoteForm.projectId ||
-                null,
-
-              organisation_id:
-                organisationId,
-
-              team_id:
-                teamId ||
-                null,
-
-              amount:
-                invoiceQuoteGrandTotal,
-
-              tax:
-                invoiceQuoteVatTotal,
-
-              status:
-                "pending",
-
-              type:
-                "invoice",
-
-              doc_type:
-                "Invoice",
-
-              items,
-
-              due_date:
-                invoiceQuoteForm.dueDate,
-
-              recurring:
-                false,
-
-              data: {
-                client_name:
-                  clientName,
-
-                net_total:
-                  invoiceQuoteNetTotal,
-
-                vat_total:
-                  invoiceQuoteVatTotal,
-
-                grand_total:
-                  invoiceQuoteGrandTotal,
+          } =
+            await supabase
+              .from(
+                "invoices"
+              )
+              .insert({
+                customer_id:
+                  customerId,
 
                 project_id:
                   invoiceQuoteForm.projectId ||
                   null,
-              },
-            });
 
-          if (error) {
+                organisation_id:
+                  organisationId,
+
+                team_id:
+                  teamId ||
+                  null,
+
+                amount:
+                  invoiceQuoteGrandTotal,
+
+                tax:
+                  invoiceQuoteVatTotal,
+
+                status:
+                  options?.sendAfterCreate
+                    ? "pending"
+                    : "draft",
+
+                type:
+                  "invoice",
+
+                doc_type:
+                  "Invoice",
+
+                items,
+
+                due_date:
+                  invoiceQuoteForm.dueDate,
+
+                recurring:
+                  invoiceQuoteForm.repeatInvoice,
+
+                data:
+                  documentData,
+              })
+              .select(
+                "id"
+              )
+              .single();
+
+          if (
+            error ||
+            !createdInvoice
+          ) {
             console.error(
               "Invoice insert error:",
               error
             );
 
             throw new Error(
-              error.message ||
+              error?.message ||
                 "Unable to create invoice."
             );
           }
+
+          // --------------------------------------------------
+          // RECURRING
+          // --------------------------------------------------
+
+          if (
+            invoiceQuoteForm.repeatInvoice
+          ) {
+            const {
+              error:
+                recurringError,
+            } =
+              await supabase
+                .from(
+                  "subscriptions"
+                )
+                .insert({
+                  organisation_id:
+                    organisationId,
+
+                  client_name:
+                    clientName,
+
+                  amount:
+                    invoiceQuoteGrandTotal,
+
+                  interval:
+                    invoiceQuoteForm.repeatFrequency,
+
+                  next_run:
+                    invoiceQuoteForm.repeatStartDate,
+
+                  active:
+                    true,
+                });
+
+            if (
+              recurringError
+            ) {
+              console.error(
+                "Recurring invoice create error:",
+                recurringError
+              );
+            }
+          }
+
+          // --------------------------------------------------
+          // SEND
+          // --------------------------------------------------
+
+          if (
+            options?.sendAfterCreate
+          ) {
+            if (
+              !clientEmail
+            ) {
+              throw new Error(
+                "The invoice was created, but no recipient email is available."
+              );
+            }
+
+            const response =
+              await fetch(
+                "/api/send-invoices",
+                {
+                  method:
+                    "POST",
+
+                  headers: {
+                    "Content-Type":
+                      "application/json",
+                  },
+
+                  body:
+                    JSON.stringify({
+                      invoiceId:
+                        createdInvoice.id,
+
+                      email:
+                        clientEmail,
+
+                      recipientEmail:
+                        clientEmail,
+                    }),
+                }
+              );
+
+            const result =
+              await response
+                .json()
+                .catch(
+                  () => ({})
+                );
+
+            if (
+              !response.ok
+            ) {
+              throw new Error(
+                result.error ||
+                  result.message ||
+                  "Invoice was created but could not be emailed."
+              );
+            }
+          }
         }
 
-        // ------------------------------------------------------
+        // ----------------------------------------------------
         // QUOTE
-        // ------------------------------------------------------
+        // ----------------------------------------------------
 
         if (
           invoiceQuoteDocType ===
           "Quote"
         ) {
-          const quoteDescription =
+          const description =
             items
               .map(
                 (item) =>
                   `${item.description} × ${item.qty}`
               )
-              .join(", ");
+              .join(
+                ", "
+              );
 
           const {
             error,
-          } = await supabase
-            .from("quotes")
-            .insert({
-              customer_id:
-                customerId,
+          } =
+            await supabase
+              .from(
+                "quotes"
+              )
+              .insert({
+                customer_id:
+                  customerId,
 
-              project_id:
-                invoiceQuoteForm.projectId ||
-                null,
+                project_id:
+                  invoiceQuoteForm.projectId ||
+                  null,
 
-              organisation_id:
-                organisationId,
+                organisation_id:
+                  organisationId,
 
-              team_id:
-                teamId ||
-                null,
+                team_id:
+                  teamId ||
+                  null,
 
-              client_name:
-                clientName,
+                client_name:
+                  clientName,
 
-              description:
-                quoteDescription ||
-                null,
+                description:
+                  description ||
+                  null,
 
-              amount:
-                invoiceQuoteGrandTotal,
+                amount:
+                  invoiceQuoteGrandTotal,
 
-              date:
-                new Date()
-                  .toISOString()
-                  .slice(
-                    0,
-                    10
-                  ),
+                date:
+                  invoiceDate,
 
-              status:
-                "draft",
-            });
+                status:
+                  "draft",
+              });
 
-          if (error) {
-            console.error(
-              "Quote insert error:",
-              error
-            );
-
+          if (
+            error
+          ) {
             throw new Error(
               error.message ||
                 "Unable to create quote."
@@ -977,11 +1781,15 @@ export default function PaymentsPage() {
         await finance.refresh();
 
         notify(
-          `${invoiceQuoteDocType} created successfully.`,
+          options?.sendAfterCreate
+            ? `${invoiceQuoteDocType} created and sent successfully.`
+            : `${invoiceQuoteDocType} created successfully.`,
           "success"
         );
 
-        setActiveModal(null);
+        setActiveModal(
+          null
+        );
 
         resetInvoiceQuote();
       } catch (
@@ -992,14 +1800,11 @@ export default function PaymentsPage() {
           submitError
         );
 
-        const message =
-          submitError instanceof
-          Error
-            ? submitError.message
-            : `Unable to create ${invoiceQuoteDocType.toLowerCase()}.`;
-
         notify(
-          message,
+          submitError instanceof
+            Error
+            ? submitError.message
+            : `Unable to create ${invoiceQuoteDocType.toLowerCase()}.`,
           "error"
         );
       } finally {
@@ -1007,6 +1812,517 @@ export default function PaymentsPage() {
           false
         );
       }
+    };
+
+  // ==========================================================
+  // DUPLICATE
+  // ==========================================================
+
+  const duplicateInvoiceQuote =
+    () => {
+      setInvoiceQuoteForm(
+        (
+          previous
+        ) => ({
+          ...previous,
+
+          invoiceNumber:
+            generateDocumentNumber(
+              invoiceQuoteDocType
+            ),
+
+          orderNumber:
+            "",
+
+          invoiceDate:
+            createInitialInvoiceQuoteForm()
+              .invoiceDate,
+
+          dueDate:
+            "",
+
+          repeatStartDate:
+            "",
+
+          repeatEndDate:
+            "",
+        })
+      );
+
+      setInvoiceQuoteLineItems(
+        (
+          previous
+        ) =>
+          previous.map(
+            (
+              item,
+              index
+            ) => ({
+              ...item,
+
+              id:
+                Date.now() +
+                index,
+            })
+          )
+      );
+
+      notify(
+        `${invoiceQuoteDocType} duplicated with a new document number.`
+      );
+    };
+
+  // ==========================================================
+  // PRINT / PDF
+  // ==========================================================
+
+  const buildPrintableInvoiceHtml =
+    () => {
+      const customer =
+        (
+          finance.customers ??
+          []
+        ).find(
+          (record) =>
+            record.id ===
+            invoiceQuoteForm.customerId
+        );
+
+      const clientName =
+        invoiceQuoteForm.customerName.trim() ||
+        customer?.name ||
+        invoiceQuoteForm.newClientName ||
+        "Customer";
+
+      const documentNumber =
+        invoiceQuoteForm.invoiceNumber ||
+        generateDocumentNumber(
+          invoiceQuoteDocType
+        );
+
+      const escapeHtml =
+        (
+          value:
+            string
+        ) =>
+          value
+            .replace(
+              /&/g,
+              "&amp;"
+            )
+            .replace(
+              /</g,
+              "&lt;"
+            )
+            .replace(
+              />/g,
+              "&gt;"
+            )
+            .replace(
+              /"/g,
+              "&quot;"
+            )
+            .replace(
+              /'/g,
+              "&#039;"
+            );
+
+      const itemsHtml =
+        invoiceQuoteLineItems
+          .map(
+            (item) => `
+              <tr>
+                <td>
+                  ${escapeHtml(
+                    item.desc
+                  )}
+                </td>
+
+                <td style="text-align:right">
+                  ${Number(
+                    item.qty
+                  )}
+                </td>
+
+                <td style="text-align:right">
+                  £${Number(
+                    item.price
+                  ).toFixed(
+                    2
+                  )}
+                </td>
+
+                <td style="text-align:right">
+                  £${(
+                    Number(
+                      item.qty
+                    ) *
+                    Number(
+                      item.price
+                    )
+                  ).toFixed(
+                    2
+                  )}
+                </td>
+              </tr>
+            `
+          )
+          .join("");
+
+      return `
+        <!doctype html>
+
+        <html>
+          <head>
+            <meta charset="utf-8" />
+
+            <title>
+              ${escapeHtml(
+                documentNumber
+              )}
+            </title>
+
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                color: #292524;
+                padding: 48px;
+              }
+
+              h1 {
+                font-family: Georgia, serif;
+                font-style: italic;
+                font-size: 38px;
+                margin-bottom: 8px;
+              }
+
+              .muted {
+                color: #78716c;
+              }
+
+              .grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 30px;
+                margin: 30px 0;
+              }
+
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 30px;
+              }
+
+              th,
+              td {
+                padding: 12px;
+                border-bottom: 1px solid #e7e5e4;
+                text-align: left;
+              }
+
+              th {
+                font-size: 10px;
+                text-transform: uppercase;
+                letter-spacing: .12em;
+              }
+
+              .totals {
+                width: 320px;
+                margin-left: auto;
+                margin-top: 30px;
+              }
+
+              .total-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+              }
+
+              .grand {
+                border-top: 1px solid #292524;
+                margin-top: 8px;
+                padding-top: 16px;
+                font-size: 22px;
+                font-weight: bold;
+              }
+
+              .section {
+                margin-top: 40px;
+                border-top: 1px solid #e7e5e4;
+                padding-top: 20px;
+              }
+            </style>
+          </head>
+
+          <body>
+            <h1>
+              ${invoiceQuoteDocType}
+            </h1>
+
+            <p>
+              <strong>
+                ${escapeHtml(
+                  documentNumber
+                )}
+              </strong>
+            </p>
+
+            ${
+              invoiceQuoteForm.orderNumber
+                ? `
+                  <p class="muted">
+                    Order reference:
+                    ${escapeHtml(
+                      invoiceQuoteForm.orderNumber
+                    )}
+                  </p>
+                `
+                : ""
+            }
+
+            <div class="grid">
+              <div>
+                <strong>
+                  Customer
+                </strong>
+
+                <p>
+                  ${escapeHtml(
+                    clientName
+                  )}
+                </p>
+
+                ${
+                  invoiceQuoteForm.customerAddress
+                    ? `
+                      <p class="muted">
+                        ${escapeHtml(
+                          invoiceQuoteForm.customerAddress
+                        ).replace(
+                          /\n/g,
+                          "<br>"
+                        )}
+                      </p>
+                    `
+                    : ""
+                }
+              </div>
+
+              <div>
+                <p>
+                  <strong>
+                    Date:
+                  </strong>
+
+                  ${escapeHtml(
+                    invoiceQuoteForm.invoiceDate ||
+                      ""
+                  )}
+                </p>
+
+                ${
+                  invoiceQuoteDocType ===
+                  "Invoice"
+                    ? `
+                      <p>
+                        <strong>
+                          Due:
+                        </strong>
+
+                        ${escapeHtml(
+                          invoiceQuoteForm.dueDate ||
+                            ""
+                        )}
+                      </p>
+                    `
+                    : ""
+                }
+
+                ${
+                  invoiceQuoteForm.salesPerson
+                    ? `
+                      <p>
+                        <strong>
+                          Sales person:
+                        </strong>
+
+                        ${escapeHtml(
+                          invoiceQuoteForm.salesPerson
+                        )}
+                      </p>
+                    `
+                    : ""
+                }
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    Description
+                  </th>
+
+                  <th style="text-align:right">
+                    Qty
+                  </th>
+
+                  <th style="text-align:right">
+                    Price
+                  </th>
+
+                  <th style="text-align:right">
+                    Total
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+            </table>
+
+            <div class="totals">
+              <div class="total-row">
+                <span>
+                  Net
+                </span>
+
+                <span>
+                  £${invoiceQuoteNetTotal.toFixed(
+                    2
+                  )}
+                </span>
+              </div>
+
+              ${
+                invoiceQuoteForm.vatEnabled
+                  ? `
+                    <div class="total-row">
+                      <span>
+                        VAT (${invoiceQuoteVatRate}%)
+                      </span>
+
+                      <span>
+                        £${invoiceQuoteVatTotal.toFixed(
+                          2
+                        )}
+                      </span>
+                    </div>
+                  `
+                  : ""
+              }
+
+              <div class="total-row grand">
+                <span>
+                  Total
+                </span>
+
+                <span>
+                  £${invoiceQuoteGrandTotal.toFixed(
+                    2
+                  )}
+                </span>
+              </div>
+            </div>
+
+            ${
+              invoiceQuoteForm.paymentMethod
+                ? `
+                  <div class="section">
+                    <strong>
+                      Payment method
+                    </strong>
+
+                    <p>
+                      ${escapeHtml(
+                        invoiceQuoteForm.paymentMethod
+                      )}
+                    </p>
+
+                    ${
+                      invoiceQuoteForm.paymentInstructions
+                        ? `
+                          <p>
+                            ${escapeHtml(
+                              invoiceQuoteForm.paymentInstructions
+                            ).replace(
+                              /\n/g,
+                              "<br>"
+                            )}
+                          </p>
+                        `
+                        : ""
+                    }
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              invoiceQuoteForm.terms
+                ? `
+                  <div class="section">
+                    <strong>
+                      Terms
+                    </strong>
+
+                    <p>
+                      ${escapeHtml(
+                        invoiceQuoteForm.terms
+                      ).replace(
+                        /\n/g,
+                        "<br>"
+                      )}
+                    </p>
+                  </div>
+                `
+                : ""
+            }
+          </body>
+        </html>
+      `;
+    };
+
+  const printInvoiceQuote =
+    () => {
+      const printWindow =
+        window.open(
+          "",
+          "_blank",
+          "width=900,height=900"
+        );
+
+      if (
+        !printWindow
+      ) {
+        notify(
+          "Your browser blocked the print window.",
+          "error"
+        );
+
+        return;
+      }
+
+      printWindow.document.write(
+        buildPrintableInvoiceHtml()
+      );
+
+      printWindow.document.close();
+
+      printWindow.focus();
+
+      window.setTimeout(
+        () => {
+          printWindow.print();
+        },
+        250
+      );
+    };
+
+  const saveInvoiceQuotePdf =
+    () => {
+      printInvoiceQuote();
     };
 
   // ==========================================================
@@ -1019,24 +2335,48 @@ export default function PaymentsPage() {
         description: "",
         amount: "",
         date: "",
-        status: "pending",
+        status:
+          "pending",
 
         customerId: "",
         projectId: "",
         receiptName: "",
         receiptUrl: "",
       });
-      setReceiptFile(null);
+
+      setReceiptFile(
+        null
+      );
     };
 
-  const handleExpenseReceiptChange = (file: File | null) => {
-    setReceiptFile(file);
-    setExpenseForm((previous) => ({
-      ...previous,
-      receiptName: file?.name ?? "",
-      receiptUrl: file ? URL.createObjectURL(file) : "",
-    }));
-  };
+  const handleExpenseReceiptChange =
+    (
+      file:
+        File | null
+    ) => {
+      setReceiptFile(
+        file
+      );
+
+      setExpenseForm(
+        (
+          previous
+        ) => ({
+          ...previous,
+
+          receiptName:
+            file?.name ??
+            "",
+
+          receiptUrl:
+            file
+              ? URL.createObjectURL(
+                  file
+                )
+              : "",
+        })
+      );
+    };
 
   const closeExpenseModal =
     () => {
@@ -1046,7 +2386,9 @@ export default function PaymentsPage() {
         return;
       }
 
-      setActiveModal(null);
+      setActiveModal(
+        null
+      );
 
       resetExpenseForm();
     };
@@ -1059,7 +2401,9 @@ export default function PaymentsPage() {
         return;
       }
 
-      if (!organisationId) {
+      if (
+        !organisationId
+      ) {
         notify(
           "Organisation context is unavailable.",
           "error"
@@ -1119,68 +2463,102 @@ export default function PaymentsPage() {
               expenseForm.customerId
           );
 
-        let receiptUrl: string | null = null;
-        if (receiptFile) {
-          setUploadingReceipt(true);
+        let receiptUrl:
+          | string
+          | null =
+          null;
 
-          const reader = new FileReader();
-          receiptUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => resolve(String(reader.result ?? ""));
-            reader.onerror = () => reject(new Error("Unable to read receipt file."));
-            reader.readAsDataURL(receiptFile);
-          });
+        if (
+          receiptFile
+        ) {
+          setUploadingReceipt(
+            true
+          );
+
+          const reader =
+            new FileReader();
+
+          receiptUrl =
+            await new Promise<string>(
+              (
+                resolve,
+                reject
+              ) => {
+                reader.onload =
+                  () =>
+                    resolve(
+                      String(
+                        reader.result ??
+                          ""
+                      )
+                    );
+
+                reader.onerror =
+                  () =>
+                    reject(
+                      new Error(
+                        "Unable to read receipt file."
+                      )
+                    );
+
+                reader.readAsDataURL(
+                  receiptFile
+                );
+              }
+            );
         }
 
         const {
           error,
-        } = await supabase
-          .from("expenses")
-          .insert({
-            organisation_id:
-              organisationId,
+        } =
+          await supabase
+            .from(
+              "expenses"
+            )
+            .insert({
+              organisation_id:
+                organisationId,
 
-            team_id:
-              teamId || null,
+              team_id:
+                teamId ||
+                null,
 
-            customer_id:
-              expenseForm.customerId ||
-              null,
+              customer_id:
+                expenseForm.customerId ||
+                null,
 
-            project_id:
-              expenseForm.projectId ||
-              null,
+              project_id:
+                expenseForm.projectId ||
+                null,
 
-            client_name:
-              selectedCustomer?.name ||
-              null,
+              client_name:
+                selectedCustomer?.name ||
+                null,
 
-            description:
-              expenseForm.description.trim(),
+              description:
+                expenseForm.description.trim(),
 
-            amount:
-              Number(
-                expenseForm.amount
-              ),
+              amount:
+                Number(
+                  expenseForm.amount
+                ),
 
-            date:
-              expenseForm.date,
+              date:
+                expenseForm.date,
 
-            status:
-              expenseForm.status ||
-              "pending",
+              status:
+                expenseForm.status ||
+                "pending",
 
-            receipt_url:
-              receiptUrl ||
-              expenseForm.receiptUrl ||
-              null,
-          });
+              receipt_url:
+                receiptUrl ||
+                expenseForm.receiptUrl ||
+                null,
+            });
 
-        if (error) {
-          console.error(
-            "Expense insert error:",
-            error
-          );
-
+        if (
+          error
+        ) {
           throw new Error(
             error.message ||
               "Unable to log expense."
@@ -1190,11 +2568,12 @@ export default function PaymentsPage() {
         await finance.refresh();
 
         notify(
-          "Expense logged successfully.",
-          "success"
+          "Expense logged successfully."
         );
 
-        setActiveModal(null);
+        setActiveModal(
+          null
+        );
 
         resetExpenseForm();
       } catch (
@@ -1213,7 +2592,10 @@ export default function PaymentsPage() {
           "error"
         );
       } finally {
-        setUploadingReceipt(false);
+        setUploadingReceipt(
+          false
+        );
+
         setExpenseSubmitting(
           false
         );
@@ -1229,7 +2611,8 @@ export default function PaymentsPage() {
       setEmployeeForm({
         name: "",
         role: "",
-        salary_gross: "",
+        salary_gross:
+          "",
       });
     };
 
@@ -1241,7 +2624,9 @@ export default function PaymentsPage() {
         return;
       }
 
-      setActiveModal(null);
+      setActiveModal(
+        null
+      );
 
       resetEmployeeForm();
     };
@@ -1295,7 +2680,9 @@ export default function PaymentsPage() {
       );
 
       try {
-        if (!organisationId) {
+        if (
+          !organisationId
+        ) {
           throw new Error(
             "Organisation context is unavailable."
           );
@@ -1303,27 +2690,30 @@ export default function PaymentsPage() {
 
         const {
           error,
-        } = await supabase
-          .from(
-            "payroll_employees"
-          )
-          .insert({
-            organisation_id:
-              organisationId,
+        } =
+          await supabase
+            .from(
+              "payroll_employees"
+            )
+            .insert({
+              organisation_id:
+                organisationId,
 
-            name:
-              employeeForm.name.trim(),
+              name:
+                employeeForm.name.trim(),
 
-            role:
-              employeeForm.role.trim(),
+              role:
+                employeeForm.role.trim(),
 
-            salary_gross:
-              Number(
-                employeeForm.salary_gross
-              ),
-          });
+              salary_gross:
+                Number(
+                  employeeForm.salary_gross
+                ),
+            });
 
-        if (error) {
+        if (
+          error
+        ) {
           throw new Error(
             error.message
           );
@@ -1332,11 +2722,12 @@ export default function PaymentsPage() {
         await finance.refresh();
 
         notify(
-          "Employee added successfully.",
-          "success"
+          "Employee added successfully."
         );
 
-        setActiveModal(null);
+        setActiveModal(
+          null
+        );
 
         resetEmployeeForm();
       } catch (
@@ -1384,7 +2775,9 @@ export default function PaymentsPage() {
         return;
       }
 
-      setActiveModal(null);
+      setActiveModal(
+        null
+      );
 
       resetRecurringForm();
     };
@@ -1449,7 +2842,9 @@ export default function PaymentsPage() {
       );
 
       try {
-        if (!organisationId) {
+        if (
+          !organisationId
+        ) {
           throw new Error(
             "Organisation context is unavailable."
           );
@@ -1457,31 +2852,36 @@ export default function PaymentsPage() {
 
         const {
           error,
-        } = await supabase
-          .from("subscriptions")
-          .insert({
-            organisation_id:
-              organisationId,
+        } =
+          await supabase
+            .from(
+              "subscriptions"
+            )
+            .insert({
+              organisation_id:
+                organisationId,
 
-            client_name:
-              recurringForm.client_name.trim(),
+              client_name:
+                recurringForm.client_name.trim(),
 
-            amount:
-              Number(
-                recurringForm.amount
-              ),
+              amount:
+                Number(
+                  recurringForm.amount
+                ),
 
-            interval:
-              recurringForm.interval,
+              interval:
+                recurringForm.interval,
 
-            next_run:
-              recurringForm.next_run,
+              next_run:
+                recurringForm.next_run,
 
-            active:
-              true,
-          });
+              active:
+                true,
+            });
 
-        if (error) {
+        if (
+          error
+        ) {
           throw new Error(
             error.message
           );
@@ -1490,11 +2890,12 @@ export default function PaymentsPage() {
         await finance.refresh();
 
         notify(
-          "Recurring invoice scheduled successfully.",
-          "success"
+          "Recurring invoice scheduled successfully."
         );
 
-        setActiveModal(null);
+        setActiveModal(
+          null
+        );
 
         resetRecurringForm();
       } catch (
@@ -1527,7 +2928,8 @@ export default function PaymentsPage() {
     () => {
       setVatForm({
         amount: "",
-        description: "",
+        description:
+          "",
       });
     };
 
@@ -1539,7 +2941,9 @@ export default function PaymentsPage() {
         return;
       }
 
-      setActiveModal(null);
+      setActiveModal(
+        null
+      );
 
       resetVatForm();
     };
@@ -1577,10 +2981,14 @@ export default function PaymentsPage() {
         return;
       }
 
-      setVatSubmitting(true);
+      setVatSubmitting(
+        true
+      );
 
       try {
-        if (!organisationId) {
+        if (
+          !organisationId
+        ) {
           throw new Error(
             "Organisation context is unavailable."
           );
@@ -1588,33 +2996,38 @@ export default function PaymentsPage() {
 
         const {
           error,
-        } = await supabase
-          .from("vat_returns")
-          .insert({
-            organisation_id:
-              organisationId,
+        } =
+          await supabase
+            .from(
+              "vat_returns"
+            )
+            .insert({
+              organisation_id:
+                organisationId,
 
-            amount:
-              Number(
-                vatForm.amount
-              ),
-
-            description:
-              vatForm.description.trim(),
-
-            date:
-              new Date()
-                .toISOString()
-                .slice(
-                  0,
-                  10
+              amount:
+                Number(
+                  vatForm.amount
                 ),
 
-            status:
-              "draft",
-          });
+              description:
+                vatForm.description.trim(),
 
-        if (error) {
+              date:
+                new Date()
+                  .toISOString()
+                  .slice(
+                    0,
+                    10
+                  ),
+
+              status:
+                "draft",
+            });
+
+        if (
+          error
+        ) {
           throw new Error(
             error.message
           );
@@ -1623,11 +3036,12 @@ export default function PaymentsPage() {
         await finance.refresh();
 
         notify(
-          "VAT return saved successfully.",
-          "success"
+          "VAT return saved successfully."
         );
 
-        setActiveModal(null);
+        setActiveModal(
+          null
+        );
 
         resetVatForm();
       } catch (
@@ -1660,7 +3074,8 @@ export default function PaymentsPage() {
     () => {
       setTaxForm({
         amount: "",
-        description: "",
+        description:
+          "",
       });
     };
 
@@ -1672,7 +3087,9 @@ export default function PaymentsPage() {
         return;
       }
 
-      setActiveModal(null);
+      setActiveModal(
+        null
+      );
 
       resetTaxForm();
     };
@@ -1710,10 +3127,14 @@ export default function PaymentsPage() {
         return;
       }
 
-      setTaxSubmitting(true);
+      setTaxSubmitting(
+        true
+      );
 
       try {
-        if (!organisationId) {
+        if (
+          !organisationId
+        ) {
           throw new Error(
             "Organisation context is unavailable."
           );
@@ -1721,35 +3142,38 @@ export default function PaymentsPage() {
 
         const {
           error,
-        } = await supabase
-          .from(
-            "self_assessment"
-          )
-          .insert({
-            organisation_id:
-              organisationId,
+        } =
+          await supabase
+            .from(
+              "self_assessment"
+            )
+            .insert({
+              organisation_id:
+                organisationId,
 
-            amount:
-              Number(
-                taxForm.amount
-              ),
-
-            description:
-              taxForm.description.trim(),
-
-            date:
-              new Date()
-                .toISOString()
-                .slice(
-                  0,
-                  10
+              amount:
+                Number(
+                  taxForm.amount
                 ),
 
-            status:
-              "draft",
-          });
+              description:
+                taxForm.description.trim(),
 
-        if (error) {
+              date:
+                new Date()
+                  .toISOString()
+                  .slice(
+                    0,
+                    10
+                  ),
+
+              status:
+                "draft",
+            });
+
+        if (
+          error
+        ) {
           throw new Error(
             error.message
           );
@@ -1758,11 +3182,12 @@ export default function PaymentsPage() {
         await finance.refresh();
 
         notify(
-          "Tax record saved successfully.",
-          "success"
+          "Tax record saved successfully."
         );
 
-        setActiveModal(null);
+        setActiveModal(
+          null
+        );
 
         resetTaxForm();
       } catch (
@@ -1838,13 +3263,22 @@ export default function PaymentsPage() {
 
       <main className="mx-auto max-w-[1400px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
         <FinanceHeader
-          loading={loading}
-          onRefresh={finance.refresh}
-          onCreateInvoice={() => setActiveModal("invoiceQuote")}
-          onCreateQuote={() => {
-            setInvoiceQuoteDocType("Quote");
-            setActiveModal("invoiceQuote");
-          }}
+          loading={
+            loading
+          }
+          onRefresh={
+            finance.refresh
+          }
+          onCreateInvoice={() =>
+            openInvoiceQuoteModal(
+              "Invoice"
+            )
+          }
+          onCreateQuote={() =>
+            openInvoiceQuoteModal(
+              "Quote"
+            )
+          }
         />
 
         <FinanceNav
@@ -1862,16 +3296,36 @@ export default function PaymentsPage() {
           </div>
         ) : (
           <>
-            {(["tax", "payroll", "timesheets"] as FinanceTab[]).includes(activeTab) && (
+            {(
+              [
+                "tax",
+                "payroll",
+                "timesheets",
+              ] as FinanceTab[]
+            ).includes(
+              activeTab
+            ) && (
               <div className="rounded-[1.5rem] border border-dashed border-stone-200 bg-white/80 p-6 text-center shadow-sm">
                 <p className="text-[8px] font-black uppercase tracking-[0.28em] text-[#829473]">
                   Coming Soon
                 </p>
+
                 <h2 className="mt-2 font-serif text-3xl italic text-stone-900">
-                  {activeTab === "tax" ? "Tax & VAT" : activeTab === "payroll" ? "Payroll" : "Timesheets"}
+                  {activeTab ===
+                  "tax"
+                    ? "Tax & VAT"
+                    : activeTab ===
+                        "payroll"
+                      ? "Payroll"
+                      : "Timesheets"}
                 </h2>
+
                 <p className="mt-2 text-sm text-stone-500">
-                  This area is in active build and will open with the next finance release.
+                  This area is in
+                  active build and
+                  will open with the
+                  next finance
+                  release.
                 </p>
               </div>
             )}
@@ -1897,8 +3351,8 @@ export default function PaymentsPage() {
                   []
                 }
                 onCreateInvoice={() =>
-                  setActiveModal(
-                    "invoiceQuote"
+                  openInvoiceQuoteModal(
+                    "Invoice"
                   )
                 }
                 onLogExpense={() =>
@@ -1990,6 +3444,12 @@ export default function PaymentsPage() {
         projects={
           projects
         }
+        contacts={
+          contacts
+        }
+        staffMembers={
+          staffMembers
+        }
         formData={
           invoiceQuoteForm
         }
@@ -2005,20 +3465,60 @@ export default function PaymentsPage() {
         grandTotal={
           invoiceQuoteGrandTotal
         }
-        onDocTypeChange={
-          setInvoiceQuoteDocType
-        }
+        onDocTypeChange={(
+          type
+        ) => {
+          setInvoiceQuoteDocType(
+            type
+          );
+
+          setInvoiceQuoteForm(
+            (
+              previous
+            ) => ({
+              ...previous,
+
+              invoiceNumber:
+                generateDocumentNumber(
+                  type
+                ),
+
+              repeatInvoice:
+                type ===
+                "Invoice"
+                  ? previous.repeatInvoice
+                  : false,
+            })
+          );
+        }}
         onFormChange={
           setInvoiceQuoteForm
         }
         onLineItemsChange={
           setInvoiceQuoteLineItems
         }
+        onDuplicate={
+          duplicateInvoiceQuote
+        }
+        onPrint={
+          printInvoiceQuote
+        }
+        onSavePdf={
+          saveInvoiceQuotePdf
+        }
+        onSend={() =>
+          void handleInvoiceQuoteSubmit(
+            {
+              sendAfterCreate:
+                true,
+            }
+          )
+        }
         onClose={
           closeInvoiceQuoteModal
         }
-        onSubmit={
-          handleInvoiceQuoteSubmit
+        onSubmit={() =>
+          void handleInvoiceQuoteSubmit()
         }
       />
 
@@ -2139,9 +3639,12 @@ export default function PaymentsPage() {
           value
         ) =>
           setVatForm(
-            (previous) => ({
+            (
+              previous
+            ) => ({
               ...previous,
-              amount: value,
+              amount:
+                value,
             })
           )
         }
@@ -2149,7 +3652,9 @@ export default function PaymentsPage() {
           value
         ) =>
           setVatForm(
-            (previous) => ({
+            (
+              previous
+            ) => ({
               ...previous,
               description:
                 value,
@@ -2190,9 +3695,12 @@ export default function PaymentsPage() {
           value
         ) =>
           setTaxForm(
-            (previous) => ({
+            (
+              previous
+            ) => ({
               ...previous,
-              amount: value,
+              amount:
+                value,
             })
           )
         }
@@ -2200,7 +3708,9 @@ export default function PaymentsPage() {
           value
         ) =>
           setTaxForm(
-            (previous) => ({
+            (
+              previous
+            ) => ({
               ...previous,
               description:
                 value,

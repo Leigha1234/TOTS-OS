@@ -13,8 +13,34 @@ export const runtime =
   "nodejs";
 
 // ============================================================
+// UNTYPED ADMIN DATABASE CLIENT
+//
+// Your generated Supabase Database types are currently stale
+// for tables such as:
+//
+// - social_accounts
+// - user_organisations
+//
+// That causes Supabase's insert/update payload type to become
+// `never` during `next build`.
+//
+// Authentication remains strongly available on supabaseAdmin,
+// but database calls in this route use this alias until your
+// generated Supabase types are regenerated.
+// ============================================================
+
+const db =
+  supabaseAdmin as any;
+
+// ============================================================
 // TYPES
 // ============================================================
+
+type MetaOAuthState = {
+  userId?: string;
+  platform?: string;
+  createdAt?: number;
+};
 
 type OrganisationMembershipRow = {
   organisation_id:
@@ -176,6 +202,17 @@ type MetaInstagramResponse = {
       string;
   };
 
+  connected_instagram_account?: {
+    id?:
+      string;
+
+    username?:
+      string;
+
+    profile_picture_url?:
+      string;
+  };
+
   error?: {
     message?:
       string;
@@ -315,6 +352,146 @@ function getErrorMessage(
 }
 
 // ============================================================
+// META STATE
+//
+// IMPORTANT:
+// You currently have more than one Meta flow in the project.
+//
+// Some older versions put the raw user UUID in state.
+// Newer versions put encoded JSON in state.
+//
+// Support both so this callback does not break depending on
+// which start route currently redirects here.
+// ============================================================
+
+function parseMetaState(
+  state: string
+): MetaOAuthState | null {
+  const candidates =
+    new Set<string>();
+
+  candidates.add(
+    state
+  );
+
+  try {
+    candidates.add(
+      decodeURIComponent(
+        state
+      )
+    );
+  } catch {
+    // Ignore decode failure.
+  }
+
+  for (
+    const candidate of
+    candidates
+  ) {
+    try {
+      const parsed =
+        JSON.parse(
+          candidate
+        ) as MetaOAuthState;
+
+      if (
+        parsed &&
+        typeof parsed ===
+          "object"
+      ) {
+        return parsed;
+      }
+    } catch {
+      // Candidate was not JSON.
+    }
+  }
+
+  /*
+   * Backwards compatibility:
+   *
+   * Previous callback/start flow used the raw Supabase user UUID
+   * directly as state.
+   */
+
+  const possibleUserId =
+    cleanString(
+      state
+    );
+
+  if (
+    possibleUserId
+  ) {
+    return {
+      userId:
+        possibleUserId,
+
+      platform:
+        "meta",
+    };
+  }
+
+  return null;
+}
+
+// ============================================================
+// GRAPH VERSION
+// ============================================================
+
+function getMetaGraphVersion() {
+  const configured =
+    process.env
+      .META_GRAPH_API_VERSION
+      ?.trim();
+
+  if (
+    configured
+  ) {
+    return configured.startsWith(
+      "v"
+    )
+      ? configured
+      : `v${configured}`;
+  }
+
+  /*
+   * Keep this aligned with the Meta OAuth start/exchange routes.
+   */
+
+  return "v25.0";
+}
+
+// ============================================================
+// REDIRECT HELPERS
+// ============================================================
+
+function redirectSuccess(
+  appUrl: string
+) {
+  return NextResponse.redirect(
+    new URL(
+      "/settings?oauth=meta_success",
+      appUrl
+    )
+  );
+}
+
+// ============================================================
+
+function redirectFailure(
+  appUrl: string,
+  reason: string
+) {
+  return NextResponse.redirect(
+    new URL(
+      `/settings?oauth=meta_failed&reason=${encodeURIComponent(
+        reason
+      )}`,
+      appUrl
+    )
+  );
+}
+
+// ============================================================
 // GET
 // ============================================================
 
@@ -330,6 +507,9 @@ export async function GET(
     getAppUrl(
       req
     );
+
+  const graphVersion =
+    getMetaGraphVersion();
 
   // ==========================================================
   // QUERY PARAMS
@@ -350,6 +530,11 @@ export async function GET(
       "error"
     );
 
+  const metaErrorReason =
+    url.searchParams.get(
+      "error_reason"
+    );
+
   const metaErrorDescription =
     url.searchParams.get(
       "error_description"
@@ -368,6 +553,9 @@ export async function GET(
         error:
           metaError,
 
+        reason:
+          metaErrorReason,
+
         description:
           metaErrorDescription,
       }
@@ -375,15 +563,12 @@ export async function GET(
 
     const reason =
       metaErrorDescription ||
+      metaErrorReason ||
       metaError;
 
-    return NextResponse.redirect(
-      new URL(
-        `/settings?oauth=meta_failed&reason=${encodeURIComponent(
-          reason
-        )}`,
-        appUrl
-      )
+    return redirectFailure(
+      appUrl,
+      reason
     );
   }
 
@@ -410,28 +595,112 @@ export async function GET(
       }
     );
 
-    return NextResponse.redirect(
-      new URL(
-        "/settings?oauth=meta_failed&reason=Meta%20OAuth%20returned%20missing%20parameters",
-        appUrl
-      )
+    return redirectFailure(
+      appUrl,
+      "Meta OAuth returned missing parameters."
     );
   }
 
-  /*
-   * CURRENT IMPLEMENTATION:
-   *
-   * state contains the signed-in Supabase user UUID.
-   *
-   * This works with your current start route.
-   *
-   * A stronger production setup would replace this later with
-   * a cryptographically random/signed state token mapped to the
-   * user server-side.
-   */
+  // ==========================================================
+  // PARSE STATE
+  // ==========================================================
+
+  const parsedState =
+    parseMetaState(
+      state
+    );
 
   const userId =
-    state.trim();
+    cleanString(
+      parsedState?.userId
+    );
+
+  if (
+    !parsedState ||
+    !userId
+  ) {
+    console.error(
+      "[META OAUTH] Could not parse OAuth state:",
+      state
+    );
+
+    return redirectFailure(
+      appUrl,
+      "The Meta connection request could not be verified."
+    );
+  }
+
+  // ==========================================================
+  // PLATFORM CHECK
+  // ==========================================================
+
+  const statePlatform =
+    cleanString(
+      parsedState.platform
+    )
+      ?.toLowerCase() ||
+    "meta";
+
+  if (
+    ![
+      "meta",
+      "facebook",
+      "instagram",
+    ].includes(
+      statePlatform
+    )
+  ) {
+    console.error(
+      "[META OAUTH] Invalid platform in OAuth state:",
+      statePlatform
+    );
+
+    return redirectFailure(
+      appUrl,
+      "The Meta connection returned an invalid platform."
+    );
+  }
+
+  // ==========================================================
+  // OPTIONAL STATE EXPIRY
+  // ==========================================================
+
+  if (
+    typeof parsedState.createdAt ===
+      "number" &&
+    Number.isFinite(
+      parsedState.createdAt
+    )
+  ) {
+    const age =
+      Date.now() -
+      parsedState.createdAt;
+
+    const maxAge =
+      30 *
+      60 *
+      1000;
+
+    if (
+      age >
+      maxAge
+    ) {
+      return redirectFailure(
+        appUrl,
+        "The Meta connection request expired. Please connect again."
+      );
+    }
+
+    if (
+      age <
+      -60_000
+    ) {
+      return redirectFailure(
+        appUrl,
+        "The Meta connection request could not be verified."
+      );
+    }
+  }
 
   // ==========================================================
   // ENVIRONMENT
@@ -469,11 +738,9 @@ export async function GET(
       error
     );
 
-    return NextResponse.redirect(
-      new URL(
-        "/settings?oauth=meta_failed&reason=Meta%20OAuth%20is%20not%20configured%20correctly",
-        appUrl
-      )
+    return redirectFailure(
+      appUrl,
+      "Meta OAuth is not configured correctly."
     );
   }
 
@@ -525,7 +792,7 @@ export async function GET(
       error:
         membershipError,
     } =
-      await supabaseAdmin
+      await db
         .from(
           "user_organisations"
         )
@@ -548,19 +815,11 @@ export async function GET(
         membershipError
       );
     } else {
-      /*
-       * Supabase's generated database types can infer `never`
-       * here if user_organisations is not present in the
-       * generated Database type.
-       *
-       * Explicitly type the returned row shape.
-       */
-
       const membershipRows =
         (
           rawMembershipRows ??
           []
-        ) as unknown as
+        ) as
           OrganisationMembershipRow[];
 
       const membership =
@@ -575,12 +834,12 @@ export async function GET(
     }
 
     // ========================================================
-    // 3. EXCHANGE CODE FOR SHORT-LIVED USER ACCESS TOKEN
+    // 3. EXCHANGE CODE FOR SHORT-LIVED USER TOKEN
     // ========================================================
 
     const tokenUrl =
       new URL(
-        "https://graph.facebook.com/v23.0/oauth/access_token"
+        `https://graph.facebook.com/${graphVersion}/oauth/access_token`
       );
 
     tokenUrl.search =
@@ -649,7 +908,7 @@ export async function GET(
 
     const longTokenUrl =
       new URL(
-        "https://graph.facebook.com/v23.0/oauth/access_token"
+        `https://graph.facebook.com/${graphVersion}/oauth/access_token`
       );
 
     longTokenUrl.search =
@@ -723,6 +982,10 @@ export async function GET(
         tokenExpiresIn =
           parsedExpiresIn;
       }
+
+      console.log(
+        "[META OAUTH] Long-lived Meta token acquired."
+      );
     } else {
       console.warn(
         "[META OAUTH] Long-lived token exchange failed. Falling back to short-lived token:",
@@ -765,7 +1028,7 @@ export async function GET(
 
     const meUrl =
       new URL(
-        "https://graph.facebook.com/v23.0/me"
+        `https://graph.facebook.com/${graphVersion}/me`
       );
 
     meUrl.search =
@@ -843,7 +1106,7 @@ export async function GET(
 
     const pagesUrl =
       new URL(
-        "https://graph.facebook.com/v23.0/me/accounts"
+        `https://graph.facebook.com/${graphVersion}/me/accounts`
       );
 
     pagesUrl.search =
@@ -909,40 +1172,25 @@ export async function GET(
       `[META OAUTH] Facebook returned ${pages.length} Page(s).`
     );
 
+    if (
+      pages.length ===
+      0
+    ) {
+      throw new Error(
+        "Meta connected, but no Facebook Pages were returned. Make sure you manage a Facebook Page and granted TOTS-OS access to it."
+      );
+    }
+
     // ========================================================
-    // 8. SELECT PAGE
+    // 8. FIND BEST PAGE
+    //
+    // Prefer a Page with a linked Instagram professional
+    // account. If none has Instagram, use first valid Page.
     // ========================================================
 
-    const page:
+    let selectedPage:
       MetaPage | null =
-      pages[0] ??
       null;
-
-    const pageId =
-      cleanString(
-        page?.id
-      );
-
-    const pageName =
-      cleanString(
-        page?.name
-      );
-
-    const pageAccessToken =
-      cleanString(
-        page?.access_token
-      );
-
-    const pageAvatarUrl =
-      cleanString(
-        page?.picture
-          ?.data
-          ?.url
-      );
-
-    // ========================================================
-    // 9. GET LINKED INSTAGRAM BUSINESS ACCOUNT
-    // ========================================================
 
     let instagramBusinessAccountId:
       string | null =
@@ -956,93 +1204,297 @@ export async function GET(
       string | null =
       null;
 
-    if (
-      pageId &&
-      pageAccessToken
+    for (
+      const candidatePage of
+      pages
     ) {
-      const instagramUrl =
-        new URL(
-          `https://graph.facebook.com/v23.0/${pageId}`
+      const candidatePageId =
+        cleanString(
+          candidatePage.id
         );
 
-      instagramUrl.search =
-        new URLSearchParams({
-          fields:
-            "instagram_business_account{id,username,profile_picture_url}",
-
-          access_token:
-            pageAccessToken,
-        }).toString();
-
-      const igRes =
-        await fetch(
-          instagramUrl,
-          {
-            method:
-              "GET",
-
-            headers: {
-              Accept:
-                "application/json",
-            },
-
-            cache:
-              "no-store",
-          }
+      const candidatePageToken =
+        cleanString(
+          candidatePage.access_token
         );
-
-      const igData =
-        (
-          await igRes
-            .json()
-            .catch(
-              () =>
-                ({})
-            )
-        ) as MetaInstagramResponse;
 
       if (
-        igRes.ok
+        !candidatePageId ||
+        !candidatePageToken
       ) {
-        instagramBusinessAccountId =
-          cleanString(
-            igData
-              .instagram_business_account
-              ?.id
+        continue;
+      }
+
+      try {
+        const instagramUrl =
+          new URL(
+            `https://graph.facebook.com/${graphVersion}/${candidatePageId}`
           );
 
-        instagramUsername =
-          cleanString(
-            igData
-              .instagram_business_account
-              ?.username
+        instagramUrl.search =
+          new URLSearchParams({
+            fields:
+              [
+                "instagram_business_account{id,username,profile_picture_url}",
+                "connected_instagram_account{id,username,profile_picture_url}",
+              ].join(
+                ","
+              ),
+
+            access_token:
+              candidatePageToken,
+          }).toString();
+
+        const igRes =
+          await fetch(
+            instagramUrl,
+            {
+              method:
+                "GET",
+
+              headers: {
+                Accept:
+                  "application/json",
+              },
+
+              cache:
+                "no-store",
+            }
           );
 
-        instagramAvatarUrl =
-          cleanString(
+        const igData =
+          (
+            await igRes
+              .json()
+              .catch(
+                () =>
+                  ({})
+              )
+          ) as MetaInstagramResponse;
+
+        if (
+          !igRes.ok
+        ) {
+          console.warn(
+            `[META OAUTH] Instagram discovery failed for Page ${candidatePageId}:`,
             igData
-              .instagram_business_account
-              ?.profile_picture_url
           );
 
-        console.log(
-          "[META OAUTH] Instagram account lookup:",
-          {
-            instagramBusinessAccountId,
+          continue;
+        }
 
-            instagramUsername,
-          }
-        );
-      } else {
-        console.warn(
-          "[META OAUTH] Instagram business account lookup failed:",
+        const instagramAccount =
           igData
+            .instagram_business_account ||
+          igData
+            .connected_instagram_account ||
+          null;
+
+        if (
+          instagramAccount?.id
+        ) {
+          selectedPage =
+            candidatePage;
+
+          instagramBusinessAccountId =
+            cleanString(
+              instagramAccount.id
+            );
+
+          instagramUsername =
+            cleanString(
+              instagramAccount.username
+            );
+
+          instagramAvatarUrl =
+            cleanString(
+              instagramAccount
+                .profile_picture_url
+            );
+
+          break;
+        }
+      } catch (
+        error
+      ) {
+        console.warn(
+          `[META OAUTH] Instagram discovery error for Page ${candidatePageId}:`,
+          error
         );
       }
     }
 
     // ========================================================
-    // 10. CHOOSE DISPLAY DATA
+    // 9. FALL BACK TO FIRST VALID PAGE
+    // ========================================================
+
+    if (
+      !selectedPage
+    ) {
+      selectedPage =
+        pages.find(
+          (
+            candidatePage
+          ) =>
+            Boolean(
+              cleanString(
+                candidatePage.id
+              ) &&
+              cleanString(
+                candidatePage.access_token
+              )
+            )
+        ) ??
+        null;
+    }
+
+    const pageId =
+      cleanString(
+        selectedPage
+          ?.id
+      );
+
+    const pageName =
+      cleanString(
+        selectedPage
+          ?.name
+      );
+
+    const pageAccessToken =
+      cleanString(
+        selectedPage
+          ?.access_token
+      );
+
+    const pageAvatarUrl =
+      cleanString(
+        selectedPage
+          ?.picture
+          ?.data
+          ?.url
+      );
+
+    if (
+      !pageId ||
+      !pageAccessToken
+    ) {
+      throw new Error(
+        "A Facebook Page was returned, but Meta did not provide the Page credentials TOTS-OS needs."
+      );
+    }
+
+    // ========================================================
+    // 10. IF INSTAGRAM WASN'T FOUND ABOVE, CHECK SELECTED PAGE
+    // ========================================================
+
+    if (
+      !instagramBusinessAccountId
+    ) {
+      try {
+        const instagramUrl =
+          new URL(
+            `https://graph.facebook.com/${graphVersion}/${pageId}`
+          );
+
+        instagramUrl.search =
+          new URLSearchParams({
+            fields:
+              [
+                "instagram_business_account{id,username,profile_picture_url}",
+                "connected_instagram_account{id,username,profile_picture_url}",
+              ].join(
+                ","
+              ),
+
+            access_token:
+              pageAccessToken,
+          }).toString();
+
+        const igRes =
+          await fetch(
+            instagramUrl,
+            {
+              method:
+                "GET",
+
+              headers: {
+                Accept:
+                  "application/json",
+              },
+
+              cache:
+                "no-store",
+            }
+          );
+
+        const igData =
+          (
+            await igRes
+              .json()
+              .catch(
+                () =>
+                  ({})
+              )
+          ) as MetaInstagramResponse;
+
+        if (
+          igRes.ok
+        ) {
+          const instagramAccount =
+            igData
+              .instagram_business_account ||
+            igData
+              .connected_instagram_account ||
+            null;
+
+          instagramBusinessAccountId =
+            cleanString(
+              instagramAccount
+                ?.id
+            );
+
+          instagramUsername =
+            cleanString(
+              instagramAccount
+                ?.username
+            );
+
+          instagramAvatarUrl =
+            cleanString(
+              instagramAccount
+                ?.profile_picture_url
+            );
+        } else {
+          console.warn(
+            "[META OAUTH] Instagram business account lookup failed:",
+            igData
+          );
+        }
+      } catch (
+        error
+      ) {
+        console.warn(
+          "[META OAUTH] Instagram account lookup threw:",
+          error
+        );
+      }
+    }
+
+    console.log(
+      "[META OAUTH] Selected Meta assets:",
+      {
+        pageId,
+
+        pageName,
+
+        instagramBusinessAccountId,
+
+        instagramUsername,
+      }
+    );
+
+    // ========================================================
+    // 11. CHOOSE DISPLAY DATA
     // ========================================================
 
     const displayName =
@@ -1058,7 +1510,7 @@ export async function GET(
       null;
 
     // ========================================================
-    // 11. FIND EXISTING META ROW
+    // 12. FIND EXISTING META ROW
     // ========================================================
 
     const {
@@ -1068,7 +1520,7 @@ export async function GET(
       error:
         existingLookupError,
     } =
-      await supabaseAdmin
+      await db
         .from(
           "social_accounts"
         )
@@ -1115,7 +1567,7 @@ export async function GET(
       (
         rawExistingRows ??
         []
-      ) as unknown as
+      ) as
         ExistingSocialAccountRow[];
 
     const existingAccount =
@@ -1123,10 +1575,14 @@ export async function GET(
       null;
 
     // ========================================================
-    // 12. SOCIAL ACCOUNT PAYLOAD
+    // 13. SOCIAL ACCOUNT PAYLOAD
     // ========================================================
 
-    const socialAccountPayload = {
+    const socialAccountPayload:
+      Record<
+        string,
+        unknown
+      > = {
       user_id:
         userId,
 
@@ -1148,6 +1604,10 @@ export async function GET(
       access_token:
         accessToken,
 
+      /*
+       * Meta long-lived user tokens are not refreshed with the
+       * standard OAuth refresh_token flow.
+       */
       refresh_token:
         null,
 
@@ -1171,7 +1631,7 @@ export async function GET(
     };
 
     // ========================================================
-    // 13. UPDATE OR INSERT
+    // 14. UPDATE OR INSERT
     // ========================================================
 
     let savedConnectionId:
@@ -1187,7 +1647,7 @@ export async function GET(
         error:
           updateError,
       } =
-        await supabaseAdmin
+        await db
           .from(
             "social_accounts"
           )
@@ -1241,7 +1701,7 @@ export async function GET(
       }
 
       const updatedAccount =
-        rawUpdatedAccount as unknown as
+        rawUpdatedAccount as
           SavedSocialAccountRow;
 
       savedConnectionId =
@@ -1278,7 +1738,7 @@ export async function GET(
         error:
           insertError,
       } =
-        await supabaseAdmin
+        await db
           .from(
             "social_accounts"
           )
@@ -1324,7 +1784,7 @@ export async function GET(
       }
 
       const insertedAccount =
-        rawInsertedAccount as unknown as
+        rawInsertedAccount as
           SavedSocialAccountRow;
 
       savedConnectionId =
@@ -1356,7 +1816,7 @@ export async function GET(
     }
 
     // ========================================================
-    // 14. FINAL DATABASE VERIFICATION
+    // 15. FINAL DATABASE VERIFICATION
     // ========================================================
 
     const {
@@ -1366,7 +1826,7 @@ export async function GET(
       error:
         verificationError,
     } =
-      await supabaseAdmin
+      await db
         .from(
           "social_accounts"
         )
@@ -1424,7 +1884,7 @@ export async function GET(
     }
 
     const verifiedConnection =
-      rawVerifiedConnection as unknown as
+      rawVerifiedConnection as
         VerifiedSocialAccountRow;
 
     if (
@@ -1436,8 +1896,19 @@ export async function GET(
       );
     }
 
+    if (
+      !verifiedConnection
+        .page_id ||
+      !verifiedConnection
+        .page_access_token
+    ) {
+      console.warn(
+        "[META OAUTH] Meta login was saved but Page publishing credentials are incomplete."
+      );
+    }
+
     // ========================================================
-    // 15. SUCCESS LOG
+    // 16. SUCCESS LOG
     // ========================================================
 
     console.log(
@@ -1474,18 +1945,17 @@ export async function GET(
 
         expiresAt:
           verifiedConnection.expires_at,
+
+        graphVersion,
       }
     );
 
     // ========================================================
-    // 16. SUCCESS REDIRECT
+    // 17. SUCCESS REDIRECT
     // ========================================================
 
-    return NextResponse.redirect(
-      new URL(
-        "/settings?oauth=meta_success",
-        appUrl
-      )
+    return redirectSuccess(
+      appUrl
     );
   } catch (
     error: unknown
@@ -1504,17 +1974,9 @@ export async function GET(
             "Meta connection failed."
           );
 
-    // ========================================================
-    // ERROR REDIRECT
-    // ========================================================
-
-    return NextResponse.redirect(
-      new URL(
-        `/settings?oauth=meta_failed&reason=${encodeURIComponent(
-          message
-        )}`,
-        appUrl
-      )
+    return redirectFailure(
+      appUrl,
+      message
     );
   }
 }

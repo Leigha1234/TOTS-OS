@@ -17,20 +17,20 @@ import {
 
 import {
   ArrowRight,
-  BarChart3,
-  Brain,
   CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
   Clock,
   Eye,
+  Facebook,
   Film,
   Hash,
   Image as ImageIcon,
+  Instagram,
   Layers,
   Lightbulb,
-  Linkedin as LinkedinIcon,
+  Linkedin,
   Loader2,
   Music,
   Plus,
@@ -39,82 +39,58 @@ import {
   Sparkles,
   Trash2,
   Upload,
-  Video,
   Wand2,
   X,
 } from "lucide-react";
 
 import { toast } from "sonner";
 
-import Link from "next/link";
-
-// ==================================================
+// ============================================================
 // TYPES
-// ==================================================
+// ============================================================
 
 interface SocialPost {
   id: string;
-
   caption: string;
-
   platform: string;
-
   hashtags?: string | null;
-
   media_url?: string | null;
-
   scheduled_for: string;
-
   status: string;
-
   format: string;
-
   platform_post_id?: string | null;
-
   error?: string | null;
-
   last_error?: string | null;
-
   attempts?: number;
-
-  analytics?: any;
-
-  platform_response?: any;
+  analytics?: unknown;
+  platform_response?: unknown;
 }
 
 interface SocialAccount {
   id: string;
-
   platform: string;
-
   platform_user_id?: string | null;
-
+  page_id?: string | null;
+  page_name?: string | null;
+  page_access_token?: string | null;
   instagram_business_account_id?: string | null;
+  display_name?: string | null;
 }
 
 interface BusinessProfile {
   name: string;
-
   description: string;
-
   audience: string;
-
   services: string;
-
   tone: string;
-
   goals: string;
-
   rawContext: string;
 }
 
 interface ContentConcept {
   id: string;
-
   title: string;
-
   hook: string;
-
   whyItWorks: string;
 
   format:
@@ -124,35 +100,64 @@ interface ContentConcept {
     | "Carousel";
 
   platforms: string[];
-
   script: string;
-
   caption: string;
-
   hashtags: string;
-
   recommendedAudio: string;
 }
 
-// ==================================================
+type PlatformId =
+  | "facebook"
+  | "instagram"
+  | "tiktok"
+  | "linkedin";
+
+// ============================================================
 // POST STATUS
-// ==================================================
+// ============================================================
 
 const POST_STATUS = {
   DRAFT: "draft",
-
   SCHEDULED: "scheduled",
-
   PROCESSING: "processing",
-
   PUBLISHED: "published",
-
   FAILED: "failed",
 } as const;
 
-// ==================================================
+// ============================================================
+// PLATFORM OPTIONS
+// ============================================================
+
+const PLATFORM_OPTIONS: Array<{
+  id: PlatformId;
+  name: string;
+  description: string;
+}> = [
+  {
+    id: "facebook",
+    name: "Facebook",
+    description: "Page posts",
+  },
+  {
+    id: "instagram",
+    name: "Instagram",
+    description: "Posts & Reels",
+  },
+  {
+    id: "tiktok",
+    name: "TikTok",
+    description: "Video",
+  },
+  {
+    id: "linkedin",
+    name: "LinkedIn",
+    description: "Posts",
+  },
+];
+
+// ============================================================
 // HELPERS
-// ==================================================
+// ============================================================
 
 const isSameDay = (
   dateStr: string,
@@ -164,8 +169,9 @@ const isSameDay = (
     return false;
   }
 
-  const date =
-    new Date(dateStr);
+  const date = new Date(
+    dateStr
+  );
 
   if (
     Number.isNaN(
@@ -176,61 +182,66 @@ const isSameDay = (
   }
 
   return (
-    date.getDate() ===
-      day &&
-    date.getMonth() ===
-      month &&
-    date.getFullYear() ===
-      year
+    date.getDate() === day &&
+    date.getMonth() === month &&
+    date.getFullYear() === year
   );
 };
 
-const getStatusColor =
-  (status?: string) => {
-    switch (
-      status || ""
-    ) {
-      case "published":
-        return "bg-emerald-500";
+// ============================================================
 
-      case "scheduled":
-        return "bg-blue-400";
+const getStatusColor = (
+  status?: string
+) => {
+  switch (
+    status || ""
+  ) {
+    case "published":
+      return "bg-emerald-500";
 
-      case "processing":
-        return "bg-amber-400";
+    case "scheduled":
+      return "bg-blue-400";
 
-      case "failed":
-        return "bg-red-500";
+    case "processing":
+      return "bg-amber-400";
 
-      case "draft":
-        return "bg-stone-300";
+    case "failed":
+      return "bg-red-500";
 
-      default:
-        return "bg-stone-200";
-    }
-  };
+    case "draft":
+      return "bg-stone-300";
 
-const getStatusTextColor =
-  (status?: string) => {
-    switch (
-      status || ""
-    ) {
-      case "published":
-        return "text-emerald-600";
+    default:
+      return "bg-stone-200";
+  }
+};
 
-      case "scheduled":
-        return "text-blue-500";
+// ============================================================
 
-      case "processing":
-        return "text-amber-600";
+const getStatusTextColor = (
+  status?: string
+) => {
+  switch (
+    status || ""
+  ) {
+    case "published":
+      return "text-emerald-600";
 
-      case "failed":
-        return "text-red-500";
+    case "scheduled":
+      return "text-blue-500";
 
-      default:
-        return "text-stone-400";
-    }
-  };
+    case "processing":
+      return "text-amber-600";
+
+    case "failed":
+      return "text-red-500";
+
+    default:
+      return "text-stone-400";
+  }
+};
+
+// ============================================================
 
 const isVideoUrl = (
   url?: string | null
@@ -258,33 +269,19 @@ const isVideoUrl = (
   );
 };
 
-const normalisePlatform =
-  (value: string) => {
-    const lower =
-      value
-        .trim()
-        .toLowerCase();
+// ============================================================
 
-    if (
-      lower === "facebook"
-    ) {
-      return "meta";
-    }
-
-    return lower;
-  };
-
-const uniqueStrings = (
-  values: string[]
+const cleanPlatform = (
+  value?: string | null
 ) => {
-  return Array.from(
-    new Set(
-      values.filter(
-        Boolean
-      )
-    )
-  );
+  return String(
+    value || ""
+  )
+    .trim()
+    .toLowerCase();
 };
+
+// ============================================================
 
 const compactText = (
   values: unknown[]
@@ -317,14 +314,14 @@ const compactText = (
     .join("\n");
 };
 
-// ==================================================
+// ============================================================
 // PAGE
-// ==================================================
+// ============================================================
 
 export default function SocialStudioUnified() {
-  // ==================================================
+  // ==========================================================
   // VIEW
-  // ==================================================
+  // ==========================================================
 
   const [
     viewMode,
@@ -337,24 +334,29 @@ export default function SocialStudioUnified() {
     status,
     setStatus,
   ] =
-    useState("Ready");
+    useState(
+      "Ready"
+    );
 
   const [
     currentDate,
     setCurrentDate,
-  ] = useState(
-    new Date()
-  );
+  ] =
+    useState(
+      new Date()
+    );
 
-  // ==================================================
+  // ==========================================================
   // USER / BUSINESS
-  // ==================================================
+  // ==========================================================
 
   const [
     user,
     setUser,
   ] =
-    useState<any>(null);
+    useState<any>(
+      null
+    );
 
   const [
     businessProfile,
@@ -387,167 +389,205 @@ export default function SocialStudioUnified() {
     businessLoading,
     setBusinessLoading,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     businessLoaded,
     setBusinessLoaded,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
-  // ==================================================
+  // ==========================================================
   // IDEAS
-  // ==================================================
+  // ==========================================================
 
   const [
     generatedConcepts,
     setGeneratedConcepts,
-  ] = useState<
-    ContentConcept[]
-  >([]);
+  ] =
+    useState<
+      ContentConcept[]
+    >([]);
 
   const [
     generatingIdeas,
     setGeneratingIdeas,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     selectedConcept,
     setSelectedConcept,
   ] =
-    useState<ContentConcept | null>(
+    useState<
+      ContentConcept | null
+    >(
       null
     );
 
-  // ==================================================
+  // ==========================================================
   // COMPOSER
-  // ==================================================
+  // ==========================================================
 
   const [
     caption,
     setCaption,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     hashtags,
     setHashtags,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     platforms,
     setPlatforms,
-  ] = useState<
-    string[]
-  >([]);
+  ] =
+    useState<
+      PlatformId[]
+    >([]);
 
   const [
     format,
     setFormat,
   ] =
-    useState("Post");
+    useState(
+      "Post"
+    );
 
   const [
     scheduledTime,
     setScheduledTime,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     metaScript,
     setMetaScript,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     metaAudio,
     setMetaAudio,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
-  // ==================================================
+  // ==========================================================
   // MEDIA
-  // ==================================================
+  // ==========================================================
 
   const [
     mediaFile,
     setMediaFile,
   ] =
-    useState<File | null>(
+    useState<
+      File | null
+    >(
       null
     );
 
   const [
     mediaPreview,
     setMediaPreview,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
 
   const [
     isUploadingMedia,
     setIsUploadingMedia,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
-  // ==================================================
+  // ==========================================================
   // POSTING
-  // ==================================================
+  // ==========================================================
 
   const [
     isPosting,
     setIsPosting,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
-  // ==================================================
+  // ==========================================================
   // POSTS
-  // ==================================================
+  // ==========================================================
 
   const [
     posts,
     setPosts,
-  ] = useState<
-    SocialPost[]
-  >([]);
+  ] =
+    useState<
+      SocialPost[]
+    >([]);
 
   const [
     accounts,
     setAccounts,
-  ] = useState<
-    SocialAccount[]
-  >([]);
+  ] =
+    useState<
+      SocialAccount[]
+    >([]);
 
   const [
     previewPost,
     setPreviewPost,
   ] =
-    useState<SocialPost | null>(
+    useState<
+      SocialPost | null
+    >(
       null
     );
 
-  // ==================================================
+  // ==========================================================
   // DAY DRAWER
-  // ==================================================
+  // ==========================================================
 
   const [
     isDayViewOpen,
     setIsDayViewOpen,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     selectedDayPosts,
     setSelectedDayPosts,
-  ] = useState<
-    SocialPost[]
-  >([]);
+  ] =
+    useState<
+      SocialPost[]
+    >([]);
 
-  // ==================================================
+  // ==========================================================
   // SUPABASE
-  // ==================================================
+  // ==========================================================
 
   const supabase =
     useMemo(
@@ -577,53 +617,58 @@ export default function SocialStudioUnified() {
       []
     );
 
-  // ==================================================
+  // ==========================================================
   // AUTH
-  // ==================================================
+  // ==========================================================
 
-  useEffect(() => {
-    const initialise =
-      async () => {
-        const {
-          data,
-          error,
-        } =
-          await supabase.auth.getUser();
+  useEffect(
+    () => {
+      const initialise =
+        async () => {
+          const {
+            data,
+            error,
+          } =
+            await supabase.auth.getUser();
 
-        if (
-          error ||
-          !data.user
-        ) {
-          console.error(
-            "Social Studio auth error:",
-            error
+          if (
+            error ||
+            !data.user
+          ) {
+            console.error(
+              "Social Studio auth error:",
+              error
+            );
+
+            setStatus(
+              "Not authenticated"
+            );
+
+            return;
+          }
+
+          setUser(
+            data.user
           );
+        };
 
-          setStatus(
-            "Not authenticated"
-          );
+      void initialise();
+    },
+    [
+      supabase,
+    ]
+  );
 
-          return;
-        }
-
-        setUser(
-          data.user
-        );
-      };
-
-    void initialise();
-  }, [
-    supabase,
-  ]);
-
-  // ==================================================
+  // ==========================================================
   // LOAD BUSINESS KNOWLEDGE
-  // ==================================================
+  // ==========================================================
 
   const loadBusinessKnowledge =
     useCallback(
       async () => {
-        if (!user?.id) {
+        if (
+          !user?.id
+        ) {
           return;
         }
 
@@ -633,7 +678,9 @@ export default function SocialStudioUnified() {
 
         try {
           const {
-            data: profile,
+            data:
+              profile,
+
             error:
               profileError,
           } =
@@ -641,7 +688,9 @@ export default function SocialStudioUnified() {
               .from(
                 "profiles"
               )
-              .select("*")
+              .select(
+                "*"
+              )
               .eq(
                 "id",
                 user.id
@@ -663,8 +712,7 @@ export default function SocialStudioUnified() {
             null;
 
           let team:
-            | any
-            | null =
+            any =
             null;
 
           if (
@@ -673,6 +721,7 @@ export default function SocialStudioUnified() {
             const {
               data:
                 teamData,
+
               error:
                 teamError,
             } =
@@ -680,12 +729,16 @@ export default function SocialStudioUnified() {
                 .from(
                   "team"
                 )
-                .select("*")
+                .select(
+                  "*"
+                )
                 .eq(
                   "organisation_id",
                   organisationId
                 )
-                .limit(1)
+                .limit(
+                  1
+                )
                 .maybeSingle();
 
             if (
@@ -702,18 +755,11 @@ export default function SocialStudioUnified() {
               null;
           }
 
-          // --------------------------------------------------
-          // TOTS-OS / CLARITY CONTEXT
-          //
-          // This deliberately reads from "*" so it will use
-          // whichever Clarity/business fields already exist
-          // without requiring every account to have them.
-          // --------------------------------------------------
-
           const businessName =
             team
               ?.company_name ||
-            team?.name ||
+            team
+              ?.name ||
             profile
               ?.company_name ||
             profile
@@ -722,7 +768,8 @@ export default function SocialStudioUnified() {
               ?.company ||
             profile
               ?.full_name ||
-            profile?.name ||
+            profile
+              ?.name ||
             "Your business";
 
           const description =
@@ -739,7 +786,8 @@ export default function SocialStudioUnified() {
               profile
                 ?.business_context,
 
-              profile?.bio,
+              profile
+                ?.bio,
 
               team
                 ?.description,
@@ -810,7 +858,8 @@ export default function SocialStudioUnified() {
               profile
                 ?.clarity_goals,
 
-              team?.goals,
+              team
+                ?.goals,
             ]);
 
           let storedClarity =
@@ -820,7 +869,8 @@ export default function SocialStudioUnified() {
             storedClarity =
               window.localStorage.getItem(
                 "tots-clarity-business-context"
-              ) || "";
+              ) ||
+              "";
           } catch {
             storedClarity =
               "";
@@ -881,16 +931,6 @@ export default function SocialStudioUnified() {
             error
           );
 
-          setBusinessProfile(
-            (previous) => ({
-              ...previous,
-
-              name:
-                previous.name ||
-                "Your business",
-            })
-          );
-
           setBusinessLoaded(
             true
           );
@@ -906,25 +946,32 @@ export default function SocialStudioUnified() {
       ]
     );
 
-  useEffect(() => {
-    if (!user?.id) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (
+        !user?.id
+      ) {
+        return;
+      }
 
-    void loadBusinessKnowledge();
-  }, [
-    user?.id,
-    loadBusinessKnowledge,
-  ]);
+      void loadBusinessKnowledge();
+    },
+    [
+      user?.id,
+      loadBusinessKnowledge,
+    ]
+  );
 
-  // ==================================================
+  // ==========================================================
   // LOAD POSTS
-  // ==================================================
+  // ==========================================================
 
   const syncPosts =
     useCallback(
       async () => {
-        if (!user?.id) {
+        if (
+          !user?.id
+        ) {
           return;
         }
 
@@ -988,8 +1035,10 @@ export default function SocialStudioUnified() {
         }
 
         setPosts(
-          (data ||
-            []) as SocialPost[]
+          (
+            data ||
+            []
+          ) as SocialPost[]
         );
 
         setStatus(
@@ -1002,23 +1051,28 @@ export default function SocialStudioUnified() {
       ]
     );
 
-  useEffect(() => {
-    if (!user?.id) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (
+        !user?.id
+      ) {
+        return;
+      }
 
-    void syncPosts();
-  }, [
-    user?.id,
-    syncPosts,
-  ]);
+      void syncPosts();
+    },
+    [
+      user?.id,
+      syncPosts,
+    ]
+  );
 
-  // ==================================================
-  // CONNECTED ACCOUNTS
-  // ==================================================
+  // ==========================================================
+  // LOAD CONNECTED ACCOUNTS
+  // ==========================================================
 
-  useEffect(() => {
-    const loadAccounts =
+  const loadAccounts =
+    useCallback(
       async () => {
         if (
           !user?.id
@@ -1038,9 +1092,16 @@ export default function SocialStudioUnified() {
             .from(
               "social_accounts"
             )
-            .select(
-              "id,platform,platform_user_id,instagram_business_account_id"
-            )
+            .select(`
+              id,
+              platform,
+              platform_user_id,
+              page_id,
+              page_name,
+              page_access_token,
+              instagram_business_account_id,
+              display_name
+            `)
             .eq(
               "user_id",
               user.id
@@ -1054,6 +1115,10 @@ export default function SocialStudioUnified() {
             error
           );
 
+          toast.error(
+            `Could not load social connections: ${error.message}`
+          );
+
           return;
         }
 
@@ -1063,73 +1128,118 @@ export default function SocialStudioUnified() {
             []
           ) as SocialAccount[]
         );
-      };
+      },
+      [
+        supabase,
+        user?.id,
+      ]
+    );
 
-    void loadAccounts();
-  }, [
-    supabase,
-    user?.id,
-  ]);
+  useEffect(
+    () => {
+      void loadAccounts();
+    },
+    [
+      loadAccounts,
+    ]
+  );
 
-  // ==================================================
-  // REALTIME
-  // ==================================================
+  // ==========================================================
+  // REFRESH CONNECTIONS ON FOCUS
+  // ==========================================================
 
-  useEffect(() => {
-    if (!user?.id) {
-      return;
-    }
+  useEffect(
+    () => {
+      const handleFocus =
+        () => {
+          void loadAccounts();
+        };
 
-    const channel =
-      supabase
-        .channel(
-          `socials-page-${user.id}`
-        )
-        .on(
-          "postgres_changes",
-          {
-            event:
-              "*",
-
-            schema:
-              "public",
-
-            table:
-              "socials",
-
-            filter:
-              `user_id=eq.${user.id}`,
-          },
-          () => {
-            void syncPosts();
-          }
-        )
-        .subscribe();
-
-    return () => {
-      void supabase.removeChannel(
-        channel
+      window.addEventListener(
+        "focus",
+        handleFocus
       );
-    };
-  }, [
-    supabase,
-    user?.id,
-    syncPosts,
-  ]);
 
-  // ==================================================
+      return () => {
+        window.removeEventListener(
+          "focus",
+          handleFocus
+        );
+      };
+    },
+    [
+      loadAccounts,
+    ]
+  );
+
+  // ==========================================================
+  // REALTIME
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        !user?.id
+      ) {
+        return;
+      }
+
+      const channel =
+        supabase
+          .channel(
+            `socials-page-${user.id}`
+          )
+          .on(
+            "postgres_changes",
+            {
+              event:
+                "*",
+
+              schema:
+                "public",
+
+              table:
+                "socials",
+
+              filter:
+                `user_id=eq.${user.id}`,
+            },
+            () => {
+              void syncPosts();
+            }
+          )
+          .subscribe();
+
+      return () => {
+        void supabase.removeChannel(
+          channel
+        );
+      };
+    },
+    [
+      supabase,
+      user?.id,
+      syncPosts,
+    ]
+  );
+
+  // ==========================================================
   // MEDIA
-  // ==================================================
+  // ==========================================================
 
   const handleMediaUpload =
     (
-      event: ChangeEvent<HTMLInputElement>
+      event:
+        ChangeEvent<HTMLInputElement>
     ) => {
       const file =
-        event.target
+        event
+          .target
           .files?.[0];
 
-      if (!file) {
+      if (
+        !file
+      ) {
         return;
       }
 
@@ -1175,9 +1285,236 @@ export default function SocialStudioUnified() {
       );
     };
 
-  // ==================================================
-  // BUSINESS-SPECIFIC IDEA GENERATION
-  // ==================================================
+  // ==========================================================
+  // CONNECTION HELPERS
+  // ==========================================================
+
+  const metaAccount =
+    useMemo(
+      () => {
+        return accounts.find(
+          (
+            account
+          ) => {
+            const platform =
+              cleanPlatform(
+                account.platform
+              );
+
+            return (
+              platform ===
+                "meta" ||
+              platform ===
+                "facebook" ||
+              platform ===
+                "instagram"
+            );
+          }
+        );
+      },
+      [
+        accounts,
+      ]
+    );
+
+  const facebookConnected =
+    Boolean(
+      metaAccount
+        ?.page_id &&
+      metaAccount
+        ?.page_access_token
+    );
+
+  const instagramConnected =
+    Boolean(
+      metaAccount
+        ?.instagram_business_account_id &&
+      metaAccount
+        ?.page_access_token
+    );
+
+  const tiktokConnected =
+    accounts.some(
+      (
+        account
+      ) =>
+        cleanPlatform(
+          account.platform
+        ) ===
+        "tiktok"
+    );
+
+  const linkedinConnected =
+    accounts.some(
+      (
+        account
+      ) =>
+        cleanPlatform(
+          account.platform
+        ) ===
+        "linkedin"
+    );
+
+  const isConnected =
+    (
+      platform:
+        string
+    ) => {
+      switch (
+        platform
+      ) {
+        case "facebook":
+          return facebookConnected;
+
+        case "instagram":
+          return instagramConnected;
+
+        case "tiktok":
+          return tiktokConnected;
+
+        case "linkedin":
+          return linkedinConnected;
+
+        default:
+          return false;
+      }
+    };
+
+  const getPlatformConnectionText =
+    (
+      platform:
+        PlatformId
+    ) => {
+      if (
+        platform ===
+        "facebook" &&
+        facebookConnected
+      ) {
+        return (
+          metaAccount
+            ?.page_name ||
+          "Facebook Page connected"
+        );
+      }
+
+      if (
+        platform ===
+        "instagram" &&
+        instagramConnected
+      ) {
+        return "Instagram Business connected";
+      }
+
+      if (
+        platform ===
+        "tiktok" &&
+        tiktokConnected
+      ) {
+        return "TikTok connected";
+      }
+
+      if (
+        platform ===
+        "linkedin" &&
+        linkedinConnected
+      ) {
+        return "LinkedIn connected";
+      }
+
+      return "Not connected";
+    };
+
+  // ==========================================================
+  // TOGGLE PLATFORM
+  // ==========================================================
+
+  const togglePlatform =
+    (
+      platform:
+        PlatformId
+    ) => {
+      if (
+        !isConnected(
+          platform
+        )
+      ) {
+        const label =
+          PLATFORM_OPTIONS.find(
+            (
+              item
+            ) =>
+              item.id ===
+              platform
+          )?.name ||
+          platform;
+
+        toast.error(
+          `${label} is not connected yet`
+        );
+
+        return;
+      }
+
+      setPlatforms(
+        (
+          previous
+        ) =>
+          previous.includes(
+            platform
+          )
+            ? previous.filter(
+                (
+                  item
+                ) =>
+                  item !==
+                  platform
+              )
+            : [
+                ...previous,
+                platform,
+              ]
+      );
+    };
+
+  // ==========================================================
+  // VALIDATE CONNECTIONS
+  // ==========================================================
+
+  const validateConnections =
+    () => {
+      for (
+        const platform of
+        platforms
+      ) {
+        if (
+          !isConnected(
+            platform
+          )
+        ) {
+          const label =
+            PLATFORM_OPTIONS.find(
+              (
+                item
+              ) =>
+                item.id ===
+                platform
+            )?.name ||
+            platform;
+
+          toast.error(
+            `${label} is not connected`
+          );
+
+          return false;
+        }
+      }
+
+      return true;
+    };
+
+  // ==========================================================
+  // IDEA GENERATION
+  // ==========================================================
 
   const generateBusinessIdeas =
     async () => {
@@ -1213,11 +1550,15 @@ export default function SocialStudioUnified() {
             .description ||
           "what your business offers";
 
-        const concepts: ContentConcept[] =
+        const now =
+          Date.now();
+
+        const concepts:
+          ContentConcept[] =
           [
             {
               id:
-                `idea-${Date.now()}-1`,
+                `idea-${now}-1`,
 
               title:
                 "The problem nobody talks about",
@@ -1251,7 +1592,7 @@ export default function SocialStudioUnified() {
 
             {
               id:
-                `idea-${Date.now()}-2`,
+                `idea-${now}-2`,
 
               title:
                 "3 things your customer needs to know",
@@ -1267,6 +1608,7 @@ export default function SocialStudioUnified() {
 
               platforms: [
                 "instagram",
+                "facebook",
                 "linkedin",
               ],
 
@@ -1285,7 +1627,7 @@ export default function SocialStudioUnified() {
 
             {
               id:
-                `idea-${Date.now()}-3`,
+                `idea-${now}-3`,
 
               title:
                 "Behind the business",
@@ -1301,6 +1643,7 @@ export default function SocialStudioUnified() {
 
               platforms: [
                 "instagram",
+                "facebook",
                 "tiktok",
               ],
 
@@ -1319,7 +1662,7 @@ export default function SocialStudioUnified() {
 
             {
               id:
-                `idea-${Date.now()}-4`,
+                `idea-${now}-4`,
 
               title:
                 "Stop doing this",
@@ -1342,7 +1685,7 @@ export default function SocialStudioUnified() {
                 `HOOK:\n“If you are trying to improve this, stop doing this first.”\n\nBODY:\nChoose one common mistake relating to ${services}.\n\nExplain what people normally do.\n\nExplain why it creates more work or worse results.\n\nGive one practical alternative.\n\nCTA:\n“Save this so you remember it later.”`,
 
               caption:
-                `Sometimes doing more is not the answer. Sometimes you need to stop doing the thing creating the problem in the first place.`,
+                "Sometimes doing more is not the answer. Sometimes you need to stop doing the thing creating the problem in the first place.",
 
               hashtags:
                 "#businessadvice #tips #smallbusinessowner #learnontiktok #businessgrowth",
@@ -1353,7 +1696,7 @@ export default function SocialStudioUnified() {
 
             {
               id:
-                `idea-${Date.now()}-5`,
+                `idea-${now}-5`,
 
               title:
                 "The customer transformation",
@@ -1369,8 +1712,8 @@ export default function SocialStudioUnified() {
 
               platforms: [
                 "instagram",
+                "facebook",
                 "tiktok",
-                "meta",
               ],
 
               script:
@@ -1388,7 +1731,7 @@ export default function SocialStudioUnified() {
 
             {
               id:
-                `idea-${Date.now()}-6`,
+                `idea-${now}-6`,
 
               title:
                 "Unpopular opinion",
@@ -1405,13 +1748,14 @@ export default function SocialStudioUnified() {
               platforms: [
                 "linkedin",
                 "instagram",
+                "facebook",
               ],
 
               script:
                 `MAIN STATEMENT:\n“Unpopular opinion: the answer is not always more.”\n\nBODY:\nExplain why simpler systems, better decisions or clearer processes matter more than adding another tool, feature or task.\n\nConnect the lesson back to the philosophy behind ${name}.`,
 
               caption:
-                `Unpopular opinion: more does not automatically mean better.\n\nMore tools. More tabs. More complexity. More things to keep track of.\n\nSometimes the smartest move is simplifying the system you already have.`,
+                "Unpopular opinion: more does not automatically mean better.\n\nMore tools. More tabs. More complexity. More things to keep track of.\n\nSometimes the smartest move is simplifying the system you already have.",
 
               hashtags:
                 "#businessstrategy #businessowner #systems #productivity #smallbusiness",
@@ -1432,6 +1776,17 @@ export default function SocialStudioUnified() {
         toast.success(
           `Ideas created for ${name}`
         );
+      } catch (
+        error
+      ) {
+        console.error(
+          "Idea generation error:",
+          error
+        );
+
+        toast.error(
+          "Could not generate ideas."
+        );
       } finally {
         setGeneratingIdeas(
           false
@@ -1443,13 +1798,14 @@ export default function SocialStudioUnified() {
       }
     };
 
-  // ==================================================
-  // TURN IDEA INTO POST
-  // ==================================================
+  // ==========================================================
+  // CREATE FROM IDEA
+  // ==========================================================
 
   const createFromIdea =
     (
-      concept: ContentConcept
+      concept:
+        ContentConcept
     ) => {
       setSelectedConcept(
         concept
@@ -1477,22 +1833,24 @@ export default function SocialStudioUnified() {
 
       const connected =
         concept.platforms.filter(
-          (platform) =>
-            accounts.some(
-              (account) =>
-                normalisePlatform(
-                  account.platform
-                ) ===
-                normalisePlatform(
-                  platform
-                )
+          (
+            platform
+          ): platform is PlatformId =>
+            [
+              "facebook",
+              "instagram",
+              "tiktok",
+              "linkedin",
+            ].includes(
+              platform
+            ) &&
+            isConnected(
+              platform
             )
         );
 
       setPlatforms(
-        connected.length
-          ? connected
-          : concept.platforms
+        connected
       );
 
       setViewMode(
@@ -1504,91 +1862,20 @@ export default function SocialStudioUnified() {
       );
     };
 
-  // ==================================================
-  // CONNECTED PLATFORM HELPERS
-  // ==================================================
-
-  const isConnected =
-    (
-      platform: string
-    ) => {
-      return accounts.some(
-        (account) =>
-          normalisePlatform(
-            account.platform
-          ) ===
-          normalisePlatform(
-            platform
-          )
-      );
-    };
-
-  const togglePlatform =
-    (
-      platform: string
-    ) => {
-      if (
-        !isConnected(
-          platform
-        )
-      ) {
-        toast.error(
-          `${platform} is not connected yet`
-        );
-
-        return;
-      }
-
-      setPlatforms(
-        (previous) =>
-          previous.includes(
-            platform
-          )
-            ? previous.filter(
-                (item) =>
-                  item !==
-                  platform
-              )
-            : [
-                ...previous,
-                platform,
-              ]
-      );
-    };
-
-  const validateConnections =
-    () => {
-      for (
-        const platform of
-        platforms
-      ) {
-        if (
-          !isConnected(
-            platform
-          )
-        ) {
-          toast.error(
-            `${platform} is not connected`
-          );
-
-          return false;
-        }
-      }
-
-      return true;
-    };
-
-  // ==================================================
+  // ==========================================================
   // CREATE POST
-  // ==================================================
+  // ==========================================================
 
   const createPost =
     async ({
       instant,
     }: {
-      instant: boolean;
+      instant:
+        boolean;
     }) => {
-      if (!user?.id) {
+      if (
+        !user?.id
+      ) {
         toast.error(
           "You must be signed in."
         );
@@ -1633,6 +1920,10 @@ export default function SocialStudioUnified() {
           "instagram"
         );
 
+      // ========================================================
+      // TIKTOK VALIDATION
+      // ========================================================
+
       if (
         hasTikTok &&
         !mediaFile
@@ -1658,6 +1949,10 @@ export default function SocialStudioUnified() {
         return false;
       }
 
+      // ========================================================
+      // INSTAGRAM VALIDATION
+      // ========================================================
+
       if (
         hasInstagram &&
         !mediaFile
@@ -1668,6 +1963,10 @@ export default function SocialStudioUnified() {
 
         return false;
       }
+
+      // ========================================================
+      // SCHEDULE VALIDATION
+      // ========================================================
 
       if (
         !instant &&
@@ -1692,13 +1991,12 @@ export default function SocialStudioUnified() {
 
       try {
         let finalMediaUrl:
-          | string
-          | null =
+          string | null =
           null;
 
-        // ==================================================
+        // ======================================================
         // UPLOAD MEDIA
-        // ==================================================
+        // ======================================================
 
         if (
           mediaFile
@@ -1779,9 +2077,9 @@ export default function SocialStudioUnified() {
           }
         }
 
-        // ==================================================
+        // ======================================================
         // DATE
-        // ==================================================
+        // ======================================================
 
         const publishDate =
           instant
@@ -1800,21 +2098,27 @@ export default function SocialStudioUnified() {
           );
         }
 
-        // ==================================================
-        // INSERT
-        // ==================================================
+        // ======================================================
+        // CREATE ONE ROW PER DESTINATION
+        //
+        // IMPORTANT:
+        //
+        // Facebook and Instagram are deliberately stored
+        // separately here.
+        // ======================================================
 
         const rows =
           platforms.map(
-            (platform) => ({
+            (
+              platform
+            ) => ({
               user_id:
                 user.id,
 
               caption:
                 caption.trim(),
 
-              platform:
-                platform.toLowerCase(),
+              platform,
 
               hashtags:
                 hashtags.trim() ||
@@ -1864,6 +2168,7 @@ export default function SocialStudioUnified() {
         const {
           data:
             insertedPosts,
+
           error:
             insertError,
         } =
@@ -1893,9 +2198,9 @@ export default function SocialStudioUnified() {
           );
         }
 
-        // ==================================================
+        // ======================================================
         // PUBLISH NOW
-        // ==================================================
+        // ======================================================
 
         if (
           instant
@@ -1935,8 +2240,27 @@ export default function SocialStudioUnified() {
             );
           }
 
+          const labels =
+            platforms
+              .map(
+                (
+                  platform
+                ) =>
+                  PLATFORM_OPTIONS.find(
+                    (
+                      option
+                    ) =>
+                      option.id ===
+                      platform
+                  )?.name ||
+                  platform
+              )
+              .join(
+                " & "
+              );
+
           toast.success(
-            "Post sent for publishing"
+            `Post sent to ${labels}`
           );
         } else {
           toast.success(
@@ -1944,9 +2268,9 @@ export default function SocialStudioUnified() {
           );
         }
 
-        // ==================================================
+        // ======================================================
         // RESET
-        // ==================================================
+        // ======================================================
 
         setCaption(
           ""
@@ -1972,13 +2296,13 @@ export default function SocialStudioUnified() {
           null
         );
 
+        setPlatforms(
+          []
+        );
+
         clearMedia();
 
         await syncPosts();
-
-        setStatus(
-          "Ready"
-        );
 
         return true;
       } catch (
@@ -1991,7 +2315,7 @@ export default function SocialStudioUnified() {
 
         toast.error(
           error instanceof
-          Error
+            Error
             ? error.message
             : "Something went wrong"
         );
@@ -2012,13 +2336,14 @@ export default function SocialStudioUnified() {
       }
     };
 
-  // ==================================================
+  // ==========================================================
   // APPROVE POST
-  // ==================================================
+  // ==========================================================
 
   const approvePost =
     async (
-      postId: string
+      postId:
+        string
     ) => {
       try {
         const {
@@ -2070,7 +2395,8 @@ export default function SocialStudioUnified() {
           await response
             .json()
             .catch(
-              () => null
+              () =>
+                null
             );
 
         if (
@@ -2101,20 +2427,21 @@ export default function SocialStudioUnified() {
 
         toast.error(
           error instanceof
-          Error
+            Error
             ? error.message
             : "Approval failed"
         );
       }
     };
 
-  // ==================================================
+  // ==========================================================
   // DELETE POST
-  // ==================================================
+  // ==========================================================
 
   const deletePost =
     async (
-      postId: string
+      postId:
+        string
     ) => {
       if (
         !window.confirm(
@@ -2148,9 +2475,13 @@ export default function SocialStudioUnified() {
       }
 
       setSelectedDayPosts(
-        (previous) =>
+        (
+          previous
+        ) =>
           previous.filter(
-            (post) =>
+            (
+              post
+            ) =>
               post.id !==
               postId
           )
@@ -2163,9 +2494,9 @@ export default function SocialStudioUnified() {
       await syncPosts();
     };
 
-  // ==================================================
+  // ==========================================================
   // CALENDAR
-  // ==================================================
+  // ==========================================================
 
   const calendarDays =
     useMemo(
@@ -2224,10 +2555,12 @@ export default function SocialStudioUnified() {
 
   const handleDateClick =
     (
-      day: number
+      day:
+        number
     ) => {
       if (
-        day === 0
+        day ===
+        0
       ) {
         return;
       }
@@ -2241,7 +2574,9 @@ export default function SocialStudioUnified() {
 
       const dayPosts =
         posts.filter(
-          (post) =>
+          (
+            post
+          ) =>
             post.scheduled_for &&
             isSameDay(
               post.scheduled_for,
@@ -2305,75 +2640,24 @@ export default function SocialStudioUnified() {
       );
     };
 
-  // ==================================================
-  // PLATFORM DETAILS
-  // ==================================================
-
-  const platformOptions =
-    [
-      {
-        id:
-          "instagram",
-
-        name:
-          "Instagram",
-
-        description:
-          "Posts & Reels",
-      },
-
-      {
-        id:
-          "tiktok",
-
-        name:
-          "TikTok",
-
-        description:
-          "Video",
-      },
-
-      {
-        id:
-          "meta",
-
-        name:
-          "Facebook",
-
-        description:
-          "Posts",
-      },
-
-      {
-        id:
-          "linkedin",
-
-        name:
-          "LinkedIn",
-
-        description:
-          "Posts",
-      },
-    ];
-
-  // ==================================================
+  // ==========================================================
   // RENDER
-  // ==================================================
+  // ==========================================================
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900">
-
-      {/* ==================================================
+      {/* ======================================================
           HEADER
-      ================================================== */}
+      ====================================================== */}
 
       <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-[#faf9f6]/95 px-4 py-4 backdrop-blur-xl md:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
           <div className="flex items-center gap-4">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897]">
               <Layers
-                size={18}
+                size={
+                  18
+                }
               />
             </div>
 
@@ -2389,7 +2673,6 @@ export default function SocialStudioUnified() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-stone-200 bg-white p-1.5">
-
             <button
               type="button"
               onClick={() =>
@@ -2422,7 +2705,9 @@ export default function SocialStudioUnified() {
               }`}
             >
               <Sparkles
-                size={12}
+                size={
+                  12
+                }
               />
 
               Ideas
@@ -2458,35 +2743,38 @@ export default function SocialStudioUnified() {
                   }`}
                 />
 
-                {status}
+                {
+                  status
+                }
               </span>
             </div>
 
             <button
-              onClick={() =>
-                void syncPosts()
-              }
+              type="button"
+              onClick={() => {
+                void syncPosts();
+                void loadAccounts();
+              }}
               className="rounded-xl border border-stone-200 bg-white p-3 text-stone-400 hover:text-stone-900"
             >
               <RefreshCcw
-                size={15}
+                size={
+                  15
+                }
               />
             </button>
-
           </div>
         </div>
       </header>
 
-      {/* ==================================================
+      {/* ======================================================
           MAIN
-      ================================================== */}
+      ====================================================== */}
 
       <main className="mx-auto max-w-7xl p-4 md:p-8 lg:p-10">
-
         <AnimatePresence
           mode="wait"
         >
-
           {/* ==================================================
               CREATE
           ================================================== */}
@@ -2496,21 +2784,25 @@ export default function SocialStudioUnified() {
             <motion.div
               key="create"
               initial={{
-                opacity: 0,
-                y: 10,
+                opacity:
+                  0,
+
+                y:
+                  10,
               }}
               animate={{
-                opacity: 1,
-                y: 0,
+                opacity:
+                  1,
+
+                y:
+                  0,
               }}
               exit={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               className="space-y-6"
             >
-
-              {/* HERO */}
-
               <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="mb-2 text-[9px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
@@ -2523,17 +2815,17 @@ export default function SocialStudioUnified() {
                   </h2>
 
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-stone-500">
-                    Write something
-                    yourself or let
-                    TOTS-OS create the
-                    starting point from
-                    what Clarity already
-                    knows about your
-                    business.
+                    Create once and
+                    choose exactly where
+                    it goes. Facebook
+                    and Instagram are
+                    completely separate
+                    options.
                   </p>
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setViewMode(
                       "ideas"
@@ -2548,7 +2840,9 @@ export default function SocialStudioUnified() {
                   className="flex items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-4 text-[10px] font-black uppercase tracking-wider text-stone-900"
                 >
                   <Wand2
-                    size={15}
+                    size={
+                      15
+                    }
                   />
 
                   Give Me Ideas
@@ -2556,13 +2850,11 @@ export default function SocialStudioUnified() {
               </div>
 
               <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-
-                {/* ==================================================
-                    MAIN COMPOSER
-                ================================================== */}
+                {/* ==============================================
+                    COMPOSER
+                ============================================== */}
 
                 <section className="space-y-5 rounded-[2.5rem] border border-stone-200 bg-white p-6 shadow-sm md:p-8">
-
                   {selectedConcept && (
                     <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-5">
                       <div className="flex items-start justify-between gap-4">
@@ -2580,6 +2872,7 @@ export default function SocialStudioUnified() {
                         </div>
 
                         <button
+                          type="button"
                           onClick={() =>
                             setSelectedConcept(
                               null
@@ -2588,7 +2881,9 @@ export default function SocialStudioUnified() {
                           className="text-stone-400"
                         >
                           <X
-                            size={15}
+                            size={
+                              15
+                            }
                           />
                         </button>
                       </div>
@@ -2600,7 +2895,9 @@ export default function SocialStudioUnified() {
                   <div>
                     <label className="mb-3 flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-400">
                       <ImageIcon
-                        size={12}
+                        size={
+                          12
+                        }
                       />
 
                       Photo or Video
@@ -2634,13 +2931,16 @@ export default function SocialStudioUnified() {
                           )}
 
                           <button
+                            type="button"
                             onClick={
                               clearMedia
                             }
                             className="absolute right-4 top-4 rounded-full bg-stone-900 p-3 text-white shadow-xl"
                           >
                             <X
-                              size={14}
+                              size={
+                                14
+                              }
                             />
                           </button>
                         </>
@@ -2648,7 +2948,9 @@ export default function SocialStudioUnified() {
                         <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center p-12 text-center">
                           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
                             <Upload
-                              size={20}
+                              size={
+                                20
+                              }
                               className="text-[#8fa07d]"
                             />
                           </div>
@@ -2714,7 +3016,9 @@ export default function SocialStudioUnified() {
                   <div>
                     <label className="mb-3 flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-400">
                       <Hash
-                        size={12}
+                        size={
+                          12
+                        }
                       />
 
                       Hashtags
@@ -2744,7 +3048,9 @@ export default function SocialStudioUnified() {
                     <div className="rounded-[2rem] border border-stone-200 bg-stone-50 p-5">
                       <div className="mb-4 flex items-center gap-2">
                         <Film
-                          size={14}
+                          size={
+                            14
+                          }
                           className="text-[#8fa07d]"
                         />
 
@@ -2765,7 +3071,9 @@ export default function SocialStudioUnified() {
                   {metaAudio && (
                     <div className="flex items-start gap-3 rounded-2xl border border-stone-100 bg-amber-50 p-4">
                       <Music
-                        size={15}
+                        size={
+                          15
+                        }
                         className="mt-0.5 shrink-0 text-amber-500"
                       />
 
@@ -2784,13 +3092,14 @@ export default function SocialStudioUnified() {
                   )}
                 </section>
 
-                {/* ==================================================
+                {/* ==============================================
                     SIDEBAR
-                ================================================== */}
+                ============================================== */}
 
                 <aside className="space-y-5">
-
-                  {/* PLATFORMS */}
+                  {/* ============================================
+                      PLATFORM SELECTOR
+                  ============================================ */}
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
                     <p className="mb-1 text-sm font-black">
@@ -2798,25 +3107,15 @@ export default function SocialStudioUnified() {
                       go?
                     </p>
 
-                    <p className="mb-5 text-[10px] text-stone-400">
-                      Social account
-                      connections are
-                      temporarily
-                      unavailable.
+                    <p className="mb-5 text-[10px] leading-5 text-stone-400">
+                      Pick one or more.
+                      Facebook and
+                      Instagram publish
+                      independently.
                     </p>
 
-                    <div className="mb-4 rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-4 text-center">
-                      <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#829473]">
-                        Coming Soon
-                      </p>
-
-                      <p className="mt-1 text-[10px] leading-5 text-stone-500">
-                        Social connection links are being finalised and will return in an upcoming release.
-                      </p>
-                    </div>
-
                     <div className="space-y-2">
-                      {platformOptions.map(
+                      {PLATFORM_OPTIONS.map(
                         (
                           platform
                         ) => {
@@ -2844,41 +3143,133 @@ export default function SocialStudioUnified() {
                               className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition ${
                                 selected
                                   ? "border-[#a9b897] bg-[#a9b897]/10"
-                                  : "border-stone-100 bg-stone-50"
+                                  : "border-stone-100 bg-stone-50 hover:border-stone-200"
                               } ${
                                 !connected
-                                  ? "opacity-50"
+                                  ? "opacity-55"
                                   : ""
                               }`}
                             >
-                              <div>
-                                <p className="text-xs font-black">
-                                  {
-                                    platform.name
-                                  }
-                                </p>
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div
+                                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                                    selected
+                                      ? "bg-[#a9b897] text-white"
+                                      : "bg-white text-stone-500"
+                                  }`}
+                                >
+                                  {platform.id ===
+                                    "facebook" && (
+                                    <Facebook
+                                      size={
+                                        17
+                                      }
+                                    />
+                                  )}
 
-                                <p className="mt-1 text-[9px] text-stone-400">
-                                  {connected
-                                    ? platform.description
-                                    : "Not connected"}
-                                </p>
+                                  {platform.id ===
+                                    "instagram" && (
+                                    <Instagram
+                                      size={
+                                        17
+                                      }
+                                    />
+                                  )}
+
+                                  {platform.id ===
+                                    "linkedin" && (
+                                    <Linkedin
+                                      size={
+                                        17
+                                      }
+                                    />
+                                  )}
+
+                                  {platform.id ===
+                                    "tiktok" && (
+                                    <Music
+                                      size={
+                                        17
+                                      }
+                                    />
+                                  )}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black">
+                                    {
+                                      platform.name
+                                    }
+                                  </p>
+
+                                  <p
+                                    className={`mt-1 truncate text-[9px] ${
+                                      connected
+                                        ? "text-[#71805f]"
+                                        : "text-stone-400"
+                                    }`}
+                                  >
+                                    {connected
+                                      ? getPlatformConnectionText(
+                                          platform.id
+                                        )
+                                      : "Not connected"}
+                                  </p>
+                                </div>
                               </div>
 
                               {selected ? (
-                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#a9b897] text-white">
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#a9b897] text-white">
                                   <Check
-                                    size={12}
+                                    size={
+                                      12
+                                    }
                                   />
                                 </div>
                               ) : (
-                                <div className="h-6 w-6 rounded-full border border-stone-200 bg-white" />
+                                <div className="h-6 w-6 shrink-0 rounded-full border border-stone-200 bg-white" />
                               )}
                             </button>
                           );
                         }
                       )}
                     </div>
+
+                    {/* SELECTED SUMMARY */}
+
+                    {platforms.length >
+                      0 && (
+                      <div className="mt-4 rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4">
+                        <p className="text-[8px] font-black uppercase tracking-[0.18em] text-[#71805f]">
+                          Publishing to
+                        </p>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {platforms.map(
+                            (
+                              platform
+                            ) => (
+                              <span
+                                key={
+                                  platform
+                                }
+                                className="rounded-full bg-white px-3 py-1.5 text-[8px] font-black uppercase tracking-wider text-stone-600 shadow-sm"
+                              >
+                                {
+                                  PLATFORM_OPTIONS.find(
+                                    (
+                                      item
+                                    ) =>
+                                      item.id ===
+                                      platform
+                                  )?.name
+                                }
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* FORMAT */}
@@ -2927,7 +3318,9 @@ export default function SocialStudioUnified() {
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100">
                         <Clock
-                          size={14}
+                          size={
+                            14
+                          }
                         />
                       </div>
 
@@ -2964,6 +3357,7 @@ export default function SocialStudioUnified() {
                   {/* POST NOW */}
 
                   <button
+                    type="button"
                     disabled={
                       isPosting ||
                       isUploadingMedia
@@ -2978,12 +3372,16 @@ export default function SocialStudioUnified() {
                   >
                     {isPosting ? (
                       <Loader2
-                        size={15}
+                        size={
+                          15
+                        }
                         className="animate-spin"
                       />
                     ) : (
                       <Send
-                        size={15}
+                        size={
+                          15
+                        }
                       />
                     )}
 
@@ -2993,6 +3391,7 @@ export default function SocialStudioUnified() {
                   {/* SCHEDULE */}
 
                   <button
+                    type="button"
                     disabled={
                       isPosting ||
                       isUploadingMedia
@@ -3007,12 +3406,16 @@ export default function SocialStudioUnified() {
                   >
                     {isPosting ? (
                       <Loader2
-                        size={15}
+                        size={
+                          15
+                        }
                         className="animate-spin"
                       />
                     ) : (
                       <CalendarDays
-                        size={15}
+                        size={
+                          15
+                        }
                       />
                     )}
 
@@ -3032,47 +3435,107 @@ export default function SocialStudioUnified() {
             <motion.div
               key="ideas"
               initial={{
-                opacity: 0,
-                y: 10,
+                opacity:
+                  0,
+
+                y:
+                  10,
               }}
               animate={{
-                opacity: 1,
-                y: 0,
+                opacity:
+                  1,
+
+                y:
+                  0,
               }}
               exit={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               className="space-y-8"
             >
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="mb-2 text-[9px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
+                    Content Ideas
+                  </p>
 
-              {/* HERO */}
+                  <h2 className="font-serif text-5xl italic md:text-7xl">
+                    What should we
+                    post?
+                  </h2>
 
+                  <p className="mt-4 max-w-xl text-sm leading-7 text-stone-500">
+                    TOTS-OS uses what it
+                    already knows about
+                    your business to give
+                    you practical content
+                    starting points.
+                  </p>
+                </div>
 
-                  <button
-                    disabled={generatingIdeas}
-                    onClick={() => void generateBusinessIdeas()}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-[#a9b897] px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-stone-900 transition hover:bg-[#b8caa4] disabled:opacity-50"
-                  >
-                    {generatingIdeas ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={14} />
-                    )}
-
-                    {generatedConcepts.length ? "More ideas" : "Generate ideas"}
-                  </button>
-           
-
-             
-              {/* IDEA EMPTY STATE */}
-
-              {generatedConcepts.length === 0 && (
                 <button
-                  onClick={() => void generateBusinessIdeas()}
+                  type="button"
+                  disabled={
+                    generatingIdeas
+                  }
+                  onClick={() =>
+                    void generateBusinessIdeas()
+                  }
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#a9b897] px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-stone-900 transition hover:bg-[#b8caa4] disabled:opacity-50"
+                >
+                  {generatingIdeas ? (
+                    <Loader2
+                      size={
+                        14
+                      }
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Sparkles
+                      size={
+                        14
+                      }
+                    />
+                  )}
+
+                  {generatedConcepts.length
+                    ? "More ideas"
+                    : "Generate ideas"}
+                </button>
+              </div>
+
+              {businessLoading && (
+                <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-4 text-xs text-stone-400">
+                  <Loader2
+                    size={
+                      14
+                    }
+                    className="animate-spin"
+                  />
+
+                  Loading business
+                  context...
+                </div>
+              )}
+
+              {/* EMPTY */}
+
+              {generatedConcepts.length ===
+                0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void generateBusinessIdeas()
+                  }
                   className="flex w-full flex-col items-center justify-center rounded-[2rem] border border-dashed border-stone-200 bg-white p-12 text-center transition hover:border-[#a9b897] hover:bg-[#f7f9f2]"
                 >
                   <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#edf3e7] text-[#7f8d69]">
-                    <Lightbulb size={26} />
+                    <Lightbulb
+                      size={
+                        26
+                      }
+                    />
                   </div>
 
                   <p className="font-serif text-3xl italic text-stone-900">
@@ -3080,68 +3543,114 @@ export default function SocialStudioUnified() {
                   </p>
 
                   <p className="mt-3 max-w-md text-sm leading-6 text-stone-500">
-                    Generate a few ideas that fit your business and your audience.
+                    Generate a few ideas
+                    that fit your
+                    business and your
+                    audience.
                   </p>
                 </button>
               )}
 
-              {/* IDEAS */}
+              {/* IDEAS GRID */}
 
-              {generatedConcepts.length > 0 && (
+              {generatedConcepts.length >
+                0 && (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {generatedConcepts.map((concept, index) => (
-                    <div
-                      key={concept.id}
-                      className="flex min-h-[315px] flex-col rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    >
-                      <div className="mb-4 flex items-start justify-between gap-3">
-                        <span className="rounded-full bg-[#edf3e7] px-2.5 py-1.5 text-[8px] font-black uppercase tracking-wider text-[#6a7a5b]">
-                          Idea {String(index + 1).padStart(2, "0")}
-                        </span>
-
-                        <span className="rounded-full bg-stone-100 px-2.5 py-1.5 text-[7px] font-black uppercase tracking-wider text-stone-500">
-                          {concept.format}
-                        </span>
-                      </div>
-
-                      <h3 className="font-serif text-2xl italic leading-none text-stone-900">
-                        {concept.title}
-                      </h3>
-
-                      <div className="mt-4 rounded-2xl bg-stone-50 p-3">
-                        <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
-                          Hook
-                        </p>
-
-                        <p className="mt-2 text-sm font-bold leading-5 text-stone-700">
-                          “{concept.hook}”
-                        </p>
-                      </div>
-
-                      <p className="mt-4 flex-1 text-xs leading-5 text-stone-500">
-                        {concept.whyItWorks}
-                      </p>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {concept.platforms.map((platform) => (
-                          <span
-                            key={platform}
-                            className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-wider text-stone-500"
-                          >
-                            {platform}
-                          </span>
-                        ))}
-                      </div>
-
-                      <button
-                        onClick={() => createFromIdea(concept)}
-                        className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 py-3 text-[8px] font-black uppercase tracking-wider text-[#a9b897] transition hover:bg-stone-800"
+                  {generatedConcepts.map(
+                    (
+                      concept,
+                      index
+                    ) => (
+                      <div
+                        key={
+                          concept.id
+                        }
+                        className="flex min-h-[315px] flex-col rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                       >
-                        <Wand2 size={12} />
-                        Use this idea
-                      </button>
-                    </div>
-                  ))}
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                          <span className="rounded-full bg-[#edf3e7] px-2.5 py-1.5 text-[8px] font-black uppercase tracking-wider text-[#6a7a5b]">
+                            Idea{" "}
+                            {String(
+                              index +
+                                1
+                            ).padStart(
+                              2,
+                              "0"
+                            )}
+                          </span>
+
+                          <span className="rounded-full bg-stone-100 px-2.5 py-1.5 text-[7px] font-black uppercase tracking-wider text-stone-500">
+                            {
+                              concept.format
+                            }
+                          </span>
+                        </div>
+
+                        <h3 className="font-serif text-2xl italic leading-none text-stone-900">
+                          {
+                            concept.title
+                          }
+                        </h3>
+
+                        <div className="mt-4 rounded-2xl bg-stone-50 p-3">
+                          <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
+                            Hook
+                          </p>
+
+                          <p className="mt-2 text-sm font-bold leading-5 text-stone-700">
+                            “
+                            {
+                              concept.hook
+                            }
+                            ”
+                          </p>
+                        </div>
+
+                        <p className="mt-4 flex-1 text-xs leading-5 text-stone-500">
+                          {
+                            concept.whyItWorks
+                          }
+                        </p>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {concept.platforms.map(
+                            (
+                              platform
+                            ) => (
+                              <span
+                                key={
+                                  platform
+                                }
+                                className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-wider text-stone-500"
+                              >
+                                {
+                                  platform
+                                }
+                              </span>
+                            )
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            createFromIdea(
+                              concept
+                            )
+                          }
+                          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 py-3 text-[8px] font-black uppercase tracking-wider text-[#a9b897] transition hover:bg-stone-800"
+                        >
+                          <Wand2
+                            size={
+                              12
+                            }
+                          />
+
+                          Use this idea
+                        </button>
+                      </div>
+                    )
+                  )}
                 </div>
               )}
             </motion.div>
@@ -3156,19 +3665,25 @@ export default function SocialStudioUnified() {
             <motion.div
               key="planner"
               initial={{
-                opacity: 0,
-                y: 10,
+                opacity:
+                  0,
+
+                y:
+                  10,
               }}
               animate={{
-                opacity: 1,
-                y: 0,
+                opacity:
+                  1,
+
+                y:
+                  0,
               }}
               exit={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               className="space-y-8"
             >
-
               <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="mb-2 text-[9px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
@@ -3187,13 +3702,16 @@ export default function SocialStudioUnified() {
                     </h2>
 
                     <span className="font-serif text-2xl italic text-stone-300">
-                      {currentDate.getFullYear()}
+                      {
+                        currentDate.getFullYear()
+                      }
                     </span>
                   </div>
                 </div>
 
                 <div className="flex gap-2 rounded-2xl border border-stone-200 bg-white p-2">
                   <button
+                    type="button"
                     onClick={() =>
                       setCurrentDate(
                         new Date(
@@ -3207,11 +3725,14 @@ export default function SocialStudioUnified() {
                     className="rounded-xl p-3 hover:bg-stone-50"
                   >
                     <ChevronLeft
-                      size={18}
+                      size={
+                        18
+                      }
                     />
                   </button>
 
                   <button
+                    type="button"
                     onClick={() =>
                       setCurrentDate(
                         new Date(
@@ -3225,14 +3746,15 @@ export default function SocialStudioUnified() {
                     className="rounded-xl p-3 hover:bg-stone-50"
                   >
                     <ChevronRight
-                      size={18}
+                      size={
+                        18
+                      }
                     />
                   </button>
                 </div>
               </div>
 
               <div className="overflow-hidden rounded-[3rem] border border-stone-200 bg-white p-4 shadow-sm md:p-8">
-
                 <div className="grid grid-cols-7">
                   {[
                     "Sun",
@@ -3368,23 +3890,25 @@ export default function SocialStudioUnified() {
         </AnimatePresence>
       </main>
 
-      {/* ==================================================
+      {/* ======================================================
           DAY DRAWER
-      ================================================== */}
+      ====================================================== */}
 
       <AnimatePresence>
         {isDayViewOpen && (
           <div className="fixed inset-0 z-[100] flex justify-end">
-
             <motion.div
               initial={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               animate={{
-                opacity: 1,
+                opacity:
+                  1,
               }}
               exit={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               onClick={() =>
                 setIsDayViewOpen(
@@ -3421,6 +3945,7 @@ export default function SocialStudioUnified() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() =>
                     setIsDayViewOpen(
                       false
@@ -3429,7 +3954,9 @@ export default function SocialStudioUnified() {
                   className="rounded-full bg-stone-50 p-3"
                 >
                   <X
-                    size={18}
+                    size={
+                      18
+                    }
                   />
                 </button>
               </div>
@@ -3480,7 +4007,9 @@ export default function SocialStudioUnified() {
                       <div className="mt-5 flex items-center justify-between border-t border-stone-200 pt-4">
                         <span className="flex items-center gap-2 text-[9px] text-stone-400">
                           <Clock
-                            size={11}
+                            size={
+                              11
+                            }
                           />
 
                           {new Date(
@@ -3499,6 +4028,7 @@ export default function SocialStudioUnified() {
 
                         <div className="flex items-center gap-2">
                           <button
+                            type="button"
                             onClick={() =>
                               setPreviewPost(
                                 post
@@ -3507,11 +4037,14 @@ export default function SocialStudioUnified() {
                             className="rounded-lg p-2 text-stone-400 hover:bg-white"
                           >
                             <Eye
-                              size={14}
+                              size={
+                                14
+                              }
                             />
                           </button>
 
                           <button
+                            type="button"
                             onClick={() =>
                               void deletePost(
                                 post.id
@@ -3520,7 +4053,9 @@ export default function SocialStudioUnified() {
                             className="rounded-lg p-2 text-red-400 hover:bg-red-50"
                           >
                             <Trash2
-                              size={14}
+                              size={
+                                14
+                              }
                             />
                           </button>
                         </div>
@@ -3531,6 +4066,7 @@ export default function SocialStudioUnified() {
               </div>
 
               <button
+                type="button"
                 onClick={() => {
                   setIsDayViewOpen(
                     false
@@ -3543,7 +4079,9 @@ export default function SocialStudioUnified() {
                 className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 py-5 text-[9px] font-black uppercase tracking-wider text-[#a9b897]"
               >
                 <Plus
-                  size={14}
+                  size={
+                    14
+                  }
                 />
 
                 Create Another Post
@@ -3553,33 +4091,37 @@ export default function SocialStudioUnified() {
         )}
       </AnimatePresence>
 
-      {/* ==================================================
+      {/* ======================================================
           PREVIEW MODAL
-      ================================================== */}
+      ====================================================== */}
 
       <AnimatePresence>
         {previewPost && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-md">
-
             <motion.div
               initial={{
-                opacity: 0,
+                opacity:
+                  0,
+
                 scale:
                   0.96,
               }}
               animate={{
-                opacity: 1,
+                opacity:
+                  1,
+
                 scale:
                   1,
               }}
               exit={{
-                opacity: 0,
+                opacity:
+                  0,
+
                 scale:
                   0.96,
               }}
               className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2.5rem] bg-white p-6 shadow-2xl md:p-8"
             >
-
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
@@ -3592,6 +4134,7 @@ export default function SocialStudioUnified() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() =>
                     setPreviewPost(
                       null
@@ -3600,7 +4143,9 @@ export default function SocialStudioUnified() {
                   className="rounded-full bg-stone-50 p-3"
                 >
                   <X
-                    size={17}
+                    size={
+                      17
+                    }
                   />
                 </button>
               </div>
@@ -3612,7 +4157,7 @@ export default function SocialStudioUnified() {
                   ) ||
                   previewPost.platform ===
                     "tiktok"
-                ? (
+                ) && (
                   <video
                     src={
                       previewPost.media_url
@@ -3621,7 +4166,14 @@ export default function SocialStudioUnified() {
                     playsInline
                     className="mb-6 max-h-[450px] w-full rounded-[2rem] bg-black object-contain"
                   />
-                ) : (
+                )}
+
+              {previewPost.media_url &&
+                !isVideoUrl(
+                  previewPost.media_url
+                ) &&
+                previewPost.platform !==
+                  "tiktok" && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={
@@ -3630,8 +4182,25 @@ export default function SocialStudioUnified() {
                     alt="Post preview"
                     className="mb-6 max-h-[450px] w-full rounded-[2rem] object-contain"
                   />
-                )
-              )}
+                )}
+
+              <div className="mb-5 flex items-center gap-2">
+                <span className="rounded-full bg-stone-100 px-3 py-1.5 text-[8px] font-black uppercase tracking-wider text-stone-500">
+                  {
+                    previewPost.platform
+                  }
+                </span>
+
+                <span
+                  className={`rounded-full bg-stone-50 px-3 py-1.5 text-[8px] font-black uppercase ${getStatusTextColor(
+                    previewPost.status
+                  )}`}
+                >
+                  {
+                    previewPost.status
+                  }
+                </span>
+              </div>
 
               <p className="whitespace-pre-wrap text-sm leading-7 text-stone-600">
                 {
@@ -3657,6 +4226,7 @@ export default function SocialStudioUnified() {
 
               <div className="mt-8 flex flex-col gap-3 border-t border-stone-100 pt-6 sm:flex-row sm:justify-end">
                 <button
+                  type="button"
                   onClick={() =>
                     setPreviewPost(
                       null
@@ -3670,6 +4240,7 @@ export default function SocialStudioUnified() {
                 {previewPost.status !==
                   "published" && (
                   <button
+                    type="button"
                     onClick={() =>
                       void approvePost(
                         previewPost.id
@@ -3678,7 +4249,9 @@ export default function SocialStudioUnified() {
                     className="flex items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-6 py-3 text-[9px] font-black uppercase tracking-wider text-stone-900"
                   >
                     <ArrowRight
-                      size={13}
+                      size={
+                        13
+                      }
                     />
 
                     Publish Now
@@ -3690,9 +4263,9 @@ export default function SocialStudioUnified() {
         )}
       </AnimatePresence>
 
-      {/* ==================================================
-          STYLES
-      ================================================== */}
+      {/* ======================================================
+          GLOBAL STYLES
+      ====================================================== */}
 
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&display=swap");

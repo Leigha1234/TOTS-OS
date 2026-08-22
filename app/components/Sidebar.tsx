@@ -1,15 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
+
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase";
-import { useSettings } from "@/app/context/SettingsContext";
+
+import {
+  usePathname,
+  useRouter,
+} from "next/navigation";
+
 import {
   LayoutDashboard,
   Users,
-  Menu,
   Calendar,
   Megaphone,
   StickyNote,
@@ -20,37 +26,23 @@ import {
   LogOut,
   CircleDollarSign,
   Building2,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
+
 import { toast } from "sonner";
 
-/**
- * TOTS-OS SIDEBAR
- *
- * New product structure:
- *
- * HOME
- * - Dashboard
- *
- * MY BUSINESS
- * - Contacts
- * - Marketing
- * - Social
- * - Finance
- * - Notes
- *
- * CLIENTS & PROJECTS
- * - Projects
- *
- * PLANNING
- * - Calendar
- *
- * SETTINGS
- *
- * IMPORTANT:
- * - Existing routes remain unchanged
- * - Existing tier permissions remain unchanged
- * - Existing database remains unchanged
- */
+import { supabase } from "../../lib/supabase";
+
+import {
+  useSettings,
+} from "@/app/context/SettingsContext";
+
+import NotificationBell from "@/app/components/NotificationBell";
+
+// ============================================================
+// TYPES
+// ============================================================
 
 type SidebarLink = {
   href: string;
@@ -63,412 +55,792 @@ type SidebarSection = {
   links: SidebarLink[];
 };
 
-export default function Sidebar() {
-  const pathname = usePathname();
-  const router = useRouter();
+// ============================================================
+// SIDEBAR
+// ============================================================
 
-  let context: any = null;
+export default function Sidebar() {
+  const pathname =
+    usePathname();
+
+  const router =
+    useRouter();
+
+  let context:
+    any =
+    null;
 
   try {
-    context = useSettings();
+    context =
+      useSettings();
   } catch {
-    console.warn("Sidebar: SettingsContext missing");
+    console.warn(
+      "Sidebar: SettingsContext missing"
+    );
   }
 
-  const [collapsed, setCollapsed] = useState(false);
-  const [isCompact, setIsCompact] = useState(false);
-  const [allowedSlugs, setAllowedSlugs] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  // ==========================================================
+  // STATE
+  // ==========================================================
 
-  const [userRole, setUserRole] = useState<string>("guest");
-  const [subscriptionTier, setSubscriptionTier] =
-    useState<string>("unpaid");
+  const [
+    collapsed,
+    setCollapsed,
+  ] =
+    useState(
+      false
+    );
 
-  const [localColor, setLocalColor] = useState("#a9b897");
+  const [
+    isCompact,
+    setIsCompact,
+  ] =
+    useState(
+      false
+    );
 
-  // =========================================================
+  const [
+    allowedSlugs,
+    setAllowedSlugs,
+  ] =
+    useState<
+      string[]
+    >([]);
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(
+      true
+    );
+
+  const [
+    userRole,
+    setUserRole,
+  ] =
+    useState<string>(
+      "guest"
+    );
+
+  const [
+    subscriptionTier,
+    setSubscriptionTier,
+  ] =
+    useState<string>(
+      "unpaid"
+    );
+
+  const [
+    localColor,
+    setLocalColor,
+  ] =
+    useState(
+      "#a9b897"
+    );
+
+  // ==========================================================
   // TIER ACCESS
-  // =========================================================
+  // ==========================================================
 
-  const tierLinks: Record<string, string[]> = {
-    unpaid: [],
-
-    // Basic CRM + calendar
-    starter: [
-      "/dashboard",
-      "/calendar",
-      "/crm",
-      "/notes",
-      "/settings",
-    ],
-
-    // CRM + calendar + campaigns + projects
-    professional: [
-      "/dashboard",
-      "/calendar",
-      "/campaigns",
-      "/crm",
-      "/notes",
-      "/projects",
-      "/settings",
-    ],
-
-    // Everything
-    elite: [
-      "/dashboard",
-      "/calendar",
-      "/campaigns",
-      "/crm",
-      "/notes",
-      "/projects",
-      "/social",
-      "/payments",
-      "/settings",
-    ],
-  };
-
-  // =========================================================
-  // ALL LINKS
-  // =========================================================
-
-  const allLinks: SidebarLink[] = [
+  const tierLinks:
+    Record<
+      string,
+      string[]
+    > =
     {
-      href: "/dashboard",
-      label: "Home",
-      icon: LayoutDashboard,
-    },
+      unpaid: [],
 
-    {
-      href: "/crm",
-      label: "Contacts",
-      icon: Users,
-    },
+      starter: [
+        "/dashboard",
+        "/calendar",
+        "/crm",
+        "/notes",
+        "/settings",
+      ],
 
-    {
-      href: "/campaigns",
-      label: "Campaigns",
-      icon: Megaphone,
-    },
+      professional: [
+        "/dashboard",
+        "/calendar",
+        "/campaigns",
+        "/crm",
+        "/notes",
+        "/projects",
+        "/settings",
+      ],
 
-    {
-      href: "/social",
-      label: "Social",
-      icon: Globe,
-    },
-
-    {
-      href: "/payments",
-      label: "Finance",
-      icon: CircleDollarSign,
-    },
-
-    {
-      href: "/notes",
-      label: "Notes",
-      icon: StickyNote,
-    },
-
-    {
-      href: "/projects",
-      label: "Clients & Projects",
-      icon: Briefcase,
-    },
-
-    {
-      href: "/calendar",
-      label: "Calendar",
-      icon: Calendar,
-    },
-
-    {
-      href: "/settings",
-      label: "Settings",
-      icon: Settings,
-    },
-  ];
-
-  // =========================================================
-  // PERMISSIONS
-  // =========================================================
-
-  useEffect(() => {
-    function syncCompactMode() {
-      setIsCompact(window.innerHeight <= 820);
-    }
-
-    syncCompactMode();
-    window.addEventListener("resize", syncCompactMode);
-
-    return () => {
-      window.removeEventListener("resize", syncCompactMode);
+      elite: [
+        "/dashboard",
+        "/calendar",
+        "/campaigns",
+        "/crm",
+        "/notes",
+        "/projects",
+        "/social",
+        "/payments",
+        "/settings",
+      ],
     };
-  }, []);
 
-  useEffect(() => {
-    async function syncPermissions() {
-      try {
-        const { data: sessionData } =
-          await supabase.auth.getSession();
+  // ==========================================================
+  // ALL LINKS
+  // ==========================================================
 
-        const user = sessionData?.session?.user;
+  const allLinks:
+    SidebarLink[] =
+    [
+      {
+        href:
+          "/dashboard",
 
-        if (!user?.id) {
-          setUserRole("guest");
-          setSubscriptionTier("unpaid");
-          setAllowedSlugs(tierLinks.unpaid);
-          setLoading(false);
-          return;
-        }
+        label:
+          "Home",
 
-        const [
-          { data: profile },
-          permsResult,
-          { data: membership },
-        ] = await Promise.all([
-          supabase
-            .from("profiles")
-            .select(
-              "role, brand_color, subscription_tier"
+        icon:
+          LayoutDashboard,
+      },
+
+      {
+        href:
+          "/crm",
+
+        label:
+          "Contacts",
+
+        icon:
+          Users,
+      },
+
+      {
+        href:
+          "/campaigns",
+
+        label:
+          "Campaigns",
+
+        icon:
+          Megaphone,
+      },
+
+      {
+        href:
+          "/social",
+
+        label:
+          "Social",
+
+        icon:
+          Globe,
+      },
+
+      {
+        href:
+          "/payments",
+
+        label:
+          "Finance",
+
+        icon:
+          CircleDollarSign,
+      },
+
+      {
+        href:
+          "/notes",
+
+        label:
+          "Notes",
+
+        icon:
+          StickyNote,
+      },
+
+      {
+        href:
+          "/projects",
+
+        label:
+          "Clients & Projects",
+
+        icon:
+          Briefcase,
+      },
+
+      {
+        href:
+          "/calendar",
+
+        label:
+          "Calendar",
+
+        icon:
+          Calendar,
+      },
+
+      {
+        href:
+          "/settings",
+
+        label:
+          "Settings",
+
+        icon:
+          Settings,
+      },
+    ];
+
+  // ==========================================================
+  // COMPACT MODE
+  // ==========================================================
+
+  useEffect(
+    () => {
+      function syncCompactMode() {
+        setIsCompact(
+          window.innerHeight <=
+            820
+        );
+      }
+
+      syncCompactMode();
+
+      window.addEventListener(
+        "resize",
+        syncCompactMode
+      );
+
+      return () => {
+        window.removeEventListener(
+          "resize",
+          syncCompactMode
+        );
+      };
+    },
+    []
+  );
+
+  // ==========================================================
+  // PERMISSIONS
+  // ==========================================================
+
+  useEffect(
+    () => {
+      let cancelled =
+        false;
+
+      async function syncPermissions() {
+        try {
+          setLoading(
+            true
+          );
+
+          const {
+            data:
+              sessionData,
+          } =
+            await supabase.auth.getSession();
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          const user =
+            sessionData
+              ?.session
+              ?.user;
+
+          if (
+            !user?.id
+          ) {
+            setUserRole(
+              "guest"
+            );
+
+            setSubscriptionTier(
+              "unpaid"
+            );
+
+            setAllowedSlugs(
+              tierLinks.unpaid
+            );
+
+            return;
+          }
+
+          const [
+            {
+              data:
+                profile,
+            },
+
+            permsResult,
+
+            {
+              data:
+                membership,
+            },
+          ] =
+            await Promise.all([
+              supabase
+                .from(
+                  "profiles"
+                )
+                .select(
+                  "role, brand_color, subscription_tier"
+                )
+                .eq(
+                  "id",
+                  user.id
+                )
+                .maybeSingle(),
+
+              supabase
+                .from(
+                  "permissions"
+                )
+                .select(
+                  "page_slug"
+                )
+                .eq(
+                  "user_id",
+                  user.id
+                )
+                .eq(
+                  "can_access",
+                  true
+                ),
+
+              supabase
+                .from(
+                  "team_members"
+                )
+                .select(
+                  "role"
+                )
+                .eq(
+                  "user_id",
+                  user.id
+                )
+                .maybeSingle(),
+            ]);
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          // ==================================================
+          // ROLE
+          // ==================================================
+
+          const resolvedRole =
+            (
+              (
+                membership
+                  ?.role ||
+                profile
+                  ?.role ||
+                "user"
+              ) +
+              ""
             )
-            .eq("id", user.id)
-            .maybeSingle(),
+              .toLowerCase()
+              .trim();
 
-          supabase
-            .from("permissions")
-            .select("page_slug")
-            .eq("user_id", user.id)
-            .eq("can_access", true),
+          // ==================================================
+          // TIER
+          // ==================================================
 
-          supabase
-            .from("team_members")
-            .select("role")
-            .eq("user_id", user.id)
-            .maybeSingle(),
-        ]);
+          const tier =
+            (
+              profile
+                ?.subscription_tier ||
+              "unpaid"
+            )
+              .toString()
+              .toLowerCase()
+              .trim();
 
-        // -----------------------------------------------------
-        // ROLE
-        // -----------------------------------------------------
-
-        const resolvedRole = (
-          (membership?.role ||
-            profile?.role ||
-            "user") + ""
-        )
-          .toLowerCase()
-          .trim();
-
-        // -----------------------------------------------------
-        // TIER
-        // -----------------------------------------------------
-
-        const tier = (
-          profile?.subscription_tier || "unpaid"
-        )
-          .toString()
-          .toLowerCase()
-          .trim();
-
-        setUserRole(resolvedRole);
-        setSubscriptionTier(tier);
-
-        // -----------------------------------------------------
-        // INDIVIDUAL PERMISSIONS
-        // -----------------------------------------------------
-
-        const permsData = permsResult?.data ?? [];
-
-        const permissionSlugs = Array.isArray(permsData)
-          ? permsData
-              .filter((p: any) => p?.page_slug)
-              .map((p: any) => p.page_slug)
-          : [];
-
-        // -----------------------------------------------------
-        // ADMIN / OWNER OVERRIDE
-        // -----------------------------------------------------
-
-        const isAdmin =
-          resolvedRole.includes("admin") ||
-          resolvedRole.includes("owner") ||
-          resolvedRole === "superadmin";
-
-        if (isAdmin) {
-          setAllowedSlugs(
-            allLinks.map((link) => link.href)
+          setUserRole(
+            resolvedRole
           );
-        } else if (tier === "elite") {
-          setAllowedSlugs(tierLinks.elite);
-        } else if (
-          !isAdmin &&
-          permissionSlugs.length > 0
+
+          setSubscriptionTier(
+            tier
+          );
+
+          // ==================================================
+          // INDIVIDUAL PERMISSIONS
+          // ==================================================
+
+          const permsData =
+            permsResult
+              ?.data ??
+            [];
+
+          const permissionSlugs =
+            Array.isArray(
+              permsData
+            )
+              ? permsData
+                  .filter(
+                    (
+                      permission:
+                        any
+                    ) =>
+                      Boolean(
+                        permission
+                          ?.page_slug
+                      )
+                  )
+                  .map(
+                    (
+                      permission:
+                        any
+                    ) =>
+                      permission
+                        .page_slug
+                  )
+              : [];
+
+          // ==================================================
+          // ADMIN / OWNER OVERRIDE
+          // ==================================================
+
+          const isAdmin =
+            resolvedRole.includes(
+              "admin"
+            ) ||
+            resolvedRole.includes(
+              "owner"
+            ) ||
+            resolvedRole ===
+              "superadmin";
+
+          if (
+            isAdmin
+          ) {
+            setAllowedSlugs(
+              allLinks.map(
+                (
+                  link
+                ) =>
+                  link.href
+              )
+            );
+          } else if (
+            tier ===
+            "elite"
+          ) {
+            setAllowedSlugs(
+              tierLinks.elite
+            );
+          } else if (
+            permissionSlugs.length >
+            0
+          ) {
+            setAllowedSlugs(
+              permissionSlugs
+            );
+          } else {
+            setAllowedSlugs(
+              tierLinks[
+                tier
+              ] ||
+                tierLinks.unpaid
+            );
+          }
+
+          // ==================================================
+          // BRAND COLOUR
+          // ==================================================
+
+          if (
+            profile
+              ?.brand_color
+          ) {
+            setLocalColor(
+              profile.brand_color
+            );
+          }
+        } catch (
+          error
         ) {
-          setAllowedSlugs(permissionSlugs);
-        } else {
-          setAllowedSlugs(
-            tierLinks[tier] || tierLinks.unpaid
+          console.error(
+            "Sidebar permission error:",
+            error
           );
+
+          if (
+            !cancelled
+          ) {
+            setAllowedSlugs(
+              tierLinks.unpaid
+            );
+          }
+        } finally {
+          if (
+            !cancelled
+          ) {
+            setLoading(
+              false
+            );
+          }
+        }
+      }
+
+      void syncPermissions();
+
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+    []
+  );
+
+  // ==========================================================
+  // LOGOUT
+  // ==========================================================
+
+  const handleLogout =
+    async () => {
+      try {
+        const {
+          error,
+        } =
+          await supabase.auth.signOut();
+
+        if (
+          error
+        ) {
+          throw error;
         }
 
-        // -----------------------------------------------------
-        // BRAND COLOUR
-        // -----------------------------------------------------
-
-        if (profile?.brand_color) {
-          setLocalColor(profile.brand_color);
-        }
-      } catch (err) {
-        console.error(
-          "Sidebar permission error:",
-          err
+        toast.success(
+          "Logged out successfully"
         );
 
-        setAllowedSlugs(tierLinks.unpaid);
-      } finally {
-        setLoading(false);
+        router.push(
+          "/login"
+        );
+
+        router.refresh();
+      } catch (
+        error
+      ) {
+        console.error(
+          "Logout error:",
+          error
+        );
+
+        toast.error(
+          "Unable to log out"
+        );
       }
-    }
+    };
 
-    syncPermissions();
-  }, []);
-
-  // =========================================================
-  // LOGOUT
-  // =========================================================
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-
-      toast.success("Logged out successfully");
-
-      router.push("/login");
-    } catch {
-      toast.error("Unable to log out");
-    }
-  };
-
-  // =========================================================
+  // ==========================================================
   // BRAND COLOUR
-  // =========================================================
+  // ==========================================================
 
   const activeColor =
-    context?.settings?.brandColor || localColor;
+    context
+      ?.settings
+      ?.brandColor ||
+    localColor;
 
-  // =========================================================
+  // ==========================================================
   // VISIBLE LINKS
-  // =========================================================
+  // ==========================================================
 
   const visibleLinks =
-    allowedSlugs.length > 0
-      ? allLinks.filter((link) =>
-          allowedSlugs.includes(link.href)
+    allowedSlugs.length >
+    0
+      ? allLinks.filter(
+          (
+            link
+          ) =>
+            allowedSlugs.includes(
+              link.href
+            )
         )
       : allLinks;
 
-  const canSee = (href: string) =>
-    visibleLinks.some(
-      (link) => link.href === href
-    );
+  const canSee =
+    (
+      href:
+        string
+    ) =>
+      visibleLinks.some(
+        (
+          link
+        ) =>
+          link.href ===
+          href
+      );
 
-  // =========================================================
+  // ==========================================================
   // SIDEBAR SECTIONS
-  // =========================================================
+  // ==========================================================
 
-  const sections: SidebarSection[] = [
-    {
-      links: [
-        {
-          href: "/dashboard",
-          label: "Home",
-          icon: LayoutDashboard,
-        },
-      ],
-    },
+  const sections:
+    SidebarSection[] =
+    [
+      {
+        links: [
+          {
+            href:
+              "/dashboard",
 
-    {
-      title: "My Business",
+            label:
+              "Home",
 
-      links: [
-        {
-          href: "/crm",
-          label: "Contacts",
-          icon: Users,
-        },
+            icon:
+              LayoutDashboard,
+          },
+        ],
+      },
 
-        {
-          href: "/campaigns",
-          label: "Campaigns",
-          icon: Megaphone,
-        },
+      {
+        title:
+          "My Business",
 
-        {
-          href: "/social",
-          label: "Social",
-          icon: Globe,
-        },
+        links: [
+          {
+            href:
+              "/crm",
 
-        {
-          href: "/payments",
-          label: "Finance",
-          icon: CircleDollarSign,
-        },
+            label:
+              "Contacts",
 
-        {
-          href: "/notes",
-          label: "Notes",
-          icon: StickyNote,
-        },
-      ],
-    },
+            icon:
+              Users,
+          },
 
-    {
-      title: "Clients & Projects",
+          {
+            href:
+              "/campaigns",
 
-      links: [
-        {
-          href: "/projects",
-          label: "Workspace",
-          icon: Building2,
-        },
-      ],
-    },
+            label:
+              "Campaigns",
 
-    {
-      title: "Planning",
+            icon:
+              Megaphone,
+          },
 
-      links: [
-        {
-          href: "/calendar",
-          label: "Calendar",
-          icon: Calendar,
-        },
-      ],
-    },
-  ];
+          {
+            href:
+              "/social",
 
-  // =========================================================
+            label:
+              "Social",
+
+            icon:
+              Globe,
+          },
+
+          {
+            href:
+              "/payments",
+
+            label:
+              "Finance",
+
+            icon:
+              CircleDollarSign,
+          },
+
+          {
+            href:
+              "/notes",
+
+            label:
+              "Notes",
+
+            icon:
+              StickyNote,
+          },
+        ],
+      },
+
+      {
+        title:
+          "Clients & Projects",
+
+        links: [
+          {
+            href:
+              "/projects",
+
+            label:
+              "Workspace",
+
+            icon:
+              Building2,
+          },
+        ],
+      },
+
+      {
+        title:
+          "Planning",
+
+        links: [
+          {
+            href:
+              "/calendar",
+
+            label:
+              "Calendar",
+
+            icon:
+              Calendar,
+          },
+        ],
+      },
+    ];
+
+  // ==========================================================
   // ACTIVE LINK
-  // =========================================================
+  // ==========================================================
 
-  const isActive = (href: string) => {
-    if (href === "/dashboard") {
-      return pathname === "/dashboard";
-    }
+  const isActive =
+    (
+      href:
+        string
+    ) => {
+      if (
+        href ===
+        "/dashboard"
+      ) {
+        return (
+          pathname ===
+          "/dashboard"
+        );
+      }
 
-    return (
-      pathname === href ||
-      pathname.startsWith(`${href}/`)
-    );
-  };
+      return (
+        pathname ===
+          href ||
+        pathname.startsWith(
+          `${href}/`
+        )
+      );
+    };
 
-  // =========================================================
+  // ==========================================================
   // RENDER
-  // =========================================================
+  // ==========================================================
 
   return (
     <aside
       className={`
+        relative
+        z-50
         flex
         h-[100dvh]
         flex-col
@@ -477,7 +849,7 @@ export default function Sidebar() {
         bg-stone-50
         transition-all
         duration-300
-        z-50
+
         ${
           collapsed
             ? "w-20"
@@ -490,56 +862,200 @@ export default function Sidebar() {
       ===================================================== */}
 
       <div
-        className={`flex items-center justify-between ${
-          isCompact
-            ? "h-16 px-4"
-            : "h-24 px-5"
-        }`}
+        className={`
+          flex
+          shrink-0
+          items-center
+
+          ${
+            collapsed
+              ? "justify-center"
+              : "justify-between"
+          }
+
+          ${
+            isCompact
+              ? "min-h-16 px-3"
+              : "min-h-24 px-4"
+          }
+        `}
       >
+        {/* ===================================================
+            LOGO
+        =================================================== */}
+
         {!collapsed ? (
           <Link
             href="/dashboard"
-            className="flex items-center gap-3"
+            className="flex min-w-0 items-center gap-3"
           >
             <Image
               src="/icon.png"
               alt="TOTS-OS"
-              width={isCompact ? 44 : 60}
-              height={isCompact ? 44 : 60}
+              width={
+                isCompact
+                  ? 42
+                  : 52
+              }
+              height={
+                isCompact
+                  ? 42
+                  : 52
+              }
               priority
+              className="shrink-0 object-contain"
             />
 
-            <div>
-     
+            <div className="min-w-0">
+              <p className="truncate text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
+                TOTS-OS
+              </p>
             </div>
           </Link>
         ) : (
           <Link
             href="/dashboard"
-            className="mx-auto"
+            className="flex items-center justify-center"
           >
             <Image
               src="/icon.png"
               alt="TOTS-OS"
-              width={isCompact ? 28 : 34}
-              height={isCompact ? 28 : 34}
+              width={
+                isCompact
+                  ? 28
+                  : 34
+              }
+              height={
+                isCompact
+                  ? 28
+                  : 34
+              }
               priority
+              className="object-contain"
             />
           </Link>
         )}
+
+        {/* ===================================================
+            HEADER ACTIONS
+        =================================================== */}
+
+        {!collapsed && (
+          <div className="ml-2 flex shrink-0 items-center gap-1.5">
+            {/* ===============================================
+                NOTIFICATION BELL
+            =============================================== */}
+
+            <div
+              className="
+                relative
+                flex
+                h-10
+                w-10
+                items-center
+                justify-center
+              "
+            >
+              <NotificationBell />
+            </div>
+
+            {/* ===============================================
+                COLLAPSE SIDEBAR
+            =============================================== */}
+
+            <button
+              type="button"
+              onClick={() =>
+                setCollapsed(
+                  true
+                )
+              }
+              title="Collapse sidebar"
+              className="
+                flex
+                h-9
+                w-9
+                items-center
+                justify-center
+                rounded-xl
+                text-stone-400
+                transition
+                hover:bg-white
+                hover:text-stone-800
+                hover:shadow-sm
+              "
+            >
+              <PanelLeftClose
+                size={17}
+                strokeWidth={1.7}
+              />
+            </button>
+          </div>
+        )}
       </div>
 
-     
+      {/* =====================================================
+          COLLAPSED ACTIONS
+      ===================================================== */}
+
+      {collapsed && (
+        <div className="shrink-0 space-y-2 px-3 pb-3">
+          {/* NOTIFICATIONS */}
+
+          <div className="flex justify-center">
+            <div className="relative flex h-10 w-10 items-center justify-center">
+              <NotificationBell />
+            </div>
+          </div>
+
+          {/* EXPAND */}
+
+          <button
+            type="button"
+            onClick={() =>
+              setCollapsed(
+                false
+              )
+            }
+            title="Expand sidebar"
+            className="
+              mx-auto
+              flex
+              h-9
+              w-9
+              items-center
+              justify-center
+              rounded-xl
+              text-stone-400
+              transition
+              hover:bg-white
+              hover:text-stone-800
+              hover:shadow-sm
+            "
+          >
+            <PanelLeftOpen
+              size={17}
+              strokeWidth={1.7}
+            />
+          </button>
+        </div>
+      )}
+
       {/* =====================================================
           NAVIGATION
       ===================================================== */}
 
       <nav
-        className={`flex-1 px-3 ${
-          isCompact
-            ? "mt-2 overflow-y-hidden pb-2"
-            : "mt-5 overflow-y-auto pb-4"
-        }`}
+        className={`
+          flex-1
+          px-3
+
+          ${
+            isCompact
+              ? "mt-1 overflow-y-auto pb-2"
+              : "mt-3 overflow-y-auto pb-4"
+          }
+        `}
       >
         {loading ? (
           <div className="flex h-32 items-center justify-center">
@@ -557,15 +1073,23 @@ export default function Sidebar() {
             }
           >
             {sections.map(
-              (section, sectionIndex) => {
+              (
+                section,
+                sectionIndex
+              ) => {
                 const sectionLinks =
                   section.links.filter(
-                    (link) =>
-                      canSee(link.href)
+                    (
+                      link
+                    ) =>
+                      canSee(
+                        link.href
+                      )
                   );
 
                 if (
-                  sectionLinks.length === 0
+                  sectionLinks.length ===
+                  0
                 ) {
                   return null;
                 }
@@ -577,22 +1101,35 @@ export default function Sidebar() {
                       `section-${sectionIndex}`
                     }
                   >
-                    {/* SECTION LABEL */}
+                    {/* =========================================
+                        SECTION LABEL
+                    ========================================= */}
 
                     {!collapsed &&
                       section.title && (
                         <p
-                          className={`px-3 font-semibold uppercase text-stone-400 ${
-                            isCompact
-                              ? "mb-1 text-[9px] tracking-[0.14em]"
-                              : "mb-2 text-[10px] tracking-[0.16em]"
-                          }`}
+                          className={`
+                            px-3
+                            font-semibold
+                            uppercase
+                            text-stone-400
+
+                            ${
+                              isCompact
+                                ? "mb-1 text-[9px] tracking-[0.14em]"
+                                : "mb-2 text-[10px] tracking-[0.16em]"
+                            }
+                          `}
                         >
-                          {section.title}
+                          {
+                            section.title
+                          }
                         </p>
                       )}
 
-                    {/* LINKS */}
+                    {/* =========================================
+                        LINKS
+                    ========================================= */}
 
                     <div
                       className={
@@ -602,7 +1139,9 @@ export default function Sidebar() {
                       }
                     >
                       {sectionLinks.map(
-                        (item) => {
+                        (
+                          item
+                        ) => {
                           const active =
                             isActive(
                               item.href
@@ -634,19 +1173,22 @@ export default function Sidebar() {
                                 group
                                 flex
                                 items-center
+                                font-medium
+                                transition-all
+                                duration-200
+
                                 ${
                                   isCompact
                                     ? "rounded-lg px-2.5 py-1.5 text-[12px]"
                                     : "rounded-xl px-3 py-2.5 text-sm"
                                 }
-                                font-medium
-                                transition-all
-                                duration-200
+
                                 ${
                                   collapsed
                                     ? "justify-center"
                                     : "gap-3"
                                 }
+
                                 ${
                                   active
                                     ? "text-white shadow-sm"
@@ -655,7 +1197,11 @@ export default function Sidebar() {
                               `}
                             >
                               <Icon
-                                size={isCompact ? 16 : 18}
+                                size={
+                                  isCompact
+                                    ? 16
+                                    : 18
+                                }
                                 strokeWidth={
                                   active
                                     ? 2.2
@@ -688,11 +1234,20 @@ export default function Sidebar() {
       ===================================================== */}
 
       {!loading &&
-        canSee("/settings") && (
+        canSee(
+          "/settings"
+        ) && (
           <div
-            className={`px-3 ${
-              isCompact ? "pb-1" : "pb-2"
-            }`}
+            className={`
+              shrink-0
+              px-3
+
+              ${
+                isCompact
+                  ? "pb-1"
+                  : "pb-2"
+              }
+            `}
           >
             <Link
               href="/settings"
@@ -703,25 +1258,30 @@ export default function Sidebar() {
               }
               style={{
                 backgroundColor:
-                  isActive("/settings")
+                  isActive(
+                    "/settings"
+                  )
                     ? activeColor
                     : "transparent",
               }}
               className={`
                 flex
                 items-center
+                font-medium
+                transition-all
+
                 ${
                   isCompact
                     ? "rounded-lg px-2.5 py-1.5 text-[12px]"
                     : "rounded-xl px-3 py-2.5 text-sm"
                 }
-                font-medium
-                transition-all
+
                 ${
                   collapsed
                     ? "justify-center"
                     : "gap-3"
                 }
+
                 ${
                   isActive(
                     "/settings"
@@ -732,11 +1292,17 @@ export default function Sidebar() {
               `}
             >
               <Settings
-                size={isCompact ? 16 : 18}
+                size={
+                  isCompact
+                    ? 16
+                    : 18
+                }
               />
 
               {!collapsed && (
-                <span>Settings</span>
+                <span>
+                  Settings
+                </span>
               )}
             </Link>
           </div>
@@ -747,13 +1313,23 @@ export default function Sidebar() {
       ===================================================== */}
 
       <div
-        className={`border-t border-stone-200 ${
-          isCompact ? "p-2" : "p-3"
-        }`}
+        className={`
+          shrink-0
+          border-t
+          border-stone-200
+
+          ${
+            isCompact
+              ? "p-2"
+              : "p-3"
+          }
+        `}
       >
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={() =>
+            void handleLogout()
+          }
           title={
             collapsed
               ? "Logout"
@@ -763,16 +1339,18 @@ export default function Sidebar() {
             flex
             w-full
             items-center
-            ${
-              isCompact
-                ? "rounded-lg px-2.5 py-1.5 text-[12px]"
-                : "rounded-xl px-3 py-2.5 text-sm"
-            }
             font-medium
             text-stone-500
             transition
             hover:bg-red-50
             hover:text-red-600
+
+            ${
+              isCompact
+                ? "rounded-lg px-2.5 py-1.5 text-[12px]"
+                : "rounded-xl px-3 py-2.5 text-sm"
+            }
+
             ${
               collapsed
                 ? "justify-center"
@@ -780,10 +1358,18 @@ export default function Sidebar() {
             }
           `}
         >
-          <LogOut size={isCompact ? 15 : 17} />
+          <LogOut
+            size={
+              isCompact
+                ? 15
+                : 17
+            }
+          />
 
           {!collapsed && (
-            <span>Logout</span>
+            <span>
+              Logout
+            </span>
           )}
         </button>
       </div>

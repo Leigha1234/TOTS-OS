@@ -295,74 +295,28 @@ function DashboardLayoutInner({
           `'${fontFamily}', sans-serif`,
       }}
     >
-      {/* =========================================
+      {/* ======================================================
           DESKTOP SIDEBAR
-      ========================================= */}
+
+          Desktop NotificationBell lives inside Sidebar.tsx.
+      ====================================================== */}
 
       <aside
         data-tour="dashboard-navigation"
-        className="
-          relative
-          hidden
-          h-full
-          flex-shrink-0
-          md:block
-        "
+        className="hidden h-full flex-shrink-0 md:block"
       >
         <Sidebar />
-
-        {/* =====================================
-            DESKTOP NOTIFICATION BELL
-
-            This sits directly to the RIGHT
-            of the sidebar.
-        ===================================== */}
-
-        <div
-          className="
-            pointer-events-auto
-            absolute
-            left-full
-            top-6
-            z-[180]
-            ml-4
-          "
-        >
-          <NotificationBell />
-        </div>
       </aside>
 
-      {/* =========================================
+      {/* ======================================================
           MAIN CONTENT AREA
-      ========================================= */}
+      ====================================================== */}
 
       <main className="relative flex h-full min-w-0 flex-1 flex-col">
 
-        {/* =========================================
-            MOBILE NOTIFICATION BELL
-
-            Desktop version is attached to sidebar.
-            This only appears below md.
-        ========================================= */}
-
-        <div
-          className="
-            pointer-events-none
-            fixed
-            right-4
-            top-4
-            z-[160]
-            md:hidden
-          "
-        >
-          <div className="pointer-events-auto">
-            <NotificationBell />
-          </div>
-        </div>
-
-        {/* =========================================
+        {/* ====================================================
             SCROLLABLE PAGE CONTENT
-        ========================================= */}
+        ==================================================== */}
 
         <div
           data-tour="dashboard-content"
@@ -372,7 +326,6 @@ function DashboardLayoutInner({
             overflow-y-auto
             p-4
             pb-32
-
             md:p-12
             md:pb-12
           "
@@ -382,9 +335,9 @@ function DashboardLayoutInner({
           <Footer />
         </div>
 
-        {/* =========================================
+        {/* ====================================================
             MOBILE BOTTOM NAV
-        ========================================= */}
+        ==================================================== */}
 
         <nav
           data-tour="mobile-navigation"
@@ -394,22 +347,16 @@ function DashboardLayoutInner({
             left-0
             right-0
             z-[90]
-
             flex
             h-14
             items-center
             justify-between
-
             border-t
             border-stone-100
-
             bg-white/90
-
             px-3
             pb-safe
-
             backdrop-blur-2xl
-
             md:hidden
           "
         >
@@ -453,9 +400,7 @@ function DashboardLayoutInner({
               flex-col
               items-center
               gap-1
-
               text-stone-400
-
               transition-colors
               active:scale-90
             "
@@ -471,9 +416,9 @@ function DashboardLayoutInner({
           </button>
         </nav>
 
-        {/* =========================================
+        {/* ====================================================
             MOBILE FULL-SCREEN MENU
-        ========================================= */}
+        ==================================================== */}
 
         <AnimatePresence>
           {mobileMenuOpen && (
@@ -496,17 +441,16 @@ function DashboardLayoutInner({
                 fixed
                 inset-0
                 z-[200]
-
                 overflow-y-auto
-
                 bg-[#fcfaf7]
+                md:hidden
               "
             >
               <div className="min-h-full p-5 pb-24">
 
-                {/* =====================================
+                {/* ============================================
                     MOBILE MENU HEADER
-                ===================================== */}
+                ============================================ */}
 
                 <div className="mb-6 flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -523,60 +467,77 @@ function DashboardLayoutInner({
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setMobileMenuOpen(
-                        false
-                      )
-                    }
-                    className="
-                      rounded-[1.25rem]
+                  {/* ==========================================
+                      MOBILE HEADER ACTIONS
+                  ========================================== */}
 
-                      border
-                      border-stone-200
+                  <div className="flex items-center gap-2">
 
-                      bg-white
+                    {/* ========================================
+                        MOBILE NOTIFICATION BELL
+                    ======================================== */}
 
-                      p-3
+                    <div className="relative z-[220]">
+                      <NotificationBell />
+                    </div>
 
-                      shadow-sm
+                    {/* ========================================
+                        CLOSE MOBILE MENU
+                    ======================================== */}
 
-                      transition-transform
-
-                      active:scale-95
-                    "
-                  >
-                    <X
-                      size={20}
-                      className="text-stone-900"
-                    />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMobileMenuOpen(
+                          false
+                        )
+                      }
+                      className="
+                        flex
+                        h-11
+                        w-11
+                        items-center
+                        justify-center
+                        rounded-[1.25rem]
+                        border
+                        border-stone-200
+                        bg-white
+                        shadow-sm
+                        transition-transform
+                        active:scale-95
+                      "
+                    >
+                      <X
+                        size={20}
+                        className="text-stone-900"
+                      />
+                    </button>
+                  </div>
                 </div>
 
-                {/* =====================================
-                    MOBILE NOTIFICATION ACCESS
-                ===================================== */}
+                {/* ============================================
+                    MOBILE NOTIFICATION LABEL
+                ============================================ */}
 
-                <div className="mb-6 rounded-[1.5rem] border border-stone-200 bg-white p-4 shadow-sm">
+                <div className="mb-6 rounded-[1.5rem] border border-stone-200 bg-white px-4 py-3 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
                         Notifications
                       </p>
 
-                      <p className="mt-1 text-xs font-bold text-stone-700">
-                        Business updates
+                      <p className="mt-1 text-xs font-semibold text-stone-700">
+                        Orders, deadlines, payments and business updates.
                       </p>
                     </div>
 
-                    <NotificationBell />
+                    <div className="ml-4 h-2 w-2 shrink-0 rounded-full bg-[#a9b897]" />
                   </div>
                 </div>
 
-                {/* =====================================
+                {/* ============================================
                     MOBILE MENU LINKS
-                ===================================== */}
+                ============================================ */}
 
                 <div
                   data-tour="mobile-system-menu"
@@ -640,13 +601,9 @@ function DashboardLayoutInner({
                                     h-20
                                     flex-col
                                     justify-between
-
                                     rounded-[1.4rem]
-
                                     border
-
                                     p-3
-
                                     transition-all
                                     duration-300
 
@@ -703,15 +660,15 @@ function DashboardLayoutInner({
           )}
         </AnimatePresence>
 
-        {/* =========================================
+        {/* ====================================================
             EXISTING CLARITY ASSISTANT
-        ========================================= */}
+        ==================================================== */}
 
         <Clarity />
 
-        {/* =========================================
+        {/* ====================================================
             CLARITY PRODUCT TOUR
-        ========================================= */}
+        ==================================================== */}
 
         <ClarityTourOverlay />
       </main>
@@ -730,11 +687,8 @@ function MobileNavItem({
   isActive,
 }: {
   href: string;
-
   icon: LucideIcon;
-
   label: string;
-
   isActive: boolean;
 }) {
   return (
@@ -751,10 +705,8 @@ function MobileNavItem({
         flex-col
         items-center
         gap-1
-
         transition-all
         duration-300
-
         active:scale-90
       "
       style={{

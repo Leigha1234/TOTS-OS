@@ -93,6 +93,11 @@ function normalisePlatform(
       .trim()
       .toLowerCase();
 
+  /*
+   * Facebook and Instagram both live inside
+   * the single stored Meta connection.
+   */
+
   if (
     value ===
       "facebook" ||
@@ -168,7 +173,30 @@ function clearOAuthStorage(
       "oauth_started_at"
     );
   } catch {
-    // Best effort only.
+    /*
+     * Best effort only.
+     */
+  }
+}
+
+// ============================================================
+
+function decodeReason(
+  value:
+    string | null
+) {
+  if (
+    !value
+  ) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(
+      value
+    );
+  } catch {
+    return value;
   }
 }
 
@@ -228,6 +256,11 @@ export const useSocialConnections =
         false
       );
 
+    const fetchInProgressRef =
+      useRef(
+        false
+      );
+
     // ========================================================
     // FETCH CONNECTIONS
     // ========================================================
@@ -252,6 +285,20 @@ export const useSocialConnections =
 
             return;
           }
+
+          /*
+           * Prevent several simultaneous refreshes caused by
+           * realtime + focus + OAuth return.
+           */
+
+          if (
+            fetchInProgressRef.current
+          ) {
+            return;
+          }
+
+          fetchInProgressRef.current =
+            true;
 
           try {
             if (
@@ -358,6 +405,9 @@ export const useSocialConnections =
               error
             );
           } finally {
+            fetchInProgressRef.current =
+              false;
+
             if (
               mountedRef.current
             ) {
@@ -404,24 +454,9 @@ export const useSocialConnections =
               requestedPlatform
             );
 
-          const statePayload = {
-            userId,
-
-            platform,
-
-            createdAt:
-              Date.now(),
-          };
-
-          const rawState =
-            JSON.stringify(
-              statePayload
-            );
-
-          const encodedState =
-            encodeURIComponent(
-              rawState
-            );
+          // ==================================================
+          // STORE OAUTH PENDING STATE
+          // ==================================================
 
           try {
             sessionStorage.setItem(
@@ -429,11 +464,6 @@ export const useSocialConnections =
                 requestedPlatform
               ),
               "true"
-            );
-
-            sessionStorage.setItem(
-              `oauth_state_${platform}`,
-              rawState
             );
 
             sessionStorage.setItem(
@@ -451,28 +481,130 @@ export const useSocialConnections =
             );
           }
 
-          const routes: Record<
-            StoredSocialPlatform,
-            string
-          > = {
-            meta:
-              `/api/oauth/meta?state=${encodedState}`,
+          let route:
+            string;
 
-            linkedin:
-              `/api/oauth/linkedin?state=${encodedState}`,
-
-            tiktok:
-              `/api/oauth/tiktok?state=${encodedState}`,
-          };
-
-          const route =
-            routes[
-              platform
-            ];
+          // ==================================================
+          // META / FACEBOOK / INSTAGRAM
+          //
+          // IMPORTANT FIX:
+          //
+          // Your current /api/oauth/meta route expects:
+          //
+          // ?userId=...
+          //
+          // It then generates the OAuth state server-side.
+          //
+          // Do NOT send only ?state=... here anymore.
+          // ==================================================
 
           if (
-            !route
+            platform ===
+            "meta"
           ) {
+            const params =
+              new URLSearchParams({
+                userId,
+
+                platform:
+                  "meta",
+              });
+
+            route =
+              `/api/oauth/meta?${params.toString()}`;
+          }
+
+          // ==================================================
+          // LINKEDIN
+          // ==================================================
+
+          else if (
+            platform ===
+            "linkedin"
+          ) {
+            const statePayload = {
+              userId,
+
+              platform:
+                "linkedin",
+
+              createdAt:
+                Date.now(),
+            };
+
+            const rawState =
+              JSON.stringify(
+                statePayload
+              );
+
+            const encodedState =
+              encodeURIComponent(
+                rawState
+              );
+
+            try {
+              sessionStorage.setItem(
+                "oauth_state_linkedin",
+                rawState
+              );
+            } catch {
+              /*
+               * Best effort.
+               */
+            }
+
+            route =
+              `/api/oauth/linkedin?state=${encodedState}`;
+          }
+
+          // ==================================================
+          // TIKTOK
+          // ==================================================
+
+          else if (
+            platform ===
+            "tiktok"
+          ) {
+            const statePayload = {
+              userId,
+
+              platform:
+                "tiktok",
+
+              createdAt:
+                Date.now(),
+            };
+
+            const rawState =
+              JSON.stringify(
+                statePayload
+              );
+
+            const encodedState =
+              encodeURIComponent(
+                rawState
+              );
+
+            try {
+              sessionStorage.setItem(
+                "oauth_state_tiktok",
+                rawState
+              );
+            } catch {
+              /*
+               * Best effort.
+               */
+            }
+
+            route =
+              `/api/oauth/tiktok?state=${encodedState}`;
+          }
+
+          // ==================================================
+          // UNSUPPORTED
+          // ==================================================
+
+          else {
             throw new Error(
               `Unsupported social platform: ${platform}`
             );
@@ -487,12 +619,18 @@ export const useSocialConnections =
                 platform,
 
               userId,
+
+              route,
             }
           );
 
           setActiveOperation(
             platform
           );
+
+          /*
+           * OAuth is a full browser navigation.
+           */
 
           window.location.assign(
             route
@@ -564,6 +702,11 @@ export const useSocialConnections =
 
               return;
             }
+
+            /*
+             * Supabase may return no SQL error when an RLS
+             * policy prevents rows being deleted.
+             */
 
             if (
               !data ||
@@ -739,6 +882,9 @@ export const useSocialConnections =
 
           // ==================================================
           // INSTAGRAM
+          //
+          // Meta OAuth alone does not mean Instagram is
+          // connected. We need a linked IG professional account.
           // ==================================================
 
           if (
@@ -752,7 +898,7 @@ export const useSocialConnections =
           }
 
           // ==================================================
-          // META / FACEBOOK
+          // META
           // ==================================================
 
           if (
@@ -865,13 +1011,29 @@ export const useSocialConnections =
             "oauth"
           );
 
-        const reason =
+        const connected =
           params.get(
-            "reason"
+            "connected"
+          );
+
+        const reason =
+          decodeReason(
+            params.get(
+              "reason"
+            )
+          );
+
+        const socialError =
+          decodeReason(
+            params.get(
+              "social_error"
+            )
           );
 
         if (
-          !oauth
+          !oauth &&
+          !connected &&
+          !socialError
         ) {
           return;
         }
@@ -881,71 +1043,178 @@ export const useSocialConnections =
 
         const handleReturn =
           async () => {
-            // ================================================
-            // META SUCCESS
-            // ================================================
+            try {
+              // ==============================================
+              // GENERIC / LEGACY ERROR
+              // ==============================================
 
-            if (
-              oauth ===
-              "meta_success"
-            ) {
-              clearOAuthStorage(
-                "meta"
+              if (
+                socialError
+              ) {
+                toast.error(
+                  socialError
+                );
+
+                return;
+              }
+
+              // ==============================================
+              // META SUCCESS
+              //
+              // Supports both current and older callbacks.
+              // ==============================================
+
+              if (
+                oauth ===
+                  "meta_success" ||
+                connected ===
+                  "meta" ||
+                connected ===
+                  "facebook"
+              ) {
+                clearOAuthStorage(
+                  "meta"
+                );
+
+                await fetchConnections();
+
+                if (
+                  mountedRef.current
+                ) {
+                  setActiveOperation(
+                    null
+                  );
+                }
+
+                toast.success(
+                  "Facebook connected successfully"
+                );
+
+                return;
+              }
+
+              // ==============================================
+              // META FAILURE
+              // ==============================================
+
+              if (
+                oauth ===
+                "meta_failed"
+              ) {
+                clearOAuthStorage(
+                  "meta"
+                );
+
+                if (
+                  mountedRef.current
+                ) {
+                  setActiveOperation(
+                    null
+                  );
+                }
+
+                toast.error(
+                  reason ||
+                    "Meta connection failed"
+                );
+
+                return;
+              }
+
+              // ==============================================
+              // LINKEDIN SUCCESS
+              // ==============================================
+
+              if (
+                oauth ===
+                  "linkedin_success" ||
+                connected ===
+                  "linkedin"
+              ) {
+                clearOAuthStorage(
+                  "linkedin"
+                );
+
+                await fetchConnections();
+
+                if (
+                  mountedRef.current
+                ) {
+                  setActiveOperation(
+                    null
+                  );
+                }
+
+                toast.success(
+                  "LinkedIn connected successfully"
+                );
+
+                return;
+              }
+
+              // ==============================================
+              // LINKEDIN FAILURE
+              // ==============================================
+
+              if (
+                oauth ===
+                "linkedin_failed"
+              ) {
+                clearOAuthStorage(
+                  "linkedin"
+                );
+
+                if (
+                  mountedRef.current
+                ) {
+                  setActiveOperation(
+                    null
+                  );
+                }
+
+                toast.error(
+                  reason ||
+                    "LinkedIn connection failed"
+                );
+              }
+            } finally {
+              // ==============================================
+              // REMOVE CALLBACK PARAMS
+              // ==============================================
+
+              const cleanUrl =
+                new URL(
+                  window.location.href
+                );
+
+              cleanUrl.searchParams.delete(
+                "oauth"
               );
 
-              await fetchConnections();
+              cleanUrl.searchParams.delete(
+                "connected"
+              );
 
-              toast.success(
-                "Facebook connected successfully"
+              cleanUrl.searchParams.delete(
+                "reason"
+              );
+
+              cleanUrl.searchParams.delete(
+                "platform"
+              );
+
+              cleanUrl.searchParams.delete(
+                "social_error"
+              );
+
+              window.history.replaceState(
+                {},
+                "",
+                cleanUrl.pathname +
+                  cleanUrl.search +
+                  cleanUrl.hash
               );
             }
-
-            // ================================================
-            // META FAILURE
-            // ================================================
-
-            if (
-              oauth ===
-              "meta_failed"
-            ) {
-              clearOAuthStorage(
-                "meta"
-              );
-
-              toast.error(
-                reason ||
-                  "Meta connection failed"
-              );
-            }
-
-            // ================================================
-            // REMOVE CALLBACK PARAMS
-            // ================================================
-
-            const cleanUrl =
-              new URL(
-                window.location.href
-              );
-
-            cleanUrl.searchParams.delete(
-              "oauth"
-            );
-
-            cleanUrl.searchParams.delete(
-              "reason"
-            );
-
-            cleanUrl.searchParams.delete(
-              "platform"
-            );
-
-            window.history.replaceState(
-              {},
-              "",
-              cleanUrl.pathname +
-                cleanUrl.search +
-                cleanUrl.hash
-            );
           };
 
         void handleReturn();
@@ -957,7 +1226,7 @@ export const useSocialConnections =
     );
 
     // ========================================================
-    // REFRESH WHEN TAB BECOMES ACTIVE
+    // REFRESH WHEN WINDOW REGAINS FOCUS
     // ========================================================
 
     useEffect(

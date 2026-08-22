@@ -27,7 +27,6 @@ import {
   Plus,
   RefreshCw,
   Send,
-  Settings,
   Sparkles,
   Tag,
   Users,
@@ -41,11 +40,16 @@ import {
 } from "framer-motion";
 
 import {
+  addDays,
   addMonths,
+  addWeeks,
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
   format,
+  isAfter,
+  isBefore,
+  isEqual,
   isSameDay,
   isSameMonth,
   isValid,
@@ -89,6 +93,13 @@ interface CalendarEvent {
     | "event"
     | "task"
     | "note";
+
+  // Virtual recurring-instance metadata
+  seriesId?: string;
+
+  isRecurringOccurrence?: boolean;
+
+  occurrenceDate?: Date | null;
 }
 
 interface AvailabilityWindow {
@@ -197,6 +208,45 @@ const WEEK_DAYS: WeekDay[] = [
   },
 ];
 
+/**
+ * All available times in 10-minute intervals.
+ *
+ * 00:00
+ * 00:10
+ * 00:20
+ * ...
+ * 23:50
+ */
+const TIME_OPTIONS = Array.from(
+  {
+    length: 24 * 6,
+  },
+  (_, index) => {
+    const totalMinutes =
+      index * 10;
+
+    const hours =
+      Math.floor(
+        totalMinutes / 60
+      );
+
+    const minutes =
+      totalMinutes % 60;
+
+    return `${String(
+      hours
+    ).padStart(
+      2,
+      "0"
+    )}:${String(
+      minutes
+    ).padStart(
+      2,
+      "0"
+    )}`;
+  }
+);
+
 const DEFAULT_WINDOW: AvailabilityWindow = {
   start: "09:00",
   end: "17:00",
@@ -280,7 +330,9 @@ const DEFAULT_BOOKING_PAGE: BookingPage = {
 // HELPERS
 // ============================================================
 
-function slugify(value: string) {
+function slugify(
+  value: string
+) {
   return value
     .toLowerCase()
     .trim()
@@ -288,54 +340,191 @@ function slugify(value: string) {
       /[^a-z0-9\s-]/g,
       ""
     )
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(
+      /\s+/g,
+      "-"
+    )
+    .replace(
+      /-+/g,
+      "-"
+    )
+    .replace(
+      /^-|-$/g,
+      ""
+    );
 }
+
+// ============================================================
+// NORMALISE TIME TO NEAREST 10 MINUTES
+// ============================================================
+
+function snapTimeStringToTen(
+  value?: string | null
+) {
+  if (!value) {
+    return "09:00";
+  }
+
+  const [
+    rawHour,
+    rawMinute,
+  ] =
+    value
+      .split(":")
+      .map(Number);
+
+  if (
+    Number.isNaN(
+      rawHour
+    ) ||
+    Number.isNaN(
+      rawMinute
+    )
+  ) {
+    return "09:00";
+  }
+
+  let totalMinutes =
+    rawHour * 60 +
+    rawMinute;
+
+  totalMinutes =
+    Math.round(
+      totalMinutes / 10
+    ) * 10;
+
+  if (
+    totalMinutes >=
+    24 * 60
+  ) {
+    totalMinutes =
+      23 * 60 + 50;
+  }
+
+  const hours =
+    Math.floor(
+      totalMinutes / 60
+    );
+
+  const minutes =
+    totalMinutes % 60;
+
+  return `${String(
+    hours
+  ).padStart(
+    2,
+    "0"
+  )}:${String(
+    minutes
+  ).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+function formatDateTimeToTen(
+  value: Date
+) {
+  return snapTimeStringToTen(
+    format(
+      value,
+      "HH:mm"
+    )
+  );
+}
+
+// ============================================================
+// AVAILABILITY CLONE
+// ============================================================
 
 function cloneAvailability(
   availability: AvailabilityMap
 ): AvailabilityMap {
-  const clone: AvailabilityMap = {};
+  const clone: AvailabilityMap =
+    {};
 
-  WEEK_DAYS.forEach((day) => {
-    clone[day.key] = (
-      availability[day.key] || []
-    ).map((window) => ({
-      ...window,
-    }));
-  });
+  WEEK_DAYS.forEach(
+    (
+      day
+    ) => {
+      clone[
+        day.key
+      ] = (
+        availability[
+          day.key
+        ] || []
+      ).map(
+        (
+          window
+        ) => ({
+          start:
+            snapTimeStringToTen(
+              window.start
+            ),
+
+          end:
+            snapTimeStringToTen(
+              window.end
+            ),
+        })
+      );
+    }
+  );
 
   return clone;
 }
 
-function timeToMinutes(value: string) {
-  const [hour, minute] = value
-    .split(":")
-    .map(Number);
+// ============================================================
+// TIME HELPERS
+// ============================================================
+
+function timeToMinutes(
+  value: string
+) {
+  const [
+    hour,
+    minute,
+  ] =
+    value
+      .split(":")
+      .map(Number);
 
   if (
-    Number.isNaN(hour) ||
-    Number.isNaN(minute)
+    Number.isNaN(
+      hour
+    ) ||
+    Number.isNaN(
+      minute
+    )
   ) {
     return 0;
   }
 
-  return hour * 60 + minute;
+  return (
+    hour * 60 +
+    minute
+  );
 }
 
-function formatMinutes(total: number) {
-  const hours = Math.floor(
-    total / 60
-  );
+function formatMinutes(
+  total: number
+) {
+  const hours =
+    Math.floor(
+      total / 60
+    );
 
   const minutes =
     total % 60;
 
-  return `${String(hours).padStart(
+  return `${String(
+    hours
+  ).padStart(
     2,
     "0"
-  )}:${String(minutes).padStart(
+  )}:${String(
+    minutes
+  ).padStart(
     2,
     "0"
   )}`;
@@ -344,13 +533,240 @@ function formatMinutes(total: number) {
 function safeDate(
   value?: string | null
 ) {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
 
-  const date = new Date(value);
+  const date =
+    new Date(
+      value
+    );
 
-  return isValid(date)
+  return isValid(
+    date
+  )
     ? date
     : null;
+}
+
+// ============================================================
+// RECURRING EVENT EXPANSION
+// ============================================================
+
+function expandRecurringEvents(
+  baseEvents: CalendarEvent[],
+  rangeStart: Date,
+  rangeEnd: Date
+) {
+  const expanded: CalendarEvent[] =
+    [];
+
+  baseEvents.forEach(
+    (
+      event
+    ) => {
+      // Tasks and notes do not use the repeat system here.
+      if (
+        event.sourceType !==
+          "event" ||
+        !event.startAt ||
+        !isValid(
+          event.startAt
+        )
+      ) {
+        expanded.push(
+          event
+        );
+
+        return;
+      }
+
+      const repeat =
+        event.repeat ||
+        "none";
+
+      // --------------------------------------------------------
+      // NORMAL NON-REPEATING EVENT
+      // --------------------------------------------------------
+
+      if (
+        repeat ===
+        "none" ||
+        !repeat
+      ) {
+        expanded.push(
+          event
+        );
+
+        return;
+      }
+
+      const originalStart =
+        new Date(
+          event.startAt
+        );
+
+      const originalEnd =
+        event.endAt
+          ? new Date(
+              event.endAt
+            )
+          : null;
+
+      const duration =
+        originalEnd
+          ? originalEnd.getTime() -
+            originalStart.getTime()
+          : 0;
+
+      let occurrence =
+        new Date(
+          originalStart
+        );
+
+      let safetyCount =
+        0;
+
+      /**
+       * Generate instances from the original start date
+       * up until the currently requested calendar range.
+       */
+      while (
+        (
+          isBefore(
+            occurrence,
+            rangeEnd
+          ) ||
+          isEqual(
+            occurrence,
+            rangeEnd
+          )
+        ) &&
+        safetyCount <
+          1500
+      ) {
+        const occurrenceIsInsideRange =
+          (
+            isAfter(
+              occurrence,
+              rangeStart
+            ) ||
+            isEqual(
+              occurrence,
+              rangeStart
+            )
+          ) &&
+          (
+            isBefore(
+              occurrence,
+              rangeEnd
+            ) ||
+            isEqual(
+              occurrence,
+              rangeEnd
+            )
+          );
+
+        if (
+          occurrenceIsInsideRange
+        ) {
+          const occurrenceStart =
+            new Date(
+              occurrence
+            );
+
+          const occurrenceEnd =
+            duration >
+            0
+              ? new Date(
+                  occurrenceStart.getTime() +
+                    duration
+                )
+              : null;
+
+          expanded.push({
+            ...event,
+
+            id: `${event.id}__${format(
+              occurrenceStart,
+              "yyyy-MM-dd-HH-mm"
+            )}`,
+
+            seriesId:
+              event.id,
+
+            isRecurringOccurrence:
+              true,
+
+            occurrenceDate:
+              occurrenceStart,
+
+            startAt:
+              occurrenceStart,
+
+            endAt:
+              occurrenceEnd,
+          });
+        }
+
+        // ------------------------------------------------------
+        // MOVE TO NEXT OCCURRENCE
+        // ------------------------------------------------------
+
+        if (
+          repeat ===
+          "daily"
+        ) {
+          occurrence =
+            addDays(
+              occurrence,
+              1
+            );
+        } else if (
+          repeat ===
+          "weekly"
+        ) {
+          occurrence =
+            addWeeks(
+              occurrence,
+              1
+            );
+        } else if (
+          repeat ===
+          "monthly"
+        ) {
+          occurrence =
+            addMonths(
+              occurrence,
+              1
+            );
+        } else {
+          break;
+        }
+
+        safetyCount +=
+          1;
+      }
+    }
+  );
+
+  return expanded;
+}
+
+// ============================================================
+// CLONE WINDOWS
+// ============================================================
+
+function cloneWindows(
+  windows: AvailabilityWindow[]
+) {
+  return windows.map(
+    (
+      window
+    ) => ({
+      ...window,
+    })
+  );
 }
 
 // ============================================================
@@ -398,7 +814,9 @@ export default function CalendarPage() {
     isLoading,
     setIsLoading,
   ] =
-    useState(true);
+    useState(
+      true
+    );
 
   const [
     error,
@@ -406,7 +824,9 @@ export default function CalendarPage() {
   ] =
     useState<
       string | null
-    >(null);
+    >(
+      null
+    );
 
   const [
     currentUser,
@@ -432,7 +852,9 @@ export default function CalendarPage() {
     isModalOpen,
     setIsModalOpen,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     selectedEvent,
@@ -440,7 +862,9 @@ export default function CalendarPage() {
   ] =
     useState<
       CalendarEvent | null
-    >(null);
+    >(
+      null
+    );
 
   const [
     viewMode,
@@ -458,13 +882,17 @@ export default function CalendarPage() {
     isSubmitting,
     setIsSubmitting,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     isDeleting,
     setIsDeleting,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   // ==========================================================
   // EVENT FORM
@@ -474,7 +902,9 @@ export default function CalendarPage() {
     formTitle,
     setFormTitle,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     formDate,
@@ -499,13 +929,17 @@ export default function CalendarPage() {
     formEndDate,
     setFormEndDate,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     formEndTime,
     setFormEndTime,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     formRepeat,
@@ -519,37 +953,49 @@ export default function CalendarPage() {
     formLocation,
     setFormLocation,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     formLink,
     setFormLink,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     formGuests,
     setFormGuests,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     formInternalTeam,
     setFormInternalTeam,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     formTags,
     setFormTags,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     formDescription,
     setFormDescription,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     attachedFileName,
@@ -557,7 +1003,9 @@ export default function CalendarPage() {
   ] =
     useState<
       string | null
-    >(null);
+    >(
+      null
+    );
 
   const fileInputRef =
     useRef<HTMLInputElement>(
@@ -565,7 +1013,7 @@ export default function CalendarPage() {
     );
 
   // ==========================================================
-  // BOOKING
+  // BOOKING STATE
   // ==========================================================
 
   const [
@@ -580,19 +1028,25 @@ export default function CalendarPage() {
     bookingPageExists,
     setBookingPageExists,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     isBookingLoading,
     setIsBookingLoading,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     isBookingSaving,
     setIsBookingSaving,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     bookingError,
@@ -600,40 +1054,51 @@ export default function CalendarPage() {
   ] =
     useState<
       string | null
-    >(null);
+    >(
+      null
+    );
 
   const [
     bookingSaved,
     setBookingSaved,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     siteOrigin,
     setSiteOrigin,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
     copiedLink,
     setCopiedLink,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   // ==========================================================
   // SITE ORIGIN
   // ==========================================================
 
-  useEffect(() => {
-    if (
-      typeof window !==
-      "undefined"
-    ) {
-      setSiteOrigin(
-        window.location.origin
-      );
-    }
-  }, []);
+  useEffect(
+    () => {
+      if (
+        typeof window !==
+        "undefined"
+      ) {
+        setSiteOrigin(
+          window.location.origin
+        );
+      }
+    },
+    []
+  );
 
   // ==========================================================
   // NORMALISE EVENT
@@ -659,6 +1124,10 @@ export default function CalendarPage() {
 
           sourceType:
             "event",
+
+          repeat:
+            event?.repeat ||
+            "none",
 
           startAt:
             startRaw &&
@@ -780,7 +1249,9 @@ export default function CalendarPage() {
                 .from(
                   "events"
                 )
-                .select("*")
+                .select(
+                  "*"
+                )
                 .eq(
                   "user_id",
                   user.id
@@ -790,7 +1261,9 @@ export default function CalendarPage() {
                 .from(
                   "tasks"
                 )
-                .select("*")
+                .select(
+                  "*"
+                )
                 .eq(
                   "user_id",
                   user.id
@@ -800,7 +1273,9 @@ export default function CalendarPage() {
                 .from(
                   "tasks"
                 )
-                .select("*")
+                .select(
+                  "*"
+                )
                 .eq(
                   "assigned_to",
                   user.id
@@ -810,7 +1285,9 @@ export default function CalendarPage() {
                 .from(
                   "notes"
                 )
-                .select("*")
+                .select(
+                  "*"
+                )
                 .eq(
                   "user_id",
                   user.id
@@ -820,7 +1297,9 @@ export default function CalendarPage() {
                 .from(
                   "notes"
                 )
-                .select("*")
+                .select(
+                  "*"
+                )
                 .eq(
                   "assigned_to",
                   user.id
@@ -841,9 +1320,9 @@ export default function CalendarPage() {
               normaliseEvent
             );
 
-          // IMPORTANT:
-          // Tasks now appear only when actually scheduled.
-          // created_at is deliberately NOT used as fallback.
+          // ====================================================
+          // TASKS
+          // ====================================================
 
           const taskMap =
             new Map<
@@ -856,6 +1335,7 @@ export default function CalendarPage() {
               ownedTasksResult.data ||
               []
             ),
+
             ...(
               assignedTasksResult.data ||
               []
@@ -882,7 +1362,9 @@ export default function CalendarPage() {
               .map(
                 (
                   task: any
-                ): CalendarEvent | null => {
+                ):
+                  | CalendarEvent
+                  | null => {
                   const startRaw =
                     task?.due_date ||
                     task?.start_time ||
@@ -899,7 +1381,9 @@ export default function CalendarPage() {
                       startRaw
                     );
 
-                  if (!start) {
+                  if (
+                    !start
+                  ) {
                     return null;
                   }
 
@@ -926,6 +1410,9 @@ export default function CalendarPage() {
                     sourceType:
                       "task",
 
+                    repeat:
+                      "none",
+
                     startAt:
                       start,
 
@@ -938,8 +1425,9 @@ export default function CalendarPage() {
                 Boolean
               ) as CalendarEvent[];
 
-          // IMPORTANT:
-          // Notes now appear only when they have an actual due/scheduled date.
+          // ====================================================
+          // NOTES
+          // ====================================================
 
           const noteMap =
             new Map<
@@ -952,6 +1440,7 @@ export default function CalendarPage() {
               ownedNotesResult.data ||
               []
             ),
+
             ...(
               assignedNotesResult.data ||
               []
@@ -978,7 +1467,9 @@ export default function CalendarPage() {
               .map(
                 (
                   note: any
-                ): CalendarEvent | null => {
+                ):
+                  | CalendarEvent
+                  | null => {
                   const startRaw =
                     note?.due_date ||
                     note?.start_time ||
@@ -995,7 +1486,9 @@ export default function CalendarPage() {
                       startRaw
                     );
 
-                  if (!start) {
+                  if (
+                    !start
+                  ) {
                     return null;
                   }
 
@@ -1031,6 +1524,9 @@ export default function CalendarPage() {
 
                     sourceType:
                       "note",
+
+                    repeat:
+                      "none",
 
                     startAt:
                       start,
@@ -1093,36 +1589,39 @@ export default function CalendarPage() {
   // AUTH INITIALISE
   // ==========================================================
 
-  useEffect(() => {
-    void syncCalendar();
+  useEffect(
+    () => {
+      void syncCalendar();
 
-    const {
-      data:
-        listener,
-    } =
-      supabase.auth.onAuthStateChange(
-        (
-          _event,
-          session
-        ) => {
-          if (
-            session?.user
-          ) {
-            setCurrentUser(
-              session.user
-            );
+      const {
+        data:
+          listener,
+      } =
+        supabase.auth.onAuthStateChange(
+          (
+            _event,
+            session
+          ) => {
+            if (
+              session?.user
+            ) {
+              setCurrentUser(
+                session.user
+              );
 
-            void syncCalendar();
+              void syncCalendar();
+            }
           }
-        }
-      );
+        );
 
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, [
-    syncCalendar,
-  ]);
+      return () => {
+        listener.subscription.unsubscribe();
+      };
+    },
+    [
+      syncCalendar,
+    ]
+  );
 
   // ==========================================================
   // LOAD BOOKING PAGE
@@ -1151,7 +1650,9 @@ export default function CalendarPage() {
               .from(
                 "booking_pages"
               )
-              .select("*")
+              .select(
+                "*"
+              )
               .eq(
                 "user_id",
                 userId
@@ -1167,9 +1668,12 @@ export default function CalendarPage() {
             );
           }
 
-          if (data) {
+          if (
+            data
+          ) {
             setBookingPage({
               ...DEFAULT_BOOKING_PAGE,
+
               ...data,
 
               availability:
@@ -1218,52 +1722,146 @@ export default function CalendarPage() {
       []
     );
 
-  useEffect(() => {
-    if (
-      currentUser?.id
-    ) {
-      void loadBookingPage(
-        currentUser.id
-      );
-    }
-  }, [
-    currentUser?.id,
-    loadBookingPage,
-  ]);
+  useEffect(
+    () => {
+      if (
+        currentUser?.id
+      ) {
+        void loadBookingPage(
+          currentUser.id
+        );
+      }
+    },
+    [
+      currentUser?.id,
+      loadBookingPage,
+    ]
+  );
 
   // ==========================================================
-  // DERIVED SCHEDULE
+  // MONTH CALENDAR RANGE
   // ==========================================================
+
+  const calendarRangeStart =
+    useMemo(
+      () =>
+        startOfWeek(
+          startOfMonth(
+            currentMonth
+          )
+        ),
+      [
+        currentMonth,
+      ]
+    );
+
+  const calendarRangeEnd =
+    useMemo(
+      () =>
+        endOfWeek(
+          endOfMonth(
+            currentMonth
+          )
+        ),
+      [
+        currentMonth,
+      ]
+    );
 
   const daysGrid =
     useMemo(
       () =>
         eachDayOfInterval({
           start:
-            startOfWeek(
-              startOfMonth(
-                currentMonth
-              )
-            ),
+            calendarRangeStart,
 
           end:
-            endOfWeek(
-              endOfMonth(
-                currentMonth
-              )
-            ),
+            calendarRangeEnd,
         }),
       [
-        currentMonth,
+        calendarRangeStart,
+        calendarRangeEnd,
       ]
     );
+
+  // ==========================================================
+  // EXPAND RECURRING EVENTS FOR MONTH
+  // ==========================================================
+
+  const expandedCalendarEvents =
+    useMemo(
+      () =>
+        expandRecurringEvents(
+          events,
+          calendarRangeStart,
+          calendarRangeEnd
+        ),
+      [
+        events,
+        calendarRangeStart,
+        calendarRangeEnd,
+      ]
+    );
+
+  // ==========================================================
+  // EXPAND RECURRING EVENTS FOR OVERVIEW
+  // ==========================================================
+
+  const overviewRangeStart =
+    useMemo(
+      () => {
+        const start =
+          new Date();
+
+        start.setHours(
+          0,
+          0,
+          0,
+          0
+        );
+
+        return start;
+      },
+      []
+    );
+
+  const overviewRangeEnd =
+    useMemo(
+      () =>
+        addMonths(
+          overviewRangeStart,
+          12
+        ),
+      [
+        overviewRangeStart,
+      ]
+    );
+
+  const expandedOverviewEvents =
+    useMemo(
+      () =>
+        expandRecurringEvents(
+          events,
+          overviewRangeStart,
+          overviewRangeEnd
+        ),
+      [
+        events,
+        overviewRangeStart,
+        overviewRangeEnd,
+      ]
+    );
+
+  // ==========================================================
+  // GET EVENTS FOR DAY
+  // ==========================================================
 
   const getDayEvents =
     useCallback(
       (
         date: Date
       ) => {
-        return events
+        return expandedCalendarEvents
           .filter(
             (
               event
@@ -1299,20 +1897,53 @@ export default function CalendarPage() {
           );
       },
       [
-        events,
+        expandedCalendarEvents,
       ]
     );
 
+  // ==========================================================
+  // TODAY
+  // ==========================================================
+
   const todayEvents =
     useMemo(
-      () =>
-        getDayEvents(
-          new Date()
-        ),
+      () => {
+        return expandedOverviewEvents
+          .filter(
+            (
+              event
+            ) =>
+              Boolean(
+                event.startAt &&
+                  isSameDay(
+                    event.startAt,
+                    new Date()
+                  )
+              )
+          )
+          .sort(
+            (
+              a,
+              b
+            ) =>
+              (
+                a.startAt?.getTime() ||
+                0
+              ) -
+              (
+                b.startAt?.getTime() ||
+                0
+              )
+          );
+      },
       [
-        getDayEvents,
+        expandedOverviewEvents,
       ]
     );
+
+  // ==========================================================
+  // UPCOMING
+  // ==========================================================
 
   const upcomingEvents =
     useMemo(
@@ -1320,7 +1951,7 @@ export default function CalendarPage() {
         const now =
           new Date();
 
-        return events
+        return expandedOverviewEvents
           .filter(
             (
               event
@@ -1351,9 +1982,13 @@ export default function CalendarPage() {
           );
       },
       [
-        events,
+        expandedOverviewEvents,
       ]
     );
+
+  // ==========================================================
+  // AVAILABLE DAY COUNT
+  // ==========================================================
 
   const availableDayCount =
     useMemo(
@@ -1382,6 +2017,43 @@ export default function CalendarPage() {
           bookingPage.slug
         )}`
       : "";
+
+  // ==========================================================
+  // GET ORIGINAL EVENT FROM A RECURRING INSTANCE
+  // ==========================================================
+
+  const getBaseEvent =
+    useCallback(
+      (
+        event: CalendarEvent | null
+      ) => {
+        if (
+          !event
+        ) {
+          return null;
+        }
+
+        if (
+          !event.seriesId
+        ) {
+          return event;
+        }
+
+        return (
+          events.find(
+            (
+              original
+            ) =>
+              original.id ===
+              event.seriesId
+          ) ||
+          event
+        );
+      },
+      [
+        events,
+      ]
+    );
 
   // ==========================================================
   // OPEN EVENT
@@ -1431,6 +2103,7 @@ export default function CalendarPage() {
         )
       );
 
+      // Always starts at :00
       setFormTime(
         "09:00"
       );
@@ -1496,40 +2169,51 @@ export default function CalendarPage() {
         return;
       }
 
+      /**
+       * If the user clicked Tuesday's copy of a Daily event,
+       * edit the original series rather than changing the series
+       * start date to Tuesday.
+       */
+      const eventToEdit =
+        getBaseEvent(
+          selectedEvent
+        ) ||
+        selectedEvent;
+
       setFormTitle(
-        selectedEvent.title ||
+        eventToEdit.title ||
           ""
       );
 
       setFormDescription(
-        selectedEvent.description ||
+        eventToEdit.description ||
           ""
       );
 
       setFormLocation(
-        selectedEvent.location ||
+        eventToEdit.location ||
           ""
       );
 
       setFormLink(
-        selectedEvent.meeting_link ||
+        eventToEdit.meeting_link ||
           ""
       );
 
       setFormGuests(
-        selectedEvent.guests ||
+        eventToEdit.guests ||
           ""
       );
 
       setFormTags(
-        selectedEvent.tags ||
+        eventToEdit.tags ||
           ""
       );
 
       setFormDate(
-        selectedEvent.startAt
+        eventToEdit.startAt
           ? format(
-              selectedEvent.startAt,
+              eventToEdit.startAt,
               "yyyy-MM-dd"
             )
           : format(
@@ -1539,34 +2223,32 @@ export default function CalendarPage() {
       );
 
       setFormTime(
-        selectedEvent.startAt
-          ? format(
-              selectedEvent.startAt,
-              "HH:mm"
+        eventToEdit.startAt
+          ? formatDateTimeToTen(
+              eventToEdit.startAt
             )
           : "09:00"
       );
 
       setFormEndDate(
-        selectedEvent.endAt
+        eventToEdit.endAt
           ? format(
-              selectedEvent.endAt,
+              eventToEdit.endAt,
               "yyyy-MM-dd"
             )
           : ""
       );
 
       setFormEndTime(
-        selectedEvent.endAt
-          ? format(
-              selectedEvent.endAt,
-              "HH:mm"
+        eventToEdit.endAt
+          ? formatDateTimeToTen(
+              eventToEdit.endAt
             )
           : ""
       );
 
       setFormRepeat(
-        selectedEvent.repeat ||
+        eventToEdit.repeat ||
           "none"
       );
 
@@ -1584,9 +2266,13 @@ export default function CalendarPage() {
       event: React.ChangeEvent<HTMLInputElement>
     ) => {
       const file =
-        event.target.files?.[0];
+        event.target.files?.[
+          0
+        ];
 
-      if (file) {
+      if (
+        file
+      ) {
         setAttachedFileName(
           file.name
         );
@@ -1622,7 +2308,9 @@ export default function CalendarPage() {
         } =
           await supabase.auth.getUser();
 
-        if (!user) {
+        if (
+          !user
+        ) {
           throw new Error(
             "You must be signed in."
           );
@@ -1633,18 +2321,44 @@ export default function CalendarPage() {
             ?.organisation_id ||
           null;
 
+        const safeStartTime =
+          snapTimeStringToTen(
+            formTime
+          );
+
+        const safeEndTime =
+          formEndTime
+            ? snapTimeStringToTen(
+                formEndTime
+              )
+            : "";
+
         const startISO =
           new Date(
-            `${formDate}T${formTime}:00`
+            `${formDate}T${safeStartTime}:00`
           ).toISOString();
 
         const endISO =
           formEndDate &&
-          formEndTime
+          safeEndTime
             ? new Date(
-                `${formEndDate}T${formEndTime}:00`
+                `${formEndDate}T${safeEndTime}:00`
               ).toISOString()
             : null;
+
+        if (
+          endISO &&
+          new Date(
+            endISO
+          ) <=
+            new Date(
+              startISO
+            )
+        ) {
+          throw new Error(
+            "End date and time must be after the start."
+          );
+        }
 
         const description =
           `${formDescription}${
@@ -1657,21 +2371,27 @@ export default function CalendarPage() {
               : ""
           }`;
 
-        // ------------------------------------------------------
+        // ======================================================
         // EDIT
-        // ------------------------------------------------------
+        // ======================================================
 
         if (
           viewMode ===
             "EDIT" &&
           selectedEvent
         ) {
+          const originalEvent =
+            getBaseEvent(
+              selectedEvent
+            ) ||
+            selectedEvent;
+
           if (
-            selectedEvent.sourceType ===
+            originalEvent.sourceType ===
             "task"
           ) {
             const id =
-              selectedEvent.id.replace(
+              originalEvent.id.replace(
                 "task-",
                 ""
               );
@@ -1708,11 +2428,11 @@ export default function CalendarPage() {
               throw updateError;
             }
           } else if (
-            selectedEvent.sourceType ===
+            originalEvent.sourceType ===
             "note"
           ) {
             const id =
-              selectedEvent.id.replace(
+              originalEvent.id.replace(
                 "note-",
                 ""
               );
@@ -1748,6 +2468,10 @@ export default function CalendarPage() {
               throw updateError;
             }
           } else {
+            const eventId =
+              selectedEvent.seriesId ||
+              selectedEvent.id;
+
             const {
               error:
                 updateError,
@@ -1785,7 +2509,7 @@ export default function CalendarPage() {
                 })
                 .eq(
                   "id",
-                  selectedEvent.id
+                  eventId
                 )
                 .eq(
                   "user_id",
@@ -1808,9 +2532,9 @@ export default function CalendarPage() {
           return;
         }
 
-        // ------------------------------------------------------
+        // ======================================================
         // CREATE
-        // ------------------------------------------------------
+        // ======================================================
 
         const {
           error:
@@ -1900,9 +2624,23 @@ export default function CalendarPage() {
         return;
       }
 
+      const isSeries =
+        Boolean(
+          selectedEvent.seriesId ||
+            (
+              selectedEvent.sourceType ===
+                "event" &&
+              selectedEvent.repeat &&
+              selectedEvent.repeat !==
+                "none"
+            )
+        );
+
       if (
         !window.confirm(
-          "Delete this item?"
+          isSeries
+            ? "Delete this repeating event series?"
+            : "Delete this item?"
         )
       ) {
         return;
@@ -1913,12 +2651,18 @@ export default function CalendarPage() {
       );
 
       try {
+        const baseEvent =
+          getBaseEvent(
+            selectedEvent
+          ) ||
+          selectedEvent;
+
         if (
-          selectedEvent.sourceType ===
+          baseEvent.sourceType ===
           "task"
         ) {
           const id =
-            selectedEvent.id.replace(
+            baseEvent.id.replace(
               "task-",
               ""
             );
@@ -1943,11 +2687,11 @@ export default function CalendarPage() {
             throw deleteError;
           }
         } else if (
-          selectedEvent.sourceType ===
+          baseEvent.sourceType ===
           "note"
         ) {
           const id =
-            selectedEvent.id.replace(
+            baseEvent.id.replace(
               "note-",
               ""
             );
@@ -1972,6 +2716,10 @@ export default function CalendarPage() {
             throw deleteError;
           }
         } else {
+          const eventId =
+            selectedEvent.seriesId ||
+            selectedEvent.id;
+
           const {
             error:
               deleteError,
@@ -1983,7 +2731,7 @@ export default function CalendarPage() {
               .delete()
               .eq(
                 "id",
-                selectedEvent.id
+                eventId
               );
 
           if (
@@ -2082,15 +2830,24 @@ export default function CalendarPage() {
           ];
 
           if (
-            !windows[index]
+            !windows[
+              index
+            ]
           ) {
             return previous;
           }
 
-          windows[index] = {
-            ...windows[index],
+          windows[
+            index
+          ] = {
+            ...windows[
+              index
+            ],
+
             [field]:
-              value,
+              snapTimeStringToTen(
+                value
+              ),
           };
 
           return {
@@ -2141,28 +2898,41 @@ export default function CalendarPage() {
                 last.end
               );
 
+            /**
+             * Next block starts 10 minutes
+             * after the last block.
+             */
             const suggestedStart =
               Math.min(
-                lastEnd + 30,
-                22 * 60
+                lastEnd +
+                  10,
+                23 * 60 +
+                  40
               );
 
+            /**
+             * Default new window = two hours.
+             */
             const suggestedEnd =
               Math.min(
                 suggestedStart +
                   120,
                 23 * 60 +
-                  59
+                  50
               );
 
             start =
-              formatMinutes(
-                suggestedStart
+              snapTimeStringToTen(
+                formatMinutes(
+                  suggestedStart
+                )
               );
 
             end =
-              formatMinutes(
-                suggestedEnd
+              snapTimeStringToTen(
+                formatMinutes(
+                  suggestedEnd
+                )
               );
           }
 
@@ -2341,13 +3111,16 @@ export default function CalendarPage() {
         }
 
         for (
-          let i = 0;
+          let i =
+            0;
           i <
           windows.length;
           i++
         ) {
           const current =
-            windows[i];
+            windows[
+              i
+            ];
 
           if (
             timeToMinutes(
@@ -2368,7 +3141,9 @@ export default function CalendarPage() {
             j++
           ) {
             const other =
-              windows[j];
+              windows[
+                j
+              ];
 
             if (
               timeToMinutes(
@@ -2419,7 +3194,9 @@ export default function CalendarPage() {
       } =
         await supabase.auth.getUser();
 
-      if (!user) {
+      if (
+        !user
+      ) {
         setBookingError(
           "You must be signed in."
         );
@@ -2433,7 +3210,9 @@ export default function CalendarPage() {
             bookingPage.title
         );
 
-      if (!slug) {
+      if (
+        !slug
+      ) {
         setBookingError(
           "Enter a booking page link."
         );
@@ -2548,7 +3327,9 @@ export default function CalendarPage() {
                   "user_id",
               }
             )
-            .select("*")
+            .select(
+              "*"
+            )
             .maybeSingle();
 
         if (
@@ -2557,9 +3338,12 @@ export default function CalendarPage() {
           throw saveError;
         }
 
-        if (data) {
+        if (
+          data
+        ) {
           setBookingPage({
             ...DEFAULT_BOOKING_PAGE,
+
             ...data,
 
             availability:
@@ -2646,7 +3430,7 @@ export default function CalendarPage() {
     };
 
   // ==========================================================
-  // NAV
+  // TABS
   // ==========================================================
 
   const tabs: {
@@ -2654,20 +3438,35 @@ export default function CalendarPage() {
     icon: any;
   }[] = [
     {
-      label: "Overview",
-      icon: Sparkles,
+      label:
+        "Overview",
+
+      icon:
+        Sparkles,
     },
+
     {
-      label: "Calendar",
-      icon: CalendarDays,
+      label:
+        "Calendar",
+
+      icon:
+        CalendarDays,
     },
+
     {
-      label: "Booking Page",
-      icon: LinkIcon,
+      label:
+        "Booking Page",
+
+      icon:
+        LinkIcon,
     },
+
     {
-      label: "Availability",
-      icon: Clock,
+      label:
+        "Availability",
+
+      icon:
+        Clock,
     },
   ];
 
@@ -2720,7 +3519,9 @@ export default function CalendarPage() {
               className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
             >
               <RefreshCw
-                size={13}
+                size={
+                  13
+                }
                 className={
                   isLoading
                     ? "animate-spin"
@@ -2745,7 +3546,9 @@ export default function CalendarPage() {
               className="flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#a9b897]"
             >
               <Plus
-                size={14}
+                size={
+                  14
+                }
               />
 
               Add Event
@@ -2832,8 +3635,7 @@ export default function CalendarPage() {
 
                 <div>
                   <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-[#829473]">
-                    TOTS Schedule
-                    Summary
+                    TOTS Schedule Summary
                   </p>
 
                   <p className="max-w-4xl text-lg leading-8 text-stone-700">
@@ -3050,8 +3852,7 @@ export default function CalendarPage() {
                     }
                     className="rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
                   >
-                    Manage Booking
-                    Page
+                    Manage Booking Page
                   </button>
 
                   {bookingLink &&
@@ -3167,11 +3968,18 @@ export default function CalendarPage() {
 
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    const now =
+                      new Date();
+
                     setCurrentMonth(
-                      new Date()
-                    )
-                  }
+                      now
+                    );
+
+                    setSelectedDay(
+                      now
+                    );
+                  }}
                   className="rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
                 >
                   Today
@@ -3269,7 +4077,7 @@ export default function CalendarPage() {
                               day
                             );
                           }}
-                          className={`min-h-[100px] border-b border-r border-stone-100 p-2 text-left transition sm:min-h-[130px] sm:p-3 ${
+                          className={`min-h-[110px] border-b border-r border-stone-100 p-2 text-left transition sm:min-h-[140px] sm:p-3 ${
                             !isSameMonth(
                               day,
                               currentMonth
@@ -3332,12 +4140,26 @@ export default function CalendarPage() {
                                         : event.sourceType ===
                                             "note"
                                           ? "bg-amber-50 text-amber-700"
-                                          : "bg-stone-100 text-stone-600"
+                                          : event.isRecurringOccurrence
+                                            ? "bg-[#ebe6dc] text-stone-700"
+                                            : "bg-stone-100 text-stone-600"
                                     }`}
                                   >
-                                    {
-                                      event.title
-                                    }
+                                    <span>
+                                      {event.startAt
+                                        ? `${format(
+                                            event.startAt,
+                                            "HH:mm"
+                                          )} `
+                                        : ""}
+
+                                      {
+                                        event.title
+                                      }
+
+                                      {event.isRecurringOccurrence &&
+                                        " ↻"}
+                                    </span>
                                   </div>
                                 )
                               )}
@@ -3478,16 +4300,24 @@ export default function CalendarPage() {
                         }
                         className="form-input"
                       >
-                        <option value={15}>
-                          15 minutes
+                        <option value={10}>
+                          10 minutes
+                        </option>
+
+                        <option value={20}>
+                          20 minutes
                         </option>
 
                         <option value={30}>
                           30 minutes
                         </option>
 
-                        <option value={45}>
-                          45 minutes
+                        <option value={40}>
+                          40 minutes
+                        </option>
+
+                        <option value={50}>
+                          50 minutes
                         </option>
 
                         <option value={60}>
@@ -3614,8 +4444,7 @@ export default function CalendarPage() {
                         </option>
 
                         <option value="both">
-                          Customer
-                          chooses
+                          Customer chooses
                         </option>
                       </select>
                     </FormField>
@@ -3654,8 +4483,7 @@ export default function CalendarPage() {
                           </option>
 
                           <option value="teams">
-                            Microsoft
-                            Teams
+                            Microsoft Teams
                           </option>
 
                           <option value="zoom">
@@ -3870,20 +4698,28 @@ export default function CalendarPage() {
                           "None",
                         ],
                         [
-                          "5",
-                          "5 mins",
-                        ],
-                        [
                           "10",
                           "10 mins",
                         ],
                         [
-                          "15",
-                          "15 mins",
+                          "20",
+                          "20 mins",
                         ],
                         [
                           "30",
                           "30 mins",
+                        ],
+                        [
+                          "40",
+                          "40 mins",
+                        ],
+                        [
+                          "50",
+                          "50 mins",
+                        ],
+                        [
+                          "60",
+                          "60 mins",
                         ],
                       ]}
                     />
@@ -3915,20 +4751,28 @@ export default function CalendarPage() {
                           "None",
                         ],
                         [
-                          "5",
-                          "5 mins",
-                        ],
-                        [
                           "10",
                           "10 mins",
                         ],
                         [
-                          "15",
-                          "15 mins",
+                          "20",
+                          "20 mins",
                         ],
                         [
                           "30",
                           "30 mins",
+                        ],
+                        [
+                          "40",
+                          "40 mins",
+                        ],
+                        [
+                          "50",
+                          "50 mins",
+                        ],
+                        [
+                          "60",
+                          "60 mins",
                         ],
                       ]}
                     />
@@ -4093,6 +4937,9 @@ export default function CalendarPage() {
                     control your
                     public booking
                     availability.
+                    Times are set in
+                    ten-minute
+                    intervals.
                   </p>
                 </div>
 
@@ -4196,8 +5043,7 @@ export default function CalendarPage() {
                               }
                               className="w-full rounded-xl border border-dashed border-stone-200 py-4 text-xs text-stone-400"
                             >
-                              + Add
-                              availability
+                              + Add availability
                             </button>
                           ) : (
                             <div className="space-y-3">
@@ -4226,8 +5072,7 @@ export default function CalendarPage() {
                                             : "border-stone-100"
                                         }`}
                                       >
-                                        <input
-                                          type="time"
+                                        <select
                                           value={
                                             window.start
                                           }
@@ -4244,14 +5089,32 @@ export default function CalendarPage() {
                                             )
                                           }
                                           className="min-w-0 flex-1 bg-transparent p-2 text-xs outline-none"
-                                        />
+                                        >
+                                          {TIME_OPTIONS.map(
+                                            (
+                                              time
+                                            ) => (
+                                              <option
+                                                key={
+                                                  time
+                                                }
+                                                value={
+                                                  time
+                                                }
+                                              >
+                                                {
+                                                  time
+                                                }
+                                              </option>
+                                            )
+                                          )}
+                                        </select>
 
                                         <span className="text-[8px] font-black uppercase text-stone-300">
                                           to
                                         </span>
 
-                                        <input
-                                          type="time"
+                                        <select
                                           value={
                                             window.end
                                           }
@@ -4268,7 +5131,26 @@ export default function CalendarPage() {
                                             )
                                           }
                                           className="min-w-0 flex-1 bg-transparent p-2 text-xs outline-none"
-                                        />
+                                        >
+                                          {TIME_OPTIONS.map(
+                                            (
+                                              time
+                                            ) => (
+                                              <option
+                                                key={
+                                                  time
+                                                }
+                                                value={
+                                                  time
+                                                }
+                                              >
+                                                {
+                                                  time
+                                                }
+                                              </option>
+                                            )
+                                          )}
+                                        </select>
                                       </div>
 
                                       <button
@@ -4335,8 +5217,7 @@ export default function CalendarPage() {
                                       }
                                     />
 
-                                    Copy to
-                                    weekdays
+                                    Copy to weekdays
                                   </button>
                                 )}
                               </div>
@@ -4387,13 +5268,16 @@ export default function CalendarPage() {
           <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
             <motion.div
               initial={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               animate={{
-                opacity: 1,
+                opacity:
+                  1,
               }}
               exit={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               onClick={() =>
                 setIsModalOpen(
@@ -4405,19 +5289,34 @@ export default function CalendarPage() {
 
             <motion.div
               initial={{
-                opacity: 0,
-                scale: 0.97,
-                y: 12,
+                opacity:
+                  0,
+
+                scale:
+                  0.97,
+
+                y:
+                  12,
               }}
               animate={{
-                opacity: 1,
-                scale: 1,
-                y: 0,
+                opacity:
+                  1,
+
+                scale:
+                  1,
+
+                y:
+                  0,
               }}
               exit={{
-                opacity: 0,
-                scale: 0.97,
-                y: 12,
+                opacity:
+                  0,
+
+                scale:
+                  0.97,
+
+                y:
+                  12,
               }}
               className="relative z-10 max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8"
             >
@@ -4437,6 +5336,18 @@ export default function CalendarPage() {
                         : selectedEvent?.title ||
                           "Event"}
                   </h2>
+
+                  {selectedEvent?.isRecurringOccurrence &&
+                    viewMode ===
+                      "VIEW" && (
+                      <p className="mt-2 text-[9px] font-black uppercase tracking-[0.13em] text-[#829473]">
+                        ↻ Repeating{" "}
+                        {
+                          selectedEvent.repeat
+                        }{" "}
+                        event
+                      </p>
+                    )}
                 </div>
 
                 <button
@@ -4456,6 +5367,10 @@ export default function CalendarPage() {
                 </button>
               </div>
 
+              {/* ==================================================
+                  VIEW MODE
+              ================================================== */}
+
               {viewMode ===
                 "VIEW" ? (
                 <div className="space-y-5">
@@ -4472,7 +5387,47 @@ export default function CalendarPage() {
                           )
                         : "No date"}
                     </p>
+
+                    {selectedEvent?.endAt && (
+                      <p className="mt-1 text-xs text-stone-400">
+                        Until{" "}
+                        {format(
+                          selectedEvent.endAt,
+                          "EEEE d MMMM yyyy 'at' HH:mm"
+                        )}
+                      </p>
+                    )}
                   </div>
+
+                  {selectedEvent?.repeat &&
+                    selectedEvent.repeat !==
+                      "none" && (
+                      <div className="rounded-2xl border border-[#a9b897]/20 bg-[#a9b897]/5 p-5">
+                        <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#829473]">
+                          Repeats
+                        </p>
+
+                        <p className="mt-2 text-sm font-semibold capitalize text-stone-700">
+                          {selectedEvent.repeat ===
+                          "daily"
+                            ? "Every day"
+                            : selectedEvent.repeat ===
+                                "weekly"
+                              ? "Every week"
+                              : "Every month"}
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-stone-400">
+                          This is part
+                          of a repeating
+                          event series.
+                          Editing or
+                          deleting it
+                          changes the
+                          whole series.
+                        </p>
+                      </div>
+                    )}
 
                   {selectedEvent?.description && (
                     <div className="rounded-2xl bg-stone-50 p-5">
@@ -4523,7 +5478,9 @@ export default function CalendarPage() {
                       }
                       className="rounded-xl bg-stone-900 py-4 text-[8px] font-black uppercase tracking-[0.14em] text-white"
                     >
-                      Edit
+                      {selectedEvent?.isRecurringOccurrence
+                        ? "Edit Series"
+                        : "Edit"}
                     </button>
 
                     <button
@@ -4538,11 +5495,17 @@ export default function CalendarPage() {
                     >
                       {isDeleting
                         ? "Deleting..."
-                        : "Delete"}
+                        : selectedEvent?.isRecurringOccurrence
+                          ? "Delete Series"
+                          : "Delete"}
                     </button>
                   </div>
                 </div>
               ) : (
+                /* ==================================================
+                   CREATE / EDIT MODE
+                ================================================== */
+
                 <div className="space-y-4">
                   <FormField
                     label="Title"
@@ -4564,6 +5527,8 @@ export default function CalendarPage() {
                       className="form-input"
                     />
                   </FormField>
+
+                  {/* DATE / TIME */}
 
                   <div className="grid grid-cols-2 gap-3">
                     <FormField
@@ -4590,8 +5555,7 @@ export default function CalendarPage() {
                     <FormField
                       label="Start Time"
                     >
-                      <input
-                        type="time"
+                      <select
                         value={
                           formTime
                         }
@@ -4605,7 +5569,26 @@ export default function CalendarPage() {
                           )
                         }
                         className="form-input"
-                      />
+                      >
+                        {TIME_OPTIONS.map(
+                          (
+                            time
+                          ) => (
+                            <option
+                              key={
+                                time
+                              }
+                              value={
+                                time
+                              }
+                            >
+                              {
+                                time
+                              }
+                            </option>
+                          )
+                        )}
+                      </select>
                     </FormField>
 
                     <FormField
@@ -4632,8 +5615,7 @@ export default function CalendarPage() {
                     <FormField
                       label="End Time"
                     >
-                      <input
-                        type="time"
+                      <select
                         value={
                           formEndTime
                         }
@@ -4647,12 +5629,37 @@ export default function CalendarPage() {
                           )
                         }
                         className="form-input"
-                      />
+                      >
+                        <option value="">
+                          No end time
+                        </option>
+
+                        {TIME_OPTIONS.map(
+                          (
+                            time
+                          ) => (
+                            <option
+                              key={
+                                time
+                              }
+                              value={
+                                time
+                              }
+                            >
+                              {
+                                time
+                              }
+                            </option>
+                          )
+                        )}
+                      </select>
                     </FormField>
                   </div>
 
+                  {/* REPEAT */}
+
                   <FormField
-                    label="Repeat"
+                    label="Repeat Event"
                   >
                     <select
                       value={
@@ -4670,22 +5677,54 @@ export default function CalendarPage() {
                       className="form-input"
                     >
                       <option value="none">
-                        No repeat
+                        Does not repeat
                       </option>
 
                       <option value="daily">
-                        Daily
+                        Every day
                       </option>
 
                       <option value="weekly">
-                        Weekly
+                        Every week
                       </option>
 
                       <option value="monthly">
-                        Monthly
+                        Every month
                       </option>
                     </select>
                   </FormField>
+
+                  {formRepeat !==
+                    "none" && (
+                    <div className="rounded-xl border border-[#a9b897]/20 bg-[#a9b897]/5 px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <RefreshCw
+                          size={
+                            13
+                          }
+                          className="mt-0.5 shrink-0 text-[#829473]"
+                        />
+
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#829473]">
+                            Repeating Event
+                          </p>
+
+                          <p className="mt-1 text-xs leading-5 text-stone-500">
+                            {formRepeat ===
+                            "daily"
+                              ? "This event will appear on every day in your calendar."
+                              : formRepeat ===
+                                  "weekly"
+                                ? "This event will appear on the same day every week."
+                                : "This event will appear on the same date every month."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* LOCATION */}
 
                   <FormField
                     label="Location"
@@ -4707,6 +5746,8 @@ export default function CalendarPage() {
                       className="form-input"
                     />
                   </FormField>
+
+                  {/* MEETING LINK */}
 
                   <FormField
                     label="Meeting Link"
@@ -4738,6 +5779,8 @@ export default function CalendarPage() {
                     </div>
                   </FormField>
 
+                  {/* GUESTS */}
+
                   <FormField
                     label="Guests"
                   >
@@ -4767,6 +5810,8 @@ export default function CalendarPage() {
                       />
                     </div>
                   </FormField>
+
+                  {/* INTERNAL TEAM */}
 
                   <FormField
                     label="Internal Team"
@@ -4798,6 +5843,8 @@ export default function CalendarPage() {
                     </div>
                   </FormField>
 
+                  {/* TAGS */}
+
                   <FormField
                     label="Tags"
                   >
@@ -4828,6 +5875,8 @@ export default function CalendarPage() {
                     </div>
                   </FormField>
 
+                  {/* NOTES */}
+
                   <FormField
                     label="Notes"
                   >
@@ -4847,6 +5896,8 @@ export default function CalendarPage() {
                       className="form-input min-h-[110px] resize-none"
                     />
                   </FormField>
+
+                  {/* FILE */}
 
                   <input
                     ref={
@@ -4876,6 +5927,8 @@ export default function CalendarPage() {
                       "Attach file"}
                   </button>
 
+                  {/* SAVE */}
+
                   <button
                     type="button"
                     onClick={() =>
@@ -4903,8 +5956,14 @@ export default function CalendarPage() {
 
                     {viewMode ===
                     "EDIT"
-                      ? "Save Changes"
-                      : "Add to Schedule"}
+                      ? formRepeat !==
+                        "none"
+                        ? "Save Event Series"
+                        : "Save Changes"
+                      : formRepeat !==
+                          "none"
+                        ? "Add Repeating Event"
+                        : "Add to Schedule"}
                   </button>
                 </div>
               )}
@@ -4921,32 +5980,67 @@ export default function CalendarPage() {
         @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap");
 
         .font-serif {
-          font-family: "Instrument Serif", serif;
+          font-family:
+            "Instrument Serif",
+            serif;
         }
 
         .form-input {
           width: 100%;
-          border: 1px solid #f0efec;
-          background: #faf9f6;
-          border-radius: 0.75rem;
-          padding: 0.9rem 1rem;
-          font-size: 0.8rem;
-          outline: none;
-          transition: 0.2s ease;
+
+          border:
+            1px solid
+            #f0efec;
+
+          background:
+            #faf9f6;
+
+          border-radius:
+            0.75rem;
+
+          padding:
+            0.9rem 1rem;
+
+          font-size:
+            0.8rem;
+
+          outline:
+            none;
+
+          transition:
+            0.2s ease;
+
+          color:
+            #44403c;
         }
 
         .form-input:focus {
-          border-color: #a9b897;
-          background: white;
+          border-color:
+            #a9b897;
+
+          background:
+            white;
+        }
+
+        select.form-input {
+          cursor:
+            pointer;
+
+          appearance:
+            auto;
         }
 
         .no-scrollbar::-webkit-scrollbar {
-          display: none;
+          display:
+            none;
         }
 
         .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+          -ms-overflow-style:
+            none;
+
+          scrollbar-width:
+            none;
         }
       `}</style>
     </div>
@@ -4954,20 +6048,8 @@ export default function CalendarPage() {
 }
 
 // ============================================================
-// HELPERS / DISPLAY COMPONENTS
+// FORM FIELD
 // ============================================================
-
-function cloneWindows(
-  windows: AvailabilityWindow[]
-) {
-  return windows.map(
-    (
-      window
-    ) => ({
-      ...window,
-    })
-  );
-}
 
 function FormField({
   label,
@@ -4987,9 +6069,16 @@ function FormField({
   );
 }
 
+// ============================================================
+// STAT CARD
+// ============================================================
+
 function StatCard({
-  icon: Icon,
+  icon:
+    Icon,
+
   value,
+
   label,
 }: {
   icon: any;
@@ -4999,7 +6088,9 @@ function StatCard({
   return (
     <div className="rounded-[1.7rem] border border-stone-200 bg-white p-5">
       <Icon
-        size={18}
+        size={
+          18
+        }
         className="mb-6 text-stone-300"
       />
 
@@ -5013,6 +6104,10 @@ function StatCard({
     </div>
   );
 }
+
+// ============================================================
+// BOOKING DETAIL
+// ============================================================
 
 function BookingDetail({
   label,
@@ -5033,6 +6128,10 @@ function BookingDetail({
     </div>
   );
 }
+
+// ============================================================
+// SCHEDULE ROW
+// ============================================================
 
 function ScheduleRow({
   event,
@@ -5058,16 +6157,26 @@ function ScheduleRow({
               : event.sourceType ===
                   "note"
                 ? "bg-amber-50 text-amber-600"
-                : "bg-white text-stone-500"
+                : event.isRecurringOccurrence
+                  ? "bg-[#ebe6dc] text-stone-600"
+                  : "bg-white text-stone-500"
           }`}
         >
           {event.sourceType ===
           "event" ? (
-            <CalendarDays
-              size={
-                15
-              }
-            />
+            event.isRecurringOccurrence ? (
+              <RefreshCw
+                size={
+                  15
+                }
+              />
+            ) : (
+              <CalendarDays
+                size={
+                  15
+                }
+              />
+            )
           ) : event.sourceType ===
             "task" ? (
             <Check
@@ -5085,10 +6194,18 @@ function ScheduleRow({
         </div>
 
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-stone-700">
-            {event.title ||
-              "Untitled"}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold text-stone-700">
+              {event.title ||
+                "Untitled"}
+            </p>
+
+            {event.isRecurringOccurrence && (
+              <span className="shrink-0 rounded-full bg-[#a9b897]/10 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-[#829473]">
+                Repeats
+              </span>
+            )}
+          </div>
 
           <p className="mt-1 text-[10px] text-stone-400">
             {event.startAt
@@ -5111,6 +6228,10 @@ function ScheduleRow({
   );
 }
 
+// ============================================================
+// BOOKING SELECT
+// ============================================================
+
 function BookingSelect({
   label,
   value,
@@ -5118,10 +6239,13 @@ function BookingSelect({
   options,
 }: {
   label: string;
-  value: number;
+
+  value: string;
+
   onChange: (
     value: string
   ) => void;
+
   options: [
     string,
     string,
@@ -5141,7 +6265,8 @@ function BookingSelect({
           event
         ) =>
           onChange(
-            event.target
+            event
+              .target
               .value
           )
         }

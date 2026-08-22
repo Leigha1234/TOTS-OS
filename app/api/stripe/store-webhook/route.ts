@@ -6,64 +6,50 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 // ============================================================
+// ENVIRONMENT HELPER
+// ============================================================
+
+function requireEnv(
+  name: string
+): string {
+  const value =
+    process.env[name];
+
+  if (
+    !value ||
+    !value.trim()
+  ) {
+    throw new Error(
+      `${name} is missing`
+    );
+  }
+
+  return value.trim();
+}
+
+// ============================================================
 // ENVIRONMENT
 // ============================================================
 
 const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL;
+  requireEnv(
+    "NEXT_PUBLIC_SUPABASE_URL"
+  );
 
 const supabaseServiceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY;
+  requireEnv(
+    "SUPABASE_SERVICE_ROLE_KEY"
+  );
 
 const stripeSecretKey =
-  process.env.STRIPE_SECRET_KEY;
+  requireEnv(
+    "STRIPE_SECRET_KEY"
+  );
 
 const stripeWebhookSecret =
-  process.env.STRIPE_STORE_WEBHOOK_SECRET;
-
-if (!stripeWebhookSecret) {
-  console.error(
-    "STRIPE_STORE_WEBHOOK_SECRET is not configured."
+  requireEnv(
+    "STRIPE_STORE_WEBHOOK_SECRET"
   );
-
-  return NextResponse.json(
-    {
-      error:
-        "Stripe webhook secret is not configured.",
-    },
-    {
-      status: 500,
-    }
-  );
-}
-
-// ============================================================
-// VALIDATE ENV
-// ============================================================
-
-if (!supabaseUrl) {
-  throw new Error(
-    "NEXT_PUBLIC_SUPABASE_URL is missing"
-  );
-}
-
-if (!supabaseServiceRoleKey) {
-  throw new Error(
-    "SUPABASE_SERVICE_ROLE_KEY is missing"
-  );
-}
-
-if (!stripeSecretKey) {
-  throw new Error(
-    "STRIPE_SECRET_KEY is missing"
-  );
-}
-
-if (!stripeWebhookSecret) {
-  throw new Error(
-    "STRIPE_STORE_WEBHOOK_SECRET is missing"
-  );
-}
 
 // ============================================================
 // CLIENTS
@@ -234,6 +220,26 @@ function safeInteger(
   );
 }
 
+function safeNumber(
+  value: unknown,
+  fallback = 0
+) {
+  const number =
+    Number(
+      value
+    );
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+    return fallback;
+  }
+
+  return number;
+}
+
 // ============================================================
 // SHIPPING ADDRESS
 // ============================================================
@@ -241,14 +247,39 @@ function safeInteger(
 function getShippingAddress(
   session:
     Stripe.Checkout.Session
-) {
-  const shipping =
-    session.collected_information
+):
+  | Record<
+      string,
+      unknown
+    >
+  | null {
+  const collectedShipping =
+    session
+      .collected_information
       ?.shipping_details ??
-    session.shipping_details ??
     null;
 
-  if (!shipping) {
+  /*
+   * Stripe's Checkout Session typings have changed across
+   * API versions. Use collected_information first and then
+   * safely check the older shipping_details property.
+   */
+  const legacyShipping =
+    (
+      session as Stripe.Checkout.Session & {
+        shipping_details?:
+          Stripe.Checkout.Session.ShippingDetails | null;
+      }
+    ).shipping_details ??
+    null;
+
+  const shipping =
+    collectedShipping ??
+    legacyShipping;
+
+  if (
+    !shipping
+  ) {
     return null;
   }
 
@@ -257,39 +288,40 @@ function getShippingAddress(
       shipping.name ??
       null,
 
-    address: shipping.address
-      ? {
-          line1:
-            shipping.address
-              .line1 ??
-            null,
+    address:
+      shipping.address
+        ? {
+            line1:
+              shipping.address
+                .line1 ??
+              null,
 
-          line2:
-            shipping.address
-              .line2 ??
-            null,
+            line2:
+              shipping.address
+                .line2 ??
+              null,
 
-          city:
-            shipping.address
-              .city ??
-            null,
+            city:
+              shipping.address
+                .city ??
+              null,
 
-          state:
-            shipping.address
-              .state ??
-            null,
+            state:
+              shipping.address
+                .state ??
+              null,
 
-          postal_code:
-            shipping.address
-              .postal_code ??
-            null,
+            postal_code:
+              shipping.address
+                .postal_code ??
+              null,
 
-          country:
-            shipping.address
-              .country ??
-            null,
-        }
-      : null,
+            country:
+              shipping.address
+                .country ??
+              null,
+          }
+        : null,
   };
 }
 
@@ -301,18 +333,28 @@ function getCustomerName(
   session:
     Stripe.Checkout.Session
 ) {
+  const legacyShipping =
+    (
+      session as Stripe.Checkout.Session & {
+        shipping_details?:
+          Stripe.Checkout.Session.ShippingDetails | null;
+      }
+    ).shipping_details;
+
   return (
     asString(
-      session.customer_details
+      session
+        .customer_details
         ?.name
     ) ||
     asString(
-      session.collected_information
+      session
+        .collected_information
         ?.shipping_details
         ?.name
     ) ||
     asString(
-      session.shipping_details
+      legacyShipping
         ?.name
     )
   );
@@ -324,11 +366,13 @@ function getCustomerEmail(
 ) {
   return (
     asString(
-      session.customer_details
+      session
+        .customer_details
         ?.email
     ) ||
     asString(
-      session.customer_email
+      session
+        .customer_email
     )
   );
 }
@@ -338,7 +382,8 @@ function getCustomerPhone(
     Stripe.Checkout.Session
 ) {
   return asString(
-    session.customer_details
+    session
+      .customer_details
       ?.phone
   );
 }
@@ -365,15 +410,15 @@ async function getOrder(
       )
       .maybeSingle();
 
-  if (error) {
+  if (
+    error
+  ) {
     throw error;
   }
 
-  return (
-    data as
-      | StoreOrderRow
-      | null
-  );
+  return data as
+    | StoreOrderRow
+    | null;
 }
 
 // ============================================================
@@ -397,7 +442,9 @@ async function getOrderItems(
         orderId
       );
 
-  if (error) {
+  if (
+    error
+  ) {
     throw error;
   }
 
@@ -423,7 +470,7 @@ async function reduceOrderStock(
   for (
     const item of items
   ) {
-    // Product may have been deleted later.
+    // Product may have been deleted after ordering.
     if (
       !item.product_id
     ) {
@@ -470,7 +517,7 @@ async function reduceOrderStock(
         productError
       );
 
-      continue;
+      throw productError;
     }
 
     if (
@@ -486,11 +533,15 @@ async function reduceOrderStock(
     const product =
       productData as StoreProductRow;
 
-    // Services / digital / unlimited inventory.
+    // Services / digital products / unlimited inventory.
     if (
       product.track_inventory ===
       false
     ) {
+      console.log(
+        `Skipping stock reduction for ${product.name} because inventory tracking is disabled.`
+      );
+
       continue;
     }
 
@@ -579,6 +630,10 @@ async function reduceOrderStock(
 
       throw updateError;
     }
+
+    console.log(
+      `Reduced ${product.name} inventory by ${quantityPurchased}. New inventory: ${newInventory}`
+    );
   }
 }
 
@@ -595,8 +650,11 @@ async function completeStoreOrder(
   // ==========================================================
 
   const orderId =
-    session.metadata
-      ?.order_id;
+    asString(
+      session
+        .metadata
+        ?.order_id
+    );
 
   if (
     !orderId
@@ -630,13 +688,11 @@ async function completeStoreOrder(
   }
 
   // ==========================================================
-  // IMPORTANT:
-  // MAKE WEBHOOK IDEMPOTENT
+  // IDEMPOTENCY
   //
-  // Stripe can retry webhook events.
+  // Stripe retries webhook events.
   //
-  // If we've already marked this order as paid,
-  // DO NOT reduce stock a second time.
+  // Never reduce stock twice for the same paid order.
   // ==========================================================
 
   if (
@@ -644,7 +700,7 @@ async function completeStoreOrder(
     "paid"
   ) {
     console.log(
-      `Order ${order.order_number} is already paid. Skipping duplicate completion.`
+      `Order ${order.order_number} is already paid. Duplicate webhook ignored.`
     );
 
     return;
@@ -659,14 +715,14 @@ async function completeStoreOrder(
     "paid"
   ) {
     console.log(
-      `Checkout session ${session.id} completed but is not paid yet. Status: ${session.payment_status}`
+      `Checkout session ${session.id} completed but payment status is ${session.payment_status}.`
     );
 
     return;
   }
 
   // ==========================================================
-  // CUSTOMER
+  // CUSTOMER DETAILS
   // ==========================================================
 
   const customerName =
@@ -696,7 +752,7 @@ async function completeStoreOrder(
   // ==========================================================
   // STRIPE TOTAL
   //
-  // Stripe values are pence.
+  // Stripe amount_total is in pence.
   // ==========================================================
 
   const stripeTotal =
@@ -704,12 +760,27 @@ async function completeStoreOrder(
       "number"
       ? session.amount_total /
         100
-      : Number(
-          order.total
+      : safeNumber(
+          order.total,
+          0
         );
 
   // ==========================================================
-  // UPDATE ORDER AS PAID
+  // REDUCE STOCK FIRST
+  //
+  // We only mark the order paid after inventory succeeds.
+  //
+  // This means if Supabase fails while reducing inventory,
+  // Stripe can retry the webhook instead of leaving us with
+  // a paid order whose stock was never changed.
+  // ==========================================================
+
+  await reduceOrderStock(
+    order
+  );
+
+  // ==========================================================
+  // UPDATE ORDER
   // ==========================================================
 
   const {
@@ -753,6 +824,10 @@ async function completeStoreOrder(
       .eq(
         "organisation_id",
         order.organisation_id
+      )
+      .neq(
+        "payment_status",
+        "paid"
       );
 
   if (
@@ -761,21 +836,13 @@ async function completeStoreOrder(
     throw updateOrderError;
   }
 
-  // ==========================================================
-  // REDUCE STOCK
-  // ==========================================================
-
-  await reduceOrderStock(
-    order
-  );
-
   console.log(
     `TOTS store order ${order.order_number} marked paid and inventory updated.`
   );
 }
 
 // ============================================================
-// PAYMENT FAILURE
+// ASYNC PAYMENT FAILURE
 // ============================================================
 
 async function markOrderPaymentFailed(
@@ -783,8 +850,11 @@ async function markOrderPaymentFailed(
     Stripe.Checkout.Session
 ) {
   const orderId =
-    session.metadata
-      ?.order_id;
+    asString(
+      session
+        .metadata
+        ?.order_id
+    );
 
   if (
     !orderId
@@ -818,24 +888,28 @@ async function markOrderPaymentFailed(
   if (
     error
   ) {
-    console.error(
-      "Could not update failed store payment:",
-      error
-    );
+    throw error;
   }
+
+  console.log(
+    `Store order ${orderId} async payment failed.`
+  );
 }
 
 // ============================================================
-// REFUND
+// PAYMENT INTENT CANCELLED
 // ============================================================
 
-async function handleRefund(
+async function handlePaymentIntentCancelled(
   paymentIntent:
     Stripe.PaymentIntent
 ) {
   const orderId =
-    paymentIntent.metadata
-      ?.order_id;
+    asString(
+      paymentIntent
+        .metadata
+        ?.order_id
+    );
 
   if (
     !orderId
@@ -852,7 +926,7 @@ async function handleRefund(
       )
       .update({
         payment_status:
-          "refunded",
+          "pending",
 
         updated_at:
           new Date().toISOString(),
@@ -860,16 +934,21 @@ async function handleRefund(
       .eq(
         "id",
         orderId
+      )
+      .neq(
+        "payment_status",
+        "paid"
       );
 
   if (
     error
   ) {
-    console.error(
-      "Could not mark store order refunded:",
-      error
-    );
+    throw error;
   }
+
+  console.log(
+    `PaymentIntent cancelled for store order ${orderId}.`
+  );
 }
 
 // ============================================================
@@ -891,6 +970,10 @@ export async function POST(
   if (
     !signature
   ) {
+    console.error(
+      "Stripe webhook received without stripe-signature header."
+    );
+
     return NextResponse.json(
       {
         error:
@@ -903,26 +986,56 @@ export async function POST(
   }
 
   // ==========================================================
-  // RAW REQUEST BODY
+  // RAW BODY
   //
   // IMPORTANT:
-  // Do NOT call req.json() here.
-  // Stripe signature verification needs the raw body.
+  // Do NOT use req.json().
+  //
+  // Stripe requires the untouched request body in order to
+  // validate the webhook signature.
   // ==========================================================
 
-  const body =
-    await req.text();
+  let body:
+    string;
+
+  try {
+    body =
+      await req.text();
+  } catch (
+    error: unknown
+  ) {
+    console.error(
+      "Could not read Stripe webhook body:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Could not read webhook body.",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
+  // ==========================================================
+  // VERIFY STRIPE EVENT
+  // ==========================================================
 
   let event:
     Stripe.Event;
 
   try {
     event =
-      stripe.webhooks.constructEvent(
-        body,
-        signature,
-        stripeWebhookSecret
-      );
+      stripe
+        .webhooks
+        .constructEvent(
+          body,
+          signature,
+          stripeWebhookSecret
+        );
   } catch (
     error: unknown
   ) {
@@ -936,7 +1049,7 @@ export async function POST(
         error:
           error instanceof
           Error
-            ? error.message
+            ? `Webhook signature verification failed: ${error.message}`
             : "Invalid webhook signature.",
       },
       {
@@ -944,6 +1057,10 @@ export async function POST(
       }
     );
   }
+
+  console.log(
+    `[TOTS STORE WEBHOOK] Received ${event.type} (${event.id})`
+  );
 
   // ==========================================================
   // HANDLE EVENT
@@ -959,7 +1076,8 @@ export async function POST(
 
       case "checkout.session.completed": {
         const session =
-          event.data
+          event
+            .data
             .object as Stripe.Checkout.Session;
 
         await completeStoreOrder(
@@ -972,13 +1090,14 @@ export async function POST(
       // ======================================================
       // ASYNC PAYMENT SUCCESS
       //
-      // Covers payment methods where Checkout completes
-      // before funds are confirmed.
+      // Useful for payment methods that confirm after
+      // checkout.session.completed.
       // ======================================================
 
       case "checkout.session.async_payment_succeeded": {
         const session =
-          event.data
+          event
+            .data
             .object as Stripe.Checkout.Session;
 
         await completeStoreOrder(
@@ -994,7 +1113,8 @@ export async function POST(
 
       case "checkout.session.async_payment_failed": {
         const session =
-          event.data
+          event
+            .data
             .object as Stripe.Checkout.Session;
 
         await markOrderPaymentFailed(
@@ -1005,69 +1125,66 @@ export async function POST(
       }
 
       // ======================================================
-      // PAYMENT REFUNDED
+      // PAYMENT INTENT CANCELLED
       // ======================================================
 
       case "payment_intent.canceled": {
         const paymentIntent =
-          event.data
+          event
+            .data
             .object as Stripe.PaymentIntent;
 
-        const orderId =
-          paymentIntent.metadata
-            ?.order_id;
-
-        if (
-          orderId
-        ) {
-          await supabaseAdmin
-            .from(
-              "store_orders"
-            )
-            .update({
-              payment_status:
-                "pending",
-
-              updated_at:
-                new Date().toISOString(),
-            })
-            .eq(
-              "id",
-              orderId
-            )
-            .neq(
-              "payment_status",
-              "paid"
-            );
-        }
+        await handlePaymentIntentCancelled(
+          paymentIntent
+        );
 
         break;
       }
 
+      // ======================================================
+      // EVERYTHING ELSE
+      // ======================================================
+
       default: {
         console.log(
-          `Unhandled store Stripe event: ${event.type}`
+          `[TOTS STORE WEBHOOK] Ignoring unhandled event: ${event.type}`
         );
+
+        break;
       }
     }
+
+    // ========================================================
+    // SUCCESS RESPONSE
+    // ========================================================
 
     return NextResponse.json(
       {
         received:
           true,
+
+        event:
+          event.type,
+
+        eventId:
+          event.id,
+      },
+      {
+        status: 200,
       }
     );
   } catch (
     error: unknown
   ) {
     /*
-     * Returning 500 causes Stripe to retry
-     * the webhook later, which is what we want
-     * if Supabase temporarily fails.
+     * Returning HTTP 500 tells Stripe that processing failed.
+     *
+     * Stripe will then retry delivery, which is useful if
+     * Supabase or another dependency temporarily fails.
      */
 
     console.error(
-      `Store Stripe webhook processing failed for ${event.type}:`,
+      `[TOTS STORE WEBHOOK] Processing failed for ${event.type} (${event.id}):`,
       error
     );
 
@@ -1078,6 +1195,12 @@ export async function POST(
           Error
             ? error.message
             : "Webhook processing failed.",
+
+        event:
+          event.type,
+
+        eventId:
+          event.id,
       },
       {
         status: 500,

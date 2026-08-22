@@ -86,9 +86,7 @@ function DashboardLayoutInner({
   const [
     mobileMenuOpen,
     setMobileMenuOpen,
-  ] = useState(
-    false
-  );
+  ] = useState(false);
 
   const pathname =
     usePathname();
@@ -100,256 +98,156 @@ function DashboardLayoutInner({
       "/calendar",
     ],
 
-    fontFamily =
-      "Inter",
-  } =
-    useSettings();
+    fontFamily = "Inter",
+  } = useSettings();
 
   // ==========================================================
   // ALL LINKS
   // ==========================================================
 
-  const allLinks:
-    DashboardLink[] =
-    [
-      {
-        href:
-          "/dashboard",
+  const allLinks: DashboardLink[] = [
+    {
+      href: "/dashboard",
+      label: "Home",
+      icon: LayoutDashboard,
+    },
 
-        label:
-          "Home",
+    {
+      href: "/calendar",
+      label: "Calendar",
+      icon: Calendar,
+    },
 
-        icon:
-          LayoutDashboard,
-      },
+    {
+      href: "/crm",
+      label: "Contacts",
+      icon: Users,
+    },
 
-      {
-        href:
-          "/calendar",
+    {
+      href: "/notes",
+      label: "Notes",
+      icon: StickyNote,
+    },
 
-        label:
-          "Calendar",
+    {
+      href: "/campaigns",
+      label: "Campaigns",
+      icon: Megaphone,
+    },
 
-        icon:
-          Calendar,
-      },
+    {
+      href: "/projects",
+      label: "Projects",
+      icon: Briefcase,
+    },
 
-      {
-        href:
-          "/crm",
+    {
+      href: "/social",
+      label: "Social",
+      icon: Globe,
+    },
 
-        label:
-          "Contacts",
+    {
+      href: "/payments",
+      label: "Finance",
+      icon: Briefcase,
+    },
 
-        icon:
-          Users,
-      },
-
-      {
-        href:
-          "/notes",
-
-        label:
-          "Notes",
-
-        icon:
-          StickyNote,
-      },
-
-      {
-        href:
-          "/campaigns",
-
-        label:
-          "Campaigns",
-
-        icon:
-          Megaphone,
-      },
-
-      {
-        href:
-          "/projects",
-
-        label:
-          "Projects",
-
-        icon:
-          Briefcase,
-      },
-
-      {
-        href:
-          "/social",
-
-        label:
-          "Social",
-
-        icon:
-          Globe,
-      },
-
-      {
-        href:
-          "/payments",
-
-        label:
-          "Finance",
-
-        icon:
-          Briefcase,
-      },
-
-      {
-        href:
-          "/settings",
-
-        label:
-          "Settings",
-
-        icon:
-          Settings,
-      },
-    ];
+    {
+      href: "/settings",
+      label: "Settings",
+      icon: Settings,
+    },
+  ];
 
   // ==========================================================
   // MOBILE SECTIONS
   // ==========================================================
 
-  const mobileSections:
-    MobileNavSection[] =
-    [
-      {
-        links: [
-          {
-            href:
-              "/dashboard",
+  const mobileSections: MobileNavSection[] = [
+    {
+      links: [
+        {
+          href: "/dashboard",
+          label: "Home",
+          icon: LayoutDashboard,
+        },
+      ],
+    },
 
-            label:
-              "Home",
+    {
+      title: "My Business",
 
-            icon:
-              LayoutDashboard,
-          },
-        ],
-      },
+      links: [
+        {
+          href: "/crm",
+          label: "Contacts",
+          icon: Users,
+        },
 
-      {
-        title:
-          "My Business",
+        {
+          href: "/campaigns",
+          label: "Campaigns",
+          icon: Megaphone,
+        },
 
-        links: [
-          {
-            href:
-              "/crm",
+        {
+          href: "/social",
+          label: "Social",
+          icon: Globe,
+        },
 
-            label:
-              "Contacts",
+        {
+          href: "/payments",
+          label: "Finance",
+          icon: Briefcase,
+        },
 
-            icon:
-              Users,
-          },
+        {
+          href: "/notes",
+          label: "Notes",
+          icon: StickyNote,
+        },
+      ],
+    },
 
-          {
-            href:
-              "/campaigns",
+    {
+      title: "Clients & Projects",
 
-            label:
-              "Campaigns",
+      links: [
+        {
+          href: "/projects",
+          label: "Workspace",
+          icon: Briefcase,
+        },
+      ],
+    },
 
-            icon:
-              Megaphone,
-          },
+    {
+      title: "Planning",
 
-          {
-            href:
-              "/social",
+      links: [
+        {
+          href: "/calendar",
+          label: "Calendar",
+          icon: Calendar,
+        },
+      ],
+    },
 
-            label:
-              "Social",
+    {
+      title: "Settings",
 
-            icon:
-              Globe,
-          },
-
-          {
-            href:
-              "/payments",
-
-            label:
-              "Finance",
-
-            icon:
-              Briefcase,
-          },
-
-          {
-            href:
-              "/notes",
-
-            label:
-              "Notes",
-
-            icon:
-              StickyNote,
-          },
-        ],
-      },
-
-      {
-        title:
-          "Clients & Projects",
-
-        links: [
-          {
-            href:
-              "/projects",
-
-            label:
-              "Workspace",
-
-            icon:
-              Briefcase,
-          },
-        ],
-      },
-
-      {
-        title:
-          "Planning",
-
-        links: [
-          {
-            href:
-              "/calendar",
-
-            label:
-              "Calendar",
-
-            icon:
-              Calendar,
-          },
-        ],
-      },
-
-      {
-        title:
-          "Settings",
-
-        links: [
-          {
-            href:
-              "/settings",
-
-            label:
-              "Settings",
-
-            icon:
-              Settings,
-          },
-        ],
-      },
-    ];
+      links: [
+        {
+          href: "/settings",
+          label: "Settings",
+          icon: Settings,
+        },
+      ],
+    },
+  ];
 
   // ==========================================================
   // PINNED MOBILE LINKS
@@ -357,18 +255,12 @@ function DashboardLayoutInner({
 
   const pinnedMobileLinks =
     allLinks
-      .filter(
-        (
-          link
-        ) =>
-          mobileNav?.includes(
-            link.href
-          )
+      .filter((link) =>
+        mobileNav?.includes(
+          link.href
+        )
       )
-      .slice(
-        0,
-        3
-      );
+      .slice(0, 3);
 
   // ==========================================================
   // LOCK BODY WHEN MOBILE MENU IS OPEN
@@ -421,10 +313,33 @@ function DashboardLayoutInner({
       <main className="relative flex h-full min-w-0 flex-1 flex-col">
 
         {/* =========================================
-            GLOBAL NOTIFICATION BELL
+            GLOBAL TOP-RIGHT ACTIONS
         ========================================= */}
 
-        <NotificationBell />
+        <div
+          className="
+            pointer-events-none
+            fixed
+            right-4
+            top-4
+            z-[150]
+            flex
+            items-center
+            gap-2
+            sm:right-5
+            sm:top-5
+            md:right-8
+            md:top-8
+          "
+        >
+          {/* =====================================
+              NOTIFICATION BELL
+          ===================================== */}
+
+          <div className="pointer-events-auto">
+            <NotificationBell />
+          </div>
+        </div>
 
         {/* =========================================
             SCROLLABLE PAGE CONTENT
@@ -432,7 +347,15 @@ function DashboardLayoutInner({
 
         <div
           data-tour="dashboard-content"
-          className="flex-1 overflow-x-hidden overflow-y-auto p-4 pb-32 md:p-12 md:pb-12"
+          className="
+            flex-1
+            overflow-x-hidden
+            overflow-y-auto
+            p-4
+            pb-32
+            md:p-12
+            md:pb-12
+          "
         >
           {children}
 
@@ -445,7 +368,24 @@ function DashboardLayoutInner({
 
         <nav
           data-tour="mobile-navigation"
-          className="fixed bottom-0 left-0 right-0 z-[90] flex h-14 items-center justify-between border-t border-stone-100 bg-white/90 px-3 pb-safe backdrop-blur-2xl md:hidden"
+          className="
+            fixed
+            bottom-0
+            left-0
+            right-0
+            z-[90]
+            flex
+            h-14
+            items-center
+            justify-between
+            border-t
+            border-stone-100
+            bg-white/90
+            px-3
+            pb-safe
+            backdrop-blur-2xl
+            md:hidden
+          "
         >
           {pinnedMobileLinks.map(
             (
@@ -466,7 +406,10 @@ function DashboardLayoutInner({
                 }
                 isActive={
                   pathname ===
-                  link.href
+                    link.href ||
+                  pathname.startsWith(
+                    `${link.href}/`
+                  )
                 }
               />
             )
@@ -479,15 +422,19 @@ function DashboardLayoutInner({
                 true
               )
             }
-            className="flex flex-col items-center gap-1 text-stone-400 transition-colors active:scale-90"
+            className="
+              flex
+              flex-col
+              items-center
+              gap-1
+              text-stone-400
+              transition-colors
+              active:scale-90
+            "
           >
             <Menu
-              size={
-                18
-              }
-              strokeWidth={
-                1.5
-              }
+              size={18}
+              strokeWidth={1.5}
             />
 
             <span className="text-[7px] font-black uppercase tracking-tighter">
@@ -504,28 +451,26 @@ function DashboardLayoutInner({
           {mobileMenuOpen && (
             <motion.div
               initial={{
-                y:
-                  "100%",
+                y: "100%",
               }}
               animate={{
-                y:
-                  0,
+                y: 0,
               }}
               exit={{
-                y:
-                  "100%",
+                y: "100%",
               }}
               transition={{
-                type:
-                  "spring",
-
-                damping:
-                  30,
-
-                stiffness:
-                  300,
+                type: "spring",
+                damping: 30,
+                stiffness: 300,
               }}
-              className="fixed inset-0 z-[200] overflow-y-auto bg-[#fcfaf7]"
+              className="
+                fixed
+                inset-0
+                z-[200]
+                overflow-y-auto
+                bg-[#fcfaf7]
+              "
             >
               <div className="min-h-full p-5 pb-24">
 
@@ -535,6 +480,7 @@ function DashboardLayoutInner({
 
                 <div className="mb-6 flex items-center justify-between">
                   <div className="flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src="/icon.png"
                       alt="TOTS-OS"
@@ -553,12 +499,19 @@ function DashboardLayoutInner({
                         false
                       )
                     }
-                    className="rounded-[1.25rem] border border-stone-200 bg-white p-3 shadow-sm transition-transform active:scale-95"
+                    className="
+                      rounded-[1.25rem]
+                      border
+                      border-stone-200
+                      bg-white
+                      p-3
+                      shadow-sm
+                      transition-transform
+                      active:scale-95
+                    "
                   >
                     <X
-                      size={
-                        20
-                      }
+                      size={20}
                       className="text-stone-900"
                     />
                   </button>
@@ -625,11 +578,23 @@ function DashboardLayoutInner({
                                       " ",
                                       "-"
                                     )}`}
-                                  className={`flex h-20 flex-col justify-between rounded-[1.4rem] border p-3 transition-all duration-300 ${
-                                    isActive
-                                      ? "scale-[1.01] border-stone-200 bg-white shadow-md"
-                                      : "border-stone-100 bg-white/60 hover:bg-white active:scale-95"
-                                  }`}
+                                  className={`
+                                    flex
+                                    h-20
+                                    flex-col
+                                    justify-between
+                                    rounded-[1.4rem]
+                                    border
+                                    p-3
+                                    transition-all
+                                    duration-300
+
+                                    ${
+                                      isActive
+                                        ? "scale-[1.01] border-stone-200 bg-white shadow-md"
+                                        : "border-stone-100 bg-white/60 hover:bg-white active:scale-95"
+                                    }
+                                  `}
                                 >
                                   <div
                                     style={{
@@ -640,21 +605,24 @@ function DashboardLayoutInner({
                                     }}
                                   >
                                     <Icon
-                                      size={
-                                        18
-                                      }
-                                      strokeWidth={
-                                        1.5
-                                      }
+                                      size={18}
+                                      strokeWidth={1.5}
                                     />
                                   </div>
 
                                   <span
-                                    className={`text-[7px] font-black uppercase tracking-[0.18em] ${
-                                      isActive
-                                        ? "text-stone-900"
-                                        : "text-stone-400"
-                                    }`}
+                                    className={`
+                                      text-[7px]
+                                      font-black
+                                      uppercase
+                                      tracking-[0.18em]
+
+                                      ${
+                                        isActive
+                                          ? "text-stone-900"
+                                          : "text-stone-400"
+                                      }
+                                    `}
                                   >
                                     {
                                       link.label
@@ -696,35 +664,36 @@ function DashboardLayoutInner({
 
 function MobileNavItem({
   href,
-  icon:
-    Icon,
+  icon: Icon,
   label,
   isActive,
 }: {
-  href:
-    string;
+  href: string;
 
-  icon:
-    LucideIcon;
+  icon: LucideIcon;
 
-  label:
-    string;
+  label: string;
 
-  isActive:
-    boolean;
+  isActive: boolean;
 }) {
   return (
     <Link
-      href={
-        href
-      }
+      href={href}
       data-tour={`mobile-nav-${label
         .toLowerCase()
         .replaceAll(
           " ",
           "-"
         )}`}
-      className="flex flex-col items-center gap-1 transition-all duration-300 active:scale-90"
+      className="
+        flex
+        flex-col
+        items-center
+        gap-1
+        transition-all
+        duration-300
+        active:scale-90
+      "
       style={{
         color:
           isActive
@@ -733,9 +702,7 @@ function MobileNavItem({
       }}
     >
       <Icon
-        size={
-          22
-        }
+        size={22}
         strokeWidth={
           isActive
             ? 2.5
@@ -744,15 +711,20 @@ function MobileNavItem({
       />
 
       <span
-        className={`text-[7px] font-black uppercase tracking-tighter ${
-          isActive
-            ? "opacity-100"
-            : "opacity-60"
-        }`}
+        className={`
+          text-[7px]
+          font-black
+          uppercase
+          tracking-tighter
+
+          ${
+            isActive
+              ? "opacity-100"
+              : "opacity-60"
+          }
+        `}
       >
-        {
-          label
-        }
+        {label}
       </span>
 
       {isActive && (

@@ -358,41 +358,21 @@ type OrganisationContext = {
 // DEFAULTS
 // ============================================================
 
-const EMPTY_PRODUCT_FORM: ProductForm =
-  {
-    name: "",
-
-    slug: "",
-
-    sku: "",
-
-    category:
-      "General",
-
-    description:
-      "",
-
-    price: "",
-
-    compareAtPrice:
-      "",
-
-    cost: "",
-
-    stock: "",
-
-    imageUrl: "",
-
-    featured:
-      false,
-
-    trackInventory:
-      true,
-
-    status:
-      "active",
-  };
-
+const EMPTY_PRODUCT_FORM: ProductForm = {
+  name: "",
+  slug: "",
+  sku: "",
+  category: "General",
+  description: "",
+  price: "",
+  compareAtPrice: "",
+  cost: "",
+  stock: "",
+  imageUrl: "",
+  featured: false,
+  trackInventory: true,
+  status: "active",
+};
 const EMPTY_DISCOUNT_FORM: DiscountForm =
   {
     code: "",
@@ -1597,39 +1577,54 @@ export default function StorePage() {
             throw productError;
           }
 
-          // ===================================================
-          // ORDERS
-          // ===================================================
+         // ===================================================
+// ORDERS
+// ===================================================
 
-          const {
-            data:
-              orderRows,
-            error:
-              orderError,
-          } =
-            await supabase
-              .from(
-                "store_orders"
-              )
-              .select("*")
-              .eq(
-                "organisation_id",
-                orgId
-              )
-              .order(
-                "created_at",
-                {
-                  ascending:
-                    false,
-                }
-              );
+const {
+  data: orderRows,
+  error: orderError,
+} = await supabase
+  .from("store_orders")
+  .select(`
+    id,
+    organisation_id,
+    order_number,
+    customer_name,
+    customer_email,
+    customer_phone,
+    subtotal,
+    discount_amount,
+    shipping_amount,
+    total,
+    payment_status,
+    fulfilment_status,
+    created_at,
+    updated_at
+  `)
+  .eq("organisation_id", orgId)
+  .order("created_at", {
+    ascending: false,
+  });
 
-          if (
-            orderError
-          ) {
-            throw orderError;
-          }
+console.log(
+  "[TOTS COMMERCE] organisation:",
+  orgId
+);
 
+console.log(
+  "[TOTS COMMERCE] order rows:",
+  orderRows
+);
+
+console.log(
+  "[TOTS COMMERCE] order error:",
+  orderError
+);
+
+if (orderError) {
+  throw orderError;
+}
           // ===================================================
           // ORDER ITEMS
           // ===================================================
@@ -2399,30 +2394,8 @@ export default function StorePage() {
       ]
     );
 
-  const totalOrders =
-    useMemo(
-      () => {
-        const productOrderTotal =
-          products.reduce(
-            (
-              total,
-              product
-            ) =>
-              total +
-              product.orders,
-            0
-          );
-
-        return (
-          productOrderTotal ||
-          orders.length
-        );
-      },
-      [
-        products,
-        orders,
-      ]
-    );
+ const totalOrders =
+  orders.length;
 
   const paidOrders =
     useMemo(
@@ -2457,8 +2430,9 @@ export default function StorePage() {
     );
 
   const displayRevenue =
-    orderRevenue ||
-    totalRevenue;
+  paidOrders.length > 0
+    ? orderRevenue
+    : totalRevenue;
 
   const averageOrderValue =
     paidOrders.length >

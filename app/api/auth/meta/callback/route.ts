@@ -13,6 +13,182 @@ export const runtime =
   "nodejs";
 
 // ============================================================
+// TYPES
+// ============================================================
+
+type OrganisationMembershipRow = {
+  organisation_id:
+    string | null;
+};
+
+type ExistingSocialAccountRow = {
+  id:
+    string;
+
+  user_id:
+    string;
+
+  platform:
+    string;
+};
+
+type SavedSocialAccountRow = {
+  id:
+    string;
+
+  user_id:
+    string;
+
+  organisation_id:
+    string | null;
+
+  platform:
+    string;
+
+  platform_user_id:
+    string | null;
+
+  display_name:
+    string | null;
+
+  avatar_url:
+    string | null;
+
+  page_id:
+    string | null;
+
+  page_name:
+    string | null;
+
+  instagram_business_account_id:
+    string | null;
+
+  expires_at:
+    string | null;
+};
+
+type VerifiedSocialAccountRow =
+  SavedSocialAccountRow & {
+    access_token:
+      string | null;
+
+    page_access_token:
+      string | null;
+
+    updated_at:
+      string | null;
+  };
+
+type MetaTokenResponse = {
+  access_token?:
+    string;
+
+  expires_in?:
+    number;
+
+  token_type?:
+    string;
+
+  error?: {
+    message?:
+      string;
+
+    type?:
+      string;
+
+    code?:
+      number;
+
+    error_subcode?:
+      number;
+  };
+};
+
+type MetaUserResponse = {
+  id?:
+    string;
+
+  name?:
+    string;
+
+  picture?: {
+    data?: {
+      url?:
+        string;
+    };
+  };
+
+  error?: {
+    message?:
+      string;
+
+    type?:
+      string;
+
+    code?:
+      number;
+  };
+};
+
+type MetaPage = {
+  id?:
+    string;
+
+  name?:
+    string;
+
+  access_token?:
+    string;
+
+  picture?: {
+    data?: {
+      url?:
+        string;
+    };
+  };
+};
+
+type MetaPagesResponse = {
+  data?:
+    MetaPage[];
+
+  error?: {
+    message?:
+      string;
+
+    type?:
+      string;
+
+    code?:
+      number;
+  };
+};
+
+type MetaInstagramResponse = {
+  instagram_business_account?: {
+    id?:
+      string;
+
+    username?:
+      string;
+
+    profile_picture_url?:
+      string;
+  };
+
+  error?: {
+    message?:
+      string;
+
+    type?:
+      string;
+
+    code?:
+      number;
+  };
+};
+
+// ============================================================
 // ENVIRONMENT
 // ============================================================
 
@@ -52,7 +228,7 @@ function getAppUrl(
     return configured
       .trim()
       .replace(
-        /\/$/,
+        /\/+$/,
         ""
       );
   }
@@ -66,7 +242,7 @@ function getAppUrl(
 
 function cleanString(
   value: unknown
-) {
+): string | null {
   if (
     typeof value !==
     "string"
@@ -79,6 +255,63 @@ function cleanString(
 
   return cleaned ||
     null;
+}
+
+// ============================================================
+
+function getErrorMessage(
+  value: unknown,
+  fallback: string
+) {
+  if (
+    !value ||
+    typeof value !==
+      "object"
+  ) {
+    return fallback;
+  }
+
+  const record =
+    value as Record<
+      string,
+      unknown
+    >;
+
+  const error =
+    record.error;
+
+  if (
+    error &&
+    typeof error ===
+      "object"
+  ) {
+    const errorRecord =
+      error as Record<
+        string,
+        unknown
+      >;
+
+    const message =
+      cleanString(
+        errorRecord.message
+      );
+
+    if (
+      message
+    ) {
+      return message;
+    }
+  }
+
+  const directMessage =
+    cleanString(
+      record.message
+    );
+
+  return (
+    directMessage ||
+    fallback
+  );
 }
 
 // ============================================================
@@ -279,9 +512,6 @@ export async function GET(
 
     // ========================================================
     // 2. RESOLVE ORGANISATION
-    //
-    // social_accounts contains organisation_id, so store it
-    // when possible.
     // ========================================================
 
     let organisationId:
@@ -290,7 +520,7 @@ export async function GET(
 
     const {
       data:
-        membershipRows,
+        rawMembershipRows,
 
       error:
         membershipError,
@@ -318,9 +548,28 @@ export async function GET(
         membershipError
       );
     } else {
+      /*
+       * Supabase's generated database types can infer `never`
+       * here if user_organisations is not present in the
+       * generated Database type.
+       *
+       * Explicitly type the returned row shape.
+       */
+
+      const membershipRows =
+        (
+          rawMembershipRows ??
+          []
+        ) as unknown as
+          OrganisationMembershipRow[];
+
+      const membership =
+        membershipRows[0] ??
+        null;
+
       organisationId =
         cleanString(
-          membershipRows?.[0]
+          membership
             ?.organisation_id
         );
     }
@@ -366,16 +615,18 @@ export async function GET(
       );
 
     const tokenData =
-      await tokenRes
-        .json()
-        .catch(
-          () =>
-            null
-        );
+      (
+        await tokenRes
+          .json()
+          .catch(
+            () =>
+              ({})
+          )
+      ) as MetaTokenResponse;
 
     if (
       !tokenRes.ok ||
-      !tokenData?.access_token
+      !tokenData.access_token
     ) {
       console.error(
         "[META OAUTH] Short-lived token exchange failed:",
@@ -383,15 +634,14 @@ export async function GET(
       );
 
       throw new Error(
-        tokenData?.error?.message ||
+        tokenData.error
+          ?.message ||
         "Facebook did not return an access token."
       );
     }
 
     const shortLivedToken =
-      String(
-        tokenData.access_token
-      );
+      tokenData.access_token;
 
     // ========================================================
     // 4. EXCHANGE FOR LONG-LIVED USER TOKEN
@@ -435,12 +685,14 @@ export async function GET(
       );
 
     const longTokenData =
-      await longTokenRes
-        .json()
-        .catch(
-          () =>
-            null
-        );
+      (
+        await longTokenRes
+          .json()
+          .catch(
+            () =>
+              ({})
+          )
+      ) as MetaTokenResponse;
 
     let accessToken =
       shortLivedToken;
@@ -451,12 +703,10 @@ export async function GET(
 
     if (
       longTokenRes.ok &&
-      longTokenData?.access_token
+      longTokenData.access_token
     ) {
       accessToken =
-        String(
-          longTokenData.access_token
-        );
+        longTokenData.access_token;
 
       const parsedExpiresIn =
         Number(
@@ -545,16 +795,18 @@ export async function GET(
       );
 
     const me =
-      await meRes
-        .json()
-        .catch(
-          () =>
-            null
-        );
+      (
+        await meRes
+          .json()
+          .catch(
+            () =>
+              ({})
+          )
+      ) as MetaUserResponse;
 
     if (
       !meRes.ok ||
-      !me?.id
+      !me.id
     ) {
       console.error(
         "[META OAUTH] Facebook user lookup failed:",
@@ -562,7 +814,8 @@ export async function GET(
       );
 
       throw new Error(
-        me?.error?.message ||
+        me.error
+          ?.message ||
         "Facebook account details could not be loaded."
       );
     }
@@ -579,7 +832,7 @@ export async function GET(
 
     const facebookAvatarUrl =
       cleanString(
-        me?.picture
+        me.picture
           ?.data
           ?.url
       );
@@ -620,12 +873,14 @@ export async function GET(
       );
 
     const pagesData =
-      await pagesRes
-        .json()
-        .catch(
-          () =>
-            null
-        );
+      (
+        await pagesRes
+          .json()
+          .catch(
+            () =>
+              ({})
+          )
+      ) as MetaPagesResponse;
 
     if (
       !pagesRes.ok
@@ -636,14 +891,16 @@ export async function GET(
       );
 
       throw new Error(
-        pagesData?.error?.message ||
+        pagesData.error
+          ?.message ||
         "Your Facebook Pages could not be loaded."
       );
     }
 
-    const pages =
+    const pages:
+      MetaPage[] =
       Array.isArray(
-        pagesData?.data
+        pagesData.data
       )
         ? pagesData.data
         : [];
@@ -654,15 +911,11 @@ export async function GET(
 
     // ========================================================
     // 8. SELECT PAGE
-    //
-    // Current behaviour:
-    // use the first available Page.
-    //
-    // Later this can become a proper Page selection screen.
     // ========================================================
 
-    const page =
-      pages[0] ||
+    const page:
+      MetaPage | null =
+      pages[0] ??
       null;
 
     const pageId =
@@ -739,12 +992,14 @@ export async function GET(
         );
 
       const igData =
-        await igRes
-          .json()
-          .catch(
-            () =>
-              null
-          );
+        (
+          await igRes
+            .json()
+            .catch(
+              () =>
+                ({})
+            )
+        ) as MetaInstagramResponse;
 
       if (
         igRes.ok
@@ -752,21 +1007,21 @@ export async function GET(
         instagramBusinessAccountId =
           cleanString(
             igData
-              ?.instagram_business_account
+              .instagram_business_account
               ?.id
           );
 
         instagramUsername =
           cleanString(
             igData
-              ?.instagram_business_account
+              .instagram_business_account
               ?.username
           );
 
         instagramAvatarUrl =
           cleanString(
             igData
-              ?.instagram_business_account
+              .instagram_business_account
               ?.profile_picture_url
           );
 
@@ -779,11 +1034,6 @@ export async function GET(
           }
         );
       } else {
-        /*
-         * Facebook remains a valid Meta connection even when
-         * there is no linked Instagram Business account.
-         */
-
         console.warn(
           "[META OAUTH] Instagram business account lookup failed:",
           igData
@@ -813,7 +1063,7 @@ export async function GET(
 
     const {
       data:
-        existingRows,
+        rawExistingRows,
 
       error:
         existingLookupError,
@@ -861,14 +1111,19 @@ export async function GET(
       );
     }
 
+    const existingRows =
+      (
+        rawExistingRows ??
+        []
+      ) as unknown as
+        ExistingSocialAccountRow[];
+
     const existingAccount =
-      existingRows?.[0] ||
+      existingRows[0] ??
       null;
 
     // ========================================================
     // 12. SOCIAL ACCOUNT PAYLOAD
-    //
-    // These fields match your actual social_accounts schema.
     // ========================================================
 
     const socialAccountPayload = {
@@ -893,10 +1148,6 @@ export async function GET(
       access_token:
         accessToken,
 
-      /*
-       * Meta does not use a conventional OAuth refresh token
-       * here.
-       */
       refresh_token:
         null,
 
@@ -931,7 +1182,7 @@ export async function GET(
     ) {
       const {
         data:
-          updatedAccount,
+          rawUpdatedAccount,
 
         error:
           updateError,
@@ -982,12 +1233,16 @@ export async function GET(
       }
 
       if (
-        !updatedAccount
+        !rawUpdatedAccount
       ) {
         throw new Error(
           "Meta connection update returned no record."
         );
       }
+
+      const updatedAccount =
+        rawUpdatedAccount as unknown as
+          SavedSocialAccountRow;
 
       savedConnectionId =
         updatedAccount.id;
@@ -1018,7 +1273,7 @@ export async function GET(
     } else {
       const {
         data:
-          insertedAccount,
+          rawInsertedAccount,
 
         error:
           insertError,
@@ -1060,6 +1315,18 @@ export async function GET(
         );
       }
 
+      if (
+        !rawInsertedAccount
+      ) {
+        throw new Error(
+          "Meta connection insert returned no record."
+        );
+      }
+
+      const insertedAccount =
+        rawInsertedAccount as unknown as
+          SavedSocialAccountRow;
+
       savedConnectionId =
         insertedAccount.id;
 
@@ -1090,14 +1357,11 @@ export async function GET(
 
     // ========================================================
     // 14. FINAL DATABASE VERIFICATION
-    //
-    // Do not redirect with success until the exact saved row
-    // can be read back.
     // ========================================================
 
     const {
       data:
-        verifiedConnection,
+        rawVerifiedConnection,
 
       error:
         verificationError,
@@ -1152,12 +1416,16 @@ export async function GET(
     }
 
     if (
-      !verifiedConnection
+      !rawVerifiedConnection
     ) {
       throw new Error(
         "Meta authenticated successfully, but no saved connection could be found."
       );
     }
+
+    const verifiedConnection =
+      rawVerifiedConnection as unknown as
+        VerifiedSocialAccountRow;
 
     if (
       !verifiedConnection
@@ -1211,14 +1479,6 @@ export async function GET(
 
     // ========================================================
     // 16. SUCCESS REDIRECT
-    //
-    // IMPORTANT:
-    //
-    // Your Settings page listens for:
-    //
-    // ?oauth=meta_success
-    //
-    // NOT ?connected=meta
     // ========================================================
 
     return NextResponse.redirect(
@@ -1239,7 +1499,10 @@ export async function GET(
       error instanceof
         Error
         ? error.message
-        : "Meta connection failed.";
+        : getErrorMessage(
+            error,
+            "Meta connection failed."
+          );
 
     // ========================================================
     // ERROR REDIRECT

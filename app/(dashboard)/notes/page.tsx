@@ -6,8 +6,9 @@ import {
   useCallback,
   useMemo,
   Suspense,
-  useRef
+  useRef,
 } from "react";
+
 import {
   DndContext,
   closestCenter,
@@ -16,46 +17,90 @@ import {
   useSensors,
   DragEndEvent,
   useDroppable,
-  useDraggable
+  useDraggable,
 } from "@dnd-kit/core";
+
 import { supabase } from "../../../lib/supabase";
-import { 
-  Trash2, Search, Loader2, Plus, X, 
-  CheckCircle2, Tag, AlertCircle, Calendar, User, Briefcase, Mic, MicOff, Bell, BellOff, Clock, Paperclip, Upload
+
+import {
+  Trash2,
+  Search,
+  Loader2,
+  Plus,
+  X,
+  CheckCircle2,
+  Tag,
+  AlertCircle,
+  Calendar,
+  User,
+  Briefcase,
+  Mic,
+  MicOff,
+  Bell,
+  BellOff,
+  Clock,
+  Paperclip,
+  Upload,
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  Brain,
+  ListTodo,
+  Lightbulb,
+  UsersRound,
+  NotebookPen,
+  FileText,
 } from "lucide-react";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-/**
- * TOTS OS | THE VAULT (V12.0)
- * DESIGN: EXPANDED FAT PARCHMENT CARDS WITH STABLE FOOTER ALIGNMENT
- */
+/* ============================================================
+   TOTS-OS NOTES / THE VAULT
+============================================================ */
 
-// DND-KIT COLUMN DROPPABLE
-const TaskColumn = ({ id, children }: any) => {
-  const { setNodeRef, isOver } = useDroppable({ id });
+/* ============================================================
+   DND
+============================================================ */
 
-  useEffect(() => {
-    if (isOver) {
-      console.log("OVER COLUMN:", id);
-    }
-  }, [isOver, id]);
+const TaskColumn = ({
+  id,
+  children,
+}: any) => {
+  const {
+    setNodeRef,
+    isOver,
+  } = useDroppable({
+    id,
+  });
 
   return (
     <div
       ref={setNodeRef}
-      className={`space-y-3 p-2 rounded-xl transition-all ${isOver ? "bg-stone-100" : ""}`}
+      className={`space-y-3 p-2 rounded-xl transition-all ${
+        isOver
+          ? "bg-stone-100"
+          : ""
+      }`}
     >
       {children}
     </div>
   );
 };
 
-// DND-KIT DRAGGABLE TASK
-const DraggableTask = ({ task, children }: any) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: task.id
+const DraggableTask = ({
+  task,
+  children,
+}: any) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: task.id,
   });
 
   return (
@@ -64,8 +109,14 @@ const DraggableTask = ({ task, children }: any) => {
       {...listeners}
       {...attributes}
       style={{
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-        opacity: isDragging ? 0.5 : 1
+        transform: transform
+          ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+          : undefined,
+
+        opacity:
+          isDragging
+            ? 0.5
+            : 1,
       }}
       className="cursor-grab active:cursor-grabbing"
     >
@@ -74,24 +125,73 @@ const DraggableTask = ({ task, children }: any) => {
   );
 };
 
+/* ============================================================
+   STICKY THEMES
+============================================================ */
+
 const STICKY_THEMES = [
-  { bg: "#FFF9E6", text: "#451a03", rotation: "-1.5deg" },
-  { bg: "#F1F8E9", text: "#14532d", rotation: "1.2deg" },
-  { bg: "#E3F2FD", text: "#0c4a6e", rotation: "-0.8deg" },
-  { bg: "#F5F3FF", text: "#4c1d95", rotation: "2deg" },
-  { bg: "#FFF0F0", text: "#7f1d1d", rotation: "-2deg" }
+  {
+    bg: "#FFF9E6",
+    text: "#451a03",
+    rotation: "-1.5deg",
+  },
+  {
+    bg: "#F1F8E9",
+    text: "#14532d",
+    rotation: "1.2deg",
+  },
+  {
+    bg: "#E3F2FD",
+    text: "#0c4a6e",
+    rotation: "-0.8deg",
+  },
+  {
+    bg: "#F5F3FF",
+    text: "#4c1d95",
+    rotation: "2deg",
+  },
+  {
+    bg: "#FFF0F0",
+    text: "#7f1d1d",
+    rotation: "-2deg",
+  },
 ];
+
+/* ============================================================
+   TYPES
+============================================================ */
 
 type NoteAttachment = {
   id: string;
   note_id: string;
-  file_name: string | null;
-  file_path?: string | null;
-  file_url?: string | null;
-  file_type: string | null;
-  file_size: number | null;
-  user_id?: string | null;
-  created_at: string | null;
+
+  file_name:
+    | string
+    | null;
+
+  file_path?:
+    | string
+    | null;
+
+  file_url?:
+    | string
+    | null;
+
+  file_type:
+    | string
+    | null;
+
+  file_size:
+    | number
+    | null;
+
+  user_id?:
+    | string
+    | null;
+
+  created_at:
+    | string
+    | null;
 };
 
 type SupabaseErrorLike = {
@@ -100,1639 +200,6043 @@ type SupabaseErrorLike = {
   details?: string;
   hint?: string;
   status?: number;
-  statusCode?: number | string;
+
+  statusCode?:
+    | number
+    | string;
+
   error?: string;
 };
 
-function formatSupabaseError(context: string, err: unknown) {
-  const e = (err || {}) as SupabaseErrorLike;
-  const status = e.status ?? e.statusCode;
-  const code = e.code || e.error;
+type NoteFolder = {
+  id: string;
+
+  organisation_id:
+    string;
+
+  created_by?:
+    | string
+    | null;
+
+  name:
+    string;
+
+  system_key?:
+    | string
+    | null;
+
+  icon?:
+    | string
+    | null;
+
+  visibility:
+    | "private"
+    | "org";
+
+  is_system:
+    boolean;
+
+  sort_order:
+    number;
+
+  created_at?:
+    string;
+
+  updated_at?:
+    string;
+};
+
+type NoteTemplateKey =
+  | "blank"
+  | "brain_dump"
+  | "todo"
+  | "ideas"
+  | "meeting"
+  | "custom";
+
+type NoteTemplateOption = {
+  key:
+    NoteTemplateKey;
+
+  title:
+    string;
+
+  description:
+    string;
+
+  icon:
+    any;
+
+  folderKey?:
+    string;
+
+  status:
+    string;
+
+  starterContent?:
+    string;
+};
+
+/* ============================================================
+   NOTE TEMPLATES
+============================================================ */
+
+const NOTE_TEMPLATES:
+  NoteTemplateOption[] = [
+    {
+      key:
+        "blank",
+
+      title:
+        "Blank Note",
+
+      description:
+        "Start with an empty page.",
+
+      icon:
+        FileText,
+
+      folderKey:
+        "general",
+
+      status:
+        "active",
+
+      starterContent:
+        "",
+    },
+
+    {
+      key:
+        "brain_dump",
+
+      title:
+        "Brain Dump",
+
+      description:
+        "Get everything out of your head.",
+
+      icon:
+        Brain,
+
+      folderKey:
+        "brain_dump",
+
+      status:
+        "active",
+
+      starterContent:
+        "",
+    },
+
+    {
+      key:
+        "todo",
+
+      title:
+        "To Do List",
+
+      description:
+        "Create a checklist or action list.",
+
+      icon:
+        ListTodo,
+
+      folderKey:
+        "todo",
+
+      status:
+        "todo",
+
+      starterContent:
+        "- [ ] ",
+    },
+
+    {
+      key:
+        "ideas",
+
+      title:
+        "Ideas",
+
+      description:
+        "Capture ideas before they disappear.",
+
+      icon:
+        Lightbulb,
+
+      folderKey:
+        "ideas",
+
+      status:
+        "active",
+
+      starterContent:
+        "",
+    },
+
+    {
+      key:
+        "meeting",
+
+      title:
+        "Meeting Notes",
+
+      description:
+        "Keep actions and decisions together.",
+
+      icon:
+        UsersRound,
+
+      folderKey:
+        "meetings",
+
+      status:
+        "active",
+
+      starterContent:
+`Meeting:
+
+Attendees:
+
+Notes:
+
+
+Decisions:
+
+
+Actions:
+- [ ] `,
+    },
+
+    {
+      key:
+        "custom",
+
+      title:
+        "Custom",
+
+      description:
+        "Create your own kind of note.",
+
+      icon:
+        NotebookPen,
+
+      status:
+        "active",
+
+      starterContent:
+        "",
+    },
+  ];
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+function FolderIcon({
+  folder,
+  size = 16,
+}: {
+  folder?:
+    | NoteFolder
+    | null;
+
+  size?:
+    number;
+}) {
+  const key =
+    folder?.system_key;
+
+  if (
+    key ===
+    "brain_dump"
+  ) {
+    return (
+      <Brain
+        size={size}
+      />
+    );
+  }
+
+  if (
+    key ===
+    "todo"
+  ) {
+    return (
+      <ListTodo
+        size={size}
+      />
+    );
+  }
+
+  if (
+    key ===
+    "ideas"
+  ) {
+    return (
+      <Lightbulb
+        size={size}
+      />
+    );
+  }
+
+  if (
+    key ===
+    "meetings"
+  ) {
+    return (
+      <UsersRound
+        size={size}
+      />
+    );
+  }
+
+  if (
+    key ===
+    "general"
+  ) {
+    return (
+      <FolderOpen
+        size={size}
+      />
+    );
+  }
+
+  return (
+    <Folder
+      size={size}
+    />
+  );
+}
+
+function formatSupabaseError(
+  context:
+    string,
+
+  err:
+    unknown
+) {
+  const e =
+    (err ||
+      {}) as SupabaseErrorLike;
+
+  const status =
+    e.status ??
+    e.statusCode;
+
+  const code =
+    e.code ||
+    e.error;
+
   const details = [
-    status ? `status=${status}` : "",
-    code ? `code=${code}` : "",
-    e.details ? `details=${e.details}` : "",
-    e.hint ? `hint=${e.hint}` : "",
+    status
+      ? `status=${status}`
+      : "",
+
+    code
+      ? `code=${code}`
+      : "",
+
+    e.details
+      ? `details=${e.details}`
+      : "",
+
+    e.hint
+      ? `hint=${e.hint}`
+      : "",
   ]
     .filter(Boolean)
     .join(" | ");
 
-  const message = e.message || e.error || "Unknown error";
-  const userMessage = details
-    ? `${context}: ${message} (${details})`
-    : `${context}: ${message}`;
+  const message =
+    e.message ||
+    e.error ||
+    "Unknown error";
 
-  return { userMessage, raw: err };
+  const userMessage =
+    details
+      ? `${context}: ${message} (${details})`
+      : `${context}: ${message}`;
+
+  return {
+    userMessage,
+    raw:
+      err,
+  };
 }
 
-function getNoteAttachmentUrl(attachment: NoteAttachment) {
-  if (attachment.file_url) return attachment.file_url;
-  if (!attachment.file_path) return "";
+function getNoteAttachmentUrl(
+  attachment:
+    NoteAttachment
+) {
+  if (
+    attachment.file_url
+  ) {
+    return attachment.file_url;
+  }
+
+  if (
+    !attachment.file_path
+  ) {
+    return "";
+  }
 
   try {
-    const { data } = supabase.storage
-      .from("notes-attachments")
-      .getPublicUrl(attachment.file_path);
+    const {
+      data,
+    } =
+      supabase.storage
+        .from(
+          "notes-attachments"
+        )
+        .getPublicUrl(
+          attachment.file_path
+        );
 
-    return data?.publicUrl || "";
+    return (
+      data?.publicUrl ||
+      ""
+    );
   } catch {
     return "";
   }
 }
 
-function isImageAttachment(attachment: NoteAttachment) {
-  const type = attachment.file_type?.toLowerCase() || "";
-  const name = attachment.file_name?.toLowerCase() || "";
+function isImageAttachment(
+  attachment:
+    NoteAttachment
+) {
+  const type =
+    attachment.file_type
+      ?.toLowerCase() ||
+    "";
 
-  return type.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
+  const name =
+    attachment.file_name
+      ?.toLowerCase() ||
+    "";
+
+  return (
+    type.startsWith(
+      "image/"
+    ) ||
+    /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(
+      name
+    )
+  );
 }
 
-function normalizeAttachments(value: any): NoteAttachment[] {
-  if (!Array.isArray(value)) return [];
+function normalizeAttachments(
+  value:
+    any
+): NoteAttachment[] {
+  if (
+    !Array.isArray(
+      value
+    )
+  ) {
+    return [];
+  }
 
-  return value.filter(Boolean).map((attachment: any) => ({
-    ...attachment,
-    file_path: attachment.file_path ?? null,
-    file_url: attachment.file_url ?? null,
-    file_type: attachment.file_type ?? null,
-    file_size: typeof attachment.file_size === "number" ? attachment.file_size : null,
-    user_id: attachment.user_id ?? null,
-    created_at: attachment.created_at ?? null,
-  }));
+  return value
+    .filter(Boolean)
+    .map(
+      (
+        attachment:
+          any
+      ) => ({
+        ...attachment,
+
+        file_path:
+          attachment.file_path ??
+          null,
+
+        file_url:
+          attachment.file_url ??
+          null,
+
+        file_type:
+          attachment.file_type ??
+          null,
+
+        file_size:
+          typeof attachment.file_size ===
+          "number"
+            ? attachment.file_size
+            : null,
+
+        user_id:
+          attachment.user_id ??
+          null,
+
+        created_at:
+          attachment.created_at ??
+          null,
+      })
+    );
 }
+
+/* ============================================================
+   VAULT
+============================================================ */
 
 function VaultContent() {
-  const orgIdRef = useRef<string | null>(null);
-  const [user, setUser] = useState<any>(null);
-  const [organisationId, setOrganisationId] = useState<string | null>(null);
-  const [notes, setNotes] = useState<any[]>([]);
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
-  const [comments, setComments] = useState<any[]>([]);
-  const [attachmentsByNoteId, setAttachmentsByNoteId] = useState<Record<string, NoteAttachment[]>>({});
-  const commentsByNoteId = useRef<Record<string, any[]>>({});
-  const [activeComments, setActiveComments] = useState<Record<string, any[]>>({});
-  const [projectsList, setProjectsList] = useState<any[]>([]);
-  const fetchProjects = useCallback(async (orgId?: string) => {
-  try {
-    if (!orgId) return;
+  const orgIdRef =
+    useRef<
+      string | null
+    >(null);
 
-    const { data, error } = await supabase
-      .from("projects")
-      .select("id, name")
-      .eq("organisation_id", orgId)
-      .order("name", { ascending: true });
+  const [
+    user,
+    setUser,
+  ] =
+    useState<any>(
+      null
+    );
 
-    if (error) {
-      const formatted = formatSupabaseError("Projects fetch failed", error);
-      console.error(formatted.userMessage, formatted.raw);
-      return;
-    }
+  const [
+    organisationId,
+    setOrganisationId,
+  ] =
+    useState<
+      string | null
+    >(null);
 
-    setProjectsList(data || []);
-  } catch (e) {
-    console.error("Error fetching projects:", e);
-  }
-}, []);
-  const [isLoading, setIsLoading] = useState(true);
+  const [
+    notes,
+    setNotes,
+  ] =
+    useState<any[]>(
+      []
+    );
 
-  // Modal & Input States
-  const [showModal, setShowModal] = useState(false);
-  const [content, setContent] = useState("");
-  const [title, setTitle] = useState("");
-  const [tag, setTag] = useState("");
-  const [isUrgent, setIsUrgent] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [search, setSearch] = useState("");
-  const [selectedTagFilter, setSelectedTagFilter] = useState("ALL");
-  const [selectedColorFilter, setSelectedColorFilter] = useState("ALL");
-  const [tagColor, setTagColor] = useState("#A9B897");
-  const [tagColorMap, setTagColorMap] = useState<Record<string, string>>({});
+  const [
+    folders,
+    setFolders,
+  ] =
+    useState<
+      NoteFolder[]
+    >([]);
 
-  // Custom Metadata Fields
-  const [project, setProject] = useState("");
-  const [assignedTo, setAssignedTo] = useState<string[]>([]);
-  const [reminderDateTime, setReminderDateTime] = useState("");
-  const [isReminder, setIsReminder] = useState(false);
-  const [startDate, setStartDate] = useState(""); // <-- ADD THIS
-const [endDate, setEndDate] = useState("");     // <-- ADD THIS
-  const [status, setStatus] = useState("todo");
-  const [visibility, setVisibility] = useState("private");
-  const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  const [
+    selectedFolderId,
+    setSelectedFolderId,
+  ] =
+    useState<string>(
+      "ALL"
+    );
 
-  // Voice Note State
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const [
+    folderId,
+    setFolderId,
+  ] =
+    useState<string>(
+      ""
+    );
 
-  // Expanded note state for click-to-expand cards
-  const [expandedNote, setExpandedNote] = useState<string | null>(null);
-  const [lastViewed, setLastViewed] = useState<Record<string, number>>({});
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [reactions, setReactions] = useState<Record<string, { userId: string; type: string }[]>>({});
-  const [typingUsers, setTypingUsers] = useState<Record<string, number>>({});
-  const [notePresence, setNotePresence] = useState<Record<string, string[]>>({});
-  const presenceChannelRef = useRef<any>(null);
-  const [cursorPositions, setCursorPositions] = useState<Record<string, Record<string, { x: number; y: number }>>>({});
-  const cursorChannelRef = useRef<any>(null);
-  const [selectionPositions, setSelectionPositions] = useState<
-    Record<string, Record<string, { start: number; end: number }>>
-  >({});
-  const selectionChannelRef = useRef<any>(null);
-  const contentChannelRef = useRef<any>(null);
-  const noteOpsChannelRef = useRef<any>(null);
-  const channelRef = useRef<any>(null);
-  const initRef = useRef(false);
-  const typingChannelRef = useRef<any>(null);
-  const [noteOps, setNoteOps] = useState<Record<string, any[]>>({});
+  const [
+    noteTemplate,
+    setNoteTemplate,
+  ] =
+    useState<NoteTemplateKey>(
+      "blank"
+    );
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("tots-note-tag-colors");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-          setTagColorMap(parsed);
+  const [
+    customTemplateName,
+    setCustomTemplateName,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    showFolderModal,
+    setShowFolderModal,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    newFolderName,
+    setNewFolderName,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    newFolderVisibility,
+    setNewFolderVisibility,
+  ] =
+    useState<
+      "private" |
+      "org"
+    >(
+      "org"
+    );
+
+  const [
+    isCreatingFolder,
+    setIsCreatingFolder,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    teamMembers,
+    setTeamMembers,
+  ] =
+    useState<any[]>(
+      []
+    );
+
+  const [
+    comments,
+    setComments,
+  ] =
+    useState<any[]>(
+      []
+    );
+
+  const [
+    attachmentsByNoteId,
+    setAttachmentsByNoteId,
+  ] =
+    useState<
+      Record<
+        string,
+        NoteAttachment[]
+      >
+    >({});
+
+  const commentsByNoteId =
+    useRef<
+      Record<
+        string,
+        any[]
+      >
+    >({});
+
+  const [
+    activeComments,
+    setActiveComments,
+  ] =
+    useState<
+      Record<
+        string,
+        any[]
+      >
+    >({});
+
+  const [
+    projectsList,
+    setProjectsList,
+  ] =
+    useState<any[]>(
+      []
+    );
+
+  const [
+    isLoading,
+    setIsLoading,
+  ] =
+    useState(
+      true
+    );
+
+  /* ============================================================
+     NEW NOTE STATES
+  ============================================================ */
+
+  const [
+    showModal,
+    setShowModal,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    content,
+    setContent,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    title,
+    setTitle,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    tag,
+    setTag,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    isUrgent,
+    setIsUrgent,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    isSyncing,
+    setIsSyncing,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    search,
+    setSearch,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    selectedTagFilter,
+    setSelectedTagFilter,
+  ] =
+    useState(
+      "ALL"
+    );
+
+  const [
+    selectedColorFilter,
+    setSelectedColorFilter,
+  ] =
+    useState(
+      "ALL"
+    );
+
+  const [
+    tagColor,
+    setTagColor,
+  ] =
+    useState(
+      "#A9B897"
+    );
+
+  const [
+    tagColorMap,
+    setTagColorMap,
+  ] =
+    useState<
+      Record<
+        string,
+        string
+      >
+    >({});
+
+  const [
+    project,
+    setProject,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    assignedTo,
+    setAssignedTo,
+  ] =
+    useState<string[]>(
+      []
+    );
+
+  const [
+    reminderDateTime,
+    setReminderDateTime,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    isReminder,
+    setIsReminder,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    startDate,
+    setStartDate,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    endDate,
+    setEndDate,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    status,
+    setStatus,
+  ] =
+    useState(
+      "todo"
+    );
+
+  const [
+    visibility,
+    setVisibility,
+  ] =
+    useState(
+      "private"
+    );
+
+  const [
+    selectedColor,
+    setSelectedColor,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    pendingAttachments,
+    setPendingAttachments,
+  ] =
+    useState<File[]>(
+      []
+    );
+
+  /* ============================================================
+     VOICE
+  ============================================================ */
+
+  const [
+    isListening,
+    setIsListening,
+  ] =
+    useState(
+      false
+    );
+
+  const recognitionRef =
+    useRef<any>(
+      null
+    );
+
+  /* ============================================================
+     COLLAB STATES
+  ============================================================ */
+
+  const [
+    expandedNote,
+    setExpandedNote,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    lastViewed,
+    setLastViewed,
+  ] =
+    useState<
+      Record<
+        string,
+        number
+      >
+    >({});
+
+  const [
+    notifications,
+    setNotifications,
+  ] =
+    useState<any[]>(
+      []
+    );
+
+  const [
+    reactions,
+    setReactions,
+  ] =
+    useState<
+      Record<
+        string,
+        {
+          userId:
+            string;
+
+          type:
+            string;
+        }[]
+      >
+    >({});
+
+  const [
+    typingUsers,
+    setTypingUsers,
+  ] =
+    useState<
+      Record<
+        string,
+        number
+      >
+    >({});
+
+  const [
+    notePresence,
+    setNotePresence,
+  ] =
+    useState<
+      Record<
+        string,
+        string[]
+      >
+    >({});
+
+  const [
+    cursorPositions,
+    setCursorPositions,
+  ] =
+    useState<
+      Record<
+        string,
+        Record<
+          string,
+          {
+            x:
+              number;
+
+            y:
+              number;
+          }
+        >
+      >
+    >({});
+
+  const [
+    selectionPositions,
+    setSelectionPositions,
+  ] =
+    useState<
+      Record<
+        string,
+        Record<
+          string,
+          {
+            start:
+              number;
+
+            end:
+              number;
+          }
+        >
+      >
+    >({});
+
+  const [
+    noteOps,
+    setNoteOps,
+  ] =
+    useState<
+      Record<
+        string,
+        any[]
+      >
+    >({});
+
+  const presenceChannelRef =
+    useRef<any>(
+      null
+    );
+
+  const cursorChannelRef =
+    useRef<any>(
+      null
+    );
+
+  const selectionChannelRef =
+    useRef<any>(
+      null
+    );
+
+  const contentChannelRef =
+    useRef<any>(
+      null
+    );
+
+  const noteOpsChannelRef =
+    useRef<any>(
+      null
+    );
+
+  const channelRef =
+    useRef<any>(
+      null
+    );
+
+  const typingChannelRef =
+    useRef<any>(
+      null
+    );
+
+  const initRef =
+    useRef(
+      false
+    );
+
+  /* ============================================================
+     TAG COLOURS
+  ============================================================ */
+
+  useEffect(
+    () => {
+      try {
+        const raw =
+          localStorage.getItem(
+            "tots-note-tag-colors"
+          );
+
+        if (
+          raw
+        ) {
+          const parsed =
+            JSON.parse(
+              raw
+            );
+
+          if (
+            parsed &&
+            typeof parsed ===
+              "object"
+          ) {
+            setTagColorMap(
+              parsed
+            );
+          }
         }
-      }
-    } catch (e) {
-      console.warn("Failed to read tag colors", e);
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("tots-note-tag-colors", JSON.stringify(tagColorMap));
-    } catch (e) {
-      console.warn("Failed to persist tag colors", e);
-    }
-  }, [tagColorMap]);
-
-  // Strict per-user/org/shared/assigned note visibility guard
-  const canViewNote = (note: any, userId: string) => {
-  if (!note || !userId) return false;
-
-  const assigned = Array.isArray(note.assigned_to)
-    ? note.assigned_to
-    : note.assigned_to
-      ? [note.assigned_to]
-      : [];
-
-  switch (note.visibility) {
-    case "private":
-      return note.user_id === userId;
-
-    case "shared":
-      return note.user_id === userId || assigned.includes(userId);
-
-     case "assigned":
-  return assigned.includes(userId);
-
-case "org":
-  return true;
-
-default:
-  return note.user_id === userId;
-  }
-};
-
-   
-
-  const fetchNotes = useCallback(async (orgId: string, userId: string) => {
-  try {
-    const effectiveOrgId = orgId || orgIdRef.current;
-
-    if (!userId || !effectiveOrgId) {
-      console.warn("fetchNotes skipped", { userId, effectiveOrgId });
-      setNotes([]);
-      setIsLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("organisation_id", effectiveOrgId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      const formatted = formatSupabaseError("Failed to load notes", error);
-      console.error(formatted.userMessage, formatted.raw);
-      toast.error(formatted.userMessage);
-      return;
-    }
-
-    const safeNotes = (data || [])
-      .filter((n: any) => n && n.id)
-      .filter((n: any) => canViewNote(n, userId))
-      .map((n: any) => n);
-
-    setNotes(safeNotes);
-
-
-    const noteIds = safeNotes.map((n: any) => n.id);
-
-    if (noteIds.length) {
-      const { data: commentData } = await supabase
-        .from("note_comments")
-        .select("*")
-        .in("note_id", noteIds)
-        .order("created_at", { ascending: true });
-
-
-      if (commentData) {
-        setComments(commentData);
-
-        const map: Record<string, any[]> = {};
-
-        commentData.forEach((c: any) => {
-          if (!map[c.note_id]) map[c.note_id] = [];
-          map[c.note_id].push(c);
-        });
-
-        commentsByNoteId.current = map;
-      }
-
-      const attachmentMap: Record<string, NoteAttachment[]> = {};
-      safeNotes.forEach((note: any) => {
-        attachmentMap[note.id] = normalizeAttachments(note.attachments).map((attachment) => ({
-          ...attachment,
-          note_id: attachment.note_id || note.id,
-        }));
-      });
-
-      setAttachmentsByNoteId(attachmentMap);
-
-      
-    } else {
-      setComments([]);
-      commentsByNoteId.current = {};
-      setAttachmentsByNoteId({});
-    }
-
-  } catch (e) {
-    console.error("Notes Fetch Error:", e);
-    toast.error("Notes load failed.");
-  } finally {
-    setIsLoading(false);
-  }
-}, []);
-
-  const uploadAttachmentsForNote = useCallback(async (noteId: string, files: File[], userId: string, currentAttachments: NoteAttachment[] = []) => {
-    const uploads = files.filter(Boolean);
-    if (!noteId || !userId || uploads.length === 0) {
-      return [] as NoteAttachment[];
-    }
-
-    const createdAttachments: NoteAttachment[] = [];
-    const normalizedCurrent = normalizeAttachments(currentAttachments).map((attachment) => ({
-      ...attachment,
-      note_id: attachment.note_id || noteId,
-    }));
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-
-    if (!accessToken) {
-      throw new Error("Unable to authenticate attachment update");
-    }
-
-    for (const file of uploads) {
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const uploadPath = `${noteId}/${Date.now()}-${safeName}`;
-
-      const { data, error: uploadError } = await supabase.storage
-        .from("notes-attachments")
-        .upload(uploadPath, file);
-
-      if (uploadError) {
-        const formatted = formatSupabaseError(`Attachment upload failed for ${file.name}`, uploadError);
-        throw new Error(formatted.userMessage);
-      }
-
-      const filePath = data?.path;
-
-      if (!filePath) {
-        throw new Error(`Upload returned no path for ${file.name}`);
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("notes-attachments")
-        .getPublicUrl(filePath);
-
-      createdAttachments.push({
-        id:
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `${noteId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        note_id: noteId,
-        file_name: file.name,
-        file_path: filePath,
-        file_url: publicUrlData?.publicUrl || null,
-        file_type: file.type || null,
-        file_size: file.size,
-        user_id: userId,
-        created_at: new Date().toISOString(),
-      });
-    }
-
-    const mergedAttachments = [...normalizedCurrent, ...createdAttachments];
-
-    const updateResponse = await fetch("/api/notes", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        id: noteId,
-        organisation_id: orgIdRef.current,
-        attachments: mergedAttachments,
-      }),
-    });
-
-    const updateBody = await updateResponse.json().catch(() => null);
-
-    if (!updateResponse.ok) {
-      const responseError = {
-        message: updateBody?.error || "Failed to update note attachments",
-        status: updateResponse.status,
-        details: updateBody?.details,
-        code: updateBody?.code,
-        hint: updateBody?.hint,
-      };
-      const formatted = formatSupabaseError("Attachment metadata update failed", responseError);
-      throw new Error(formatted.userMessage);
-    }
-
-
-    setAttachmentsByNoteId(prev => ({
-      ...prev,
-      [noteId]: mergedAttachments,
-    }));
-
-    return createdAttachments;
-  }, []);
-
-     
-
-     
-
-     
-
-  const fetchTeamMembers = useCallback(async (orgId?: string) => {
-    try {
-      if (!orgId) return;
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, name, email")
-        .eq("organisation_id", orgId)
-        .order("name", { ascending: true });
-
-      if (error) {
-        console.error("Team fetch error:", error);
-        return;
-      }
-
-      if (data) {
-        setTeamMembers(
-          data.map((u: any) => ({
-            ...u,
-            email: u.email || null
-          }))
+      } catch (
+        e
+      ) {
+        console.warn(
+          "Failed to read tag colors",
+          e
         );
       }
-    } catch (e) {
-      console.error("Error fetching team:", e);
-    }
-  }, []);
+    },
+    []
+  );
 
-  const resolveMentions = (text: string) => {
-    const matches = text.match(/@(\w+)/g) || [];
-
-    return matches
-      .map(m => m.replace("@", "").toLowerCase())
-      .map(name =>
-        teamMembers.find(
-          (u: any) => u.name?.toLowerCase() === name
-        )
-      )
-      .filter(Boolean);
-  };
-
-  const addComment = async (noteId: string, text: string, parentId?: string) => {
-    if (!text.trim() || !user?.id) return;
-    if (!orgIdRef.current) {
-      toast.error("Missing organisation context");
-      return;
-    }
-
-    const { data: inserted, error } = await supabase
-      .from("note_comments")
-      .insert([
-        {
-          note_id: noteId,
-          user_id: user.id,
-          content: text.replace(/@(\w+)/g, "$1"),
-          parent_id: parentId || null,
-          organisation_id: orgIdRef.current,
-        }
-      ])
-      .select("*")
-      .single();
-
-    if (error) {
-      console.error("Comment insert failed:", error);
-      toast.error(error.message || "Failed to add comment");
-      return;
-    }
-
-    if (inserted) {
-      setComments(prev => [...prev, inserted]);
-    }
-
-    const mentionedUsers = resolveMentions(text);
-
-    if (mentionedUsers.length > 0) {
-      for (const u of mentionedUsers) {
-        // 1. Persist notification (OS layer)
-        await supabase.from("notifications").insert([
-          {
-            user_id: u.id,
-            type: "mention",
-            message: `${user?.email || "Someone"} mentioned you in a task`,
-            note_id: noteId,
-            read: false,
-            created_at: new Date().toISOString()
-          }
-        ]);
-
-        // 2. Email dispatch (Kernel layer bridge)
-        try {
-          await supabase.functions.invoke("send-notification-email", {
-            body: {
-              to: u.email,
-              subject: "You were mentioned in TOTS-OS",
-              message: text,
-              context: {
-                noteId,
-                from: user?.email
-              }
-            }
-          });
-        } catch (e) {
-          console.error("Email dispatch failed:", e);
-        }
-      }
-
-      setNotifications(prev => [
-        ...prev,
-        {
-          id: Date.now(),
-          type: "mention",
-          message: `Mention sent to ${mentionedUsers.length} user(s)`,
-          created_at: Date.now()
-        }
-      ]);
-    }
-
-    if (orgIdRef.current) {
-  fetchNotes(orgIdRef.current, user.id);
-}
-  };
-
-  const addReaction = async (commentId: string, type: string = "like") => {
-    if (!user?.id) return;
-
-    try {
-      setReactions(prev => {
-        const existing = prev[commentId] || [];
-        const already = existing.find(r => r.userId === user.id);
-
-        if (already) return prev;
-
-        return {
-          ...prev,
-          [commentId]: [...existing, { userId: user.id, type }]
-        };
-      });
-
-      // Optional persistence layer (safe assume table exists)
-      await supabase.from("note_comment_reactions").insert([
-        {
-          comment_id: commentId,
-          user_id: user.id,
-          type
-        }
-      ]);
-    } catch (e) {
-      console.error("Reaction error:", e);
-    }
-  };
-
-  useEffect(() => {
-    const init = async () => {
-      if (initRef.current) return;
-      initRef.current = true;
-
+  useEffect(
+    () => {
       try {
+        localStorage.setItem(
+          "tots-note-tag-colors",
+          JSON.stringify(
+            tagColorMap
+          )
+        );
+      } catch (
+        e
+      ) {
+        console.warn(
+          "Failed to persist tag colors",
+          e
+        );
+      }
+    },
+    [
+      tagColorMap,
+    ]
+  );
 
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-      setUser(authUser);
+  /* ============================================================
+     VISIBILITY
+  ============================================================ */
 
-      // Get orgId for multi-tenancy
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("id", authUser.id)
-        .maybeSingle();
+  const canViewNote =
+    (
+      note:
+        any,
 
-      if (profileError) {
-        const formatted = formatSupabaseError("Profile lookup failed during init", profileError);
-        console.error(formatted.userMessage, formatted.raw);
-        toast.error(formatted.userMessage);
-        return;
+      userId:
+        string
+    ) => {
+      if (
+        !note ||
+        !userId
+      ) {
+        return false;
       }
 
-      const orgId = profile?.organisation_id;
-      if (!orgId) {
-        const message = `Missing organisation_id for user ${authUser.id}`;
-        console.error(message);
-        toast.error(message);
-        return;
-      }
+      const assigned =
+        Array.isArray(
+          note.assigned_to
+        )
+          ? note.assigned_to
+          : note.assigned_to
+            ? [
+                note.assigned_to,
+              ]
+            : [];
 
-      orgIdRef.current = orgId;
-      setOrganisationId(orgId);
-      await fetchTeamMembers(orgId);
-      if (orgId) await fetchProjects(orgId);
-      if (orgId) await fetchNotes(orgId, authUser.id);
-// HARD RESET OLD CHANNELS (prevents realtime duplicate subscribe errors)
-if (channelRef.current) {
-  supabase.removeChannel(channelRef.current);
-  channelRef.current = null;
-}
+      switch (
+        note.visibility
+      ) {
+        case "private":
+          return (
+            note.user_id ===
+            userId
+          );
 
-if (typingChannelRef.current) {
-  supabase.removeChannel(typingChannelRef.current);
-  typingChannelRef.current = null;
-}
-
-if (presenceChannelRef.current) {
-  supabase.removeChannel(presenceChannelRef.current);
-  presenceChannelRef.current = null;
-}
-
-if (cursorChannelRef.current) {
-  supabase.removeChannel(cursorChannelRef.current);
-  cursorChannelRef.current = null;
-}
-
-if (selectionChannelRef.current) {
-  supabase.removeChannel(selectionChannelRef.current);
-  selectionChannelRef.current = null;
-}
-
-if (contentChannelRef.current) {
-  supabase.removeChannel(contentChannelRef.current);
-  contentChannelRef.current = null;
-}
-
-if (noteOpsChannelRef.current) {
-  supabase.removeChannel(noteOpsChannelRef.current);
-  noteOpsChannelRef.current = null;
-}
-if (!orgId) return;
-      const mainChannel = supabase.channel(`vault_desk_${orgId}`, {
-        
-        config: {
-          presence: { key: authUser.id }
-        }
-      });
-      mainChannel
-        .on('postgres_changes', {
-  event: '*',
-  schema: 'public',
-  table: 'notes',
-  filter: `organisation_id=eq.${orgId}`
-}, () => {
-  if (orgIdRef.current && user?.id) {
-    fetchNotes(orgIdRef.current, user.id);
-  }
-})
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'note_comments'
-        }, (payload: any) => {
-          setComments(prev => {
-            const updated = [...prev, payload.new];
-
-            const map: Record<string, any[]> = {};
-            updated.forEach((c: any) => {
-              if (!map[c.note_id]) map[c.note_id] = [];
-              map[c.note_id].push(c);
-            });
-
-            commentsByNoteId.current = map;
-            return updated;
-          });
-        })
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'note_comments'
-        }, (payload: any) => {
-          setComments(prev => {
-            const updated = prev.map(c => c.id === payload.new.id ? payload.new : c);
-
-            const map: Record<string, any[]> = {};
-            updated.forEach((c: any) => {
-              if (!map[c.note_id]) map[c.note_id] = [];
-              map[c.note_id].push(c);
-            });
-
-            commentsByNoteId.current = map;
-            return updated;
-          });
-        })
-        .on('postgres_changes', {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'note_comments'
-        }, (payload: any) => {
-          setComments(prev => {
-            const updated = prev.filter(c => c.id !== payload.old.id);
-
-            const map: Record<string, any[]> = {};
-            updated.forEach((c: any) => {
-              if (!map[c.note_id]) map[c.note_id] = [];
-              map[c.note_id].push(c);
-            });
-
-            commentsByNoteId.current = map;
-            return updated;
-          });
-        })
-        .on('postgres_changes', {
-  event: '*',
-  schema: 'public',
-  table: 'note_comment_reactions'
-}, () => {
-  if (orgIdRef.current && user?.id) {
-  fetchNotes(orgIdRef.current, user.id);
-}
-})
-        .subscribe();
-
-      channelRef.current = mainChannel;
-
-      const typingChannel = supabase.channel("typing-comments");
-
-      typingChannel
-        .on("broadcast", { event: "typing:start" }, ({ payload }: any) => {
-          setTypingUsers(prev => ({
-            ...prev,
-            [payload.noteId]: (prev[payload.noteId] || 0) + 1
-          }));
-        })
-        .on("broadcast", { event: "typing:stop" }, ({ payload }: any) => {
-          setTypingUsers(prev => ({
-            ...prev,
-            [payload.noteId]: Math.max((prev[payload.noteId] || 1) - 1, 0)
-          }));
-        })
-        .subscribe();
-
-      typingChannelRef.current = typingChannel;
-
-      const presenceChannel = supabase.channel("note_presence");
-
-      presenceChannel
-        .on("broadcast", { event: "note:view:enter" }, ({ payload }: any) => {
-          setNotePresence(prev => {
-            const set = new Set(prev[payload.noteId] || []);
-            set.add(payload.userId);
-
-            return {
-              ...prev,
-              [payload.noteId]: Array.from(set)
-            };
-          });
-        })
-        .on("broadcast", { event: "note:view:leave" }, ({ payload }: any) => {
-          setNotePresence(prev => {
-            const set = new Set(prev[payload.noteId] || []);
-            set.delete(payload.userId);
-
-            return {
-              ...prev,
-              [payload.noteId]: Array.from(set)
-            };
-          });
-        })
-        .subscribe();
-
-      presenceChannelRef.current = presenceChannel;
-
-      const cursorChannel = supabase.channel("note_cursor");
-
-      cursorChannel
-        .on("broadcast", { event: "note:cursor" }, ({ payload }: any) => {
-          setCursorPositions(prev => {
-            const noteId = payload.noteId;
-            const userId = payload.userId;
-
-            const existing = prev[noteId] || {};
-
-            return {
-              ...prev,
-              [noteId]: {
-                ...existing,
-                [userId]: {
-                  x: payload.x,
-                  y: payload.y
-                }
-              }
-            };
-          });
-        })
-        .subscribe();
-
-      cursorChannelRef.current = cursorChannel;
-
-      const selectionChannel = supabase.channel("note_selection");
-
-      selectionChannel
-        .on("broadcast", { event: "note:selection" }, ({ payload }: any) => {
-          setSelectionPositions(prev => {
-            const noteId = payload.noteId;
-            const userId = payload.userId;
-
-            const existing = prev[noteId] || {};
-
-            return {
-              ...prev,
-              [noteId]: {
-                ...existing,
-                [userId]: {
-                  start: payload.start,
-                  end: payload.end
-                }
-              }
-            };
-          });
-        })
-        .subscribe();
-
-      selectionChannelRef.current = selectionChannel;
-
-      // Content channel for note content sync
-      const contentChannel = supabase.channel("note_content");
-
-      contentChannel
-        .on("broadcast", { event: "note:content" }, ({ payload }: any) => {
-          const { noteId, content } = payload;
-
-          setNotes(prev =>
-            prev.map(n =>
-              n.id === noteId
-                ? { ...n, content }
-                : n
+        case "shared":
+          return (
+            note.user_id ===
+              userId ||
+            assigned.includes(
+              userId
             )
           );
-        })
-        .subscribe();
 
-      contentChannelRef.current = contentChannel;
+        case "assigned":
+          return assigned.includes(
+            userId
+          );
 
-      // Phase 6: Operation-based collaboration channel (CRDT-lite layer)
-      const opsChannel = supabase.channel("note_ops");
+        case "org":
+          return true;
 
-      opsChannel
-        .on("broadcast", { event: "note:op" }, ({ payload }: any) => {
-          const { noteId, op } = payload;
-
-          setNoteOps(prev => {
-            const existing = prev[noteId] || [];
-            return {
-              ...prev,
-              [noteId]: [...existing, op]
-            };
-          });
-        })
-        .subscribe();
-
-      noteOpsChannelRef.current = opsChannel;
-      } catch (e) {
-        const formatted = formatSupabaseError("Notes page initialization failed", e);
-        console.error(formatted.userMessage, formatted.raw);
-        toast.error(formatted.userMessage);
+        default:
+          return (
+            note.user_id ===
+            userId
+          );
       }
     };
-    init();
-    return () => {
-      if (noteOpsChannelRef.current) supabase.removeChannel(noteOpsChannelRef.current);
-if (contentChannelRef.current) supabase.removeChannel(contentChannelRef.current);
-if (selectionChannelRef.current) supabase.removeChannel(selectionChannelRef.current);
-if (cursorChannelRef.current) supabase.removeChannel(cursorChannelRef.current);
-if (presenceChannelRef.current) supabase.removeChannel(presenceChannelRef.current);
-if (typingChannelRef.current) supabase.removeChannel(typingChannelRef.current);
-if (channelRef.current) supabase.removeChannel(channelRef.current);
-};
-}, []);
-  
-  // Speech Recognition Initializer
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = false;
-        recognition.lang = "en-US";
 
-        recognition.onresult = (event: any) => {
-          const transcript = event.results[event.results.length - 1][0].transcript;
-          setContent((prev) => prev + (prev ? " " : "") + transcript);
-        };
+  /* ============================================================
+     PROJECTS
+  ============================================================ */
 
-        recognition.onerror = () => {
-          setIsListening(false);
-        };
+  const fetchProjects =
+    useCallback(
+      async (
+        orgId?:
+          string
+      ) => {
+        try {
+          if (
+            !orgId
+          ) {
+            return;
+          }
 
-        recognition.onend = () => {
-          setIsListening(false);
-        };
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "projects"
+              )
+              .select(
+                "id, name"
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .order(
+                "name",
+                {
+                  ascending:
+                    true,
+                }
+              );
 
-        recognitionRef.current = recognition;
-      }
-    }
-  }, []);
+          if (
+            error
+          ) {
+            const formatted =
+              formatSupabaseError(
+                "Projects fetch failed",
+                error
+              );
 
-  const toggleListening = () => {
-    if (!recognitionRef.current) {
-      toast.error("Voice framework unsupported on this web engine.");
-      return;
-    }
-    if (isListening) {
-      recognitionRef.current.stop();
-    } else {
-      setIsListening(true);
-      recognitionRef.current.start();
-      toast.success("System mic open...");
-    }
-  };
+            console.error(
+              formatted.userMessage,
+              formatted.raw
+            );
 
-  const handleCreate = async () => {
-    if (!content.trim()) {
-      toast.error("Note cannot be empty");
-      return;
-    }
+            return;
+          }
 
-    setIsSyncing(true);
-
-    try {
-      const {
-        data: { user: authUser }
-      } = await supabase.auth.getUser();
-
-      if (!authUser) return;
-
-      const userId = authUser.id;
-      const theme = STICKY_THEMES[userId.charCodeAt(0) % STICKY_THEMES.length];
-
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("id", userId)
-        .single();
-
-      if (profileError) {
-        const formatted = formatSupabaseError("Profile lookup failed before note creation", profileError);
-        throw new Error(formatted.userMessage);
-      }
-
-      const organisationId = profile?.organisation_id;
-
-      if (!organisationId) {
-        throw new Error("Missing organisation_id");
-      }
-
-      const attachments: NoteAttachment[] = [];
-      for (const file of pendingAttachments) {
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const uploadPath = `${userId}/${Date.now()}-${safeName}`;
-
-        const { data, error: uploadError } = await supabase.storage
-          .from("notes-attachments")
-          .upload(uploadPath, file);
-
-        if (uploadError) {
-          const formatted = formatSupabaseError(`Attachment upload failed for ${file.name}`, uploadError);
-          throw new Error(formatted.userMessage);
+          setProjectsList(
+            data ||
+              []
+          );
+        } catch (
+          e
+        ) {
+          console.error(
+            "Error fetching projects:",
+            e
+          );
         }
-
-        const filePath = data?.path;
-        if (!filePath) {
-          throw new Error(`Upload returned no path for ${file.name}`);
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from("notes-attachments")
-          .getPublicUrl(filePath);
-
-        attachments.push({
-          id:
-            typeof crypto !== "undefined" && "randomUUID" in crypto
-              ? crypto.randomUUID()
-              : `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          note_id: "",
-          file_name: file.name,
-          file_path: filePath,
-          file_url: publicUrlData?.publicUrl || null,
-          file_type: file.type || null,
-          file_size: file.size,
-          user_id: userId,
-          created_at: new Date().toISOString(),
-        });
-      }
-
-      const { data: insertedNote, error: insertError } = await supabase
-        .from("notes")
-        .insert({
-          user_id: userId,
-          organisation_id: organisationId,
-          content,
-          attachments,
-          title: title || null,
-          color: isUrgent ? "#4f4a46" : (selectedColor || theme.bg),
-          category: tag || "General",
-          project: project || null,
-          assigned_to: assignedTo.length > 0 ? assignedTo : null,
-          due_date: isReminder && reminderDateTime ? reminderDateTime : null,
-          start_date: startDate ? startDate : null, // <-- ADD THIS
-          end_date: endDate ? endDate : null,
-          is_reminder: isReminder,
-          status,
-          type: status === "todo" ? "task" : "note",
-          is_urgent: isUrgent,
-          visibility,
-        })
-        .select("*")
-        .single();
-
-      if (insertError) {
-        const formatted = formatSupabaseError("Note insert failed", insertError);
-        throw new Error(formatted.userMessage);
-      }
-
-      if (!insertedNote) {
-        throw new Error("No note returned from API");
-      }
-
-      const normalizedAttachments = normalizeAttachments(insertedNote.attachments ?? attachments).map((attachment) => ({
-        ...attachment,
-        note_id: attachment.note_id || insertedNote.id,
-      }));
-
-      setAttachmentsByNoteId((prev) => ({
-        ...prev,
-        [insertedNote.id]: normalizedAttachments,
-      }));
-
-      const normalizedNote = {
-        ...insertedNote,
-        user_id: insertedNote.user_id ?? userId,
-        organisation_id: insertedNote.organisation_id ?? organisationId,
-        visibility: insertedNote.visibility ?? visibility,
-        attachments: normalizedAttachments,
-      };
-
-      if (tag.trim()) {
-        setTagColorMap(prev => ({
-          ...prev,
-          [tag.trim().toLowerCase()]: tagColor,
-        }));
-      }
-
-      setNotes(prev => [
-        {
-          ...normalizedNote,
-          type: normalizedNote.type ?? (normalizedNote.status === "todo" ? "task" : "note"),
-        },
-        ...prev
-      ]);
-
-      if (normalizedNote.project) {
-  setProjectsList(prev => {
-    const exists = prev.some(
-      p => p.name === normalizedNote.project
+      },
+      []
     );
 
-    if (exists) return prev;
+  /* ============================================================
+     FOLDERS
+  ============================================================ */
 
-    return [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        name: normalizedNote.project
-      }
-    ];
-  });
-}
-
-      setContent("");
-      setTitle("");
-      setTag("");
-      setIsUrgent(false);
-      setProject("");
-      setAssignedTo([]);
-      setReminderDateTime("");
-      setIsReminder(false);
-      setStatus("todo");
-      setPendingAttachments([]);
-      setShowModal(false);
-      setSelectedColor(null);
-      
-      orgIdRef.current = organisationId;
-      setOrganisationId(organisationId);
-
-      const currentOrgId = orgIdRef.current ?? organisationId;
-      if (currentOrgId) {
-        await fetchNotes(currentOrgId, userId);
-      }
-      toast.success("Note pinned to desk.");
-     } catch (e) {
-  const formatted = formatSupabaseError("Create note error", e);
-  console.error(formatted.userMessage, formatted.raw);
-
-  const message =
-    formatted.userMessage ||
-    "Unexpected error creating note. Please try again.";
-
-  toast.error(message);
-} finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const addAttachmentsToExistingNote = useCallback(async (noteId: string, files: File[]) => {
-    if (!noteId || !user?.id) {
-      toast.error("Missing user context");
-      return false;
-    }
-
-    try {
-      await uploadAttachmentsForNote(noteId, files, user.id, attachmentsByNoteId[noteId] || []);
-      return true;
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to upload attachment");
-      return false;
-    }
-  }, [uploadAttachmentsForNote, user?.id, attachmentsByNoteId]);
-
-  const updateNoteStatus = async (id: string, nextStatus: string) => {
-    if (!id || !nextStatus) {
-      toast.error("Invalid note update.");
-      return;
-    }
-    const completed = nextStatus === "done";
-
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !sessionData?.session?.access_token) {
-        throw new Error("Unable to authenticate. Please sign in again.");
-      }
-
-      const response = await fetch("/api/notes", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify({
-          id,
-          organisation_id: orgIdRef.current,
-          status: nextStatus,
-          completed
-        })
-      });
-
-      const responseBody = await response.json();
-
-      if (!response.ok || responseBody.error) {
-        console.error("Update note status error:", responseBody.error);
-        toast.error(responseBody.error || "Update failed");
-        return;
-      }
-
-      setNotes(prev =>
-        prev.map(n =>
-          n.id === id
-            ? { ...n, status: nextStatus, completed: nextStatus === "done" }
-            : n
-        )
-      );
-      toast.success(`Note updated.`);
-    } catch (err: any) {
-      console.error("Update note status error:", err);
-      toast.error(err?.message || "Update failed");
-    }
-  };
-
-  const deleteNote = async (id: string) => {
-    if (!id) {
-      toast.error("Invalid note ID.");
-      return;
-    }
-
-    // optimistic UI update
-    setNotes(prev => prev.filter(n => n.id !== id));
-
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !sessionData?.session?.access_token) {
-        throw new Error("Unable to authenticate. Please sign in again.");
-      }
-
-      const response = await fetch("/api/notes", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify({
-          id,
-          organisation_id: orgIdRef.current,
-        })
-      });
-
-      const responseBody = await response.json();
-
-      if (!response.ok || responseBody.error) {
-        console.error("Delete note error:", responseBody.error);
-        toast.error(responseBody.error || "Delete failed");
-        
-        // rollback on error
-        if (orgIdRef.current && user?.id) {
-          fetchNotes(orgIdRef.current, user.id);
+  const fetchFolders =
+    useCallback(
+      async (
+        orgId?:
+          string
+      ) => {
+        if (
+          !orgId
+        ) {
+          return;
         }
+
+        try {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "note_folders"
+              )
+              .select(
+                "*"
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .order(
+                "sort_order",
+                {
+                  ascending:
+                    true,
+                }
+              )
+              .order(
+                "name",
+                {
+                  ascending:
+                    true,
+                }
+              );
+
+          if (
+            error
+          ) {
+            const formatted =
+              formatSupabaseError(
+                "Folder fetch failed",
+                error
+              );
+
+            console.error(
+              formatted.userMessage,
+              formatted.raw
+            );
+
+            toast.error(
+              formatted.userMessage
+            );
+
+            return;
+          }
+
+          setFolders(
+            (
+              data ||
+              []
+            ) as NoteFolder[]
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            "Folder fetch error:",
+            error
+          );
+        }
+      },
+      []
+    );
+
+  const createFolder =
+    async () => {
+      const name =
+        newFolderName.trim();
+
+      if (
+        !name
+      ) {
+        toast.error(
+          "Give the folder a name"
+        );
+
         return;
       }
 
-      toast.success("Note cleared.");
-    } catch (err: any) {
-      console.error("Delete note error:", err);
-      toast.error(err?.message || "Delete failed");
+      if (
+        !orgIdRef.current ||
+        !user?.id
+      ) {
+        toast.error(
+          "Missing organisation context"
+        );
 
-      // rollback on error
-      if (orgIdRef.current && user?.id) {
-        fetchNotes(orgIdRef.current, user.id);
+        return;
       }
-    }
-  };
 
-  const availableTags = useMemo(() => {
-    const tags = new Set<string>();
-    notes.forEach((n: any) => {
-      if (n?.category) tags.add(String(n.category));
-    });
-    return ["ALL", ...Array.from(tags).sort((a, b) => a.localeCompare(b))];
-  }, [notes]);
+      setIsCreatingFolder(
+        true
+      );
 
-  const availableColors = useMemo(() => {
-    const colors = new Set<string>();
-    notes.forEach((n: any) => {
-      if (n?.color) colors.add(String(n.color));
-    });
-    return ["ALL", ...Array.from(colors)];
-  }, [notes]);
+      try {
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "note_folders"
+            )
+            .insert({
+              organisation_id:
+                orgIdRef.current,
 
-  const filteredNotes = notes.filter((n) => {
-    const q = search.toLowerCase();
-    const matchesSearch =
-      n?.content?.toLowerCase?.().includes(q) ||
-      n?.category?.toLowerCase?.().includes(q) ||
-      n?.project?.toLowerCase?.().includes(q);
+              created_by:
+                user.id,
 
-    const matchesTag =
-      selectedTagFilter === "ALL" ||
-      String(n?.category || "").toLowerCase() === selectedTagFilter.toLowerCase();
+              name,
 
-    const noteColor = String(n?.color || "").toLowerCase();
-    const matchesColor =
-      selectedColorFilter === "ALL" ||
-      noteColor === selectedColorFilter.toLowerCase();
+              visibility:
+                newFolderVisibility,
 
-    return matchesSearch && matchesTag && matchesColor;
-  });
+              is_system:
+                false,
 
- const taskNotes = filteredNotes.filter(
-  (n) => ["todo", "in_progress", "done"].includes(n.status)
-);
+              sort_order:
+                100,
+            })
+            .select(
+              "*"
+            )
+            .single();
 
-const regularNotes = filteredNotes.filter(
-  (n) => !["todo", "in_progress", "done"].includes(n.status)
-);
+        if (
+          error
+        ) {
+          if (
+            error.code ===
+            "23505"
+          ) {
+            toast.error(
+              "You already have a folder with that name"
+            );
 
-  // DND-KIT SENSORS/HANDLERS
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+            return;
+          }
+
+          throw error;
+        }
+
+        setFolders(
+          (
+            previous
+          ) => [
+            ...previous,
+            data,
+          ]
+        );
+
+        setSelectedFolderId(
+          data.id
+        );
+
+        setFolderId(
+          data.id
+        );
+
+        setNewFolderName(
+          ""
+        );
+
+        setNewFolderVisibility(
+          "org"
+        );
+
+        setShowFolderModal(
+          false
+        );
+
+        toast.success(
+          `${name} created`
+        );
+      } catch (
+        error
+      ) {
+        const formatted =
+          formatSupabaseError(
+            "Create folder failed",
+            error
+          );
+
+        console.error(
+          formatted.userMessage,
+          formatted.raw
+        );
+
+        toast.error(
+          formatted.userMessage
+        );
+      } finally {
+        setIsCreatingFolder(
+          false
+        );
+      }
+    };
+
+  const deleteFolder =
+    async (
+      folder:
+        NoteFolder
+    ) => {
+      if (
+        folder.is_system
+      ) {
+        toast.error(
+          "TOTS-OS folders cannot be deleted"
+        );
+
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          `Delete "${folder.name}"? The notes inside it will not be deleted.`
+        );
+
+      if (
+        !confirmed
+      ) {
+        return;
+      }
+
+      try {
+        const {
+          error,
+        } =
+          await supabase
+            .from(
+              "note_folders"
+            )
+            .delete()
+            .eq(
+              "id",
+              folder.id
+            );
+
+        if (
+          error
+        ) {
+          throw error;
+        }
+
+        setFolders(
+          (
+            previous
+          ) =>
+            previous.filter(
+              (
+                item
+              ) =>
+                item.id !==
+                folder.id
+            )
+        );
+
+        setNotes(
+          (
+            previous
+          ) =>
+            previous.map(
+              (
+                note
+              ) =>
+                note.folder_id ===
+                folder.id
+                  ? {
+                      ...note,
+
+                      folder_id:
+                        null,
+                    }
+                  : note
+            )
+        );
+
+        if (
+          selectedFolderId ===
+          folder.id
+        ) {
+          setSelectedFolderId(
+            "ALL"
+          );
+        }
+
+        if (
+          folderId ===
+          folder.id
+        ) {
+          setFolderId(
+            ""
+          );
+        }
+
+        toast.success(
+          "Folder deleted"
+        );
+      } catch (
+        error
+      ) {
+        const formatted =
+          formatSupabaseError(
+            "Delete folder failed",
+            error
+          );
+
+        toast.error(
+          formatted.userMessage
+        );
+      }
+    };
+
+  /* ============================================================
+     TEMPLATE
+  ============================================================ */
+
+  const chooseTemplate =
+    (
+      template:
+        NoteTemplateOption
+    ) => {
+      setNoteTemplate(
+        template.key
+      );
+
+      setStatus(
+        template.status
+      );
+
+      if (
+        template.starterContent !==
+        undefined
+      ) {
+        setContent(
+          template.starterContent
+        );
+      }
+
+      if (
+        template.folderKey
+      ) {
+        const matchingFolder =
+          folders.find(
+            (
+              item
+            ) =>
+              item.system_key ===
+              template.folderKey
+          );
+
+        if (
+          matchingFolder
+        ) {
+          setFolderId(
+            matchingFolder.id
+          );
+        }
+      }
+
+      if (
+        template.key !==
+        "custom"
+      ) {
+        setCustomTemplateName(
+          ""
+        );
+      }
+    };
+
+  /* ============================================================
+     NOTES
+  ============================================================ */
+
+  const fetchNotes =
+    useCallback(
+      async (
+        orgId:
+          string,
+
+        userId:
+          string
+      ) => {
+        try {
+          const effectiveOrgId =
+            orgId ||
+            orgIdRef.current;
+
+          if (
+            !userId ||
+            !effectiveOrgId
+          ) {
+            console.warn(
+              "fetchNotes skipped",
+              {
+                userId,
+                effectiveOrgId,
+              }
+            );
+
+            setNotes(
+              []
+            );
+
+            setIsLoading(
+              false
+            );
+
+            return;
+          }
+
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "notes"
+              )
+              .select(
+                "*"
+              )
+              .eq(
+                "organisation_id",
+                effectiveOrgId
+              )
+              .order(
+                "created_at",
+                {
+                  ascending:
+                    false,
+                }
+              );
+
+          if (
+            error
+          ) {
+            const formatted =
+              formatSupabaseError(
+                "Failed to load notes",
+                error
+              );
+
+            console.error(
+              formatted.userMessage,
+              formatted.raw
+            );
+
+            toast.error(
+              formatted.userMessage
+            );
+
+            return;
+          }
+
+          const safeNotes =
+            (
+              data ||
+              []
+            )
+              .filter(
+                (
+                  n:
+                    any
+                ) =>
+                  n &&
+                  n.id
+              )
+              .filter(
+                (
+                  n:
+                    any
+                ) =>
+                  canViewNote(
+                    n,
+                    userId
+                  )
+              );
+
+          setNotes(
+            safeNotes
+          );
+
+          const noteIds =
+            safeNotes.map(
+              (
+                n:
+                  any
+              ) =>
+                n.id
+            );
+
+          if (
+            noteIds.length
+          ) {
+            const {
+              data:
+                commentData,
+            } =
+              await supabase
+                .from(
+                  "note_comments"
+                )
+                .select(
+                  "*"
+                )
+                .in(
+                  "note_id",
+                  noteIds
+                )
+                .order(
+                  "created_at",
+                  {
+                    ascending:
+                      true,
+                  }
+                );
+
+            if (
+              commentData
+            ) {
+              setComments(
+                commentData
+              );
+
+              const map:
+                Record<
+                  string,
+                  any[]
+                > =
+                {};
+
+              commentData.forEach(
+                (
+                  c:
+                    any
+                ) => {
+                  if (
+                    !map[
+                      c.note_id
+                    ]
+                  ) {
+                    map[
+                      c.note_id
+                    ] =
+                      [];
+                  }
+
+                  map[
+                    c.note_id
+                  ].push(
+                    c
+                  );
+                }
+              );
+
+              commentsByNoteId.current =
+                map;
+            }
+
+            const attachmentMap:
+              Record<
+                string,
+                NoteAttachment[]
+              > =
+              {};
+
+            safeNotes.forEach(
+              (
+                note:
+                  any
+              ) => {
+                attachmentMap[
+                  note.id
+                ] =
+                  normalizeAttachments(
+                    note.attachments
+                  ).map(
+                    (
+                      attachment
+                    ) => ({
+                      ...attachment,
+
+                      note_id:
+                        attachment.note_id ||
+                        note.id,
+                    })
+                  );
+              }
+            );
+
+            setAttachmentsByNoteId(
+              attachmentMap
+            );
+          } else {
+            setComments(
+              []
+            );
+
+            commentsByNoteId.current =
+              {};
+
+            setAttachmentsByNoteId(
+              {}
+            );
+          }
+        } catch (
+          e
+        ) {
+          console.error(
+            "Notes Fetch Error:",
+            e
+          );
+
+          toast.error(
+            "Notes load failed."
+          );
+        } finally {
+          setIsLoading(
+            false
+          );
+        }
+      },
+      []
+    );
+
+  /* ============================================================
+     ATTACHMENTS
+  ============================================================ */
+
+  const uploadAttachmentsForNote =
+    useCallback(
+      async (
+        noteId:
+          string,
+
+        files:
+          File[],
+
+        userId:
+          string,
+
+        currentAttachments:
+          NoteAttachment[] =
+          []
+      ) => {
+        const uploads =
+          files.filter(
+            Boolean
+          );
+
+        if (
+          !noteId ||
+          !userId ||
+          uploads.length ===
+            0
+        ) {
+          return [] as NoteAttachment[];
+        }
+
+        const createdAttachments:
+          NoteAttachment[] =
+          [];
+
+        const normalizedCurrent =
+          normalizeAttachments(
+            currentAttachments
+          ).map(
+            (
+              attachment
+            ) => ({
+              ...attachment,
+
+              note_id:
+                attachment.note_id ||
+                noteId,
+            })
+          );
+
+        const {
+          data:
+            sessionData,
+        } =
+          await supabase.auth.getSession();
+
+        const accessToken =
+          sessionData
+            ?.session
+            ?.access_token;
+
+        if (
+          !accessToken
+        ) {
+          throw new Error(
+            "Unable to authenticate attachment update"
+          );
+        }
+
+        for (
+          const file of
+          uploads
+        ) {
+          const safeName =
+            file.name.replace(
+              /[^a-zA-Z0-9._-]/g,
+              "_"
+            );
+
+          const uploadPath =
+            `${noteId}/${Date.now()}-${safeName}`;
+
+          const {
+            data,
+            error:
+              uploadError,
+          } =
+            await supabase.storage
+              .from(
+                "notes-attachments"
+              )
+              .upload(
+                uploadPath,
+                file
+              );
+
+          if (
+            uploadError
+          ) {
+            const formatted =
+              formatSupabaseError(
+                `Attachment upload failed for ${file.name}`,
+                uploadError
+              );
+
+            throw new Error(
+              formatted.userMessage
+            );
+          }
+
+          const filePath =
+            data?.path;
+
+          if (
+            !filePath
+          ) {
+            throw new Error(
+              `Upload returned no path for ${file.name}`
+            );
+          }
+
+          const {
+            data:
+              publicUrlData,
+          } =
+            supabase.storage
+              .from(
+                "notes-attachments"
+              )
+              .getPublicUrl(
+                filePath
+              );
+
+          createdAttachments.push(
+            {
+              id:
+                typeof crypto !==
+                  "undefined" &&
+                "randomUUID" in
+                  crypto
+                  ? crypto.randomUUID()
+                  : `${noteId}-${Date.now()}-${Math.random()
+                      .toString(
+                        36
+                      )
+                      .slice(
+                        2,
+                        8
+                      )}`,
+
+              note_id:
+                noteId,
+
+              file_name:
+                file.name,
+
+              file_path:
+                filePath,
+
+              file_url:
+                publicUrlData
+                  ?.publicUrl ||
+                null,
+
+              file_type:
+                file.type ||
+                null,
+
+              file_size:
+                file.size,
+
+              user_id:
+                userId,
+
+              created_at:
+                new Date().toISOString(),
+            }
+          );
+        }
+
+        const mergedAttachments =
+          [
+            ...normalizedCurrent,
+            ...createdAttachments,
+          ];
+
+        const updateResponse =
+          await fetch(
+            "/api/notes",
+            {
+              method:
+                "PUT",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${accessToken}`,
+              },
+
+              body:
+                JSON.stringify(
+                  {
+                    id:
+                      noteId,
+
+                    organisation_id:
+                      orgIdRef.current,
+
+                    attachments:
+                      mergedAttachments,
+                  }
+                ),
+            }
+          );
+
+        const updateBody =
+          await updateResponse
+            .json()
+            .catch(
+              () =>
+                null
+            );
+
+        if (
+          !updateResponse.ok
+        ) {
+          const responseError =
+            {
+              message:
+                updateBody
+                  ?.error ||
+                "Failed to update note attachments",
+
+              status:
+                updateResponse.status,
+
+              details:
+                updateBody
+                  ?.details,
+
+              code:
+                updateBody
+                  ?.code,
+
+              hint:
+                updateBody
+                  ?.hint,
+            };
+
+          const formatted =
+            formatSupabaseError(
+              "Attachment metadata update failed",
+              responseError
+            );
+
+          throw new Error(
+            formatted.userMessage
+          );
+        }
+
+        setAttachmentsByNoteId(
+          (
+            prev
+          ) => ({
+            ...prev,
+
+            [noteId]:
+              mergedAttachments,
+          })
+        );
+
+        return createdAttachments;
+      },
+      []
+    );
+
+  /* ============================================================
+     TEAM
+  ============================================================ */
+
+  const fetchTeamMembers =
+    useCallback(
+      async (
+        orgId?:
+          string
+      ) => {
+        try {
+          if (
+            !orgId
+          ) {
+            return;
+          }
+
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "profiles"
+              )
+              .select(
+                "id, name, email"
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .order(
+                "name",
+                {
+                  ascending:
+                    true,
+                }
+              );
+
+          if (
+            error
+          ) {
+            console.error(
+              "Team fetch error:",
+              error
+            );
+
+            return;
+          }
+
+          if (
+            data
+          ) {
+            setTeamMembers(
+              data.map(
+                (
+                  u:
+                    any
+                ) => ({
+                  ...u,
+
+                  email:
+                    u.email ||
+                    null,
+                })
+              )
+            );
+          }
+        } catch (
+          e
+        ) {
+          console.error(
+            "Error fetching team:",
+            e
+          );
+        }
+      },
+      []
+    );
+
+  /* ============================================================
+     MENTIONS
+  ============================================================ */
+
+  const resolveMentions =
+    (
+      text:
+        string
+    ) => {
+      const matches =
+        text.match(
+          /@(\w+)/g
+        ) ||
+        [];
+
+      return matches
+        .map(
+          (
+            m
+          ) =>
+            m
+              .replace(
+                "@",
+                ""
+              )
+              .toLowerCase()
+        )
+        .map(
+          (
+            name
+          ) =>
+            teamMembers.find(
+              (
+                u:
+                  any
+              ) =>
+                u.name?.toLowerCase() ===
+                name
+            )
+        )
+        .filter(
+          Boolean
+        );
+    };
+
+  /* ============================================================
+     COMMENTS
+  ============================================================ */
+
+  const addComment =
+    async (
+      noteId:
+        string,
+
+      text:
+        string,
+
+      parentId?:
+        string
+    ) => {
+      if (
+        !text.trim() ||
+        !user?.id
+      ) {
+        return;
+      }
+
+      if (
+        !orgIdRef.current
+      ) {
+        toast.error(
+          "Missing organisation context"
+        );
+
+        return;
+      }
+
+      const {
+        data:
+          inserted,
+
+        error,
+      } =
+        await supabase
+          .from(
+            "note_comments"
+          )
+          .insert([
+            {
+              note_id:
+                noteId,
+
+              user_id:
+                user.id,
+
+              content:
+                text.replace(
+                  /@(\w+)/g,
+                  "$1"
+                ),
+
+              parent_id:
+                parentId ||
+                null,
+
+              organisation_id:
+                orgIdRef.current,
+            },
+          ])
+          .select(
+            "*"
+          )
+          .single();
+
+      if (
+        error
+      ) {
+        console.error(
+          "Comment insert failed:",
+          error
+        );
+
+        toast.error(
+          error.message ||
+          "Failed to add comment"
+        );
+
+        return;
+      }
+
+      if (
+        inserted
+      ) {
+        setComments(
+          (
+            prev
+          ) => [
+            ...prev,
+            inserted,
+          ]
+        );
+      }
+
+      const mentionedUsers =
+        resolveMentions(
+          text
+        );
+
+      if (
+        mentionedUsers.length >
+        0
+      ) {
+        for (
+          const u of
+          mentionedUsers
+        ) {
+          await supabase
+            .from(
+              "notifications"
+            )
+            .insert([
+              {
+                user_id:
+                  u.id,
+
+                type:
+                  "mention",
+
+                message:
+                  `${user?.email || "Someone"} mentioned you in a task`,
+
+                note_id:
+                  noteId,
+
+                read:
+                  false,
+
+                created_at:
+                  new Date().toISOString(),
+              },
+            ]);
+
+          try {
+            await supabase.functions.invoke(
+              "send-notification-email",
+              {
+                body: {
+                  to:
+                    u.email,
+
+                  subject:
+                    "You were mentioned in TOTS-OS",
+
+                  message:
+                    text,
+
+                  context: {
+                    noteId,
+
+                    from:
+                      user?.email,
+                  },
+                },
+              }
+            );
+          } catch (
+            e
+          ) {
+            console.error(
+              "Email dispatch failed:",
+              e
+            );
+          }
+        }
+
+        setNotifications(
+          (
+            prev
+          ) => [
+            ...prev,
+
+            {
+              id:
+                Date.now(),
+
+              type:
+                "mention",
+
+              message:
+                `Mention sent to ${mentionedUsers.length} user(s)`,
+
+              created_at:
+                Date.now(),
+            },
+          ]
+        );
+      }
+
+      if (
+        orgIdRef.current
+      ) {
+        fetchNotes(
+          orgIdRef.current,
+          user.id
+        );
+      }
+    };
+
+  const addReaction =
+    async (
+      commentId:
+        string,
+
+      type:
+        string =
+        "like"
+    ) => {
+      if (
+        !user?.id
+      ) {
+        return;
+      }
+
+      try {
+        setReactions(
+          (
+            prev
+          ) => {
+            const existing =
+              prev[
+                commentId
+              ] ||
+              [];
+
+            const already =
+              existing.find(
+                (
+                  r
+                ) =>
+                  r.userId ===
+                  user.id
+              );
+
+            if (
+              already
+            ) {
+              return prev;
+            }
+
+            return {
+              ...prev,
+
+              [commentId]:
+                [
+                  ...existing,
+
+                  {
+                    userId:
+                      user.id,
+
+                    type,
+                  },
+                ],
+            };
+          }
+        );
+
+        await supabase
+          .from(
+            "note_comment_reactions"
+          )
+          .insert([
+            {
+              comment_id:
+                commentId,
+
+              user_id:
+                user.id,
+
+              type,
+            },
+          ]);
+      } catch (
+        e
+      ) {
+        console.error(
+          "Reaction error:",
+          e
+        );
+      }
+    };
+
+  /* ============================================================
+     INITIALISE
+  ============================================================ */
+
+  useEffect(
+    () => {
+      const init =
+        async () => {
+          if (
+            initRef.current
+          ) {
+            return;
+          }
+
+          initRef.current =
+            true;
+
+          try {
+            const {
+              data: {
+                user:
+                  authUser,
+              },
+            } =
+              await supabase.auth.getUser();
+
+            if (
+              !authUser
+            ) {
+              return;
+            }
+
+            setUser(
+              authUser
+            );
+
+            const {
+              data:
+                profile,
+
+              error:
+                profileError,
+            } =
+              await supabase
+                .from(
+                  "profiles"
+                )
+                .select(
+                  "organisation_id"
+                )
+                .eq(
+                  "id",
+                  authUser.id
+                )
+                .maybeSingle();
+
+            if (
+              profileError
+            ) {
+              const formatted =
+                formatSupabaseError(
+                  "Profile lookup failed during init",
+                  profileError
+                );
+
+              console.error(
+                formatted.userMessage,
+                formatted.raw
+              );
+
+              toast.error(
+                formatted.userMessage
+              );
+
+              return;
+            }
+
+            const orgId =
+              profile?.organisation_id;
+
+            if (
+              !orgId
+            ) {
+              const message =
+                `Missing organisation_id for user ${authUser.id}`;
+
+              console.error(
+                message
+              );
+
+              toast.error(
+                message
+              );
+
+              return;
+            }
+
+            orgIdRef.current =
+              orgId;
+
+            setOrganisationId(
+              orgId
+            );
+
+            await fetchTeamMembers(
+              orgId
+            );
+
+            await Promise.all(
+              [
+                fetchProjects(
+                  orgId
+                ),
+
+                fetchFolders(
+                  orgId
+                ),
+
+                fetchNotes(
+                  orgId,
+                  authUser.id
+                ),
+              ]
+            );
+
+            /* REMOVE OLD CHANNELS */
+
+            if (
+              channelRef.current
+            ) {
+              supabase.removeChannel(
+                channelRef.current
+              );
+
+              channelRef.current =
+                null;
+            }
+
+            if (
+              typingChannelRef.current
+            ) {
+              supabase.removeChannel(
+                typingChannelRef.current
+              );
+
+              typingChannelRef.current =
+                null;
+            }
+
+            if (
+              presenceChannelRef.current
+            ) {
+              supabase.removeChannel(
+                presenceChannelRef.current
+              );
+
+              presenceChannelRef.current =
+                null;
+            }
+
+            if (
+              cursorChannelRef.current
+            ) {
+              supabase.removeChannel(
+                cursorChannelRef.current
+              );
+
+              cursorChannelRef.current =
+                null;
+            }
+
+            if (
+              selectionChannelRef.current
+            ) {
+              supabase.removeChannel(
+                selectionChannelRef.current
+              );
+
+              selectionChannelRef.current =
+                null;
+            }
+
+            if (
+              contentChannelRef.current
+            ) {
+              supabase.removeChannel(
+                contentChannelRef.current
+              );
+
+              contentChannelRef.current =
+                null;
+            }
+
+            if (
+              noteOpsChannelRef.current
+            ) {
+              supabase.removeChannel(
+                noteOpsChannelRef.current
+              );
+
+              noteOpsChannelRef.current =
+                null;
+            }
+
+            /* MAIN CHANNEL */
+
+            const mainChannel =
+              supabase.channel(
+                `vault_desk_${orgId}`,
+                {
+                  config: {
+                    presence: {
+                      key:
+                        authUser.id,
+                    },
+                  },
+                }
+              );
+
+            mainChannel
+              .on(
+                "postgres_changes",
+                {
+                  event:
+                    "*",
+
+                  schema:
+                    "public",
+
+                  table:
+                    "notes",
+
+                  filter:
+                    `organisation_id=eq.${orgId}`,
+                },
+
+                () => {
+                  if (
+                    orgIdRef.current &&
+                    authUser?.id
+                  ) {
+                    fetchNotes(
+                      orgIdRef.current,
+                      authUser.id
+                    );
+                  }
+                }
+              )
+              .on(
+                "postgres_changes",
+                {
+                  event:
+                    "INSERT",
+
+                  schema:
+                    "public",
+
+                  table:
+                    "note_comments",
+                },
+
+                (
+                  payload:
+                    any
+                ) => {
+                  setComments(
+                    (
+                      prev
+                    ) => {
+                      const updated =
+                        [
+                          ...prev,
+                          payload.new,
+                        ];
+
+                      const map:
+                        Record<
+                          string,
+                          any[]
+                        > =
+                        {};
+
+                      updated.forEach(
+                        (
+                          c:
+                            any
+                        ) => {
+                          if (
+                            !map[
+                              c.note_id
+                            ]
+                          ) {
+                            map[
+                              c.note_id
+                            ] =
+                              [];
+                          }
+
+                          map[
+                            c.note_id
+                          ].push(
+                            c
+                          );
+                        }
+                      );
+
+                      commentsByNoteId.current =
+                        map;
+
+                      return updated;
+                    }
+                  );
+                }
+              )
+              .on(
+                "postgres_changes",
+                {
+                  event:
+                    "UPDATE",
+
+                  schema:
+                    "public",
+
+                  table:
+                    "note_comments",
+                },
+
+                (
+                  payload:
+                    any
+                ) => {
+                  setComments(
+                    (
+                      prev
+                    ) => {
+                      const updated =
+                        prev.map(
+                          (
+                            c
+                          ) =>
+                            c.id ===
+                            payload.new.id
+                              ? payload.new
+                              : c
+                        );
+
+                      const map:
+                        Record<
+                          string,
+                          any[]
+                        > =
+                        {};
+
+                      updated.forEach(
+                        (
+                          c:
+                            any
+                        ) => {
+                          if (
+                            !map[
+                              c.note_id
+                            ]
+                          ) {
+                            map[
+                              c.note_id
+                            ] =
+                              [];
+                          }
+
+                          map[
+                            c.note_id
+                          ].push(
+                            c
+                          );
+                        }
+                      );
+
+                      commentsByNoteId.current =
+                        map;
+
+                      return updated;
+                    }
+                  );
+                }
+              )
+              .on(
+                "postgres_changes",
+                {
+                  event:
+                    "DELETE",
+
+                  schema:
+                    "public",
+
+                  table:
+                    "note_comments",
+                },
+
+                (
+                  payload:
+                    any
+                ) => {
+                  setComments(
+                    (
+                      prev
+                    ) => {
+                      const updated =
+                        prev.filter(
+                          (
+                            c
+                          ) =>
+                            c.id !==
+                            payload.old.id
+                        );
+
+                      const map:
+                        Record<
+                          string,
+                          any[]
+                        > =
+                        {};
+
+                      updated.forEach(
+                        (
+                          c:
+                            any
+                        ) => {
+                          if (
+                            !map[
+                              c.note_id
+                            ]
+                          ) {
+                            map[
+                              c.note_id
+                            ] =
+                              [];
+                          }
+
+                          map[
+                            c.note_id
+                          ].push(
+                            c
+                          );
+                        }
+                      );
+
+                      commentsByNoteId.current =
+                        map;
+
+                      return updated;
+                    }
+                  );
+                }
+              )
+              .on(
+                "postgres_changes",
+                {
+                  event:
+                    "*",
+
+                  schema:
+                    "public",
+
+                  table:
+                    "note_comment_reactions",
+                },
+
+                () => {
+                  if (
+                    orgIdRef.current &&
+                    authUser?.id
+                  ) {
+                    fetchNotes(
+                      orgIdRef.current,
+                      authUser.id
+                    );
+                  }
+                }
+              )
+              .subscribe();
+
+            channelRef.current =
+              mainChannel;
+
+            /* TYPING */
+
+            const typingChannel =
+              supabase.channel(
+                "typing-comments"
+              );
+
+            typingChannel
+              .on(
+                "broadcast",
+                {
+                  event:
+                    "typing:start",
+                },
+
+                ({
+                  payload,
+                }: any) => {
+                  setTypingUsers(
+                    (
+                      prev
+                    ) => ({
+                      ...prev,
+
+                      [payload.noteId]:
+                        (
+                          prev[
+                            payload.noteId
+                          ] ||
+                          0
+                        ) +
+                        1,
+                    })
+                  );
+                }
+              )
+              .on(
+                "broadcast",
+                {
+                  event:
+                    "typing:stop",
+                },
+
+                ({
+                  payload,
+                }: any) => {
+                  setTypingUsers(
+                    (
+                      prev
+                    ) => ({
+                      ...prev,
+
+                      [payload.noteId]:
+                        Math.max(
+                          (
+                            prev[
+                              payload.noteId
+                            ] ||
+                            1
+                          ) -
+                            1,
+
+                          0
+                        ),
+                    })
+                  );
+                }
+              )
+              .subscribe();
+
+            typingChannelRef.current =
+              typingChannel;
+
+            /* PRESENCE */
+
+            const presenceChannel =
+              supabase.channel(
+                "note_presence"
+              );
+
+            presenceChannel
+              .on(
+                "broadcast",
+                {
+                  event:
+                    "note:view:enter",
+                },
+
+                ({
+                  payload,
+                }: any) => {
+                  setNotePresence(
+                    (
+                      prev
+                    ) => {
+                      const set =
+                        new Set(
+                          prev[
+                            payload.noteId
+                          ] ||
+                            []
+                        );
+
+                      set.add(
+                        payload.userId
+                      );
+
+                      return {
+                        ...prev,
+
+                        [payload.noteId]:
+                          Array.from(
+                            set
+                          ),
+                      };
+                    }
+                  );
+                }
+              )
+              .on(
+                "broadcast",
+                {
+                  event:
+                    "note:view:leave",
+                },
+
+                ({
+                  payload,
+                }: any) => {
+                  setNotePresence(
+                    (
+                      prev
+                    ) => {
+                      const set =
+                        new Set(
+                          prev[
+                            payload.noteId
+                          ] ||
+                            []
+                        );
+
+                      set.delete(
+                        payload.userId
+                      );
+
+                      return {
+                        ...prev,
+
+                        [payload.noteId]:
+                          Array.from(
+                            set
+                          ),
+                      };
+                    }
+                  );
+                }
+              )
+              .subscribe();
+
+            presenceChannelRef.current =
+              presenceChannel;
+
+            /* CURSOR */
+
+            const cursorChannel =
+              supabase.channel(
+                "note_cursor"
+              );
+
+            cursorChannel
+              .on(
+                "broadcast",
+                {
+                  event:
+                    "note:cursor",
+                },
+
+                ({
+                  payload,
+                }: any) => {
+                  setCursorPositions(
+                    (
+                      prev
+                    ) => {
+                      const noteId =
+                        payload.noteId;
+
+                      const userId =
+                        payload.userId;
+
+                      const existing =
+                        prev[
+                          noteId
+                        ] ||
+                        {};
+
+                      return {
+                        ...prev,
+
+                        [noteId]: {
+                          ...existing,
+
+                          [userId]: {
+                            x:
+                              payload.x,
+
+                            y:
+                              payload.y,
+                          },
+                        },
+                      };
+                    }
+                  );
+                }
+              )
+              .subscribe();
+
+            cursorChannelRef.current =
+              cursorChannel;
+
+            /* SELECTION */
+
+            const selectionChannel =
+              supabase.channel(
+                "note_selection"
+              );
+
+            selectionChannel
+              .on(
+                "broadcast",
+                {
+                  event:
+                    "note:selection",
+                },
+
+                ({
+                  payload,
+                }: any) => {
+                  setSelectionPositions(
+                    (
+                      prev
+                    ) => {
+                      const noteId =
+                        payload.noteId;
+
+                      const userId =
+                        payload.userId;
+
+                      const existing =
+                        prev[
+                          noteId
+                        ] ||
+                        {};
+
+                      return {
+                        ...prev,
+
+                        [noteId]: {
+                          ...existing,
+
+                          [userId]: {
+                            start:
+                              payload.start,
+
+                            end:
+                              payload.end,
+                          },
+                        },
+                      };
+                    }
+                  );
+                }
+              )
+              .subscribe();
+
+            selectionChannelRef.current =
+              selectionChannel;
+
+            /* CONTENT */
+
+            const contentChannel =
+              supabase.channel(
+                "note_content"
+              );
+
+            contentChannel
+              .on(
+                "broadcast",
+                {
+                  event:
+                    "note:content",
+                },
+
+                ({
+                  payload,
+                }: any) => {
+                  const {
+                    noteId,
+                    content,
+                  } =
+                    payload;
+
+                  setNotes(
+                    (
+                      prev
+                    ) =>
+                      prev.map(
+                        (
+                          n
+                        ) =>
+                          n.id ===
+                          noteId
+                            ? {
+                                ...n,
+                                content,
+                              }
+                            : n
+                      )
+                  );
+                }
+              )
+              .subscribe();
+
+            contentChannelRef.current =
+              contentChannel;
+
+            /* OPS */
+
+            const opsChannel =
+              supabase.channel(
+                "note_ops"
+              );
+
+            opsChannel
+              .on(
+                "broadcast",
+                {
+                  event:
+                    "note:op",
+                },
+
+                ({
+                  payload,
+                }: any) => {
+                  const {
+                    noteId,
+                    op,
+                  } =
+                    payload;
+
+                  setNoteOps(
+                    (
+                      prev
+                    ) => {
+                      const existing =
+                        prev[
+                          noteId
+                        ] ||
+                        [];
+
+                      return {
+                        ...prev,
+
+                        [noteId]:
+                          [
+                            ...existing,
+                            op,
+                          ],
+                      };
+                    }
+                  );
+                }
+              )
+              .subscribe();
+
+            noteOpsChannelRef.current =
+              opsChannel;
+          } catch (
+            e
+          ) {
+            const formatted =
+              formatSupabaseError(
+                "Notes page initialization failed",
+                e
+              );
+
+            console.error(
+              formatted.userMessage,
+              formatted.raw
+            );
+
+            toast.error(
+              formatted.userMessage
+            );
+          }
+        };
+
+      init();
+
+      return () => {
+        if (
+          noteOpsChannelRef.current
+        ) {
+          supabase.removeChannel(
+            noteOpsChannelRef.current
+          );
+        }
+
+        if (
+          contentChannelRef.current
+        ) {
+          supabase.removeChannel(
+            contentChannelRef.current
+          );
+        }
+
+        if (
+          selectionChannelRef.current
+        ) {
+          supabase.removeChannel(
+            selectionChannelRef.current
+          );
+        }
+
+        if (
+          cursorChannelRef.current
+        ) {
+          supabase.removeChannel(
+            cursorChannelRef.current
+          );
+        }
+
+        if (
+          presenceChannelRef.current
+        ) {
+          supabase.removeChannel(
+            presenceChannelRef.current
+          );
+        }
+
+        if (
+          typingChannelRef.current
+        ) {
+          supabase.removeChannel(
+            typingChannelRef.current
+          );
+        }
+
+        if (
+          channelRef.current
+        ) {
+          supabase.removeChannel(
+            channelRef.current
+          );
+        }
+      };
+    },
+    []
   );
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
+  /* ============================================================
+     SPEECH
+  ============================================================ */
 
-    if (!over || !active) return;
+  useEffect(
+    () => {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return;
+      }
 
-    const taskId = active.id as string;
-    const newStatus = over.id as string;
+      const SpeechRecognition =
+        (window as any)
+          .SpeechRecognition ||
+        (window as any)
+          .webkitSpeechRecognition;
 
-    const allowedStatuses = ["todo", "in_progress", "done"];
+      if (
+        !SpeechRecognition
+      ) {
+        return;
+      }
 
-    if (!taskId || !newStatus || !allowedStatuses.includes(newStatus)) {
-      toast.error("Invalid drag operation");
-      return;
-    }
+      const recognition =
+        new SpeechRecognition();
 
-    // optimistic UI update
-    setNotes(prev =>
-      prev.map(n =>
-        n.id === taskId
-          ? { ...n, status: newStatus, completed: newStatus === "done" }
-          : n
+      recognition.continuous =
+        true;
+
+      recognition.interimResults =
+        false;
+
+      recognition.lang =
+        "en-US";
+
+      recognition.onresult =
+        (
+          event:
+            any
+        ) => {
+          const transcript =
+            event.results[
+              event.results.length -
+                1
+            ][0].transcript;
+
+          setContent(
+            (
+              prev
+            ) =>
+              prev +
+              (
+                prev
+                  ? " "
+                  : ""
+              ) +
+              transcript
+          );
+        };
+
+      recognition.onerror =
+        () => {
+          setIsListening(
+            false
+          );
+        };
+
+      recognition.onend =
+        () => {
+          setIsListening(
+            false
+          );
+        };
+
+      recognitionRef.current =
+        recognition;
+    },
+    []
+  );
+
+  const toggleListening =
+    () => {
+      if (
+        !recognitionRef.current
+      ) {
+        toast.error(
+          "Voice framework unsupported on this web engine."
+        );
+
+        return;
+      }
+
+      if (
+        isListening
+      ) {
+        recognitionRef.current.stop();
+      } else {
+        setIsListening(
+          true
+        );
+
+        recognitionRef.current.start();
+
+        toast.success(
+          "System mic open..."
+        );
+      }
+    };
+
+  /* ============================================================
+     CREATE NOTE
+  ============================================================ */
+
+  const handleCreate =
+    async () => {
+      if (
+        !content.trim()
+      ) {
+        toast.error(
+          "Note cannot be empty"
+        );
+
+        return;
+      }
+
+      setIsSyncing(
+        true
+      );
+
+      try {
+        const {
+          data: {
+            user:
+              authUser,
+          },
+        } =
+          await supabase.auth.getUser();
+
+        if (
+          !authUser
+        ) {
+          return;
+        }
+
+        const userId =
+          authUser.id;
+
+        const theme =
+          STICKY_THEMES[
+            userId.charCodeAt(
+              0
+            ) %
+              STICKY_THEMES.length
+          ];
+
+        const {
+          data:
+            profile,
+
+          error:
+            profileError,
+        } =
+          await supabase
+            .from(
+              "profiles"
+            )
+            .select(
+              "organisation_id"
+            )
+            .eq(
+              "id",
+              userId
+            )
+            .single();
+
+        if (
+          profileError
+        ) {
+          const formatted =
+            formatSupabaseError(
+              "Profile lookup failed before note creation",
+              profileError
+            );
+
+          throw new Error(
+            formatted.userMessage
+          );
+        }
+
+        const organisationId =
+          profile
+            ?.organisation_id;
+
+        if (
+          !organisationId
+        ) {
+          throw new Error(
+            "Missing organisation_id"
+          );
+        }
+
+        const attachments:
+          NoteAttachment[] =
+          [];
+
+        for (
+          const file of
+          pendingAttachments
+        ) {
+          const safeName =
+            file.name.replace(
+              /[^a-zA-Z0-9._-]/g,
+              "_"
+            );
+
+          const uploadPath =
+            `${userId}/${Date.now()}-${safeName}`;
+
+          const {
+            data,
+            error:
+              uploadError,
+          } =
+            await supabase.storage
+              .from(
+                "notes-attachments"
+              )
+              .upload(
+                uploadPath,
+                file
+              );
+
+          if (
+            uploadError
+          ) {
+            const formatted =
+              formatSupabaseError(
+                `Attachment upload failed for ${file.name}`,
+                uploadError
+              );
+
+            throw new Error(
+              formatted.userMessage
+            );
+          }
+
+          const filePath =
+            data?.path;
+
+          if (
+            !filePath
+          ) {
+            throw new Error(
+              `Upload returned no path for ${file.name}`
+            );
+          }
+
+          const {
+            data:
+              publicUrlData,
+          } =
+            supabase.storage
+              .from(
+                "notes-attachments"
+              )
+              .getPublicUrl(
+                filePath
+              );
+
+          attachments.push(
+            {
+              id:
+                typeof crypto !==
+                  "undefined" &&
+                "randomUUID" in
+                  crypto
+                  ? crypto.randomUUID()
+                  : `${userId}-${Date.now()}-${Math.random()
+                      .toString(
+                        36
+                      )
+                      .slice(
+                        2,
+                        8
+                      )}`,
+
+              note_id:
+                "",
+
+              file_name:
+                file.name,
+
+              file_path:
+                filePath,
+
+              file_url:
+                publicUrlData
+                  ?.publicUrl ||
+                null,
+
+              file_type:
+                file.type ||
+                null,
+
+              file_size:
+                file.size,
+
+              user_id:
+                userId,
+
+              created_at:
+                new Date().toISOString(),
+            }
+          );
+        }
+
+        const {
+          data:
+            insertedNote,
+
+          error:
+            insertError,
+        } =
+          await supabase
+            .from(
+              "notes"
+            )
+            .insert({
+              user_id:
+                userId,
+
+              organisation_id:
+                organisationId,
+
+              folder_id:
+                folderId ||
+                null,
+
+              note_template:
+                noteTemplate ===
+                "custom"
+                  ? (
+                      customTemplateName.trim() ||
+                      "custom"
+                    )
+                  : noteTemplate,
+
+              content,
+
+              attachments,
+
+              title:
+                title ||
+                null,
+
+              color:
+                isUrgent
+                  ? "#4f4a46"
+                  : (
+                      selectedColor ||
+                      theme.bg
+                    ),
+
+              category:
+                tag ||
+                "General",
+
+              project:
+                project ||
+                null,
+
+              assigned_to:
+                assignedTo.length >
+                0
+                  ? assignedTo
+                  : null,
+
+              due_date:
+                isReminder &&
+                reminderDateTime
+                  ? reminderDateTime
+                  : null,
+
+              start_date:
+                startDate ||
+                null,
+
+              end_date:
+                endDate ||
+                null,
+
+              is_reminder:
+                isReminder,
+
+              status,
+
+              type:
+                status ===
+                "todo"
+                  ? "task"
+                  : "note",
+
+              is_urgent:
+                isUrgent,
+
+              visibility,
+            })
+            .select(
+              "*"
+            )
+            .single();
+
+        if (
+          insertError
+        ) {
+          const formatted =
+            formatSupabaseError(
+              "Note insert failed",
+              insertError
+            );
+
+          throw new Error(
+            formatted.userMessage
+          );
+        }
+
+        if (
+          !insertedNote
+        ) {
+          throw new Error(
+            "No note returned from API"
+          );
+        }
+
+        const normalizedAttachments =
+          normalizeAttachments(
+            insertedNote.attachments ??
+              attachments
+          ).map(
+            (
+              attachment
+            ) => ({
+              ...attachment,
+
+              note_id:
+                attachment.note_id ||
+                insertedNote.id,
+            })
+          );
+
+        setAttachmentsByNoteId(
+          (
+            prev
+          ) => ({
+            ...prev,
+
+            [insertedNote.id]:
+              normalizedAttachments,
+          })
+        );
+
+        const normalizedNote =
+          {
+            ...insertedNote,
+
+            user_id:
+              insertedNote.user_id ??
+              userId,
+
+            organisation_id:
+              insertedNote.organisation_id ??
+              organisationId,
+
+            visibility:
+              insertedNote.visibility ??
+              visibility,
+
+            attachments:
+              normalizedAttachments,
+          };
+
+        if (
+          tag.trim()
+        ) {
+          setTagColorMap(
+            (
+              prev
+            ) => ({
+              ...prev,
+
+              [tag
+                .trim()
+                .toLowerCase()]:
+                tagColor,
+            })
+          );
+        }
+
+        setNotes(
+          (
+            prev
+          ) => [
+            {
+              ...normalizedNote,
+
+              type:
+                normalizedNote.type ??
+                (
+                  normalizedNote.status ===
+                  "todo"
+                    ? "task"
+                    : "note"
+                ),
+            },
+
+            ...prev,
+          ]
+        );
+
+        if (
+          normalizedNote.project
+        ) {
+          setProjectsList(
+            (
+              prev
+            ) => {
+              const exists =
+                prev.some(
+                  (
+                    p
+                  ) =>
+                    p.name ===
+                    normalizedNote.project
+                );
+
+              if (
+                exists
+              ) {
+                return prev;
+              }
+
+              return [
+                ...prev,
+
+                {
+                  id:
+                    crypto.randomUUID(),
+
+                  name:
+                    normalizedNote.project,
+                },
+              ];
+            }
+          );
+        }
+
+        setContent(
+          ""
+        );
+
+        setTitle(
+          ""
+        );
+
+        setTag(
+          ""
+        );
+
+        setIsUrgent(
+          false
+        );
+
+        setProject(
+          ""
+        );
+
+        setAssignedTo(
+          []
+        );
+
+        setReminderDateTime(
+          ""
+        );
+
+        setIsReminder(
+          false
+        );
+
+        setStatus(
+          "todo"
+        );
+
+        setPendingAttachments(
+          []
+        );
+
+        setShowModal(
+          false
+        );
+
+        setSelectedColor(
+          null
+        );
+
+        setFolderId(
+          ""
+        );
+
+        setNoteTemplate(
+          "blank"
+        );
+
+        setCustomTemplateName(
+          ""
+        );
+
+        setStartDate(
+          ""
+        );
+
+        setEndDate(
+          ""
+        );
+
+        orgIdRef.current =
+          organisationId;
+
+        setOrganisationId(
+          organisationId
+        );
+
+        const currentOrgId =
+          orgIdRef.current ??
+          organisationId;
+
+        if (
+          currentOrgId
+        ) {
+          await fetchNotes(
+            currentOrgId,
+            userId
+          );
+        }
+
+        toast.success(
+          "Note pinned to desk."
+        );
+      } catch (
+        e
+      ) {
+        const formatted =
+          formatSupabaseError(
+            "Create note error",
+            e
+          );
+
+        console.error(
+          formatted.userMessage,
+          formatted.raw
+        );
+
+        toast.error(
+          formatted.userMessage ||
+          "Unexpected error creating note. Please try again."
+        );
+      } finally {
+        setIsSyncing(
+          false
+        );
+      }
+    };
+
+  /* ============================================================
+     EXISTING NOTE ATTACHMENTS
+  ============================================================ */
+
+  const addAttachmentsToExistingNote =
+    useCallback(
+      async (
+        noteId:
+          string,
+
+        files:
+          File[]
+      ) => {
+        if (
+          !noteId ||
+          !user?.id
+        ) {
+          toast.error(
+            "Missing user context"
+          );
+
+          return false;
+        }
+
+        try {
+          await uploadAttachmentsForNote(
+            noteId,
+            files,
+            user.id,
+            attachmentsByNoteId[
+              noteId
+            ] ||
+              []
+          );
+
+          return true;
+        } catch (
+          err:
+            any
+        ) {
+          toast.error(
+            err?.message ||
+            "Failed to upload attachment"
+          );
+
+          return false;
+        }
+      },
+      [
+        uploadAttachmentsForNote,
+        user?.id,
+        attachmentsByNoteId,
+      ]
+    );
+
+  /* ============================================================
+     STATUS
+  ============================================================ */
+
+  const updateNoteStatus =
+    async (
+      id:
+        string,
+
+      nextStatus:
+        string
+    ) => {
+      if (
+        !id ||
+        !nextStatus
+      ) {
+        toast.error(
+          "Invalid note update."
+        );
+
+        return;
+      }
+
+      const completed =
+        nextStatus ===
+        "done";
+
+      try {
+        const {
+          data:
+            sessionData,
+
+          error:
+            sessionError,
+        } =
+          await supabase.auth.getSession();
+
+        if (
+          sessionError ||
+          !sessionData
+            ?.session
+            ?.access_token
+        ) {
+          throw new Error(
+            "Unable to authenticate. Please sign in again."
+          );
+        }
+
+        const response =
+          await fetch(
+            "/api/notes",
+            {
+              method:
+                "PUT",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${sessionData.session.access_token}`,
+              },
+
+              body:
+                JSON.stringify(
+                  {
+                    id,
+
+                    organisation_id:
+                      orgIdRef.current,
+
+                    status:
+                      nextStatus,
+
+                    completed,
+                  }
+                ),
+            }
+          );
+
+        const responseBody =
+          await response.json();
+
+        if (
+          !response.ok ||
+          responseBody.error
+        ) {
+          toast.error(
+            responseBody.error ||
+            "Update failed"
+          );
+
+          return;
+        }
+
+        setNotes(
+          (
+            prev
+          ) =>
+            prev.map(
+              (
+                n
+              ) =>
+                n.id ===
+                id
+                  ? {
+                      ...n,
+
+                      status:
+                        nextStatus,
+
+                      completed:
+                        nextStatus ===
+                        "done",
+                    }
+                  : n
+            )
+        );
+
+        toast.success(
+          "Note updated."
+        );
+      } catch (
+        err:
+          any
+      ) {
+        console.error(
+          "Update note status error:",
+          err
+        );
+
+        toast.error(
+          err?.message ||
+          "Update failed"
+        );
+      }
+    };
+
+  /* ============================================================
+     DELETE NOTE
+  ============================================================ */
+
+  const deleteNote =
+    async (
+      id:
+        string
+    ) => {
+      if (
+        !id
+      ) {
+        toast.error(
+          "Invalid note ID."
+        );
+
+        return;
+      }
+
+      setNotes(
+        (
+          prev
+        ) =>
+          prev.filter(
+            (
+              n
+            ) =>
+              n.id !==
+              id
+          )
+      );
+
+      try {
+        const {
+          data:
+            sessionData,
+
+          error:
+            sessionError,
+        } =
+          await supabase.auth.getSession();
+
+        if (
+          sessionError ||
+          !sessionData
+            ?.session
+            ?.access_token
+        ) {
+          throw new Error(
+            "Unable to authenticate. Please sign in again."
+          );
+        }
+
+        const response =
+          await fetch(
+            "/api/notes",
+            {
+              method:
+                "DELETE",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${sessionData.session.access_token}`,
+              },
+
+              body:
+                JSON.stringify(
+                  {
+                    id,
+
+                    organisation_id:
+                      orgIdRef.current,
+                  }
+                ),
+            }
+          );
+
+        const responseBody =
+          await response.json();
+
+        if (
+          !response.ok ||
+          responseBody.error
+        ) {
+          toast.error(
+            responseBody.error ||
+            "Delete failed"
+          );
+
+          if (
+            orgIdRef.current &&
+            user?.id
+          ) {
+            fetchNotes(
+              orgIdRef.current,
+              user.id
+            );
+          }
+
+          return;
+        }
+
+        toast.success(
+          "Note cleared."
+        );
+      } catch (
+        err:
+          any
+      ) {
+        toast.error(
+          err?.message ||
+          "Delete failed"
+        );
+
+        if (
+          orgIdRef.current &&
+          user?.id
+        ) {
+          fetchNotes(
+            orgIdRef.current,
+            user.id
+          );
+        }
+      }
+    };
+
+  /* ============================================================
+     FILTERS
+  ============================================================ */
+
+  const availableTags =
+    useMemo(
+      () => {
+        const tags =
+          new Set<string>();
+
+        notes.forEach(
+          (
+            n:
+              any
+          ) => {
+            if (
+              n?.category
+            ) {
+              tags.add(
+                String(
+                  n.category
+                )
+              );
+            }
+          }
+        );
+
+        return [
+          "ALL",
+
+          ...Array.from(
+            tags
+          ).sort(
+            (
+              a,
+              b
+            ) =>
+              a.localeCompare(
+                b
+              )
+          ),
+        ];
+      },
+      [
+        notes,
+      ]
+    );
+
+  const availableColors =
+    useMemo(
+      () => {
+        const colors =
+          new Set<string>();
+
+        notes.forEach(
+          (
+            n:
+              any
+          ) => {
+            if (
+              n?.color
+            ) {
+              colors.add(
+                String(
+                  n.color
+                )
+              );
+            }
+          }
+        );
+
+        return [
+          "ALL",
+          ...Array.from(
+            colors
+          ),
+        ];
+      },
+      [
+        notes,
+      ]
+    );
+
+  const filteredNotes =
+    notes.filter(
+      (
+        note
+      ) => {
+        const q =
+          search
+            .trim()
+            .toLowerCase();
+
+        const folder =
+          folders.find(
+            (
+              item
+            ) =>
+              item.id ===
+              note.folder_id
+          );
+
+        const matchesSearch =
+          !q ||
+
+          note?.content
+            ?.toLowerCase?.()
+            .includes(
+              q
+            ) ||
+
+          note?.title
+            ?.toLowerCase?.()
+            .includes(
+              q
+            ) ||
+
+          note?.category
+            ?.toLowerCase?.()
+            .includes(
+              q
+            ) ||
+
+          note?.project
+            ?.toLowerCase?.()
+            .includes(
+              q
+            ) ||
+
+          folder?.name
+            ?.toLowerCase()
+            .includes(
+              q
+            );
+
+        const matchesTag =
+          selectedTagFilter ===
+            "ALL" ||
+
+          String(
+            note?.category ||
+              ""
+          ).toLowerCase() ===
+            selectedTagFilter.toLowerCase();
+
+        const noteColor =
+          String(
+            note?.color ||
+              ""
+          ).toLowerCase();
+
+        const matchesColor =
+          selectedColorFilter ===
+            "ALL" ||
+
+          noteColor ===
+            selectedColorFilter.toLowerCase();
+
+        const matchesFolder =
+          selectedFolderId ===
+            "ALL" ||
+
+          note.folder_id ===
+            selectedFolderId;
+
+        return (
+          matchesSearch &&
+          matchesTag &&
+          matchesColor &&
+          matchesFolder
+        );
+      }
+    );
+
+  const folderCounts =
+    useMemo(
+      () => {
+        const counts:
+          Record<
+            string,
+            number
+          > =
+          {};
+
+        notes.forEach(
+          (
+            note
+          ) => {
+            if (
+              note.folder_id
+            ) {
+              counts[
+                note.folder_id
+              ] =
+                (
+                  counts[
+                    note.folder_id
+                  ] ||
+                  0
+                ) +
+                1;
+            }
+          }
+        );
+
+        return counts;
+      },
+      [
+        notes,
+      ]
+    );
+
+  const taskNotes =
+    filteredNotes.filter(
+      (
+        n
+      ) =>
+        [
+          "todo",
+          "in_progress",
+          "done",
+        ].includes(
+          n.status
+        )
+    );
+
+  const regularNotes =
+    filteredNotes.filter(
+      (
+        n
+      ) =>
+        ![
+          "todo",
+          "in_progress",
+          "done",
+        ].includes(
+          n.status
+        )
+    );
+
+  /* ============================================================
+     DRAG
+  ============================================================ */
+
+  const sensors =
+    useSensors(
+      useSensor(
+        PointerSensor,
+        {
+          activationConstraint:
+            {
+              distance:
+                5,
+            },
+        }
       )
     );
 
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !sessionData?.session?.access_token) {
-        throw new Error("Unable to authenticate. Please sign in again.");
-      }
+  const handleDragEnd =
+    async (
+      event:
+        DragEndEvent
+    ) => {
+      const {
+        active,
+        over,
+      } =
+        event;
 
-      const response = await fetch("/api/notes", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify({
-          id: taskId,
-          organisation_id: orgIdRef.current,
-          status: newStatus,
-          completed: newStatus === "done",
-        })
-      });
-
-      const responseBody = await response.json();
-
-      console.log("DRAG UPDATE RESULT:", { data: responseBody.data, error: responseBody.error });
-
-      if (!response.ok || responseBody.error) {
-        console.error("Drag update failed:", responseBody.error);
-        toast.error(responseBody.error || "Failed to update task");
-
-        // rollback on failure
-        if (orgIdRef.current && user?.id) {
-          fetchNotes(orgIdRef.current, user.id);
-        }
+      if (
+        !over ||
+        !active
+      ) {
         return;
       }
 
-      const updatedNote = responseBody.data;
-      if (!updatedNote) {
-        console.error("Drag update returned no rows (possible RLS issue)");
-        toast.error("Update blocked by server rules");
+      const taskId =
+        active.id as string;
 
-        if (orgIdRef.current && user?.id) {
-          fetchNotes(orgIdRef.current, user.id);
-        }
-        return;
-      }
+      const newStatus =
+        over.id as string;
 
-      // Sync UI with API response
-      setNotes(prev =>
-        prev.map(n =>
-          n.id === taskId
-            ? { ...n, ...updatedNote }
-            : n
+      const allowedStatuses =
+        [
+          "todo",
+          "in_progress",
+          "done",
+        ];
+
+      if (
+        !taskId ||
+        !newStatus ||
+        !allowedStatuses.includes(
+          newStatus
         )
+      ) {
+        toast.error(
+          "Invalid drag operation"
+        );
+
+        return;
+      }
+
+      setNotes(
+        (
+          prev
+        ) =>
+          prev.map(
+            (
+              n
+            ) =>
+              n.id ===
+              taskId
+                ? {
+                    ...n,
+
+                    status:
+                      newStatus,
+
+                    completed:
+                      newStatus ===
+                      "done",
+                  }
+                : n
+          )
       );
 
-      toast.success("Task moved");
-    } catch (err: any) {
-      console.error("Unexpected drag error:", err);
-      toast.error(err?.message || "Unexpected error");
+      try {
+        const {
+          data:
+            sessionData,
 
-      if (orgIdRef.current && user?.id) {
-        fetchNotes(orgIdRef.current, user.id);
+          error:
+            sessionError,
+        } =
+          await supabase.auth.getSession();
+
+        if (
+          sessionError ||
+          !sessionData
+            ?.session
+            ?.access_token
+        ) {
+          throw new Error(
+            "Unable to authenticate. Please sign in again."
+          );
+        }
+
+        const response =
+          await fetch(
+            "/api/notes",
+            {
+              method:
+                "PUT",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${sessionData.session.access_token}`,
+              },
+
+              body:
+                JSON.stringify(
+                  {
+                    id:
+                      taskId,
+
+                    organisation_id:
+                      orgIdRef.current,
+
+                    status:
+                      newStatus,
+
+                    completed:
+                      newStatus ===
+                      "done",
+                  }
+                ),
+            }
+          );
+
+        const responseBody =
+          await response.json();
+
+        if (
+          !response.ok ||
+          responseBody.error
+        ) {
+          toast.error(
+            responseBody.error ||
+            "Failed to update task"
+          );
+
+          if (
+            orgIdRef.current &&
+            user?.id
+          ) {
+            fetchNotes(
+              orgIdRef.current,
+              user.id
+            );
+          }
+
+          return;
+        }
+
+        const updatedNote =
+          responseBody.data;
+
+        if (
+          !updatedNote
+        ) {
+          toast.error(
+            "Update blocked by server rules"
+          );
+
+          if (
+            orgIdRef.current &&
+            user?.id
+          ) {
+            fetchNotes(
+              orgIdRef.current,
+              user.id
+            );
+          }
+
+          return;
+        }
+
+        setNotes(
+          (
+            prev
+          ) =>
+            prev.map(
+              (
+                n
+              ) =>
+                n.id ===
+                taskId
+                  ? {
+                      ...n,
+                      ...updatedNote,
+                    }
+                  : n
+            )
+        );
+
+        toast.success(
+          "Task moved"
+        );
+      } catch (
+        err:
+          any
+      ) {
+        toast.error(
+          err?.message ||
+          "Unexpected error"
+        );
+
+        if (
+          orgIdRef.current &&
+          user?.id
+        ) {
+          fetchNotes(
+            orgIdRef.current,
+            user.id
+          );
+        }
       }
-    }
-  };
+    };
 
-  const saveNoteEdits = async (noteId: string, updates: { content: string; project?: string | null }) => {
-    if (!noteId || !orgIdRef.current || !user?.id) {
-      toast.error("Unable to save note");
-      return false;
-    }
+  /* ============================================================
+     SAVE NOTE EDIT
+  ============================================================ */
 
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !sessionData?.session?.access_token) {
-        throw new Error("Unable to authenticate. Please sign in again.");
+  const saveNoteEdits =
+    async (
+      noteId:
+        string,
+
+      updates: {
+        content:
+          string;
+
+        project?:
+          | string
+          | null;
+
+        folder_id?:
+          | string
+          | null;
+      }
+    ) => {
+      if (
+        !noteId ||
+        !orgIdRef.current ||
+        !user?.id
+      ) {
+        toast.error(
+          "Unable to save note"
+        );
+
+        return false;
       }
 
-      const response = await fetch("/api/notes", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify({
-          id: noteId,
-          organisation_id: orgIdRef.current,
-          content: updates.content,
-          project: updates.project ?? null,
-        }),
-      });
+      try {
+        const {
+          data:
+            sessionData,
 
-      const body = await response.json();
-      if (!response.ok || body.error) {
-        throw new Error(body.error || "Failed to save note changes");
+          error:
+            sessionError,
+        } =
+          await supabase.auth.getSession();
+
+        if (
+          sessionError ||
+          !sessionData
+            ?.session
+            ?.access_token
+        ) {
+          throw new Error(
+            "Unable to authenticate. Please sign in again."
+          );
+        }
+
+        const response =
+          await fetch(
+            "/api/notes",
+            {
+              method:
+                "PUT",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${sessionData.session.access_token}`,
+              },
+
+              body:
+                JSON.stringify(
+                  {
+                    id:
+                      noteId,
+
+                    organisation_id:
+                      orgIdRef.current,
+
+                    content:
+                      updates.content,
+
+                    project:
+                      updates.project ??
+                      null,
+
+                    folder_id:
+                      updates.folder_id ??
+                      null,
+                  }
+                ),
+            }
+          );
+
+        const body =
+          await response.json();
+
+        if (
+          !response.ok ||
+          body.error
+        ) {
+          throw new Error(
+            body.error ||
+            "Failed to save note changes"
+          );
+        }
+
+        if (
+          body.data
+        ) {
+          setNotes(
+            (
+              prev
+            ) =>
+              prev.map(
+                (
+                  n
+                ) =>
+                  n.id ===
+                  noteId
+                    ? {
+                        ...n,
+                        ...body.data,
+                      }
+                    : n
+              )
+          );
+        }
+
+        return true;
+      } catch (
+        err:
+          any
+      ) {
+        toast.error(
+          err?.message ||
+          "Failed to save note"
+        );
+
+        return false;
       }
+    };
 
-      if (body.data) {
-        setNotes(prev => prev.map(n => (n.id === noteId ? { ...n, ...body.data } : n)));
-      }
+  /* ============================================================
+     NOTE CARD
+  ============================================================ */
 
-      return true;
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to save note");
-      return false;
-    }
-  };
+  const renderNoteCard =
+    (
+      note:
+        any
+    ) => {
+      const assignedIds =
+        Array.isArray(
+          note.assigned_to
+        )
+          ? note.assigned_to
+          : note.assigned_to
+            ? [
+                note.assigned_to,
+              ]
+            : [];
 
+      const assignedTeamMembers =
+        teamMembers.filter(
+          (
+            m
+          ) =>
+            assignedIds.includes(
+              m.id
+            )
+        );
 
+      const assignedLead =
+        assignedTeamMembers[
+          0
+        ] ||
+        null;
 
-  const renderNoteCard = (note: any) => {
-  const assignedIds = Array.isArray(note.assigned_to)
-    ? note.assigned_to
-    : note.assigned_to
-      ? [note.assigned_to]
-      : [];
+      const attachmentCount =
+        attachmentsByNoteId[
+          note.id
+        ]?.length ||
+        0;
 
-  const assignedTeamMembers = teamMembers.filter(m =>
-    assignedIds.includes(m.id)
-  );
-  const assignedLead = assignedTeamMembers[0] || null;
-  const attachmentCount = attachmentsByNoteId[note.id]?.length || 0;
-    return (
-      <motion.div
-        key={note.id}
-        layout
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1, rotate: "0deg" }}
-        exit={{ opacity: 0, scale: 0.5, rotate: "10deg" }}
-        whileHover={{ scale: 1.02, rotate: "0deg", zIndex: 50 }}
-        className={`p-3 lg:p-5 min-h-[260px] lg:min-h-[320px] w-full min-w-0 md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${note.is_urgent ? 'text-white' : 'text-stone-800'}`}
-        style={{
-  background:
-    note.color && note.color !== "undefined"
-      ? note.color
-      : "#FFF9E6"
-}}
-        onClick={() => {
-          setExpandedNote(note.id);
-          setLastViewed(prev => ({
-            ...prev,
-            [note.id]: Date.now()
-          }));
-        }}
-      >
-        {/* PARCHMENT TAPE ACCENT */}
-        <div className="absolute top-[-9px] left-1/2 -translate-x-1/2 w-28 h-6 bg-white/45 backdrop-blur-sm border border-white/20 z-10 rounded-sm" />
+      const noteFolder =
+        folders.find(
+          (
+            folder
+          ) =>
+            folder.id ===
+            note.folder_id
+        );
 
-        {/* UPPER CONTENT AREA */}
-        <div>
-          <div className="flex justify-between items-center mb-5">
-            <span
-              className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full"
-              style={{
-                backgroundColor: `${tagColorMap[String(note.category || "").toLowerCase()] || "#00000010"}`,
-                color: note.is_urgent ? "#fff" : "#374151",
-              }}
-            >
-              {note.category || 'General'}
-            </span>
-            {/* UNREAD INDICATOR */}
-            {lastViewed[note.id] && note.updated_at && new Date(note.updated_at).getTime() > lastViewed[note.id] && (
-              <span className="text-[9px] font-black uppercase text-red-500 animate-pulse">
-                NEW
-              </span>
+      return (
+        <motion.div
+          key={
+            note.id
+          }
+          layout
+          initial={{
+            opacity:
+              0,
+            scale:
+              0.8,
+          }}
+          animate={{
+            opacity:
+              1,
+            scale:
+              1,
+            rotate:
+              "0deg",
+          }}
+          exit={{
+            opacity:
+              0,
+            scale:
+              0.5,
+            rotate:
+              "10deg",
+          }}
+          whileHover={{
+            scale:
+              1.02,
+            rotate:
+              "0deg",
+            zIndex:
+              50,
+          }}
+          className={`p-3 lg:p-5 min-h-[260px] lg:min-h-[320px] w-full min-w-0 md:max-w-[380px] flex flex-col justify-between shadow-sticky relative group transition-all duration-300 border border-black/[0.015] rounded-sm ${
+            note.is_urgent
+              ? "text-white"
+              : "text-stone-800"
+          }`}
+          style={{
+            background:
+              note.color &&
+              note.color !==
+                "undefined"
+                ? note.color
+                : "#FFF9E6",
+          }}
+          onClick={() => {
+            setExpandedNote(
+              note.id
+            );
+
+            setLastViewed(
+              (
+                prev
+              ) => ({
+                ...prev,
+
+                [note.id]:
+                  Date.now(),
+              })
+            );
+          }}
+        >
+          <div className="absolute top-[-9px] left-1/2 -translate-x-1/2 w-28 h-6 bg-white/45 backdrop-blur-sm border border-white/20 z-10 rounded-sm" />
+
+          <div>
+            {noteFolder && (
+              <div className="flex items-center gap-1.5 mb-3 opacity-60">
+                <FolderIcon
+                  folder={
+                    noteFolder
+                  }
+                  size={
+                    10
+                  }
+                />
+
+                <span className="text-[8px] font-black uppercase tracking-widest">
+                  {
+                    noteFolder.name
+                  }
+                </span>
+              </div>
             )}
-            <div className="flex items-center gap-2">
-              {note.is_reminder && <Clock size={11} className={note.is_urgent ? "text-amber-300" : "text-stone-400 animate-pulse"} />}
-              {note.is_urgent && <AlertCircle size={13} className="text-red-400 animate-pulse" />}
+
+            <div className="flex justify-between items-center mb-5">
+              <span
+                className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full"
+                style={{
+                  backgroundColor:
+                    tagColorMap[
+                      String(
+                        note.category ||
+                          ""
+                      ).toLowerCase()
+                    ] ||
+                    "#00000010",
+
+                  color:
+                    note.is_urgent
+                      ? "#fff"
+                      : "#374151",
+                }}
+              >
+                {note.category ||
+                  "General"}
+              </span>
+
+              {lastViewed[
+                note.id
+              ] &&
+                note.updated_at &&
+                new Date(
+                  note.updated_at
+                ).getTime() >
+                  lastViewed[
+                    note.id
+                  ] && (
+                  <span className="text-[9px] font-black uppercase text-red-500 animate-pulse">
+                    NEW
+                  </span>
+                )}
+
+              <div className="flex items-center gap-2">
+                {note.is_reminder && (
+                  <Clock
+                    size={
+                      11
+                    }
+                    className={
+                      note.is_urgent
+                        ? "text-amber-300"
+                        : "text-stone-400 animate-pulse"
+                    }
+                  />
+                )}
+
+                {note.is_urgent && (
+                  <AlertCircle
+                    size={
+                      13
+                    }
+                    className="text-red-400 animate-pulse"
+                  />
+                )}
+              </div>
             </div>
+
+            {note.title && (
+              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">
+                {
+                  note.title
+                }
+              </p>
+            )}
+
+            <p className="text-base lg:text-xl font-serif italic leading-snug tracking-tight mb-4 lg:mb-6 line-clamp-4 break-words whitespace-pre-wrap">
+              {
+                note.content
+              }
+            </p>
           </div>
 
-          {note.title && (
-  <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">
-    {note.title}
-  </p>
-)}
+          {(note.start_date ||
+            note.end_date) && (
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-stone-200/60 text-[11px] text-stone-500">
+              <Calendar className="w-3 h-3 text-stone-400 shrink-0" />
 
-<p className="text-base lg:text-xl font-serif italic leading-snug tracking-tight mb-4 lg:mb-6 line-clamp-4 break-words whitespace-pre-wrap">
-  {note.content}
-</p>
-        </div>
+              <span>
+                {note.start_date
+                  ? format(
+                      new Date(
+                        note.start_date
+                      ),
+                      "MMM d, yyyy HH:mm"
+                    )
+                  : "Open"}
 
-        {(note.start_date || note.end_date) && (
-    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-stone-200/60 text-[11px] text-stone-500">
-      <Calendar className="w-3 h-3 text-stone-400 shrink-0" />
-      <span>
-        {note.start_date ? format(new Date(note.start_date), "MMM d, yyyy HH:mm") : "Open"} 
-        {" → "}
-        {note.end_date ? format(new Date(note.end_date), "MMM d, yyyy HH:mm") : "No deadline"}
-      </span>
-    </div>
-  )}
+                {" → "}
 
-        {/* BOTTOM METADATA PINNED CONTAINER */}
-        <div className="space-y-4 mt-auto">
-          {/* CONTEXT DATA HOOKS */}
-          {(attachmentCount > 0 || note.project || assignedLead || note.due_date) && (
-            <div className="space-y-2 pt-3 border-t border-black/[0.05] opacity-80">
-              {attachmentCount > 0 && (
-                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
-                  <Paperclip size={11} className="opacity-40" />
-                  <span className="truncate">Attachments: {attachmentCount}</span>
-                </div>
-              )}
-              {note.project && (
-                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
-                  <Briefcase size={11} className="opacity-40" />
-                  <span className="truncate">Project: {note.project}</span>
-                </div>
-              )}
-              {assignedLead && (
-                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
-                  <User size={11} className="opacity-40" />
-                  <span className="truncate">Lead: {assignedLead.name}</span>
-                </div>
-              )}
-              {note.due_date && (
-                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-amber-900/80">
-                  <Calendar size={11} className="opacity-50" />
-                  <span>Alert: {format(new Date(note.due_date), "MMM d, p")}</span>
-                </div>
-              )}
+                {note.end_date
+                  ? format(
+                      new Date(
+                        note.end_date
+                      ),
+                      "MMM d, yyyy HH:mm"
+                    )
+                  : "No deadline"}
+              </span>
             </div>
           )}
 
-          {/* CONTROL GRID LAYER */}
-          <div className="pt-3 border-t border-black/[0.05] space-y-3">
-            <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
-              <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Progress</span>
-              <select
-  value={note.status}
-  onChange={(e) => updateNoteStatus(note.id, e.target.value)}
-  onClick={(e) => e.stopPropagation()}
-  onPointerDown={(e) => e.stopPropagation()}
-  className={`text-[9px] font-black uppercase bg-transparent outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none text-right pr-1 ${
-    note.is_urgent ? 'text-white font-bold' : 'text-stone-700'
-  }`}
->
-                {["todo", "in_progress", "done"].includes(note.status) ? (
-                  <>
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="done">Done</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="draft">Draft</option>
-                    <option value="active">Active</option>
-                    <option value="archived">Archived</option>
-                  </>
+          <div className="space-y-4 mt-auto">
+            {(attachmentCount >
+              0 ||
+              note.project ||
+              assignedLead ||
+              note.due_date) && (
+              <div className="space-y-2 pt-3 border-t border-black/[0.05] opacity-80">
+                {attachmentCount >
+                  0 && (
+                  <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
+                    <Paperclip
+                      size={
+                        11
+                      }
+                      className="opacity-40"
+                    />
+
+                    <span className="truncate">
+                      Attachments:{" "}
+                      {
+                        attachmentCount
+                      }
+                    </span>
+                  </div>
                 )}
-              </select>
-            </div>
 
-            <div className="flex items-center gap-2">
-              {/* CLEAR / COMPLETE ACTION */}
-              
+                {note.project && (
+                  <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
+                    <Briefcase
+                      size={
+                        11
+                      }
+                      className="opacity-40"
+                    />
+
+                    <span className="truncate">
+                      Project:{" "}
+                      {
+                        note.project
+                      }
+                    </span>
+                  </div>
+                )}
+
+                {assignedLead && (
+                  <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider">
+                    <User
+                      size={
+                        11
+                      }
+                      className="opacity-40"
+                    />
+
+                    <span className="truncate">
+                      Lead:{" "}
+                      {
+                        assignedLead.name
+                      }
+                    </span>
+                  </div>
+                )}
+
+                {note.due_date && (
+                  <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-amber-900/80">
+                    <Calendar
+                      size={
+                        11
+                      }
+                      className="opacity-50"
+                    />
+
+                    <span>
+                      Alert:{" "}
+                      {format(
+                        new Date(
+                          note.due_date
+                        ),
+                        "MMM d, p"
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-black/[0.05] space-y-3">
+              <div className="flex items-center justify-between bg-black/[0.03] px-3 py-2 rounded-xl">
+                <span className="text-[8px] font-black uppercase tracking-widest opacity-40">
+                  Progress
+                </span>
+
+                <select
+                  value={
+                    note.status
+                  }
+                  onChange={(
+                    e
+                  ) =>
+                    updateNoteStatus(
+                      note.id,
+                      e.target.value
+                    )
+                  }
+                  onClick={(
+                    e
+                  ) =>
+                    e.stopPropagation()
+                  }
+                  onPointerDown={(
+                    e
+                  ) =>
+                    e.stopPropagation()
+                  }
+                  className={`text-[9px] font-black uppercase bg-transparent outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none text-right pr-1 ${
+                    note.is_urgent
+                      ? "text-white font-bold"
+                      : "text-stone-700"
+                  }`}
+                >
+                  {[
+                    "todo",
+                    "in_progress",
+                    "done",
+                  ].includes(
+                    note.status
+                  ) ? (
+                    <>
+                      <option value="todo">
+                        To Do
+                      </option>
+
+                      <option value="in_progress">
+                        In Progress
+                      </option>
+
+                      <option value="done">
+                        Done
+                      </option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="draft">
+                        Draft
+                      </option>
+
+                      <option value="active">
+                        Active
+                      </option>
+
+                      <option value="archived">
+                        Archived
+                      </option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <button
-  onClick={(e) => {
-    e.stopPropagation();
-    deleteNote(note.id);
-  }}
-  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all border shadow-sm ${note.is_urgent
-                    ? 'bg-white/10 border-white/20 hover:bg-white/20 text-white'
-                    : 'bg-white/70 border-black/[0.05] hover:bg-white text-stone-700 hover:text-green-700'
-                }`}
-              >
-                <CheckCircle2 size={13} />
-                <span>Clear</span>
-              </button>
+                  onClick={(
+                    e
+                  ) => {
+                    e.stopPropagation();
 
-              {/* DELETE ICON BUTTON */}
-              <button
-  onClick={(e) => {
-    e.stopPropagation();
-    deleteNote(note.id);
-  }}
-  className={`flex items-center justify-center h-8 w-8 rounded-full transition-all border border-transparent
-    hover:scale-105 active:scale-95 ${
-                  note.is_urgent
-                    ? 'hover:bg-white/10 text-white/60 hover:text-white'
-                    : 'hover:bg-red-50 text-stone-400 hover:text-red-600'
-                }`}
-              >
-                <Trash2 size={13} />
-              </button>
+                    deleteNote(
+                      note.id
+                    );
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all border shadow-sm ${
+                    note.is_urgent
+                      ? "bg-white/10 border-white/20 hover:bg-white/20 text-white"
+                      : "bg-white/70 border-black/[0.05] hover:bg-white text-stone-700 hover:text-green-700"
+                  }`}
+                >
+                  <CheckCircle2
+                    size={
+                      13
+                    }
+                  />
+
+                  <span>
+                    Clear
+                  </span>
+                </button>
+
+                <button
+                  onClick={(
+                    e
+                  ) => {
+                    e.stopPropagation();
+
+                    deleteNote(
+                      note.id
+                    );
+                  }}
+                  className={`flex items-center justify-center h-8 w-8 rounded-full transition-all border border-transparent hover:scale-105 active:scale-95 ${
+                    note.is_urgent
+                      ? "hover:bg-white/10 text-white/60 hover:text-white"
+                      : "hover:bg-red-50 text-stone-400 hover:text-red-600"
+                  }`}
+                >
+                  <Trash2
+                    size={
+                      13
+                    }
+                  />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </motion.div>
-    );
-  };
+        </motion.div>
+      );
+    };
 
-  // Prevent UI from rendering notes when organisation is missing (fix “notes showing for everyone” root symptom)
-  if (!organisationId && !orgIdRef.current) {
+  /* ============================================================
+     GUARDS
+  ============================================================ */
+
+  if (
+    !organisationId &&
+    !orgIdRef.current
+  ) {
     return (
       <div className="h-screen flex items-center justify-center text-stone-400 font-serif italic">
-        Missing organisation context. Please refresh or log in again.
+        Missing organisation
+        context. Please refresh
+        or log in again.
       </div>
     );
   }
 
-  if (isLoading) return <div className="h-screen bg-[#F5F5F3] flex items-center justify-center font-serif italic text-stone-300 text-4xl">Loading Desk...</div>;
+  if (
+    isLoading
+  ) {
+    return (
+      <div className="h-screen bg-[#F5F5F3] flex items-center justify-center font-serif italic text-stone-300 text-4xl">
+        Loading Desk...
+      </div>
+    );
+  }
+
+  /* ============================================================
+     PAGE
+  ============================================================ */
 
   return (
     <div className="min-h-screen bg-[#F5F5F3] font-sans text-stone-900 pb-40 relative">
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap');
-        .font-serif { font-family: 'Instrument Serif', serif; }
+
+        .font-serif {
+          font-family:
+            'Instrument Serif',
+            serif;
+        }
+
         .shadow-sticky {
-          box-shadow: 
-            0px 4px 6px rgba(0, 0, 0, 0.01),
-            0px 16px 32px rgba(79, 74, 70, 0.06),
-            inset 0px -6px 12px rgba(0, 0, 0, 0.01);
+          box-shadow:
+            0px 4px 6px
+              rgba(
+                0,
+                0,
+                0,
+                0.01
+              ),
+            0px 16px 32px
+              rgba(
+                79,
+                74,
+                70,
+                0.06
+              ),
+            inset 0px -6px 12px
+              rgba(
+                0,
+                0,
+                0,
+                0.01
+              );
         }
       `}</style>
-      
-      {/* HEADER */}
+
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
       <header className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-12 flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-end">
         <div>
-          <h1 className="text-5xl sm:text-6xl lg:text-8xl font-serif italic tracking-tighter capitalize leading-none text-[#4f4a46]">Notes</h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400 mt-4 ml-1">Your Digital Notepad</p>
+          <h1 className="text-5xl sm:text-6xl lg:text-8xl font-serif italic tracking-tighter capitalize leading-none text-[#4f4a46]">
+            Notes
+          </h1>
+
+          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-400 mt-4 ml-1">
+            Your Digital Notepad
+          </p>
+
           <div className="mt-3 flex flex-wrap gap-2">
             <select
-              value={selectedTagFilter}
-              onChange={(e) => setSelectedTagFilter(e.target.value)}
+              value={
+                selectedTagFilter
+              }
+              onChange={(
+                e
+              ) =>
+                setSelectedTagFilter(
+                  e.target.value
+                )
+              }
               className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-[9px] font-black uppercase tracking-wider text-stone-500"
             >
-              {availableTags.map((tagValue: string) => (
-                <option key={tagValue} value={tagValue}>
-                  Tag: {tagValue}
-                </option>
-              ))}
+              {availableTags.map(
+                (
+                  tagValue:
+                    string
+                ) => (
+                  <option
+                    key={
+                      tagValue
+                    }
+                    value={
+                      tagValue
+                    }
+                  >
+                    Tag:{" "}
+                    {
+                      tagValue
+                    }
+                  </option>
+                )
+              )}
             </select>
 
             <select
-              value={selectedColorFilter}
-              onChange={(e) => setSelectedColorFilter(e.target.value)}
+              value={
+                selectedColorFilter
+              }
+              onChange={(
+                e
+              ) =>
+                setSelectedColorFilter(
+                  e.target.value
+                )
+              }
               className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-[9px] font-black uppercase tracking-wider text-stone-500"
             >
-              <option value="ALL">Color: ALL</option>
-              {availableColors.filter((c: string) => c !== "ALL").map((colorValue: string) => (
-                <option key={colorValue} value={colorValue}>
-                  {colorValue}
-                </option>
-              ))}
+              <option value="ALL">
+                Color: ALL
+              </option>
+
+              {availableColors
+                .filter(
+                  (
+                    c:
+                      string
+                  ) =>
+                    c !==
+                    "ALL"
+                )
+                .map(
+                  (
+                    colorValue:
+                      string
+                  ) => (
+                    <option
+                      key={
+                        colorValue
+                      }
+                      value={
+                        colorValue
+                      }
+                    >
+                      {
+                        colorValue
+                      }
+                    </option>
+                  )
+                )}
             </select>
           </div>
         </div>
+
         <div className="relative group w-full lg:w-64">
-          <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
-          <input 
+          <Search
+            className="absolute left-0 top-1/2 -translate-y-1/2 text-stone-300"
+            size={
+              16
+            }
+          />
+
+          <input
             className="w-full bg-transparent border-b border-stone-200 py-2 pl-7 outline-none font-serif italic text-xl focus:border-stone-900 transition-all text-stone-800 placeholder:text-stone-300"
             placeholder="Search the desk..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={
+              search
+            }
+            onChange={(
+              e
+            ) =>
+              setSearch(
+                e.target.value
+              )
+            }
           />
         </div>
-        {notifications.length > 0 && (
+
+        {notifications.length >
+          0 && (
           <div className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full animate-pulse">
-            {notifications.length} alerts
+            {
+              notifications.length
+            }{" "}
+            alerts
           </div>
         )}
       </header>
 
-      {/* THE DESK GRID - SPLIT INTO TASKS & NOTES */}
+      {/* ======================================================
+          FOLDERS
+      ====================================================== */}
+
+      <section className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 mb-12">
+        <div className="flex items-center justify-between gap-4 mb-5">
+          <div>
+            <h2 className="text-3xl lg:text-4xl font-serif italic text-[#4f4a46]">
+              Folders
+            </h2>
+
+            <p className="text-[9px] font-black uppercase tracking-[0.35em] text-stone-400 mt-2">
+              Keep the desk
+              organised
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setShowFolderModal(
+                true
+              )
+            }
+            className="inline-flex items-center gap-2 rounded-full bg-[#4f4a46] text-white px-4 py-2.5 text-[9px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all"
+          >
+            <FolderPlus
+              size={
+                14
+              }
+            />
+
+            New Folder
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          {/* ALL */}
+
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedFolderId(
+                "ALL"
+              )
+            }
+            className={`min-h-[118px] rounded-2xl border p-4 text-left transition-all ${
+              selectedFolderId ===
+              "ALL"
+                ? "bg-[#4f4a46] text-white border-[#4f4a46] shadow-lg"
+                : "bg-white text-stone-700 border-stone-200 hover:border-stone-300"
+            }`}
+          >
+            <div className="flex items-start justify-between">
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                  selectedFolderId ===
+                  "ALL"
+                    ? "bg-white/10"
+                    : "bg-stone-50"
+                }`}
+              >
+                <FolderOpen
+                  size={
+                    17
+                  }
+                />
+              </div>
+
+              <span
+                className={`text-[9px] font-black ${
+                  selectedFolderId ===
+                  "ALL"
+                    ? "text-white/50"
+                    : "text-stone-300"
+                }`}
+              >
+                {
+                  notes.length
+                }
+              </span>
+            </div>
+
+            <strong className="block mt-5 text-sm font-semibold">
+              All Notes
+            </strong>
+
+            <span
+              className={`block mt-1 text-[9px] ${
+                selectedFolderId ===
+                "ALL"
+                  ? "text-white/50"
+                  : "text-stone-400"
+              }`}
+            >
+              Everything on your
+              desk
+            </span>
+          </button>
+
+          {/* FOLDERS */}
+
+          {folders.map(
+            (
+              folder
+            ) => {
+              const selected =
+                selectedFolderId ===
+                folder.id;
+
+              return (
+                <div
+                  key={
+                    folder.id
+                  }
+                  className="relative group"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedFolderId(
+                        folder.id
+                      )
+                    }
+                    className={`w-full min-h-[118px] rounded-2xl border p-4 text-left transition-all ${
+                      selected
+                        ? "bg-[#A9B897] text-white border-[#A9B897] shadow-lg"
+                        : "bg-white text-stone-700 border-stone-200 hover:border-[#A9B897]"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                          selected
+                            ? "bg-white/15"
+                            : "bg-[#F3F6EF] text-[#82946F]"
+                        }`}
+                      >
+                        <FolderIcon
+                          folder={
+                            folder
+                          }
+                          size={
+                            17
+                          }
+                        />
+                      </div>
+
+                      <span
+                        className={`text-[9px] font-black ${
+                          selected
+                            ? "text-white/70"
+                            : "text-stone-300"
+                        }`}
+                      >
+                        {
+                          folderCounts[
+                            folder.id
+                          ] ||
+                          0
+                        }
+                      </span>
+                    </div>
+
+                    <strong className="block mt-5 text-sm font-semibold truncate">
+                      {
+                        folder.name
+                      }
+                    </strong>
+
+                    <span
+                      className={`block mt-1 text-[9px] ${
+                        selected
+                          ? "text-white/60"
+                          : "text-stone-400"
+                      }`}
+                    >
+                      {folder.is_system
+                        ? "TOTS-OS folder"
+                        : folder.visibility ===
+                            "private"
+                          ? "Private folder"
+                          : "Shared folder"}
+                    </span>
+                  </button>
+
+                  {!folder.is_system &&
+                    folder.created_by ===
+                      user?.id && (
+                      <button
+                        type="button"
+                        onClick={(
+                          event
+                        ) => {
+                          event.stopPropagation();
+
+                          deleteFolder(
+                            folder
+                          );
+                        }}
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full bg-white shadow border border-stone-100 text-stone-300 hover:text-red-500 transition-all"
+                        title="Delete folder"
+                      >
+                        <Trash2
+                          size={
+                            11
+                          }
+                        />
+                      </button>
+                    )}
+                </div>
+              );
+            }
+          )}
+        </div>
+      </section>
+
+      {/* ======================================================
+          DESK
+      ====================================================== */}
+
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 space-y-12">
+        {selectedFolderId !==
+          "ALL" && (
+          <div className="mb-8 flex items-center gap-3">
+            {(() => {
+              const current =
+                folders.find(
+                  (
+                    item
+                  ) =>
+                    item.id ===
+                    selectedFolderId
+                );
+
+              if (
+                !current
+              ) {
+                return null;
+              }
+
+              return (
+                <>
+                  <div className="w-11 h-11 rounded-xl bg-[#EEF2E9] text-[#82946F] flex items-center justify-center">
+                    <FolderIcon
+                      folder={
+                        current
+                      }
+                      size={
+                        18
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#82946F]">
+                      Current
+                      Folder
+                    </p>
+
+                    <h2 className="text-3xl font-serif italic text-[#4f4a46] mt-1">
+                      {
+                        current.name
+                      }
+                    </h2>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* TASKS */}
 
         <section>
           <div className="mb-6 flex items-center justify-between">
@@ -1740,52 +6244,113 @@ const regularNotes = filteredNotes.filter(
               <h2 className="text-3xl lg:text-5xl font-serif italic text-[#4f4a46]">
                 Tasks
               </h2>
+
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mt-2">
                 Action Items
               </p>
             </div>
+
             <div className="text-[10px] font-black uppercase text-stone-400">
-              {taskNotes.length} Tasks
+              {
+                taskNotes.length
+              }{" "}
+              Tasks
             </div>
           </div>
 
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext
+            sensors={
+              sensors
+            }
+            collisionDetection={
+              closestCenter
+            }
+            onDragEnd={
+              handleDragEnd
+            }
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+              {(
+                [
+                  "todo",
+                  "in_progress",
+                  "done",
+                ] as const
+              ).map(
+                (
+                  statusKey
+                ) => {
+                  const columnTasks =
+                    taskNotes.filter(
+                      (
+                        t:
+                          any
+                      ) =>
+                        t.status ===
+                        statusKey
+                    );
 
-              {(["todo", "in_progress", "done"] as const).map((statusKey) => {
-                const columnTasks = taskNotes.filter(
-                  (t: any) => t.status === statusKey
-                );
+                  return (
+                    <TaskColumn
+                      key={
+                        statusKey
+                      }
+                      id={
+                        statusKey
+                      }
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                          {statusKey.replace(
+                            "_",
+                            " "
+                          )}
+                        </p>
 
-                return (
-                  <TaskColumn key={statusKey} id={statusKey}>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">
-                        {statusKey.replace("_", " ")}
-                      </p>
-                      <span className="text-[9px] font-black uppercase text-stone-300">
-                        {columnTasks.length}
-                      </span>
-                    </div>
+                        <span className="text-[9px] font-black uppercase text-stone-300">
+                          {
+                            columnTasks.length
+                          }
+                        </span>
+                      </div>
 
-                    {columnTasks.length > 0 ? (
-                      columnTasks.map((note: any) => (
-                        <DraggableTask key={note.id} task={note}>
-                          <div className="transform hover:scale-[1.01] transition">
-                            {renderNoteCard(note)}
-                          </div>
-                        </DraggableTask>
-                      ))
-                    ) : (
-                      <p className="text-[9px] text-stone-300 uppercase">Empty</p>
-                    )}
-                  </TaskColumn>
-                );
-              })}
-
+                      {columnTasks.length >
+                      0 ? (
+                        columnTasks.map(
+                          (
+                            note:
+                              any
+                          ) => (
+                            <DraggableTask
+                              key={
+                                note.id
+                              }
+                              task={
+                                note
+                              }
+                            >
+                              <div className="transform hover:scale-[1.01] transition">
+                                {renderNoteCard(
+                                  note
+                                )}
+                              </div>
+                            </DraggableTask>
+                          )
+                        )
+                      ) : (
+                        <p className="text-[9px] text-stone-300 uppercase">
+                          Empty
+                        </p>
+                      )}
+                    </TaskColumn>
+                  );
+                }
+              )}
             </div>
           </DndContext>
         </section>
+
+        {/* NOTES */}
 
         <section>
           <div className="mb-6 flex items-center justify-between">
@@ -1793,262 +6358,861 @@ const regularNotes = filteredNotes.filter(
               <h2 className="text-3xl lg:text-5xl font-serif italic text-[#4f4a46]">
                 Notes
               </h2>
+
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-400 mt-2">
                 Knowledge Base
               </p>
             </div>
+
             <div className="text-[10px] font-black uppercase text-stone-400">
-              {regularNotes.length} Notes
+              {
+                regularNotes.length
+              }{" "}
+              Notes
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             <AnimatePresence mode="popLayout">
-              {regularNotes.map((note) => renderNoteCard(note))}
+              {regularNotes.map(
+                (
+                  note
+                ) =>
+                  renderNoteCard(
+                    note
+                  )
+              )}
             </AnimatePresence>
-            <NoteModal
-              note={notes.find((n: any) => n.id === expandedNote)}
-              teamMembers={teamMembers}
-              projectsList={projectsList}
-              attachmentsByNoteId={attachmentsByNoteId}
-              commentsByNoteId={commentsByNoteId.current}
-              reactions={reactions}
-              addComment={addComment}
-              addReaction={addReaction}
-              onUploadAttachments={addAttachmentsToExistingNote}
-              onSaveNoteEdits={saveNoteEdits}
-              setExpandedNote={setExpandedNote}
-              user={user}
-              typingChannel={typingChannelRef.current}
-              typingUsers={typingUsers}
-              notePresence={notePresence}
-              presenceChannel={presenceChannelRef.current}
-              cursorPositions={cursorPositions}
-              cursorChannel={cursorChannelRef.current}
-              selectionPositions={selectionPositions}
-              selectionChannel={selectionChannelRef.current}
-              contentChannel={contentChannelRef.current}
-              noteOpsChannel={noteOpsChannelRef.current}
-              noteOps={noteOps}
-            />
           </div>
         </section>
-
       </main>
 
-      {/* FLOATING ACTION BUTTON */}
-      <button 
-        onClick={() => setShowModal(true)}
+      {/* ======================================================
+          EXPANDED NOTE
+      ====================================================== */}
+
+      <NoteModal
+        note={
+          notes.find(
+            (
+              n:
+                any
+            ) =>
+              n.id ===
+              expandedNote
+          )
+        }
+        teamMembers={
+          teamMembers
+        }
+        projectsList={
+          projectsList
+        }
+        folders={
+          folders
+        }
+        attachmentsByNoteId={
+          attachmentsByNoteId
+        }
+        commentsByNoteId={
+          commentsByNoteId.current
+        }
+        reactions={
+          reactions
+        }
+        addComment={
+          addComment
+        }
+        addReaction={
+          addReaction
+        }
+        onUploadAttachments={
+          addAttachmentsToExistingNote
+        }
+        onSaveNoteEdits={
+          saveNoteEdits
+        }
+        setExpandedNote={
+          setExpandedNote
+        }
+        user={
+          user
+        }
+        typingChannel={
+          typingChannelRef.current
+        }
+        typingUsers={
+          typingUsers
+        }
+        notePresence={
+          notePresence
+        }
+        presenceChannel={
+          presenceChannelRef.current
+        }
+        cursorPositions={
+          cursorPositions
+        }
+        cursorChannel={
+          cursorChannelRef.current
+        }
+        selectionPositions={
+          selectionPositions
+        }
+        selectionChannel={
+          selectionChannelRef.current
+        }
+        contentChannel={
+          contentChannelRef.current
+        }
+        noteOpsChannel={
+          noteOpsChannelRef.current
+        }
+        noteOps={
+          noteOps
+        }
+      />
+
+      {/* ======================================================
+          FAB
+      ====================================================== */}
+
+      <button
+        onClick={() => {
+          setShowModal(
+            true
+          );
+
+          if (
+            selectedFolderId !==
+            "ALL"
+          ) {
+            setFolderId(
+              selectedFolderId
+            );
+          }
+        }}
         className="fixed bottom-6 right-6 lg:bottom-12 lg:right-12 h-16 w-16 lg:h-20 lg:w-20 bg-gradient-to-br from-stone-900 to-stone-800 text-white rounded-full flex items-center justify-center shadow-xl hover:shadow-2xl hover:scale-110 active:scale-95 transition-all duration-200 z-[100] border border-white/10 backdrop-blur-md"
       >
-        <Plus size={24} />
+        <Plus
+          size={
+            24
+          }
+        />
       </button>
 
-      {/* NEW NOTE DIALOG POPUP */}
+      {/* ======================================================
+          CREATE NOTE MODAL
+      ====================================================== */}
+
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 lg:p-6 overflow-y-auto">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => { if(!isListening) setShowModal(false); }}
+            <motion.div
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              exit={{
+                opacity:
+                  0,
+              }}
+              onClick={() => {
+                if (
+                  !isListening
+                ) {
+                  setShowModal(
+                    false
+                  );
+                }
+              }}
               className="absolute inset-0 bg-stone-900/40 backdrop-blur-md"
             />
-            <motion.div 
-              initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }}
-              className="bg-white w-full max-w-xl rounded-[1.5rem] lg:rounded-[2.5rem] p-4 lg:p-8 shadow-2xl relative z-10 space-y-5 max-h-[90vh] overflow-y-auto"
+
+            <motion.div
+              initial={{
+                y:
+                  30,
+                opacity:
+                  0,
+              }}
+              animate={{
+                y:
+                  0,
+                opacity:
+                  1,
+              }}
+              exit={{
+                y:
+                  30,
+                opacity:
+                  0,
+              }}
+              className="bg-white w-full max-w-2xl rounded-[1.5rem] lg:rounded-[2.5rem] p-4 lg:p-8 shadow-2xl relative z-10 space-y-5 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center">
-                <h3 className="text-3xl font-serif italic lowercase text-[#4f4a46]">New Note</h3>
-                <button onClick={() => setShowModal(false)} className="text-stone-300 hover:text-stone-900"><X size={20}/></button>
-              </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.35em] text-[#A9B897]">
+                    TOTS-OS
+                  </p>
 
-              {/* RECORD & DICTATION CAPTURE BOX */}
-              <div className="relative bg-stone-50 rounded-xl p-4">
-                <input
-  value={title}
-  onChange={(e) => setTitle(e.target.value)}
-  placeholder="Optional title..."
-  className="w-full mb-3 bg-transparent text-sm font-black uppercase tracking-widest text-stone-500 outline-none placeholder:text-stone-300"
-/>
-                <textarea 
-                  autoFocus
-                  className="w-full min-h-[110px] bg-transparent text-xl font-serif italic outline-none resize-none placeholder:text-stone-200 text-stone-800 pr-10"
-                  placeholder="Type notes or tap mic to dictate architecture..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                />
-                <button 
-                  type="button"
-                  onClick={toggleListening}
-                  className={`absolute bottom-3 right-3 p-2.5 rounded-full shadow-sm transition-all ${
-                    isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-stone-500 hover:text-stone-900'
-                  }`}
+                  <h3 className="text-3xl font-serif italic text-[#4f4a46] mt-1">
+                    New Note
+                  </h3>
+                </div>
+
+                <button
+                  onClick={() =>
+                    setShowModal(
+                      false
+                    )
+                  }
+                  className="text-stone-300 hover:text-stone-900"
                 >
-                  {isListening ? <MicOff size={15} /> : <Mic size={15} />}
+                  <X
+                    size={
+                      20
+                    }
+                  />
                 </button>
               </div>
 
-              {/* DYNAMIC DROPDOWN MATRIX OVERLAY */}
+              {/* NOTE TYPE */}
+
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400 mb-3">
+                  What are you
+                  creating?
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {NOTE_TEMPLATES.map(
+                    (
+                      template
+                    ) => {
+                      const Icon =
+                        template.icon;
+
+                      const active =
+                        noteTemplate ===
+                        template.key;
+
+                      return (
+                        <button
+                          key={
+                            template.key
+                          }
+                          type="button"
+                          onClick={() =>
+                            chooseTemplate(
+                              template
+                            )
+                          }
+                          className={`text-left rounded-xl border p-3 transition-all ${
+                            active
+                              ? "border-[#A9B897] bg-[#F2F5EE] ring-1 ring-[#A9B897]"
+                              : "border-stone-100 bg-stone-50 hover:border-stone-200"
+                          }`}
+                        >
+                          <div
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              active
+                                ? "bg-[#A9B897] text-white"
+                                : "bg-white text-stone-400"
+                            }`}
+                          >
+                            <Icon
+                              size={
+                                14
+                              }
+                            />
+                          </div>
+
+                          <strong className="block text-[10px] mt-3 text-stone-700">
+                            {
+                              template.title
+                            }
+                          </strong>
+
+                          <span className="block text-[8px] leading-relaxed text-stone-400 mt-1">
+                            {
+                              template.description
+                            }
+                          </span>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+
+                {noteTemplate ===
+                  "custom" && (
+                  <input
+                    value={
+                      customTemplateName
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setCustomTemplateName(
+                        event.target.value
+                      )
+                    }
+                    placeholder="What type of note is this?"
+                    className="mt-3 w-full rounded-xl bg-stone-50 border border-stone-100 px-4 py-3 text-sm outline-none focus:border-[#A9B897]"
+                  />
+                )}
+              </div>
+
+              {/* FOLDER */}
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">
+                    Save in folder
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowFolderModal(
+                        true
+                      )
+                    }
+                    className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-[#82946F]"
+                  >
+                    <FolderPlus
+                      size={
+                        11
+                      }
+                    />
+
+                    New folder
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <Folder
+                    size={
+                      14
+                    }
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                  />
+
+                  <select
+                    value={
+                      folderId
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setFolderId(
+                        event.target.value
+                      )
+                    }
+                    className="w-full appearance-none rounded-xl bg-stone-50 border border-stone-100 pl-10 pr-4 py-3 text-[10px] font-black uppercase tracking-wider text-stone-600 outline-none"
+                  >
+                    <option value="">
+                      No folder
+                    </option>
+
+                    {folders.map(
+                      (
+                        folder
+                      ) => (
+                        <option
+                          key={
+                            folder.id
+                          }
+                          value={
+                            folder.id
+                          }
+                        >
+                          {
+                            folder.name
+                          }
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* NOTE CONTENT */}
+
+              <div className="relative bg-stone-50 rounded-xl p-4">
+                <input
+                  value={
+                    title
+                  }
+                  onChange={(
+                    e
+                  ) =>
+                    setTitle(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Optional title..."
+                  className="w-full mb-3 bg-transparent text-sm font-black uppercase tracking-widest text-stone-500 outline-none placeholder:text-stone-300"
+                />
+
+                <textarea
+                  autoFocus
+                  className="w-full min-h-[140px] bg-transparent text-xl font-serif italic outline-none resize-none placeholder:text-stone-200 text-stone-800 pr-10"
+                  placeholder="Type your note..."
+                  value={
+                    content
+                  }
+                  onChange={(
+                    e
+                  ) =>
+                    setContent(
+                      e.target.value
+                    )
+                  }
+                />
+
+                <button
+                  type="button"
+                  onClick={
+                    toggleListening
+                  }
+                  className={`absolute bottom-3 right-3 p-2.5 rounded-full shadow-sm transition-all ${
+                    isListening
+                      ? "bg-red-500 text-white animate-pulse"
+                      : "bg-white text-stone-500 hover:text-stone-900"
+                  }`}
+                >
+                  {isListening ? (
+                    <MicOff
+                      size={
+                        15
+                      }
+                    />
+                  ) : (
+                    <Mic
+                      size={
+                        15
+                      }
+                    />
+                  )}
+                </button>
+              </div>
+
+              {/* METADATA */}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100">
-                  <Tag size={12} className="text-stone-400 mr-2" />
-                  <input 
+                  <Tag
+                    size={
+                      12
+                    }
+                    className="text-stone-400 mr-2"
+                  />
+
+                  <input
                     className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 placeholder:text-stone-300"
                     placeholder="CATEGORY TAG"
-                    value={tag}
-                    onChange={(e) => setTag(e.target.value)}
+                    value={
+                      tag
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setTag(
+                        e.target.value
+                      )
+                    }
                   />
                 </div>
 
                 <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100">
-                  <Tag size={12} className="text-stone-400 mr-2" />
-                  <label className="text-[9px] font-black uppercase tracking-wider text-stone-400 mr-2">Tag Color</label>
+                  <Tag
+                    size={
+                      12
+                    }
+                    className="text-stone-400 mr-2"
+                  />
+
+                  <label className="text-[9px] font-black uppercase tracking-wider text-stone-400 mr-2">
+                    Tag Color
+                  </label>
+
                   <input
                     type="color"
-                    value={tagColor}
-                    onChange={(e) => setTagColor(e.target.value)}
+                    value={
+                      tagColor
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setTagColor(
+                        e.target.value
+                      )
+                    }
                     className="h-7 w-10 rounded border border-stone-200 bg-transparent p-0"
                   />
                 </div>
 
-                {/* PROJECT SELECTION DROP DOWN */}
-                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100">
-                  <Briefcase size={12} className="text-stone-400 mr-2" />
-                  <select
-  className="bg-transparent..."
-  value={project}
-  onChange={(e) => setProject(e.target.value)}
->
-  <option value="">No project</option>
+                {/* PROJECT */}
 
-  {projectsList.map((projectItem) => (
-    <option key={projectItem.id} value={projectItem.name}>
-      {projectItem.name}
-    </option>
-  ))}
-</select>
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100 sm:col-span-2">
+                  <Briefcase
+                    size={
+                      12
+                    }
+                    className="text-stone-400 mr-2"
+                  />
+
+                  <select
+                    className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer"
+                    value={
+                      project
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setProject(
+                        e.target.value
+                      )
+                    }
+                  >
+                    <option value="">
+                      No project
+                    </option>
+
+                    {projectsList.map(
+                      (
+                        projectItem
+                      ) => (
+                        <option
+                          key={
+                            projectItem.id
+                          }
+                          value={
+                            projectItem.name
+                          }
+                        >
+                          {
+                            projectItem.name
+                          }
+                        </option>
+                      )
+                    )}
+                  </select>
                 </div>
 
-                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100 col-span-2">
-                  <User size={12} className="text-stone-400 mr-2" />
+                {/* TEAM */}
+
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100 sm:col-span-2">
+                  <User
+                    size={
+                      12
+                    }
+                    className="text-stone-400 mr-2"
+                  />
+
                   <select
                     multiple
                     className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer"
-                    value={assignedTo}
-                    onChange={(e) => {
-                      const values = Array.from(e.target.selectedOptions).map(o => o.value);
-                      setAssignedTo(values);
+                    value={
+                      assignedTo
+                    }
+                    onChange={(
+                      e
+                    ) => {
+                      const values =
+                        Array.from(
+                          e.target.selectedOptions
+                        ).map(
+                          (
+                            o
+                          ) =>
+                            o.value
+                        );
+
+                      setAssignedTo(
+                        values
+                      );
                     }}
                   >
-                    <option value="">Assign Team Member...</option>
-                    {teamMembers.map(member => (
-                      <option key={member.id} value={member.id}>{member.name}</option>
-                    ))}
+                    {teamMembers.map(
+                      (
+                        member
+                      ) => (
+                        <option
+                          key={
+                            member.id
+                          }
+                          value={
+                            member.id
+                          }
+                        >
+                          {
+                            member.name
+                          }
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
 
-                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100 col-span-2">
-                  <Tag size={12} className="text-stone-400 mr-2" />
+                {/* VISIBILITY */}
+
+                <div className="flex items-center bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-100 sm:col-span-2">
+                  <Tag
+                    size={
+                      12
+                    }
+                    className="text-stone-400 mr-2"
+                  />
+
                   <select
                     className="bg-transparent text-[9px] font-black uppercase outline-none w-full text-stone-700 cursor-pointer"
-                    value={visibility}
-                    onChange={(e) => setVisibility(e.target.value)}
+                    value={
+                      visibility
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setVisibility(
+                        e.target.value
+                      )
+                    }
                   >
-                    <option value="private">Private</option>
-                    <option value="org">Organisation</option>
-                    <option value="shared">Shared</option>
-                    <option value="assigned">Assigned</option>
+                    <option value="private">
+                      Private
+                    </option>
+
+                    <option value="org">
+                      Organisation
+                    </option>
+
+                    <option value="shared">
+                      Shared
+                    </option>
+
+                    <option value="assigned">
+                      Assigned
+                    </option>
                   </select>
                 </div>
 
-                <div className="col-span-2 rounded-lg border border-dashed border-stone-200 bg-stone-50 px-3 py-3">
+                {/* ATTACHMENTS */}
+
+                <div className="sm:col-span-2 rounded-lg border border-dashed border-stone-200 bg-stone-50 px-3 py-3">
                   <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-500">
-                    <Paperclip size={12} />
-                    <span>Attachments</span>
+                    <Paperclip
+                      size={
+                        12
+                      }
+                    />
+
+                    <span>
+                      Attachments
+                    </span>
                   </div>
+
                   <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-wider text-stone-600 hover:border-stone-300 hover:text-stone-900">
-                    <Upload size={12} />
-                    <span>Add Files</span>
+                    <Upload
+                      size={
+                        12
+                      }
+                    />
+
+                    <span>
+                      Add Files
+                    </span>
+
                     <input
                       type="file"
                       multiple
                       className="hidden"
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        if (!files.length) return;
-                        setPendingAttachments(prev => [...prev, ...files]);
-                        e.target.value = "";
+                      onChange={(
+                        e
+                      ) => {
+                        const files =
+                          Array.from(
+                            e.target.files ||
+                              []
+                          );
+
+                        if (
+                          !files.length
+                        ) {
+                          return;
+                        }
+
+                        setPendingAttachments(
+                          (
+                            prev
+                          ) => [
+                            ...prev,
+                            ...files,
+                          ]
+                        );
+
+                        e.target.value =
+                          "";
                       }}
                     />
                   </label>
+
                   <div className="mt-3 space-y-2">
-                    {pendingAttachments.length > 0 ? (
-                      pendingAttachments.map((file, index) => (
-                        <div key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-[10px] text-stone-600">
-                          <span className="truncate pr-3">{file.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => setPendingAttachments(prev => prev.filter((_, itemIndex) => itemIndex !== index))}
-                            className="text-stone-400 hover:text-red-600"
+                    {pendingAttachments.length >
+                    0 ? (
+                      pendingAttachments.map(
+                        (
+                          file,
+                          index
+                        ) => (
+                          <div
+                            key={`${file.name}-${file.size}-${index}`}
+                            className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-[10px] text-stone-600"
                           >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ))
+                            <span className="truncate pr-3">
+                              {
+                                file.name
+                              }
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingAttachments(
+                                  (
+                                    prev
+                                  ) =>
+                                    prev.filter(
+                                      (
+                                        _,
+                                        itemIndex
+                                      ) =>
+                                        itemIndex !==
+                                        index
+                                    )
+                                )
+                              }
+                              className="text-stone-400 hover:text-red-600"
+                            >
+                              <X
+                                size={
+                                  12
+                                }
+                              />
+                            </button>
+                          </div>
+                        )
+                      )
                     ) : (
-                      <p className="text-[10px] text-stone-400">No files selected</p>
+                      <p className="text-[10px] text-stone-400">
+                        No files
+                        selected
+                      </p>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* STICKY NOTE COLOR SELECTOR */}
-<div className="flex flex-wrap gap-2 pt-2 pb-1">
-  <button
-    type="button"
-    onClick={() => setSelectedColor(null)}
-    className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border transition-all ${
-      selectedColor === null
-        ? "bg-stone-900 text-white border-stone-900"
-        : "bg-stone-50 text-stone-500 border-stone-200"
-    }`}
-  >
-    Auto
-  </button>
+              {/* COLOURS */}
 
-  {STICKY_THEMES.map((theme) => (
-    <button
-      key={theme.bg}
-      type="button"
-      onClick={() => setSelectedColor(theme.bg)}
-      className={`w-6 h-6 rounded-full border transition-all ${
-        selectedColor === theme.bg
-          ? "border-stone-900 scale-110"
-          : "border-stone-200"
-      }`}
-      style={{ backgroundColor: theme.bg }}
-    />
-  ))}
-</div>
+              <div className="flex flex-wrap gap-2 pt-2 pb-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedColor(
+                      null
+                    )
+                  }
+                  className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border transition-all ${
+                    selectedColor ===
+                    null
+                      ? "bg-stone-900 text-white border-stone-900"
+                      : "bg-stone-50 text-stone-500 border-stone-200"
+                  }`}
+                >
+                  Auto
+                </button>
 
-              {/* TIMED REMINDER SCHEDULER */}
+                {STICKY_THEMES.map(
+                  (
+                    theme
+                  ) => (
+                    <button
+                      key={
+                        theme.bg
+                      }
+                      type="button"
+                      onClick={() =>
+                        setSelectedColor(
+                          theme.bg
+                        )
+                      }
+                      className={`w-6 h-6 rounded-full border transition-all ${
+                        selectedColor ===
+                        theme.bg
+                          ? "border-stone-900 scale-110"
+                          : "border-stone-200"
+                      }`}
+                      style={{
+                        backgroundColor:
+                          theme.bg,
+                      }}
+                    />
+                  )
+                )}
+              </div>
+
+              {/* REMINDER */}
+
               <div className="space-y-2.5 border-t border-stone-100 pt-4">
                 <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => setIsReminder(!isReminder)}
+                    onClick={() =>
+                      setIsReminder(
+                        !isReminder
+                      )
+                    }
                     className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all ${
-                      isReminder ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-stone-50 border-stone-100 text-stone-400'
+                      isReminder
+                        ? "bg-amber-50 border-amber-200 text-amber-700"
+                        : "bg-stone-50 border-stone-100 text-stone-400"
                     }`}
                   >
-                    {isReminder ? <Bell size={12} /> : <BellOff size={12} />} Set Reminder Alert
+                    {isReminder ? (
+                      <Bell
+                        size={
+                          12
+                        }
+                      />
+                    ) : (
+                      <BellOff
+                        size={
+                          12
+                        }
+                      />
+                    )}
+
+                    Set Reminder
+                    Alert
                   </button>
 
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => setIsUrgent(!isUrgent)}
+                    onClick={() =>
+                      setIsUrgent(
+                        !isUrgent
+                      )
+                    }
                     className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all ${
-                      isUrgent ? 'bg-red-50 border-red-100 text-red-600' : 'bg-stone-50 border-stone-100 text-stone-400'
+                      isUrgent
+                        ? "bg-red-50 border-red-100 text-red-600"
+                        : "bg-stone-50 border-stone-100 text-stone-400"
                     }`}
                   >
                     Urgent
@@ -2056,69 +7220,398 @@ const regularNotes = filteredNotes.filter(
                 </div>
 
                 {isReminder && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -4 }} 
-                    animate={{ opacity: 1, y: 0 }}
+                  <motion.div
+                    initial={{
+                      opacity:
+                        0,
+                      y:
+                        -4,
+                    }}
+                    animate={{
+                      opacity:
+                        1,
+                      y:
+                        0,
+                    }}
                     className="flex items-center bg-amber-50/50 rounded-lg px-3 py-2 border border-amber-100/50"
                   >
-                    <Calendar size={12} className="text-amber-600 mr-2" />
-                    <input 
+                    <Calendar
+                      size={
+                        12
+                      }
+                      className="text-amber-600 mr-2"
+                    />
+
+                    <input
                       type="datetime-local"
                       required
                       className="bg-transparent text-[10px] font-black uppercase outline-none w-full text-stone-700"
-                      value={reminderDateTime}
-                      onChange={(e) => setReminderDateTime(e.target.value)}
+                      value={
+                        reminderDateTime
+                      }
+                      onChange={(
+                        e
+                      ) =>
+                        setReminderDateTime(
+                          e.target.value
+                        )
+                      }
                     />
                   </motion.div>
                 )}
               </div>
 
+              {/* START / END */}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-3 border-t border-stone-200">
-  <div>
-    <label className="block text-xs font-semibold text-stone-600 mb-1 flex items-center gap-1.5">
-      <Calendar className="w-3.5 h-3.5 text-stone-400" /> Start Date / Time
-    </label>
-    <input
-      type="datetime-local"
-      value={startDate}
-      onChange={(e) => setStartDate(e.target.value)}
-      className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-stone-400"
-    />
-  </div>
+                <div>
+                  <label className="text-xs font-semibold text-stone-600 mb-1 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-stone-400" />
 
-  <div>
-    <label className="block text-xs font-semibold text-stone-600 mb-1 flex items-center gap-1.5">
-      <Clock className="w-3.5 h-3.5 text-stone-400" /> End Date / Time
-    </label>
-    <input
-      type="datetime-local"
-      value={endDate}
-      onChange={(e) => setEndDate(e.target.value)}
-      className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-stone-400"
-    />
-  </div>
-</div>
+                    Start Date /
+                    Time
+                  </label>
 
-              {/* PIPELINE DISPATCH OVERVIEW */}
+                  <input
+                    type="datetime-local"
+                    value={
+                      startDate
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setStartDate(
+                        e.target.value
+                      )
+                    }
+                    className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-stone-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-stone-600 mb-1 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-stone-400" />
+
+                    End Date /
+                    Time
+                  </label>
+
+                  <input
+                    type="datetime-local"
+                    value={
+                      endDate
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setEndDate(
+                        e.target.value
+                      )
+                    }
+                    className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-stone-400"
+                  />
+                </div>
+              </div>
+
+              {/* PLACEMENT */}
+
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
-                <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Initial Note Placement:</span>
-                <select 
-                  value={status} 
-                  onChange={e => setStatus(e.target.value)}
+                <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                  Initial Note
+                  Placement:
+                </span>
+
+                <select
+                  value={
+                    status
+                  }
+                  onChange={(
+                    e
+                  ) =>
+                    setStatus(
+                      e.target.value
+                    )
+                  }
                   className="bg-stone-50 text-[9px] font-black uppercase tracking-wider p-2 rounded-lg border border-stone-100 text-stone-700 outline-none cursor-pointer"
                 >
-                  <option value="todo">Task / To Do</option>
-<option value="active">Note</option>
-<option value="archived">Archived Note</option>
+                  <option value="todo">
+                    Task / To Do
+                  </option>
+
+                  <option value="active">
+                    Note
+                  </option>
+
+                  <option value="archived">
+                    Archived Note
+                  </option>
                 </select>
               </div>
 
-              <button 
-                onClick={handleCreate}
-                disabled={isSyncing}
+              {/* CREATE */}
+
+              <button
+                onClick={
+                  handleCreate
+                }
+                disabled={
+                  isSyncing
+                }
                 className="w-full bg-stone-900 text-white py-4 rounded-xl font-black uppercase text-[10px] tracking-[0.4em] shadow-xl hover:bg-stone-800 transition-all flex items-center justify-center gap-4"
               >
-                {isSyncing ? <Loader2 size={16} className="animate-spin" /> : "Pin to Desk"}
+                {isSyncing ? (
+                  <Loader2
+                    size={
+                      16
+                    }
+                    className="animate-spin"
+                  />
+                ) : (
+                  "Pin to Desk"
+                )}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ======================================================
+          CREATE FOLDER MODAL
+      ====================================================== */}
+
+      <AnimatePresence>
+        {showFolderModal && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+            <motion.div
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              exit={{
+                opacity:
+                  0,
+              }}
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-md"
+              onClick={() =>
+                setShowFolderModal(
+                  false
+                )
+              }
+            />
+
+            <motion.div
+              initial={{
+                opacity:
+                  0,
+
+                y:
+                  20,
+
+                scale:
+                  0.98,
+              }}
+              animate={{
+                opacity:
+                  1,
+
+                y:
+                  0,
+
+                scale:
+                  1,
+              }}
+              exit={{
+                opacity:
+                  0,
+
+                y:
+                  20,
+
+                scale:
+                  0.98,
+              }}
+              className="relative z-10 w-full max-w-md bg-white rounded-[2rem] p-7 shadow-2xl"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="w-11 h-11 rounded-xl bg-[#EEF2E9] text-[#82946F] flex items-center justify-center">
+                    <FolderPlus
+                      size={
+                        19
+                      }
+                    />
+                  </div>
+
+                  <h3 className="text-3xl font-serif italic text-[#4f4a46] mt-5">
+                    New Folder
+                  </h3>
+
+                  <p className="text-sm text-stone-400 mt-2">
+                    Create your
+                    own place for
+                    related notes.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowFolderModal(
+                      false
+                    )
+                  }
+                  className="text-stone-300 hover:text-stone-800"
+                >
+                  <X
+                    size={
+                      18
+                    }
+                  />
+                </button>
+              </div>
+
+              <div className="mt-7 space-y-4">
+                <div>
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-stone-400 mb-2">
+                    Folder name
+                  </label>
+
+                  <input
+                    autoFocus
+                    value={
+                      newFolderName
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setNewFolderName(
+                        event.target.value
+                      )
+                    }
+                    onKeyDown={(
+                      event
+                    ) => {
+                      if (
+                        event.key ===
+                        "Enter"
+                      ) {
+                        createFolder();
+                      }
+                    }}
+                    placeholder="e.g. Launch Planning"
+                    className="w-full rounded-xl bg-stone-50 border border-stone-100 px-4 py-3 text-sm outline-none focus:border-[#A9B897]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-stone-400 mb-2">
+                    Who can see
+                    it?
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewFolderVisibility(
+                          "org"
+                        )
+                      }
+                      className={`rounded-xl p-3 border text-left ${
+                        newFolderVisibility ===
+                        "org"
+                          ? "bg-[#EEF2E9] border-[#A9B897]"
+                          : "bg-stone-50 border-stone-100"
+                      }`}
+                    >
+                      <UsersRound
+                        size={
+                          15
+                        }
+                        className="text-[#82946F]"
+                      />
+
+                      <strong className="block text-[10px] mt-2 text-stone-700">
+                        Organisation
+                      </strong>
+
+                      <span className="block text-[8px] text-stone-400 mt-1">
+                        Your team
+                        can use it
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewFolderVisibility(
+                          "private"
+                        )
+                      }
+                      className={`rounded-xl p-3 border text-left ${
+                        newFolderVisibility ===
+                        "private"
+                          ? "bg-[#EEF2E9] border-[#A9B897]"
+                          : "bg-stone-50 border-stone-100"
+                      }`}
+                    >
+                      <User
+                        size={
+                          15
+                        }
+                        className="text-[#82946F]"
+                      />
+
+                      <strong className="block text-[10px] mt-2 text-stone-700">
+                        Private
+                      </strong>
+
+                      <span className="block text-[8px] text-stone-400 mt-1">
+                        Only
+                        visible to
+                        you
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  createFolder
+                }
+                disabled={
+                  isCreatingFolder
+                }
+                className="mt-7 w-full bg-[#4f4a46] text-white rounded-xl py-4 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-stone-800 disabled:opacity-50"
+              >
+                {isCreatingFolder ? (
+                  <>
+                    <Loader2
+                      size={
+                        14
+                      }
+                      className="animate-spin"
+                    />
+
+                    Creating
+                  </>
+                ) : (
+                  <>
+                    <FolderPlus
+                      size={
+                        14
+                      }
+                    />
+
+                    Create Folder
+                  </>
+                )}
               </button>
             </motion.div>
           </div>
@@ -2128,11 +7621,15 @@ const regularNotes = filteredNotes.filter(
   );
 }
 
+/* ============================================================
+   NOTE MODAL
+============================================================ */
+
 const NoteModal = ({
-  
   note,
   teamMembers,
   projectsList,
+  folders,
   attachmentsByNoteId,
   commentsByNoteId,
   reactions,
@@ -2154,242 +7651,855 @@ const NoteModal = ({
   noteOps,
   noteOpsChannel,
 }: any) => {
+  if (
+    !note
+  ) {
+    return null;
+  }
 
-  if (!note) return null;
+  const [
+    draftContent,
+    setDraftContent,
+  ] =
+    useState(
+      note?.content ||
+      ""
+    );
 
-  const [draftContent, setDraftContent] = useState(note?.content || "");
-  const [projectValue, setProjectValue] = useState(note?.project || "");
-  const [isSavingEdits, setIsSavingEdits] = useState(false);
-  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
-  const [subTaskInput, setSubTaskInput] = useState("");
-  const [blocks, setBlocks] = useState(
-    (note?.content || "").split("\n").map((text: string, idx: number) => ({
-      id: `${note?.id}-block-${idx}`,
-      text
-    }))
+  const [
+    projectValue,
+    setProjectValue,
+  ] =
+    useState(
+      note?.project ||
+      ""
+    );
+
+  const [
+    folderValue,
+    setFolderValue,
+  ] =
+    useState(
+      note?.folder_id ||
+      ""
+    );
+
+  const [
+    isSavingEdits,
+    setIsSavingEdits,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    isUploadingAttachments,
+    setIsUploadingAttachments,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    subTaskInput,
+    setSubTaskInput,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    blocks,
+    setBlocks,
+  ] =
+    useState(
+      (
+        note?.content ||
+        ""
+      )
+        .split(
+          "\n"
+        )
+        .map(
+          (
+            text:
+              string,
+
+            idx:
+              number
+          ) => ({
+            id:
+              `${note?.id}-block-${idx}`,
+
+            text,
+          })
+        )
+    );
+
+  useEffect(
+    () => {
+      const lines =
+        (
+          note.content ||
+          ""
+        ).split(
+          "\n"
+        );
+
+      setDraftContent(
+        note.content
+      );
+
+      setProjectValue(
+        note.project ||
+        ""
+      );
+
+      setFolderValue(
+        note.folder_id ||
+        ""
+      );
+
+      setBlocks(
+        lines.map(
+          (
+            text:
+              string,
+
+            idx:
+              number
+          ) => ({
+            id:
+              `${note.id}-block-${idx}`,
+
+            text,
+          })
+        )
+      );
+    },
+    [
+      note?.id,
+      note?.content,
+      note?.folder_id,
+      note?.project,
+    ]
   );
 
-  useEffect(() => {
-    const lines = (note.content || "").split("\n");
+  const parsedSubTasks =
+    useMemo(
+      () => {
+        return (
+          draftContent ||
+          ""
+        )
+          .split(
+            "\n"
+          )
+          .map(
+            (
+              line:
+                string
+            ) => {
+              const trimmed =
+                line.trim();
 
-    setDraftContent(note.content);
-    setProjectValue(note.project || "");
+              const done =
+                /^-\s\[[xX]\]\s+/.test(
+                  trimmed
+                );
 
-    setBlocks(
-      lines.map((text: string, idx: number) => ({
-        id: `${note.id}-block-${idx}`,
-        text
-      }))
+              const todo =
+                /^-\s\[\s\]\s+/.test(
+                  trimmed
+                );
+
+              if (
+                !done &&
+                !todo
+              ) {
+                return null;
+              }
+
+              return {
+                raw:
+                  line,
+
+                text:
+                  trimmed.replace(
+                    /^-\s\[[xX\s]\]\s+/,
+                    ""
+                  ),
+
+                done,
+              };
+            }
+          )
+          .filter(
+            Boolean
+          ) as Array<{
+          raw:
+            string;
+
+          text:
+            string;
+
+          done:
+            boolean;
+        }>;
+      },
+      [
+        draftContent,
+      ]
     );
-  }, [note?.id, note?.content]);
 
-  const parsedSubTasks = useMemo(() => {
-    return (draftContent || "")
-      .split("\n")
-      .map((line: string) => {
-        const trimmed = line.trim();
-        const done = /^-\s\[[xX]\]\s+/.test(trimmed);
-        const todo = /^-\s\[\s\]\s+/.test(trimmed);
-        if (!done && !todo) return null;
-        return {
-          raw: line,
-          text: trimmed.replace(/^-\s\[[xX\s]\]\s+/, ""),
-          done,
-        };
-      })
-      .filter(Boolean) as Array<{ raw: string; text: string; done: boolean }>;
-  }, [draftContent]);
+  const toggleSubTask =
+    (
+      targetRaw:
+        string
+    ) => {
+      const lines =
+        (
+          draftContent ||
+          ""
+        ).split(
+          "\n"
+        );
 
-  const toggleSubTask = (targetRaw: string) => {
-    const lines = (draftContent || "").split("\n");
-    const updated = lines.map((line: string) => {
-      if (line !== targetRaw) return line;
-      if (/^-\s\[[xX]\]\s+/.test(line.trim())) {
-        return line.replace(/^-\s\[[xX]\]\s+/, "- [ ] ");
+      const updated =
+        lines.map(
+          (
+            line:
+              string
+          ) => {
+            if (
+              line !==
+              targetRaw
+            ) {
+              return line;
+            }
+
+            if (
+              /^-\s\[[xX]\]\s+/.test(
+                line.trim()
+              )
+            ) {
+              return line.replace(
+                /^-\s\[[xX]\]\s+/,
+                "- [ ] "
+              );
+            }
+
+            return line.replace(
+              /^-\s\[\s\]\s+/,
+              "- [x] "
+            );
+          }
+        );
+
+      setDraftContent(
+        updated.join(
+          "\n"
+        )
+      );
+    };
+
+  const addSubTaskLine =
+    () => {
+      const value =
+        subTaskInput.trim();
+
+      if (
+        !value
+      ) {
+        return;
       }
-      return line.replace(/^-\s\[\s\]\s+/, "- [x] ");
-    });
-    setDraftContent(updated.join("\n"));
-  };
 
-  const addSubTaskLine = () => {
-    const value = subTaskInput.trim();
-    if (!value) return;
-    const next = `${draftContent?.trim() ? `${draftContent}\n` : ""}- [ ] ${value}`;
-    setDraftContent(next);
-    setSubTaskInput("");
-  };
+      const next =
+        `${draftContent?.trim() ? `${draftContent}\n` : ""}- [ ] ${value}`;
 
-  const presentIds = notePresence?.[note.id] || [];
-  const presentMembers = teamMembers?.filter((m: any) => presentIds.includes(m.id)) || [];
+      setDraftContent(
+        next
+      );
 
-  const noteComments = (commentsByNoteId?.[note.id] || []);
-  const noteAttachments = useMemo(() => {
-    return attachmentsByNoteId?.[note.id]?.filter((a: NoteAttachment) => a.file_path || a.file_url) || [];
-  }, [attachmentsByNoteId, note.id]);
+      setSubTaskInput(
+        ""
+      );
+    };
 
-  const opsFeed = (noteOps?.[note.id] || []).slice(-20).map((op: any, idx: number) => ({
-    id: `op-${idx}`,
-    content: `${op.type} (${op.blockId || op.index})`,
-    created_at: op.timestamp || Date.now()
-  }));
+  const presentIds =
+    notePresence?.[
+      note.id
+    ] ||
+    [];
 
-  const activityFeed = [
-    {
-      id: "created",
-      content: "Task created",
-      created_at: note.created_at || Date.now()
-    },
-    ...opsFeed,
-    ...noteComments.map((c: any) => ({
-      id: c.id,
-      content: c.content,
-      created_at: c.created_at || Date.now()
-    }))
-  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const presentMembers =
+    teamMembers?.filter(
+      (
+        m:
+          any
+      ) =>
+        presentIds.includes(
+          m.id
+        )
+    ) ||
+    [];
 
-  useEffect(() => {
-    if (!presenceChannel || !user?.id || !note?.id) return;
+  const noteComments =
+    commentsByNoteId?.[
+      note.id
+    ] ||
+    [];
 
-    const interval = setInterval(() => {
+  const noteAttachments =
+    useMemo(
+      () => {
+        return (
+          attachmentsByNoteId?.[
+            note.id
+          ]?.filter(
+            (
+              a:
+                NoteAttachment
+            ) =>
+              a.file_path ||
+              a.file_url
+          ) ||
+          []
+        );
+      },
+      [
+        attachmentsByNoteId,
+        note.id,
+      ]
+    );
+
+  const opsFeed =
+    (
+      noteOps?.[
+        note.id
+      ] ||
+      []
+    )
+      .slice(
+        -20
+      )
+      .map(
+        (
+          op:
+            any,
+
+          idx:
+            number
+        ) => ({
+          id:
+            `op-${idx}`,
+
+          content:
+            `${op.type} (${op.blockId || op.index})`,
+
+          created_at:
+            op.timestamp ||
+            Date.now(),
+        })
+      );
+
+  const activityFeed =
+    [
+      {
+        id:
+          "created",
+
+        content:
+          "Task created",
+
+        created_at:
+          note.created_at ||
+          Date.now(),
+      },
+
+      ...opsFeed,
+
+      ...noteComments.map(
+        (
+          c:
+            any
+        ) => ({
+          id:
+            c.id,
+
+          content:
+            c.content,
+
+          created_at:
+            c.created_at ||
+            Date.now(),
+        })
+      ),
+    ].sort(
+      (
+        a,
+        b
+      ) =>
+        new Date(
+          a.created_at
+        ).getTime() -
+        new Date(
+          b.created_at
+        ).getTime()
+    );
+
+  useEffect(
+    () => {
+      if (
+        !presenceChannel ||
+        !user?.id ||
+        !note?.id
+      ) {
+        return;
+      }
+
       presenceChannel.send({
-        type: "broadcast",
-        event: "note:view:heartbeat",
-        payload: {
-          noteId: note.id,
-          userId: user.id
-        }
-      });
-    }, 10000);
+        type:
+          "broadcast",
 
-    return () => clearInterval(interval);
-  }, [note?.id]);
+        event:
+          "note:view:enter",
+
+        payload: {
+          noteId:
+            note.id,
+
+          userId:
+            user.id,
+        },
+      });
+
+      const interval =
+        setInterval(
+          () => {
+            presenceChannel.send(
+              {
+                type:
+                  "broadcast",
+
+                event:
+                  "note:view:heartbeat",
+
+                payload: {
+                  noteId:
+                    note.id,
+
+                  userId:
+                    user.id,
+                },
+              }
+            );
+          },
+          10000
+        );
+
+      return () => {
+        clearInterval(
+          interval
+        );
+
+        presenceChannel.send({
+          type:
+            "broadcast",
+
+          event:
+            "note:view:leave",
+
+          payload: {
+            noteId:
+              note.id,
+
+            userId:
+              user.id,
+          },
+        });
+      };
+    },
+    [
+      note?.id,
+      presenceChannel,
+      user?.id,
+    ]
+  );
 
   return (
     <motion.div
-      className="fixed inset-0 z-[999] bg-black/40 backdrop-blur-md flex items-center justify-center p-6"
-      onClick={() => setExpandedNote(null)}
+      className="fixed inset-0 z-[999] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 lg:p-6"
+      onClick={() =>
+        setExpandedNote(
+          null
+        )
+      }
     >
       <motion.div
-        onClick={(e: any) => e.stopPropagation()}
+        onClick={(
+          e:
+            any
+        ) =>
+          e.stopPropagation()
+        }
         className="relative w-full max-w-2xl p-6 lg:p-10 rounded-2xl shadow-2xl bg-white overflow-y-auto max-h-[90vh]"
       >
         <div className="absolute inset-0 pointer-events-none">
-          {(cursorPositions?.[note.id] || {}) &&
-            Object.entries(cursorPositions[note.id] || {}).map(([userId, pos]: any) => (
+          {Object.entries(
+            cursorPositions?.[
+              note.id
+            ] ||
+              {}
+          ).map(
+            ([
+              userId,
+              pos,
+            ]: any) => (
               <div
-                key={userId}
+                key={
+                  userId
+                }
                 className="absolute w-2 h-2 rounded-full bg-blue-500 opacity-70"
                 style={{
-                  left: `${pos.x * 100}%`,
-                  top: `${pos.y * 100}%`
+                  left:
+                    `${pos.x * 100}%`,
+
+                  top:
+                    `${pos.y * 100}%`,
                 }}
               />
-            ))}
+            )
+          )}
         </div>
-        <div className="flex justify-between items-center mb-4">
-          <span className="text-[10px] font-black uppercase text-stone-400">
-            {note.category}
-          </span>
+
+        {/* HEADER */}
+
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <span className="text-[10px] font-black uppercase text-stone-400">
+              {
+                note.category
+              }
+            </span>
+
+            <p className="text-[9px] text-[#82946F] uppercase font-black tracking-widest mt-1">
+              {folders.find(
+                (
+                  f:
+                    NoteFolder
+                ) =>
+                  f.id ===
+                  folderValue
+              )?.name ||
+                "No Folder"}
+            </p>
+          </div>
+
           <button
-            onClick={() => setExpandedNote(null)}
+            onClick={() =>
+              setExpandedNote(
+                null
+              )
+            }
             className="text-stone-400 hover:text-stone-900"
           >
-            ✕
+            <X
+              size={
+                18
+              }
+            />
           </button>
         </div>
 
+        {/* EDITOR */}
+
         <div className="space-y-3">
-          {blocks.map((block: any, idx: number) => (
-            <textarea
-              key={block.id}
-              value={block.text}
-              onChange={(e) => {
-                const newBlocks = [...blocks];
-                newBlocks[idx] = {
-                  ...newBlocks[idx],
-                  text: e.target.value
-                };
+          {blocks.map(
+            (
+              block:
+                any,
 
-                setBlocks(newBlocks);
+              idx:
+                number
+            ) => (
+              <textarea
+                key={
+                  block.id
+                }
+                value={
+                  block.text
+                }
+                onChange={(
+                  e
+                ) => {
+                  const newBlocks =
+                    [
+                      ...blocks,
+                    ];
 
-                const joined = newBlocks.map(b => b.text).join("\n");
-                setDraftContent(joined);
+                  newBlocks[
+                    idx
+                  ] = {
+                    ...newBlocks[
+                      idx
+                    ],
 
-                // broadcast full content (backwards compatible)
-                contentChannel?.send({
-                  type: "broadcast",
-                  event: "note:content",
-                  payload: {
-                    noteId: note.id,
-                    content: joined
-                  }
-                });
+                    text:
+                      e.target.value,
+                  };
 
-                // Phase 7: block-ID based op system (upgrade from index-based)
-                noteOpsChannel?.send({
-                  type: "broadcast",
-                  event: "note:op",
-                  payload: {
-                    noteId: note.id,
-                    op: {
-                      type: "update_block_v2",
-                      blockId: block.id,
-                      index: idx,
-                      value: e.target.value,
-                      timestamp: Date.now(),
-                      userId: user?.id
+                  setBlocks(
+                    newBlocks
+                  );
+
+                  const joined =
+                    newBlocks
+                      .map(
+                        (
+                          b
+                        ) =>
+                          b.text
+                      )
+                      .join(
+                        "\n"
+                      );
+
+                  setDraftContent(
+                    joined
+                  );
+
+                  contentChannel?.send(
+                    {
+                      type:
+                        "broadcast",
+
+                      event:
+                        "note:content",
+
+                      payload: {
+                        noteId:
+                          note.id,
+
+                        content:
+                          joined,
+                      },
                     }
-                  }
-                });
-              }}
-              className="w-full min-h-[80px] text-2xl lg:text-3xl font-serif italic whitespace-pre-wrap outline-none bg-transparent border-b border-stone-100"
-            />
-          ))}
+                  );
+
+                  noteOpsChannel?.send(
+                    {
+                      type:
+                        "broadcast",
+
+                      event:
+                        "note:op",
+
+                      payload: {
+                        noteId:
+                          note.id,
+
+                        op: {
+                          type:
+                            "update_block_v2",
+
+                          blockId:
+                            block.id,
+
+                          index:
+                            idx,
+
+                          value:
+                            e.target.value,
+
+                          timestamp:
+                            Date.now(),
+
+                          userId:
+                            user?.id,
+                        },
+                      },
+                    }
+                  );
+                }}
+                className="w-full min-h-[80px] text-2xl lg:text-3xl font-serif italic whitespace-pre-wrap outline-none bg-transparent border-b border-stone-100"
+              />
+            )
+          )}
         </div>
 
-        <div className="mt-6 space-y-2 text-[10px] uppercase font-black text-stone-500">
+        {/* CONTEXT */}
+
+        <div className="mt-6 space-y-3 text-[10px] uppercase font-black text-stone-500">
           <div className="flex items-center gap-2">
-            <span>Project:</span>
+            <span>
+              Folder:
+            </span>
+
             <select
-              value={projectValue}
-              onChange={(e) => setProjectValue(e.target.value)}
+              value={
+                folderValue
+              }
+              onChange={(
+                e
+              ) =>
+                setFolderValue(
+                  e.target.value
+                )
+              }
               className="bg-stone-50 border border-stone-200 rounded-md px-2 py-1 text-[10px] font-black uppercase text-stone-600"
             >
-              <option value="">No project</option>
-              {(projectsList || []).map((projectItem: any) => (
-                <option key={projectItem.id} value={projectItem.name}>
-                  {projectItem.name}
-                </option>
-              ))}
+              <option value="">
+                No folder
+              </option>
+
+              {(folders ||
+                []).map(
+                (
+                  folder:
+                    NoteFolder
+                ) => (
+                  <option
+                    key={
+                      folder.id
+                    }
+                    value={
+                      folder.id
+                    }
+                  >
+                    {
+                      folder.name
+                    }
+                  </option>
+                )
+              )}
             </select>
           </div>
-          {projectValue && <p>Current: {projectValue}</p>}
-          {note.due_date && <p>Due: {format(new Date(note.due_date), "MMM d, p")}</p>}
+
+          <div className="flex items-center gap-2">
+            <span>
+              Project:
+            </span>
+
+            <select
+              value={
+                projectValue
+              }
+              onChange={(
+                e
+              ) =>
+                setProjectValue(
+                  e.target.value
+                )
+              }
+              className="bg-stone-50 border border-stone-200 rounded-md px-2 py-1 text-[10px] font-black uppercase text-stone-600"
+            >
+              <option value="">
+                No project
+              </option>
+
+              {(projectsList ||
+                []).map(
+                (
+                  projectItem:
+                    any
+                ) => (
+                  <option
+                    key={
+                      projectItem.id
+                    }
+                    value={
+                      projectItem.name
+                    }
+                  >
+                    {
+                      projectItem.name
+                    }
+                  </option>
+                )
+              )}
+            </select>
+          </div>
+
+          {note.due_date && (
+            <p>
+              Due:{" "}
+              {format(
+                new Date(
+                  note.due_date
+                ),
+                "MMM d, p"
+              )}
+            </p>
+          )}
         </div>
 
-        <div className="mt-4 border-t pt-4 space-y-3">
+        {/* ATTACHMENTS */}
+
+        <div className="mt-5 border-t pt-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-black uppercase text-stone-400">Attachments</p>
+            <p className="text-[10px] font-black uppercase text-stone-400">
+              Attachments
+            </p>
+
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-stone-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-stone-600 hover:border-stone-300 hover:text-stone-900">
-              <Upload size={12} />
-              <span>{isUploadingAttachments ? "Uploading..." : "Add Files"}</span>
+              <Upload
+                size={
+                  12
+                }
+              />
+
+              <span>
+                {isUploadingAttachments
+                  ? "Uploading..."
+                  : "Add Files"}
+              </span>
+
               <input
                 type="file"
                 multiple
                 className="hidden"
-                disabled={isUploadingAttachments}
-                onChange={async (e) => {
-                  const files = Array.from(e.target.files || []);
-                  if (!files.length) return;
+                disabled={
+                  isUploadingAttachments
+                }
+                onChange={async (
+                  e
+                ) => {
+                  const files =
+                    Array.from(
+                      e.target.files ||
+                        []
+                    );
 
-                  setIsUploadingAttachments(true);
-                  const ok = await onUploadAttachments(note.id, files);
-                  setIsUploadingAttachments(false);
-                  e.target.value = "";
+                  if (
+                    !files.length
+                  ) {
+                    return;
+                  }
 
-                  if (ok) {
-                    toast.success("Attachments uploaded");
+                  setIsUploadingAttachments(
+                    true
+                  );
+
+                  const ok =
+                    await onUploadAttachments(
+                      note.id,
+                      files
+                    );
+
+                  setIsUploadingAttachments(
+                    false
+                  );
+
+                  e.target.value =
+                    "";
+
+                  if (
+                    ok
+                  ) {
+                    toast.success(
+                      "Attachments uploaded"
+                    );
                   }
                 }}
               />
@@ -2397,70 +8507,160 @@ const NoteModal = ({
           </div>
 
           <div className="space-y-2 max-h-40 overflow-y-auto">
-            {noteAttachments.length > 0 ? (
-              noteAttachments.map((attachment: NoteAttachment) => (
-                <div key={attachment.id} className="rounded-lg bg-stone-50 p-3 space-y-2">
-                  {isImageAttachment(attachment) ? (
-                    <a href={getNoteAttachmentUrl(attachment)} target="_blank" rel="noreferrer">
-                      <img
-                        src={getNoteAttachmentUrl(attachment)}
-                        alt={attachment.file_name || "Attachment preview"}
-                        className="h-40 w-full rounded-md object-cover border border-stone-200"
-                      />
-                    </a>
-                  ) : (
-                    <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-[11px] text-stone-700 border border-stone-200">
-                      <span className="truncate pr-3">{attachment.file_name || "Attachment"}</span>
+            {noteAttachments.length >
+            0 ? (
+              noteAttachments.map(
+                (
+                  attachment:
+                    NoteAttachment
+                ) => (
+                  <div
+                    key={
+                      attachment.id
+                    }
+                    className="rounded-lg bg-stone-50 p-3 space-y-2"
+                  >
+                    {isImageAttachment(
+                      attachment
+                    ) ? (
                       <a
-                        href={getNoteAttachmentUrl(attachment)}
+                        href={
+                          getNoteAttachmentUrl(
+                            attachment
+                          )
+                        }
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[9px] font-black uppercase text-stone-400 hover:text-stone-700"
                       >
-                        Open
+                        <img
+                          src={
+                            getNoteAttachmentUrl(
+                              attachment
+                            )
+                          }
+                          alt={
+                            attachment.file_name ||
+                            "Attachment preview"
+                          }
+                          className="h-40 w-full rounded-md object-cover border border-stone-200"
+                        />
                       </a>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-[11px] text-stone-700 border border-stone-200">
+                        <span className="truncate pr-3">
+                          {
+                            attachment.file_name ||
+                            "Attachment"
+                          }
+                        </span>
 
-                  <div className="flex items-center justify-between gap-3 text-[10px] text-stone-500">
-                    <span className="truncate">{attachment.file_name || "Attachment"}</span>
-                    <span className="font-black uppercase text-stone-400">
-                      {attachment.file_size ? `${Math.max(1, Math.round(attachment.file_size / 1024))} KB` : "File"}
-                    </span>
+                        <a
+                          href={
+                            getNoteAttachmentUrl(
+                              attachment
+                            )
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[9px] font-black uppercase text-stone-400 hover:text-stone-700"
+                        >
+                          Open
+                        </a>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-3 text-[10px] text-stone-500">
+                      <span className="truncate">
+                        {
+                          attachment.file_name ||
+                          "Attachment"
+                        }
+                      </span>
+
+                      <span className="font-black uppercase text-stone-400">
+                        {attachment.file_size
+                          ? `${Math.max(
+                              1,
+                              Math.round(
+                                attachment.file_size /
+                                  1024
+                              )
+                            )} KB`
+                          : "File"}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))
+                )
+              )
             ) : (
-              <p className="text-[10px] text-stone-400">No attachments yet</p>
+              <p className="text-[10px] text-stone-400">
+                No attachments
+                yet
+              </p>
             )}
           </div>
         </div>
 
+        {/* SUB TASKS */}
+
         <div className="mt-4 border-t pt-4 space-y-2">
-          <p className="text-[10px] font-black uppercase text-stone-400">Sub Tasks</p>
+          <p className="text-[10px] font-black uppercase text-stone-400">
+            Sub Tasks
+          </p>
+
           <div className="space-y-1 max-h-40 overflow-y-auto">
-            {parsedSubTasks.map((sub: { raw: string; text: string; done: boolean }, idx: number) => (
-              <button
-                key={`${sub.raw}-${idx}`}
-                onClick={() => toggleSubTask(sub.raw)}
-                className="w-full text-left text-[11px] px-2 py-1 rounded bg-stone-50 hover:bg-stone-100 text-stone-700"
-              >
-                {sub.done ? "[x]" : "[ ]"} {sub.text}
-              </button>
-            ))}
-            {parsedSubTasks.length === 0 && (
-              <p className="text-[10px] text-stone-400">No subtasks yet</p>
+            {parsedSubTasks.map(
+              (
+                sub,
+                idx
+              ) => (
+                <button
+                  key={`${sub.raw}-${idx}`}
+                  onClick={() =>
+                    toggleSubTask(
+                      sub.raw
+                    )
+                  }
+                  className="w-full text-left text-[11px] px-2 py-1 rounded bg-stone-50 hover:bg-stone-100 text-stone-700"
+                >
+                  {sub.done
+                    ? "[x]"
+                    : "[ ]"}{" "}
+                  {
+                    sub.text
+                  }
+                </button>
+              )
+            )}
+
+            {parsedSubTasks.length ===
+              0 && (
+              <p className="text-[10px] text-stone-400">
+                No subtasks yet
+              </p>
             )}
           </div>
+
           <div className="flex gap-2">
             <input
-              value={subTaskInput}
-              onChange={(e) => setSubTaskInput(e.target.value)}
+              value={
+                subTaskInput
+              }
+              onChange={(
+                e
+              ) =>
+                setSubTaskInput(
+                  e.target.value
+                )
+              }
               placeholder="Add sub task..."
               className="flex-1 bg-stone-100 rounded-lg px-3 py-2 text-sm outline-none"
             />
+
             <button
-              onClick={addSubTaskLine}
+              onClick={
+                addSubTaskLine
+              }
               className="px-3 py-2 bg-stone-900 text-white text-xs rounded-full font-black uppercase tracking-wider"
             >
               Add
@@ -2468,99 +8668,215 @@ const NoteModal = ({
           </div>
         </div>
 
-        <div className="mt-4">
+        {/* SAVE */}
+
+        <div className="mt-5">
           <button
             onClick={async () => {
-              setIsSavingEdits(true);
-              const ok = await onSaveNoteEdits(note.id, {
-                content: draftContent,
-                project: projectValue || null,
-              });
-              setIsSavingEdits(false);
-              if (ok) {
-                toast.success("Note updated");
+              setIsSavingEdits(
+                true
+              );
+
+              const ok =
+                await onSaveNoteEdits(
+                  note.id,
+                  {
+                    content:
+                      draftContent,
+
+                    project:
+                      projectValue ||
+                      null,
+
+                    folder_id:
+                      folderValue ||
+                      null,
+                  }
+                );
+
+              setIsSavingEdits(
+                false
+              );
+
+              if (
+                ok
+              ) {
+                toast.success(
+                  "Note updated"
+                );
               }
             }}
             className="w-full bg-stone-900 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all"
           >
-            {isSavingEdits ? "Saving..." : "Save Note Changes"}
+            {isSavingEdits
+              ? "Saving..."
+              : "Save Note Changes"}
           </button>
         </div>
 
+        {/* ACTIVITY */}
+
         <div className="mt-6 border-t pt-4 space-y-2">
-          <p className="text-[10px] font-black uppercase text-stone-400">Activity</p>
+          <p className="text-[10px] font-black uppercase text-stone-400">
+            Activity
+          </p>
+
           <div className="space-y-2 max-h-40 overflow-y-auto">
-            {activityFeed.map((a: any) => (
-              <div key={a.id} className="text-[11px] text-stone-600 flex justify-between">
-                <span>{a.content}</span>
-                <span className="text-[9px] text-stone-400">
-                  {new Date(a.created_at).toLocaleString()}
-                </span>
-              </div>
-            ))}
+            {activityFeed.map(
+              (
+                a:
+                  any
+              ) => (
+                <div
+                  key={
+                    a.id
+                  }
+                  className="text-[11px] text-stone-600 flex justify-between gap-4"
+                >
+                  <span>
+                    {
+                      a.content
+                    }
+                  </span>
+
+                  <span className="text-[9px] text-stone-400 whitespace-nowrap">
+                    {new Date(
+                      a.created_at
+                    ).toLocaleString()}
+                  </span>
+                </div>
+              )
+            )}
           </div>
         </div>
 
+        {/* COMMENTS */}
+
         <div className="mt-6 border-t pt-4 space-y-3">
-          {notePresence?.[note.id]?.length > 0 && (
+          {notePresence?.[
+            note.id
+          ]?.length >
+            0 && (
             <div className="mb-3">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="flex -space-x-2">
-                  {presentMembers.slice(0, 5).map((m: any) => (
-                    <div
-                      key={m.id}
-                      className="w-6 h-6 rounded-full bg-stone-200 border border-white flex items-center justify-center text-[9px] font-black uppercase text-stone-600"
-                      title={m.name}
-                    >
-                      {m.name?.[0] || "U"}
-                    </div>
-                  ))}
-                </div>
+              <div className="flex -space-x-2 mb-1">
+                {presentMembers
+                  .slice(
+                    0,
+                    5
+                  )
+                  .map(
+                    (
+                      m:
+                        any
+                    ) => (
+                      <div
+                        key={
+                          m.id
+                        }
+                        className="w-6 h-6 rounded-full bg-stone-200 border border-white flex items-center justify-center text-[9px] font-black uppercase text-stone-600"
+                        title={
+                          m.name
+                        }
+                      >
+                        {m.name?.[
+                          0
+                        ] ||
+                          "U"}
+                      </div>
+                    )
+                  )}
               </div>
+
               <div className="text-[10px] font-black uppercase text-green-600">
-                {presentMembers.length} viewing now
+                {
+                  presentMembers.length
+                }{" "}
+                viewing now
               </div>
             </div>
           )}
 
-          <p className="text-[10px] font-black uppercase text-stone-400">Comments</p>
+          <p className="text-[10px] font-black uppercase text-stone-400">
+            Comments
+          </p>
 
           <div className="space-y-2 max-h-48 overflow-y-auto">
-            {noteComments.map((c: any) => {
-              const member = teamMembers.find((m: any) => m.id === c.user_id);
-              return (
-                <div key={c.id} className="text-sm bg-stone-50 p-2 rounded-lg">
-                  <p className="text-[10px] font-black uppercase text-stone-500">
-                    {member?.name || "You"}
-                  </p>
-                  <p className="text-stone-700">{c.content}</p>
-                  {c.content && c.content.includes("@") && (
-                    <p className="text-[10px] text-stone-400 mt-1">
-                      Mentions active
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 mt-2">
-                    <button
-                      onClick={() => addReaction(c.id, "like")}
-                      className="text-[10px] font-black uppercase text-stone-400 hover:text-green-600"
-                    >
-                      👍 {reactions[c.id]?.length || 0}
-                    </button>
-                  </div>
-                  
+            {noteComments.map(
+              (
+                c:
+                  any
+              ) => {
+                const member =
+                  teamMembers.find(
+                    (
+                      m:
+                        any
+                    ) =>
+                      m.id ===
+                      c.user_id
+                  );
 
-                 
-                </div>
-              );
-            })}
+                return (
+                  <div
+                    key={
+                      c.id
+                    }
+                    className="text-sm bg-stone-50 p-2 rounded-lg"
+                  >
+                    <p className="text-[10px] font-black uppercase text-stone-500">
+                      {
+                        member?.name ||
+                        "You"
+                      }
+                    </p>
+
+                    <p className="text-stone-700">
+                      {
+                        c.content
+                      }
+                    </p>
+
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        onClick={() =>
+                          addReaction(
+                            c.id,
+                            "like"
+                          )
+                        }
+                        className="text-[10px] font-black uppercase text-stone-400 hover:text-green-600"
+                      >
+                        👍{" "}
+                        {
+                          reactions[
+                            c.id
+                          ]?.length ||
+                          0
+                        }
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+            )}
           </div>
 
           <CommentBox
-            noteId={note.id}
-            addComment={addComment}
-            typingChannel={typingChannel}
-            user={user}
-            typingUsers={typingUsers}
+            noteId={
+              note.id
+            }
+            addComment={
+              addComment
+            }
+            typingChannel={
+              typingChannel
+            }
+            user={
+              user
+            }
+            typingUsers={
+              typingUsers
+            }
           />
         </div>
       </motion.div>
@@ -2568,82 +8884,169 @@ const NoteModal = ({
   );
 };
 
-export default function VaultPage() {
-  return (
-    <Suspense fallback={<div />}>
-      <VaultContent />
-    </Suspense>
-  );
-}
-// Standalone CommentBox component
-const CommentBox = ({ noteId, addComment, typingChannel, user, typingUsers }: any) => {
-  const [text, setText] = useState("");
-  const [replyTo, setReplyTo] = useState<string | null>(null);
+/* ============================================================
+   COMMENT BOX
+============================================================ */
+
+const CommentBox = ({
+  noteId,
+  addComment,
+  typingChannel,
+  user,
+  typingUsers,
+}: any) => {
+  const [
+    text,
+    setText,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    replyTo,
+    setReplyTo,
+  ] =
+    useState<
+      string | null
+    >(null);
 
   return (
     <div className="flex flex-col gap-1 mt-2">
-      {/* global typing state */}
-      {(typingUsers?.[noteId] || 0) > 0 && (
-        <p className="text-[10px] text-stone-400 mb-1">Someone is typing...</p>
+      {(typingUsers?.[
+        noteId
+      ] ||
+        0) >
+        0 && (
+        <p className="text-[10px] text-stone-400 mb-1">
+          Someone is
+          typing...
+        </p>
       )}
+
       <div className="flex gap-2">
         <input
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
+          value={
+            text
+          }
+          onChange={(
+            e
+          ) => {
+            setText(
+              e.target.value
+            );
 
-            typingChannel?.send({
-              type: "broadcast",
-              event: "typing:start",
-              payload: {
-                noteId,
-                userId: user?.id
+            typingChannel?.send(
+              {
+                type:
+                  "broadcast",
+
+                event:
+                  "typing:start",
+
+                payload: {
+                  noteId,
+
+                  userId:
+                    user?.id,
+                },
               }
-            });
+            );
 
-            // auto stop after inactivity window
-            setTimeout(() => {
-              typingChannel?.send({
-                type: "broadcast",
-                event: "typing:stop",
-                payload: {
-                  noteId,
-                  userId: user?.id
-                }
-              });
-            }, 1200);
+            setTimeout(
+              () => {
+                typingChannel?.send(
+                  {
+                    type:
+                      "broadcast",
 
-            if (typingChannel && user?.id) {
-              typingChannel.send({
-                type: "broadcast",
-                event: "note:cursor",
-                payload: {
-                  noteId,
-                  userId: user.id,
-                  x: 0,
-                  y: 0
+                    event:
+                      "typing:stop",
+
+                    payload: {
+                      noteId,
+
+                      userId:
+                        user?.id,
+                    },
+                  }
+                );
+              },
+              1200
+            );
+
+            if (
+              typingChannel &&
+              user?.id
+            ) {
+              typingChannel.send(
+                {
+                  type:
+                    "broadcast",
+
+                  event:
+                    "note:cursor",
+
+                  payload: {
+                    noteId,
+
+                    userId:
+                      user.id,
+
+                    x:
+                      0,
+
+                    y:
+                      0,
+                  },
                 }
-              });
+              );
             }
           }}
           onBlur={() => {
-            typingChannel?.send({
-              type: "broadcast",
-              event: "typing:stop",
-              payload: {
-                noteId,
-                userId: user?.id
+            typingChannel?.send(
+              {
+                type:
+                  "broadcast",
+
+                event:
+                  "typing:stop",
+
+                payload: {
+                  noteId,
+
+                  userId:
+                    user?.id,
+                },
               }
-            });
+            );
           }}
           placeholder="Write a comment..."
           className="flex-1 bg-stone-100 rounded-lg px-3 py-2 text-sm outline-none"
         />
+
         <button
           onClick={() => {
-            addComment(noteId, text, replyTo || undefined);
-            setReplyTo(null);
-            setText("");
+            if (
+              !text.trim()
+            ) {
+              return;
+            }
+
+            addComment(
+              noteId,
+              text,
+              replyTo ||
+                undefined
+            );
+
+            setReplyTo(
+              null
+            );
+
+            setText(
+              ""
+            );
           }}
           className="px-3 py-2 bg-stone-900 text-white text-xs rounded-full font-black uppercase tracking-wider hover:bg-stone-800 active:scale-95 transition-all shadow-sm"
         >
@@ -2653,3 +9056,19 @@ const CommentBox = ({ noteId, addComment, typingChannel, user, typingUsers }: an
     </div>
   );
 };
+
+/* ============================================================
+   PAGE EXPORT
+============================================================ */
+
+export default function VaultPage() {
+  return (
+    <Suspense
+      fallback={
+        <div />
+      }
+    >
+      <VaultContent />
+    </Suspense>
+  );
+}

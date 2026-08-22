@@ -712,8 +712,8 @@ function DemoHome() {
 
           <p>
             Here&apos;s everything
-            happening across your
-            business.
+            happening across
+            North &amp; Pine Studio.
           </p>
         </div>
 
@@ -740,32 +740,32 @@ function DemoHome() {
       <div className="home-metrics">
         <DemoMetric
           label="Health"
-          value="51%"
+          value="78%"
         />
 
         <DemoMetric
           label="Open tasks"
-          value="29"
+          value="14"
         />
 
         <DemoMetric
           label="Projects"
-          value="2"
+          value="3"
         />
 
         <DemoMetric
           label="Today"
-          value="0"
+          value="2"
         />
 
         <DemoMetric
           label="Invoices due"
-          value="0"
+          value="2"
         />
 
         <DemoMetric
           label="Revenue"
-          value="£0"
+          value="£12,480"
         />
       </div>
 
@@ -798,9 +798,9 @@ function DemoHome() {
 
           <div className="priority-list-real">
             {[
-              "Focus on the highest-impact open tasks",
-              "Check upcoming meetings and deadlines",
-              "Review active project delivery",
+              "Send proposal to Bennett Interiors",
+              "Check outstanding invoices",
+              "Review Website Refresh project delivery",
             ].map(
               (
                 item,
@@ -832,6 +832,7 @@ function DemoHome() {
             className="sage-pill-button"
           >
             View Clarity brief
+
             <ArrowRight
               size={12}
             />
@@ -857,28 +858,28 @@ function DemoHome() {
             {[
               [
                 "MON",
-                "09:00",
-                "Sam & Leigha work on Iona",
+                "10:00",
+                "Call with Amelia Hart",
               ],
               [
                 "MON",
-                "13:00",
-                "Leigha MTC",
+                "14:00",
+                "Design review with Maya Collins",
               ],
               [
                 "TUE",
-                "09:00",
-                "Leigha last day",
-              ],
-              [
-                "TUE",
-                "09:00",
-                "Sam Hospital",
+                "09:30",
+                "Reed Wellness kickoff",
               ],
               [
                 "WED",
-                "09:00",
-                "DP Leadership",
+                "11:00",
+                "James Property Group review",
+              ],
+              [
+                "THU",
+                "16:00",
+                "Strategy session",
               ],
             ].map(
               (
@@ -938,7 +939,7 @@ function DemoHome() {
             </span>
 
             <strong>
-              £0
+              £12,480
             </strong>
           </div>
 
@@ -949,8 +950,9 @@ function DemoHome() {
               <span>
                 Team
               </span>
+
               <strong>
-                1
+                3
               </strong>
             </div>
 
@@ -958,8 +960,9 @@ function DemoHome() {
               <span>
                 Emails
               </span>
+
               <strong>
-                0
+                8
               </strong>
             </div>
 
@@ -967,8 +970,9 @@ function DemoHome() {
               <span>
                 Projects
               </span>
+
               <strong>
-                2
+                3
               </strong>
             </div>
 
@@ -976,8 +980,9 @@ function DemoHome() {
               <span>
                 Events
               </span>
+
               <strong>
-                28
+                12
               </strong>
             </div>
           </div>
@@ -1011,11 +1016,11 @@ function DemoHome() {
 
         <div className="task-chip-grid">
           {[
-            "Upcoming events...",
-            "ensure in progress on notes...",
-            "set revenue targets for all...",
-            "Referal programme and cards",
-            "Inpost",
+            "Send James Property invoice",
+            "Draft newsletter campaign",
+            "Upload Reed Wellness moodboard",
+            "Schedule Maya Collins meeting",
+            "Review project tasks",
           ].map(
             (
               task,
@@ -1050,7 +1055,8 @@ function DemoHome() {
           type="button"
           className="sage-pill-button"
         >
-          View all 29 tasks
+          View all 14 tasks
+
           <ArrowRight
             size={12}
           />
@@ -1067,36 +1073,29 @@ function DemoHome() {
 function DemoContacts() {
   const contacts = [
     {
-      name: "Iona",
-      org: "MEGOOSH",
+      name: "Amelia Hart",
+      org: "HART & CO",
       type: "CLIENT",
     },
     {
-      name: "Sam Hill",
-      org:
-        "THEORGANISEDTYPES",
-      type:
-        "STRATEGIC PARTNER",
-    },
-    {
-      name:
-        "Leigha Day-Clark",
-      org:
-        "THEORGANISEDTYPES",
-      type:
-        "STRATEGIC PARTNER",
-    },
-    {
-      name: "Dave",
-      org:
-        "DP LEADERSHIP",
+      name: "Noah Bennett",
+      org: "BENNETT INTERIORS",
       type: "CLIENT",
     },
     {
-      name: "Mike",
-      org:
-        "MORAY TRAINING CLUB",
+      name: "Sophie Reed",
+      org: "REED WELLNESS",
       type: "CLIENT",
+    },
+    {
+      name: "Oliver James",
+      org: "JAMES PROPERTY GROUP",
+      type: "CLIENT",
+    },
+    {
+      name: "Maya Collins",
+      org: "COLLINS CREATIVE",
+      type: "PARTNER",
     },
   ];
 
@@ -1112,6 +1111,7 @@ function DemoContacts() {
             <Search
               size={14}
             />
+
             Search ...
           </div>
 
@@ -1203,6 +1203,7 @@ function DemoCampaigns() {
           <Plus
             size={14}
           />
+
           Create campaign
         </button>
       </div>
@@ -1216,6 +1217,7 @@ function DemoCampaigns() {
           <RefreshCw
             size={12}
           />
+
           Refresh
         </button>
       </div>
@@ -1238,7 +1240,7 @@ function DemoCampaigns() {
 
         <DemoMetric
           label="Subscribers"
-          value="2"
+          value="185"
         />
       </div>
 
@@ -1247,33 +1249,37 @@ function DemoCampaigns() {
           <span>
             Campaign
           </span>
+
           <span>
             Audience
           </span>
+
           <span>
             Status
           </span>
+
           <span>
             Results
           </span>
+
           <span />
         </div>
 
         <div className="campaign-table-row">
           <div>
             <strong>
-              TOTS OS Launch
+              Studio Launch
             </strong>
+
             <small>
-              Meet TOTS OS:
-              Your all-in-one
-              business toolkit
+              Introducing the new
+              North &amp; Pine Studio
+              collection
             </small>
           </div>
 
           <span>
-            testing for
-            leigha
+            Clients &amp; Partners
           </span>
 
           <b className="status-blue">
@@ -1293,15 +1299,18 @@ function DemoCampaigns() {
         <div className="campaign-table-row">
           <div>
             <strong>
-              test
+              August Updates
             </strong>
+
             <small>
-              test
+              Monthly news,
+              projects and
+              studio updates
             </small>
           </div>
 
           <span>
-            Sams tests
+            Newsletter
           </span>
 
           <b className="status-green">
@@ -1310,11 +1319,12 @@ function DemoCampaigns() {
 
           <span>
             <strong>
-              100%
+              48%
             </strong>{" "}
             open &nbsp;
+
             <strong>
-              0%
+              12%
             </strong>{" "}
             click
           </span>
@@ -1327,15 +1337,17 @@ function DemoCampaigns() {
         <div className="campaign-table-row">
           <div>
             <strong>
-              test
+              Autumn Offers
             </strong>
+
             <small>
-              test
+              Early autumn
+              campaign draft
             </small>
           </div>
 
           <span>
-            Sams tests
+            Prospects
           </span>
 
           <b className="status-grey">
@@ -1344,7 +1356,7 @@ function DemoCampaigns() {
 
           <span className="muted-result">
             28 Aug 2026
-            at 21:29
+            at 09:30
           </span>
 
           <ChevronRight
@@ -1369,6 +1381,7 @@ function DemoCampaigns() {
           <Plus
             size={12}
           />
+
           New list
         </button>
       </div>
@@ -1377,15 +1390,15 @@ function DemoCampaigns() {
         {[
           [
             "Newsletter",
-            "0 subscribers",
+            "108 subscribers",
           ],
           [
-            "Sams tests",
-            "1 subscribers",
+            "Clients & Partners",
+            "51 subscribers",
           ],
           [
-            "testing for leigha",
-            "1 subscribers",
+            "Prospects",
+            "26 subscribers",
           ],
         ].map(
           (
@@ -1394,7 +1407,9 @@ function DemoCampaigns() {
             <div
               className="audience-card"
               key={
-                item[0]
+                item[
+                  0
+                ]
               }
             >
               <span className="hash-icon">
@@ -1465,6 +1480,7 @@ function DemoSocial() {
             <Sparkles
               size={12}
             />
+
             Ideas
           </button>
 
@@ -1475,6 +1491,7 @@ function DemoSocial() {
 
         <div className="social-ready">
           <span />
+
           Ready
         </div>
       </div>
@@ -1507,6 +1524,7 @@ function DemoSocial() {
           <Sparkles
             size={13}
           />
+
           Give me ideas
         </button>
       </div>
@@ -1517,6 +1535,7 @@ function DemoSocial() {
             <ImageIcon
               size={12}
             />
+
             Photo or video
           </span>
 
@@ -1560,42 +1579,40 @@ function DemoSocial() {
           </h4>
 
           <p>
-            Social account
-            connections are
-            temporarily
-            unavailable.
+            Choose where your
+            content will be
+            published.
           </p>
 
           <div className="coming-soon-box">
             <strong>
-              Coming soon
+              Social Studio
             </strong>
 
             <span>
-              Social connection
-              links are being
-              finalised and will
-              return in an
-              upcoming release.
+              Keep your content
+              planning alongside
+              the rest of your
+              business.
             </span>
           </div>
 
           {[
             [
               "Instagram",
-              "Not connected",
+              "@northandpinestudio",
             ],
             [
               "TikTok",
-              "Video",
+              "@northandpine",
             ],
             [
               "Facebook",
-              "Not connected",
+              "North & Pine Studio",
             ],
             [
               "LinkedIn",
-              "Not connected",
+              "North & Pine Studio",
             ],
           ].map(
             (
@@ -1636,12 +1653,30 @@ function DemoSocial() {
     </div>
   );
 }
-
 /* ============================================================
    FINANCE
 ============================================================ */
 
 function DemoFinance() {
+  const financeMetrics = [
+    {
+      label: "Net position",
+      value: "£18,640",
+    },
+    {
+      label: "Outstanding",
+      value: "£4,250",
+    },
+    {
+      label: "VAT owed",
+      value: "£1,486",
+    },
+    {
+      label: "Tax exposure",
+      value: "£3,720",
+    },
+  ];
+
   return (
     <div className="app-page finance-page">
       <div className="finance-title-card">
@@ -1652,8 +1687,7 @@ function DemoFinance() {
             </span>
 
             <span className="green-label">
-              Financial
-              operations
+              Financial operations
             </span>
           </div>
 
@@ -1672,24 +1706,36 @@ function DemoFinance() {
         </div>
 
         <div className="finance-title-actions">
-          <button className="outline-mini-button">
+          <button
+            type="button"
+            className="outline-mini-button"
+          >
             <RefreshCw
               size={12}
             />
+
             Refresh
           </button>
 
-          <button className="sage-small-button dark-text">
+          <button
+            type="button"
+            className="sage-small-button dark-text"
+          >
             <Plus
               size={12}
             />
+
             New invoice
           </button>
 
-          <button className="outline-mini-button">
+          <button
+            type="button"
+            className="outline-mini-button"
+          >
             <Plus
               size={12}
             />
+
             New quote
           </button>
         </div>
@@ -1725,8 +1771,7 @@ function DemoFinance() {
         <div className="finance-control-head">
           <div>
             <span className="green-label">
-              Financial
-              control centre
+              Financial control centre
             </span>
 
             <h3>
@@ -1750,54 +1795,31 @@ function DemoFinance() {
             </span>
 
             <strong>
-              100/100
+              86/100
             </strong>
           </div>
         </div>
 
         <div className="finance-main-metrics">
-          {[
-            [
-              "Net position",
-              "£0.00",
-            ],
-            [
-              "Outstanding",
-              "£0.00",
-            ],
-            [
-              "VAT owed",
-              "£0.00",
-            ],
-            [
-              "Tax exposure",
-              "£0.00",
-            ],
-          ].map(
+          {financeMetrics.map(
             (
               metric
             ) => (
               <div
                 className="finance-white-metric"
                 key={
-                  metric[
-                    0
-                  ]
+                  metric.label
                 }
               >
                 <span>
                   {
-                    metric[
-                      0
-                    ]
+                    metric.label
                   }
                 </span>
 
                 <strong>
                   {
-                    metric[
-                      1
-                    ]
+                    metric.value
                   }
                 </strong>
               </div>
@@ -1813,7 +1835,7 @@ function DemoFinance() {
           </span>
 
           <strong>
-            £0.00
+            £27,840
           </strong>
         </div>
 
@@ -1823,7 +1845,7 @@ function DemoFinance() {
           </span>
 
           <strong>
-            £0.00
+            £9,200
           </strong>
         </div>
 
@@ -1833,7 +1855,7 @@ function DemoFinance() {
           </span>
 
           <strong>
-            £0.00
+            £3,450
           </strong>
         </div>
 
@@ -1843,8 +1865,185 @@ function DemoFinance() {
           </span>
 
           <strong>
-            £0.00
+            £4,880
           </strong>
+        </div>
+      </div>
+
+      <div className="finance-demo-extra">
+        <div className="finance-demo-panel">
+          <div className="finance-demo-panel-head">
+            <div>
+              <span className="green-label">
+                Receivables
+              </span>
+
+              <h3>
+                Latest invoices
+              </h3>
+            </div>
+
+            <span className="finance-panel-link">
+              View all
+            </span>
+          </div>
+
+          <div className="finance-invoice-list">
+            {[
+              {
+                client:
+                  "Hart & Co",
+                ref:
+                  "INV-1042",
+                value:
+                  "£2,400",
+                state:
+                  "Due",
+              },
+              {
+                client:
+                  "Reed Wellness",
+                ref:
+                  "INV-1041",
+                value:
+                  "£1,250",
+                state:
+                  "Paid",
+              },
+              {
+                client:
+                  "James Property Group",
+                ref:
+                  "INV-1039",
+                value:
+                  "£1,850",
+                state:
+                  "Due",
+              },
+            ].map(
+              (
+                invoice
+              ) => (
+                <div
+                  className="finance-invoice-row"
+                  key={
+                    invoice.ref
+                  }
+                >
+                  <div>
+                    <strong>
+                      {
+                        invoice.client
+                      }
+                    </strong>
+
+                    <small>
+                      {
+                        invoice.ref
+                      }
+                    </small>
+                  </div>
+
+                  <span>
+                    {
+                      invoice.value
+                    }
+                  </span>
+
+                  <b
+                    className={
+                      invoice.state ===
+                      "Paid"
+                        ? "invoice-paid"
+                        : "invoice-due"
+                    }
+                  >
+                    {
+                      invoice.state
+                    }
+                  </b>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+
+        <div className="finance-demo-panel">
+          <div className="finance-demo-panel-head">
+            <div>
+              <span className="green-label">
+                Spend
+              </span>
+
+              <h3>
+                Recent expenses
+              </h3>
+            </div>
+          </div>
+
+          <div className="finance-expense-list">
+            {[
+              [
+                "Adobe",
+                "Software",
+                "£54.99",
+              ],
+              [
+                "Studio Rent",
+                "Premises",
+                "£820.00",
+              ],
+              [
+                "Meta",
+                "Marketing",
+                "£186.40",
+              ],
+              [
+                "Google Workspace",
+                "Software",
+                "£19.20",
+              ],
+            ].map(
+              (
+                expense
+              ) => (
+                <div
+                  className="finance-expense-row"
+                  key={
+                    expense[
+                      0
+                    ]
+                  }
+                >
+                  <div>
+                    <strong>
+                      {
+                        expense[
+                          0
+                        ]
+                      }
+                    </strong>
+
+                    <small>
+                      {
+                        expense[
+                          1
+                        ]
+                      }
+                    </small>
+                  </div>
+
+                  <span>
+                    {
+                      expense[
+                        2
+                      ]
+                    }
+                  </span>
+                </div>
+              )
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1856,6 +2055,103 @@ function DemoFinance() {
 ============================================================ */
 
 function DemoNotes() {
+  const taskColumns = [
+    {
+      title:
+        "To do",
+      count:
+        3,
+      cards: [
+        {
+          title:
+            "Send Hart & Co proposal",
+          tag:
+            "Client",
+          meta:
+            "Due Monday",
+          tone:
+            "yellow",
+        },
+        {
+          title:
+            "Create September content plan",
+          tag:
+            "Marketing",
+          meta:
+            "Due 28 Aug",
+          tone:
+            "pink",
+        },
+        {
+          title:
+            "Review website feedback",
+          tag:
+            "Project",
+          meta:
+            "Due Friday",
+          tone:
+            "blue",
+        },
+      ],
+    },
+    {
+      title:
+        "In progress",
+      count:
+        2,
+      cards: [
+        {
+          title:
+            "Reed Wellness brand concepts",
+          tag:
+            "Design",
+          meta:
+            "Started today",
+          tone:
+            "green",
+        },
+        {
+          title:
+            "Update service pricing",
+          tag:
+            "Finance",
+          meta:
+            "60% complete",
+          tone:
+            "cream",
+        },
+      ],
+    },
+    {
+      title:
+        "Done",
+      count:
+        2,
+      cards: [
+        {
+          title:
+            "Send James Property invoice",
+          tag:
+            "Finance",
+          meta:
+            "Completed",
+          tone:
+            "grey",
+        },
+        {
+          title:
+            "Book client review call",
+          tag:
+            "Client",
+          meta:
+            "Completed",
+          tone:
+            "lavender",
+        },
+      ],
+    },
+  ];
+
   return (
     <div className="app-page notes-page">
       <div className="notes-header">
@@ -1882,6 +2178,7 @@ function DemoNotes() {
       <div className="notes-filters">
         <span>
           Tag: All
+
           <ChevronDown
             size={12}
           />
@@ -1889,6 +2186,7 @@ function DemoNotes() {
 
         <span>
           Color: All
+
           <ChevronDown
             size={12}
           />
@@ -1907,102 +2205,161 @@ function DemoNotes() {
         </div>
 
         <strong>
-          3 tasks
+          7 tasks
         </strong>
       </div>
 
-      <div className="kanban-real">
-        <div className="kanban-column-real">
-          <div className="kanban-column-head">
-            <span>
-              To do
-            </span>
+      <div className="notes-board">
+        {taskColumns.map(
+          (
+            column
+          ) => (
+            <div
+              className="notes-column"
+              key={
+                column.title
+              }
+            >
+              <div className="notes-column-head">
+                <div>
+                  <span className="notes-column-dot" />
 
-            <span>
-              3
-            </span>
-          </div>
+                  <strong>
+                    {
+                      column.title
+                    }
+                  </strong>
+                </div>
 
-          <div className="sticky-card">
-            <div className="sticky-tape" />
-
-            <span className="sticky-tag">
-              General
-            </span>
-
-            <h4>
-              Counselling vine
-              domain
-            </h4>
-
-            <div className="sticky-bottom">
-              <div>
-                <span>
-                  Progress
+                <span className="notes-column-count">
+                  {
+                    column.count
+                  }
                 </span>
-
-                <button>
-                  To do
-                </button>
               </div>
 
-              <button className="clear-button">
-                <Check
-                  size={12}
-                />
-                Clear
-              </button>
+              <div className="notes-column-stack">
+                {column.cards.map(
+                  (
+                    card,
+                    index
+                  ) => (
+                    <div
+                      className={`desk-note desk-note-${card.tone} ${
+                        index %
+                          2 ===
+                        0
+                          ? "tilt-left"
+                          : "tilt-right"
+                      }`}
+                      key={
+                        card.title
+                      }
+                    >
+                      <span className="desk-note-tape" />
+
+                      <div className="desk-note-top">
+                        <span className="desk-note-tag">
+                          {
+                            card.tag
+                          }
+                        </span>
+
+                        <button
+                          type="button"
+                          aria-label="Note options"
+                        >
+                          ···
+                        </button>
+                      </div>
+
+                      <h4>
+                        {
+                          card.title
+                        }
+                      </h4>
+
+                      <div className="desk-note-lines">
+                        <span />
+                        <span />
+                      </div>
+
+                      <div className="desk-note-footer">
+                        <small>
+                          {
+                            card.meta
+                          }
+                        </small>
+
+                        <span className="desk-note-check">
+                          <Check
+                            size={9}
+                          />
+                        </span>
+                      </div>
+                    </div>
+                  )
+                )}
+
+                {column.title !==
+                  "Done" && (
+                  <button
+                    type="button"
+                    className="notes-add-card"
+                  >
+                    <Plus
+                      size={12}
+                    />
+
+                    Add task
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )
+        )}
+      </div>
 
-          <div className="sticky-card second">
-            <div className="sticky-tape" />
+      <div className="notes-bottom-row">
+        <div className="notes-quick-card">
+          <NotebookPen
+            size={14}
+          />
 
-            <span className="sticky-tag">
-              General
+          <div>
+            <span>
+              Quick note
             </span>
 
-            <h4>
-              check meta
-              linking
-            </h4>
+            <strong>
+              Capture something
+              before you forget.
+            </strong>
           </div>
         </div>
 
-        <div className="kanban-column-real empty">
-          <div className="kanban-column-head">
+        <div className="notes-quick-card">
+          <Sparkles
+            size={14}
+          />
+
+          <div>
             <span>
-              In progress
+              Brain dump
             </span>
 
-            <span>
-              0
-            </span>
+            <strong>
+              Get the messy ideas
+              out of your head.
+            </strong>
           </div>
-
-          <small>
-            Empty
-          </small>
-        </div>
-
-        <div className="kanban-column-real empty">
-          <div className="kanban-column-head">
-            <span>
-              Done
-            </span>
-
-            <span>
-              0
-            </span>
-          </div>
-
-          <small>
-            Empty
-          </small>
         </div>
       </div>
 
-      <button className="floating-add-button">
+      <button
+        type="button"
+        className="floating-add-button"
+      >
         <Plus
           size={23}
         />
@@ -2016,6 +2373,45 @@ function DemoNotes() {
 ============================================================ */
 
 function DemoWorkspace() {
+  const projects = [
+    {
+      name:
+        "Hart & Co Website Refresh",
+      client:
+        "Hart & Co",
+      category:
+        "Website",
+      due:
+        "28 Aug",
+      budget:
+        "£4,800",
+    },
+    {
+      name:
+        "Reed Wellness Rebrand",
+      client:
+        "Reed Wellness",
+      category:
+        "Branding",
+      due:
+        "12 Sep",
+      budget:
+        "£6,500",
+    },
+    {
+      name:
+        "James Property Campaign",
+      client:
+        "James Property Group",
+      category:
+        "Marketing",
+      due:
+        "18 Sep",
+      budget:
+        "£3,200",
+    },
+  ];
+
   return (
     <div className="app-page workspace-page">
       <div className="workspace-heading">
@@ -2024,6 +2420,7 @@ function DemoWorkspace() {
             <BriefcaseBusiness
               size={12}
             />
+
             Commercial workspace
           </span>
 
@@ -2040,17 +2437,25 @@ function DemoWorkspace() {
         </div>
 
         <div className="workspace-heading-actions">
-          <button className="outline-large-button">
+          <button
+            type="button"
+            className="outline-large-button"
+          >
             <Users
               size={14}
             />
+
             Clients
           </button>
 
-          <button className="black-wide-button">
+          <button
+            type="button"
+            className="black-wide-button"
+          >
             <Plus
               size={14}
             />
+
             New project
           </button>
         </div>
@@ -2070,7 +2475,10 @@ function DemoWorkspace() {
 
           <p>
             You currently have
-            2 active projects.
+            3 active projects
+            across 3 clients,
+            with one deadline
+            coming up this week.
           </p>
         </div>
       </div>
@@ -2078,22 +2486,22 @@ function DemoWorkspace() {
       <div className="workspace-metric-grid">
         <DemoMetric
           label="Active projects"
-          value="2"
+          value="3"
         />
 
         <DemoMetric
           label="Active clients"
-          value="0"
+          value="3"
         />
 
         <DemoMetric
           label="Overdue"
-          value="0"
+          value="1"
         />
 
         <DemoMetric
           label="Project value"
-          value="£0"
+          value="£14.5k"
         />
       </div>
 
@@ -2119,6 +2527,7 @@ function DemoWorkspace() {
 
           <span className="choice-link">
             Open clients
+
             <ChevronRight
               size={12}
             />
@@ -2150,7 +2559,7 @@ function DemoWorkspace() {
           </p>
 
           <span className="choice-link">
-            2 active
+            3 active
           </span>
         </div>
       </div>
@@ -2166,8 +2575,8 @@ function DemoWorkspace() {
           </h3>
 
           <p>
-            0 client projects ·
-            3 internal
+            3 client projects ·
+            1 internal
           </p>
         </div>
 
@@ -2175,31 +2584,72 @@ function DemoWorkspace() {
           <Search
             size={13}
           />
+
           Search project or
           client...
         </div>
       </div>
 
-      <div className="project-row-real">
-        <div className="project-folder">
-          <Folder
-            size={18}
-          />
-        </div>
+      <div className="project-demo-list">
+        {projects.map(
+          (
+            project
+          ) => (
+            <div
+              className="project-row-real"
+              key={
+                project.name
+              }
+            >
+              <div className="project-folder">
+                <Folder
+                  size={18}
+                />
+              </div>
 
-        <div>
-          <strong>
-            Josh&apos;s website
-          </strong>
+              <div className="project-row-copy">
+                <div>
+                  <strong>
+                    {
+                      project.name
+                    }
+                  </strong>
 
-          <span>
-            Client work
-          </span>
-        </div>
+                  <span>
+                    {
+                      project.category
+                    }
+                  </span>
+                </div>
 
-        <ChevronRight
-          size={15}
-        />
+                <small>
+                  {
+                    project.client
+                  }
+                </small>
+              </div>
+
+              <div className="project-row-meta">
+                <small>
+                  Due{" "}
+                  {
+                    project.due
+                  }
+                </small>
+
+                <strong>
+                  {
+                    project.budget
+                  }
+                </strong>
+              </div>
+
+              <ChevronRight
+                size={15}
+              />
+            </div>
+          )
+        )}
       </div>
     </div>
   );
@@ -2233,17 +2683,25 @@ function DemoCalendar() {
         </div>
 
         <div className="calendar-heading-buttons">
-          <button className="outline-mini-button">
+          <button
+            type="button"
+            className="outline-mini-button"
+          >
             <RefreshCw
               size={12}
             />
+
             Refresh
           </button>
 
-          <button className="black-wide-button">
+          <button
+            type="button"
+            className="black-wide-button"
+          >
             <Plus
               size={14}
             />
+
             Add event
           </button>
         </div>
@@ -2254,6 +2712,7 @@ function DemoCalendar() {
           <Sparkles
             size={12}
           />
+
           Overview
         </span>
 
@@ -2261,6 +2720,7 @@ function DemoCalendar() {
           <CalendarDays
             size={12}
           />
+
           Calendar
         </span>
 
@@ -2268,6 +2728,7 @@ function DemoCalendar() {
           <Link2
             size={12}
           />
+
           Booking page
         </span>
 
@@ -2290,13 +2751,12 @@ function DemoCalendar() {
           </span>
 
           <p>
-            Your schedule is
-            clear today. 8
-            upcoming items are
-            currently visible in
-            your schedule. Your
-            public booking page
-            is active.
+            You have 2 events
+            today and 8 upcoming
+            items currently
+            visible. Your public
+            booking page is
+            active.
           </p>
         </div>
       </div>
@@ -2304,7 +2764,7 @@ function DemoCalendar() {
       <div className="calendar-stat-grid">
         <DemoMetric
           label="Today"
-          value="0"
+          value="2"
         />
 
         <DemoMetric
@@ -2314,7 +2774,7 @@ function DemoCalendar() {
 
         <DemoMetric
           label="Booking days"
-          value="4"
+          value="5"
         />
 
         <DemoMetric
@@ -2337,40 +2797,71 @@ function DemoCalendar() {
               </h3>
             </div>
 
-            <button className="sage-small-button">
+            <button
+              type="button"
+              className="sage-small-button"
+            >
               Open calendar
             </button>
           </div>
 
-          <div className="nothing-scheduled">
-            <Check
-              size={24}
-            />
+          <div className="demo-event-list">
+            <div className="demo-event-row event-sage">
+              <div className="demo-event-time">
+                10:00
+              </div>
 
-            <strong>
-              Nothing scheduled
-            </strong>
+              <div>
+                <strong>
+                  Client review
+                  with Amelia
+                </strong>
 
-            <span>
-              Your calendar is
-              clear today.
-            </span>
+                <small>
+                  Hart & Co
+                </small>
+              </div>
+            </div>
+
+            <div className="demo-event-row event-amber">
+              <div className="demo-event-time">
+                14:30
+              </div>
+
+              <div>
+                <strong>
+                  Project planning
+                </strong>
+
+                <small>
+                  Reed Wellness
+                  Rebrand
+                </small>
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="booking-card-real">
-          <span className="green-label">
-            Public booking
-          </span>
+          <div className="booking-demo-heading">
+            <div>
+              <span className="green-label">
+                Public booking
+              </span>
 
-          <h3>
-            Book a meeting
-          </h3>
+              <h3>
+                Discovery Call
+              </h3>
+            </div>
+
+            <span className="booking-live-dot" />
+          </div>
 
           <div className="booking-line">
             <span>
               Length
             </span>
+
             <strong>
               30 minutes
             </strong>
@@ -2380,8 +2871,9 @@ function DemoCalendar() {
             <span>
               Availability
             </span>
+
             <strong>
-              4 days per week
+              5 days per week
             </strong>
           </div>
 
@@ -2389,8 +2881,19 @@ function DemoCalendar() {
             <span>
               Notice
             </span>
+
             <strong>
               4 hours
+            </strong>
+          </div>
+
+          <div className="booking-line">
+            <span>
+              Status
+            </span>
+
+            <strong>
+              Accepting bookings
             </strong>
           </div>
         </div>
@@ -2423,15 +2926,24 @@ function DemoSettings() {
         </div>
 
         <div className="settings-top-actions">
-          <button className="outline-large-button">
+          <button
+            type="button"
+            className="outline-large-button"
+          >
             Sign out
           </button>
 
-          <button className="outline-large-button">
+          <button
+            type="button"
+            className="outline-large-button"
+          >
             Manage subscription
           </button>
 
-          <button className="black-wide-button">
+          <button
+            type="button"
+            className="black-wide-button"
+          >
             Save changes
           </button>
         </div>
@@ -2441,10 +2953,9 @@ function DemoSettings() {
 
       <div className="settings-profile-card">
         <div className="settings-company-logo">
-          <Logo
-            size={90}
-            showWordmark={false}
-          />
+          <div className="dummy-brand-mark">
+            NP
+          </div>
         </div>
 
         <div className="settings-form-area">
@@ -2454,7 +2965,9 @@ function DemoSettings() {
                 Full name
               </label>
 
-              <div className="settings-input" />
+              <div className="settings-input filled">
+                Alex Morgan
+              </div>
             </div>
 
             <div>
@@ -2463,7 +2976,7 @@ function DemoSettings() {
               </label>
 
               <div className="settings-input filled">
-                theorganisedtypes@gmail.com
+                alex@northandpine.co.uk
               </div>
             </div>
           </div>
@@ -2474,7 +2987,14 @@ function DemoSettings() {
               summary
             </label>
 
-            <div className="settings-textarea" />
+            <div className="settings-textarea filled-textarea">
+              North &amp; Pine Studio
+              is a small creative
+              studio specialising in
+              brand, web and content
+              projects for growing
+              businesses.
+            </div>
           </div>
 
           <div className="company-logo-row">
@@ -2483,16 +3003,18 @@ function DemoSettings() {
             </label>
 
             <div className="company-logo-controls">
-              <Logo
-                size={42}
-                showWordmark={false}
-              />
+              <div className="dummy-brand-mark small">
+                NP
+              </div>
 
-              <button>
+              <button
+                type="button"
+              >
                 <Upload
                   size={12}
                 />
-                Change Logo
+
+                Change logo
               </button>
 
               <span>
@@ -2556,14 +3078,14 @@ function DemoClarity() {
           </div>
 
           <p>
-            Your workload needs
-            attention. I&apos;d
-            start with the
-            highest-impact open
-            work, then check your
-            upcoming deadlines
-            and active project
-            delivery.
+            Your workload is
+            manageable, but there
+            are three areas worth
+            prioritising today:
+            client delivery,
+            outstanding invoices
+            and this week&apos;s
+            deadlines.
           </p>
 
           <div className="clarity-suggestion-list">
@@ -2574,15 +3096,13 @@ function DemoClarity() {
 
               <div>
                 <strong>
-                  Focus on
-                  high-impact
-                  open tasks
+                  Send the Hart
+                  & Co proposal
                 </strong>
 
                 <small>
-                  29 open tasks
-                  currently
-                  visible
+                  High-priority
+                  client task
                 </small>
               </div>
             </div>
@@ -2594,14 +3114,14 @@ function DemoClarity() {
 
               <div>
                 <strong>
-                  Check upcoming
-                  meetings
+                  Follow up
+                  outstanding
+                  invoices
                 </strong>
 
                 <small>
-                  Upcoming
-                  schedule
-                  detected
+                  £4,250 currently
+                  outstanding
                 </small>
               </div>
             </div>
@@ -2618,9 +3138,8 @@ function DemoClarity() {
                 </strong>
 
                 <small>
-                  2 projects
-                  currently
-                  active
+                  3 projects
+                  currently active
                 </small>
               </div>
             </div>
@@ -2628,8 +3147,8 @@ function DemoClarity() {
         </div>
 
         <div className="clarity-user">
-          Which area should I
-          look at next?
+          Which client needs me
+          most?
         </div>
 
         <div className="clarity-answer small-answer">
@@ -2642,11 +3161,11 @@ function DemoClarity() {
           </div>
 
           <p>
-            I&apos;d open
-            Workspace next so
-            you can review the
-            active projects and
-            delivery workload.
+            Hart &amp; Co is the
+            priority. Their website
+            project has the closest
+            deadline and the proposal
+            task is still open.
           </p>
         </div>
       </div>
@@ -2662,15 +3181,32 @@ const DEMO_VIEWS: Record<
   DemoKey,
   () => ReactNode
 > = {
-  home: DemoHome,
-  contacts: DemoContacts,
-  campaigns: DemoCampaigns,
-  social: DemoSocial,
-  finance: DemoFinance,
-  notes: DemoNotes,
-  workspace: DemoWorkspace,
-  calendar: DemoCalendar,
-  settings: DemoSettings,
+  home:
+    DemoHome,
+
+  contacts:
+    DemoContacts,
+
+  campaigns:
+    DemoCampaigns,
+
+  social:
+    DemoSocial,
+
+  finance:
+    DemoFinance,
+
+  notes:
+    DemoNotes,
+
+  workspace:
+    DemoWorkspace,
+
+  calendar:
+    DemoCalendar,
+
+  settings:
+    DemoSettings,
 };
 
 /* ============================================================
@@ -2691,7 +3227,9 @@ function ProductDemo({
     );
 
   const ActiveView =
-    DEMO_VIEWS[active];
+    DEMO_VIEWS[
+      active
+    ];
 
   return (
     <Reveal>
@@ -2702,7 +3240,9 @@ function ProductDemo({
         <div className="product-demo-frame">
           <div className="product-demo-app">
             <DemoSidebar
-              active={active}
+              active={
+                active
+              }
               onChange={
                 setActive
               }
@@ -2723,12 +3263,14 @@ function ProductDemo({
                   initial={{
                     opacity:
                       0,
+
                     y:
                       4,
                   }}
                   animate={{
                     opacity:
                       1,
+
                     y:
                       0,
                   }}
@@ -2855,7 +3397,7 @@ function ProductDemo({
 }
 
 /* ============================================================
-   TOUR
+   GUIDED TOUR
 ============================================================ */
 
 function GuidedTour({
@@ -2902,6 +3444,7 @@ function GuidedTour({
         window.scrollTo({
           top:
             0,
+
           behavior:
             "smooth",
         });
@@ -2956,8 +3499,7 @@ function GuidedTour({
   ) {
     TourScreen =
       DEMO_VIEWS[
-        current
-          .screen
+        current.screen
       ];
   }
 
@@ -2984,22 +3526,27 @@ function GuidedTour({
             initial={{
               opacity:
                 0,
+
               scale:
                 0.97,
+
               y:
                 20,
             }}
             animate={{
               opacity:
                 1,
+
               scale:
                 1,
+
               y:
                 0,
             }}
             exit={{
               opacity:
                 0,
+
               scale:
                 0.98,
             }}
@@ -3120,6 +3667,33 @@ function GuidedTour({
                   </p>
 
                   {current.screen ===
+                    "notes" && (
+                    <div className="tour-callout">
+                      <NotebookPen
+                        size={
+                          16
+                        }
+                      />
+
+                      <div>
+                        <strong>
+                          Notes that actually
+                          feel like notes.
+                        </strong>
+
+                        <span>
+                          Colour-coded sticky
+                          cards make the board
+                          visual, quick to scan
+                          and much closer to a
+                          real desk than a
+                          boring task table.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {current.screen ===
                     "clarity" && (
                     <div className="tour-callout">
                       <Sparkles
@@ -3130,28 +3704,17 @@ function GuidedTour({
 
                       <div>
                         <strong>
-                          This is
-                          where
-                          TOTS-OS
-                          becomes
-                          more than
-                          another
-                          collection
+                          This is where TOTS-OS
+                          becomes more than
+                          another collection
                           of tools.
                         </strong>
 
                         <span>
-                          Clarity
-                          can use
-                          the
-                          information
-                          already
-                          inside
-                          your
-                          workspace
-                          to help
-                          turn it
-                          into
+                          Clarity can use the
+                          information already
+                          inside your workspace
+                          to help turn it into
                           action.
                         </span>
                       </div>
@@ -3296,7 +3859,9 @@ export default function TotsOSLanding() {
   ] =
     useState<
       number | null
-    >(0);
+    >(
+      0
+    );
 
   const [
     tourOpen,
@@ -3369,8 +3934,11 @@ export default function TotsOSLanding() {
               0.08
             );
 
-          min-height: 100vh;
-          overflow-x: hidden;
+          min-height:
+            100vh;
+
+          overflow-x:
+            hidden;
 
           background:
             var(--cream);
@@ -7721,8 +8289,198 @@ export default function TotsOSLanding() {
             ) !important;
         }
 
+        .finance-demo-extra {
+          margin-top:
+            14px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            1.25fr
+            .9fr;
+
+          gap:
+            10px;
+        }
+
+        .finance-demo-panel {
+          padding:
+            16px;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            17px;
+
+          background:
+            white;
+        }
+
+        .finance-demo-panel-head {
+          display:
+            flex;
+
+          align-items:
+            flex-end;
+
+          justify-content:
+            space-between;
+
+          gap:
+            15px;
+        }
+
+        .finance-demo-panel-head h3 {
+          margin-top:
+            4px;
+
+          font-size:
+            14px;
+        }
+
+        .finance-panel-link {
+          color:
+            var(--sage-dark);
+
+          font-size:
+            6px;
+
+          font-weight:
+            700;
+
+          text-transform:
+            uppercase;
+        }
+
+        .finance-invoice-list,
+        .finance-expense-list {
+          margin-top:
+            12px;
+
+          display:
+            grid;
+        }
+
+        .finance-invoice-row {
+          min-height:
+            42px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            1fr 70px
+            48px;
+
+          align-items:
+            center;
+
+          gap:
+            9px;
+
+          border-bottom:
+            1px solid
+            #efede8;
+
+          font-size:
+            7px;
+        }
+
+        .finance-invoice-row:last-child,
+        .finance-expense-row:last-child {
+          border-bottom:
+            0;
+        }
+
+        .finance-invoice-row strong,
+        .finance-invoice-row small,
+        .finance-expense-row strong,
+        .finance-expense-row small {
+          display:
+            block;
+        }
+
+        .finance-invoice-row strong,
+        .finance-expense-row strong {
+          font-size:
+            7px;
+        }
+
+        .finance-invoice-row small,
+        .finance-expense-row small {
+          margin-top:
+            2px;
+
+          color:
+            #aaa69e;
+
+          font-size:
+            5px;
+        }
+
+        .invoice-paid,
+        .invoice-due {
+          width:
+            fit-content;
+
+          padding:
+            4px 7px;
+
+          border-radius:
+            999px;
+
+          font-size:
+            5px;
+
+          text-transform:
+            uppercase;
+        }
+
+        .invoice-paid {
+          background:
+            #edf7ed;
+
+          color:
+            #4b8153;
+        }
+
+        .invoice-due {
+          background:
+            #fff3df;
+
+          color:
+            #a66f20;
+        }
+
+        .finance-expense-row {
+          min-height:
+            42px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            10px;
+
+          border-bottom:
+            1px solid
+            #efede8;
+
+          font-size:
+            7px;
+        }
+
         /* =====================================================
-           NOTES
+           NOTES — STICKY DESK STYLE
         ===================================================== */
 
         .notes-page {
@@ -7730,7 +8488,13 @@ export default function TotsOSLanding() {
             relative;
 
           padding-top:
-            70px;
+            62px;
+
+          padding-bottom:
+            90px;
+
+          background:
+            #f7f4ee;
         }
 
         .notes-header {
@@ -7742,6 +8506,25 @@ export default function TotsOSLanding() {
 
           align-items:
             flex-end;
+
+          gap:
+            20px;
+        }
+
+        .notes-header h2 {
+          font-family:
+            Georgia,
+            'Times New Roman',
+            serif;
+
+          font-size:
+            30px;
+
+          font-style:
+            italic;
+
+          font-weight:
+            400;
         }
 
         .notes-header > div:first-child > span {
@@ -7749,19 +8532,19 @@ export default function TotsOSLanding() {
             block;
 
           margin-top:
-            12px;
+            8px;
 
           color:
             #9d9991;
 
           font-size:
-            7px;
+            6px;
 
           font-weight:
             700;
 
           letter-spacing:
-            .5em;
+            .45em;
 
           text-transform:
             uppercase;
@@ -7769,13 +8552,13 @@ export default function TotsOSLanding() {
 
         .notes-search {
           width:
-            200px;
+            220px;
 
           min-height:
-            37px;
+            39px;
 
           padding:
-            0 12px;
+            0 13px;
 
           display:
             flex;
@@ -7784,20 +8567,34 @@ export default function TotsOSLanding() {
             center;
 
           gap:
-            6px;
+            7px;
 
           border:
             1px solid
-            var(--app-border);
+            #d9d4cb;
 
           border-radius:
-            12px;
+            9px;
 
           background:
-            white;
+            rgba(
+              255,
+              255,
+              255,
+              .78
+            );
+
+          box-shadow:
+            0 3px 8px
+            rgba(
+              66,
+              58,
+              47,
+              .04
+            );
 
           color:
-            #c2bfb8;
+            #a8a39b;
 
           font-family:
             Georgia,
@@ -7812,7 +8609,7 @@ export default function TotsOSLanding() {
 
         .notes-filters {
           margin-top:
-            11px;
+            13px;
 
           display:
             flex;
@@ -7823,10 +8620,10 @@ export default function TotsOSLanding() {
 
         .notes-filters span {
           min-height:
-            20px;
+            25px;
 
           padding:
-            0 8px;
+            0 9px;
 
           display:
             inline-flex;
@@ -7839,13 +8636,21 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            #cfcac2;
+            #d3cec5;
 
           border-radius:
-            4px;
+            5px;
 
           background:
-            white;
+            rgba(
+              255,
+              255,
+              255,
+              .75
+            );
+
+          color:
+            #69645d;
 
           font-size:
             6px;
@@ -7859,7 +8664,10 @@ export default function TotsOSLanding() {
 
         .notes-task-heading {
           margin-top:
-            34px;
+            29px;
+
+          padding-bottom:
+            11px;
 
           display:
             flex;
@@ -7869,11 +8677,23 @@ export default function TotsOSLanding() {
 
           align-items:
             flex-end;
+
+          border-bottom:
+            1px solid
+            #dcd7cf;
         }
 
         .notes-task-heading h3 {
+          font-family:
+            Georgia,
+            'Times New Roman',
+            serif;
+
           font-size:
-            20px;
+            21px;
+
+          font-style:
+            italic;
         }
 
         .notes-task-heading div span {
@@ -7881,19 +8701,19 @@ export default function TotsOSLanding() {
             block;
 
           margin-top:
-            7px;
+            5px;
 
           color:
             #99958d;
 
           font-size:
-            6px;
+            5px;
 
           font-weight:
             700;
 
           letter-spacing:
-            .4em;
+            .35em;
 
           text-transform:
             uppercase;
@@ -7910,31 +8730,137 @@ export default function TotsOSLanding() {
             uppercase;
         }
 
-        .kanban-real {
+        .notes-board {
           margin-top:
-            25px;
+            17px;
 
           display:
             grid;
 
           grid-template-columns:
-            1.1fr
-            1fr
-            1fr;
+            repeat(
+              3,
+              minmax(
+                0,
+                1fr
+              )
+            );
 
           gap:
-            30px;
+            17px;
         }
 
-        .kanban-column-head {
+        .notes-column {
+          min-height:
+            445px;
+
+          padding:
+            11px;
+
+          position:
+            relative;
+
+          border:
+            1px solid
+            rgba(
+              89,
+              82,
+              73,
+              .08
+            );
+
+          border-radius:
+            10px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              .27
+            );
+        }
+
+        .notes-column::before {
+          content:
+            "";
+
+          position:
+            absolute;
+
+          inset:
+            0;
+
+          z-index:
+            0;
+
+          border-radius:
+            inherit;
+
+          opacity:
+            .25;
+
+          pointer-events:
+            none;
+
+          background-image:
+            linear-gradient(
+              rgba(
+                67,
+                61,
+                54,
+                .035
+              )
+              1px,
+              transparent
+              1px
+            );
+
+          background-size:
+            100%
+            22px;
+        }
+
+        .notes-column-head,
+        .notes-column-stack {
+          position:
+            relative;
+
+          z-index:
+            1;
+        }
+
+        .notes-column-head {
+          min-height:
+            29px;
+
           display:
             flex;
+
+          align-items:
+            center;
 
           justify-content:
             space-between;
 
+          gap:
+            10px;
+        }
+
+        .notes-column-head > div {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            7px;
+        }
+
+        .notes-column-head strong {
           color:
-            #9d9991;
+            #625d56;
 
           font-size:
             6px;
@@ -7943,21 +8869,79 @@ export default function TotsOSLanding() {
             700;
 
           letter-spacing:
-            .1em;
+            .12em;
 
           text-transform:
             uppercase;
         }
 
-        .sticky-card {
-          min-height:
-            255px;
+        .notes-column-dot {
+          width:
+            6px;
 
+          height:
+            6px;
+
+          border-radius:
+            50%;
+
+          background:
+            #aaa69e;
+        }
+
+        .notes-column-count {
+          min-width:
+            19px;
+
+          height:
+            19px;
+
+          display:
+            inline-flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            999px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              .82
+            );
+
+          color:
+            #8b867e;
+
+          font-size:
+            6px;
+        }
+
+        .notes-column-stack {
           margin-top:
-            10px;
+            8px;
+
+          display:
+            grid;
+
+          gap:
+            13px;
+        }
+
+        .desk-note {
+          min-height:
+            115px;
 
           padding:
-            20px;
+            16px
+            14px
+            12px;
 
           position:
             relative;
@@ -7968,33 +8952,106 @@ export default function TotsOSLanding() {
           flex-direction:
             column;
 
+          border:
+            1px solid
+            rgba(
+              75,
+              68,
+              60,
+              .10
+            );
+
           border-radius:
             2px;
 
-          background:
-            #555149;
+          box-shadow:
+            0 9px 18px
+            rgba(
+              58,
+              50,
+              41,
+              .10
+            );
 
           color:
-            white;
+            #3f3a34;
+
+          transition:
+            transform
+            .18s ease;
         }
 
-        .sticky-card.second {
-          min-height:
-            150px;
+        .desk-note:hover {
+          transform:
+            rotate(
+              0deg
+            )
+            translateY(
+              -2px
+            );
         }
 
-        .sticky-tape {
+        .desk-note-yellow {
+          background:
+            #f4e7a5;
+        }
+
+        .desk-note-pink {
+          background:
+            #efced3;
+        }
+
+        .desk-note-blue {
+          background:
+            #cedde2;
+        }
+
+        .desk-note-green {
+          background:
+            #ccd9bc;
+        }
+
+        .desk-note-cream {
+          background:
+            #e9dfc5;
+        }
+
+        .desk-note-grey {
+          background:
+            #d7d5cf;
+        }
+
+        .desk-note-lavender {
+          background:
+            #d9d1df;
+        }
+
+        .tilt-left {
+          transform:
+            rotate(
+              -1deg
+            );
+        }
+
+        .tilt-right {
+          transform:
+            rotate(
+              1deg
+            );
+        }
+
+        .desk-note-tape {
           width:
-            75px;
+            48px;
 
           height:
-            18px;
+            13px;
 
           position:
             absolute;
 
           top:
-            -8px;
+            -7px;
 
           left:
             50%;
@@ -8002,53 +9059,104 @@ export default function TotsOSLanding() {
           transform:
             translateX(
               -50%
+            )
+            rotate(
+              -.5deg
             );
 
           border-radius:
-            2px;
+            1px;
 
           background:
             rgba(
-              225,
-              225,
-              225,
-              .75
+              245,
+              239,
+              222,
+              .78
             );
 
           box-shadow:
-            0 3px 4px
+            0 2px 4px
             rgba(
-              0,
-              0,
-              0,
-              .14
+              50,
+              44,
+              38,
+              .12
             );
         }
 
-        .sticky-tag {
+        .desk-note-top {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            8px;
+        }
+
+        .desk-note-tag {
+          color:
+            rgba(
+              63,
+              58,
+              52,
+              .55
+            );
+
           font-size:
-            6px;
+            5px;
 
           font-weight:
             700;
 
           letter-spacing:
-            .15em;
+            .13em;
 
           text-transform:
             uppercase;
         }
 
-        .sticky-card h4 {
+        .desk-note-top button {
+          padding:
+            0;
+
+          border:
+            0;
+
+          background:
+            transparent;
+
+          color:
+            rgba(
+              63,
+              58,
+              52,
+              .45
+            );
+
+          font-size:
+            10px;
+        }
+
+        .desk-note h4 {
+          max-width:
+            180px;
+
           margin-top:
-            23px;
+            15px;
 
           font-family:
             Georgia,
+            'Times New Roman',
             serif;
 
           font-size:
-            12px;
+            11px;
 
           font-style:
             italic;
@@ -8057,33 +9165,227 @@ export default function TotsOSLanding() {
             400;
 
           letter-spacing:
-            -.02em;
+            -.015em;
+
+          line-height:
+            1.25;
         }
 
-        .sticky-bottom {
+        .desk-note-lines {
+          margin-top:
+            13px;
+
+          display:
+            grid;
+
+          gap:
+            5px;
+        }
+
+        .desk-note-lines span {
+          height:
+            1px;
+
+          display:
+            block;
+
+          background:
+            rgba(
+              70,
+              62,
+              55,
+              .10
+            );
+        }
+
+        .desk-note-lines span:last-child {
+          width:
+            68%;
+        }
+
+        .desk-note-footer {
           margin-top:
             auto;
-        }
 
-        .sticky-bottom > div {
+          padding-top:
+            11px;
+
           display:
             flex;
+
+          align-items:
+            center;
 
           justify-content:
             space-between;
 
-          align-items:
-            center;
+          gap:
+            9px;
         }
 
-        .sticky-bottom > div > span {
+        .desk-note-footer small {
           color:
+            rgba(
+              63,
+              58,
+              52,
+              .5
+            );
+
+          font-size:
+            5px;
+
+          font-weight:
+            600;
+        }
+
+        .desk-note-check {
+          width:
+            19px;
+
+          height:
+            19px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border:
+            1px solid
+            rgba(
+              63,
+              58,
+              52,
+              .12
+            );
+
+          border-radius:
+            50%;
+
+          background:
             rgba(
               255,
               255,
               255,
-              .5
+              .35
             );
+        }
+
+        .notes-add-card {
+          min-height:
+            32px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          gap:
+            6px;
+
+          border:
+            1px dashed
+            #cfc9c0;
+
+          border-radius:
+            6px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              .25
+            );
+
+          color:
+            #918b82;
+
+          font-size:
+            6px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .08em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .notes-bottom-row {
+          margin-top:
+            17px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            1fr 1fr;
+
+          gap:
+            10px;
+        }
+
+        .notes-quick-card {
+          min-height:
+            63px;
+
+          padding:
+            12px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            10px;
+
+          border:
+            1px solid
+            #ddd8d0;
+
+          border-radius:
+            10px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              .6
+            );
+
+          color:
+            #746e66;
+        }
+
+        .notes-quick-card > svg {
+          color:
+            var(--sage-dark);
+        }
+
+        .notes-quick-card span,
+        .notes-quick-card strong {
+          display:
+            block;
+        }
+
+        .notes-quick-card span {
+          color:
+            #aaa49b;
 
           font-size:
             5px;
@@ -8092,103 +9394,28 @@ export default function TotsOSLanding() {
             700;
 
           letter-spacing:
-            .15em;
+            .13em;
 
           text-transform:
             uppercase;
         }
 
-        .sticky-bottom > div > button {
-          min-width:
-            80px;
+        .notes-quick-card strong {
+          margin-top:
+            4px;
 
-          min-height:
-            35px;
-
-          border:
-            0;
-
-          border-radius:
-            12px;
-
-          background:
-            white;
-
-          color:
-            #25231f;
+          font-family:
+            Georgia,
+            serif;
 
           font-size:
-            7px;
+            8px;
+
+          font-style:
+            italic;
 
           font-weight:
-            700;
-
-          text-transform:
-            uppercase;
-        }
-
-        .clear-button {
-          min-height:
-            27px;
-
-          margin-top:
-            14px;
-
-          padding:
-            0 10px;
-
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          gap:
-            5px;
-
-          border:
-            1px solid
-            rgba(
-              255,
-              255,
-              255,
-              .22
-            );
-
-          border-radius:
-            999px;
-
-          background:
-            transparent;
-
-          color:
-            white;
-
-          font-size:
-            6px;
-
-          font-weight:
-            700;
-
-          text-transform:
-            uppercase;
-        }
-
-        .kanban-column-real.empty small {
-          display:
-            block;
-
-          margin-top:
-            10px;
-
-          color:
-            #c2beb7;
-
-          font-size:
-            6px;
-
-          text-transform:
-            uppercase;
+            400;
         }
 
         .floating-add-button {
@@ -8227,6 +9454,15 @@ export default function TotsOSLanding() {
 
           color:
             white;
+
+          box-shadow:
+            0 15px 30px
+            rgba(
+              0,
+              0,
+              0,
+              .16
+            );
         }
 
         /* =====================================================
@@ -8297,6 +9533,9 @@ export default function TotsOSLanding() {
 
           justify-content:
             center;
+
+          flex-shrink:
+            0;
 
           border-radius:
             10px;
@@ -8536,12 +9775,20 @@ export default function TotsOSLanding() {
             7px;
         }
 
+        .project-demo-list {
+          margin-top:
+            12px;
+
+          display:
+            grid;
+
+          gap:
+            7px;
+        }
+
         .project-row-real {
           min-height:
             62px;
-
-          margin-top:
-            12px;
 
           padding:
             11px 15px;
@@ -8582,6 +9829,9 @@ export default function TotsOSLanding() {
           justify-content:
             center;
 
+          flex-shrink:
+            0;
+
           border-radius:
             9px;
 
@@ -8592,9 +9842,23 @@ export default function TotsOSLanding() {
             #aaa69e;
         }
 
-        .project-row-real > div:nth-child(2) {
+        .project-row-copy {
+          min-width:
+            0;
+
           flex:
             1;
+        }
+
+        .project-row-copy > div {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            7px;
         }
 
         .project-row-real strong {
@@ -8603,7 +9867,7 @@ export default function TotsOSLanding() {
             sans-serif;
 
           font-size:
-            14px;
+            11px;
 
           font-style:
             italic;
@@ -8612,10 +9876,7 @@ export default function TotsOSLanding() {
             400;
         }
 
-        .project-row-real span {
-          margin-left:
-            8px;
-
+        .project-row-copy > div > span {
           padding:
             4px 7px;
 
@@ -8636,6 +9897,53 @@ export default function TotsOSLanding() {
 
           text-transform:
             uppercase;
+        }
+
+        .project-row-copy > small {
+          display:
+            block;
+
+          margin-top:
+            4px;
+
+          color:
+            var(--sage-dark);
+
+          font-size:
+            6px;
+
+          font-weight:
+            600;
+        }
+
+        .project-row-meta {
+          min-width:
+            78px;
+
+          text-align:
+            right;
+        }
+
+        .project-row-meta small,
+        .project-row-meta strong {
+          display:
+            block;
+        }
+
+        .project-row-meta small {
+          color:
+            #aaa69e;
+
+          font-size:
+            5px;
+        }
+
+        .project-row-meta strong {
+          margin-top:
+            3px;
+
+          font-size:
+            8px;
         }
 
         /* =====================================================
@@ -8764,6 +10072,9 @@ export default function TotsOSLanding() {
 
           justify-content:
             space-between;
+
+          gap:
+            15px;
         }
 
         .today-card-head h3,
@@ -8775,57 +10086,120 @@ export default function TotsOSLanding() {
             19px;
         }
 
-        .nothing-scheduled {
-          min-height:
-            115px;
-
+        .demo-event-list {
           margin-top:
             17px;
 
           display:
-            flex;
+            grid;
 
-          flex-direction:
-            column;
+          gap:
+            8px;
+        }
+
+        .demo-event-row {
+          min-height:
+            58px;
+
+          padding:
+            10px;
+
+          display:
+            flex;
 
           align-items:
             center;
 
-          justify-content:
-            center;
+          gap:
+            11px;
 
           border-radius:
             12px;
+        }
 
+        .event-sage {
           background:
-            #fbfaf8;
+            #eef3e8;
+
+          border-left:
+            3px solid
+            #9caf87;
+        }
+
+        .event-amber {
+          background:
+            #fff3df;
+
+          border-left:
+            3px solid
+            #d4a859;
+        }
+
+        .demo-event-time {
+          width:
+            43px;
+
+          flex-shrink:
+            0;
 
           color:
             #77736c;
+
+          font-size:
+            7px;
+
+          font-weight:
+            700;
         }
 
-        .nothing-scheduled svg {
-          color:
-            var(--sage);
+        .demo-event-row strong,
+        .demo-event-row small {
+          display:
+            block;
         }
 
-        .nothing-scheduled strong {
-          margin-top:
-            8px;
-
+        .demo-event-row strong {
           font-size:
             8px;
         }
 
-        .nothing-scheduled span {
+        .demo-event-row small {
           margin-top:
             3px;
 
           color:
-            #aaa69e;
+            #99958d;
 
           font-size:
             6px;
+        }
+
+        .booking-demo-heading {
+          display:
+            flex;
+
+          align-items:
+            flex-start;
+
+          justify-content:
+            space-between;
+
+          gap:
+            10px;
+        }
+
+        .booking-live-dot {
+          width:
+            8px;
+
+          height:
+            8px;
+
+          border-radius:
+            50%;
+
+          background:
+            var(--sage);
         }
 
         .booking-line {
@@ -8840,6 +10214,9 @@ export default function TotsOSLanding() {
 
           justify-content:
             space-between;
+
+          gap:
+            12px;
 
           border-bottom:
             1px solid
@@ -8857,6 +10234,9 @@ export default function TotsOSLanding() {
         .booking-line strong {
           font-size:
             7px;
+
+          text-align:
+            right;
         }
 
         /* =====================================================
@@ -8963,12 +10343,62 @@ export default function TotsOSLanding() {
             #f7f5ef;
         }
 
+        .dummy-brand-mark {
+          width:
+            78px;
+
+          height:
+            78px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            23px;
+
+          background:
+            #25231f;
+
+          color:
+            #d7c39e;
+
+          font-family:
+            Georgia,
+            serif;
+
+          font-size:
+            23px;
+
+          font-style:
+            italic;
+        }
+
+        .dummy-brand-mark.small {
+          width:
+            42px;
+
+          height:
+            42px;
+
+          border-radius:
+            12px;
+
+          font-size:
+            13px;
+        }
+
         .settings-form-area label {
           display:
             block;
 
           color:
-            #d0cdc7;
+            #a9a59d;
 
           font-size:
             6px;
@@ -9038,12 +10468,26 @@ export default function TotsOSLanding() {
           margin-top:
             5px;
 
+          padding:
+            12px;
+
           border:
             1px solid
             var(--app-border);
 
           border-radius:
             11px;
+        }
+
+        .filled-textarea {
+          color:
+            #77736c;
+
+          font-size:
+            7px;
+
+          line-height:
+            1.7;
         }
 
         .company-logo-row {
@@ -9117,7 +10561,7 @@ export default function TotsOSLanding() {
         }
 
         /* =====================================================
-           CLARITY
+           CLARITY TOUR SCREEN
         ===================================================== */
 
         .clarity-tour-screen {
@@ -10089,1174 +11533,18 @@ export default function TotsOSLanding() {
           font-size:
             8px;
         }
-
-        /* =====================================================
-           FEATURES
-        ===================================================== */
-
-        .feature-grid {
-          margin-top:
-            55px;
-
-          display:
-            grid;
-
-          grid-template-columns:
-            repeat(
-              3,
-              1fr
-            );
-
-          gap:
-            16px;
-        }
-
-        .feature-card {
-          min-height:
-            275px;
-
-          padding:
-            28px;
-
-          display:
-            flex;
-
-          flex-direction:
-            column;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            24px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              .55
-            );
-        }
-
-        .feature-card h3 {
-          margin-top:
-            auto;
-
-          padding-top:
-            48px;
-
-          font-size:
-            21px;
-        }
-
-        .feature-card p {
-          margin-top:
-            10px;
-
-          color:
-            var(--muted);
-
-          font-size:
-            13px;
-
-          line-height:
-            1.7;
-        }
-
-        /* =====================================================
-           CONNECTED
-        ===================================================== */
-
-        .connected-layout {
-          display:
-            grid;
-
-          grid-template-columns:
-            1fr 1fr;
-
-          gap:
-            80px;
-
-          align-items:
-            center;
-        }
-
-        .connection-grid {
-          display:
-            grid;
-
-          grid-template-columns:
-            repeat(
-              3,
-              1fr
-            );
-
-          gap:
-            10px;
-        }
-
-        .connection-item {
-          min-height:
-            135px;
-
-          padding:
-            17px;
-
-          display:
-            flex;
-
-          flex-direction:
-            column;
-
-          justify-content:
-            space-between;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            18px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              .5
-            );
-        }
-
-        .connection-item svg {
-          color:
-            var(--tan-dark);
-        }
-
-        .connection-item span {
-          color:
-            var(--charcoal-soft);
-
-          font-size:
-            11px;
-
-          font-weight:
-            600;
-        }
-
-        /* =====================================================
-           CLARITY MARKETING
-        ===================================================== */
-
-        .clarity-card {
-          padding:
-            55px;
-
-          display:
-            grid;
-
-          grid-template-columns:
-            .9fr 1.1fr;
-
-          gap:
-            60px;
-
-          align-items:
-            center;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            32px;
-
-          background:
-            var(--white);
-        }
-
-        .clarity-title {
-          margin-top:
-            20px !important;
-
-          font-size:
-            clamp(
-              3rem,
-              5vw,
-              5.4rem
-            );
-        }
-
-        .clarity-title span {
-          display:
-            block;
-
-          color:
-            var(--tan-dark);
-        }
-
-        .clarity-copy {
-          margin-top:
-            22px !important;
-
-          color:
-            var(--muted);
-
-          font-size:
-            15px;
-
-          line-height:
-            1.75;
-        }
-
-        .clarity-points {
-          margin-top:
-            28px;
-
-          display:
-            grid;
-
-          gap:
-            11px;
-        }
-
-        .clarity-point {
-          display:
-            flex;
-
-          gap:
-            10px;
-
-          color:
-            var(--charcoal-soft);
-
-          font-size:
-            13px;
-
-          line-height:
-            1.6;
-        }
-
-        .clarity-check {
-          width:
-            24px;
-
-          height:
-            24px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          flex-shrink:
-            0;
-
-          border-radius:
-            50%;
-
-          background:
-            var(--tan-soft);
-
-          color:
-            var(--tan-dark);
-        }
-
-        .clarity-demo {
-          padding:
-            20px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            23px;
-
-          background:
-            var(--cream);
-        }
-
-        .clarity-demo-head {
-          padding-bottom:
-            15px;
-
-          display:
-            flex;
-
-          justify-content:
-            space-between;
-
-          border-bottom:
-            1px solid
-            var(--border);
-        }
-
-        .clarity-brand {
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            8px;
-
-          color:
-            var(--tan-dark);
-
-          font-size:
-            11px;
-
-          font-weight:
-            700;
-
-          text-transform:
-            uppercase;
-        }
-
-        .clarity-ready {
-          color:
-            var(--muted);
-
-          font-size:
-            9px;
-        }
-
-        .clarity-message {
-          width:
-            fit-content;
-
-          max-width:
-            82%;
-
-          margin:
-            16px 0
-            0 auto;
-
-          padding:
-            13px 15px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            16px 16px
-            4px 16px;
-
-          background:
-            white;
-
-          color:
-            var(--charcoal-soft);
-
-          font-size:
-            12px;
-        }
-
-        .clarity-response {
-          max-width:
-            95%;
-
-          margin-top:
-            14px;
-
-          padding:
-            16px;
-
-          border:
-            1px solid
-            rgba(
-              198,
-              157,
-              105,
-              .25
-            );
-
-          border-radius:
-            4px 16px
-            16px 16px;
-
-          background:
-            #fff9ef;
-        }
-
-        .clarity-response > span {
-          color:
-            var(--tan-dark);
-
-          font-size:
-            9px;
-
-          font-weight:
-            700;
-
-          text-transform:
-            uppercase;
-        }
-
-        .clarity-response > p {
-          margin-top:
-            8px;
-
-          color:
-            var(--charcoal-soft);
-
-          font-size:
-            12px;
-
-          line-height:
-            1.65;
-        }
-
-        /* =====================================================
-           SECURITY
-        ===================================================== */
-
-        .security-grid {
-          margin-top:
-            55px;
-
-          display:
-            grid;
-
-          grid-template-columns:
-            repeat(
-              3,
-              1fr
-            );
-
-          gap:
-            16px;
-        }
-
-        .security-card {
-          padding:
-            28px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            23px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              .5
-            );
-        }
-
-        .security-card svg {
-          color:
-            var(--tan-dark);
-        }
-
-        .security-card h3 {
-          margin-top:
-            35px;
-
-          font-size:
-            20px;
-        }
-
-        .security-card p {
-          margin-top:
-            10px;
-
-          color:
-            var(--muted);
-
-          font-size:
-            13px;
-
-          line-height:
-            1.7;
-        }
-
-        /* =====================================================
-           PRICING
-        ===================================================== */
-
-        .trial-pill {
-          margin-top:
-            25px;
-
-          padding:
-            9px 13px;
-
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          gap:
-            7px;
-
-          border:
-            1px solid
-            rgba(
-              198,
-              157,
-              105,
-              .3
-            );
-
-          border-radius:
-            999px;
-
-          background:
-            #fff9ef;
-
-          color:
-            var(--tan-dark);
-
-          font-size:
-            10px;
-
-          font-weight:
-            600;
-        }
-
-        .pricing-grid {
-          margin-top:
-            55px;
-
-          display:
-            grid;
-
-          grid-template-columns:
-            repeat(
-              3,
-              1fr
-            );
-
-          gap:
-            16px;
-        }
-
-        .price-card {
-          min-height:
-            580px;
-
-          padding:
-            30px;
-
-          display:
-            flex;
-
-          flex-direction:
-            column;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            27px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              .5
-            );
-        }
-
-        .price-card.featured {
-          border-color:
-            rgba(
-              198,
-              157,
-              105,
-              .45
-            );
-
-          background:
-            #fffaf3;
-        }
-
-        .price-head {
-          display:
-            flex;
-
-          justify-content:
-            space-between;
-        }
-
-        .price-name {
-          font-size:
-            12px;
-
-          font-weight:
-            700;
-
-          text-transform:
-            uppercase;
-        }
-
-        .price-badge {
-          padding:
-            6px 9px;
-
-          border-radius:
-            999px;
-
-          background:
-            var(--tan-soft);
-
-          color:
-            #77522b;
-
-          font-size:
-            8px;
-        }
-
-        .price-figure {
-          margin-top:
-            35px;
-
-          display:
-            flex;
-
-          align-items:
-            flex-end;
-        }
-
-        .price-amount {
-          font-family:
-            'Manrope',
-            sans-serif;
-
-          font-size:
-            58px;
-
-          font-weight:
-            600;
-
-          letter-spacing:
-            -.06em;
-        }
-
-        .price-period {
-          margin:
-            0 0 10px
-            7px;
-
-          color:
-            var(--muted);
-
-          font-size:
-            11px;
-        }
-
-        .price-description {
-          min-height:
-            90px;
-
-          margin-top:
-            17px !important;
-
-          color:
-            var(--muted);
-
-          font-size:
-            13px;
-
-          line-height:
-            1.7;
-        }
-
-        .price-features {
-          margin-top:
-            24px;
-
-          padding-top:
-            22px;
-
-          display:
-            grid;
-
-          gap:
-            11px;
-
-          border-top:
-            1px solid
-            var(--border);
-        }
-
-        .price-feature {
-          display:
-            flex;
-
-          gap:
-            9px;
-
-          color:
-            var(--charcoal-soft);
-
-          font-size:
-            12px;
-        }
-
-        .price-feature svg {
-          color:
-            var(--tan-dark);
-        }
-
-        .price-action {
-          margin-top:
-            auto;
-
-          padding-top:
-            28px;
-        }
-
-        .price-action a {
-          width:
-            100%;
-        }
-
-        .price-note {
-          margin-top:
-            9px !important;
-
-          color:
-            var(--muted);
-
-          text-align:
-            center;
-
-          font-size:
-            9px;
-        }
-
-        /* =====================================================
-           ABOUT
-        ===================================================== */
-
-        .about-layout {
-          display:
-            grid;
-
-          grid-template-columns:
-            1fr 1fr;
-
-          gap:
-            60px;
-
-          align-items:
-            center;
-        }
-
-        .about-card {
-          padding:
-            36px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            28px;
-
-          background:
-            white;
-        }
-
-        .about-card p {
-          color:
-            var(--charcoal-soft);
-
-          font-size:
-            15px;
-
-          line-height:
-            1.8;
-        }
-
-        .about-card p + p {
-          margin-top:
-            17px;
-        }
-
-        /* =====================================================
-           FAQ
-        ===================================================== */
-
-        .faq-layout {
-          display:
-            grid;
-
-          grid-template-columns:
-            .75fr 1fr;
-
-          gap:
-            80px;
-        }
-
-        .faq-item {
-          border-bottom:
-            1px solid
-            var(--border);
-        }
-
-        .faq-button {
-          width:
-            100%;
-
-          padding:
-            22px 0;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            space-between;
-
-          gap:
-            20px;
-
-          border:
-            0;
-
-          background:
-            transparent;
-
-          color:
-            var(--charcoal);
-
-          font-size:
-            14px;
-
-          text-align:
-            left;
-        }
-
-        .faq-answer {
-          padding-bottom:
-            22px;
-
-          overflow:
-            hidden;
-
-          color:
-            var(--muted);
-
-          font-size:
-            13px;
-
-          line-height:
-            1.75;
-        }
-
-        /* =====================================================
-           FINAL
-        ===================================================== */
-
-        .final-card {
-          padding:
-            80px 35px;
-
-          border-radius:
-            30px;
-
-          background:
-            var(--charcoal);
-
-          color:
-            white;
-
-          text-align:
-            center;
-        }
-
-        .final-icon {
-          width:
-            54px;
-
-          height:
-            54px;
-
-          margin:
-            0 auto;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          border-radius:
-            16px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              .07
-            );
-
-          color:
-            #d7b58a;
-        }
-
-        .final-card h2 {
-          max-width:
-            820px;
-
-          margin:
-            27px auto
-            0;
-
-          font-size:
-            clamp(
-              2.6rem,
-              5vw,
-              5rem
-            );
-        }
-
-        .final-card h2 span {
-          color:
-            #d6b184;
-        }
-
-        .final-card p {
-          max-width:
-            580px;
-
-          margin:
-            20px auto
-            0;
-
-          color:
-            rgba(
-              255,
-              255,
-              255,
-              .64
-            );
-
-          font-size:
-            14px;
-
-          line-height:
-            1.75;
-        }
-
-        .final-actions {
-          margin-top:
-            30px;
-
-          display:
-            flex;
-
-          justify-content:
-            center;
-
-          flex-wrap:
-            wrap;
-
-          gap:
-            9px;
-        }
-
-        .final-card .button-primary {
-          border-color:
-            white;
-
-          background:
-            white;
-
-          color:
-            var(--charcoal)
-            !important;
-        }
-
-        .final-card .button-secondary {
-          border-color:
-            rgba(
-              255,
-              255,
-              255,
-              .17
-            );
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              .05
-            );
-
-          color:
-            white;
-        }
-
-        .final-note {
-          font-size:
-            9px !important;
-        }
-
-        /* =====================================================
-           FOOTER
-        ===================================================== */
-
-        .tots-footer {
-          padding:
-            60px 20px
-            28px;
-
-          border-top:
-            1px solid
-            var(--border);
-        }
-
-        .footer-grid {
-          width:
-            min(
-              1180px,
-              100%
-            );
-
-          margin:
-            0 auto;
-
-          display:
-            grid;
-
-          grid-template-columns:
-            1.5fr
-            repeat(
-              3,
-              1fr
-            );
-
-          gap:
-            45px;
-
-          padding-bottom:
-            45px;
-        }
-
-        .footer-copy {
-          max-width:
-            320px;
-
-          margin-top:
-            15px !important;
-
-          color:
-            var(--muted);
-
-          font-size:
-            11px;
-
-          line-height:
-            1.7;
-        }
-
-        .footer-col h5 {
-          margin:
-            0;
-
-          color:
-            var(--muted);
-
-          font-size:
-            10px;
-
-          text-transform:
-            uppercase;
-        }
-
-        .footer-links {
-          margin-top:
-            15px;
-
-          display:
-            grid;
-
-          gap:
-            9px;
-        }
-
-        .footer-links a {
-          color:
-            var(--charcoal-soft);
-
-          font-size:
-            12px;
-
-          text-decoration:
-            none;
-        }
-
-        .footer-bottom {
-          width:
-            min(
-              1180px,
-              100%
-            );
-
-          margin:
-            0 auto;
-
-          padding-top:
-            20px;
-
-          display:
-            flex;
-
-          justify-content:
-            space-between;
-
-          border-top:
-            1px solid
-            var(--border);
-
-          color:
-            var(--muted);
-
-          font-size:
-            9px;
-        }
-
-        /* =====================================================
-           TABLET
+                    /* =====================================================
+           RESPONSIVE
         ===================================================== */
 
         @media (
           max-width:
-          1050px
+          1080px
         ) {
-
           .tots-nav {
-            display:
-              flex;
-
-            justify-content:
-              space-between;
+            grid-template-columns:
+              1fr
+              auto;
           }
 
           .tots-nav-links {
@@ -11264,35 +11552,55 @@ export default function TotsOSLanding() {
               none;
           }
 
-          .transform-grid,
-          .connected-layout,
-          .clarity-card,
-          .about-layout,
-          .faq-layout {
+          .tots-nav-actions {
+            display:
+              none;
+          }
+
+          .tots-menu-button {
+            display:
+              inline-flex;
+
+            justify-self:
+              end;
+          }
+
+          .hero-grid {
             grid-template-columns:
               1fr;
           }
 
-          .why-grid,
-          .feature-grid,
-          .security-grid,
+          .hero-copy {
+            max-width:
+              780px;
+          }
+
+          .feature-grid {
+            grid-template-columns:
+              repeat(
+                2,
+                1fr
+              );
+          }
+
           .pricing-grid {
             grid-template-columns:
-              1fr 1fr;
+              1fr;
           }
 
-          .product-demo-frame {
-            overflow-x:
-              auto;
+          .pricing-card.featured {
+            transform:
+              none;
           }
 
-          .product-demo-app {
-            width:
-              1050px;
-
+          .about-grid {
             grid-template-columns:
-              160px
-              890px;
+              1fr;
+          }
+
+          .clarity-grid {
+            grid-template-columns:
+              1fr;
           }
 
           .tour-layout {
@@ -11304,30 +11612,213 @@ export default function TotsOSLanding() {
               320px;
           }
 
-        }
+          .tour-preview {
+            padding:
+              18px;
+          }
 
-        /* =====================================================
-           MOBILE
-        ===================================================== */
+          .tour-guide {
+            padding:
+              30px 24px;
+          }
+        }
 
         @media (
           max-width:
-          760px
+          860px
         ) {
+          .tots-section {
+            padding:
+              82px 0;
+          }
 
           .tots-container {
             width:
-              calc(
-                100% -
-                30px
+              min(
+                100% - 28px,
+                1180px
               );
           }
 
-          .tots-section {
-            padding:
-              80px 0;
+          .hero {
+            padding-top:
+              130px;
           }
 
+          .hero-title {
+            font-size:
+              clamp(
+                3.3rem,
+                12vw,
+                6rem
+              );
+          }
+
+          .feature-grid {
+            grid-template-columns:
+              1fr;
+          }
+
+          .demo-shell {
+            border-radius:
+              24px;
+          }
+
+          .product-demo-frame {
+            padding:
+              10px;
+          }
+
+          .product-demo-app {
+            min-height:
+              600px;
+          }
+
+          .app-sidebar {
+            display:
+              none;
+          }
+
+          .product-demo-content {
+            width:
+              100%;
+          }
+
+          .demo-mobile-tabs {
+            display:
+              flex;
+          }
+
+          .demo-cta {
+            grid-template-columns:
+              1fr;
+
+            gap:
+              24px;
+          }
+
+          .demo-cta-actions {
+            justify-content:
+              flex-start;
+          }
+
+          .tour-window {
+            width:
+              calc(
+                100% - 20px
+              );
+
+            height:
+              calc(
+                100vh - 20px
+              );
+
+            max-height:
+              none;
+
+            border-radius:
+              22px;
+          }
+
+          .tour-layout {
+            grid-template-columns:
+              1fr;
+
+            overflow-y:
+              auto;
+          }
+
+          .tour-preview {
+            min-height:
+              470px;
+
+            border-right:
+              0;
+
+            border-bottom:
+              1px solid
+              var(--border);
+          }
+
+          .tour-app-shell {
+            min-height:
+              430px;
+          }
+
+          .tour-app-shell
+          .app-sidebar {
+            display:
+              none;
+          }
+
+          .tour-guide {
+            min-height:
+              auto;
+          }
+
+          .home-dashboard-grid {
+            grid-template-columns:
+              1fr;
+          }
+
+          .home-metrics,
+          .campaign-metric-grid,
+          .workspace-metric-grid,
+          .calendar-stat-grid {
+            grid-template-columns:
+              repeat(
+                2,
+                1fr
+              );
+          }
+
+          .finance-main-metrics {
+            grid-template-columns:
+              repeat(
+                2,
+                1fr
+              );
+          }
+
+          .finance-lower-grid {
+            grid-template-columns:
+              repeat(
+                2,
+                1fr
+              );
+          }
+
+          .social-create-grid,
+          .workspace-choice-grid,
+          .calendar-lower-grid {
+            grid-template-columns:
+              1fr;
+          }
+
+          .kanban-real {
+            grid-template-columns:
+              1fr;
+          }
+
+          .settings-profile-card {
+            grid-template-columns:
+              1fr;
+          }
+
+          .settings-company-logo {
+            border-right:
+              0;
+
+            border-bottom:
+              1px solid
+              var(--app-border);
+          }
+        }
+
+        @media (
+          max-width:
+          640px
+        ) {
           .tots-nav-wrap {
             padding:
               10px;
@@ -11338,18 +11829,11 @@ export default function TotsOSLanding() {
               60px;
 
             padding:
-              0 8px
-              0 12px;
-          }
+              0 10px
+              0 13px;
 
-          .tots-nav-actions {
-            display:
-              none;
-          }
-
-          .tots-menu-button {
-            display:
-              flex;
+            border-radius:
+              16px;
           }
 
           .tots-logo-copy small {
@@ -11357,53 +11841,12 @@ export default function TotsOSLanding() {
               none;
           }
 
-          .tots-hero {
-            min-height:
-              auto;
-
-            padding:
-              130px 18px
-              70px;
+          .hero {
+            padding-top:
+              112px;
           }
 
-          .tots-hero-title {
-            font-size:
-              clamp(
-                3rem,
-                12vw,
-                4.5rem
-              ) !important;
-          }
-
-          .tots-hero-copy {
-            font-size:
-              15px;
-          }
-
-          .tots-hero-actions {
-            width:
-              100%;
-
-            flex-direction:
-              column;
-          }
-
-          .tots-hero-actions a,
-          .tots-hero-actions button {
-            width:
-              100%;
-          }
-
-          .transform-grid,
-          .why-grid,
-          .feature-grid,
-          .security-grid,
-          .pricing-grid {
-            grid-template-columns:
-              1fr;
-          }
-
-          .demo-cta {
+          .hero-actions {
             flex-direction:
               column;
 
@@ -11411,131 +11854,194 @@ export default function TotsOSLanding() {
               stretch;
           }
 
-          .demo-cta-actions {
-            flex-direction:
-              column;
-          }
-
-          .demo-cta-actions a,
-          .demo-cta-actions button {
+          .hero-actions
+          .button-primary,
+          .hero-actions
+          .button-secondary {
             width:
               100%;
           }
 
-          .connection-grid {
-            grid-template-columns:
-              1fr 1fr;
+          .trusted-row {
+            gap:
+              18px;
           }
 
-          .final-actions {
-            flex-direction:
-              column;
-          }
-
-          .final-actions a,
-          .final-actions button {
-            width:
-              100%;
-          }
-
-          .footer-grid {
-            grid-template-columns:
-              1fr 1fr;
-          }
-
-          .tour-overlay {
-            padding:
-              8px;
-          }
-
-          .tour-window {
-            height:
-              calc(
-                100vh -
-                16px
+          .section-title {
+            font-size:
+              clamp(
+                2.4rem,
+                12vw,
+                4rem
               );
+          }
 
-            border-radius:
-              20px;
+          .home-header,
+          .campaign-header-real,
+          .social-heading-real,
+          .finance-title-card,
+          .workspace-heading,
+          .calendar-heading-real,
+          .settings-heading {
+            flex-direction:
+              column;
+
+            align-items:
+              flex-start;
+
+            gap:
+              18px;
+          }
+
+          .home-metrics,
+          .campaign-metric-grid,
+          .workspace-metric-grid,
+          .calendar-stat-grid,
+          .finance-main-metrics,
+          .finance-lower-grid {
+            grid-template-columns:
+              1fr;
+          }
+
+          .contacts-top {
+            flex-direction:
+              column;
+
+            align-items:
+              stretch;
+          }
+
+          .contacts-actions {
+            width:
+              100%;
+          }
+
+          .contact-search {
+            flex:
+              1;
+          }
+
+          .campaign-table {
+            overflow-x:
+              auto;
+          }
+
+          .campaign-table-head,
+          .campaign-table-row {
+            min-width:
+              650px;
+          }
+
+          .audience-grid {
+            grid-template-columns:
+              1fr;
+          }
+
+          .finance-title-actions,
+          .workspace-heading-actions,
+          .calendar-heading-buttons,
+          .settings-top-actions {
+            width:
+              100%;
+
+            flex-wrap:
+              wrap;
+          }
+
+          .finance-nav-tabs,
+          .calendar-tabs-real {
+            overflow-x:
+              auto;
+
+            white-space:
+              nowrap;
+          }
+
+          .settings-two-fields {
+            grid-template-columns:
+              1fr;
+          }
+
+          .demo-cta {
+            padding:
+              28px 22px;
+          }
+
+          .demo-cta-actions {
+            width:
+              100%;
+
+            flex-direction:
+              column;
+          }
+
+          .demo-cta-actions
+          .button-primary,
+          .demo-cta-actions
+          .button-secondary {
+            width:
+              100%;
           }
 
           .tour-topbar {
-            height:
-              58px;
+            padding:
+              12px 14px;
           }
 
-          .tour-layout {
-            height:
-              calc(
-                100% -
-                58px
-              );
-
+          .tour-brand
+          .tots-logo-copy {
             display:
-              flex;
-
-            flex-direction:
-              column;
+              none;
           }
 
           .tour-preview {
-            height:
-              53%;
-
-            flex-shrink:
-              0;
+            min-height:
+              390px;
 
             padding:
               10px;
           }
 
-          .tour-guide {
+          .tour-app-shell {
             min-height:
-              47%;
+              370px;
 
-            padding:
-              20px;
-
-            overflow:
-              auto;
-
-            border-left:
-              0;
-
-            border-top:
-              1px solid
-              #e1ded7;
+            border-radius:
+              14px;
           }
 
-          .tour-guide .tour-eyebrow {
-            margin-top:
-              18px;
+          .tour-guide {
+            padding:
+              28px 20px;
           }
 
           .tour-guide h2 {
             font-size:
-              25px;
-          }
-
-          .tour-guide > p {
-            font-size:
-              12px;
+              2rem;
           }
 
           .tour-controls {
-            margin-top:
-              20px;
+            flex-direction:
+              column-reverse;
+          }
+
+          .tour-controls button {
+            width:
+              100%;
           }
 
           .tour-finish {
-            height:
-              calc(
-                100% -
-                58px
-              );
-
             padding:
-              30px 18px;
+              30px 20px;
+          }
+
+          .tour-finish h2 {
+            font-size:
+              clamp(
+                2.4rem,
+                12vw,
+                3.8rem
+              );
           }
 
           .tour-finish-actions {
@@ -11546,86 +12052,82 @@ export default function TotsOSLanding() {
               column;
           }
 
-          .tour-finish-actions a,
-          .tour-finish-actions button {
+          .tour-finish-actions
+          .button-primary,
+          .tour-finish-actions
+          .button-secondary {
             width:
               100%;
           }
 
-        }
-
-        @media (
-          max-width:
-          480px
-        ) {
-
-          .section-title {
-            font-size:
-              clamp(
-                2.25rem,
-                11vw,
-                3.4rem
-              );
-          }
-
-          .tots-hero {
+          .app-page {
             padding:
-              115px 15px
-              60px;
+              22px 18px;
           }
 
-          .tots-hero-title {
-            font-size:
-              clamp(
-                2.75rem,
-                12.5vw,
-                3.65rem
-              ) !important;
-          }
-
-          .trusted-list span {
-            font-size:
-              9px;
-          }
-
-          .footer-grid {
-            grid-template-columns:
-              1fr;
-          }
-
-          .footer-bottom {
+          .notes-header {
             flex-direction:
               column;
 
-            gap:
-              10px;
+            align-items:
+              stretch;
           }
 
+          .notes-search {
+            width:
+              100%;
+          }
+
+          .notes-filters {
+            overflow-x:
+              auto;
+          }
+
+          .contact-row-real {
+            grid-template-columns:
+              auto
+              minmax(
+                0,
+                1fr
+              )
+              auto;
+          }
+
+          .coming-event {
+            grid-template-columns:
+              58px
+              1fr;
+          }
+
+          .clarity-chat-tour {
+            padding:
+              18px;
+          }
         }
 
       `}</style>
 
       {/* ======================================================
-          NAV
+          NAVIGATION
       ====================================================== */}
 
       <header className="tots-nav-wrap">
-        <div className="tots-nav">
+        <nav className="tots-nav">
           <a
-            href="/"
+            href="#top"
             className="tots-brand"
           >
             <Logo />
           </a>
 
-          <nav className="tots-nav-links">
+          <div className="tots-nav-links">
             {NAV_ITEMS.map(
               (
                 item
               ) => (
                 <a
                   key={
-                    item.href
+                    item.label
                   }
                   href={
                     item.href
@@ -11637,7 +12139,7 @@ export default function TotsOSLanding() {
                 </a>
               )
             )}
-          </nav>
+          </div>
 
           <div className="tots-nav-actions">
             <a
@@ -11646,11 +12148,6 @@ export default function TotsOSLanding() {
               }
               className="button-secondary"
             >
-              <LogIn
-                size={
-                  14
-                }
-              />
               Log in
             </a>
 
@@ -11662,9 +12159,7 @@ export default function TotsOSLanding() {
             >
               Start free
               <ArrowRight
-                size={
-                  14
-                }
+                size={14}
               />
             </a>
           </div>
@@ -11672,6 +12167,7 @@ export default function TotsOSLanding() {
           <button
             type="button"
             className="tots-menu-button"
+            aria-label="Open menu"
             onClick={() =>
               setMobileMenuOpen(
                 true
@@ -11679,16 +12175,14 @@ export default function TotsOSLanding() {
             }
           >
             <Menu
-              size={
-                18
-              }
+              size={19}
             />
           </button>
-        </div>
+        </nav>
       </header>
 
       {/* ======================================================
-          MOBILE
+          MOBILE MENU
       ====================================================== */}
 
       <AnimatePresence>
@@ -11711,32 +12205,29 @@ export default function TotsOSLanding() {
             <motion.div
               className="mobile-menu"
               initial={{
-                opacity:
-                  0,
                 y:
                   -20,
+                opacity:
+                  0,
               }}
               animate={{
+                y:
+                  0,
                 opacity:
                   1,
+              }}
+              exit={{
                 y:
+                  -20,
+                opacity:
                   0,
               }}
             >
-              <div className="mobile-menu-head">
-                <Logo
-                  size={
-                    35
-                  }
-                />
+              <div className="mobile-menu-top">
+                <Logo />
 
                 <button
                   type="button"
-                  className="tots-menu-button"
-                  style={{
-                    display:
-                      "flex",
-                  }}
                   onClick={() =>
                     setMobileMenuOpen(
                       false
@@ -11744,21 +12235,19 @@ export default function TotsOSLanding() {
                   }
                 >
                   <X
-                    size={
-                      18
-                    }
+                    size={20}
                   />
                 </button>
               </div>
 
-              <div className="mobile-links">
+              <div className="mobile-menu-links">
                 {NAV_ITEMS.map(
                   (
                     item
                   ) => (
                     <a
                       key={
-                        item.href
+                        item.label
                       }
                       href={
                         item.href
@@ -11774,31 +12263,22 @@ export default function TotsOSLanding() {
                       }
 
                       <ArrowUpRight
-                        size={
-                          15
-                        }
+                        size={16}
                       />
                     </a>
                   )
                 )}
               </div>
 
-              <div className="mobile-actions">
-                <button
-                  type="button"
+              <div className="mobile-menu-actions">
+                <a
+                  href={
+                    SIGNUP_URL
+                  }
                   className="button-secondary"
-                  onClick={() => {
-                    setMobileMenuOpen(
-                      false
-                    );
-
-                    setTourOpen(
-                      true
-                    );
-                  }}
                 >
-                  Take free tour
-                </button>
+                  Log in
+                </a>
 
                 <a
                   href={
@@ -11806,8 +12286,10 @@ export default function TotsOSLanding() {
                   }
                   className="button-primary"
                 >
-                  Start my free
-                  trial
+                  Start free
+                  <ArrowRight
+                    size={14}
+                  />
                 </a>
               </div>
             </motion.div>
@@ -11819,1075 +12301,879 @@ export default function TotsOSLanding() {
           HERO
       ====================================================== */}
 
-      <section className="tots-hero">
-        <div className="tots-hero-inner">
-          <motion.div
-            className="tots-hero-pill"
-            initial={{
-              opacity:
-                0,
-              y:
-                10,
-            }}
-            animate={{
-              opacity:
-                1,
-              y:
-                0,
-            }}
-          >
-            <Sparkles
-              size={
-                13
-              }
-            />
+      <main id="top">
+        <section className="hero">
+          <div className="tots-container">
+            <div className="hero-grid">
+              <Reveal>
+                <div className="hero-copy">
+                  <Eyebrow>
+                    Your business.
+                    Finally
+                    organised.
+                  </Eyebrow>
 
-            One calmer place to
-            run your business
-          </motion.div>
+                  <h1 className="hero-title">
+                    One place
+                    to run{" "}
+                    <span className="gold-text">
+                      everything.
+                    </span>
+                  </h1>
 
-          <motion.h1
-            className="tots-hero-title"
-            initial={{
-              opacity:
-                0,
-              y:
-                20,
-            }}
-            animate={{
-              opacity:
-                1,
-              y:
-                0,
-            }}
-          >
-            Your whole business.
+                  <p className="hero-description">
+                    TOTS-OS brings
+                    your clients,
+                    projects,
+                    finances,
+                    calendar,
+                    content,
+                    notes and
+                    everyday
+                    business
+                    admin into one
+                    calm,
+                    connected
+                    workspace.
+                  </p>
 
-            <span className="tots-hero-accent">
-              Finally organised.
-            </span>
-          </motion.h1>
+                  <div className="hero-actions">
+                    <a
+                      href={
+                        SIGNUP_URL
+                      }
+                      className="button-primary button-large"
+                    >
+                      Start
+                      14-day free
+                      trial
 
-          <motion.p
-            className="tots-hero-copy"
-            initial={{
-              opacity:
-                0,
-              y:
-                18,
-            }}
-            animate={{
-              opacity:
-                1,
-              y:
-                0,
-            }}
-          >
-            TOTS-OS brings your{" "}
-            <strong>
-              clients, projects,
-              tasks, finances,
-              calendar, content
-              and ideas
-            </strong>{" "}
-            into one connected
-            workspace — so
-            running your
-            business feels less
-            scattered and a lot
-            more manageable.
-          </motion.p>
+                      <ArrowRight
+                        size={15}
+                      />
+                    </a>
 
-          <motion.div
-            className="tots-hero-actions"
-            initial={{
-              opacity:
-                0,
-              y:
-                16,
-            }}
-            animate={{
-              opacity:
-                1,
-              y:
-                0,
-            }}
-          >
-            <a
-              href={
-                SIGNUP_URL
-              }
-              className="button-primary button-large"
-            >
-              Start my free trial
+                    <button
+                      type="button"
+                      className="button-secondary button-large"
+                      onClick={() =>
+                        setTourOpen(
+                          true
+                        )
+                      }
+                    >
+                      <Play
+                        size={14}
+                      />
 
-              <ArrowRight
-                size={
-                  16
+                      Take the
+                      tour
+                    </button>
+                  </div>
+
+                  <div className="hero-proof">
+                    <div>
+                      <Check
+                        size={13}
+                      />
+                      14 days free
+                    </div>
+
+                    <div>
+                      <Check
+                        size={13}
+                      />
+                      No
+                      commitment
+                    </div>
+
+                    <div>
+                      <Check
+                        size={13}
+                      />
+                      Set up in
+                      minutes
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+
+              <Reveal
+                delay={
+                  0.12
                 }
-              />
-            </a>
+              >
+                <div className="hero-visual">
+                  <div className="hero-visual-glow" />
 
-            <button
-              type="button"
-              className="button-secondary button-large"
-              onClick={() =>
-                setTourOpen(
-                  true
-                )
-              }
-            >
-              <Play
-                size={
-                  14
-                }
-              />
+                  <div className="hero-window">
+                    <div className="hero-window-top">
+                      <div className="window-dots">
+                        <span />
+                        <span />
+                        <span />
+                      </div>
 
-              Take the free tour
-            </button>
-          </motion.div>
+                      <span>
+                        TOTS-OS
+                      </span>
+                    </div>
 
-          <motion.div
-            className="tots-hero-note"
-            initial={{
-              opacity:
-                0,
-            }}
-            animate={{
-              opacity:
-                1,
-            }}
-          >
-            <span>
-              <Check
-                size={
-                  12
-                }
-              />
-              14 days free
-            </span>
-
-            <span>
-              <Check
-                size={
-                  12
-                }
-              />
-              No commitment
-            </span>
-
-            <span>
-              <Check
-                size={
-                  12
-                }
-              />
-              Set up in minutes
-            </span>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ======================================================
-          TRUST
-      ====================================================== */}
-
-      <section className="trusted-section">
-        <Reveal>
-          <div className="trusted-card">
-            <p>
-              Trusted by
-              businesses
-              including
-            </p>
-
-            <div className="trusted-list">
-              {TRUSTED_BY.map(
-                (
-                  name
-                ) => (
-                  <span
-                    key={
-                      name
-                    }
-                  >
-                    {
-                      name
-                    }
-                  </span>
-                )
-              )}
-            </div>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ======================================================
-          CALM
-      ====================================================== */}
-
-      <section className="calm-section">
-        <Reveal>
-          <div className="calm-card">
-            <Eyebrow>
-              Sound familiar?
-            </Eyebrow>
-
-            <h2>
-              Your business grew.
-              <br />
-              Your organisation
-              didn&apos;t.
-            </h2>
-
-            <p>
-              Client details in
-              WhatsApp. Tasks in
-              your head. Invoices
-              somewhere else.
-              Content sitting in
-              Canva. Notes on
-              your phone.
-              Another tab every
-              time you need to
-              find something.
-            </p>
-
-            <div className="chaos-list">
-              {[
-                "WhatsApp",
-                "Spreadsheets",
-                "Notes",
-                "Calendar",
-                "Canva",
-                "Invoices",
-                "Random tabs",
-                "Your head",
-              ].map(
-                (
-                  item
-                ) => (
-                  <span
-                    key={
-                      item
-                    }
-                  >
-                    {
-                      item
-                    }
-                  </span>
-                )
-              )}
-            </div>
-
-            <div className="calm-line">
-              TOTS-OS gives it
-              all one calm home.
-            </div>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ======================================================
-          PRODUCT
-      ====================================================== */}
-
-      <section
-        id="product"
-        className="tots-section"
-      >
-        <div className="tots-container">
-          <Reveal>
-            <Eyebrow>
-              One business.
-              One place.
-            </Eyebrow>
-
-            <h2 className="section-title">
-              Stop rebuilding the
-              picture of your
-              business{" "}
-              <span className="gold-text">
-                every day.
-              </span>
-            </h2>
-
-            <p className="section-copy">
-              Instead of
-              remembering where
-              everything lives,
-              open one workspace
-              and see your
-              clients, work,
-              money and
-              priorities
-              together.
-            </p>
-          </Reveal>
-
-          <div className="transform-grid">
-            <Reveal>
-              <div className="transform-card">
-                <span>
-                  Before
-                </span>
-
-                <h3>
-                  Everything has
-                  its own hiding
-                  place.
-                </h3>
-
-                <div className="transform-list">
-                  {[
-                    "Clients in messages and contacts",
-                    "Tasks in notes or your head",
-                    "Projects in spreadsheets",
-                    "Money in another system",
-                    "Content somewhere else again",
-                    "No single view of the business",
-                  ].map(
-                    (
-                      item
-                    ) => (
-                      <div
-                        className="transform-row"
-                        key={
-                          item
-                        }
-                      >
-                        <X
-                          size={
-                            14
+                    <div className="hero-window-content">
+                      <div className="hero-mini-sidebar">
+                        <Logo
+                          size={34}
+                          showWordmark={
+                            false
                           }
                         />
 
-                        {
-                          item
-                        }
+                        {[
+                          LayoutDashboard,
+                          Users,
+                          FolderKanban,
+                          CircleDollarSign,
+                          CalendarDays,
+                          NotebookPen,
+                        ].map(
+                          (
+                            Icon,
+                            index
+                          ) => (
+                            <div
+                              key={
+                                index
+                              }
+                              className={
+                                index ===
+                                0
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Icon
+                                size={14}
+                              />
+                            </div>
+                          )
+                        )}
                       </div>
+
+                      <div className="hero-mini-main">
+                        <div className="hero-mini-heading">
+                          <div>
+                            <span>
+                              Good
+                              morning.
+                            </span>
+
+                            <strong>
+                              Here&apos;s
+                              your
+                              business
+                              today.
+                            </strong>
+                          </div>
+
+                          <div className="hero-mini-clarity">
+                            <Sparkles
+                              size={12}
+                            />
+                            Clarity
+                          </div>
+                        </div>
+
+                        <div className="hero-mini-metrics">
+                          <div>
+                            <span>
+                              Revenue
+                            </span>
+                            <strong>
+                              £18.4k
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span>
+                              Tasks
+                            </span>
+                            <strong>
+                              12
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span>
+                              Projects
+                            </span>
+                            <strong>
+                              6
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div className="hero-mini-panels">
+                          <div className="hero-mini-focus">
+                            <span>
+                              Focus
+                            </span>
+
+                            <strong>
+                              Today&apos;s
+                              priorities
+                            </strong>
+
+                            <div />
+
+                            <div />
+
+                            <div />
+                          </div>
+
+                          <div className="hero-mini-schedule">
+                            <span>
+                              Coming up
+                            </span>
+
+                            <div />
+
+                            <div />
+
+                            <div />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hero-floating-card hero-floating-one">
+                    <span>
+                      <Sparkles
+                        size={12}
+                      />
+                      Clarity
+                    </span>
+
+                    <strong>
+                      3 things
+                      need your
+                      attention
+                    </strong>
+                  </div>
+
+                  <div className="hero-floating-card hero-floating-two">
+                    <span>
+                      Business
+                      health
+                    </span>
+
+                    <strong>
+                      82%
+                    </strong>
+                  </div>
+                </div>
+              </Reveal>
+            </div>
+
+            <Reveal
+              delay={
+                0.18
+              }
+            >
+              <div className="trusted-block">
+                <span className="trusted-label">
+                  Built for
+                  businesses
+                  like
+                </span>
+
+                <div className="trusted-row">
+                  {TRUSTED_BY.map(
+                    (
+                      company
+                    ) => (
+                      <span
+                        key={
+                          company
+                        }
+                      >
+                        {
+                          company
+                        }
+                      </span>
                     )
                   )}
                 </div>
               </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ====================================================
+            PRODUCT
+        ==================================================== */}
+
+        <section
+          className="tots-section soft"
+          id="product"
+        >
+          <div className="tots-container">
+            <Reveal>
+              <Eyebrow>
+                One operating
+                system
+              </Eyebrow>
+
+              <h2 className="section-title">
+                Your business
+                doesn&apos;t
+                need{" "}
+                <span className="gold-text">
+                  more tabs.
+                </span>
+              </h2>
+
+              <p className="section-copy">
+                It needs one
+                place where the
+                important things
+                connect. TOTS-OS
+                gives you a
+                clearer view of
+                the work, people,
+                money and plans
+                behind your
+                business.
+              </p>
             </Reveal>
 
             <Reveal
               delay={
-                0.08
+                0.1
               }
             >
-              <div className="transform-card good">
-                <span>
-                  With TOTS-OS
-                </span>
+              <div className="product-statement">
+                <div>
+                  <span>
+                    Instead of
+                  this
+                  </span>
 
-                <h3>
-                  Everything
-                  works together.
-                </h3>
+                  <p>
+                    CRM.
+                    Spreadsheet.
+                    Notes app.
+                    Calendar.
+                    Project tool.
+                    Finance
+                    tracker.
+                    Content
+                    planner.
+                  </p>
+                </div>
 
-                <div className="transform-list">
-                  {[
-                    "Clients connected to their work",
-                    "Projects connected to tasks",
-                    "Invoices and finances visible",
-                    "Calendar and deadlines together",
-                    "Content alongside the rest",
-                    "Clarity helping you prioritise",
-                  ].map(
-                    (
-                      item
-                    ) => (
-                      <div
-                        className="transform-row"
-                        key={
-                          item
-                        }
-                      >
-                        <Check
-                          size={
-                            14
-                          }
-                        />
+                <ArrowRight
+                  size={24}
+                />
 
-                        {
-                          item
-                        }
-                      </div>
-                    )
-                  )}
+                <div className="product-statement-final">
+                  <span>
+                    Use this
+                  </span>
+
+                  <strong>
+                    TOTS-OS
+                  </strong>
+
+                  <p>
+                    One connected
+                    workspace for
+                    the everyday
+                    running of
+                    your
+                    business.
+                  </p>
                 </div>
               </div>
             </Reveal>
           </div>
+        </section>
 
-          <div className="why-grid">
-            {[
-              {
-                icon:
-                  Layers3,
-                title:
-                  "One workspace",
-                text:
-                  "Clients, projects, finances, content and notes stay together instead of living across completely separate systems.",
-              },
-              {
-                icon:
-                  Gauge,
-                title:
-                  "Clear priorities",
-                text:
-                  "See what is due, what is overdue and what needs your attention without searching through everything first.",
-              },
-              {
-                icon:
-                  Zap,
-                title:
-                  "Less admin",
-                text:
-                  "Spend less time finding information and updating multiple tools, and more time actually running your business.",
-              },
-            ].map(
-              (
-                item,
-                index
-              ) => {
-                const Icon =
-                  item.icon;
+        {/* ====================================================
+            FEATURES
+        ==================================================== */}
 
-                return (
+        <section
+          className="tots-section"
+          id="features"
+        >
+          <div className="tots-container">
+            <Reveal>
+              <Eyebrow>
+                What&apos;s
+                inside
+              </Eyebrow>
+
+              <h2 className="section-title">
+                Everything has a{" "}
+                <span className="gold-text">
+                  place.
+                </span>
+              </h2>
+
+              <p className="section-copy">
+                The tools you
+                use every day
+                shouldn&apos;t
+                feel like
+                separate parts
+                of your
+                business.
+              </p>
+            </Reveal>
+
+            <div className="feature-grid">
+              {FEATURES.map(
+                (
+                  feature,
+                  index
+                ) => {
+                  const Icon =
+                    feature.icon;
+
+                  return (
+                    <Reveal
+                      key={
+                        feature.id
+                      }
+                      delay={
+                        index *
+                        0.04
+                      }
+                    >
+                      <div className="feature-card">
+                        <div className="feature-card-top">
+                          <span className="feature-number">
+                            {
+                              feature.id
+                            }
+                          </span>
+
+                          <div className="feature-icon">
+                            <Icon
+                              size={19}
+                            />
+                          </div>
+                        </div>
+
+                        <h3>
+                          {
+                            feature.title
+                          }
+                        </h3>
+
+                        <p>
+                          {
+                            feature.text
+                          }
+                        </p>
+                      </div>
+                    </Reveal>
+                  );
+                }
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ====================================================
+            DEMO
+        ==================================================== */}
+
+        <section className="tots-section soft">
+          <div className="tots-container">
+            <Reveal>
+              <Eyebrow>
+                Explore TOTS-OS
+              </Eyebrow>
+
+              <h2 className="section-title">
+                Don&apos;t just
+                read about it.{" "}
+                <span className="gold-text">
+                  Click around.
+                </span>
+              </h2>
+
+              <p className="section-copy">
+                Explore the demo
+                workspace or take
+                the guided tour
+                to see how the
+                different parts
+                of TOTS-OS work
+                together.
+              </p>
+            </Reveal>
+
+            <div
+              style={{
+                marginTop:
+                  46,
+              }}
+            >
+              <ProductDemo
+                onStartTour={() =>
+                  setTourOpen(
+                    true
+                  )
+                }
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ====================================================
+            CLARITY
+        ==================================================== */}
+
+        <section
+          className="tots-section"
+          id="clarity"
+        >
+          <div className="tots-container">
+            <div className="clarity-grid">
+              <Reveal>
+                <div>
+                  <Eyebrow>
+                    Meet Clarity
+                  </Eyebrow>
+
+                  <h2 className="section-title">
+                    An AI PA
+                    that already
+                    knows{" "}
+                    <span className="gold-text">
+                      the
+                      business.
+                    </span>
+                  </h2>
+
+                  <p className="section-copy">
+                    Clarity works
+                    with the
+                    information
+                    already
+                    inside your
+                    TOTS-OS
+                    workspace to
+                    help you see
+                    priorities,
+                    overdue work,
+                    deadlines and
+                    what deserves
+                    attention
+                    next.
+                  </p>
+
+                  <div className="clarity-points">
+                    {[
+                      "Surface priorities from your workspace",
+                      "Spot overdue work and upcoming deadlines",
+                      "Turn business information into next actions",
+                      "Reduce the time spent figuring out what to do next",
+                    ].map(
+                      (
+                        item
+                      ) => (
+                        <div
+                          key={
+                            item
+                          }
+                        >
+                          <Check
+                            size={14}
+                          />
+
+                          <span>
+                            {
+                              item
+                            }
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              </Reveal>
+
+              <Reveal
+                delay={
+                  0.12
+                }
+              >
+                <div className="clarity-showcase">
+                  <div className="clarity-showcase-top">
+                    <div className="clarity-showcase-icon">
+                      <Sparkles
+                        size={18}
+                      />
+                    </div>
+
+                    <div>
+                      <span>
+                        Clarity AI
+                      </span>
+
+                      <strong>
+                        Business
+                        assistant
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="clarity-showcase-user">
+                    What should
+                    I focus on
+                    today?
+                  </div>
+
+                  <div className="clarity-showcase-answer">
+                    <span>
+                      <Sparkles
+                        size={12}
+                      />
+                      Clarity
+                    </span>
+
+                    <p>
+                      You have
+                      three
+                      priorities
+                      worth
+                      focusing on
+                      first.
+                    </p>
+
+                    <div className="clarity-showcase-item">
+                      <b>
+                        1
+                      </b>
+
+                      <div>
+                        <strong>
+                          Send the
+                          Acorn
+                          Studio
+                          invoice
+                        </strong>
+
+                        <small>
+                          £1,850
+                          due this
+                          week
+                        </small>
+                      </div>
+                    </div>
+
+                    <div className="clarity-showcase-item">
+                      <b>
+                        2
+                      </b>
+
+                      <div>
+                        <strong>
+                          Review
+                          the
+                          Northstar
+                          project
+                        </strong>
+
+                        <small>
+                          Two
+                          delivery
+                          tasks are
+                          due
+                          tomorrow
+                        </small>
+                      </div>
+                    </div>
+
+                    <div className="clarity-showcase-item">
+                      <b>
+                        3
+                      </b>
+
+                      <div>
+                        <strong>
+                          Prepare
+                          for your
+                          2:00 PM
+                          client
+                          call
+                        </strong>
+
+                        <small>
+                          Client
+                          notes
+                          are
+                          already
+                          saved in
+                          TOTS-OS
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        {/* ====================================================
+            PRICING
+        ==================================================== */}
+
+        <section
+          className="tots-section soft"
+          id="pricing"
+        >
+          <div className="tots-container">
+            <Reveal>
+              <Eyebrow>
+                Simple pricing
+              </Eyebrow>
+
+              <h2 className="section-title">
+                Pick the
+                workspace that{" "}
+                <span className="gold-text">
+                  fits.
+                </span>
+              </h2>
+
+              <p className="section-copy">
+                Start with a
+                14-day free
+                trial, explore
+                the system and
+                choose the plan
+                that makes sense
+                for the way your
+                business works.
+              </p>
+            </Reveal>
+
+            <div className="pricing-grid">
+              {PRICING.map(
+                (
+                  plan,
+                  index
+                ) => (
                   <Reveal
                     key={
-                      item.title
+                      plan.name
                     }
                     delay={
                       index *
                       0.06
                     }
                   >
-                    <div className="why-card">
-                      <div className="why-icon">
-                        <Icon
-                          size={
-                            19
-                          }
-                        />
-                      </div>
-
-                      <h3>
-                        {
-                          item.title
-                        }
-                      </h3>
-
-                      <p>
-                        {
-                          item.text
-                        }
-                      </p>
-                    </div>
-                  </Reveal>
-                );
-              }
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ======================================================
-          DEMO
-      ====================================================== */}
-
-      <section className="tots-section soft">
-        <div className="tots-container">
-          <Reveal>
-            <div className="demo-section-head">
-              <Eyebrow>
-                See the actual
-                product
-              </Eyebrow>
-
-              <h2 className="section-title">
-                Have a proper
-                look around.
-              </h2>
-
-              <p className="section-copy">
-                This interactive
-                demo follows the
-                actual TOTS-OS
-                workspace, using
-                the same layouts,
-                navigation and
-                visual language
-                as the real
-                product.
-              </p>
-            </div>
-          </Reveal>
-
-          <ProductDemo
-            onStartTour={() =>
-              setTourOpen(
-                true
-              )
-            }
-          />
-        </div>
-      </section>
-
-      {/* ======================================================
-          FEATURES
-      ====================================================== */}
-
-      <section
-        id="features"
-        className="tots-section"
-      >
-        <div className="tots-container">
-          <Reveal>
-            <Eyebrow>
-              Inside TOTS-OS
-            </Eyebrow>
-
-            <h2 className="section-title">
-              Everything has a
-              place.
-            </h2>
-
-            <p className="section-copy">
-              The everyday tools
-              you need to run a
-              small business,
-              brought together
-              without making the
-              system feel
-              overwhelming.
-            </p>
-          </Reveal>
-
-          <div className="feature-grid">
-            {FEATURES.map(
-              (
-                feature,
-                index
-              ) => {
-                const Icon =
-                  feature.icon;
-
-                return (
-                  <Reveal
-                    key={
-                      feature.id
-                    }
-                    delay={
-                      (index %
-                        3) *
-                      0.05
-                    }
-                  >
-                    <div className="feature-card">
-                      <div className="feature-icon">
-                        <Icon
-                          size={
-                            20
-                          }
-                        />
-                      </div>
-
-                      <h3>
-                        {
-                          feature.title
-                        }
-                      </h3>
-
-                      <p>
-                        {
-                          feature.text
-                        }
-                      </p>
-                    </div>
-                  </Reveal>
-                );
-              }
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ======================================================
-          CONNECTED
-      ====================================================== */}
-
-      <section className="tots-section soft">
-        <div className="tots-container connected-layout">
-          <Reveal>
-            <Eyebrow>
-              Connected by
-              design
-            </Eyebrow>
-
-            <h2 className="section-title">
-              Your business
-              isn&apos;t six
-              separate apps.
-            </h2>
-
-            <p className="section-copy">
-              A contact becomes a
-              client. A client
-              gets a project.
-              Projects create
-              work. Work creates
-              revenue. TOTS-OS
-              keeps those
-              relationships
-              connected.
-            </p>
-          </Reveal>
-
-          <Reveal>
-            <div className="connection-grid">
-              {[
-                {
-                  icon:
-                    Users,
-                  label:
-                    "Clients",
-                },
-                {
-                  icon:
-                    FolderKanban,
-                  label:
-                    "Projects",
-                },
-                {
-                  icon:
-                    CalendarDays,
-                  label:
-                    "Calendar",
-                },
-                {
-                  icon:
-                    WalletCards,
-                  label:
-                    "Finances",
-                },
-                {
-                  icon:
-                    NotebookPen,
-                  label:
-                    "Notes",
-                },
-                {
-                  icon:
-                    MessageSquareText,
-                  label:
-                    "Social",
-                },
-              ].map(
-                (
-                  item
-                ) => {
-                  const Icon =
-                    item.icon;
-
-                  return (
                     <div
-                      className="connection-item"
-                      key={
-                        item.label
-                      }
+                      className={`pricing-card ${
+                        plan.featured
+                          ? "featured"
+                          : ""
+                      }`}
                     >
-                      <Icon
-                        size={
-                          21
-                        }
-                      />
+                      {plan.badge && (
+                        <span className="pricing-badge">
+                          {
+                            plan.badge
+                          }
+                        </span>
+                      )}
 
-                      <span>
+                      <span className="pricing-name">
                         {
-                          item.label
+                          plan.name
                         }
                       </span>
+
+                      <div className="pricing-price">
+                        <span>
+                          £
+                        </span>
+
+                        <strong>
+                          {
+                            plan.price
+                          }
+                        </strong>
+
+                        <small>
+                          / month
+                        </small>
+                      </div>
+
+                      <p className="pricing-description">
+                        {
+                          plan.description
+                        }
+                      </p>
+
+                      <div className="pricing-divider" />
+
+                      <div className="pricing-features">
+                        {plan.features.map(
+                          (
+                            feature
+                          ) => (
+                            <div
+                              key={
+                                feature
+                              }
+                            >
+                              <Check
+                                size={13}
+                              />
+
+                              <span>
+                                {
+                                  feature
+                                }
+                              </span>
+                            </div>
+                          )
+                        )}
+                      </div>
+
+                      <a
+                        href={
+                          SIGNUP_URL
+                        }
+                        className={
+                          plan.featured
+                            ? "button-primary button-large pricing-button"
+                            : "button-secondary button-large pricing-button"
+                        }
+                      >
+                        Start
+                        free
+
+                        <ArrowRight
+                          size={14}
+                        />
+                      </a>
                     </div>
-                  );
-                }
+                  </Reveal>
+                )
               )}
             </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ======================================================
-          CLARITY
-      ====================================================== */}
-
-      <section
-        id="clarity"
-        className="tots-section"
-      >
-        <div className="tots-container">
-          <div className="clarity-card">
-            <Reveal>
-              <Eyebrow>
-                Meet Clarity
-              </Eyebrow>
-
-              <h2 className="clarity-title">
-                Your business,
-                with a little
-                more
-                <span>
-                  clarity.
-                </span>
-              </h2>
-
-              <p className="clarity-copy">
-                Clarity is your
-                built-in AI PA.
-                It uses the
-                context already
-                inside TOTS-OS
-                to help surface
-                what needs your
-                attention.
-              </p>
-
-              <div className="clarity-points">
-                {[
-                  "Ask what to prioritise today.",
-                  "Surface overdue work and upcoming deadlines.",
-                  "See which clients need your attention.",
-                  "Catch outstanding invoices.",
-                  "Turn business information into a clearer next step.",
-                ].map(
-                  (
-                    item
-                  ) => (
-                    <div
-                      className="clarity-point"
-                      key={
-                        item
-                      }
-                    >
-                      <div className="clarity-check">
-                        <Check
-                          size={
-                            12
-                          }
-                        />
-                      </div>
-
-                      {
-                        item
-                      }
-                    </div>
-                  )
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setTourOpen(
-                    true
-                  )
-                }
-                className="button-primary"
-                style={{
-                  marginTop:
-                    28,
-                }}
-              >
-                <Sparkles
-                  size={
-                    14
-                  }
-                />
-
-                Take the guided
-                tour
-              </button>
-            </Reveal>
-
-            <Reveal>
-              <div className="clarity-demo">
-                <div className="clarity-demo-head">
-                  <div className="clarity-brand">
-                    <Sparkles
-                      size={
-                        14
-                      }
-                    />
-
-                    Clarity
-                  </div>
-
-                  <span className="clarity-ready">
-                    Ready
-                  </span>
-                </div>
-
-                <div className="clarity-message">
-                  What should I
-                  focus on today?
-                </div>
-
-                <div className="clarity-response">
-                  <span>
-                    Clarity
-                  </span>
-
-                  <p>
-                    Your workload
-                    needs
-                    attention.
-                    Start with
-                    high-impact
-                    open tasks,
-                    upcoming
-                    deadlines and
-                    active project
-                    delivery.
-                  </p>
-                </div>
-              </div>
-            </Reveal>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ======================================================
-          SECURITY
-      ====================================================== */}
-
-      <section className="tots-section soft">
-        <div className="tots-container">
-          <Reveal>
-            <Eyebrow>
-              Built for real
-              businesses
-            </Eyebrow>
-
-            <h2 className="section-title">
-              Simple on the
-              surface.
-              <br />
-              Solid underneath.
-            </h2>
-          </Reveal>
-
-          <div className="security-grid">
-            <div className="security-card">
-              <LockKeyhole
-                size={
-                  22
-                }
-              />
-
-              <h3>
-                Secure access
-              </h3>
-
-              <p>
-                Your workspace
-                sits behind
-                authenticated
-                account access.
-              </p>
-            </div>
-
-            <div className="security-card">
-              <ShieldCheck
-                size={
-                  22
-                }
-              />
-
-              <h3>
-                Organised data
-              </h3>
-
-              <p>
-                Business
-                information is
-                structured around
-                accounts and
-                organisations.
-              </p>
-            </div>
-
-            <div className="security-card">
-              <RefreshCw
-                size={
-                  22
-                }
-              />
-
-              <h3>
-                Always
-                improving
-              </h3>
-
-              <p>
-                TOTS-OS evolves
-                around real small
-                business
-                workflows.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ======================================================
-          PRICING
-      ====================================================== */}
-
-      <section
-        id="pricing"
-        className="tots-section"
-      >
-        <div className="tots-container">
-          <Reveal>
-            <Eyebrow>
-              Simple pricing
-            </Eyebrow>
-
-            <h2 className="section-title">
-              Choose what fits
-              your business.
-            </h2>
-
-            <p className="section-copy">
-              Create an account
-              and use TOTS-OS
-              free for 14 days
-              first.
-            </p>
-
-            <div className="trial-pill">
-              <Check
-                size={
-                  12
-                }
-              />
-
-              14 days free · no
-              commitment
-            </div>
-          </Reveal>
-
-          <div className="pricing-grid">
-            {PRICING.map(
-              (
-                plan
-              ) => (
-                <div
-                  className={`price-card ${
-                    plan.featured
-                      ? "featured"
-                      : ""
-                  }`}
-                  key={
-                    plan.name
-                  }
-                >
-                  <div className="price-head">
-                    <span className="price-name">
-                      {
-                        plan.name
-                      }
-                    </span>
-
-                    {plan.badge && (
-                      <span className="price-badge">
-                        {
-                          plan.badge
-                        }
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="price-figure">
-                    <span className="price-amount">
-                      £
-                      {
-                        plan.price
-                      }
-                    </span>
-
-                    <span className="price-period">
-                      /month
-                    </span>
-                  </div>
-
-                  <p className="price-description">
-                    {
-                      plan.description
-                    }
-                  </p>
-
-                  <div className="price-features">
-                    {plan.features.map(
-                      (
-                        feature
-                      ) => (
-                        <div
-                          className="price-feature"
-                          key={
-                            feature
-                          }
-                        >
-                          <Check
-                            size={
-                              13
-                            }
-                          />
-
-                          {
-                            feature
-                          }
-                        </div>
-                      )
-                    )}
-                  </div>
-
-                  <div className="price-action">
-                    <a
-                      href={
-                        SIGNUP_URL
-                      }
-                      className={
-                        plan.featured
-                          ? "button-primary"
-                          : "button-secondary"
-                      }
-                    >
-                      Start free
-
-                      <ArrowRight
-                        size={
-                          14
-                        }
-                      />
-                    </a>
-
-                    <p className="price-note">
-                      Try it free
-                      for 14 days
-                    </p>
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ======================================================
+              {/* ======================================================
           ABOUT
       ====================================================== */}
 
@@ -12897,285 +13183,344 @@ export default function TotsOSLanding() {
       >
         <div className="tots-container about-layout">
           <Reveal>
-            <Eyebrow>
-              Why we built it
-            </Eyebrow>
+            <div>
+              <Eyebrow>
+                The people behind it
+              </Eyebrow>
 
-            <h2 className="section-title">
-              Built by business
-              owners who wanted
-              something
-              simpler.
-            </h2>
-
-            <p className="section-copy">
-              Running a business
-              shouldn&apos;t
-              mean stitching
-              together a CRM,
-              planner, finance
-              app, social tool,
-              calendar and notes
-              system.
-            </p>
-          </Reveal>
-
-          <Reveal>
-            <div className="about-card">
-              <p>
-                We&apos;re Sam
-                and Leigha, the
-                team behind The
-                Organised Types.
-              </p>
-
-              <p>
-                We kept seeing
-                the same thing:
-                businesses had
-                plenty of
-                software, but
-                the actual
-                business was
-                still scattered
-                everywhere.
-              </p>
-
-              <p>
-                So we created
-                one calm home
-                for clients,
-                work, money,
-                ideas and
-                everything in
-                between.
-              </p>
-
-              <p>
-                That became
-                TOTS-OS.
-              </p>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ======================================================
-          FAQ
-      ====================================================== */}
-
-      <section className="tots-section">
-        <div className="tots-container faq-layout">
-          <Reveal>
-            <Eyebrow>
-              Questions
-            </Eyebrow>
-
-            <h2 className="section-title">
-              Things worth
-              knowing.
-            </h2>
-          </Reveal>
-
-          <div>
-            {FAQS.map(
-              (
-                faq,
-                index
-              ) => {
-                const open =
-                  openFaq ===
-                  index;
-
-                return (
-                  <div
-                    className="faq-item"
-                    key={
-                      faq.q
-                    }
-                  >
-                    <button
-                      type="button"
-                      className="faq-button"
-                      onClick={() =>
-                        setOpenFaq(
-                          open
-                            ? null
-                            : index
-                        )
-                      }
-                    >
-                      {
-                        faq.q
-                      }
-
-                      <motion.span
-                        animate={{
-                          rotate:
-                            open
-                              ? 180
-                              : 0,
-                        }}
-                      >
-                        <ChevronDown
-                          size={
-                            17
-                          }
-                        />
-                      </motion.span>
-                    </button>
-
-                    <AnimatePresence>
-                      {open && (
-                        <motion.div
-                          className="faq-answer"
-                          initial={{
-                            height:
-                              0,
-                            opacity:
-                              0,
-                          }}
-                          animate={{
-                            height:
-                              "auto",
-                            opacity:
-                              1,
-                          }}
-                          exit={{
-                            height:
-                              0,
-                            opacity:
-                              0,
-                          }}
-                        >
-                          {
-                            faq.a
-                          }
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              }
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ======================================================
-          FINAL
-      ====================================================== */}
-
-      <section className="tots-section">
-        <div className="tots-container">
-          <Reveal>
-            <div className="final-card">
-              <div className="final-icon">
-                <Sparkles
-                  size={
-                    23
-                  }
-                />
-              </div>
-
-              <h2>
-                Your business is
-                complicated
-                enough.
-                <br />
-
-                <span>
-                  Running it
-                  shouldn&apos;t
-                  be.
-                </span>
+              <h2 className="section-title">
+                Built by a mum and
+                daughter who were
+                tired of business
+                feeling so messy.
               </h2>
 
-              <p>
-                Start bringing
-                your clients,
-                projects, tasks,
-                finances,
-                content and ideas
-                back into one
-                calm, connected
-                place.
+              <p className="section-copy">
+                We&apos;re Sam and Leigha —
+                a mum-and-daughter team,
+                two very different brains,
+                and the people behind The
+                Organised Types and TOTS-OS.
               </p>
 
-              <div className="final-actions">
-                <a
-                  href={
-                    SIGNUP_URL
-                  }
-                  className="button-primary button-large"
-                >
-                  Start my free
-                  trial
+              <p className="section-copy">
+                We didn&apos;t build this from
+                a boardroom because we thought
+                the world needed another piece
+                of software. We built it because
+                we were living the problem
+                ourselves: too many tabs, too
+                many systems and far too much
+                business information living in
+                our heads.
+              </p>
 
-                  <ArrowRight
-                    size={
-                      16
-                    }
-                  />
-                </a>
+              <div className="about-story-kicker">
+                <Sparkles
+                  size={13}
+                />
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setTourOpen(
-                      true
-                    )
-                  }
-                  className="button-secondary button-large"
-                >
-                  <Play
-                    size={
-                      14
-                    }
-                  />
+                Built from real small-business chaos
+              </div>
+            </div>
+          </Reveal>
 
-                  Take free tour
-                </button>
+          <Reveal>
+            <div className="about-founders">
+              <div className="about-us-card">
+                <span className="green-label">
+                  Our story
+                </span>
+
+                <h3>
+                  One of us organises it.
+                  The other asks why it
+                  still takes five apps.
+                </h3>
+
+                <p>
+                  That back-and-forth is a
+                  pretty good summary of how
+                  TOTS-OS came to life. We kept
+                  looking at the everyday way
+                  small businesses actually work
+                  and asking: can this be calmer,
+                  clearer and all in one place?
+                </p>
+
+                <p>
+                  TOTS-OS is our answer — a
+                  system made to feel useful,
+                  human and genuinely nice to
+                  open every day.
+                </p>
               </div>
 
-              <p className="final-note">
-                14 days free ·
-                no commitment
-              </p>
+              <div className="about-founder-card featured">
+                <div className="about-founder-head">
+                  <div className="about-founder-avatar">
+                    S
+                  </div>
+
+                  <div>
+                    <span>
+                      Mum · Co-founder
+                    </span>
+
+                    <h3>
+                      Sam
+                    </h3>
+                  </div>
+                </div>
+
+                <p>
+                  Sam brings the business,
+                  organisation and big-picture
+                  thinking. She&apos;s the one
+                  asking how a process should
+                  actually work for a real
+                  business owner — not just how
+                  it looks on a screen.
+                </p>
+
+                <div className="about-founder-note">
+                  The practical voice in the room:
+                  “That&apos;s great, but will someone
+                  actually use it?”
+                </div>
+              </div>
+
+              <div className="about-founder-card">
+                <div className="about-founder-head">
+                  <div className="about-founder-avatar">
+                    L
+                  </div>
+
+                  <div>
+                    <span>
+                      Daughter · Co-founder
+                    </span>
+
+                    <h3>
+                      Leigha
+                    </h3>
+                  </div>
+                </div>
+
+                <p>
+                  Leigha brings the technology,
+                  design and constant “we could
+                  make this better” energy. She
+                  turns the ideas into the product
+                  — from how TOTS-OS feels to how
+                  all the moving parts connect.
+                </p>
+
+                <div className="about-founder-note">
+                  Usually the one saying:
+                  “Give me five minutes, I&apos;ll build it.”
+                </div>
+              </div>
             </div>
           </Reveal>
         </div>
       </section>
+
+        {/* ====================================================
+            FAQ
+        ==================================================== */}
+
+        <section className="tots-section soft">
+          <div className="tots-container">
+            <Reveal>
+              <Eyebrow>
+                Questions
+              </Eyebrow>
+
+              <h2 className="section-title">
+                The things
+                you&apos;ll
+                probably{" "}
+                <span className="gold-text">
+                  ask.
+                </span>
+              </h2>
+            </Reveal>
+
+            <div className="faq-list">
+              {FAQS.map(
+                (
+                  faq,
+                  index
+                ) => {
+                  const isOpen =
+                    openFaq ===
+                    index;
+
+                  return (
+                    <div
+                      className={`faq-item ${
+                        isOpen
+                          ? "open"
+                          : ""
+                      }`}
+                      key={
+                        faq.q
+                      }
+                    >
+                      <button
+                        type="button"
+                        className="faq-question"
+                        onClick={() =>
+                          setOpenFaq(
+                            isOpen
+                              ? null
+                              : index
+                          )
+                        }
+                      >
+                        <span>
+                          {
+                            faq.q
+                          }
+                        </span>
+
+                        <ChevronDown
+                          size={17}
+                        />
+                      </button>
+
+                      <AnimatePresence>
+                        {isOpen && (
+                          <motion.div
+                            className="faq-answer"
+                            initial={{
+                              height:
+                                0,
+                              opacity:
+                                0,
+                            }}
+                            animate={{
+                              height:
+                                "auto",
+                              opacity:
+                                1,
+                            }}
+                            exit={{
+                              height:
+                                0,
+                              opacity:
+                                0,
+                            }}
+                          >
+                            <p>
+                              {
+                                faq.a
+                              }
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                }
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ====================================================
+            FINAL CTA
+        ==================================================== */}
+
+        <section className="final-cta-section">
+          <div className="tots-container">
+            <Reveal>
+              <div className="final-cta">
+                <div className="final-cta-glow" />
+
+                <Eyebrow>
+                  Ready when you
+                  are
+                </Eyebrow>
+
+                <h2>
+                  Run the
+                  business.
+                  <br />
+                  Not{" "}
+                  <span>
+                    the chaos.
+                  </span>
+                </h2>
+
+                <p>
+                  Put your
+                  clients,
+                  projects,
+                  finances,
+                  planning,
+                  notes and
+                  everyday
+                  business admin
+                  into one
+                  organised
+                  workspace.
+                </p>
+
+                <div className="final-cta-actions">
+                  <a
+                    href={
+                      SIGNUP_URL
+                    }
+                    className="button-primary button-large"
+                  >
+                    Start
+                    14-day free
+                    trial
+
+                    <ArrowRight
+                      size={15}
+                    />
+                  </a>
+
+                  <button
+                    type="button"
+                    className="button-secondary button-large"
+                    onClick={() =>
+                      setTourOpen(
+                        true
+                      )
+                    }
+                  >
+                    <Play
+                      size={14}
+                    />
+
+                    Take the
+                    tour
+                  </button>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      </main>
 
       {/* ======================================================
           FOOTER
       ====================================================== */}
 
       <footer className="tots-footer">
-        <div className="footer-grid">
-          <div>
-            <Logo
-              size={
-                40
-              }
-            />
-
-            <p className="footer-copy">
-              One calmer,
-              connected
-              business
-              operating
-              system for small
-              businesses.
-            </p>
-          </div>
-
-          <div className="footer-col">
-            <h5>
-              Product
-            </h5>
+        <div className="tots-container">
+          <div className="footer-top">
+            <Logo />
 
             <div className="footer-links">
+              <a href="#product">
+                Product
+              </a>
+
               <a href="#features">
                 Features
               </a>
@@ -13191,71 +13536,40 @@ export default function TotsOSLanding() {
               <a href="#pricing">
                 Pricing
               </a>
-            </div>
-          </div>
 
-          <div className="footer-col">
-            <h5>
-              Account
-            </h5>
-
-            <div className="footer-links">
-              <a
-                href={
-                  SIGNUP_URL
-                }
-              >
-                Log in
-              </a>
-
-              <a
-                href={
-                  SIGNUP_URL
-                }
-              >
-                Create account
-              </a>
-
-              <a href="/manage-subscription">
-                Manage
-                subscription
+              <a href="#about">
+                About
               </a>
             </div>
+
+            <a
+              href={
+                SIGNUP_URL
+              }
+              className="button-primary"
+            >
+              Start free
+
+              <ArrowRight
+                size={14}
+              />
+            </a>
           </div>
 
-          <div className="footer-col">
-            <h5>
-              Legal
-            </h5>
+          <div className="footer-bottom">
+            <span>
+              © 2026 The
+              Organised Types.
+              All rights
+              reserved.
+            </span>
 
-            <div className="footer-links">
-              <a href="/docs/privacypolicy">
-                Privacy Policy
-              </a>
-
-              <a href="/docs/termsconditions">
-                Terms
-              </a>
-
-              <a href="/docs/cookies">
-                Cookies
-              </a>
-
-              <a href="/docs/securitypolicy">
-                Security
-              </a>
-            </div>
+            <span>
+              TOTS-OS · Your
+              business,
+              organised.
+            </span>
           </div>
-        </div>
-
-        <div className="footer-bottom">
-          <span>
-            © 2026 TOTS-OS
-          </span>
-
-          <span>
-            The Organised Types
-          </span>
         </div>
       </footer>
 

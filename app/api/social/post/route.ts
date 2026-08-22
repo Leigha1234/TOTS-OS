@@ -96,6 +96,23 @@ type MetaErrorResponse = {
     string;
 };
 
+type SupabaseCookieToSet = {
+  name:
+    string;
+
+  value:
+    string;
+
+  options?:
+    Parameters<
+      Awaited<
+        ReturnType<
+          typeof cookies
+        >
+      >["set"]
+    >[2];
+};
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -546,6 +563,41 @@ export async function POST(
 ) {
   try {
     // ========================================================
+    // ENVIRONMENT
+    // ========================================================
+
+    const supabaseUrl =
+      process.env
+        .NEXT_PUBLIC_SUPABASE_URL;
+
+    const supabaseAnonKey =
+      process.env
+        .NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (
+      !supabaseUrl ||
+      !supabaseAnonKey
+    ) {
+      console.error(
+        "[SOCIAL POST] Missing Supabase environment variables."
+      );
+
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            "Social publishing is not configured correctly.",
+        },
+        {
+          status:
+            500,
+        }
+      );
+    }
+
+    // ========================================================
     // SUPABASE
     // ========================================================
 
@@ -554,12 +606,8 @@ export async function POST(
 
     const supabase =
       createServerClient(
-        process.env
-          .NEXT_PUBLIC_SUPABASE_URL!,
-
-        process.env
-          .NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-
+        supabaseUrl,
+        supabaseAnonKey,
         {
           cookies: {
             getAll() {
@@ -567,7 +615,8 @@ export async function POST(
             },
 
             setAll(
-              cookiesToSet
+              cookiesToSet:
+                SupabaseCookieToSet[]
             ) {
               try {
                 cookiesToSet.forEach(
@@ -636,10 +685,29 @@ export async function POST(
     // BODY
     // ========================================================
 
-    const body =
-      (
-        await req.json()
-      ) as PublishRequestBody;
+    let body:
+      PublishRequestBody;
+
+    try {
+      body =
+        (
+          await req.json()
+        ) as PublishRequestBody;
+    } catch {
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            "Invalid social post request.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
 
     const socialAccountId =
       cleanString(
@@ -656,7 +724,8 @@ export async function POST(
         body.imageUrl
       );
 
-    let destinations =
+    let destinations:
+      PublishDestination[] =
       Array.isArray(
         body.destinations
       )
@@ -821,14 +890,18 @@ export async function POST(
         "instagram"
     ) {
       /*
-       * Backwards compatibility:
+       * BACKWARDS COMPATIBILITY:
        *
-       * Your OLD composer does not send destinations.
+       * Your older composer does not send destinations.
        *
-       * Until we replace that composer, default Meta posts to:
+       * Default behaviour:
        *
-       * Facebook always
-       * Instagram too when image + Instagram account exist
+       * Facebook always.
+       *
+       * Instagram also when:
+       *
+       * - an image URL exists
+       * - an Instagram Business account is connected
        */
 
       if (
@@ -850,6 +923,17 @@ export async function POST(
           );
         }
       }
+
+      // ======================================================
+      // REMOVE DUPLICATES
+      // ======================================================
+
+      destinations =
+        Array.from(
+          new Set(
+            destinations
+          )
+        );
 
       const results:
         Array<
@@ -902,6 +986,11 @@ export async function POST(
               ? error.message
               : "Facebook publishing failed.";
 
+          console.error(
+            "[SOCIAL POST] Facebook error:",
+            message
+          );
+
           errors.push({
             destination:
               "facebook",
@@ -944,6 +1033,11 @@ export async function POST(
               ? error.message
               : "Instagram publishing failed.";
 
+          console.error(
+            "[SOCIAL POST] Instagram error:",
+            message
+          );
+
           errors.push({
             destination:
               "instagram",
@@ -952,6 +1046,29 @@ export async function POST(
               message,
           });
         }
+      }
+
+      // ======================================================
+      // NOTHING SELECTED
+      // ======================================================
+
+      if (
+        destinations.length ===
+        0
+      ) {
+        return NextResponse.json(
+          {
+            success:
+              false,
+
+            error:
+              "Select Facebook or Instagram before publishing.",
+          },
+          {
+            status:
+              400,
+          }
+        );
       }
 
       // ======================================================
@@ -974,6 +1091,9 @@ export async function POST(
             success:
               false,
 
+            partialSuccess:
+              false,
+
             error:
               errors
                 .map(
@@ -991,11 +1111,19 @@ export async function POST(
                   " "
                 ),
 
+            results:
+              [],
+
             errors,
           },
           {
             status:
               500,
+
+            headers: {
+              "Cache-Control":
+                "no-store",
+            },
           }
         );
       }
@@ -1003,6 +1131,20 @@ export async function POST(
       // ======================================================
       // PARTIAL / COMPLETE SUCCESS
       // ======================================================
+
+      const successfulDestinations =
+        results
+          .map(
+            (
+              result
+            ) =>
+              cleanString(
+                result.destination
+              )
+          )
+          .filter(
+            Boolean
+          );
 
       console.log(
         "[SOCIAL POST] Meta publishing completed:",
@@ -1022,11 +1164,48 @@ export async function POST(
 
           destinations,
 
+          successfulDestinations,
+
           results,
 
           errors,
         }
       );
+
+      let message =
+        "Your post was published successfully.";
+
+      if (
+        errors.length >
+        0
+      ) {
+        message =
+          "Your post was published to some selected platforms, but one destination failed.";
+      } else if (
+        successfulDestinations.includes(
+          "facebook"
+        ) &&
+        successfulDestinations.includes(
+          "instagram"
+        )
+      ) {
+        message =
+          "Your post was published successfully to Facebook and Instagram.";
+      } else if (
+        successfulDestinations.includes(
+          "instagram"
+        )
+      ) {
+        message =
+          "Your post was published successfully to Instagram.";
+      } else if (
+        successfulDestinations.includes(
+          "facebook"
+        )
+      ) {
+        message =
+          "Your post was published successfully to Facebook.";
+      }
 
       return NextResponse.json(
         {
@@ -1037,17 +1216,9 @@ export async function POST(
             errors.length >
             0,
 
-          message:
-            errors.length >
-            0
-              ? "Your post was published to some selected platforms."
-              : destinations.length >
-                  1
-                ? "Your post was published successfully to Facebook and Instagram."
-                : destinations[0] ===
-                    "instagram"
-                  ? "Your post was published successfully to Instagram."
-                  : "Your post was published successfully to Facebook.",
+          message,
+
+          successfulDestinations,
 
           results,
 

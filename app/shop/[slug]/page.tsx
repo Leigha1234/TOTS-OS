@@ -4,11 +4,10 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
 } from "react";
-
-import { supabase } from "@/lib/supabase";
 
 import {
   ArrowRight,
@@ -38,60 +37,6 @@ import { useParams } from "next/navigation";
 // ============================================================
 // TYPES
 // ============================================================
-
-type StoreSettingsRow = {
-  id: string;
-  organisation_id: string;
-  slug: string;
-
-  store_name?: string | null;
-  store_description?: string | null;
-
-  hero_title?: string | null;
-  hero_text?: string | null;
-
-  announcement?: string | null;
-
-  accent_colour?: string | null;
-
-  shipping_text?: string | null;
-
-  support_email?: string | null;
-
-  is_live?: boolean | null;
-
-  created_at?: string | null;
-  updated_at?: string | null;
-};
-
-type OrganisationRow = {
-  id: string;
-
-  name?: string | null;
-  company_name?: string | null;
-
-  description?: string | null;
-
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
-
-  website?: string | null;
-  website_url?: string | null;
-
-  instagram?: string | null;
-  instagram_url?: string | null;
-
-  logo?: string | null;
-  logo_url?: string | null;
-
-  company_logo?: string | null;
-  company_logo_url?: string | null;
-
-  branding_logo_url?: string | null;
-
-  [key: string]: unknown;
-};
 
 type Storefront = {
   id: string;
@@ -134,12 +79,20 @@ type Product = {
 
   name: string;
 
+  slug?: string | null;
+
   description?: string | null;
+
   category?: string | null;
 
   price: number | string;
 
   compare_at_price?:
+    | number
+    | string
+    | null;
+
+  cost_price?:
     | number
     | string
     | null;
@@ -150,6 +103,12 @@ type Product = {
 
   inventory_quantity?: number | null;
 
+  stock?: number | null;
+
+  low_stock_threshold?: number | null;
+
+  track_inventory?: boolean | null;
+
   sku?: string | null;
 
   is_active?: boolean | null;
@@ -158,7 +117,10 @@ type Product = {
 
   sort_order?: number | null;
 
+  status?: string | null;
+
   created_at?: string | null;
+  updated_at?: string | null;
 
   [key: string]: unknown;
 };
@@ -168,11 +130,22 @@ type CartLine = {
   quantity: number;
 };
 
+type StorefrontApiResponse = {
+  store?: Storefront;
+
+  products?: Product[];
+
+  productLoadWarning?: string | null;
+
+  error?: string;
+};
+
 // ============================================================
 // CONSTANTS
 // ============================================================
 
-const QUERY_TIMEOUT_MS = 10000;
+const STOREFRONT_REQUEST_TIMEOUT_MS =
+  30000;
 
 // ============================================================
 // HELPERS
@@ -188,9 +161,7 @@ function formatCurrency(
       currency: "GBP",
     }
   ).format(
-    Number(
-      value || 0
-    )
+    Number(value || 0)
   );
 }
 
@@ -214,24 +185,6 @@ function normaliseColour(
   return fallback;
 }
 
-function firstString(
-  ...values: unknown[]
-) {
-  for (
-    const value of values
-  ) {
-    if (
-      typeof value ===
-        "string" &&
-      value.trim()
-    ) {
-      return value.trim();
-    }
-  }
-
-  return null;
-}
-
 function getProductImage(
   product: Product
 ) {
@@ -246,9 +199,7 @@ function getProductImage(
   if (
     Array.isArray(
       product.images
-    ) &&
-    product.images.length >
-      0
+    )
   ) {
     const first =
       product.images.find(
@@ -260,43 +211,177 @@ function getProductImage(
           image.trim()
       );
 
-    return first || null;
+    if (first) {
+      return first;
+    }
   }
 
   return null;
 }
 
-/**
- * Prevent any Supabase request from leaving the
- * public storefront on "Loading store" forever.
- */
-async function withTimeout<T>(
-  promise: PromiseLike<T>,
-  timeoutMs = QUERY_TIMEOUT_MS
-): Promise<T> {
-  return await Promise.race([
-    Promise.resolve(
-      promise
-    ),
+// ============================================================
+// INVENTORY
+// ============================================================
 
-    new Promise<T>(
-      (
-        _resolve,
-        reject
-      ) => {
-        window.setTimeout(
-          () => {
-            reject(
-              new Error(
-                "The store took too long to respond. Please try again."
-              )
-            );
-          },
-          timeoutMs
-        );
-      }
-    ),
-  ]);
+function getAvailableQuantity(
+  product: Product
+) {
+  /*
+   * Services, digital products, unlimited items etc.
+   *
+   * If inventory tracking is explicitly disabled,
+   * this item can always be purchased.
+   */
+  if (
+    product.track_inventory ===
+    false
+  ) {
+    return null;
+  }
+
+  if (
+    typeof product.inventory_quantity ===
+      "number"
+  ) {
+    return product.inventory_quantity;
+  }
+
+  if (
+    typeof product.stock ===
+      "number"
+  ) {
+    return product.stock;
+  }
+
+  /*
+   * If no inventory number exists, do NOT automatically
+   * assume the product is sold out.
+   */
+  return null;
+}
+
+function isOutOfStock(
+  product: Product
+) {
+  if (
+    product.track_inventory ===
+    false
+  ) {
+    return false;
+  }
+
+  const quantity =
+    getAvailableQuantity(
+      product
+    );
+
+  return (
+    quantity !== null &&
+    quantity <= 0
+  );
+}
+
+function isLowStock(
+  product: Product
+) {
+  if (
+    product.track_inventory ===
+    false
+  ) {
+    return false;
+  }
+
+  const quantity =
+    getAvailableQuantity(
+      product
+    );
+
+  const threshold =
+    typeof product.low_stock_threshold ===
+      "number"
+      ? product.low_stock_threshold
+      : 5;
+
+  return (
+    quantity !== null &&
+    quantity > 0 &&
+    quantity <= threshold
+  );
+}
+
+// ============================================================
+// PRODUCT TYPES
+// ============================================================
+
+function isServiceProduct(
+  product: Product
+) {
+  const category =
+    String(
+      product.category || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  return [
+    "websites",
+    "website",
+    "website add-ons",
+    "website add ons",
+    "website maintenance",
+    "branding",
+    "business coaching",
+    "coaching",
+    "services",
+    "service",
+    "social media",
+    "business support",
+  ].includes(category);
+}
+
+function isDigitalProduct(
+  product: Product
+) {
+  const category =
+    String(
+      product.category || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  return (
+    category.includes(
+      "digital"
+    ) ||
+    category.includes(
+      "template"
+    ) ||
+    category.includes(
+      "resource"
+    )
+  );
+}
+
+function getProductActionLabel(
+  product: Product
+) {
+  if (
+    isServiceProduct(
+      product
+    )
+  ) {
+    return "Choose service";
+  }
+
+  if (
+    isDigitalProduct(
+      product
+    )
+  ) {
+    return "Get this";
+  }
+
+  return "Add to basket";
 }
 
 // ============================================================
@@ -316,6 +401,15 @@ export default function ShopFrontPage() {
           )
         ? params.slug[0]
         : "";
+
+  // ==========================================================
+  // REQUEST MANAGEMENT
+  // ==========================================================
+
+  const requestControllerRef =
+    useRef<AbortController | null>(
+      null
+    );
 
   // ==========================================================
   // STORE
@@ -408,509 +502,368 @@ export default function ShopFrontPage() {
 
   // ==========================================================
   // LOAD STORE
+  //
+  // IMPORTANT:
+  // This page no longer talks directly to Supabase.
+  //
+  // Everything comes through:
+  //
+  // /api/storefront/[slug]
   // ==========================================================
 
   const loadStore =
     useCallback(
       async () => {
-        // Always immediately reset the page state.
+        if (
+          !slug ||
+          !slug.trim()
+        ) {
+          setStore(null);
+          setProducts([]);
+          setError(
+            "No store was specified."
+          );
+          setLoading(false);
+
+          return;
+        }
+
+        // Cancel any previous request.
+        requestControllerRef.current?.abort();
+
+        const controller =
+          new AbortController();
+
+        requestControllerRef.current =
+          controller;
+
         setLoading(true);
         setError(null);
         setProductLoadWarning(
           null
         );
 
+        const safeSlug =
+          slug
+            .trim()
+            .toLowerCase();
+
+        let timeoutId:
+          ReturnType<
+            typeof setTimeout
+          > | null =
+          null;
+
         try {
           // ===================================================
-          // VALIDATE SLUG
+          // SAFETY TIMEOUT
           // ===================================================
 
-          if (
-            !slug ||
-            !slug.trim()
-          ) {
-            throw new Error(
-              "No store was specified."
-            );
-          }
-
-          const safeSlug =
-            slug
-              .trim()
-              .toLowerCase();
-
-          console.log(
-            "[TOTS STORE] Loading:",
-            safeSlug
-          );
-
-          // ===================================================
-          // 1. LOAD STORE SETTINGS
-          //
-          // This is the only required query.
-          // ===================================================
-
-          const settingsResponse =
-            await withTimeout(
-              supabase
-                .from(
-                  "store_settings"
-                )
-                .select(
-                  `
-                    id,
-                    organisation_id,
-                    slug,
-                    store_name,
-                    store_description,
-                    hero_title,
-                    hero_text,
-                    announcement,
-                    accent_colour,
-                    shipping_text,
-                    support_email,
-                    is_live,
-                    created_at,
-                    updated_at
-                  `
-                )
-                .eq(
-                  "slug",
-                  safeSlug
-                )
-                .maybeSingle()
+          timeoutId =
+            setTimeout(
+              () => {
+                controller.abort();
+              },
+              STOREFRONT_REQUEST_TIMEOUT_MS
             );
 
-          const {
-            data:
-              settingsData,
-            error:
-              settingsError,
-          } =
-            settingsResponse;
+          // ===================================================
+          // ONE STOREFRONT REQUEST
+          // ===================================================
+
+          const response =
+            await fetch(
+              `/api/storefront/${encodeURIComponent(
+                safeSlug
+              )}`,
+              {
+                method:
+                  "GET",
+
+                headers: {
+                  Accept:
+                    "application/json",
+                },
+
+                signal:
+                  controller.signal,
+              }
+            );
+
+          // ===================================================
+          // SAFELY PARSE RESPONSE
+          // ===================================================
+
+          const contentType =
+            response.headers.get(
+              "content-type"
+            );
+
+          let data:
+            StorefrontApiResponse | null =
+            null;
 
           if (
-            settingsError
+            contentType?.includes(
+              "application/json"
+            )
           ) {
+            data =
+              (await response.json()) as StorefrontApiResponse;
+          } else {
+            const text =
+              await response.text();
+
             console.error(
-              "[TOTS STORE] Settings query error:",
-              settingsError
+              "[TOTS STORE] API returned a non-JSON response:",
+              text.slice(
+                0,
+                500
+              )
             );
 
             throw new Error(
-              settingsError.message ||
-                "The store settings could not be loaded."
+              "The store server returned an unexpected response."
             );
           }
 
+          // ===================================================
+          // API ERROR
+          // ===================================================
+
           if (
-            !settingsData
+            !response.ok
+          ) {
+            throw new Error(
+              data?.error ||
+                "The store could not be loaded."
+            );
+          }
+
+          // ===================================================
+          // VALIDATE STORE
+          // ===================================================
+
+          if (
+            !data?.store
           ) {
             throw new Error(
               "This store could not be found."
             );
           }
 
-          const settings =
-            settingsData as StoreSettingsRow;
-
           // ===================================================
-          // 2. LIVE CHECK
+          // CLEAN PRODUCTS
           // ===================================================
 
-          if (
-            settings.is_live !==
-            true
-          ) {
-            throw new Error(
-              "This store is not currently live."
-            );
-          }
+          const incomingProducts =
+            Array.isArray(
+              data.products
+            )
+              ? data.products
+              : [];
 
-          // ===================================================
-          // 3. BUILD BASIC STORE IMMEDIATELY
-          //
-          // Do NOT make organisation data required.
-          // ===================================================
-
-          const fallbackStore:
-            Storefront =
-            {
-              id:
-                settings.id,
-
-              organisation_id:
-                settings.organisation_id,
-
-              slug:
-                settings.slug,
-
-              store_name:
-                settings.store_name?.trim() ||
-                "Online Store",
-
-              company_name:
-                settings.store_name?.trim() ||
-                "Online Store",
-
-              store_description:
-                settings.store_description,
-
-              hero_title:
-                settings.hero_title,
-
-              hero_text:
-                settings.hero_text,
-
-              announcement:
-                settings.announcement,
-
-              accent_colour:
-                settings.accent_colour,
-
-              shipping_text:
-                settings.shipping_text,
-
-              support_email:
-                settings.support_email,
-
-              email:
-                settings.support_email,
-
-              phone:
-                null,
-
-              address:
-                null,
-
-              website_url:
-                null,
-
-              instagram_url:
-                null,
-
-              logo_url:
-                null,
-
-              is_live:
-                true,
-            };
-
-          // Store now exists.
-          // Even if the next two queries fail,
-          // the storefront can render.
-          setStore(
-            fallbackStore
-          );
-
-          // ===================================================
-          // 4. ORGANISATION BRANDING
-          //
-          // Optional query.
-          // Failure must NOT kill the store.
-          // ===================================================
-
-          try {
-            const organisationResponse =
-              await withTimeout(
-                supabase
-                  .from(
-                    "organisations"
-                  )
-                  .select("*")
-                  .eq(
-                    "id",
-                    settings.organisation_id
-                  )
-                  .maybeSingle(),
-                6000
-              );
-
-            const {
-              data:
-                organisationData,
-              error:
-                organisationError,
-            } =
-              organisationResponse;
-
-            if (
-              organisationError
-            ) {
-              console.warn(
-                "[TOTS STORE] Organisation branding unavailable:",
-                organisationError
-              );
-            } else if (
-              organisationData
-            ) {
-              const organisation =
-                organisationData as OrganisationRow;
-
-              const companyName =
-                firstString(
-                  settings.store_name,
-                  organisation.company_name,
-                  organisation.name
-                ) ||
-                fallbackStore.store_name;
-
-              const logoUrl =
-                firstString(
-                  organisation.logo_url,
-                  organisation.company_logo_url,
-                  organisation.branding_logo_url,
-                  organisation.company_logo,
-                  organisation.logo
-                );
-
-              setStore({
-                ...fallbackStore,
-
-                store_name:
-                  companyName,
-
-                company_name:
-                  companyName,
-
-                store_description:
-                  settings.store_description ||
-                  firstString(
-                    organisation.description
-                  ),
-
-                logo_url:
-                  logoUrl,
-
-                email:
-                  firstString(
-                    settings.support_email,
-                    organisation.email
-                  ),
-
-                phone:
-                  firstString(
-                    organisation.phone
-                  ),
-
-                address:
-                  firstString(
-                    organisation.address
-                  ),
-
-                website_url:
-                  firstString(
-                    organisation.website_url,
-                    organisation.website
-                  ),
-
-                instagram_url:
-                  firstString(
-                    organisation.instagram_url,
-                    organisation.instagram
-                  ),
-              });
-            }
-          } catch (
-            organisationLoadError
-          ) {
-            // This is intentionally non-fatal.
-            console.warn(
-              "[TOTS STORE] Organisation branding timed out or failed:",
-              organisationLoadError
-            );
-          }
-
-          // ===================================================
-          // 5. PRODUCTS
-          //
-          // Also optional for storefront rendering.
-          // ===================================================
-
-          try {
-            const productResponse =
-              await withTimeout(
-                supabase
-                  .from(
-                    "store_products"
-                  )
-                  .select("*")
-                  .eq(
-                    "organisation_id",
-                    settings.organisation_id
-                  ),
-                8000
-              );
-
-            const {
-              data:
-                productRows,
-              error:
-                productError,
-            } =
-              productResponse;
-
-            if (
-              productError
-            ) {
-              console.error(
-                "[TOTS STORE] Product query error:",
-                productError
-              );
-
-              setProductLoadWarning(
-                "Products could not be loaded right now."
-              );
-
-              setProducts(
-                []
-              );
-            } else {
-              const cleanedProducts =
+          const cleanedProducts =
+            incomingProducts
+              .filter(
                 (
-                  productRows ||
-                  []
-                )
-                  .map(
-                    (
-                      product
-                    ) =>
-                      product as Product
+                  product
+                ) =>
+                  Boolean(
+                    product?.id
                   )
+              )
 
-                  // Hide explicitly inactive products.
-                  .filter(
-                    (
-                      product
-                    ) =>
-                      product.is_active !==
-                      false
+              .filter(
+                (
+                  product
+                ) =>
+                  typeof product.name ===
+                    "string" &&
+                  Boolean(
+                    product.name.trim()
                   )
+              )
 
-                  // Ensure we have a usable name.
-                  .filter(
-                    (
-                      product
-                    ) =>
-                      typeof product.name ===
-                        "string" &&
-                      product.name.trim()
-                  )
+              .filter(
+                (
+                  product
+                ) =>
+                  product.is_active !==
+                  false
+              )
 
-                  // Sort locally so optional columns
-                  // cannot break the DB query.
-                  .sort(
-                    (
-                      first,
-                      second
-                    ) => {
-                      const firstFeatured =
-                        first.featured ===
-                        true
-                          ? 1
-                          : 0;
+              /*
+               * API should already only return public products,
+               * but this gives us an extra client-side guard.
+               */
+              .filter(
+                (
+                  product
+                ) =>
+                  !product.status ||
+                  product.status ===
+                    "active"
+              )
 
-                      const secondFeatured =
-                        second.featured ===
-                        true
-                          ? 1
-                          : 0;
+              .sort(
+                (
+                  first,
+                  second
+                ) => {
+                  const firstFeatured =
+                    first.featured ===
+                    true
+                      ? 1
+                      : 0;
 
-                      if (
-                        firstFeatured !==
-                        secondFeatured
-                      ) {
-                        return (
-                          secondFeatured -
-                          firstFeatured
-                        );
-                      }
+                  const secondFeatured =
+                    second.featured ===
+                    true
+                      ? 1
+                      : 0;
 
-                      const firstOrder =
-                        typeof first.sort_order ===
-                        "number"
-                          ? first.sort_order
-                          : 999999;
+                  if (
+                    firstFeatured !==
+                    secondFeatured
+                  ) {
+                    return (
+                      secondFeatured -
+                      firstFeatured
+                    );
+                  }
 
-                      const secondOrder =
-                        typeof second.sort_order ===
-                        "number"
-                          ? second.sort_order
-                          : 999999;
+                  const firstOrder =
+                    typeof first.sort_order ===
+                    "number"
+                      ? first.sort_order
+                      : 999999;
 
-                      if (
-                        firstOrder !==
-                        secondOrder
-                      ) {
-                        return (
-                          firstOrder -
-                          secondOrder
-                        );
-                      }
+                  const secondOrder =
+                    typeof second.sort_order ===
+                    "number"
+                      ? second.sort_order
+                      : 999999;
 
-                      return first.name.localeCompare(
-                        second.name
-                      );
-                    }
+                  if (
+                    firstOrder !==
+                    secondOrder
+                  ) {
+                    return (
+                      firstOrder -
+                      secondOrder
+                    );
+                  }
+
+                  return first.name.localeCompare(
+                    second.name
                   );
-
-              setProducts(
-                cleanedProducts
+                }
               );
 
-              console.log(
-                "[TOTS STORE] Products loaded:",
-                cleanedProducts.length
-              );
-            }
-          } catch (
-            productLoadError
-          ) {
-            console.warn(
-              "[TOTS STORE] Products timed out or failed:",
-              productLoadError
-            );
-
-            setProducts(
-              []
-            );
-
-            setProductLoadWarning(
-              "Products could not be loaded right now."
-            );
-          }
-
-          console.log(
-            "[TOTS STORE] Store loaded successfully"
-          );
-        } catch (
-          loadError: unknown
-        ) {
-          console.error(
-            "[TOTS STORE] Fatal storefront error:",
-            loadError
-          );
+          // ===================================================
+          // UPDATE PAGE
+          // ===================================================
 
           setStore(
-            null
+            data.store
           );
 
           setProducts(
-            []
+            cleanedProducts
           );
 
-          setError(
+          setProductLoadWarning(
+            typeof data.productLoadWarning ===
+              "string"
+              ? data.productLoadWarning
+              : null
+          );
+
+          setError(null);
+        } catch (
+          loadError: unknown
+        ) {
+          // ===================================================
+          // ABORT
+          // ===================================================
+
+          if (
+            controller.signal.aborted
+          ) {
+            /*
+             * If another request replaced this one,
+             * don't overwrite the new request's state.
+             */
+
+            if (
+              requestControllerRef.current !==
+              controller
+            ) {
+              return;
+            }
+
+            console.warn(
+              "[TOTS STORE] Storefront request timed out."
+            );
+
+            setStore(null);
+            setProducts([]);
+
+            setError(
+              "The store is taking longer than expected. Please try again."
+            );
+
+            return;
+          }
+
+          // ===================================================
+          // NORMAL NETWORK/API ERROR
+          // ===================================================
+
+          console.error(
+            "[TOTS STORE] Storefront request failed:",
+            loadError
+          );
+
+          setStore(null);
+          setProducts([]);
+
+          if (
             loadError instanceof
-              Error
-              ? loadError.message
-              : "We couldn't load this store right now."
-          );
+            TypeError
+          ) {
+            setError(
+              "We couldn't connect to the store. Please check your connection and try again."
+            );
+          } else {
+            setError(
+              loadError instanceof
+                Error
+                ? loadError.message
+                : "We couldn't load this store right now."
+            );
+          }
         } finally {
-          // CRITICAL:
-          // this always executes regardless of what happened.
-          setLoading(
-            false
-          );
+          if (
+            timeoutId
+          ) {
+            clearTimeout(
+              timeoutId
+            );
+          }
+
+          /*
+           * Only the newest request is allowed to
+           * control the loading state.
+           */
+
+          if (
+            requestControllerRef.current ===
+            controller
+          ) {
+            setLoading(false);
+          }
         }
       },
       [
@@ -919,23 +872,15 @@ export default function ShopFrontPage() {
     );
 
   // ==========================================================
-  // LOAD ON MOUNT / SLUG CHANGE
+  // LOAD ON SLUG CHANGE
   // ==========================================================
 
   useEffect(
     () => {
-      let mounted =
-        true;
-
-      if (
-        mounted
-      ) {
-        void loadStore();
-      }
+      void loadStore();
 
       return () => {
-        mounted =
-          false;
+        requestControllerRef.current?.abort();
       };
     },
     [
@@ -949,47 +894,43 @@ export default function ShopFrontPage() {
 
   const categories =
     useMemo(
-      () => {
-        return [
-          "All",
+      () => [
+        "All",
 
-          ...Array.from(
-            new Set(
-              products
-                .map(
-                  (
-                    product
-                  ) =>
-                    product.category?.trim()
-                )
-                .filter(
-                  (
-                    value
-                  ):
-                    value is string =>
-                      Boolean(
-                        value
-                      )
-                )
-            )
-          ).sort(
-            (
-              a,
-              b
-            ) =>
-              a.localeCompare(
-                b
+        ...Array.from(
+          new Set(
+            products
+              .map(
+                (
+                  product
+                ) =>
+                  product.category?.trim()
               )
-          ),
-        ];
-      },
+              .filter(
+                (
+                  value
+                ):
+                  value is string =>
+                    Boolean(value)
+              )
+          )
+        ).sort(
+          (
+            first,
+            second
+          ) =>
+            first.localeCompare(
+              second
+            )
+        ),
+      ],
       [
         products,
       ]
     );
 
   // ==========================================================
-  // FILTER PRODUCTS
+  // VISIBLE PRODUCTS
   // ==========================================================
 
   const visibleProducts =
@@ -1004,14 +945,11 @@ export default function ShopFrontPage() {
           (
             product
           ) => {
-            const matchesCategory =
-              category ===
-                "All" ||
-              product.category ===
-                category;
-
             if (
-              !matchesCategory
+              category !==
+                "All" &&
+              product.category !==
+                category
             ) {
               return false;
             }
@@ -1052,7 +990,7 @@ export default function ShopFrontPage() {
     );
 
   // ==========================================================
-  // FEATURED PRODUCTS
+  // FEATURED
   // ==========================================================
 
   const featuredProducts =
@@ -1067,19 +1005,13 @@ export default function ShopFrontPage() {
               true
           );
 
-        if (
-          explicit.length >
-          0
-        ) {
-          return explicit.slice(
-            0,
-            4
-          );
-        }
-
-        return products.slice(
+        return (
+          explicit.length
+            ? explicit
+            : products
+        ).slice(
           0,
-          4
+          3
         );
       },
       [
@@ -1088,7 +1020,7 @@ export default function ShopFrontPage() {
     );
 
   // ==========================================================
-  // CART DERIVED STATE
+  // CART STATE
   // ==========================================================
 
   const cartLines =
@@ -1141,17 +1073,16 @@ export default function ShopFrontPage() {
     );
 
   // ==========================================================
-  // ADD TO CART
+  // CART ACTIONS
   // ==========================================================
 
   function addToCart(
     product: Product
   ) {
     if (
-      typeof product.inventory_quantity ===
-        "number" &&
-      product.inventory_quantity <=
-        0
+      isOutOfStock(
+        product
+      )
     ) {
       return;
     }
@@ -1171,18 +1102,30 @@ export default function ShopFrontPage() {
               1
             : 1;
 
+        const available =
+          getAvailableQuantity(
+            product
+          );
+
         if (
-          typeof product.inventory_quantity ===
-            "number"
+          available !==
+          null
         ) {
           nextQuantity =
             Math.min(
               nextQuantity,
               Math.max(
-                product.inventory_quantity,
+                available,
                 0
               )
             );
+        }
+
+        if (
+          nextQuantity <=
+          0
+        ) {
+          return previous;
         }
 
         return {
@@ -1199,14 +1142,8 @@ export default function ShopFrontPage() {
       }
     );
 
-    setCartOpen(
-      true
-    );
+    setCartOpen(true);
   }
-
-  // ==========================================================
-  // UPDATE CART QUANTITY
-  // ==========================================================
 
   function setQuantity(
     productId: string,
@@ -1245,14 +1182,22 @@ export default function ShopFrontPage() {
         let safeQuantity =
           quantity;
 
+        const available =
+          getAvailableQuantity(
+            existing.product
+          );
+
         if (
-          typeof existing.product.inventory_quantity ===
-            "number"
+          available !==
+          null
         ) {
           safeQuantity =
             Math.min(
               quantity,
-              existing.product.inventory_quantity
+              Math.max(
+                available,
+                0
+              )
             );
         }
 
@@ -1297,7 +1242,7 @@ export default function ShopFrontPage() {
     );
 
   const secondary =
-    "#f0f2eb";
+    "#eff2eb";
 
   const storeName =
     store?.store_name ||
@@ -1313,24 +1258,24 @@ export default function ShopFrontPage() {
   ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f5f0] px-5">
+
         <div className="text-center">
+
           <Loader2
             className="mx-auto animate-spin text-stone-500"
-            size={
-              28
-            }
+            size={28}
           />
 
-          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">
-            Loading store
+          <p className="mt-4 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
+            Opening store
           </p>
 
-          <p className="mt-2 text-[10px] text-stone-300">
-            {
-              slug
-            }
+          <p className="mt-2 text-[9px] text-stone-300">
+            Just a moment
           </p>
+
         </div>
+
       </div>
     );
   }
@@ -1345,12 +1290,12 @@ export default function ShopFrontPage() {
   ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f5f0] px-5">
-        <div className="w-full max-w-lg rounded-[2.25rem] border border-stone-200 bg-white p-10 text-center shadow-sm">
+
+        <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-9 text-center shadow-sm">
+
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-500">
             <Store
-              size={
-                22
-              }
+              size={22}
             />
           </div>
 
@@ -1363,32 +1308,24 @@ export default function ShopFrontPage() {
               "This store could not be found."}
           </p>
 
-          <p className="mt-3 text-[9px] uppercase tracking-[0.14em] text-stone-300">
-            Store:{" "}
-            {
-              slug ||
-              "unknown"
-            }
-          </p>
-
           <button
             type="button"
             onClick={() =>
               void loadStore()
             }
-            className="mt-7 inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-white"
+            className="mt-7 inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-800"
           >
             Try again
 
             <ArrowRight
-              size={
-                13
-              }
+              size={13}
             />
           </button>
+
         </div>
 
         <StorefrontGlobalStyles />
+
       </div>
     );
   }
@@ -1407,13 +1344,14 @@ export default function ShopFrontPage() {
         } as CSSProperties
       }
     >
+
       {/* =====================================================
           ANNOUNCEMENT
       ===================================================== */}
 
-      <div className="bg-stone-900 px-4 py-2.5 text-center text-[8px] font-black uppercase tracking-[0.18em] text-white">
+      <div className="bg-stone-900 px-4 py-2 text-center text-[8px] font-black uppercase tracking-[0.18em] text-white">
         {store.announcement ||
-          "Independent business · Store powered by TOTS-OS"}
+          "Independent business · Powered by TOTS-OS"}
       </div>
 
       {/* =====================================================
@@ -1421,21 +1359,21 @@ export default function ShopFrontPage() {
       ===================================================== */}
 
       <header className="sticky top-0 z-40 border-b border-stone-200 bg-[#f8f7f3]/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1450px] items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-10">
+
+        <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
+
           <button
             type="button"
             aria-label="Open menu"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-stone-200 bg-white lg:hidden"
             onClick={() =>
               setMobileMenuOpen(
                 true
               )
             }
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 bg-white lg:hidden"
           >
             <Menu
-              size={
-                17
-              }
+              size={16}
             />
           </button>
 
@@ -1443,56 +1381,59 @@ export default function ShopFrontPage() {
             href="#top"
             className="flex min-w-0 items-center gap-3 no-underline"
           >
+
             {store.logo_url ? (
               <img
                 src={
                   store.logo_url
                 }
                 alt={`${storeName} logo`}
-                className="h-11 w-11 rounded-xl object-contain"
+                className="h-9 w-9 rounded-xl object-contain"
               />
             ) : (
               <div
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-white"
                 style={{
                   background:
                     primary,
                 }}
               >
                 <Store
-                  size={
-                    18
-                  }
+                  size={15}
                 />
               </div>
             )}
 
             <div className="min-w-0">
-              <p className="truncate text-sm font-black uppercase tracking-[0.14em] text-stone-900">
+
+              <p className="truncate text-xs font-black uppercase tracking-[0.14em] text-stone-900">
                 {
                   storeName
                 }
               </p>
 
-              <p className="mt-0.5 hidden truncate text-[10px] text-stone-400 sm:block">
-                Online store
+              <p className="mt-0.5 hidden text-[9px] text-stone-400 sm:block">
+                Shop · Services · Resources
               </p>
+
             </div>
+
           </a>
 
-          <nav className="hidden items-center gap-8 lg:flex">
+          <nav className="hidden items-center gap-7 lg:flex">
+
             <a
               href="#shop"
-              className="text-xs font-semibold text-stone-600 no-underline transition hover:text-stone-900"
+              className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
             >
-              Shop
+              Explore
             </a>
 
             {featuredProducts.length >
               0 && (
               <a
                 href="#featured"
-                className="text-xs font-semibold text-stone-600 no-underline transition hover:text-stone-900"
+                className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
               >
                 Featured
               </a>
@@ -1500,17 +1441,18 @@ export default function ShopFrontPage() {
 
             <a
               href="#about"
-              className="text-xs font-semibold text-stone-600 no-underline transition hover:text-stone-900"
+              className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
             >
               About
             </a>
 
             <a
               href="#contact"
-              className="text-xs font-semibold text-stone-600 no-underline transition hover:text-stone-900"
+              className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
             >
               Contact
             </a>
+
           </nav>
 
           <button
@@ -1520,12 +1462,10 @@ export default function ShopFrontPage() {
                 true
               )
             }
-            className="relative flex h-11 items-center gap-2 rounded-full border border-stone-200 bg-white px-4 text-xs font-semibold shadow-sm"
+            className="relative flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-white px-4 text-xs font-semibold shadow-sm"
           >
             <ShoppingBag
-              size={
-                16
-              }
+              size={15}
             />
 
             <span className="hidden sm:inline">
@@ -1546,8 +1486,11 @@ export default function ShopFrontPage() {
                 }
               </span>
             )}
+
           </button>
+
         </div>
+
       </header>
 
       {/* =====================================================
@@ -1556,6 +1499,7 @@ export default function ShopFrontPage() {
 
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[100] bg-stone-900/40 p-4 backdrop-blur-sm lg:hidden">
+
           <button
             type="button"
             aria-label="Close menu"
@@ -1567,11 +1511,13 @@ export default function ShopFrontPage() {
             }
           />
 
-          <div className="relative ml-auto w-full max-w-sm rounded-[2rem] bg-white p-5 shadow-2xl">
+          <div className="relative ml-auto w-full max-w-sm rounded-[1.75rem] bg-white p-5 shadow-2xl">
+
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
-                Menu
-              </span>
+
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
+                Explore
+              </p>
 
               <button
                 type="button"
@@ -1583,25 +1529,45 @@ export default function ShopFrontPage() {
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100"
               >
                 <X
-                  size={
-                    15
-                  }
+                  size={15}
                 />
               </button>
+
             </div>
 
-            <div className="mt-6 grid gap-2">
+            <div className="mt-5 grid gap-2">
+
               {[
-                "shop",
-                "featured",
-                "about",
-                "contact",
+                {
+                  id:
+                    "shop",
+                  label:
+                    "Shop",
+                },
+                {
+                  id:
+                    "featured",
+                  label:
+                    "Featured",
+                },
+                {
+                  id:
+                    "about",
+                  label:
+                    "About",
+                },
+                {
+                  id:
+                    "contact",
+                  label:
+                    "Contact",
+                },
               ].map(
                 (
                   item
                 ) => {
                   if (
-                    item ===
+                    item.id ===
                       "featured" &&
                     !featuredProducts.length
                   ) {
@@ -1611,31 +1577,32 @@ export default function ShopFrontPage() {
                   return (
                     <a
                       key={
-                        item
+                        item.id
                       }
-                      href={`#${item}`}
+                      href={`#${item.id}`}
                       onClick={() =>
                         setMobileMenuOpen(
                           false
                         )
                       }
-                      className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-4 text-sm font-semibold capitalize no-underline"
+                      className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3.5 text-sm font-semibold no-underline"
                     >
                       {
-                        item
+                        item.label
                       }
 
                       <ArrowRight
-                        size={
-                          14
-                        }
+                        size={14}
                       />
                     </a>
                   );
                 }
               )}
+
             </div>
+
           </div>
+
         </div>
       )}
 
@@ -1645,25 +1612,29 @@ export default function ShopFrontPage() {
 
       <section
         id="top"
-        className="px-4 pb-10 pt-6 sm:px-6 lg:px-10 lg:pb-16 lg:pt-8"
+        className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-6"
       >
-        <div className="mx-auto max-w-[1450px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm lg:rounded-[3rem]">
-          <div className="grid min-h-[520px] lg:grid-cols-[1.04fr_0.96fr]">
-            <div className="flex items-center p-7 sm:p-10 lg:p-16">
+
+        <div className="mx-auto max-w-[1320px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm lg:rounded-[2.5rem]">
+
+          <div className="grid lg:grid-cols-[1.12fr_.88fr]">
+
+            <div className="flex items-center p-7 sm:p-10 lg:p-12 xl:p-14">
+
               <div className="max-w-2xl">
+
                 <div
-                  className="mb-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-[8px] font-black uppercase tracking-[0.18em]"
+                  className="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-[8px] font-black uppercase tracking-[0.18em]"
                   style={{
                     background:
                       `${primary}1c`,
+
                     color:
                       primary,
                   }}
                 >
                   <Sparkles
-                    size={
-                      12
-                    }
+                    size={11}
                   />
 
                   Welcome to{" "}
@@ -1672,49 +1643,48 @@ export default function ShopFrontPage() {
                   }
                 </div>
 
-                <h1 className="font-serif text-5xl italic leading-[0.98] tracking-tight text-stone-900 sm:text-6xl lg:text-7xl xl:text-8xl">
+                <h1 className="font-serif text-[3.1rem] italic leading-[0.95] tracking-tight text-stone-900 sm:text-6xl lg:text-7xl">
                   {store.hero_title ||
-                    `Shop ${storeName}`}
+                    `A simpler way to shop ${storeName}.`}
                 </h1>
 
-                <p className="mt-6 max-w-xl text-sm leading-7 text-stone-500 sm:text-base">
+                <p className="mt-5 max-w-xl text-sm leading-7 text-stone-500 sm:text-[15px]">
                   {store.hero_text ||
                     store.store_description ||
-                    "Browse our latest products and order directly from our online store."}
+                    "Explore services, resources and products designed to make business feel simpler."}
                 </p>
 
-                <div className="mt-8 flex flex-wrap gap-3">
+                <div className="mt-7 flex flex-wrap gap-3">
+
                   <a
                     href="#shop"
-                    className="inline-flex items-center gap-2 rounded-full px-6 py-4 text-[9px] font-black uppercase tracking-[0.17em] text-white no-underline transition hover:opacity-90"
+                    className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-white no-underline transition hover:opacity-90"
                     style={{
                       background:
                         primary,
                     }}
                   >
-                    Shop now
+                    Explore everything
 
                     <ArrowRight
-                      size={
-                        14
-                      }
+                      size={13}
                     />
                   </a>
 
                   <a
-                    href="#about"
-                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-4 text-[9px] font-black uppercase tracking-[0.17em] text-stone-700 no-underline"
+                    href="#contact"
+                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600 no-underline"
                   >
-                    About us
+                    Ask us anything
                   </a>
+
                 </div>
 
-                <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-[10px] text-stone-400">
+                <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-[9px] text-stone-400">
+
                   <span className="flex items-center gap-2">
                     <Check
-                      size={
-                        12
-                      }
+                      size={11}
                       style={{
                         color:
                           primary,
@@ -1726,131 +1696,159 @@ export default function ShopFrontPage() {
 
                   <span className="flex items-center gap-2">
                     <Check
-                      size={
-                        12
-                      }
+                      size={11}
                       style={{
                         color:
                           primary,
                       }}
                     />
 
-                    Secure ordering
+                    Secure checkout
                   </span>
 
-                  {store.shipping_text ? (
-                    <span className="flex items-center gap-2">
-                      <Truck
-                        size={
-                          12
-                        }
-                        style={{
-                          color:
-                            primary,
-                        }}
-                      />
+                  <span className="flex items-center gap-2">
+                    <Check
+                      size={11}
+                      style={{
+                        color:
+                          primary,
+                      }}
+                    />
 
-                      {
-                        store.shipping_text
-                      }
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <Check
-                        size={
-                          12
-                        }
-                        style={{
-                          color:
-                            primary,
-                        }}
-                      />
+                    Direct support
+                  </span>
 
-                      Powered by TOTS-OS
-                    </span>
-                  )}
                 </div>
+
               </div>
+
             </div>
 
+            {/* HERO IMAGE */}
+
             <div
-              className="relative min-h-[360px] overflow-hidden lg:min-h-full"
+              className="relative min-h-[260px] overflow-hidden lg:min-h-[440px]"
               style={{
                 background:
                   secondary,
               }}
             >
+
               {featuredProducts[0] &&
               getProductImage(
                 featuredProducts[0]
               ) ? (
-                <img
-                  src={
-                    getProductImage(
-                      featuredProducts[0]
-                    )!
-                  }
-                  alt={
-                    featuredProducts[0]
-                      .name
-                  }
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
+                <div className="absolute inset-0 flex items-center justify-center p-8 sm:p-10 lg:p-12">
+
+                  <div className="relative h-full max-h-[390px] w-full max-w-[310px] overflow-hidden rounded-[1.75rem] bg-white shadow-[0_22px_60px_rgba(0,0,0,0.12)]">
+
+                    <img
+                      src={
+                        getProductImage(
+                          featuredProducts[0]
+                        )!
+                      }
+                      alt={
+                        featuredProducts[0]
+                          .name
+                      }
+                      className="h-full w-full object-cover"
+                    />
+
+                  </div>
+
+                </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
+
                   <div
-                    className="flex h-36 w-36 items-center justify-center rounded-[2rem] text-white shadow-xl"
+                    className="flex h-28 w-28 items-center justify-center rounded-[2rem] text-white shadow-xl"
                     style={{
                       background:
                         primary,
                     }}
                   >
+
                     {store.logo_url ? (
                       <img
                         src={
                           store.logo_url
                         }
                         alt={`${storeName} logo`}
-                        className="h-28 w-28 object-contain"
+                        className="h-20 w-20 object-contain"
                       />
                     ) : (
                       <ShoppingBag
-                        size={
-                          46
-                        }
+                        size={38}
                       />
                     )}
+
                   </div>
+
                 </div>
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-t from-stone-900/25 via-transparent to-transparent" />
             </div>
+
           </div>
+
         </div>
+
       </section>
 
       {/* =====================================================
-          SHIPPING
+          QUICK CATEGORY CHIPS
       ===================================================== */}
 
-      {store.shipping_text && (
-        <section className="px-4 sm:px-6 lg:px-10">
-          <div className="mx-auto flex max-w-[1450px] items-center justify-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4 text-center text-xs font-semibold text-stone-600">
-            <Truck
-              size={
-                15
-              }
-              style={{
-                color:
-                  primary,
-              }}
-            />
+      {categories.length >
+        1 && (
+        <section className="px-4 sm:px-6 lg:px-8">
 
-            {
-              store.shipping_text
-            }
+          <div className="mx-auto max-w-[1320px]">
+
+            <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
+
+              {categories.map(
+                (
+                  item
+                ) => (
+                  <button
+                    type="button"
+                    key={
+                      item
+                    }
+                    onClick={() => {
+                      setCategory(
+                        item
+                      );
+
+                      document
+                        .getElementById(
+                          "shop"
+                        )
+                        ?.scrollIntoView({
+                          behavior:
+                            "smooth",
+                        });
+                    }}
+                    className={`shrink-0 rounded-full border px-4 py-2 text-[8px] font-black uppercase tracking-[0.13em] transition ${
+                      category ===
+                      item
+                        ? "border-stone-900 bg-stone-900 text-white"
+                        : "border-stone-200 bg-white text-stone-500 hover:border-stone-400"
+                    }`}
+                  >
+                    {
+                      item
+                    }
+                  </button>
+                )
+              )}
+
+            </div>
+
           </div>
+
         </section>
       )}
 
@@ -1862,41 +1860,53 @@ export default function ShopFrontPage() {
         0 && (
         <section
           id="featured"
-          className="px-4 py-10 sm:px-6 lg:px-10 lg:py-14"
+          className="px-4 py-10 sm:px-6 lg:px-8"
         >
-          <div className="mx-auto max-w-[1450px]">
-            <div className="mb-7 flex items-end justify-between gap-4">
+
+          <div className="mx-auto max-w-[1320px]">
+
+            <div className="mb-6 flex items-end justify-between gap-4">
+
               <div>
+
                 <p
-                  className="text-[9px] font-black uppercase tracking-[0.22em]"
+                  className="text-[8px] font-black uppercase tracking-[0.22em]"
                   style={{
                     color:
                       primary,
                   }}
                 >
-                  Featured
+                  Start here
                 </p>
 
                 <h2 className="mt-2 font-serif text-4xl italic tracking-tight text-stone-900 sm:text-5xl">
                   A few favourites.
                 </h2>
+
+                <p className="mt-2 text-xs text-stone-400">
+                  Popular ways to work with{" "}
+                  {
+                    storeName
+                  }.
+                </p>
+
               </div>
 
               <a
                 href="#shop"
                 className="hidden items-center gap-2 text-xs font-semibold text-stone-500 no-underline sm:flex"
               >
-                View everything
+                See all
 
                 <ArrowRight
-                  size={
-                    14
-                  }
+                  size={13}
                 />
               </a>
+
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3">
+
               {featuredProducts.map(
                 (
                   product
@@ -1916,11 +1926,15 @@ export default function ShopFrontPage() {
                         product
                       )
                     }
+                    featuredLayout
                   />
                 )
               )}
+
             </div>
+
           </div>
+
         </section>
       )}
 
@@ -1930,42 +1944,41 @@ export default function ShopFrontPage() {
 
       <section
         id="shop"
-        className="px-4 py-12 sm:px-6 lg:px-10 lg:py-16"
+        className="px-4 py-10 sm:px-6 lg:px-8 lg:py-14"
       >
-        <div className="mx-auto max-w-[1450px]">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+
+        <div className="mx-auto max-w-[1320px]">
+
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+
             <div>
+
               <p
-                className="text-[9px] font-black uppercase tracking-[0.22em]"
+                className="text-[8px] font-black uppercase tracking-[0.22em]"
                 style={{
                   color:
                     primary,
                 }}
               >
-                Shop
+                Explore
               </p>
 
               <h2 className="mt-2 font-serif text-4xl italic tracking-tight text-stone-900 sm:text-5xl">
-                Browse the collection.
+                Find what your business needs.
               </h2>
 
-              <p className="mt-3 text-sm text-stone-500">
-                {
-                  products.length
-                }{" "}
-                {products.length ===
-                1
-                  ? "product"
-                  : "products"}
+              <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+                Websites, branding, coaching, resources and more — all in one place.
               </p>
+
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row">
+
               <div className="relative">
+
                 <Search
-                  size={
-                    14
-                  }
+                  size={13}
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
                 />
 
@@ -1980,14 +1993,16 @@ export default function ShopFrontPage() {
                       event.target.value
                     )
                   }
-                  placeholder="Search products..."
-                  className="w-full rounded-full border border-stone-200 bg-white py-3.5 pl-10 pr-5 text-xs outline-none transition focus:border-stone-400 sm:w-64"
+                  placeholder="What are you looking for?"
+                  className="w-full rounded-full border border-stone-200 bg-white py-3 pl-10 pr-5 text-xs outline-none transition focus:border-stone-400 sm:w-72"
                 />
+
               </div>
 
               {categories.length >
                 1 && (
                 <div className="relative">
+
                   <select
                     value={
                       category
@@ -1999,8 +2014,9 @@ export default function ShopFrontPage() {
                         event.target.value
                       )
                     }
-                    className="w-full appearance-none rounded-full border border-stone-200 bg-white py-3.5 pl-5 pr-10 text-xs font-semibold text-stone-600 outline-none sm:w-52"
+                    className="w-full appearance-none rounded-full border border-stone-200 bg-white py-3 pl-5 pr-10 text-xs font-semibold text-stone-600 outline-none sm:w-52"
                   >
+
                     {categories.map(
                       (
                         item
@@ -2019,21 +2035,62 @@ export default function ShopFrontPage() {
                         </option>
                       )
                     )}
+
                   </select>
 
                   <ChevronDown
-                    size={
-                      13
-                    }
+                    size={12}
                     className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-stone-400"
                   />
+
                 </div>
               )}
+
             </div>
+
           </div>
 
+          {/* RESULTS */}
+
+          <div className="mt-5 flex items-center justify-between">
+
+            <p className="text-[10px] text-stone-400">
+              Showing{" "}
+              <strong className="text-stone-600">
+                {
+                  visibleProducts.length
+                }
+              </strong>{" "}
+              {visibleProducts.length ===
+              1
+                ? "option"
+                : "options"}
+            </p>
+
+            {(search ||
+              category !==
+                "All") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setCategory(
+                    "All"
+                  );
+                }}
+                className="text-[9px] font-bold text-stone-500 underline"
+              >
+                Clear filters
+              </button>
+            )}
+
+          </div>
+
+          {/* WARNING */}
+
           {productLoadWarning && (
-            <div className="mt-7 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+
               <p className="text-xs font-semibold text-amber-700">
                 {
                   productLoadWarning
@@ -2047,14 +2104,18 @@ export default function ShopFrontPage() {
                 }
                 className="mt-2 text-[9px] font-black uppercase tracking-[0.12em] text-amber-700 underline"
               >
-                Try loading again
+                Try again
               </button>
+
             </div>
           )}
 
+          {/* PRODUCTS */}
+
           {visibleProducts.length >
           0 ? (
-            <div className="mt-8 grid gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="mt-7 grid gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
               {visibleProducts.map(
                 (
                   product
@@ -2077,47 +2138,47 @@ export default function ShopFrontPage() {
                   />
                 )
               )}
+
             </div>
           ) : products.length ===
             0 ? (
-            <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-20 text-center">
+            <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-16 text-center">
+
               <Package
                 className="mx-auto text-stone-300"
-                size={
-                  28
-                }
+                size={26}
               />
 
               <p className="mt-4 text-sm font-semibold text-stone-600">
-                Products coming soon
+                More coming soon
               </p>
 
               <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-stone-400">
-                {
-                  storeName
-                }{" "}
-                hasn&apos;t published any products yet.
+                There&apos;s nothing published here just yet.
               </p>
+
             </div>
           ) : (
-            <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-20 text-center">
+            <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-16 text-center">
+
               <Search
                 className="mx-auto text-stone-300"
-                size={
-                  28
-                }
+                size={26}
               />
 
               <p className="mt-4 text-sm font-semibold text-stone-600">
-                No products found
+                Nothing matched that
               </p>
 
               <p className="mt-2 text-xs text-stone-400">
-                Try another search or category.
+                Try another search or reset your filters.
               </p>
+
             </div>
           )}
+
         </div>
+
       </section>
 
       {/* =====================================================
@@ -2126,30 +2187,30 @@ export default function ShopFrontPage() {
 
       <section
         id="about"
-        className="px-4 py-12 sm:px-6 lg:px-10 lg:py-16"
+        className="px-4 py-10 sm:px-6 lg:px-8"
       >
-        <div className="mx-auto grid max-w-[1450px] overflow-hidden rounded-[2.5rem] border border-stone-200 bg-white lg:grid-cols-2">
-          <div className="p-8 sm:p-10 lg:p-14">
+
+        <div className="mx-auto grid max-w-[1320px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white lg:grid-cols-[1.2fr_.8fr]">
+
+          <div className="p-8 sm:p-10 lg:p-12">
+
             <p
-              className="text-[9px] font-black uppercase tracking-[0.22em]"
+              className="text-[8px] font-black uppercase tracking-[0.22em]"
               style={{
                 color:
                   primary,
               }}
             >
-              About{" "}
-              {
-                storeName
-              }
+              Behind the store
             </p>
 
             <h2 className="mt-3 max-w-xl font-serif text-4xl italic tracking-tight sm:text-5xl">
-              Meet the business behind the store.
+              Made by a real business, for real businesses.
             </h2>
 
             <p className="mt-5 max-w-xl whitespace-pre-line text-sm leading-7 text-stone-500">
               {store.store_description ||
-                `Welcome to ${storeName}. Browse our products, shop online and get in touch with us directly if you need any help.`}
+                `Welcome to ${storeName}. Everything here has been created to make running your business easier, clearer and a little less overwhelming.`}
             </p>
 
             {store.website_url && (
@@ -2159,63 +2220,66 @@ export default function ShopFrontPage() {
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-7 inline-flex items-center gap-2 rounded-full border border-stone-200 px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-stone-600 no-underline"
+                className="mt-6 inline-flex items-center gap-2 rounded-full border border-stone-200 px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-stone-600 no-underline"
               >
-                Visit website
+                Visit our website
 
                 <ExternalLink
-                  size={
-                    12
-                  }
+                  size={12}
                 />
               </a>
             )}
+
           </div>
 
           <div
-            className="flex min-h-[320px] items-center justify-center p-10"
+            className="flex min-h-[250px] items-center justify-center p-8"
             style={{
               background:
                 secondary,
             }}
           >
+
             <div className="text-center">
+
               {store.logo_url ? (
                 <img
                   src={
                     store.logo_url
                   }
                   alt={`${storeName} logo`}
-                  className="mx-auto max-h-40 max-w-[240px] object-contain"
+                  className="mx-auto max-h-24 max-w-[180px] object-contain"
                 />
               ) : (
                 <div
-                  className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl text-white"
+                  className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl text-white"
                   style={{
                     background:
                       primary,
                   }}
                 >
                   <Store
-                    size={
-                      34
-                    }
+                    size={28}
                   />
                 </div>
               )}
 
-              <p className="mt-5 text-sm font-semibold text-stone-700">
+              <p className="mt-4 text-sm font-semibold text-stone-700">
                 {
                   storeName
                 }
               </p>
 
-              <p className="mt-2 text-xs text-stone-500">
+              <p className="mt-1 text-[9px] uppercase tracking-[0.13em] text-stone-400">
                 Independent business
               </p>
+
             </div>
+
           </div>
+
         </div>
+
       </section>
 
       {/* =====================================================
@@ -2224,48 +2288,44 @@ export default function ShopFrontPage() {
 
       <section
         id="contact"
-        className="px-4 pb-16 pt-8 sm:px-6 lg:px-10 lg:pb-20"
+        className="px-4 pb-14 pt-5 sm:px-6 lg:px-8 lg:pb-16"
       >
-        <div className="mx-auto max-w-[1450px] rounded-[2.5rem] bg-stone-900 p-8 text-white sm:p-10 lg:p-14">
-          <div className="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
+
+        <div className="mx-auto max-w-[1320px] rounded-[2rem] bg-stone-900 p-8 text-white sm:p-10 lg:p-12">
+
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+
             <div>
+
               <p
-                className="text-[9px] font-black uppercase tracking-[0.22em]"
+                className="text-[8px] font-black uppercase tracking-[0.22em]"
                 style={{
                   color:
                     primary,
                 }}
               >
-                Need a hand?
+                Not sure what you need?
               </p>
 
               <h2 className="mt-3 max-w-2xl font-serif text-4xl italic tracking-tight sm:text-5xl">
-                Speak directly to{" "}
-                {
-                  storeName
-                }
-                .
+                Talk to us before you buy.
               </h2>
 
-              <p className="mt-4 max-w-xl text-sm leading-7 text-stone-400">
-                Questions about a
-                product or an
-                order? Get in
-                touch directly
-                with the business.
+              <p className="mt-3 max-w-xl text-sm leading-7 text-stone-400">
+                Questions about a service, package or product? Get in touch directly and we&apos;ll help point you in the right direction.
               </p>
+
             </div>
 
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:min-w-[460px]">
+            <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:min-w-[440px]">
+
               {store.email && (
                 <a
                   href={`mailto:${store.email}`}
                   className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4 no-underline transition hover:bg-white/10"
                 >
                   <Mail
-                    size={
-                      16
-                    }
+                    size={15}
                     style={{
                       color:
                         primary,
@@ -2286,9 +2346,7 @@ export default function ShopFrontPage() {
                   className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4 no-underline transition hover:bg-white/10"
                 >
                   <Phone
-                    size={
-                      16
-                    }
+                    size={15}
                     style={{
                       color:
                         primary,
@@ -2305,10 +2363,9 @@ export default function ShopFrontPage() {
 
               {store.address && (
                 <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4">
+
                   <MapPin
-                    size={
-                      16
-                    }
+                    size={15}
                     style={{
                       color:
                         primary,
@@ -2320,6 +2377,7 @@ export default function ShopFrontPage() {
                       store.address
                     }
                   </span>
+
                 </div>
               )}
 
@@ -2333,16 +2391,14 @@ export default function ShopFrontPage() {
                   className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4 no-underline transition hover:bg-white/10"
                 >
                   <Instagram
-                    size={
-                      16
-                    }
+                    size={15}
                     style={{
                       color:
                         primary,
                     }}
                   />
 
-                  <span className="truncate text-xs">
+                  <span className="text-xs">
                     Instagram
                   </span>
                 </a>
@@ -2352,79 +2408,89 @@ export default function ShopFrontPage() {
                 !store.phone &&
                 !store.address &&
                 !store.instagram_url && (
-                <div className="rounded-2xl bg-white/5 p-5 sm:col-span-2">
+                <div className="rounded-2xl bg-white/5 p-4 sm:col-span-2">
                   <p className="text-xs leading-6 text-stone-400">
                     Contact details haven&apos;t been added to this store yet.
                   </p>
                 </div>
               )}
+
             </div>
+
           </div>
+
         </div>
+
       </section>
 
       {/* =====================================================
           FOOTER
       ===================================================== */}
 
-      <footer className="border-t border-stone-200 bg-white px-4 py-8 sm:px-6 lg:px-10">
-        <div className="mx-auto flex max-w-[1450px] flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+      <footer className="border-t border-stone-200 bg-white px-4 py-7 sm:px-6 lg:px-8">
+
+        <div className="mx-auto flex max-w-[1320px] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
           <div className="flex items-center gap-3">
+
             {store.logo_url ? (
               <img
                 src={
                   store.logo_url
                 }
                 alt={`${storeName} logo`}
-                className="h-9 w-9 rounded-lg object-contain"
+                className="h-8 w-8 rounded-lg object-contain"
               />
             ) : (
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white"
                 style={{
                   background:
                     primary,
                 }}
               >
                 <Store
-                  size={
-                    14
-                  }
+                  size={13}
                 />
               </div>
             )}
 
             <div>
+
               <p className="text-xs font-semibold text-stone-700">
                 {
                   storeName
                 }
               </p>
 
-              <p className="mt-1 text-[9px] text-stone-400">
+              <p className="mt-0.5 text-[8px] text-stone-400">
                 ©{" "}
                 {new Date().getFullYear()}{" "}
                 {
                   storeName
                 }
               </p>
+
             </div>
+
           </div>
 
-          <div className="flex items-center gap-2 text-[9px] text-stone-400">
+          <div className="flex items-center gap-2 text-[8px] text-stone-400">
+
             <Sparkles
-              size={
-                11
-              }
+              size={10}
               style={{
                 color:
                   primary,
               }}
             />
 
-            Store powered by TOTS-OS
+            Powered by TOTS-OS
+
           </div>
+
         </div>
+
       </footer>
 
       {/* =====================================================
@@ -2433,6 +2499,7 @@ export default function ShopFrontPage() {
 
       {cartOpen && (
         <div className="fixed inset-0 z-[120] bg-stone-900/35 backdrop-blur-sm">
+
           <button
             type="button"
             aria-label="Close basket"
@@ -2445,8 +2512,13 @@ export default function ShopFrontPage() {
           />
 
           <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+
+            {/* HEADER */}
+
             <div className="flex items-center justify-between border-b border-stone-100 px-5 py-5">
+
               <div>
+
                 <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
                   Your basket
                 </p>
@@ -2460,6 +2532,7 @@ export default function ShopFrontPage() {
                     ? "item"
                     : "items"}
                 </h3>
+
               </div>
 
               <button
@@ -2469,38 +2542,53 @@ export default function ShopFrontPage() {
                     false
                   )
                 }
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100"
               >
                 <X
-                  size={
-                    16
-                  }
+                  size={15}
                 />
               </button>
+
             </div>
 
+            {/* LINES */}
+
             <div className="flex-1 overflow-y-auto p-5">
+
               {cartLines.length ===
               0 ? (
                 <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center">
+
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-400">
                     <ShoppingCart
-                      size={
-                        22
-                      }
+                      size={21}
                     />
                   </div>
 
                   <p className="mt-5 text-sm font-semibold text-stone-700">
-                    Your basket is empty
+                    Nothing here yet
                   </p>
 
-                  <p className="mt-2 text-xs text-stone-400">
-                    Add something you like and it will appear here.
+                  <p className="mt-2 max-w-xs text-xs leading-5 text-stone-400">
+                    Pick something from the store and it&apos;ll appear here.
                   </p>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCartOpen(
+                        false
+                      )
+                    }
+                    className="mt-5 rounded-full bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                  >
+                    Keep browsing
+                  </button>
+
                 </div>
               ) : (
                 <div className="space-y-3">
+
                   {cartLines.map(
                     (
                       line
@@ -2511,19 +2599,20 @@ export default function ShopFrontPage() {
                         );
 
                       const maxStock =
-                        typeof line.product.inventory_quantity ===
-                        "number"
-                          ? line.product.inventory_quantity
-                          : null;
+                        getAvailableQuantity(
+                          line.product
+                        );
 
                       return (
                         <div
                           key={
                             line.product.id
                           }
-                          className="flex gap-4 rounded-2xl border border-stone-100 bg-stone-50 p-3"
+                          className="flex gap-3 rounded-2xl border border-stone-100 bg-stone-50 p-3"
                         >
-                          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-white">
+
+                          <div className="h-16 w-14 shrink-0 overflow-hidden rounded-xl bg-white">
+
                             {image ? (
                               <img
                                 src={
@@ -2537,28 +2626,29 @@ export default function ShopFrontPage() {
                             ) : (
                               <div className="flex h-full w-full items-center justify-center text-stone-300">
                                 <Package
-                                  size={
-                                    20
-                                  }
+                                  size={18}
                                 />
                               </div>
                             )}
+
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-stone-700">
+
+                            <p className="truncate text-xs font-semibold text-stone-700">
                               {
                                 line.product.name
                               }
                             </p>
 
-                            <p className="mt-1 text-xs text-stone-500">
+                            <p className="mt-1 text-[10px] text-stone-500">
                               {formatCurrency(
                                 line.product.price
                               )}
                             </p>
 
-                            <div className="mt-3 flex items-center gap-2">
+                            <div className="mt-2 flex items-center gap-2">
+
                               <button
                                 type="button"
                                 onClick={() =>
@@ -2568,16 +2658,14 @@ export default function ShopFrontPage() {
                                       1
                                   )
                                 }
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-white"
+                                className="flex h-6 w-6 items-center justify-center rounded-full bg-white"
                               >
                                 <Minus
-                                  size={
-                                    12
-                                  }
+                                  size={10}
                                 />
                               </button>
 
-                              <span className="min-w-5 text-center text-xs font-semibold">
+                              <span className="min-w-5 text-center text-[10px] font-semibold">
                                 {
                                   line.quantity
                                 }
@@ -2598,36 +2686,19 @@ export default function ShopFrontPage() {
                                       1
                                   )
                                 }
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-white disabled:cursor-not-allowed disabled:opacity-30"
+                                className="flex h-6 w-6 items-center justify-center rounded-full bg-white disabled:cursor-not-allowed disabled:opacity-30"
                               >
                                 <Plus
-                                  size={
-                                    12
-                                  }
+                                  size={10}
                                 />
                               </button>
+
                             </div>
 
-                            {maxStock !==
-                              null &&
-                              maxStock <=
-                                5 && (
-                              <p
-                                className="mt-2 text-[8px] font-bold"
-                                style={{
-                                  color:
-                                    primary,
-                                }}
-                              >
-                                {
-                                  maxStock
-                                }{" "}
-                                in stock
-                              </p>
-                            )}
                           </div>
 
                           <div className="shrink-0 text-right">
+
                             <p className="text-xs font-semibold text-stone-700">
                               {formatCurrency(
                                 Number(
@@ -2637,17 +2708,25 @@ export default function ShopFrontPage() {
                                   line.quantity
                               )}
                             </p>
+
                           </div>
+
                         </div>
                       );
                     }
                   )}
+
                 </div>
               )}
+
             </div>
 
+            {/* FOOTER */}
+
             <div className="border-t border-stone-100 p-5">
+
               <div className="flex items-center justify-between">
+
                 <span className="text-xs text-stone-400">
                   Subtotal
                 </span>
@@ -2657,14 +2736,14 @@ export default function ShopFrontPage() {
                     cartTotal
                   )}
                 </strong>
+
               </div>
 
               {store.shipping_text && (
                 <div className="mt-3 flex items-start gap-2 rounded-xl bg-stone-50 p-3">
+
                   <Truck
-                    size={
-                      13
-                    }
+                    size={12}
                     className="mt-0.5 shrink-0"
                     style={{
                       color:
@@ -2677,6 +2756,7 @@ export default function ShopFrontPage() {
                       store.shipping_text
                     }
                   </p>
+
                 </div>
               )}
 
@@ -2685,35 +2765,37 @@ export default function ShopFrontPage() {
                 disabled={
                   !cartLines.length
                 }
+                onClick={() =>
+                  alert(
+                    "Next step: connect this checkout button to the TOTS-OS Stripe checkout API."
+                  )
+                }
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-4 text-[9px] font-black uppercase tracking-[0.17em] text-white transition disabled:cursor-not-allowed disabled:opacity-40"
                 style={{
                   background:
                     primary,
                 }}
-                onClick={() =>
-                  alert(
-                    "Basket is ready. Next step is connecting this button to your TOTS-OS order + Stripe checkout API."
-                  )
-                }
               >
-                Checkout
+                Continue to checkout
 
                 <ArrowRight
-                  size={
-                    14
-                  }
+                  size={13}
                 />
               </button>
 
-              <p className="mt-3 text-center text-[9px] leading-4 text-stone-400">
-                Checkout will be securely processed through this store&apos;s TOTS-OS account.
+              <p className="mt-3 text-center text-[8px] leading-4 text-stone-400">
+                Secure checkout powered by TOTS-OS.
               </p>
+
             </div>
+
           </aside>
+
         </div>
       )}
 
       <StorefrontGlobalStyles />
+
     </div>
   );
 }
@@ -2726,10 +2808,12 @@ function ProductCard({
   product,
   primary,
   onAdd,
+  featuredLayout = false,
 }: {
   product: Product;
   primary: string;
   onAdd: () => void;
+  featuredLayout?: boolean;
 }) {
   const image =
     getProductImage(
@@ -2737,10 +2821,19 @@ function ProductCard({
     );
 
   const outOfStock =
-    typeof product.inventory_quantity ===
-      "number" &&
-    product.inventory_quantity <=
-      0;
+    isOutOfStock(
+      product
+    );
+
+  const lowStock =
+    isLowStock(
+      product
+    );
+
+  const available =
+    getAvailableQuantity(
+      product
+    );
 
   const compareAt =
     Number(
@@ -2760,9 +2853,29 @@ function ProductCard({
     price >
       0;
 
+  const service =
+    isServiceProduct(
+      product
+    );
+
+  const digital =
+    isDigitalProduct(
+      product
+    );
+
   return (
-    <article className="group min-w-0">
-      <div className="relative aspect-[4/5] overflow-hidden rounded-[1.8rem] border border-stone-200 bg-white">
+    <article className="group min-w-0 overflow-hidden rounded-[1.55rem] border border-stone-200 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(0,0,0,0.06)]">
+
+      {/* IMAGE */}
+
+      <div
+        className={`relative overflow-hidden bg-stone-100 ${
+          featuredLayout
+            ? "aspect-[16/9]"
+            : "aspect-[4/3]"
+        }`}
+      >
+
         {image ? (
           <img
             src={
@@ -2771,22 +2884,22 @@ function ProductCard({
             alt={
               product.name
             }
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+            loading="lazy"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-stone-100 text-stone-300">
+          <div className="flex h-full w-full items-center justify-center text-stone-300">
             <Package
-              size={
-                34
-              }
+              size={28}
             />
           </div>
         )}
 
-        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+
           {product.featured && (
             <span
-              className="rounded-full px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-white"
+              className="rounded-full px-2.5 py-1 text-[6px] font-black uppercase tracking-[0.13em] text-white"
               style={{
                 background:
                   primary,
@@ -2797,16 +2910,96 @@ function ProductCard({
           )}
 
           {onSale && (
-            <span className="rounded-full bg-stone-900 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-white">
-              Sale
+            <span className="rounded-full bg-stone-900 px-2.5 py-1 text-[6px] font-black uppercase tracking-[0.13em] text-white">
+              Offer
             </span>
           )}
 
           {outOfStock && (
-            <span className="rounded-full bg-white px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-stone-600 shadow-sm">
-              Sold out
+            <span className="rounded-full bg-white px-2.5 py-1 text-[6px] font-black uppercase tracking-[0.13em] text-stone-600 shadow-sm">
+              Unavailable
             </span>
           )}
+
+        </div>
+
+      </div>
+
+      {/* CONTENT */}
+
+      <div className="p-4">
+
+        <div className="flex items-center justify-between gap-3">
+
+          <p
+            className="text-[7px] font-black uppercase tracking-[0.15em]"
+            style={{
+              color:
+                primary,
+            }}
+          >
+            {product.category ||
+              "Product"}
+          </p>
+
+          {service ? (
+            <span className="text-[7px] font-bold uppercase tracking-[0.12em] text-stone-300">
+              Service
+            </span>
+          ) : digital ? (
+            <span className="text-[7px] font-bold uppercase tracking-[0.12em] text-stone-300">
+              Digital
+            </span>
+          ) : null}
+
+        </div>
+
+        <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-stone-800">
+          {
+            product.name
+          }
+        </h3>
+
+        {product.description && (
+          <p className="mt-2 line-clamp-2 min-h-[40px] text-[10px] leading-5 text-stone-400">
+            {
+              product.description
+            }
+          </p>
+        )}
+
+        <div className="mt-4 flex items-end justify-between gap-3">
+
+          <div>
+
+            <p className="font-serif text-[1.65rem] italic leading-none text-stone-900">
+              {formatCurrency(
+                product.price
+              )}
+            </p>
+
+            {onSale && (
+              <p className="mt-1 text-[9px] text-stone-400 line-through">
+                {formatCurrency(
+                  compareAt
+                )}
+              </p>
+            )}
+
+          </div>
+
+          {lowStock &&
+            available !==
+              null && (
+              <p className="text-[7px] font-black uppercase tracking-[0.12em] text-amber-600">
+                Only{" "}
+                {
+                  available
+                }{" "}
+                left
+              </p>
+            )}
+
         </div>
 
         <button
@@ -2817,88 +3010,27 @@ function ProductCard({
           onClick={
             onAdd
           }
-          className="absolute bottom-3 left-3 right-3 flex items-center justify-center gap-2 rounded-full bg-white/95 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-900 shadow-lg backdrop-blur transition hover:bg-stone-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 flex w-full items-center justify-between rounded-xl bg-stone-50 px-4 py-3 text-left transition hover:bg-stone-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {outOfStock ? (
-            "Sold out"
-          ) : (
-            <>
-              <ShoppingBag
-                size={
-                  13
-                }
-              />
 
-              Add to basket
-            </>
-          )}
-        </button>
-      </div>
-
-      <div className="px-1 pt-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            {product.category && (
-              <p className="mb-1 text-[8px] font-black uppercase tracking-[0.16em] text-stone-400">
-                {
-                  product.category
-                }
-              </p>
-            )}
-
-            <h3 className="truncate text-sm font-semibold text-stone-800">
-              {
-                product.name
-              }
-            </h3>
-          </div>
-
-          <div className="shrink-0 text-right">
-            <p className="text-sm font-semibold text-stone-900">
-              {formatCurrency(
-                product.price
-              )}
-            </p>
-
-            {onSale && (
-              <p className="mt-1 text-[10px] text-stone-400 line-through">
-                {formatCurrency(
-                  compareAt
+          <span className="text-[8px] font-black uppercase tracking-[0.13em]">
+            {outOfStock
+              ? "Unavailable"
+              : getProductActionLabel(
+                  product
                 )}
-              </p>
-            )}
-          </div>
-        </div>
+          </span>
 
-        {product.description && (
-          <p className="mt-2 line-clamp-2 text-xs leading-5 text-stone-400">
-            {
-              product.description
-            }
-          </p>
-        )}
+          {!outOfStock && (
+            <ArrowRight
+              size={12}
+            />
+          )}
 
-        {typeof product.inventory_quantity ===
-          "number" &&
-          product.inventory_quantity >
-            0 &&
-          product.inventory_quantity <=
-            5 && (
-          <p
-            className="mt-2 text-[9px] font-bold"
-            style={{
-              color:
-                primary,
-            }}
-          >
-            Only{" "}
-            {
-              product.inventory_quantity
-            }{" "}
-            left
-          </p>
-        )}
+        </button>
+
       </div>
+
     </article>
   );
 }
@@ -2921,6 +3053,15 @@ function StorefrontGlobalStyles() {
           "Instrument Serif",
           Georgia,
           serif;
+      }
+
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
     `}</style>
   );

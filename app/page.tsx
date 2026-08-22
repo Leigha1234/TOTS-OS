@@ -403,9 +403,7 @@ function Logo({
 
       {showWordmark && (
         <span className="tots-logo-copy">
-          <strong>
-            TOTS-OS
-          </strong>
+          <strong>TOTS-OS</strong>
 
           <small>
             by The Organised Types
@@ -487,18 +485,12 @@ function DemoStat({
 }) {
   return (
     <div className="demo-stat">
-      <span>
-        {label}
-      </span>
+      <span>{label}</span>
 
-      <strong>
-        {value}
-      </strong>
+      <strong>{value}</strong>
 
       {note && (
-        <small>
-          {note}
-        </small>
+        <small>{note}</small>
       )}
     </div>
   );
@@ -519,9 +511,7 @@ function DemoPanel({
         {eyebrow}
       </span>
 
-      <h4>
-        {title}
-      </h4>
+      <h4>{title}</h4>
 
       {children}
     </div>
@@ -607,19 +597,14 @@ function DemoHome() {
               ) => (
                 <div
                   className="demo-row"
-                  key={
-                    item
-                  }
+                  key={item}
                 >
                   <span className="demo-number">
-                    {index +
-                      1}
+                    {index + 1}
                   </span>
 
                   <span>
-                    {
-                      item
-                    }
+                    {item}
                   </span>
                 </div>
               )
@@ -638,9 +623,7 @@ function DemoHome() {
           </p>
 
           <div className="demo-clarity">
-            <Sparkles
-              size={14}
-            />
+            <Sparkles size={14} />
 
             Ask Clarity what to
             prioritise.
@@ -678,9 +661,7 @@ function DemoContacts() {
           ) => (
             <div
               className="demo-contact"
-              key={
-                contact.name
-              }
+              key={contact.name}
             >
               <div className="demo-avatar">
                 {contact.name.charAt(
@@ -690,19 +671,12 @@ function DemoContacts() {
 
               <div className="demo-grow">
                 <strong>
-                  {
-                    contact.name
-                  }
+                  {contact.name}
                 </strong>
 
                 <span>
-                  {
-                    contact.org
-                  }{" "}
-                  ·{" "}
-                  {
-                    contact.tag
-                  }
+                  {contact.org} ·{" "}
+                  {contact.tag}
                 </span>
               </div>
 
@@ -747,29 +721,21 @@ function DemoCampaigns() {
           ) => (
             <div
               className="demo-panel"
-              key={
-                campaign.name
-              }
+              key={campaign.name}
             >
               <div className="demo-between">
                 <div>
                   <strong>
-                    {
-                      campaign.name
-                    }
+                    {campaign.name}
                   </strong>
 
                   <p className="demo-muted">
-                    {
-                      campaign.list
-                    }
+                    {campaign.list}
                   </p>
                 </div>
 
                 <span className="demo-badge">
-                  {
-                    campaign.status
-                  }
+                  {campaign.status}
                 </span>
               </div>
 
@@ -857,20 +823,15 @@ function DemoSocial() {
               ) => (
                 <div
                   className="demo-row"
-                  key={
-                    platform
-                  }
+                  key={platform}
                 >
                   <span className="demo-grow">
-                    {
-                      platform
-                    }
+                    {platform}
                   </span>
 
                   <span
                     className={`demo-toggle ${
-                      index <
-                      2
+                      index < 2
                         ? "on"
                         : ""
                     }`}
@@ -924,14 +885,11 @@ function DemoFinance() {
           ) => (
             <span
               className={
-                index ===
-                0
+                index === 0
                   ? "active"
                   : ""
               }
-              key={
-                item
-              }
+              key={item}
             >
               {item}
             </span>
@@ -1018,14 +976,10 @@ function DemoNotes() {
           ) => (
             <div
               className="demo-kanban-column"
-              key={
-                column.name
-              }
+              key={column.name}
             >
               <span className="demo-label">
-                {
-                  column.name
-                }
+                {column.name}
               </span>
 
               {column.tasks.map(
@@ -1034,14 +988,10 @@ function DemoNotes() {
                 ) => (
                   <div
                     className="demo-task"
-                    key={
-                      task
-                    }
+                    key={task}
                   >
                     <strong>
-                      {
-                        task
-                      }
+                      {task}
                     </strong>
 
                     <small>
@@ -1114,18 +1064,14 @@ function DemoWorkspace() {
           ) => (
             <div
               className="demo-row"
-              key={
-                project
-              }
+              key={project}
             >
               <FolderKanban
                 size={14}
               />
 
               <span className="demo-grow">
-                {
-                  project
-                }
+                {project}
               </span>
 
               <ChevronRight
@@ -1253,7 +1199,7 @@ const DEMO_VIEWS: Record<
 };
 
 /* ============================================================
-   DEMO
+   PRODUCT DEMO
 ============================================================ */
 
 function ProductDemo() {
@@ -1317,9 +1263,7 @@ function ProductDemo() {
 
                     return (
                       <button
-                        key={
-                          item.key
-                        }
+                        key={item.key}
                         type="button"
                         onClick={() =>
                           setActive(
@@ -1334,15 +1278,11 @@ function ProductDemo() {
                         }
                       >
                         <Icon
-                          size={
-                            15
-                          }
+                          size={15}
                         />
 
                         <span>
-                          {
-                            item.label
-                          }
+                          {item.label}
                         </span>
                       </button>
                     );
@@ -1354,9 +1294,7 @@ function ProductDemo() {
             <main className="demo-content">
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={
-                    active
-                  }
+                  key={active}
                   initial={{
                     opacity:
                       0,
@@ -1389,9 +1327,7 @@ function ProductDemo() {
               item
             ) => (
               <button
-                key={
-                  item.key
-                }
+                key={item.key}
                 type="button"
                 onClick={() =>
                   setActive(
@@ -1405,9 +1341,7 @@ function ProductDemo() {
                     : ""
                 }
               >
-                {
-                  item.label
-                }
+                {item.label}
               </button>
             )
           )}
@@ -1437,9 +1371,7 @@ function ProductDemo() {
           </div>
 
           <a
-            href={
-              SIGNUP_URL
-            }
+            href={SIGNUP_URL}
             className="button-primary button-large"
           >
             Start free
@@ -1482,45 +1414,26 @@ export default function TotsOSLanding() {
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
 
         html {
-          scroll-behavior:
-            smooth;
+          scroll-behavior: smooth;
         }
 
         body {
-          margin:
-            0;
-
-          background:
-            #f5f2eb;
+          margin: 0;
+          background: #f5f2eb;
         }
 
         .tots-root {
-          --cream:
-            #f5f2eb;
+          --cream: #f5f2eb;
+          --cream-deep: #ebe6dc;
+          --white: #fffefd;
 
-          --cream-deep:
-            #ebe6dc;
+          --charcoal: #373735;
+          --charcoal-soft: #575753;
+          --muted: #77756e;
 
-          --white:
-            #fffefd;
-
-          --charcoal:
-            #373735;
-
-          --charcoal-soft:
-            #575753;
-
-          --muted:
-            #77756e;
-
-          --tan:
-            #c69d69;
-
-          --tan-dark:
-            #a77d4d;
-
-          --tan-soft:
-            #eadcc9;
+          --tan: #c69d69;
+          --tan-dark: #a77d4d;
+          --tan-soft: #eadcc9;
 
           --border:
             rgba(
@@ -1547,11 +1460,9 @@ export default function TotsOSLanding() {
               0.08
             );
 
-          min-height:
-            100vh;
+          min-height: 100vh;
 
-          overflow-x:
-            hidden;
+          overflow-x: hidden;
 
           background:
             var(--cream);
@@ -1574,8 +1485,7 @@ export default function TotsOSLanding() {
         .tots-root h3,
         .tots-root h4,
         .tots-root p {
-          margin:
-            0;
+          margin: 0;
         }
 
         .tots-root h1,
@@ -1594,8 +1504,7 @@ export default function TotsOSLanding() {
         }
 
         .tots-root a {
-          color:
-            inherit;
+          color: inherit;
         }
 
         .tots-root button,
@@ -1950,13 +1859,21 @@ export default function TotsOSLanding() {
             0 17px;
 
           display:
-            flex;
+            grid;
+
+          grid-template-columns:
+            minmax(
+              210px,
+              1fr
+            )
+            auto
+            minmax(
+              210px,
+              1fr
+            );
 
           align-items:
             center;
-
-          justify-content:
-            space-between;
 
           gap:
             20px;
@@ -1997,15 +1914,24 @@ export default function TotsOSLanding() {
         }
 
         .tots-brand {
+          justify-self:
+            start;
+
           text-decoration:
             none;
         }
 
         .tots-nav-links {
+          justify-self:
+            center;
+
           display:
             flex;
 
           align-items:
+            center;
+
+          justify-content:
             center;
 
           gap:
@@ -2046,6 +1972,9 @@ export default function TotsOSLanding() {
         }
 
         .tots-nav-actions {
+          justify-self:
+            end;
+
           display:
             flex;
 
@@ -2081,6 +2010,9 @@ export default function TotsOSLanding() {
 
           color:
             var(--charcoal);
+
+          cursor:
+            pointer;
         }
 
         /* =====================================================
@@ -2192,371 +2124,375 @@ export default function TotsOSLanding() {
             8px;
         }
 
-       /* =====================================================
-   HERO
-===================================================== */
+        /* =====================================================
+           HERO
+        ===================================================== */
+
+        .tots-hero {
+          width:
+            100%;
+
+          min-height:
+            720px;
+
+          padding:
+            135px 24px
+            70px;
+
+          position:
+            relative;
+
+          display:
+            flex;
 
-.tots-hero {
-  width: 100%;
-  min-height: 690px;
+          align-items:
+            center;
 
-  padding:
-    165px 20px
-    90px;
+          justify-content:
+            center;
+
+          overflow:
+            hidden;
+        }
 
-  position: relative;
+        .tots-hero::before {
+          content:
+            "";
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+          position:
+            absolute;
 
-  overflow: hidden;
-}
+          width:
+            700px;
 
-.tots-hero::before {
-  content: "";
+          height:
+            700px;
 
-  position: absolute;
+          top:
+            40px;
 
-  width: 560px;
-  height: 560px;
+          left:
+            50%;
 
-  top: 30px;
-  left: 50%;
+          transform:
+            translateX(
+              -50%
+            );
 
-  transform:
-    translateX(-50%);
+          border-radius:
+            50%;
 
-  border-radius: 50%;
+          background:
+            radial-gradient(
+              circle,
+              rgba(
+                198,
+                157,
+                105,
+                .15
+              )
+              0%,
+              rgba(
+                198,
+                157,
+                105,
+                .07
+              )
+              40%,
+              transparent
+              72%
+            );
 
-  background:
-    rgba(
-      198,
-      157,
-      105,
-      .12
-    );
+          filter:
+            blur(
+              45px
+            );
 
-  filter:
-    blur(120px);
+          pointer-events:
+            none;
+        }
 
-  pointer-events: none;
-}
+        .tots-hero-inner {
+          width:
+            100%;
 
-.tots-hero-inner {
-  width: 100%;
-  max-width: 1060px;
+          max-width:
+            1000px;
 
-  margin-left: auto;
-  margin-right: auto;
+          margin:
+            0 auto;
 
-  padding: 0;
+          padding:
+            0;
 
-  position: relative;
-  z-index: 2;
+          position:
+            relative;
 
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+          z-index:
+            2;
 
-  text-align: center;
-}
+          display:
+            flex;
 
-.tots-hero-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+          flex-direction:
+            column;
 
-  gap: 8px;
+          align-items:
+            center;
 
-  padding:
-    9px 14px;
+          justify-content:
+            center;
 
-  border:
-    1px solid
-    rgba(
-      198,
-      157,
-      105,
-      .26
-    );
+          text-align:
+            center;
+        }
 
-  border-radius: 999px;
+        .tots-hero-pill {
+          width:
+            fit-content;
 
-  background:
-    rgba(
-      255,
-      255,
-      255,
-      .45
-    );
+          margin:
+            0 auto;
 
-  color:
-    var(--charcoal-soft);
+          display:
+            inline-flex;
 
-  font-size: 11px;
-  font-weight: 600;
+          align-items:
+            center;
 
-  text-align: center;
-}
+          justify-content:
+            center;
 
-.tots-hero-pill svg {
-  color:
-    var(--tan-dark);
-}
+          gap:
+            8px;
 
-.tots-hero h1 {
-  width: 100%;
+          padding:
+            9px 15px;
 
-  max-width: 1000px;
+          border:
+            1px solid
+            rgba(
+              198,
+              157,
+              105,
+              .26
+            );
 
-  margin:
-    29px auto
-    0 !important;
+          border-radius:
+            999px;
 
-  padding: 0;
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              .48
+            );
 
-  color:
-    var(--charcoal);
+          color:
+            var(--charcoal-soft);
 
-  font-size:
-    clamp(
-      3.4rem,
-      7vw,
-      7rem
-    );
+          font-size:
+            11px;
 
-  font-weight: 500;
+          font-weight:
+            600;
 
-  line-height: .97;
+          line-height:
+            1.2;
 
-  text-align: center !important;
-}
+          text-align:
+            center;
+        }
 
-.tots-hero-accent {
-  display: block;
+        .tots-hero-pill svg {
+          flex-shrink:
+            0;
 
-  width: 100%;
+          color:
+            var(--tan-dark);
+        }
 
-  color:
-    var(--tan-dark);
+        .tots-hero-title {
+          width:
+            100%;
 
-  text-align: center;
-}
+          max-width:
+            900px;
 
-.tots-hero-copy {
-  width: 100%;
+          margin:
+            30px auto
+            0 !important;
 
-  max-width: 790px;
+          padding:
+            0;
 
-  margin:
-    28px auto
-    0 !important;
+          color:
+            var(--charcoal);
 
-  padding: 0;
+          font-size:
+            clamp(
+              3.7rem,
+              6.4vw,
+              6.4rem
+            ) !important;
 
-  color:
-    var(--muted);
+          font-weight:
+            500 !important;
 
-  font-size:
-    clamp(
-      15px,
-      1.5vw,
-      18px
-    );
+          letter-spacing:
+            -.06em !important;
 
-  line-height: 1.7;
+          line-height:
+            .96 !important;
 
-  text-align: center !important;
-}
+          text-align:
+            center !important;
+        }
 
-.tots-hero-copy strong {
-  color:
-    var(--charcoal);
+        .tots-hero-accent {
+          width:
+            100%;
 
-  font-weight: 600;
-}
+          display:
+            block;
 
-.tots-hero-actions {
-  width: 100%;
+          margin-top:
+            4px;
 
-  margin:
-    34px auto
-    0;
+          color:
+            var(--tan-dark);
 
-  display: flex;
+          text-align:
+            center;
+        }
 
-  align-items: center;
-  justify-content: center;
+        .tots-hero-copy {
+          width:
+            100%;
 
-  gap: 10px;
+          max-width:
+            780px;
 
-  flex-wrap: wrap;
+          margin:
+            28px auto
+            0 !important;
 
-  text-align: center;
-}
+          padding:
+            0;
 
-.tots-hero-note {
-  width: 100%;
+          color:
+            var(--muted);
 
-  margin:
-    18px auto
-    0;
+          font-size:
+            clamp(
+              15px,
+              1.3vw,
+              18px
+            );
 
-  display: flex;
+          line-height:
+            1.7;
 
-  align-items: center;
-  justify-content: center;
+          text-align:
+            center !important;
+        }
 
-  gap:
-    18px;
+        .tots-hero-copy strong {
+          color:
+            var(--charcoal);
 
-  flex-wrap: wrap;
+          font-weight:
+            600;
+        }
 
-  color:
-    var(--muted);
+        .tots-hero-actions {
+          width:
+            100%;
 
-  font-size: 11px;
+          margin:
+            34px auto
+            0;
 
-  text-align: center;
-}
+          display:
+            flex;
 
-.tots-hero-note span {
-  display: inline-flex;
+          align-items:
+            center;
 
-  align-items: center;
-  justify-content: center;
+          justify-content:
+            center;
 
-  gap: 6px;
-}
+          gap:
+            10px;
 
-.tots-hero-note svg {
-  color:
-    var(--tan-dark);
-}
+          flex-wrap:
+            wrap;
 
+          text-align:
+            center;
+        }
 
-/* =====================================================
-   HERO — MOBILE
-===================================================== */
+        .tots-hero-note {
+          width:
+            100%;
 
-@media (
-  max-width:
-  760px
-) {
+          margin:
+            18px auto
+            0;
 
-  .tots-hero {
-    min-height: auto;
+          display:
+            flex;
 
-    padding:
-      125px 17px
-      65px;
-  }
+          align-items:
+            center;
 
-  .tots-hero-inner {
-    width: 100%;
+          justify-content:
+            center;
 
-    max-width: 100%;
+          gap:
+            9px 20px;
 
-    margin:
-      0 auto;
+          flex-wrap:
+            wrap;
 
-    align-items:
-      center;
+          color:
+            var(--muted);
 
-    text-align:
-      center;
-  }
+          font-size:
+            11px;
 
-  .tots-hero h1 {
-    width: 100%;
+          line-height:
+            1;
 
-    max-width: 600px;
+          text-align:
+            center;
+        }
 
-    margin:
-      24px auto
-      0 !important;
+        .tots-hero-note span {
+          display:
+            inline-flex;
 
-    font-size:
-      clamp(
-        3rem,
-        13vw,
-        4.6rem
-      );
+          align-items:
+            center;
 
-    text-align:
-      center !important;
-  }
+          justify-content:
+            center;
 
-  .tots-hero-copy {
-    width: 100%;
+          gap:
+            6px;
 
-    max-width: 540px;
+          white-space:
+            nowrap;
+        }
 
-    margin:
-      22px auto
-      0 !important;
+        .tots-hero-note svg {
+          flex-shrink:
+            0;
 
-    font-size: 15px;
-
-    text-align:
-      center !important;
-  }
-
-  .tots-hero-actions {
-    width: 100%;
-
-    max-width: 520px;
-
-    margin:
-      28px auto
-      0;
-
-    flex-direction: column;
-
-    align-items: stretch;
-  }
-
-  .tots-hero-actions a {
-    width: 100%;
-  }
-
-  .tots-hero-note {
-    max-width: 500px;
-
-    margin:
-      17px auto
-      0;
-
-    gap:
-      8px 12px;
-
-    font-size: 9px;
-  }
-
-}
-
-
-@media (
-  max-width:
-  480px
-) {
-
-  .tots-hero h1 {
-    font-size:
-      clamp(
-        2.8rem,
-        13vw,
-        3.7rem
-      );
-  }
-
-  .tots-hero-pill {
-    font-size: 9px;
-  }
-
-}
+          color:
+            var(--tan-dark);
+        }
 
         /* =====================================================
            TRUST
@@ -2825,6 +2761,9 @@ export default function TotsOSLanding() {
         }
 
         .transform-card {
+          height:
+            100%;
+
           padding:
             32px;
 
@@ -2969,6 +2908,9 @@ export default function TotsOSLanding() {
           min-height:
             260px;
 
+          height:
+            100%;
+
           padding:
             28px;
 
@@ -3064,6 +3006,12 @@ export default function TotsOSLanding() {
 
         .demo-section-head {
           text-align:
+            center;
+        }
+
+        .demo-section-head
+        .tots-eyebrow {
+          justify-content:
             center;
         }
 
@@ -3831,6 +3779,9 @@ export default function TotsOSLanding() {
 
           font-size:
             9px;
+
+          cursor:
+            pointer;
         }
 
         .demo-between {
@@ -4358,6 +4309,9 @@ export default function TotsOSLanding() {
         .feature-card {
           min-height:
             275px;
+
+          height:
+            100%;
 
           padding:
             28px;
@@ -4899,6 +4853,9 @@ export default function TotsOSLanding() {
         }
 
         .security-card {
+          height:
+            100%;
+
           padding:
             28px;
 
@@ -5013,6 +4970,9 @@ export default function TotsOSLanding() {
         .price-card {
           min-height:
             580px;
+
+          height:
+            100%;
 
           padding:
             30px;
@@ -5660,13 +5620,21 @@ export default function TotsOSLanding() {
         }
 
         /* =====================================================
-           RESPONSIVE
+           TABLET
         ===================================================== */
 
         @media (
           max-width:
           1050px
         ) {
+
+          .tots-nav {
+            display:
+              flex;
+
+            justify-content:
+              space-between;
+          }
 
           .tots-nav-links {
             display:
@@ -5704,6 +5672,10 @@ export default function TotsOSLanding() {
 
         }
 
+        /* =====================================================
+           MOBILE
+        ===================================================== */
+
         @media (
           max-width:
           760px
@@ -5711,10 +5683,9 @@ export default function TotsOSLanding() {
 
           .tots-container {
             width:
-              min(
+              calc(
                 100% -
-                30px,
-                1180px
+                30px
               );
           }
 
@@ -5756,27 +5727,75 @@ export default function TotsOSLanding() {
           }
 
           .tots-hero {
+            min-height:
+              auto;
+
             padding:
-              125px
-              17px
-              65px;
+              130px 18px
+              70px;
           }
 
-          .tots-hero h1 {
+          .tots-hero::before {
+            width:
+              480px;
+
+            height:
+              480px;
+
+            top:
+              70px;
+          }
+
+          .tots-hero-inner {
+            width:
+              100%;
+
+            max-width:
+              100%;
+
+            margin:
+              0 auto;
+          }
+
+          .tots-hero-title {
+            max-width:
+              620px;
+
+            margin-top:
+              25px !important;
+
             font-size:
               clamp(
                 3rem,
-                13vw,
-                4.6rem
-              );
+                12vw,
+                4.5rem
+              ) !important;
+
+            line-height:
+              .98 !important;
           }
 
-          .hero-copy {
+          .tots-hero-copy {
+            max-width:
+              550px;
+
+            margin-top:
+              22px !important;
+
             font-size:
               15px;
           }
 
-          .hero-actions {
+          .tots-hero-actions {
+            width:
+              100%;
+
+            max-width:
+              520px;
+
+            margin-top:
+              28px;
+
             flex-direction:
               column;
 
@@ -5784,17 +5803,23 @@ export default function TotsOSLanding() {
               stretch;
           }
 
-          .hero-actions a {
+          .tots-hero-actions a {
             width:
               100%;
           }
 
-          .hero-note {
+          .tots-hero-note {
+            max-width:
+              520px;
+
+            margin-top:
+              18px;
+
             gap:
-              8px 12px;
+              10px 14px;
 
             font-size:
-              9px;
+              10px;
           }
 
           .trusted-section {
@@ -5983,6 +6008,10 @@ export default function TotsOSLanding() {
 
         }
 
+        /* =====================================================
+           SMALL MOBILE
+        ===================================================== */
+
         @media (
           max-width:
           480px
@@ -5997,23 +6026,57 @@ export default function TotsOSLanding() {
               );
           }
 
-          .tots-hero h1 {
+          .tots-hero {
+            padding:
+              115px 15px
+              60px;
+          }
+
+          .tots-hero-pill {
+            padding:
+              8px 12px;
+
+            font-size:
+              9px;
+          }
+
+          .tots-hero-title {
+            max-width:
+              390px;
+
             font-size:
               clamp(
-                2.8rem,
-                13vw,
-                3.7rem
-              );
+                2.75rem,
+                12.5vw,
+                3.65rem
+              ) !important;
+          }
+
+          .tots-hero-copy {
+            max-width:
+              390px;
+
+            font-size:
+              14px;
+
+            line-height:
+              1.65;
+          }
+
+          .tots-hero-note {
+            max-width:
+              380px;
+
+            gap:
+              8px 12px;
+
+            font-size:
+              9px;
           }
 
           .tots-logo-copy strong {
             font-size:
               11px;
-          }
-
-          .hero-pill {
-            font-size:
-              9px;
           }
 
           .trusted-list span {
@@ -6100,16 +6163,10 @@ export default function TotsOSLanding() {
                 item
               ) => (
                 <a
-                  key={
-                    item.href
-                  }
-                  href={
-                    item.href
-                  }
+                  key={item.href}
+                  href={item.href}
                 >
-                  {
-                    item.label
-                  }
+                  {item.label}
                 </a>
               )
             )}
@@ -6117,9 +6174,7 @@ export default function TotsOSLanding() {
 
           <div className="tots-nav-actions">
             <a
-              href={
-                SIGNUP_URL
-              }
+              href={SIGNUP_URL}
               className="button-secondary"
             >
               <LogIn
@@ -6130,9 +6185,7 @@ export default function TotsOSLanding() {
             </a>
 
             <a
-              href={
-                SIGNUP_URL
-              }
+              href={SIGNUP_URL}
               className="button-primary"
             >
               Start free
@@ -6216,26 +6269,18 @@ export default function TotsOSLanding() {
                     item
                   ) => (
                     <a
-                      key={
-                        item.href
-                      }
-                      href={
-                        item.href
-                      }
+                      key={item.href}
+                      href={item.href}
                       onClick={() =>
                         setMobileMenuOpen(
                           false
                         )
                       }
                     >
-                      {
-                        item.label
-                      }
+                      {item.label}
 
                       <ArrowUpRight
-                        size={
-                          15
-                        }
+                        size={15}
                       />
                     </a>
                   )
@@ -6244,9 +6289,7 @@ export default function TotsOSLanding() {
 
               <div className="mobile-actions">
                 <a
-                  href={
-                    SIGNUP_URL
-                  }
+                  href={SIGNUP_URL}
                   className="button-primary"
                 >
                   Start my free
@@ -6254,9 +6297,7 @@ export default function TotsOSLanding() {
                 </a>
 
                 <a
-                  href={
-                    SIGNUP_URL
-                  }
+                  href={SIGNUP_URL}
                   className="button-secondary"
                 >
                   Log in
@@ -6286,7 +6327,7 @@ export default function TotsOSLanding() {
               duration:
                 0.6,
             }}
-            className="hero-pill"
+            className="tots-hero-pill"
           >
             <Sparkles
               size={13}
@@ -6297,6 +6338,7 @@ export default function TotsOSLanding() {
           </motion.div>
 
           <motion.h1
+            className="tots-hero-title"
             initial={{
               opacity: 0,
               y: 20,
@@ -6313,13 +6355,14 @@ export default function TotsOSLanding() {
             }}
           >
             Your whole business.
-            <span className="hero-accent">
+
+            <span className="tots-hero-accent">
               Finally organised.
             </span>
           </motion.h1>
 
           <motion.p
-            className="hero-copy"
+            className="tots-hero-copy"
             initial={{
               opacity: 0,
               y: 18,
@@ -6350,7 +6393,7 @@ export default function TotsOSLanding() {
           </motion.p>
 
           <motion.div
-            className="hero-actions"
+            className="tots-hero-actions"
             initial={{
               opacity: 0,
               y: 16,
@@ -6367,9 +6410,7 @@ export default function TotsOSLanding() {
             }}
           >
             <a
-              href={
-                SIGNUP_URL
-              }
+              href={SIGNUP_URL}
               className="button-primary button-large"
             >
               Start my free trial
@@ -6389,7 +6430,23 @@ export default function TotsOSLanding() {
             </a>
           </motion.div>
 
-          <div className="hero-note">
+          <motion.div
+            className="tots-hero-note"
+            initial={{
+              opacity: 0,
+              y: 12,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              duration:
+                0.7,
+              delay:
+                0.24,
+            }}
+          >
             <span>
               <Check size={12} />
               14 days free
@@ -6404,7 +6461,7 @@ export default function TotsOSLanding() {
               <Check size={12} />
               Set up in minutes
             </span>
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -6426,13 +6483,9 @@ export default function TotsOSLanding() {
                   name
                 ) => (
                   <span
-                    key={
-                      name
-                    }
+                    key={name}
                   >
-                    {
-                      name
-                    }
+                    {name}
                   </span>
                 )
               )}
@@ -6486,13 +6539,9 @@ export default function TotsOSLanding() {
                   item
                 ) => (
                   <span
-                    key={
-                      item
-                    }
+                    key={item}
                   >
-                    {
-                      item
-                    }
+                    {item}
                   </span>
                 )
               )}
@@ -6568,15 +6617,11 @@ export default function TotsOSLanding() {
                     ) => (
                       <div
                         className="transform-row"
-                        key={
-                          item
-                        }
+                        key={item}
                       >
                         <X size={14} />
 
-                        {
-                          item
-                        }
+                        {item}
                       </div>
                     )
                   )}
@@ -6585,9 +6630,7 @@ export default function TotsOSLanding() {
             </Reveal>
 
             <Reveal
-              delay={
-                0.08
-              }
+              delay={0.08}
             >
               <div className="transform-card good">
                 <span>
@@ -6613,19 +6656,13 @@ export default function TotsOSLanding() {
                     ) => (
                       <div
                         className="transform-row"
-                        key={
-                          item
-                        }
+                        key={item}
                       >
                         <Check
-                          size={
-                            14
-                          }
+                          size={14}
                         />
 
-                        {
-                          item
-                        }
+                        {item}
                       </div>
                     )
                   )}
@@ -6670,9 +6707,7 @@ export default function TotsOSLanding() {
 
                 return (
                   <Reveal
-                    key={
-                      item.title
-                    }
+                    key={item.title}
                     delay={
                       index *
                       0.06
@@ -6681,22 +6716,16 @@ export default function TotsOSLanding() {
                     <div className="why-card">
                       <div className="why-icon">
                         <Icon
-                          size={
-                            19
-                          }
+                          size={19}
                         />
                       </div>
 
                       <h3>
-                        {
-                          item.title
-                        }
+                        {item.title}
                       </h3>
 
                       <p>
-                        {
-                          item.text
-                        }
+                        {item.text}
                       </p>
                     </div>
                   </Reveal>
@@ -6782,9 +6811,7 @@ export default function TotsOSLanding() {
 
                 return (
                   <Reveal
-                    key={
-                      feature.id
-                    }
+                    key={feature.id}
                     delay={
                       (index %
                         3) *
@@ -6794,22 +6821,16 @@ export default function TotsOSLanding() {
                     <div className="feature-card">
                       <div className="feature-icon">
                         <Icon
-                          size={
-                            20
-                          }
+                          size={20}
                         />
                       </div>
 
                       <h3>
-                        {
-                          feature.title
-                        }
+                        {feature.title}
                       </h3>
 
                       <p>
-                        {
-                          feature.text
-                        }
+                        {feature.text}
                       </p>
                     </div>
                   </Reveal>
@@ -6851,9 +6872,7 @@ export default function TotsOSLanding() {
           </Reveal>
 
           <Reveal
-            delay={
-              0.1
-            }
+            delay={0.1}
           >
             <div className="connection-grid">
               {[
@@ -6903,20 +6922,14 @@ export default function TotsOSLanding() {
                   return (
                     <div
                       className="connection-item"
-                      key={
-                        item.label
-                      }
+                      key={item.label}
                     >
                       <Icon
-                        size={
-                          21
-                        }
+                        size={21}
                       />
 
                       <span>
-                        {
-                          item.label
-                        }
+                        {item.label}
                       </span>
                     </div>
                   );
@@ -6973,21 +6986,15 @@ export default function TotsOSLanding() {
                   ) => (
                     <div
                       className="clarity-point"
-                      key={
-                        item
-                      }
+                      key={item}
                     >
                       <div className="clarity-check">
                         <Check
-                          size={
-                            12
-                          }
+                          size={12}
                         />
                       </div>
 
-                      {
-                        item
-                      }
+                      {item}
                     </div>
                   )
                 )}
@@ -6995,17 +7002,13 @@ export default function TotsOSLanding() {
             </Reveal>
 
             <Reveal
-              delay={
-                0.1
-              }
+              delay={0.1}
             >
               <div className="clarity-demo">
                 <div className="clarity-demo-head">
                   <div className="clarity-brand">
                     <Sparkles
-                      size={
-                        14
-                      }
+                      size={14}
                     />
 
                     Clarity
@@ -7173,9 +7176,7 @@ export default function TotsOSLanding() {
             </Reveal>
 
             <Reveal
-              delay={
-                0.05
-              }
+              delay={0.05}
             >
               <div className="security-card">
                 <ShieldCheck
@@ -7200,9 +7201,7 @@ export default function TotsOSLanding() {
             </Reveal>
 
             <Reveal
-              delay={
-                0.1
-              }
+              delay={0.1}
             >
               <div className="security-card">
                 <RefreshCw
@@ -7273,9 +7272,7 @@ export default function TotsOSLanding() {
                 index
               ) => (
                 <Reveal
-                  key={
-                    plan.name
-                  }
+                  key={plan.name}
                   delay={
                     index *
                     0.06
@@ -7290,26 +7287,19 @@ export default function TotsOSLanding() {
                   >
                     <div className="price-head">
                       <span className="price-name">
-                        {
-                          plan.name
-                        }
+                        {plan.name}
                       </span>
 
                       {plan.badge && (
                         <span className="price-badge">
-                          {
-                            plan.badge
-                          }
+                          {plan.badge}
                         </span>
                       )}
                     </div>
 
                     <div className="price-figure">
                       <span className="price-amount">
-                        £
-                        {
-                          plan.price
-                        }
+                        £{plan.price}
                       </span>
 
                       <span className="price-period">
@@ -7318,9 +7308,7 @@ export default function TotsOSLanding() {
                     </div>
 
                     <p className="price-description">
-                      {
-                        plan.description
-                      }
+                      {plan.description}
                     </p>
 
                     <div className="price-features">
@@ -7330,20 +7318,14 @@ export default function TotsOSLanding() {
                         ) => (
                           <div
                             className="price-feature"
-                            key={
-                              feature
-                            }
+                            key={feature}
                           >
                             <Check
-                              size={
-                                13
-                              }
+                              size={13}
                             />
 
                             <span>
-                              {
-                                feature
-                              }
+                              {feature}
                             </span>
                           </div>
                         )
@@ -7352,9 +7334,7 @@ export default function TotsOSLanding() {
 
                     <div className="price-action">
                       <a
-                        href={
-                          SIGNUP_URL
-                        }
+                        href={SIGNUP_URL}
                         className={
                           plan.featured
                             ? "button-primary"
@@ -7364,9 +7344,7 @@ export default function TotsOSLanding() {
                         Start free
 
                         <ArrowRight
-                          size={
-                            14
-                          }
+                          size={14}
                         />
                       </a>
 
@@ -7417,9 +7395,7 @@ export default function TotsOSLanding() {
           </Reveal>
 
           <Reveal
-            delay={
-              0.08
-            }
+            delay={0.08}
           >
             <div className="about-card">
               <p>
@@ -7490,9 +7466,7 @@ export default function TotsOSLanding() {
                 return (
                   <div
                     className="faq-item"
-                    key={
-                      faq.q
-                    }
+                    key={faq.q}
                   >
                     <button
                       className="faq-button"
@@ -7506,9 +7480,7 @@ export default function TotsOSLanding() {
                       }
                     >
                       <span>
-                        {
-                          faq.q
-                        }
+                        {faq.q}
                       </span>
 
                       <motion.span
@@ -7520,9 +7492,7 @@ export default function TotsOSLanding() {
                         }}
                       >
                         <ChevronDown
-                          size={
-                            17
-                          }
+                          size={17}
                         />
                       </motion.span>
                     </button>
@@ -7554,9 +7524,7 @@ export default function TotsOSLanding() {
                               0,
                           }}
                         >
-                          {
-                            faq.a
-                          }
+                          {faq.a}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -7605,18 +7573,14 @@ export default function TotsOSLanding() {
 
               <div className="final-actions">
                 <a
-                  href={
-                    SIGNUP_URL
-                  }
+                  href={SIGNUP_URL}
                   className="button-primary button-large"
                 >
                   Start my free
                   trial
 
                   <ArrowRight
-                    size={
-                      16
-                    }
+                    size={16}
                   />
                 </a>
 
@@ -7625,9 +7589,7 @@ export default function TotsOSLanding() {
                   className="button-secondary button-large"
                 >
                   <Play
-                    size={
-                      14
-                    }
+                    size={14}
                   />
 
                   Explore demo
@@ -7693,19 +7655,11 @@ export default function TotsOSLanding() {
             </h5>
 
             <div className="footer-links">
-              <a
-                href={
-                  SIGNUP_URL
-                }
-              >
+              <a href={SIGNUP_URL}>
                 Log in
               </a>
 
-              <a
-                href={
-                  SIGNUP_URL
-                }
-              >
+              <a href={SIGNUP_URL}>
                 Create account
               </a>
 

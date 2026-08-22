@@ -30,6 +30,7 @@ import {
   ShoppingCart,
   Sparkles,
   Store,
+  Tag,
   Truck,
   X,
 } from "lucide-react";
@@ -140,10 +141,24 @@ type ContactApiResponse = {
 };
 
 type CheckoutApiResponse = {
+  success?: boolean;
+
   url?: string;
   checkoutUrl?: string;
   sessionUrl?: string;
+
   sessionId?: string;
+
+  orderId?: string;
+  orderNumber?: string;
+
+  subtotal?: number;
+  discountAmount?: number;
+  shippingAmount?: number;
+  total?: number;
+
+  discountCode?: string | null;
+
   error?: string;
   message?: string;
 };
@@ -152,8 +167,11 @@ type CheckoutApiResponse = {
 // CONSTANTS
 // ============================================================
 
-const STOREFRONT_REQUEST_TIMEOUT_MS = 30000;
-const CONTACT_REQUEST_TIMEOUT_MS = 20000;
+const STOREFRONT_REQUEST_TIMEOUT_MS =
+  30000;
+
+const CONTACT_REQUEST_TIMEOUT_MS =
+  20000;
 
 // ============================================================
 // HELPERS
@@ -162,19 +180,25 @@ const CONTACT_REQUEST_TIMEOUT_MS = 20000;
 function formatCurrency(
   value?: number | string | null
 ) {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(Number(value || 0));
+  return new Intl.NumberFormat(
+    "en-GB",
+    {
+      style: "currency",
+      currency: "GBP",
+    }
+  ).format(
+    Number(value || 0)
+  );
 }
 
 function normaliseColour(
   value?: string | null,
   fallback = "#a9b897"
 ) {
-  const trimmed = String(
-    value || ""
-  ).trim();
+  const trimmed =
+    String(
+      value || ""
+    ).trim();
 
   if (
     /^#[0-9A-Fa-f]{6}$/.test(
@@ -185,6 +209,15 @@ function normaliseColour(
   }
 
   return fallback;
+}
+
+function normaliseDiscountCode(
+  value: string
+) {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
 }
 
 function getProductImage(
@@ -326,7 +359,9 @@ function isServiceProduct(
     "service",
     "social media",
     "business support",
-  ].includes(category);
+  ].includes(
+    category
+  );
 }
 
 function isDigitalProduct(
@@ -379,7 +414,8 @@ function getProductActionLabel(
 // ============================================================
 
 export default function ShopFrontPage() {
-  const params = useParams();
+  const params =
+    useParams();
 
   const slug =
     typeof params?.slug ===
@@ -557,6 +593,30 @@ export default function ShopFrontPage() {
     );
 
   // ==========================================================
+  // DISCOUNT CODE
+  // ==========================================================
+
+  const [
+    discountCode,
+    setDiscountCode,
+  ] =
+    useState("");
+
+  const [
+    appliedDiscountCode,
+    setAppliedDiscountCode,
+  ] =
+    useState("");
+
+  const [
+    discountMessage,
+    setDiscountMessage,
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  // ==========================================================
   // LOAD STORE
   // ==========================================================
 
@@ -567,14 +627,21 @@ export default function ShopFrontPage() {
           !slug ||
           !slug.trim()
         ) {
-          setStore(null);
-          setProducts([]);
+          setStore(
+            null
+          );
+
+          setProducts(
+            []
+          );
 
           setError(
             "No store was specified."
           );
 
-          setLoading(false);
+          setLoading(
+            false
+          );
 
           return;
         }
@@ -587,8 +654,13 @@ export default function ShopFrontPage() {
         requestControllerRef.current =
           controller;
 
-        setLoading(true);
-        setError(null);
+        setLoading(
+          true
+        );
+
+        setError(
+          null
+        );
 
         setProductLoadWarning(
           null
@@ -620,7 +692,8 @@ export default function ShopFrontPage() {
                 safeSlug
               )}?t=${Date.now()}`,
               {
-                method: "GET",
+                method:
+                  "GET",
 
                 headers: {
                   Accept:
@@ -789,7 +862,9 @@ export default function ShopFrontPage() {
               : null
           );
 
-          setError(null);
+          setError(
+            null
+          );
         } catch (
           loadError: unknown
         ) {
@@ -807,8 +882,13 @@ export default function ShopFrontPage() {
               "[TOTS STORE] Storefront request timed out."
             );
 
-            setStore(null);
-            setProducts([]);
+            setStore(
+              null
+            );
+
+            setProducts(
+              []
+            );
 
             setError(
               "The store is taking longer than expected. Please try again."
@@ -822,8 +902,13 @@ export default function ShopFrontPage() {
             loadError
           );
 
-          setStore(null);
-          setProducts([]);
+          setStore(
+            null
+          );
+
+          setProducts(
+            []
+          );
 
           if (
             loadError instanceof
@@ -853,7 +938,9 @@ export default function ShopFrontPage() {
             requestControllerRef.current ===
             controller
           ) {
-            setLoading(false);
+            setLoading(
+              false
+            );
           }
         }
       },
@@ -943,9 +1030,17 @@ export default function ShopFrontPage() {
     contactControllerRef.current =
       controller;
 
-    setSendingMessage(true);
-    setMessageError(null);
-    setMessageSent(false);
+    setSendingMessage(
+      true
+    );
+
+    setMessageError(
+      null
+    );
+
+    setMessageSent(
+      false
+    );
 
     const timeoutId =
       setTimeout(
@@ -1040,11 +1135,21 @@ export default function ShopFrontPage() {
         );
       }
 
-      setMessageSent(true);
+      setMessageSent(
+        true
+      );
 
-      setContactName("");
-      setContactEmail("");
-      setContactMessage("");
+      setContactName(
+        ""
+      );
+
+      setContactEmail(
+        ""
+      );
+
+      setContactMessage(
+        ""
+      );
     } catch (
       sendError: unknown
     ) {
@@ -1084,8 +1189,13 @@ export default function ShopFrontPage() {
   }
 
   function openContactDrawer() {
-    setMessageSent(false);
-    setMessageError(null);
+    setMessageSent(
+      false
+    );
+
+    setMessageError(
+      null
+    );
 
     setContactOpen(
       true
@@ -1335,6 +1445,7 @@ export default function ShopFrontPage() {
 
           [product.id]: {
             product,
+
             quantity:
               nextQuantity,
           },
@@ -1425,11 +1536,95 @@ export default function ShopFrontPage() {
 
           [productId]: {
             ...existing,
+
             quantity:
               safeQuantity,
           },
         };
       }
+    );
+  }
+
+  // ==========================================================
+  // DISCOUNT CODE
+  // ==========================================================
+
+  function applyDiscountCode() {
+    const code =
+      normaliseDiscountCode(
+        discountCode
+      );
+
+    setCheckoutError(
+      null
+    );
+
+    setDiscountMessage(
+      null
+    );
+
+    if (
+      !code
+    ) {
+      setAppliedDiscountCode(
+        ""
+      );
+
+      setDiscountMessage(
+        "Enter a discount code first."
+      );
+
+      return;
+    }
+
+    setDiscountCode(
+      code
+    );
+
+    setAppliedDiscountCode(
+      code
+    );
+
+    /*
+     * The checkout API is the source of truth.
+     *
+     * We deliberately DO NOT calculate the discount in the
+     * browser because somebody could manipulate the page.
+     *
+     * /api/store-checkout will verify:
+     *
+     * - whether the code exists
+     * - whether it belongs to this organisation
+     * - active/inactive state
+     * - start date
+     * - expiry date
+     * - minimum spend
+     * - maximum redemptions
+     * - percentage/fixed discount
+     *
+     * before Stripe is opened.
+     */
+
+    setDiscountMessage(
+      `${code} will be checked when you continue to checkout.`
+    );
+  }
+
+  function removeDiscountCode() {
+    setDiscountCode(
+      ""
+    );
+
+    setAppliedDiscountCode(
+      ""
+    );
+
+    setDiscountMessage(
+      null
+    );
+
+    setCheckoutError(
+      null
     );
   }
 
@@ -1469,6 +1664,20 @@ export default function ShopFrontPage() {
           })
         );
 
+      /*
+       * Always use the current field value if there is one.
+       *
+       * This means someone can type WELCOME10 and immediately
+       * press Continue to checkout without having to press the
+       * Apply button first.
+       */
+
+      const resolvedDiscountCode =
+        normaliseDiscountCode(
+          discountCode ||
+            appliedDiscountCode
+        );
+
       const response =
         await fetch(
           "/api/store-checkout",
@@ -1489,16 +1698,25 @@ export default function ShopFrontPage() {
 
             body:
               JSON.stringify({
-                organisationId:
-                  store.organisation_id,
-
-                storeId:
-                  store.id,
+                /*
+                 * storeSlug + items are the important
+                 * values expected by your checkout API.
+                 */
 
                 storeSlug:
                   store.slug,
 
                 items,
+
+                /*
+                 * Your custom TOTS discount code.
+                 *
+                 * The server validates it against Supabase.
+                 */
+
+                discountCode:
+                  resolvedDiscountCode ||
+                  undefined,
               }),
           }
         );
@@ -1539,6 +1757,11 @@ export default function ShopFrontPage() {
       if (
         !response.ok
       ) {
+        /*
+         * If the API rejected a discount code, leave the basket
+         * open and surface that exact error underneath the code.
+         */
+
         throw new Error(
           data?.error ||
             data?.message ||
@@ -1564,11 +1787,17 @@ export default function ShopFrontPage() {
         );
       }
 
+      /*
+       * Redirect to the Stripe session created by the server.
+       *
+       * At this point any custom discount has already been
+       * validated and included in the Stripe checkout session.
+       */
+
       window.location.href =
         checkoutUrl;
     } catch (
-      checkoutFailure:
-        unknown
+      checkoutFailure: unknown
     ) {
       console.error(
         "[TOTS STORE] Checkout failed:",
@@ -1693,7 +1922,9 @@ export default function ShopFrontPage() {
         } as CSSProperties
       }
     >
-      {/* ANNOUNCEMENT */}
+      {/* =====================================================
+          ANNOUNCEMENT
+      ===================================================== */}
 
       <div
         className="px-4 py-2 text-center text-[8px] font-black uppercase tracking-[0.18em] text-white"
@@ -1706,7 +1937,9 @@ export default function ShopFrontPage() {
           "Independent business · Powered by TOTS-OS"}
       </div>
 
-      {/* HEADER */}
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
       <header className="sticky top-0 z-40 border-b border-stone-200 bg-[#f8f7f3]/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
@@ -1835,7 +2068,9 @@ export default function ShopFrontPage() {
         </div>
       </header>
 
-      {/* MOBILE MENU */}
+      {/* =====================================================
+          MOBILE MENU
+      ===================================================== */}
 
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[100] bg-stone-900/40 p-4 backdrop-blur-sm lg:hidden">
@@ -1949,7 +2184,9 @@ export default function ShopFrontPage() {
         </div>
       )}
 
-      {/* HERO */}
+      {/* =====================================================
+          HERO
+      ===================================================== */}
 
       <section
         id="top"
@@ -2118,7 +2355,9 @@ export default function ShopFrontPage() {
         </div>
       </section>
 
-      {/* CATEGORY CHIPS */}
+      {/* =====================================================
+          CATEGORY CHIPS
+      ===================================================== */}
 
       {categories.length >
         1 && (
@@ -2183,7 +2422,9 @@ export default function ShopFrontPage() {
         </section>
       )}
 
-      {/* FEATURED */}
+      {/* =====================================================
+          FEATURED
+      ===================================================== */}
 
       {featuredProducts.length >
         0 && (
@@ -2230,7 +2471,9 @@ export default function ShopFrontPage() {
 
             <div className="grid gap-4 md:grid-cols-3">
               {featuredProducts.map(
-                (product) => (
+                (
+                  product
+                ) => (
                   <ProductCard
                     key={
                       product.id
@@ -2255,7 +2498,9 @@ export default function ShopFrontPage() {
         </section>
       )}
 
-      {/* SHOP */}
+      {/* =====================================================
+          SHOP
+      ===================================================== */}
 
       <section
         id="shop"
@@ -2323,7 +2568,9 @@ export default function ShopFrontPage() {
                     className="w-full appearance-none rounded-full border border-stone-200 bg-white py-3 pl-5 pr-10 text-xs font-semibold text-stone-600 outline-none sm:w-52"
                   >
                     {categories.map(
-                      (item) => (
+                      (
+                        item
+                      ) => (
                         <option
                           key={
                             item
@@ -2369,7 +2616,9 @@ export default function ShopFrontPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setSearch("");
+                  setSearch(
+                    ""
+                  );
 
                   setCategory(
                     "All"
@@ -2406,7 +2655,9 @@ export default function ShopFrontPage() {
           0 ? (
             <div className="mt-7 grid gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {visibleProducts.map(
-                (product) => (
+                (
+                  product
+                ) => (
                   <ProductCard
                     key={
                       product.id
@@ -2461,7 +2712,9 @@ export default function ShopFrontPage() {
         </div>
       </section>
 
-      {/* ABOUT */}
+      {/* =====================================================
+          ABOUT
+      ===================================================== */}
 
       <section
         id="about"
@@ -2570,7 +2823,9 @@ export default function ShopFrontPage() {
         </div>
       </section>
 
-      {/* CONTACT */}
+      {/* =====================================================
+          CONTACT
+      ===================================================== */}
 
       <section
         id="contact"
@@ -2704,7 +2959,9 @@ export default function ShopFrontPage() {
         </div>
       </section>
 
-      {/* FOOTER */}
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
 
       <footer className="border-t border-stone-200 bg-white px-4 py-7 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-[1320px] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -2762,7 +3019,9 @@ export default function ShopFrontPage() {
         </div>
       </footer>
 
-      {/* FLOATING CONTACT */}
+      {/* =====================================================
+          FLOATING CONTACT
+      ===================================================== */}
 
       {!contactOpen &&
         !cartOpen && (
@@ -2785,7 +3044,9 @@ export default function ShopFrontPage() {
         </button>
       )}
 
-      {/* CONTACT DRAWER */}
+      {/* =====================================================
+          CONTACT DRAWER
+      ===================================================== */}
 
       {contactOpen && (
         <div className="fixed inset-0 z-[140] bg-stone-900/35 backdrop-blur-sm">
@@ -3058,6 +3319,7 @@ export default function ShopFrontPage() {
                   {store.email && (
                     <p className="text-center text-[9px] leading-5 text-stone-400">
                       Prefer email?{" "}
+
                       <a
                         href={`mailto:${store.email}`}
                         className="font-semibold underline"
@@ -3079,7 +3341,9 @@ export default function ShopFrontPage() {
         </div>
       )}
 
-      {/* CART */}
+      {/* =====================================================
+          CART
+      ===================================================== */}
 
       {cartOpen && (
         <div className="fixed inset-0 z-[120] bg-stone-900/35 backdrop-blur-sm">
@@ -3099,6 +3363,11 @@ export default function ShopFrontPage() {
           />
 
           <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+
+            {/* =================================================
+                CART HEADER
+            ================================================= */}
+
             <div className="flex items-center justify-between border-b border-stone-100 px-5 py-5">
               <div>
                 <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
@@ -3134,6 +3403,10 @@ export default function ShopFrontPage() {
               </button>
             </div>
 
+            {/* =================================================
+                CART ITEMS
+            ================================================= */}
+
             <div className="flex-1 overflow-y-auto p-5">
               {cartLines.length ===
               0 ? (
@@ -3167,7 +3440,9 @@ export default function ShopFrontPage() {
               ) : (
                 <div className="space-y-3">
                   {cartLines.map(
-                    (line) => {
+                    (
+                      line
+                    ) => {
                       const image =
                         getProductImage(
                           line.product
@@ -3290,7 +3565,14 @@ export default function ShopFrontPage() {
               )}
             </div>
 
-            <div className="border-t border-stone-100 p-5">
+            {/* =================================================
+                CART FOOTER
+            ================================================= */}
+
+            <div className="border-t border-stone-100 bg-white p-5">
+
+              {/* SUBTOTAL */}
+
               <div className="flex items-center justify-between">
                 <span className="text-xs text-stone-400">
                   Subtotal
@@ -3302,6 +3584,141 @@ export default function ShopFrontPage() {
                   )}
                 </strong>
               </div>
+
+              {/* =================================================
+                  DISCOUNT CODE
+              ================================================= */}
+
+              {cartLines.length >
+                0 && (
+                <div className="mt-4 rounded-2xl border border-stone-100 bg-stone-50 p-4">
+                  <div className="flex items-center gap-2">
+                    <Tag
+                      size={13}
+                      style={{
+                        color:
+                          primary,
+                      }}
+                    />
+
+                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-500">
+                      Discount code
+                    </p>
+                  </div>
+
+                  {appliedDiscountCode ? (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white"
+                            style={{
+                              background:
+                                primary,
+                            }}
+                          >
+                            <Check
+                              size={10}
+                            />
+                          </div>
+
+                          <p className="truncate text-xs font-bold text-stone-700">
+                            {
+                              appliedDiscountCode
+                            }
+                          </p>
+                        </div>
+
+                        <p className="mt-1 pl-7 text-[9px] text-stone-400">
+                          Code ready to be verified.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={
+                          checkingOut
+                        }
+                        onClick={
+                          removeDiscountCode
+                        }
+                        className="shrink-0 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400 underline disabled:opacity-40"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex gap-2">
+                      <input
+                        type="text"
+                        value={
+                          discountCode
+                        }
+                        disabled={
+                          checkingOut
+                        }
+                        onChange={(
+                          event
+                        ) => {
+                          setDiscountCode(
+                            event.target.value.toUpperCase()
+                          );
+
+                          setCheckoutError(
+                            null
+                          );
+
+                          setDiscountMessage(
+                            null
+                          );
+                        }}
+                        onKeyDown={(
+                          event
+                        ) => {
+                          if (
+                            event.key ===
+                            "Enter"
+                          ) {
+                            event.preventDefault();
+
+                            applyDiscountCode();
+                          }
+                        }}
+                        placeholder="WELCOME10"
+                        autoComplete="off"
+                        spellCheck={
+                          false
+                        }
+                        className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
+                      />
+
+                      <button
+                        type="button"
+                        disabled={
+                          checkingOut ||
+                          !discountCode.trim()
+                        }
+                        onClick={
+                          applyDiscountCode
+                        }
+                        className="shrink-0 rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  )}
+
+                  {discountMessage && (
+                    <p className="mt-2 text-[9px] leading-4 text-stone-400">
+                      {
+                        discountMessage
+                      }
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* SHIPPING */}
 
               {store.shipping_text && (
                 <div className="mt-3 flex items-start gap-2 rounded-xl bg-stone-50 p-3">
@@ -3322,15 +3739,25 @@ export default function ShopFrontPage() {
                 </div>
               )}
 
+              {/* CHECKOUT ERROR */}
+
               {checkoutError && (
                 <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-                  <p className="text-[10px] leading-5 text-red-600">
+                  <p className="text-[10px] font-medium leading-5 text-red-600">
                     {
                       checkoutError
                     }
                   </p>
+
+                  {appliedDiscountCode && (
+                    <p className="mt-1 text-[9px] leading-4 text-red-400">
+                      Check that the discount code is valid, active and meets any minimum spend requirements.
+                    </p>
+                  )}
                 </div>
               )}
+
+              {/* CHECKOUT BUTTON */}
 
               <button
                 type="button"
@@ -3354,7 +3781,7 @@ export default function ShopFrontPage() {
                       className="animate-spin"
                     />
 
-                    Opening checkout...
+                    Checking basket...
                   </>
                 ) : (
                   <>
@@ -3370,6 +3797,12 @@ export default function ShopFrontPage() {
               <p className="mt-3 text-center text-[8px] leading-4 text-stone-400">
                 Secure checkout powered by TOTS-OS and Stripe.
               </p>
+
+              {appliedDiscountCode && (
+                <p className="mt-1 text-center text-[8px] leading-4 text-stone-400">
+                  Your discount will be verified before payment.
+                </p>
+              )}
             </div>
           </aside>
         </div>

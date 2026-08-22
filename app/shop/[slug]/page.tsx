@@ -169,6 +169,12 @@ type CartLine = {
 };
 
 // ============================================================
+// CONSTANTS
+// ============================================================
+
+const QUERY_TIMEOUT_MS = 10000;
+
+// ============================================================
 // HELPERS
 // ============================================================
 
@@ -230,9 +236,11 @@ function getProductImage(
   product: Product
 ) {
   if (
-    product.image_url
+    typeof product.image_url ===
+      "string" &&
+    product.image_url.trim()
   ) {
-    return product.image_url;
+    return product.image_url.trim();
   }
 
   if (
@@ -242,10 +250,53 @@ function getProductImage(
     product.images.length >
       0
   ) {
-    return product.images[0];
+    const first =
+      product.images.find(
+        (
+          image
+        ) =>
+          typeof image ===
+            "string" &&
+          image.trim()
+      );
+
+    return first || null;
   }
 
   return null;
+}
+
+/**
+ * Prevent any Supabase request from leaving the
+ * public storefront on "Loading store" forever.
+ */
+async function withTimeout<T>(
+  promise: PromiseLike<T>,
+  timeoutMs = QUERY_TIMEOUT_MS
+): Promise<T> {
+  return await Promise.race([
+    Promise.resolve(
+      promise
+    ),
+
+    new Promise<T>(
+      (
+        _resolve,
+        reject
+      ) => {
+        window.setTimeout(
+          () => {
+            reject(
+              new Error(
+                "The store took too long to respond. Please try again."
+              )
+            );
+          },
+          timeoutMs
+        );
+      }
+    ),
+  ]);
 }
 
 // ============================================================
@@ -295,6 +346,14 @@ export default function ShopFrontPage() {
   const [
     error,
     setError,
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  const [
+    productLoadWarning,
+    setProductLoadWarning,
   ] =
     useState<string | null>(
       null
@@ -354,27 +413,73 @@ export default function ShopFrontPage() {
   const loadStore =
     useCallback(
       async () => {
-        if (
-          !slug
-        ) {
-          setLoading(
-            false
-          );
-
-          setError(
-            "No store was specified."
-          );
-
-          return;
-        }
-
+        // Always immediately reset the page state.
         setLoading(true);
         setError(null);
+        setProductLoadWarning(
+          null
+        );
 
         try {
           // ===================================================
-          // 1. STORE SETTINGS
+          // VALIDATE SLUG
           // ===================================================
+
+          if (
+            !slug ||
+            !slug.trim()
+          ) {
+            throw new Error(
+              "No store was specified."
+            );
+          }
+
+          const safeSlug =
+            slug
+              .trim()
+              .toLowerCase();
+
+          console.log(
+            "[TOTS STORE] Loading:",
+            safeSlug
+          );
+
+          // ===================================================
+          // 1. LOAD STORE SETTINGS
+          //
+          // This is the only required query.
+          // ===================================================
+
+          const settingsResponse =
+            await withTimeout(
+              supabase
+                .from(
+                  "store_settings"
+                )
+                .select(
+                  `
+                    id,
+                    organisation_id,
+                    slug,
+                    store_name,
+                    store_description,
+                    hero_title,
+                    hero_text,
+                    announcement,
+                    accent_colour,
+                    shipping_text,
+                    support_email,
+                    is_live,
+                    created_at,
+                    updated_at
+                  `
+                )
+                .eq(
+                  "slug",
+                  safeSlug
+                )
+                .maybeSingle()
+            );
 
           const {
             data:
@@ -382,107 +487,53 @@ export default function ShopFrontPage() {
             error:
               settingsError,
           } =
-            await supabase
-              .from(
-                "store_settings"
-              )
-              .select("*")
-              .eq(
-                "slug",
-                slug
-              )
-              .eq(
-                "is_live",
-                true
-              )
-              .maybeSingle();
+            settingsResponse;
 
           if (
             settingsError
           ) {
-            throw settingsError;
+            console.error(
+              "[TOTS STORE] Settings query error:",
+              settingsError
+            );
+
+            throw new Error(
+              settingsError.message ||
+                "The store settings could not be loaded."
+            );
           }
 
           if (
             !settingsData
           ) {
-            setStore(null);
-            setProducts([]);
-
-            setError(
+            throw new Error(
               "This store could not be found."
             );
-
-            return;
           }
 
           const settings =
             settingsData as StoreSettingsRow;
 
           // ===================================================
-          // 2. ORGANISATION BRANDING
+          // 2. LIVE CHECK
           // ===================================================
 
-          let organisation:
-            | OrganisationRow
-            | null =
-            null;
-
-          const {
-            data:
-              organisationData,
-            error:
-              organisationError,
-          } =
-            await supabase
-              .from(
-                "organisations"
-              )
-              .select("*")
-              .eq(
-                "id",
-                settings.organisation_id
-              )
-              .maybeSingle();
-
           if (
-            organisationError
+            settings.is_live !==
+            true
           ) {
-            console.warn(
-              "Organisation branding could not be loaded:",
-              organisationError
+            throw new Error(
+              "This store is not currently live."
             );
           }
 
-          if (
-            organisationData
-          ) {
-            organisation =
-              organisationData as OrganisationRow;
-          }
-
           // ===================================================
-          // 3. BUILD PUBLIC STOREFRONT
+          // 3. BUILD BASIC STORE IMMEDIATELY
+          //
+          // Do NOT make organisation data required.
           // ===================================================
 
-          const companyName =
-            firstString(
-              settings.store_name,
-              organisation?.company_name,
-              organisation?.name
-            ) ||
-            "Online Store";
-
-          const logoUrl =
-            firstString(
-              organisation?.logo_url,
-              organisation?.company_logo_url,
-              organisation?.branding_logo_url,
-              organisation?.company_logo,
-              organisation?.logo
-            );
-
-          const resolvedStore:
+          const fallbackStore:
             Storefront =
             {
               id:
@@ -495,13 +546,15 @@ export default function ShopFrontPage() {
                 settings.slug,
 
               store_name:
-                companyName,
+                settings.store_name?.trim() ||
+                "Online Store",
+
+              company_name:
+                settings.store_name?.trim() ||
+                "Online Store",
 
               store_description:
-                settings.store_description ||
-                firstString(
-                  organisation?.description
-                ),
+                settings.store_description,
 
               hero_title:
                 settings.hero_title,
@@ -521,171 +574,343 @@ export default function ShopFrontPage() {
               support_email:
                 settings.support_email,
 
-              is_live:
-                settings.is_live,
-
-              company_name:
-                companyName,
-
-              logo_url:
-                logoUrl,
-
               email:
-                firstString(
-                  settings.support_email,
-                  organisation?.email
-                ),
+                settings.support_email,
 
               phone:
-                firstString(
-                  organisation?.phone
-                ),
+                null,
 
               address:
-                firstString(
-                  organisation?.address
-                ),
+                null,
 
               website_url:
-                firstString(
-                  organisation?.website_url,
-                  organisation?.website
-                ),
+                null,
 
               instagram_url:
-                firstString(
-                  organisation?.instagram_url,
-                  organisation?.instagram
-                ),
+                null,
+
+              logo_url:
+                null,
+
+              is_live:
+                true,
             };
 
+          // Store now exists.
+          // Even if the next two queries fail,
+          // the storefront can render.
           setStore(
-            resolvedStore
+            fallbackStore
           );
 
           // ===================================================
-          // 4. PRODUCTS
+          // 4. ORGANISATION BRANDING
+          //
+          // Optional query.
+          // Failure must NOT kill the store.
           // ===================================================
 
-          const {
-            data:
-              productRows,
-            error:
-              productError,
-          } =
-            await supabase
-              .from(
-                "store_products"
-              )
-              .select("*")
-              .eq(
-                "organisation_id",
-                settings.organisation_id
+          try {
+            const organisationResponse =
+              await withTimeout(
+                supabase
+                  .from(
+                    "organisations"
+                  )
+                  .select("*")
+                  .eq(
+                    "id",
+                    settings.organisation_id
+                  )
+                  .maybeSingle(),
+                6000
               );
 
-          if (
-            productError
+            const {
+              data:
+                organisationData,
+              error:
+                organisationError,
+            } =
+              organisationResponse;
+
+            if (
+              organisationError
+            ) {
+              console.warn(
+                "[TOTS STORE] Organisation branding unavailable:",
+                organisationError
+              );
+            } else if (
+              organisationData
+            ) {
+              const organisation =
+                organisationData as OrganisationRow;
+
+              const companyName =
+                firstString(
+                  settings.store_name,
+                  organisation.company_name,
+                  organisation.name
+                ) ||
+                fallbackStore.store_name;
+
+              const logoUrl =
+                firstString(
+                  organisation.logo_url,
+                  organisation.company_logo_url,
+                  organisation.branding_logo_url,
+                  organisation.company_logo,
+                  organisation.logo
+                );
+
+              setStore({
+                ...fallbackStore,
+
+                store_name:
+                  companyName,
+
+                company_name:
+                  companyName,
+
+                store_description:
+                  settings.store_description ||
+                  firstString(
+                    organisation.description
+                  ),
+
+                logo_url:
+                  logoUrl,
+
+                email:
+                  firstString(
+                    settings.support_email,
+                    organisation.email
+                  ),
+
+                phone:
+                  firstString(
+                    organisation.phone
+                  ),
+
+                address:
+                  firstString(
+                    organisation.address
+                  ),
+
+                website_url:
+                  firstString(
+                    organisation.website_url,
+                    organisation.website
+                  ),
+
+                instagram_url:
+                  firstString(
+                    organisation.instagram_url,
+                    organisation.instagram
+                  ),
+              });
+            }
+          } catch (
+            organisationLoadError
           ) {
-            throw productError;
+            // This is intentionally non-fatal.
+            console.warn(
+              "[TOTS STORE] Organisation branding timed out or failed:",
+              organisationLoadError
+            );
           }
 
-          const cleanedProducts =
-            (
-              productRows ||
-              []
-            )
-              .map(
-                (
-                  product
-                ) =>
-                  product as Product
-              )
-              .filter(
-                (
-                  product
-                ) =>
-                  product.is_active !==
-                  false
-              )
-              .sort(
-                (
-                  first,
-                  second
-                ) => {
-                  const firstFeatured =
-                    first.featured
-                      ? 1
-                      : 0;
+          // ===================================================
+          // 5. PRODUCTS
+          //
+          // Also optional for storefront rendering.
+          // ===================================================
 
-                  const secondFeatured =
-                    second.featured
-                      ? 1
-                      : 0;
-
-                  if (
-                    firstFeatured !==
-                    secondFeatured
-                  ) {
-                    return (
-                      secondFeatured -
-                      firstFeatured
-                    );
-                  }
-
-                  const firstOrder =
-                    typeof first.sort_order ===
-                    "number"
-                      ? first.sort_order
-                      : 999999;
-
-                  const secondOrder =
-                    typeof second.sort_order ===
-                    "number"
-                      ? second.sort_order
-                      : 999999;
-
-                  if (
-                    firstOrder !==
-                    secondOrder
-                  ) {
-                    return (
-                      firstOrder -
-                      secondOrder
-                    );
-                  }
-
-                  return String(
-                    first.name ||
-                      ""
-                  ).localeCompare(
-                    String(
-                      second.name ||
-                        ""
-                    )
-                  );
-                }
+          try {
+            const productResponse =
+              await withTimeout(
+                supabase
+                  .from(
+                    "store_products"
+                  )
+                  .select("*")
+                  .eq(
+                    "organisation_id",
+                    settings.organisation_id
+                  ),
+                8000
               );
 
-          setProducts(
-            cleanedProducts
+            const {
+              data:
+                productRows,
+              error:
+                productError,
+            } =
+              productResponse;
+
+            if (
+              productError
+            ) {
+              console.error(
+                "[TOTS STORE] Product query error:",
+                productError
+              );
+
+              setProductLoadWarning(
+                "Products could not be loaded right now."
+              );
+
+              setProducts(
+                []
+              );
+            } else {
+              const cleanedProducts =
+                (
+                  productRows ||
+                  []
+                )
+                  .map(
+                    (
+                      product
+                    ) =>
+                      product as Product
+                  )
+
+                  // Hide explicitly inactive products.
+                  .filter(
+                    (
+                      product
+                    ) =>
+                      product.is_active !==
+                      false
+                  )
+
+                  // Ensure we have a usable name.
+                  .filter(
+                    (
+                      product
+                    ) =>
+                      typeof product.name ===
+                        "string" &&
+                      product.name.trim()
+                  )
+
+                  // Sort locally so optional columns
+                  // cannot break the DB query.
+                  .sort(
+                    (
+                      first,
+                      second
+                    ) => {
+                      const firstFeatured =
+                        first.featured ===
+                        true
+                          ? 1
+                          : 0;
+
+                      const secondFeatured =
+                        second.featured ===
+                        true
+                          ? 1
+                          : 0;
+
+                      if (
+                        firstFeatured !==
+                        secondFeatured
+                      ) {
+                        return (
+                          secondFeatured -
+                          firstFeatured
+                        );
+                      }
+
+                      const firstOrder =
+                        typeof first.sort_order ===
+                        "number"
+                          ? first.sort_order
+                          : 999999;
+
+                      const secondOrder =
+                        typeof second.sort_order ===
+                        "number"
+                          ? second.sort_order
+                          : 999999;
+
+                      if (
+                        firstOrder !==
+                        secondOrder
+                      ) {
+                        return (
+                          firstOrder -
+                          secondOrder
+                        );
+                      }
+
+                      return first.name.localeCompare(
+                        second.name
+                      );
+                    }
+                  );
+
+              setProducts(
+                cleanedProducts
+              );
+
+              console.log(
+                "[TOTS STORE] Products loaded:",
+                cleanedProducts.length
+              );
+            }
+          } catch (
+            productLoadError
+          ) {
+            console.warn(
+              "[TOTS STORE] Products timed out or failed:",
+              productLoadError
+            );
+
+            setProducts(
+              []
+            );
+
+            setProductLoadWarning(
+              "Products could not be loaded right now."
+            );
+          }
+
+          console.log(
+            "[TOTS STORE] Store loaded successfully"
           );
         } catch (
-          loadError: any
+          loadError: unknown
         ) {
           console.error(
-            "Storefront load error:",
+            "[TOTS STORE] Fatal storefront error:",
             loadError
           );
 
-          setStore(null);
-          setProducts([]);
+          setStore(
+            null
+          );
+
+          setProducts(
+            []
+          );
 
           setError(
-            loadError?.message ||
-              "We couldn't load this store right now."
+            loadError instanceof
+              Error
+              ? loadError.message
+              : "We couldn't load this store right now."
           );
         } finally {
-          setLoading(false);
+          // CRITICAL:
+          // this always executes regardless of what happened.
+          setLoading(
+            false
+          );
         }
       },
       [
@@ -693,9 +918,25 @@ export default function ShopFrontPage() {
       ]
     );
 
+  // ==========================================================
+  // LOAD ON MOUNT / SLUG CHANGE
+  // ==========================================================
+
   useEffect(
     () => {
-      void loadStore();
+      let mounted =
+        true;
+
+      if (
+        mounted
+      ) {
+        void loadStore();
+      }
+
+      return () => {
+        mounted =
+          false;
+      };
     },
     [
       loadStore,
@@ -722,8 +963,14 @@ export default function ShopFrontPage() {
                     product.category?.trim()
                 )
                 .filter(
-                  Boolean
-                ) as string[]
+                  (
+                    value
+                  ):
+                    value is string =>
+                      Boolean(
+                        value
+                      )
+                )
             )
           ).sort(
             (
@@ -952,7 +1199,9 @@ export default function ShopFrontPage() {
       }
     );
 
-    setCartOpen(true);
+    setCartOpen(
+      true
+    );
   }
 
   // ==========================================================
@@ -1063,7 +1312,7 @@ export default function ShopFrontPage() {
     loading
   ) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f5f0]">
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f5f0] px-5">
         <div className="text-center">
           <Loader2
             className="mx-auto animate-spin text-stone-500"
@@ -1074,6 +1323,12 @@ export default function ShopFrontPage() {
 
           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">
             Loading store
+          </p>
+
+          <p className="mt-2 text-[10px] text-stone-300">
+            {
+              slug
+            }
           </p>
         </div>
       </div>
@@ -1108,6 +1363,14 @@ export default function ShopFrontPage() {
               "This store could not be found."}
           </p>
 
+          <p className="mt-3 text-[9px] uppercase tracking-[0.14em] text-stone-300">
+            Store:{" "}
+            {
+              slug ||
+              "unknown"
+            }
+          </p>
+
           <button
             type="button"
             onClick={() =>
@@ -1124,6 +1387,8 @@ export default function ShopFrontPage() {
             />
           </button>
         </div>
+
+        <StorefrontGlobalStyles />
       </div>
     );
   }
@@ -1766,6 +2031,26 @@ export default function ShopFrontPage() {
               )}
             </div>
           </div>
+
+          {productLoadWarning && (
+            <div className="mt-7 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+              <p className="text-xs font-semibold text-amber-700">
+                {
+                  productLoadWarning
+                }
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void loadStore()
+                }
+                className="mt-2 text-[9px] font-black uppercase tracking-[0.12em] text-amber-700 underline"
+              >
+                Try loading again
+              </button>
+            </div>
+          )}
 
           {visibleProducts.length >
           0 ? (
@@ -2428,24 +2713,7 @@ export default function ShopFrontPage() {
         </div>
       )}
 
-      {/* =====================================================
-          GLOBAL STYLES
-      ===================================================== */}
-
-      <style jsx global>{`
-        @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap");
-
-        html {
-          scroll-behavior: smooth;
-        }
-
-        .font-serif {
-          font-family:
-            "Instrument Serif",
-            Georgia,
-            serif;
-        }
-      `}</style>
+      <StorefrontGlobalStyles />
     </div>
   );
 }
@@ -2632,5 +2900,28 @@ function ProductCard({
         )}
       </div>
     </article>
+  );
+}
+
+// ============================================================
+// GLOBAL STYLES
+// ============================================================
+
+function StorefrontGlobalStyles() {
+  return (
+    <style jsx global>{`
+      @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap");
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      .font-serif {
+        font-family:
+          "Instrument Serif",
+          Georgia,
+          serif;
+      }
+    `}</style>
   );
 }

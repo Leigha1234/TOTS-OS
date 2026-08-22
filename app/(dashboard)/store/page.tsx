@@ -11,7 +11,6 @@ import {
 import {
   AlertTriangle,
   ArrowRight,
-  ArrowUpRight,
   BadgePercent,
   Boxes,
   Check,
@@ -37,7 +36,6 @@ import {
   Tag,
   Trash2,
   TrendingUp,
-  Truck,
   Users,
   X,
 } from "lucide-react";
@@ -80,13 +78,12 @@ type PaymentStatus =
 
 type Product = {
   id: string;
-
   organisation_id: string;
 
   name: string;
+  slug: string;
   sku: string;
   category: string;
-
   description: string;
 
   price: number;
@@ -98,13 +95,10 @@ type Product = {
   status: ProductStatus;
 
   image_url: string | null;
-
   images: string[];
 
   featured: boolean;
-
   sort_order: number | null;
-
   is_active: boolean;
 
   created_at: string | null;
@@ -115,58 +109,43 @@ type Product = {
 
 type Order = {
   id: string;
-
   organisation_id: string;
 
   number: string;
-
   customer: string;
-
   email: string;
 
   total: number;
 
   status: OrderStatus;
-
   paymentStatus: PaymentStatus;
 
   items: number;
-
   createdAt: string;
 
-  raw: Record<
-    string,
-    unknown
-  >;
+  raw: Record<string, unknown>;
 };
 
 type StoreSettingsRow = {
   id: string;
-
   organisation_id: string;
-
   slug: string;
 
   store_name: string | null;
-
   store_description: string | null;
 
   hero_title: string | null;
-
   hero_text: string | null;
 
   announcement: string | null;
-
   accent_colour: string | null;
 
   shipping_text: string | null;
-
   support_email: string | null;
 
   is_live: boolean | null;
 
   created_at?: string | null;
-
   updated_at?: string | null;
 };
 
@@ -174,25 +153,19 @@ type ProductForm = {
   id?: string;
 
   name: string;
-
+  slug: string;
   sku: string;
-
   category: string;
-
   description: string;
 
   price: string;
-
   compareAtPrice: string;
-
   cost: string;
-
   stock: string;
 
   imageUrl: string;
 
   featured: boolean;
-
   status: ProductStatus;
 };
 
@@ -212,6 +185,7 @@ type OrganisationContext = {
 
 const EMPTY_PRODUCT_FORM: ProductForm = {
   name: "",
+  slug: "",
   sku: "",
   category: "General",
   description: "",
@@ -225,18 +199,13 @@ const EMPTY_PRODUCT_FORM: ProductForm = {
 };
 
 // ============================================================
-// GENERIC HELPERS
+// HELPERS
 // ============================================================
 
-function firstString(
-  ...values: unknown[]
-) {
-  for (
-    const value of values
-  ) {
+function firstString(...values: unknown[]) {
+  for (const value of values) {
     if (
-      typeof value ===
-        "string" &&
+      typeof value === "string" &&
       value.trim()
     ) {
       return value.trim();
@@ -246,37 +215,22 @@ function firstString(
   return null;
 }
 
-function firstNumber(
-  ...values: unknown[]
-) {
-  for (
-    const value of values
-  ) {
+function firstNumber(...values: unknown[]) {
+  for (const value of values) {
     if (
-      typeof value ===
-        "number" &&
-      Number.isFinite(
-        value
-      )
+      typeof value === "number" &&
+      Number.isFinite(value)
     ) {
       return value;
     }
 
     if (
-      typeof value ===
-        "string" &&
+      typeof value === "string" &&
       value.trim() !== ""
     ) {
-      const parsed =
-        Number(
-          value
-        );
+      const parsed = Number(value);
 
-      if (
-        Number.isFinite(
-          parsed
-        )
-      ) {
+      if (Number.isFinite(parsed)) {
         return parsed;
       }
     }
@@ -289,87 +243,77 @@ function safeBoolean(
   value: unknown,
   fallback = false
 ) {
-  if (
-    typeof value ===
-    "boolean"
-  ) {
+  if (typeof value === "boolean") {
     return value;
   }
 
   return fallback;
 }
 
-function safeStringArray(
-  value: unknown
-) {
-  if (
-    Array.isArray(
-      value
-    )
-  ) {
-    return value
-      .filter(
-        (
-          item
-        ) =>
-          typeof item ===
-          "string"
-      )
-      .map(
-        (
-          item
-        ) =>
-          item.trim()
-      )
-      .filter(Boolean);
+function safeStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
   }
 
-  return [];
+  return value
+    .filter(
+      (item) =>
+        typeof item === "string"
+    )
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function createSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function generateSku(name: string) {
+  const prefix =
+    name
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .slice(0, 4)
+      .toUpperCase() || "PROD";
+
+  return `${prefix}-${Date.now()
+    .toString()
+    .slice(-6)}`;
 }
 
 function normaliseOrderStatus(
   value: unknown
 ): OrderStatus {
-  const status =
-    String(
-      value ||
-        ""
-    )
-      .trim()
-      .toLowerCase();
+  const status = String(value || "")
+    .trim()
+    .toLowerCase();
 
-  if (
-    status ===
-    "processing"
-  ) {
+  if (status === "processing") {
     return "processing";
   }
 
   if (
-    status ===
-      "dispatched" ||
-    status ===
-      "shipped"
+    status === "dispatched" ||
+    status === "shipped"
   ) {
     return "dispatched";
   }
 
   if (
-    status ===
-      "delivered" ||
-    status ===
-      "complete" ||
-    status ===
-      "completed"
+    status === "delivered" ||
+    status === "complete" ||
+    status === "completed"
   ) {
     return "delivered";
   }
 
   if (
-    status ===
-      "cancelled" ||
-    status ===
-      "canceled"
+    status === "cancelled" ||
+    status === "canceled"
   ) {
     return "cancelled";
   }
@@ -380,32 +324,22 @@ function normaliseOrderStatus(
 function normalisePaymentStatus(
   value: unknown
 ): PaymentStatus {
-  const status =
-    String(
-      value ||
-        ""
-    )
-      .trim()
-      .toLowerCase();
+  const status = String(value || "")
+    .trim()
+    .toLowerCase();
 
   if (
-    status ===
-      "paid" ||
-    status ===
-      "succeeded" ||
-    status ===
-      "complete" ||
-    status ===
-      "completed"
+    status === "paid" ||
+    status === "succeeded" ||
+    status === "complete" ||
+    status === "completed"
   ) {
     return "paid";
   }
 
   if (
-    status ===
-      "refunded" ||
-    status ===
-      "refund"
+    status === "refunded" ||
+    status === "refund"
   ) {
     return "refunded";
   }
@@ -413,27 +347,17 @@ function normalisePaymentStatus(
   return "pending";
 }
 
-function formatDate(
-  value: unknown
-) {
+function formatDate(value: unknown) {
   if (
-    typeof value !==
-      "string" ||
+    typeof value !== "string" ||
     !value
   ) {
     return "—";
   }
 
-  const date =
-    new Date(
-      value
-    );
+  const date = new Date(value);
 
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
+  if (Number.isNaN(date.getTime())) {
     return value;
   }
 
@@ -444,46 +368,7 @@ function formatDate(
       month: "short",
       year: "numeric",
     }
-  ).format(
-    date
-  );
-}
-
-function createSlug(
-  value: string
-) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(
-      /[^a-z0-9]+/g,
-      "-"
-    )
-    .replace(
-      /^-+|-+$/g,
-      ""
-    );
-}
-
-function generateSku(
-  name: string
-) {
-  const prefix =
-    name
-      .replace(
-        /[^a-zA-Z0-9]/g,
-        ""
-      )
-      .slice(
-        0,
-        4
-      )
-      .toUpperCase() ||
-    "PROD";
-
-  return `${prefix}-${Date.now()
-    .toString()
-    .slice(-6)}`;
+  ).format(date);
 }
 
 // ============================================================
@@ -492,12 +377,9 @@ function generateSku(
 
 async function resolveOrganisationContext(): Promise<OrganisationContext> {
   const {
-    data:
-      authData,
-    error:
-      authError,
-  } =
-    await supabase.auth.getUser();
+    data: authData,
+    error: authError,
+  } = await supabase.auth.getUser();
 
   if (
     authError ||
@@ -508,130 +390,89 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
     );
   }
 
-  const user =
-    authData.user;
+  const user = authData.user;
 
   // ==========================================================
-  // TRY USER_ORGANISATIONS
+  // USER ORGANISATIONS
   // ==========================================================
 
   try {
     const {
-      data:
-        membershipRows,
-    } =
-      await supabase
-        .from(
-          "user_organisations"
-        )
-        .select("*")
-        .eq(
-          "user_id",
-          user.id
-        )
-        .limit(1);
+      data: membershipRows,
+      error,
+    } = await supabase
+      .from("user_organisations")
+      .select("*")
+      .eq("user_id", user.id)
+      .limit(1);
 
-    const membership =
-      membershipRows?.[0] as
-        | Record<
-            string,
-            unknown
-          >
-        | undefined;
+    if (!error) {
+      const membership =
+        membershipRows?.[0] as
+          | Record<string, unknown>
+          | undefined;
 
-    const membershipOrgId =
-      firstString(
-        membership
-          ?.organisation_id,
-        membership
-          ?.organization_id
-      );
+      const membershipOrgId =
+        firstString(
+          membership?.organisation_id,
+          membership?.organization_id
+        );
 
-    if (
-      membershipOrgId
-    ) {
-      const {
-        data:
-          organisation,
-      } =
-        await supabase
-          .from(
-            "organisations"
-          )
+      if (membershipOrgId) {
+        const {
+          data: organisation,
+        } = await supabase
+          .from("organisations")
           .select("*")
-          .eq(
-            "id",
-            membershipOrgId
-          )
+          .eq("id", membershipOrgId)
           .maybeSingle();
 
-      return {
-        organisationId:
-          membershipOrgId,
+        return {
+          organisationId:
+            membershipOrgId,
 
-        organisationName:
-          firstString(
-            organisation?.name,
-            organisation
-              ?.company_name
-          ) ||
-          "My Business",
-      };
+          organisationName:
+            firstString(
+              organisation?.name,
+              organisation?.company_name
+            ) || "My Business",
+        };
+      }
     }
-  } catch (
-    membershipError
-  ) {
+  } catch (error) {
     console.warn(
       "user_organisations lookup skipped:",
-      membershipError
+      error
     );
   }
 
   // ==========================================================
-  // TRY PROFILES
+  // PROFILES
   // ==========================================================
 
   try {
     const {
-      data:
-        profile,
-    } =
-      await supabase
-        .from(
-          "profiles"
-        )
-        .select("*")
-        .eq(
-          "id",
-          user.id
-        )
-        .maybeSingle();
+      data: profile,
+    } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
 
     const profileOrgId =
       firstString(
-        profile
-          ?.organisation_id,
-        profile
-          ?.organization_id
+        profile?.organisation_id,
+        profile?.organization_id
       );
 
-    if (
-      profileOrgId
-    ) {
+    if (profileOrgId) {
       const {
-        data:
-          organisation,
-      } =
-        await supabase
-          .from(
-            "organisations"
-          )
-          .select("*")
-          .eq(
-            "id",
-            profileOrgId
-          )
-          .maybeSingle();
+        data: organisation,
+      } = await supabase
+        .from("organisations")
+        .select("*")
+        .eq("id", profileOrgId)
+        .maybeSingle();
 
       return {
         organisationId:
@@ -640,74 +481,49 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
         organisationName:
           firstString(
             organisation?.name,
-            organisation
-              ?.company_name
-          ) ||
-          "My Business",
+            organisation?.company_name
+          ) || "My Business",
       };
     }
-  } catch (
-    profileError
-  ) {
+  } catch (error) {
     console.warn(
       "profiles organisation lookup skipped:",
-      profileError
+      error
     );
   }
 
   // ==========================================================
-  // TRY ORGANISATION_MEMBERS
+  // ORGANISATION MEMBERS
   // ==========================================================
 
   try {
     const {
-      data:
-        memberRows,
-    } =
-      await supabase
-        .from(
-          "organisation_members"
-        )
-        .select("*")
-        .eq(
-          "user_id",
-          user.id
-        )
-        .limit(1);
+      data: memberRows,
+    } = await supabase
+      .from("organisation_members")
+      .select("*")
+      .eq("user_id", user.id)
+      .limit(1);
 
     const member =
       memberRows?.[0] as
-        | Record<
-            string,
-            unknown
-          >
+        | Record<string, unknown>
         | undefined;
 
     const memberOrgId =
       firstString(
-        member
-          ?.organisation_id,
-        member
-          ?.organization_id
+        member?.organisation_id,
+        member?.organization_id
       );
 
-    if (
-      memberOrgId
-    ) {
+    if (memberOrgId) {
       const {
-        data:
-          organisation,
-      } =
-        await supabase
-          .from(
-            "organisations"
-          )
-          .select("*")
-          .eq(
-            "id",
-            memberOrgId
-          )
-          .maybeSingle();
+        data: organisation,
+      } = await supabase
+        .from("organisations")
+        .select("*")
+        .eq("id", memberOrgId)
+        .maybeSingle();
 
       return {
         organisationId:
@@ -716,18 +532,14 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
         organisationName:
           firstString(
             organisation?.name,
-            organisation
-              ?.company_name
-          ) ||
-          "My Business",
+            organisation?.company_name
+          ) || "My Business",
       };
     }
-  } catch (
-    memberError
-  ) {
+  } catch (error) {
     console.warn(
       "organisation_members lookup skipped:",
-      memberError
+      error
     );
   }
 
@@ -741,52 +553,38 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
 // ============================================================
 
 export default function StorePage() {
-  // ==========================================================
-  // CORE
-  // ==========================================================
-
   const [
     activeTab,
     setActiveTab,
-  ] =
-    useState<StoreTab>(
-      "Overview"
-    );
+  ] = useState<StoreTab>("Overview");
 
   const [
     loading,
     setLoading,
-  ] =
-    useState(true);
+  ] = useState(true);
 
   const [
     refreshing,
     setRefreshing,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     pageError,
     setPageError,
-  ] =
-    useState<
-      string | null
-    >(null);
+  ] = useState<string | null>(null);
 
   const [
     organisationId,
     setOrganisationId,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     organisationName,
     setOrganisationName,
-  ] =
-    useState("");
+  ] = useState("");
 
   // ==========================================================
-  // STORE SETTINGS
+  // SETTINGS
   // ==========================================================
 
   const [
@@ -800,70 +598,57 @@ export default function StorePage() {
   const [
     storeName,
     setStoreName,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     storeDescription,
     setStoreDescription,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     heroTitle,
     setHeroTitle,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     heroText,
     setHeroText,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     announcement,
     setAnnouncement,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     accentColour,
     setAccentColour,
-  ] =
-    useState(
-      "#A9B897"
-    );
+  ] = useState("#A9B897");
 
   const [
     shippingText,
     setShippingText,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     supportEmail,
     setSupportEmail,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     slug,
     setSlug,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     storeLive,
     setStoreLive,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     savingSettings,
     setSavingSettings,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   // ==========================================================
   // PRODUCTS
@@ -872,42 +657,38 @@ export default function StorePage() {
   const [
     products,
     setProducts,
-  ] =
-    useState<Product[]>([]);
+  ] = useState<Product[]>([]);
 
   const [
     productSearch,
     setProductSearch,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     showProductModal,
     setShowProductModal,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     productForm,
     setProductForm,
   ] =
-    useState<ProductForm>(
-      EMPTY_PRODUCT_FORM
-    );
+    useState<ProductForm>({
+      ...EMPTY_PRODUCT_FORM,
+    });
 
   const [
     savingProduct,
     setSavingProduct,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   const [
     deletingProductId,
     setDeletingProductId,
   ] =
-    useState<
-      string | null
-    >(null);
+    useState<string | null>(
+      null
+    );
 
   // ==========================================================
   // INVENTORY
@@ -916,8 +697,7 @@ export default function StorePage() {
   const [
     lowStockThreshold,
     setLowStockThreshold,
-  ] =
-    useState("8");
+  ] = useState("8");
 
   const [
     stockAdjust,
@@ -930,8 +710,7 @@ export default function StorePage() {
   const [
     savingStock,
     setSavingStock,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   // ==========================================================
   // ORDERS
@@ -940,44 +719,39 @@ export default function StorePage() {
   const [
     orders,
     setOrders,
-  ] =
-    useState<Order[]>([]);
+  ] = useState<Order[]>([]);
 
   const [
     orderSearch,
     setOrderSearch,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     updatingOrderId,
     setUpdatingOrderId,
   ] =
-    useState<
-      string | null
-    >(null);
+    useState<string | null>(
+      null
+    );
 
   // ==========================================================
-  // OTHER SETTINGS
+  // LOCAL OPTIONS
   // ==========================================================
 
   const [
     currency,
     setCurrency,
-  ] =
-    useState("GBP");
+  ] = useState("GBP");
 
   const [
     orderNotifications,
     setOrderNotifications,
-  ] =
-    useState(true);
+  ] = useState(true);
 
   const [
     autoCreateContacts,
     setAutoCreateContacts,
-  ] =
-    useState(true);
+  ] = useState(true);
 
   // ==========================================================
   // LOAD DATA
@@ -986,76 +760,54 @@ export default function StorePage() {
   const loadData =
     useCallback(
       async (
-        quiet =
-          false
+        quiet = false
       ) => {
-        if (
-          quiet
-        ) {
-          setRefreshing(
-            true
-          );
+        if (quiet) {
+          setRefreshing(true);
         } else {
-          setLoading(
-            true
-          );
+          setLoading(true);
         }
 
-        setPageError(
-          null
-        );
+        setPageError(null);
 
         try {
-          // ===================================================
-          // ORGANISATION
-          // ===================================================
-
           const context =
             await resolveOrganisationContext();
 
+          const orgId =
+            context.organisationId;
+
           setOrganisationId(
-            context.organisationId
+            orgId
           );
 
           setOrganisationName(
             context.organisationName
           );
 
-          const orgId =
-            context.organisationId;
-
           // ===================================================
           // STORE SETTINGS
           // ===================================================
 
           const {
-            data:
-              settingsRows,
-            error:
-              settingsError,
-          } =
-            await supabase
-              .from(
-                "store_settings"
-              )
-              .select("*")
-              .eq(
-                "organisation_id",
-                orgId
-              )
-              .limit(1);
+            data: settingsRows,
+            error: settingsError,
+          } = await supabase
+            .from("store_settings")
+            .select("*")
+            .eq(
+              "organisation_id",
+              orgId
+            )
+            .limit(1);
 
-          if (
-            settingsError
-          ) {
+          if (settingsError) {
             throw settingsError;
           }
 
           const settings =
-            (
-              settingsRows?.[0] ||
-              null
-            ) as StoreSettingsRow | null;
+            (settingsRows?.[0] ||
+              null) as StoreSettingsRow | null;
 
           setStoreSettings(
             settings
@@ -1110,8 +862,7 @@ export default function StorePage() {
           );
 
           setStoreLive(
-            settings?.is_live ===
-              true
+            settings?.is_live === true
           );
 
           // ===================================================
@@ -1119,29 +870,29 @@ export default function StorePage() {
           // ===================================================
 
           const {
-            data:
-              productRows,
-            error:
-              productError,
-          } =
-            await supabase
-              .from(
-                "store_products"
-              )
-              .select("*")
-              .eq(
-                "organisation_id",
-                orgId );
+            data: productRows,
+            error: productError,
+          } = await supabase
+            .from("store_products")
+            .select("*")
+            .eq(
+              "organisation_id",
+              orgId
+            )
+            .order(
+              "sort_order",
+              {
+                ascending: true,
+                nullsFirst: false,
+              }
+            );
 
-          if (
-            productError
-          ) {
+          if (productError) {
             throw productError;
           }
 
           // ===================================================
           // ORDER ITEMS
-          // Used for product stats where possible
           // ===================================================
 
           let orderItems:
@@ -1150,50 +901,47 @@ export default function StorePage() {
               unknown
             >[] = [];
 
-          try {
-            const {
-              data:
-                itemRows,
-            } =
-              await supabase
-                .from(
-                  "store_order_items"
-                )
-                .select("*")
-                .eq(
-                  "organisation_id",
-                  orgId
-                );
+          const {
+            data: itemRows,
+            error:
+              orderItemsError,
+          } = await supabase
+            .from(
+              "store_order_items"
+            )
+            .select("*")
+            .eq(
+              "organisation_id",
+              orgId
+            );
 
-            orderItems =
-              (
-                itemRows ||
-                []
-              ) as Record<
-                string,
-                unknown
-              >[];
-          } catch (
-            orderItemError
+          if (
+            orderItemsError
           ) {
             console.warn(
               "Order item stats unavailable:",
-              orderItemError
+              orderItemsError
             );
+          } else {
+            orderItems =
+              (itemRows ||
+                []) as Record<
+                string,
+                unknown
+              >[];
           }
 
-          const cleanedProducts =
+          const cleanedProducts: Product[] =
             (
               productRows ||
               []
             ).map(
               (
-                row:
-                  Record<
-                    string,
-                    unknown
-                  >
-              ): Product => {
+                row: Record<
+                  string,
+                  unknown
+                >
+              ) => {
                 const id =
                   String(
                     row.id
@@ -1201,14 +949,11 @@ export default function StorePage() {
 
                 const related =
                   orderItems.filter(
-                    (
-                      item
-                    ) =>
+                    (item) =>
                       firstString(
                         item.product_id,
                         item.store_product_id
-                      ) ===
-                      id
+                      ) === id
                   );
 
                 const orders =
@@ -1266,16 +1011,14 @@ export default function StorePage() {
                     row.status
                   );
 
-                let status:
-                  ProductStatus =
+                let status: ProductStatus =
                   "active";
 
                 if (
                   rawStatus ===
                   "draft"
                 ) {
-                  status =
-                    "draft";
+                  status = "draft";
                 }
 
                 if (
@@ -1288,12 +1031,18 @@ export default function StorePage() {
 
                 if (
                   row.is_active ===
-                  false &&
+                    false &&
                   !rawStatus
                 ) {
-                  status =
-                    "draft";
+                  status = "draft";
                 }
+
+                const name =
+                  firstString(
+                    row.name,
+                    row.title
+                  ) ||
+                  "Untitled product";
 
                 return {
                   id,
@@ -1304,18 +1053,18 @@ export default function StorePage() {
                         orgId
                     ),
 
-                  name:
+                  name,
+
+                  slug:
                     firstString(
-                      row.name,
-                      row.title
+                      row.slug
                     ) ||
-                    "Untitled product",
+                    createSlug(name),
 
                   sku:
                     firstString(
                       row.sku
-                    ) ||
-                    "—",
+                    ) || "—",
 
                   category:
                     firstString(
@@ -1326,8 +1075,7 @@ export default function StorePage() {
                   description:
                     firstString(
                       row.description
-                    ) ||
-                    "",
+                    ) || "",
 
                   price:
                     firstNumber(
@@ -1392,31 +1140,10 @@ export default function StorePage() {
                     ),
 
                   orders,
-
                   revenue,
                 };
               }
             );
-
-          cleanedProducts.sort(
-            (
-              first,
-              second
-            ) => {
-              if (
-                first.featured !==
-                second.featured
-              ) {
-                return first.featured
-                  ? -1
-                  : 1;
-              }
-
-              return first.name.localeCompare(
-                second.name
-              );
-            }
-          );
 
           setProducts(
             cleanedProducts
@@ -1427,196 +1154,150 @@ export default function StorePage() {
           // ===================================================
 
           const {
-            data:
-              orderRows,
-            error:
-              orderError,
-          } =
-            await supabase
-              .from(
-                "store_orders"
-              )
-              .select("*")
-              .eq(
-                "organisation_id",
-                orgId
-              );
+            data: orderRows,
+            error: orderError,
+          } = await supabase
+            .from("store_orders")
+            .select("*")
+            .eq(
+              "organisation_id",
+              orgId
+            )
+            .order(
+              "created_at",
+              {
+                ascending: false,
+              }
+            );
 
-          if (
-            orderError
-          ) {
+          if (orderError) {
             throw orderError;
           }
 
-          const cleanedOrders =
+          const cleanedOrders: Order[] =
             (
               orderRows ||
               []
-            )
-              .map(
-                (
-                  row:
-                    Record<
-                      string,
-                      unknown
-                    >
-                ): Order => {
-                  const orderId =
+            ).map(
+              (
+                row: Record<
+                  string,
+                  unknown
+                >
+              ) => {
+                const orderId =
+                  String(
+                    row.id
+                  );
+
+                const relatedItems =
+                  orderItems.filter(
+                    (item) =>
+                      firstString(
+                        item.order_id,
+                        item.store_order_id
+                      ) === orderId
+                  );
+
+                const itemCount =
+                  relatedItems.reduce(
+                    (
+                      total,
+                      item
+                    ) =>
+                      total +
+                      firstNumber(
+                        item.quantity,
+                        1
+                      ),
+                    0
+                  );
+
+                return {
+                  id: orderId,
+
+                  organisation_id:
                     String(
-                      row.id
-                    );
+                      row.organisation_id ||
+                        orgId
+                    ),
 
-                  const relatedItems =
-                    orderItems.filter(
-                      (
-                        item
-                      ) =>
-                        firstString(
-                          item.order_id,
-                          item.store_order_id
-                        ) ===
-                        orderId
-                    );
+                  number:
+                    firstString(
+                      row.order_number,
+                      row.number,
+                      row.reference
+                    ) ||
+                    `#${orderId
+                      .slice(0, 6)
+                      .toUpperCase()}`,
 
-                  const itemCount =
-                    relatedItems.reduce(
-                      (
-                        total,
-                        item
-                      ) =>
-                        total +
-                        firstNumber(
-                          item.quantity,
-                          1
-                        ),
-                      0
-                    );
+                  customer:
+                    firstString(
+                      row.customer_name,
+                      row.name,
+                      row.full_name,
+                      row.shipping_name
+                    ) ||
+                    "Customer",
 
-                  const fallbackItems =
+                  email:
+                    firstString(
+                      row.customer_email,
+                      row.email
+                    ) || "—",
+
+                  total:
+                    firstNumber(
+                      row.total,
+                      row.total_amount,
+                      row.amount,
+                      row.grand_total
+                    ),
+
+                  status:
+                    normaliseOrderStatus(
+                      firstString(
+                        row.status,
+                        row.fulfilment_status,
+                        row.fulfillment_status
+                      )
+                    ),
+
+                  paymentStatus:
+                    normalisePaymentStatus(
+                      firstString(
+                        row.payment_status,
+                        row.stripe_payment_status,
+                        row.payment_state
+                      )
+                    ),
+
+                  items:
+                    itemCount ||
                     firstNumber(
                       row.items,
                       row.item_count,
                       row.total_items
-                    );
+                    ),
 
-                  return {
-                    id:
-                      orderId,
-
-                    organisation_id:
-                      String(
-                        row.organisation_id ||
-                          orgId
-                      ),
-
-                    number:
+                  createdAt:
+                    formatDate(
                       firstString(
-                        row.order_number,
-                        row.number,
-                        row.reference
-                      ) ||
-                      `#${orderId
-                        .slice(
-                          0,
-                          6
-                        )
-                        .toUpperCase()}`,
-
-                    customer:
-                      firstString(
-                        row.customer_name,
-                        row.name,
-                        row.full_name,
-                        row.shipping_name
-                      ) ||
-                      "Customer",
-
-                    email:
-                      firstString(
-                        row.customer_email,
-                        row.email
-                      ) ||
-                      "—",
-
-                    total:
-                      firstNumber(
-                        row.total,
-                        row.total_amount,
-                        row.amount,
-                        row.grand_total
-                      ),
-
-                    status:
-                      normaliseOrderStatus(
-                        firstString(
-                          row.status,
-                          row.fulfilment_status,
-                          row.fulfillment_status
-                        )
-                      ),
-
-                    paymentStatus:
-                      normalisePaymentStatus(
-                        firstString(
-                          row.payment_status,
-                          row.stripe_payment_status,
-                          row.payment_state
-                        )
-                      ),
-
-                    items:
-                      itemCount ||
-                      fallbackItems,
-
-                    createdAt:
-                      formatDate(
-                        firstString(
-                          row.created_at,
-                          row.ordered_at
-                        )
-                      ),
-
-                    raw:
-                      row,
-                  };
-                }
-              )
-              .sort(
-                (
-                  first,
-                  second
-                ) => {
-                  const firstRaw =
-                    first.raw
-                      .created_at;
-
-                  const secondRaw =
-                    second.raw
-                      .created_at;
-
-                  return (
-                    new Date(
-                      String(
-                        secondRaw ||
-                          0
+                        row.created_at,
+                        row.ordered_at
                       )
-                    ).getTime() -
-                    new Date(
-                      String(
-                        firstRaw ||
-                          0
-                      )
-                    ).getTime()
-                  );
-                }
-              );
+                    ),
+
+                  raw: row,
+                };
+              }
+            );
 
           setOrders(
             cleanedOrders
           );
-        } catch (
-          error: any
-        ) {
+        } catch (error: any) {
           console.error(
             "Store load failed:",
             error
@@ -1627,26 +1308,84 @@ export default function StorePage() {
               "We couldn't load your commerce workspace."
           );
         } finally {
-          setLoading(
-            false
-          );
-
-          setRefreshing(
-            false
-          );
+          setLoading(false);
+          setRefreshing(false);
         }
       },
       []
     );
 
-  useEffect(
-    () => {
-      void loadData();
-    },
-    [
-      loadData,
-    ]
-  );
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  // ==========================================================
+  // REALTIME DATABASE SYNC
+  // ==========================================================
+
+  useEffect(() => {
+    if (!organisationId) {
+      return;
+    }
+
+    const channel =
+      supabase
+        .channel(
+          `commerce-${organisationId}`
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table:
+              "store_products",
+            filter:
+              `organisation_id=eq.${organisationId}`,
+          },
+          () => {
+            void loadData(true);
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table:
+              "store_settings",
+            filter:
+              `organisation_id=eq.${organisationId}`,
+          },
+          () => {
+            void loadData(true);
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table:
+              "store_orders",
+            filter:
+              `organisation_id=eq.${organisationId}`,
+          },
+          () => {
+            void loadData(true);
+          }
+        )
+        .subscribe();
+
+    return () => {
+      void supabase.removeChannel(
+        channel
+      );
+    };
+  }, [
+    organisationId,
+    loadData,
+  ]);
 
   // ==========================================================
   // METRICS
@@ -1664,49 +1403,40 @@ export default function StorePage() {
             product.revenue,
           0
         ),
-      [
-        products,
-      ]
+      [products]
     );
 
   const totalOrders =
-    useMemo(
-      () => {
-        const productOrderTotal =
-          products.reduce(
-            (
-              total,
-              product
-            ) =>
-              total +
-              product.orders,
-            0
-          );
-
-        return (
-          productOrderTotal ||
-          orders.length
+    useMemo(() => {
+      const productOrderTotal =
+        products.reduce(
+          (
+            total,
+            product
+          ) =>
+            total +
+            product.orders,
+          0
         );
-      },
-      [
-        products,
-        orders,
-      ]
-    );
+
+      return (
+        productOrderTotal ||
+        orders.length
+      );
+    }, [
+      products,
+      orders,
+    ]);
 
   const paidOrders =
     useMemo(
       () =>
         orders.filter(
-          (
-            order
-          ) =>
+          (order) =>
             order.paymentStatus ===
             "paid"
         ),
-      [
-        orders,
-      ]
+      [orders]
     );
 
   const orderRevenue =
@@ -1721,9 +1451,7 @@ export default function StorePage() {
             order.total,
           0
         ),
-      [
-        paidOrders,
-      ]
+      [paidOrders]
     );
 
   const displayRevenue =
@@ -1731,12 +1459,10 @@ export default function StorePage() {
     totalRevenue;
 
   const averageOrderValue =
-    paidOrders.length >
-    0
+    paidOrders.length > 0
       ? orderRevenue /
         paidOrders.length
-      : totalOrders >
-          0
+      : totalOrders > 0
         ? totalRevenue /
           totalOrders
         : 0;
@@ -1745,9 +1471,7 @@ export default function StorePage() {
     useMemo(
       () =>
         products.filter(
-          (
-            product
-          ) =>
+          (product) =>
             product.inventory_quantity <=
               Number(
                 lowStockThreshold ||
@@ -1768,9 +1492,7 @@ export default function StorePage() {
     useMemo(
       () =>
         orders.filter(
-          (
-            order
-          ) =>
+          (order) =>
             ![
               "delivered",
               "cancelled",
@@ -1778,17 +1500,13 @@ export default function StorePage() {
               order.status
             )
         ),
-      [
-        orders,
-      ]
+      [orders]
     );
 
   const bestSellers =
     useMemo(
       () =>
-        [
-          ...products,
-        ]
+        [...products]
           .sort(
             (
               first,
@@ -1810,136 +1528,95 @@ export default function StorePage() {
               );
             }
           )
-          .slice(
-            0,
-            4
-          ),
-      [
-        products,
-      ]
+          .slice(0, 4),
+      [products]
     );
 
   const filteredProducts =
-    useMemo(
-      () => {
-        const value =
-          productSearch
-            .trim()
-            .toLowerCase();
+    useMemo(() => {
+      const value =
+        productSearch
+          .trim()
+          .toLowerCase();
 
-        if (
-          !value
-        ) {
-          return products;
-        }
+      if (!value) {
+        return products;
+      }
 
-        return products.filter(
-          (
-            product
-          ) =>
-            product.name
-              .toLowerCase()
-              .includes(
-                value
-              ) ||
-            product.sku
-              .toLowerCase()
-              .includes(
-                value
-              ) ||
-            product.category
-              .toLowerCase()
-              .includes(
-                value
-              )
-        );
-      },
-      [
-        products,
-        productSearch,
-      ]
-    );
+      return products.filter(
+        (product) =>
+          product.name
+            .toLowerCase()
+            .includes(value) ||
+          product.sku
+            .toLowerCase()
+            .includes(value) ||
+          product.category
+            .toLowerCase()
+            .includes(value)
+      );
+    }, [
+      products,
+      productSearch,
+    ]);
 
   const filteredOrders =
-    useMemo(
-      () => {
-        const value =
-          orderSearch
-            .trim()
-            .toLowerCase();
+    useMemo(() => {
+      const value =
+        orderSearch
+          .trim()
+          .toLowerCase();
 
-        if (
-          !value
-        ) {
-          return orders;
-        }
+      if (!value) {
+        return orders;
+      }
 
-        return orders.filter(
-          (
-            order
-          ) =>
-            order.number
-              .toLowerCase()
-              .includes(
-                value
-              ) ||
-            order.customer
-              .toLowerCase()
-              .includes(
-                value
-              ) ||
-            order.email
-              .toLowerCase()
-              .includes(
-                value
-              )
-        );
-      },
-      [
-        orders,
-        orderSearch,
-      ]
-    );
+      return orders.filter(
+        (order) =>
+          order.number
+            .toLowerCase()
+            .includes(value) ||
+          order.customer
+            .toLowerCase()
+            .includes(value) ||
+          order.email
+            .toLowerCase()
+            .includes(value)
+      );
+    }, [
+      orders,
+      orderSearch,
+    ]);
 
   // ==========================================================
   // MONEY
   // ==========================================================
 
   function money(
-    value:
-      | number
-      | string
+    value: number | string
   ) {
     try {
       return new Intl.NumberFormat(
         "en-GB",
         {
-          style:
-            "currency",
-
+          style: "currency",
           currency:
-            currency ||
-            "GBP",
-
+            currency || "GBP",
           maximumFractionDigits:
             2,
         }
       ).format(
-        Number(
-          value ||
-            0
-        )
+        Number(value || 0)
       );
     } catch {
       return `£${Number(
-        value ||
-          0
+        value || 0
       ).toFixed(2)}`;
     }
   }
 
   // ==========================================================
-  // PRODUCT ACTIONS
+  // PRODUCTS
   // ==========================================================
 
   function openNewProduct() {
@@ -1947,24 +1624,22 @@ export default function StorePage() {
       ...EMPTY_PRODUCT_FORM,
     });
 
-    setShowProductModal(
-      true
-    );
+    setShowProductModal(true);
   }
 
   function openEditProduct(
     product: Product
   ) {
     setProductForm({
-      id:
-        product.id,
+      id: product.id,
 
-      name:
-        product.name,
+      name: product.name,
+
+      slug:
+        product.slug,
 
       sku:
-        product.sku ===
-        "—"
+        product.sku === "—"
           ? ""
           : product.sku,
 
@@ -2008,35 +1683,45 @@ export default function StorePage() {
         product.status,
     });
 
-    setShowProductModal(
-      true
-    );
+    setShowProductModal(true);
   }
 
+  // ==========================================================
+  // SAVE PRODUCT
+  // ==========================================================
+
   async function saveProduct() {
-    if (
-      savingProduct
-    ) {
+    if (savingProduct) {
       return;
     }
 
-    if (
-      !organisationId
-    ) {
+    if (!organisationId) {
       alert(
         "Organisation could not be found."
       );
-
       return;
     }
 
-    if (
-      !productForm.name.trim()
-    ) {
+    const name =
+      productForm.name.trim();
+
+    if (!name) {
       alert(
         "Enter a product name."
       );
+      return;
+    }
 
+    const productSlug =
+      createSlug(
+        productForm.slug ||
+          name
+      );
+
+    if (!productSlug) {
+      alert(
+        "The product needs a valid slug."
+      );
       return;
     }
 
@@ -2046,45 +1731,134 @@ export default function StorePage() {
       );
 
     if (
-      !Number.isFinite(
-        price
-      ) ||
-      price <
-        0
+      !Number.isFinite(price) ||
+      price < 0
     ) {
       alert(
         "Enter a valid price."
       );
+      return;
+    }
 
+    const compareAtPrice =
+      productForm.compareAtPrice.trim()
+        ? Number(
+            productForm.compareAtPrice
+          )
+        : null;
+
+    if (
+      compareAtPrice !== null &&
+      (!Number.isFinite(
+        compareAtPrice
+      ) ||
+        compareAtPrice < 0)
+    ) {
+      alert(
+        "Enter a valid compare-at price."
+      );
+      return;
+    }
+
+    const cost =
+      productForm.cost.trim()
+        ? Number(
+            productForm.cost
+          )
+        : 0;
+
+    if (
+      !Number.isFinite(cost) ||
+      cost < 0
+    ) {
+      alert(
+        "Enter a valid cost price."
+      );
       return;
     }
 
     const stock =
       Math.max(
         0,
-        Number(
-          productForm.stock ||
-            0
+        Math.floor(
+          Number(
+            productForm.stock ||
+              0
+          )
         )
       );
 
-    setSavingProduct(
-      true
-    );
+    setSavingProduct(true);
 
     try {
+      // Check another product in this organisation
+      // does not already use this slug.
+
+      let slugQuery =
+        supabase
+          .from(
+            "store_products"
+          )
+          .select("id")
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .eq(
+            "slug",
+            productSlug
+          );
+
+      if (productForm.id) {
+        slugQuery =
+          slugQuery.neq(
+            "id",
+            productForm.id
+          );
+      }
+
+      const {
+        data:
+          existingSlugRows,
+        error:
+          slugCheckError,
+      } =
+        await slugQuery.limit(
+          1
+        );
+
+      if (slugCheckError) {
+        throw slugCheckError;
+      }
+
+      if (
+        existingSlugRows &&
+        existingSlugRows.length >
+          0
+      ) {
+        alert(
+          "Another product already uses this product URL. Change the product slug."
+        );
+
+        setSavingProduct(
+          false
+        );
+
+        return;
+      }
+
       const payload = {
         organisation_id:
           organisationId,
 
-        name:
-          productForm.name.trim(),
+        name,
+
+        slug:
+          productSlug,
 
         sku:
           productForm.sku.trim() ||
-          generateSku(
-            productForm.name
-          ),
+          generateSku(name),
 
         category:
           productForm.category.trim() ||
@@ -2097,11 +1871,9 @@ export default function StorePage() {
         price,
 
         compare_at_price:
-          productForm.compareAtPrice.trim()
-            ? Number(
-                productForm.compareAtPrice
-              )
-            : null,
+          compareAtPrice,
+
+        cost,
 
         inventory_quantity:
           stock,
@@ -2113,157 +1885,66 @@ export default function StorePage() {
         featured:
           productForm.featured,
 
+        status:
+          productForm.status,
+
         is_active:
           productForm.status ===
           "active",
 
-        status:
-          productForm.status,
+        updated_at:
+          new Date().toISOString(),
       };
 
-      if (
-        productForm.id
-      ) {
+      if (productForm.id) {
         const {
+          data,
           error,
-        } =
-          await supabase
-            .from(
-              "store_products"
-            )
-            .update(
-              payload
-            )
-            .eq(
-              "id",
-              productForm.id
-            )
-            .eq(
-              "organisation_id",
-              organisationId
-            );
+        } = await supabase
+          .from(
+            "store_products"
+          )
+          .update(payload)
+          .eq(
+            "id",
+            productForm.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .select("id")
+          .maybeSingle();
 
-        if (
-          error
-        ) {
-          // Some installations may not yet
-          // have status / compare_at_price.
-          // Retry with core fields.
+        if (error) {
+          throw error;
+        }
 
-          const {
-            error:
-              fallbackError,
-          } =
-            await supabase
-              .from(
-                "store_products"
-              )
-              .update({
-                organisation_id:
-                  organisationId,
-
-                name:
-                  payload.name,
-
-                sku:
-                  payload.sku,
-
-                category:
-                  payload.category,
-
-                description:
-                  payload.description,
-
-                price:
-                  payload.price,
-
-                inventory_quantity:
-                  payload.inventory_quantity,
-
-                image_url:
-                  payload.image_url,
-
-                featured:
-                  payload.featured,
-
-                is_active:
-                  payload.is_active,
-              })
-              .eq(
-                "id",
-                productForm.id
-              )
-              .eq(
-                "organisation_id",
-                organisationId
-              );
-
-          if (
-            fallbackError
-          ) {
-            throw fallbackError;
-          }
+        if (!data) {
+          throw new Error(
+            "The product was not updated. Check your store_products RLS UPDATE policy."
+          );
         }
       } else {
         const {
+          data,
           error,
-        } =
-          await supabase
-            .from(
-              "store_products"
-            )
-            .insert(
-              payload
-            );
+        } = await supabase
+          .from(
+            "store_products"
+          )
+          .insert(payload)
+          .select("id")
+          .single();
 
-        if (
-          error
-        ) {
-          const {
-            error:
-              fallbackError,
-          } =
-            await supabase
-              .from(
-                "store_products"
-              )
-              .insert({
-                organisation_id:
-                  organisationId,
+        if (error) {
+          throw error;
+        }
 
-                name:
-                  payload.name,
-
-                sku:
-                  payload.sku,
-
-                category:
-                  payload.category,
-
-                description:
-                  payload.description,
-
-                price:
-                  payload.price,
-
-                inventory_quantity:
-                  payload.inventory_quantity,
-
-                image_url:
-                  payload.image_url,
-
-                featured:
-                  payload.featured,
-
-                is_active:
-                  payload.is_active,
-              });
-
-          if (
-            fallbackError
-          ) {
-            throw fallbackError;
-          }
+        if (!data) {
+          throw new Error(
+            "The product was not created."
+          );
         }
       }
 
@@ -2275,12 +1956,8 @@ export default function StorePage() {
         ...EMPTY_PRODUCT_FORM,
       });
 
-      await loadData(
-        true
-      );
-    } catch (
-      error: any
-    ) {
+      await loadData(true);
+    } catch (error: any) {
       console.error(
         "Product save failed:",
         error
@@ -2296,6 +1973,10 @@ export default function StorePage() {
       );
     }
   }
+
+  // ==========================================================
+  // DELETE PRODUCT
+  // ==========================================================
 
   async function deleteProduct(
     product: Product
@@ -2314,43 +1995,35 @@ export default function StorePage() {
 
     try {
       const {
+        data,
         error,
-      } =
-        await supabase
-          .from(
-            "store_products"
-          )
-          .delete()
-          .eq(
-            "id",
-            product.id
-          )
-          .eq(
-            "organisation_id",
-            organisationId
-          );
+      } = await supabase
+        .from(
+          "store_products"
+        )
+        .delete()
+        .eq(
+          "id",
+          product.id
+        )
+        .eq(
+          "organisation_id",
+          organisationId
+        )
+        .select("id");
 
-      if (
-        error
-      ) {
+      if (error) {
         throw error;
       }
 
-      setProducts(
-        (
-          previous
-        ) =>
-          previous.filter(
-            (
-              item
-            ) =>
-              item.id !==
-              product.id
-          )
-      );
-    } catch (
-      error: any
-    ) {
+      if (!data?.length) {
+        throw new Error(
+          "The product was not deleted. Check your store_products RLS DELETE policy."
+        );
+      }
+
+      await loadData(true);
+    } catch (error: any) {
       console.error(
         "Delete product failed:",
         error
@@ -2368,7 +2041,7 @@ export default function StorePage() {
   }
 
   // ==========================================================
-  // STOCK ACTIONS
+  // STOCK
   // ==========================================================
 
   function openStockAdjust(
@@ -2403,63 +2076,48 @@ export default function StorePage() {
         )
       );
 
-    setSavingStock(
-      true
-    );
+    setSavingStock(true);
 
     try {
       const {
+        data,
         error,
-      } =
-        await supabase
-          .from(
-            "store_products"
-          )
-          .update({
-            inventory_quantity:
-              quantity,
-          })
-          .eq(
-            "id",
-            stockAdjust.product.id
-          )
-          .eq(
-            "organisation_id",
-            organisationId
-          );
+      } = await supabase
+        .from(
+          "store_products"
+        )
+        .update({
+          inventory_quantity:
+            quantity,
 
-      if (
-        error
-      ) {
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          stockAdjust.product.id
+        )
+        .eq(
+          "organisation_id",
+          organisationId
+        )
+        .select("id")
+        .maybeSingle();
+
+      if (error) {
         throw error;
       }
 
-      setProducts(
-        (
-          previous
-        ) =>
-          previous.map(
-            (
-              product
-            ) =>
-              product.id ===
-              stockAdjust.product.id
-                ? {
-                    ...product,
+      if (!data) {
+        throw new Error(
+          "Stock was not updated. Check your store_products RLS UPDATE policy."
+        );
+      }
 
-                    inventory_quantity:
-                      quantity,
-                  }
-                : product
-          )
-      );
+      setStockAdjust(null);
 
-      setStockAdjust(
-        null
-      );
-    } catch (
-      error: any
-    ) {
+      await loadData(true);
+    } catch (error: any) {
       console.error(
         "Stock update failed:",
         error
@@ -2470,14 +2128,12 @@ export default function StorePage() {
           "Stock could not be updated."
       );
     } finally {
-      setSavingStock(
-        false
-      );
+      setSavingStock(false);
     }
   }
 
   // ==========================================================
-  // ORDER ACTIONS
+  // ORDERS
   // ==========================================================
 
   async function advanceOrder(
@@ -2499,8 +2155,7 @@ export default function StorePage() {
       order.status;
 
     if (
-      order.status ===
-      "new"
+      order.status === "new"
     ) {
       nextStatus =
         "processing";
@@ -2524,53 +2179,38 @@ export default function StorePage() {
 
     try {
       const {
+        data,
         error,
-      } =
-        await supabase
-          .from(
-            "store_orders"
-          )
-          .update({
-            status:
-              nextStatus,
-          })
-          .eq(
-            "id",
-            order.id
-          )
-          .eq(
-            "organisation_id",
-            organisationId
-          );
+      } = await supabase
+        .from("store_orders")
+        .update({
+          status: nextStatus,
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          order.id
+        )
+        .eq(
+          "organisation_id",
+          organisationId
+        )
+        .select("id")
+        .maybeSingle();
 
-      if (
-        error
-      ) {
+      if (error) {
         throw error;
       }
 
-      setOrders(
-        (
-          previous
-        ) =>
-          previous.map(
-            (
-              item
-            ) =>
-              item.id ===
-              order.id
-                ? {
-                    ...item,
+      if (!data) {
+        throw new Error(
+          "The order could not be updated. Check the store_orders RLS UPDATE policy."
+        );
+      }
 
-                    status:
-                      nextStatus,
-                  }
-                : item
-          )
-      );
-    } catch (
-      error: any
-    ) {
+      await loadData(true);
+    } catch (error: any) {
       console.error(
         "Order update failed:",
         error
@@ -2588,29 +2228,22 @@ export default function StorePage() {
   }
 
   // ==========================================================
-  // SETTINGS
+  // STORE SETTINGS
   // ==========================================================
 
   async function saveStoreSettings() {
-    if (
-      savingSettings
-    ) {
+    if (savingSettings) {
       return;
     }
 
-    if (
-      !organisationId
-    ) {
+    if (!organisationId) {
       return;
     }
 
-    if (
-      !storeName.trim()
-    ) {
+    if (!storeName.trim()) {
       alert(
         "Give your store a name."
       );
-
       return;
     }
 
@@ -2620,21 +2253,67 @@ export default function StorePage() {
           storeName
       );
 
-    if (
-      !resolvedSlug
-    ) {
+    if (!resolvedSlug) {
       alert(
         "Enter a valid store URL slug."
       );
-
       return;
     }
 
-    setSavingSettings(
-      true
-    );
+    setSavingSettings(true);
 
     try {
+      // Make sure another organisation does not
+      // already own this public shop slug.
+
+      let slugQuery =
+        supabase
+          .from(
+            "store_settings"
+          )
+          .select(
+            "id, organisation_id"
+          )
+          .eq(
+            "slug",
+            resolvedSlug
+          );
+
+      if (storeSettings?.id) {
+        slugQuery =
+          slugQuery.neq(
+            "id",
+            storeSettings.id
+          );
+      }
+
+      const {
+        data: slugRows,
+        error: slugError,
+      } =
+        await slugQuery.limit(
+          1
+        );
+
+      if (slugError) {
+        throw slugError;
+      }
+
+      if (
+        slugRows &&
+        slugRows.length > 0
+      ) {
+        alert(
+          "That storefront URL is already being used. Choose another store URL."
+        );
+
+        setSavingSettings(
+          false
+        );
+
+        return;
+      }
+
       const payload = {
         organisation_id:
           organisationId,
@@ -2680,49 +2359,55 @@ export default function StorePage() {
           new Date().toISOString(),
       };
 
-      if (
-        storeSettings?.id
-      ) {
+      if (storeSettings?.id) {
         const {
+          data,
           error,
-        } =
-          await supabase
-            .from(
-              "store_settings"
-            )
-            .update(
-              payload
-            )
-            .eq(
-              "id",
-              storeSettings.id
-            )
-            .eq(
-              "organisation_id",
-              organisationId
-            );
+        } = await supabase
+          .from(
+            "store_settings"
+          )
+          .update(payload)
+          .eq(
+            "id",
+            storeSettings.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .select("*")
+          .maybeSingle();
 
-        if (
-          error
-        ) {
+        if (error) {
           throw error;
+        }
+
+        if (!data) {
+          throw new Error(
+            "Store settings were not updated. Check the store_settings RLS UPDATE policy."
+          );
         }
       } else {
         const {
+          data,
           error,
-        } =
-          await supabase
-            .from(
-              "store_settings"
-            )
-            .insert(
-              payload
-            );
+        } = await supabase
+          .from(
+            "store_settings"
+          )
+          .insert(payload)
+          .select("*")
+          .single();
 
-        if (
-          error
-        ) {
+        if (error) {
           throw error;
+        }
+
+        if (!data) {
+          throw new Error(
+            "Store settings were not created."
+          );
         }
       }
 
@@ -2730,16 +2415,12 @@ export default function StorePage() {
         resolvedSlug
       );
 
-      await loadData(
-        true
-      );
+      await loadData(true);
 
       alert(
-        "Store settings saved."
+        "Store settings saved. Your storefront is now using the updated settings."
       );
-    } catch (
-      error: any
-    ) {
+    } catch (error: any) {
       console.error(
         "Store settings save failed:",
         error
@@ -2766,9 +2447,7 @@ export default function StorePage() {
       : null;
 
   async function copyStorefrontUrl() {
-    if (
-      !storefrontUrl
-    ) {
+    if (!storefrontUrl) {
       return;
     }
 
@@ -2787,55 +2466,37 @@ export default function StorePage() {
         "Store URL copied."
       );
     } catch {
-      alert(
-        url
-      );
+      alert(url);
     }
   }
-
-  // ==========================================================
-  // TABS
-  // ==========================================================
 
   const tabs: {
     label: StoreTab;
     icon: any;
   }[] = [
     {
-      label:
-        "Overview",
-      icon:
-        Store,
+      label: "Overview",
+      icon: Store,
     },
     {
-      label:
-        "Products",
-      icon:
-        Package,
+      label: "Products",
+      icon: Package,
     },
     {
-      label:
-        "Orders",
-      icon:
-        ShoppingBag,
+      label: "Orders",
+      icon: ShoppingBag,
     },
     {
-      label:
-        "Inventory",
-      icon:
-        Boxes,
+      label: "Inventory",
+      icon: Boxes,
     },
     {
-      label:
-        "Discounts",
-      icon:
-        BadgePercent,
+      label: "Discounts",
+      icon: BadgePercent,
     },
     {
-      label:
-        "Settings",
-      icon:
-        Settings,
+      label: "Settings",
+      icon: Settings,
     },
   ];
 
@@ -2843,16 +2504,12 @@ export default function StorePage() {
   // LOADING
   // ==========================================================
 
-  if (
-    loading
-  ) {
+  if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2]">
         <div className="text-center">
           <Loader2
-            size={
-              28
-            }
+            size={28}
             className="mx-auto animate-spin text-[#829473]"
           />
 
@@ -2868,27 +2525,22 @@ export default function StorePage() {
   // ERROR
   // ==========================================================
 
-  if (
-    pageError
-  ) {
+  if (pageError) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
         <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-10 text-center">
           <AlertTriangle
-            size={
-              26
-            }
+            size={26}
             className="mx-auto text-amber-500"
           />
 
           <h1 className="mt-5 font-serif text-4xl italic">
-            Commerce couldn&apos;t load
+            Commerce couldn&apos;t
+            load
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-stone-500">
-            {
-              pageError
-            }
+            {pageError}
           </p>
 
           <button
@@ -2899,9 +2551,7 @@ export default function StorePage() {
             className="mt-7 inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-white"
           >
             <RefreshCw
-              size={
-                13
-              }
+              size={13}
             />
 
             Try again
@@ -2917,18 +2567,14 @@ export default function StorePage() {
 
   return (
     <main className="min-h-screen bg-[#f7f5f2] pb-28 text-stone-900">
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
+      {/* HEADER */}
 
       <header className="mx-auto max-w-[1400px] px-4 pb-7 pt-10 sm:px-6 lg:px-8 lg:pt-14">
         <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2">
               <ShoppingBag
-                size={
-                  13
-                }
+                size={13}
                 className="text-[#829473]"
               />
 
@@ -2939,24 +2585,21 @@ export default function StorePage() {
 
             <h1 className="max-w-4xl font-serif text-5xl italic leading-none tracking-tight text-stone-900 sm:text-6xl lg:text-7xl">
               Your store,
-              connected to
-              your business.
+              connected to your
+              business.
             </h1>
 
             <p className="mt-5 max-w-2xl text-sm leading-6 text-stone-500">
               Manage products,
               orders, stock and
               your public
-              storefront
-              alongside the rest
-              of TOTS-OS.
+              storefront alongside
+              the rest of TOTS-OS.
             </p>
 
             {organisationName && (
               <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-stone-400">
-                {
-                  organisationName
-                }
+                {organisationName}
               </p>
             )}
           </div>
@@ -2964,17 +2607,13 @@ export default function StorePage() {
           <div className="flex flex-wrap gap-2">
             {storefrontUrl && (
               <a
-                href={
-                  storefrontUrl
-                }
+                href={storefrontUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500 no-underline"
               >
                 <ExternalLink
-                  size={
-                    13
-                  }
+                  size={13}
                 />
 
                 View storefront
@@ -2983,9 +2622,7 @@ export default function StorePage() {
 
             <button
               type="button"
-              disabled={
-                refreshing
-              }
+              disabled={refreshing}
               onClick={() =>
                 void loadData(
                   true
@@ -2994,9 +2631,7 @@ export default function StorePage() {
               className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500 disabled:opacity-50"
             >
               <RefreshCw
-                size={
-                  13
-                }
+                size={13}
                 className={
                   refreshing
                     ? "animate-spin"
@@ -3014,11 +2649,7 @@ export default function StorePage() {
               }
               className="flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#a9b897]"
             >
-              <Plus
-                size={
-                  14
-                }
-              />
+              <Plus size={14} />
 
               New Product
             </button>
@@ -3026,17 +2657,13 @@ export default function StorePage() {
         </div>
       </header>
 
-      {/* ======================================================
-          NAV
-      ====================================================== */}
+      {/* NAV */}
 
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="no-scrollbar overflow-x-auto">
           <div className="flex min-w-max gap-1 rounded-2xl border border-stone-200 bg-white p-1.5">
             {tabs.map(
-              (
-                tab
-              ) => {
+              (tab) => {
                 const Icon =
                   tab.icon;
 
@@ -3062,14 +2689,10 @@ export default function StorePage() {
                     }`}
                   >
                     <Icon
-                      size={
-                        14
-                      }
+                      size={14}
                     />
 
-                    {
-                      tab.label
-                    }
+                    {tab.label}
                   </button>
                 );
               }
@@ -3078,17 +2701,13 @@ export default function StorePage() {
         </div>
       </div>
 
-      {/* ======================================================
-          CONTENT
-      ====================================================== */}
+      {/* CONTENT */}
 
       <section className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
         <AnimatePresence
           mode="wait"
         >
-          {/* ==================================================
-              OVERVIEW
-          ================================================== */}
+          {/* OVERVIEW */}
 
           {activeTab ===
             "Overview" && (
@@ -3111,21 +2730,21 @@ export default function StorePage() {
                 <div className="flex items-start gap-4">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#a9b897]/10 text-[#829473]">
                     <Sparkles
-                      size={
-                        18
-                      }
+                      size={18}
                     />
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <SectionEyebrow>
-                      TOTS Commerce Summary
+                      TOTS Commerce
+                      Summary
                     </SectionEyebrow>
 
                     {orders.length ||
                     products.length ? (
                       <p className="mt-2 max-w-4xl text-lg leading-8 text-stone-700">
-                        Your store currently has{" "}
+                        Your store
+                        currently has{" "}
                         <strong>
                           {
                             products.length
@@ -3146,7 +2765,9 @@ export default function StorePage() {
                           }{" "}
                           stock warnings
                         </strong>
-                        . Paid order value currently visible is{" "}
+                        . Paid order
+                        value currently
+                        visible is{" "}
                         <strong>
                           {money(
                             displayRevenue
@@ -3156,7 +2777,14 @@ export default function StorePage() {
                       </p>
                     ) : (
                       <p className="mt-2 max-w-4xl text-lg leading-8 text-stone-700">
-                        Your commerce workspace is ready. Start by adding your first product and finishing your storefront settings.
+                        Your commerce
+                        workspace is
+                        ready. Start by
+                        adding your
+                        first product
+                        and finishing
+                        your storefront
+                        settings.
                       </p>
                     )}
                   </div>
@@ -3168,15 +2796,25 @@ export default function StorePage() {
                   <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <SectionEyebrow>
-                        Storefront setup
+                        Storefront
+                        setup
                       </SectionEyebrow>
 
                       <h2 className="mt-2 font-serif text-3xl italic">
-                        Finish setting up your online store.
+                        Finish setting
+                        up your online
+                        store.
                       </h2>
 
                       <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-                        Add your store name, public URL, description and branding before putting the storefront live.
+                        Add your store
+                        name, public
+                        URL,
+                        description
+                        and branding
+                        before putting
+                        the storefront
+                        live.
                       </p>
                     </div>
 
@@ -3192,9 +2830,7 @@ export default function StorePage() {
                       Set up store
 
                       <ArrowRight
-                        size={
-                          13
-                        }
+                        size={13}
                       />
                     </button>
                   </div>
@@ -3252,7 +2888,8 @@ export default function StorePage() {
                       </SectionEyebrow>
 
                       <h2 className="mt-1 font-serif text-2xl italic">
-                        Orders needing attention
+                        Orders needing
+                        attention
                       </h2>
                     </div>
 
@@ -3280,14 +2917,9 @@ export default function StorePage() {
                   ) : (
                     <div className="space-y-3">
                       {openOrders
-                        .slice(
-                          0,
-                          4
-                        )
+                        .slice(0, 4)
                         .map(
-                          (
-                            order
-                          ) => (
+                          (order) => (
                             <OrderRow
                               key={
                                 order.id
@@ -3453,68 +3085,67 @@ export default function StorePage() {
                 </Panel>
 
                 <Panel>
-                  <div className="mb-6">
-                    <SectionEyebrow>
-                      Inventory
-                    </SectionEyebrow>
+                  <SectionEyebrow>
+                    Inventory
+                  </SectionEyebrow>
 
-                    <h2 className="mt-1 font-serif text-2xl italic">
-                      Stock warnings
-                    </h2>
-                  </div>
+                  <h2 className="mt-1 font-serif text-2xl italic">
+                    Stock warnings
+                  </h2>
 
-                  {!lowStockProducts.length ? (
-                    <EmptyState
-                      icon={
-                        Check
-                      }
-                      title="Stock looks healthy"
-                      text="Nothing is currently below your low-stock threshold."
-                    />
-                  ) : (
-                    <div className="space-y-3">
-                      {lowStockProducts.map(
-                        (
-                          product
-                        ) => (
-                          <button
-                            type="button"
-                            key={
-                              product.id
-                            }
-                            onClick={() =>
-                              openStockAdjust(
-                                product
-                              )
-                            }
-                            className="flex w-full items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left"
-                          >
-                            <div>
-                              <p className="text-sm font-semibold text-stone-700">
-                                {
-                                  product.name
-                                }
-                              </p>
-
-                              <p className="mt-1 text-[10px] text-amber-700">
-                                {
-                                  product.inventory_quantity
-                                }{" "}
-                                left in stock
-                              </p>
-                            </div>
-
-                            <AlertTriangle
-                              size={
-                                16
+                  <div className="mt-6">
+                    {!lowStockProducts.length ? (
+                      <EmptyState
+                        icon={Check}
+                        title="Stock looks healthy"
+                        text="Nothing is currently below your low-stock threshold."
+                      />
+                    ) : (
+                      <div className="space-y-3">
+                        {lowStockProducts.map(
+                          (
+                            product
+                          ) => (
+                            <button
+                              type="button"
+                              key={
+                                product.id
                               }
-                              className="text-amber-500"
-                            />
-                          </button>
-                        )
-                      )}
-                    </div>
-                  )}
+                              onClick={() =>
+                                openStockAdjust(
+                                  product
+                                )
+                              }
+                              className="flex w-full items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-stone-700">
+                                  {
+                                    product.name
+                                  }
+                                </p>
+
+                                <p className="mt-1 text-[10px] text-amber-700">
+                                  {
+                                    product.inventory_quantity
+                                  }{" "}
+                                  left in
+                                  stock
+                                </p>
+                              </div>
+
+                              <AlertTriangle
+                                size={
+                                  16
+                                }
+                                className="text-amber-500"
+                              />
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </Panel>
               </div>
 
@@ -3524,14 +3155,14 @@ export default function StorePage() {
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-2xl italic">
-                  Commerce inside the rest of TOTS-OS
+                  Commerce inside
+                  the rest of
+                  TOTS-OS
                 </h2>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-4">
                   <ConnectionCard
-                    icon={
-                      Users
-                    }
+                    icon={Users}
                     title="Customers"
                     text="Store customers can become CRM contacts instead of living in another system."
                   />
@@ -3564,9 +3195,7 @@ export default function StorePage() {
             </motion.div>
           )}
 
-          {/* ==================================================
-              PRODUCTS
-          ================================================== */}
+          {/* PRODUCTS */}
 
           {activeTab ===
             "Products" && (
@@ -3591,16 +3220,21 @@ export default function StorePage() {
                     </h2>
 
                     <p className="mt-2 text-sm text-stone-500">
-                      Products created here feed directly into your public TOTS storefront.
+                      Products
+                      created here
+                      are the same
+                      database
+                      products used
+                      by your public
+                      TOTS
+                      storefront.
                     </p>
                   </div>
 
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <div className="relative">
                       <Search
-                        size={
-                          14
-                        }
+                        size={14}
                         className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
                       />
 
@@ -3612,7 +3246,9 @@ export default function StorePage() {
                           event
                         ) =>
                           setProductSearch(
-                            event.target.value
+                            event
+                              .target
+                              .value
                           )
                         }
                         placeholder="Search products..."
@@ -3628,9 +3264,7 @@ export default function StorePage() {
                       className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase text-white"
                     >
                       <Plus
-                        size={
-                          13
-                        }
+                        size={13}
                       />
 
                       New Product
@@ -3643,23 +3277,18 @@ export default function StorePage() {
                     <span>
                       Product
                     </span>
-
                     <span>
                       Category
                     </span>
-
                     <span>
                       Price
                     </span>
-
                     <span>
                       Stock
                     </span>
-
                     <span>
                       Status
                     </span>
-
                     <span />
                   </div>
 
@@ -3688,7 +3317,8 @@ export default function StorePage() {
                               }
                             />
 
-                            Add first product
+                            Add first
+                            product
                           </button>
                         </div>
                       )}
@@ -3782,7 +3412,8 @@ export default function StorePage() {
                               product.inventory_quantity <
                                 900 && (
                                 <p className="mt-1 text-[9px] text-amber-600">
-                                  Low stock
+                                  Low
+                                  stock
                                 </p>
                               )}
                           </button>
@@ -3849,9 +3480,7 @@ export default function StorePage() {
             </motion.div>
           )}
 
-          {/* ==================================================
-              ORDERS
-          ================================================== */}
+          {/* ORDERS */}
 
           {activeTab ===
             "Orders" && (
@@ -3877,9 +3506,7 @@ export default function StorePage() {
                 />
 
                 <StoreMetric
-                  icon={
-                    Package
-                  }
+                  icon={Package}
                   label="Open"
                   value={String(
                     openOrders.length
@@ -3919,15 +3546,17 @@ export default function StorePage() {
                     </h2>
 
                     <p className="mt-2 text-sm text-stone-500">
-                      Orders placed through the TOTS storefront will appear here.
+                      Orders placed
+                      through the
+                      TOTS storefront
+                      will appear
+                      here.
                     </p>
                   </div>
 
                   <div className="relative">
                     <Search
-                      size={
-                        14
-                      }
+                      size={14}
                       className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
                     />
 
@@ -3939,7 +3568,9 @@ export default function StorePage() {
                         event
                       ) =>
                         setOrderSearch(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
                       placeholder="Search orders..."
@@ -3961,9 +3592,7 @@ export default function StorePage() {
                 ) : (
                   <div className="mt-8 space-y-3">
                     {filteredOrders.map(
-                      (
-                        order
-                      ) => (
+                      (order) => (
                         <div
                           key={
                             order.id
@@ -4015,7 +3644,8 @@ export default function StorePage() {
                                   {
                                     order.items
                                   }{" "}
-                                  items ·{" "}
+                                  items
+                                  ·{" "}
                                   {
                                     order.createdAt
                                   }
@@ -4083,9 +3713,7 @@ export default function StorePage() {
             </motion.div>
           )}
 
-          {/* ==================================================
-              INVENTORY
-          ================================================== */}
+          {/* INVENTORY */}
 
           {activeTab ===
             "Inventory" && (
@@ -4111,13 +3739,20 @@ export default function StorePage() {
                     </h2>
 
                     <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-                      Stock levels here are the same stock levels used by the public storefront, so sold-out products can be blocked automatically.
+                      Stock levels
+                      here are
+                      written directly
+                      to the same
+                      products used
+                      by the public
+                      storefront.
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-stone-50 px-5 py-4">
                     <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
-                      Low stock threshold
+                      Low stock
+                      threshold
                     </p>
 
                     <div className="mt-2 flex items-center gap-2">
@@ -4131,7 +3766,9 @@ export default function StorePage() {
                           event
                         ) =>
                           setLowStockThreshold(
-                            event.target.value
+                            event
+                              .target
+                              .value
                           )
                         }
                         className="w-20 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs outline-none"
@@ -4147,18 +3784,14 @@ export default function StorePage() {
 
               {!products.length ? (
                 <EmptyState
-                  icon={
-                    Boxes
-                  }
+                  icon={Boxes}
                   title="Nothing to track yet"
                   text="Create products first and their inventory will appear here."
                 />
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {products.map(
-                    (
-                      product
-                    ) => {
+                    (product) => {
                       const low =
                         product.inventory_quantity <=
                         Number(
@@ -4252,9 +3885,7 @@ export default function StorePage() {
             </motion.div>
           )}
 
-          {/* ==================================================
-              DISCOUNTS
-          ================================================== */}
+          {/* DISCOUNTS */}
 
           {activeTab ===
             "Discounts" && (
@@ -4268,12 +3899,10 @@ export default function StorePage() {
               }}
             >
               <Panel>
-                <div className="flex h-full min-h-[450px] flex-col items-center justify-center text-center">
+                <div className="flex min-h-[450px] flex-col items-center justify-center text-center">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#edf1e8] text-[#82936b]">
                     <BadgePercent
-                      size={
-                        22
-                      }
+                      size={22}
                     />
                   </div>
 
@@ -4282,18 +3911,23 @@ export default function StorePage() {
                   </SectionEyebrow>
 
                   <h2 className="mt-2 font-serif text-4xl italic">
-                    Discount codes are next.
+                    Discount codes
+                    are next.
                   </h2>
 
                   <p className="mt-3 max-w-lg text-sm leading-7 text-stone-500">
-                    The commerce database currently has products, orders, order items and storefront settings, but it does not yet have a dedicated discount-code table. I&apos;d add that next so codes, usage limits, expiry dates and order discounts are properly persistent.
+                    Add a dedicated
+                    discount table
+                    next so codes,
+                    usage limits,
+                    expiry dates and
+                    order discounts
+                    are persistent.
                   </p>
 
                   <div className="mt-7 grid w-full max-w-2xl gap-3 sm:grid-cols-3">
                     <MiniFeature
-                      icon={
-                        Tag
-                      }
+                      icon={Tag}
                       title="Codes"
                       text="WELCOME10"
                     />
@@ -4319,9 +3953,7 @@ export default function StorePage() {
             </motion.div>
           )}
 
-          {/* ==================================================
-              SETTINGS
-          ================================================== */}
+          {/* SETTINGS */}
 
           {activeTab ===
             "Settings" && (
@@ -4339,7 +3971,8 @@ export default function StorePage() {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <SectionEyebrow>
-                      Public Storefront
+                      Public
+                      Storefront
                     </SectionEyebrow>
 
                     <h2 className="mt-1 font-serif text-3xl italic">
@@ -4347,7 +3980,13 @@ export default function StorePage() {
                     </h2>
 
                     <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-                      These settings control the public store at{" "}
+                      These settings
+                      are stored in
+                      your
+                      store_settings
+                      row and control
+                      the public
+                      store at{" "}
                       <strong>
                         /shop/
                         {slug ||
@@ -4367,9 +4006,7 @@ export default function StorePage() {
                         className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-stone-500"
                       >
                         <Copy
-                          size={
-                            12
-                          }
+                          size={12}
                         />
 
                         Copy URL
@@ -4396,9 +4033,7 @@ export default function StorePage() {
                 </div>
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
-                  <Field
-                    label="Store Name"
-                  >
+                  <Field label="Store Name">
                     <input
                       value={
                         storeName
@@ -4407,7 +4042,9 @@ export default function StorePage() {
                         event
                       ) =>
                         setStoreName(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
                       className="store-input"
@@ -4415,24 +4052,22 @@ export default function StorePage() {
                     />
                   </Field>
 
-                  <Field
-                    label="Store URL"
-                  >
+                  <Field label="Store URL">
                     <div className="flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
                       <span className="flex items-center border-r border-stone-200 px-3 text-[10px] text-stone-400">
                         /shop/
                       </span>
 
                       <input
-                        value={
-                          slug
-                        }
+                        value={slug}
                         onChange={(
                           event
                         ) =>
                           setSlug(
                             createSlug(
-                              event.target.value
+                              event
+                                .target
+                                .value
                             )
                           )
                         }
@@ -4442,9 +4077,7 @@ export default function StorePage() {
                     </div>
                   </Field>
 
-                  <Field
-                    label="Support Email"
-                  >
+                  <Field label="Support Email">
                     <input
                       type="email"
                       value={
@@ -4454,7 +4087,9 @@ export default function StorePage() {
                         event
                       ) =>
                         setSupportEmail(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
                       className="store-input"
@@ -4462,9 +4097,7 @@ export default function StorePage() {
                     />
                   </Field>
 
-                  <Field
-                    label="Accent Colour"
-                  >
+                  <Field label="Accent Colour">
                     <div className="flex gap-2">
                       <input
                         type="color"
@@ -4475,7 +4108,9 @@ export default function StorePage() {
                           event
                         ) =>
                           setAccentColour(
-                            event.target.value
+                            event
+                              .target
+                              .value
                           )
                         }
                         className="h-[48px] w-14 cursor-pointer rounded-xl border border-stone-200 bg-white p-1"
@@ -4489,7 +4124,9 @@ export default function StorePage() {
                           event
                         ) =>
                           setAccentColour(
-                            event.target.value
+                            event
+                              .target
+                              .value
                           )
                         }
                         className="store-input"
@@ -4509,20 +4146,18 @@ export default function StorePage() {
                         event
                       ) =>
                         setStoreDescription(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
-                      rows={
-                        4
-                      }
+                      rows={4}
                       className="store-input resize-none"
                       placeholder="Tell customers about your business..."
                     />
                   </Field>
 
-                  <Field
-                    label="Hero Title"
-                  >
+                  <Field label="Hero Title">
                     <input
                       value={
                         heroTitle
@@ -4531,7 +4166,9 @@ export default function StorePage() {
                         event
                       ) =>
                         setHeroTitle(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
                       className="store-input"
@@ -4539,9 +4176,7 @@ export default function StorePage() {
                     />
                   </Field>
 
-                  <Field
-                    label="Announcement"
-                  >
+                  <Field label="Announcement">
                     <input
                       value={
                         announcement
@@ -4550,7 +4185,9 @@ export default function StorePage() {
                         event
                       ) =>
                         setAnnouncement(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
                       className="store-input"
@@ -4570,12 +4207,12 @@ export default function StorePage() {
                         event
                       ) =>
                         setHeroText(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
-                      rows={
-                        3
-                      }
+                      rows={3}
                       className="store-input resize-none"
                     />
                   </Field>
@@ -4592,7 +4229,9 @@ export default function StorePage() {
                         event
                       ) =>
                         setShippingText(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
                       className="store-input"
@@ -4600,9 +4239,7 @@ export default function StorePage() {
                     />
                   </Field>
 
-                  <Field
-                    label="Currency"
-                  >
+                  <Field label="Currency">
                     <select
                       value={
                         currency
@@ -4611,7 +4248,9 @@ export default function StorePage() {
                         event
                       ) =>
                         setCurrency(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
                       className="store-input"
@@ -4630,9 +4269,7 @@ export default function StorePage() {
                     </select>
                   </Field>
 
-                  <Field
-                    label="Low Stock Warning"
-                  >
+                  <Field label="Low Stock Warning">
                     <input
                       type="number"
                       min="0"
@@ -4643,7 +4280,9 @@ export default function StorePage() {
                         event
                       ) =>
                         setLowStockThreshold(
-                          event.target.value
+                          event
+                            .target
+                            .value
                         )
                       }
                       className="store-input"
@@ -4654,11 +4293,20 @@ export default function StorePage() {
                 <div className="mt-7 flex flex-col gap-4 rounded-2xl bg-stone-50 p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-stone-700">
-                      Public storefront
+                      Public
+                      storefront
                     </p>
 
                     <p className="mt-1 text-xs leading-5 text-stone-400">
-                      When live, customers can access your shop using your public store URL.
+                      Save after
+                      changing this
+                      switch. The
+                      public
+                      storefront can
+                      use is_live to
+                      decide whether
+                      the store is
+                      accessible.
                     </p>
                   </div>
 
@@ -4700,16 +4348,12 @@ export default function StorePage() {
                 >
                   {savingSettings ? (
                     <Loader2
-                      size={
-                        14
-                      }
+                      size={14}
                       className="animate-spin"
                     />
                   ) : (
                     <Check
-                      size={
-                        14
-                      }
+                      size={14}
                     />
                   )}
 
@@ -4727,7 +4371,9 @@ export default function StorePage() {
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-2xl italic">
-                  Connect commerce to the rest of the business
+                  Connect commerce
+                  to the rest of the
+                  business
                 </h2>
 
                 <div className="mt-7 space-y-4">
@@ -4771,7 +4417,8 @@ export default function StorePage() {
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-2xl italic">
-                  Your selling channel
+                  Your selling
+                  channel
                 </h2>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-3">
@@ -4801,17 +4448,13 @@ export default function StorePage() {
         </AnimatePresence>
       </section>
 
-      {/* ======================================================
-          PRODUCT MODAL
-      ====================================================== */}
+      {/* PRODUCT MODAL */}
 
       <AnimatePresence>
         {showProductModal && (
           <ModalShell
             onClose={() => {
-              if (
-                !savingProduct
-              ) {
+              if (!savingProduct) {
                 setShowProductModal(
                   false
                 );
@@ -4833,18 +4476,17 @@ export default function StorePage() {
 
               <button
                 type="button"
+                disabled={
+                  savingProduct
+                }
                 onClick={() =>
                   setShowProductModal(
                     false
                   )
                 }
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50 disabled:opacity-50"
               >
-                <X
-                  size={
-                    15
-                  }
-                />
+                <X size={15} />
               </button>
             </div>
 
@@ -4859,26 +4501,76 @@ export default function StorePage() {
                   }
                   onChange={(
                     event
-                  ) =>
+                  ) => {
+                    const value =
+                      event.target
+                        .value;
+
                     setProductForm(
                       (
                         previous
                       ) => ({
                         ...previous,
 
-                        name:
-                          event.target.value,
+                        name: value,
+
+                        slug:
+                          !previous.id &&
+                          (!previous.slug ||
+                            previous.slug ===
+                              createSlug(
+                                previous.name
+                              ))
+                            ? createSlug(
+                                value
+                              )
+                            : previous.slug,
                       })
-                    )
-                  }
+                    );
+                  }}
                   placeholder="Classic Canvas Tote"
                   className="store-input"
                 />
               </Field>
 
               <Field
-                label="SKU"
+                label="Product URL"
+                className="md:col-span-2"
               >
+                <div className="flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+                  <span className="flex items-center border-r border-stone-200 px-3 text-[10px] text-stone-400">
+                    product/
+                  </span>
+
+                  <input
+                    value={
+                      productForm.slug
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setProductForm(
+                        (
+                          previous
+                        ) => ({
+                          ...previous,
+
+                          slug:
+                            createSlug(
+                              event
+                                .target
+                                .value
+                            ),
+                        })
+                      )
+                    }
+                    placeholder="classic-canvas-tote"
+                    className="min-w-0 flex-1 bg-transparent px-3 py-3 text-xs outline-none"
+                  />
+                </div>
+              </Field>
+
+              <Field label="SKU">
                 <input
                   value={
                     productForm.sku
@@ -4893,7 +4585,8 @@ export default function StorePage() {
                         ...previous,
 
                         sku:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
@@ -4902,9 +4595,7 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field
-                label="Category"
-              >
+              <Field label="Category">
                 <input
                   value={
                     productForm.category
@@ -4919,7 +4610,8 @@ export default function StorePage() {
                         ...previous,
 
                         category:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
@@ -4927,9 +4619,7 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field
-                label="Sale Price"
-              >
+              <Field label="Sale Price">
                 <input
                   type="number"
                   min="0"
@@ -4947,7 +4637,8 @@ export default function StorePage() {
                         ...previous,
 
                         price:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
@@ -4956,9 +4647,7 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field
-                label="Compare At Price"
-              >
+              <Field label="Compare At Price">
                 <input
                   type="number"
                   min="0"
@@ -4976,7 +4665,8 @@ export default function StorePage() {
                         ...previous,
 
                         compareAtPrice:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
@@ -4985,9 +4675,7 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field
-                label="Cost Price"
-              >
+              <Field label="Cost Price">
                 <input
                   type="number"
                   min="0"
@@ -5005,7 +4693,8 @@ export default function StorePage() {
                         ...previous,
 
                         cost:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
@@ -5014,12 +4703,11 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field
-                label="Stock"
-              >
+              <Field label="Stock">
                 <input
                   type="number"
                   min="0"
+                  step="1"
                   value={
                     productForm.stock
                   }
@@ -5033,7 +4721,8 @@ export default function StorePage() {
                         ...previous,
 
                         stock:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
@@ -5042,9 +4731,7 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field
-                label="Status"
-              >
+              <Field label="Status">
                 <select
                   value={
                     productForm.status
@@ -5059,7 +4746,8 @@ export default function StorePage() {
                         ...previous,
 
                         status:
-                          event.target.value as ProductStatus,
+                          event.target
+                            .value as ProductStatus,
                       })
                     )
                   }
@@ -5097,13 +4785,26 @@ export default function StorePage() {
                         ...previous,
 
                         imageUrl:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
                   placeholder="https://..."
                   className="store-input"
                 />
+
+                {productForm.imageUrl && (
+                  <div className="mt-3 overflow-hidden rounded-2xl border border-stone-100 bg-stone-50">
+                    <img
+                      src={
+                        productForm.imageUrl
+                      }
+                      alt="Product preview"
+                      className="h-52 w-full object-cover"
+                    />
+                  </div>
+                )}
               </Field>
 
               <Field
@@ -5124,26 +4825,28 @@ export default function StorePage() {
                         ...previous,
 
                         description:
-                          event.target.value,
+                          event.target
+                            .value,
                       })
                     )
                   }
-                  rows={
-                    4
-                  }
+                  rows={4}
                   placeholder="Tell customers about this product..."
                   className="store-input resize-none"
                 />
               </Field>
 
-              <div className="md:col-span-2 flex items-center justify-between rounded-xl bg-stone-50 p-4">
+              <div className="flex items-center justify-between rounded-xl bg-stone-50 p-4 md:col-span-2">
                 <div>
                   <p className="text-sm font-semibold text-stone-700">
-                    Featured product
+                    Featured
+                    product
                   </p>
 
                   <p className="mt-1 text-[10px] text-stone-400">
-                    Highlight this product on the storefront.
+                    Highlight this
+                    product on the
+                    storefront.
                   </p>
                 </div>
 
@@ -5190,22 +4893,16 @@ export default function StorePage() {
             >
               {savingProduct ? (
                 <Loader2
-                  size={
-                    14
-                  }
+                  size={14}
                   className="animate-spin"
                 />
               ) : productForm.id ? (
                 <Check
-                  size={
-                    14
-                  }
+                  size={14}
                 />
               ) : (
                 <Plus
-                  size={
-                    14
-                  }
+                  size={14}
                 />
               )}
 
@@ -5219,17 +4916,13 @@ export default function StorePage() {
         )}
       </AnimatePresence>
 
-      {/* ======================================================
-          STOCK MODAL
-      ====================================================== */}
+      {/* STOCK MODAL */}
 
       <AnimatePresence>
         {stockAdjust && (
           <ModalShell
             onClose={() => {
-              if (
-                !savingStock
-              ) {
+              if (!savingStock) {
                 setStockAdjust(
                   null
                 );
@@ -5248,25 +4941,26 @@ export default function StorePage() {
 
                 <p className="mt-2 text-sm text-stone-500">
                   {
-                    stockAdjust.product.name
+                    stockAdjust
+                      .product
+                      .name
                   }
                 </p>
               </div>
 
               <button
                 type="button"
+                disabled={
+                  savingStock
+                }
                 onClick={() =>
                   setStockAdjust(
                     null
                   )
                 }
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50 disabled:opacity-50"
               >
-                <X
-                  size={
-                    15
-                  }
-                />
+                <X size={15} />
               </button>
             </div>
 
@@ -5277,7 +4971,9 @@ export default function StorePage() {
 
               <p className="mt-2 font-serif text-4xl italic">
                 {
-                  stockAdjust.product.inventory_quantity
+                  stockAdjust
+                    .product
+                    .inventory_quantity
                 }
               </p>
             </div>
@@ -5304,7 +5000,9 @@ export default function StorePage() {
                             ...previous,
 
                             quantity:
-                              event.target.value,
+                              event
+                                .target
+                                .value,
                           }
                         : previous
                   )
@@ -5320,14 +5018,10 @@ export default function StorePage() {
                 1,
                 5,
               ].map(
-                (
-                  amount
-                ) => (
+                (amount) => (
                   <button
                     type="button"
-                    key={
-                      amount
-                    }
+                    key={amount}
                     onClick={() =>
                       setStockAdjust(
                         (
@@ -5359,8 +5053,7 @@ export default function StorePage() {
                     }
                     className="rounded-xl border border-stone-200 bg-stone-50 py-3 text-xs font-semibold text-stone-500"
                   >
-                    {amount >
-                    0
+                    {amount > 0
                       ? `+${amount}`
                       : amount}
                   </button>
@@ -5380,16 +5073,12 @@ export default function StorePage() {
             >
               {savingStock ? (
                 <Loader2
-                  size={
-                    14
-                  }
+                  size={14}
                   className="animate-spin"
                 />
               ) : (
                 <Check
-                  size={
-                    14
-                  }
+                  size={14}
                 />
               )}
 
@@ -5401,9 +5090,7 @@ export default function StorePage() {
         )}
       </AnimatePresence>
 
-      {/* ======================================================
-          STYLES
-      ====================================================== */}
+      {/* STYLES */}
 
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap");
@@ -5454,26 +5141,21 @@ export default function StorePage() {
 }
 
 // ============================================================
-// SHARED COMPONENTS
+// COMPONENTS
 // ============================================================
 
 function Panel({
   children,
   className = "",
 }: {
-  children:
-    ReactNode;
-
-  className?:
-    string;
+  children: ReactNode;
+  className?: string;
 }) {
   return (
     <div
       className={`rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8 ${className}`}
     >
-      {
-        children
-      }
+      {children}
     </div>
   );
 }
@@ -5482,57 +5164,40 @@ function SectionEyebrow({
   children,
   className = "",
 }: {
-  children:
-    ReactNode;
-
-  className?:
-    string;
+  children: ReactNode;
+  className?: string;
 }) {
   return (
     <p
       className={`text-[9px] font-black uppercase tracking-[0.2em] text-[#829473] ${className}`}
     >
-      {
-        children
-      }
+      {children}
     </p>
   );
 }
 
 function StoreMetric({
-  icon:
-    Icon,
+  icon: Icon,
   value,
   label,
 }: {
-  icon:
-    any;
-
-  value:
-    string;
-
-  label:
-    string;
+  icon: any;
+  value: string;
+  label: string;
 }) {
   return (
     <div className="rounded-[1.7rem] border border-stone-200 bg-white p-5">
       <Icon
-        size={
-          18
-        }
+        size={18}
         className="mb-6 text-stone-300"
       />
 
       <p className="font-serif text-2xl italic text-stone-800 sm:text-3xl">
-        {
-          value
-        }
+        {value}
       </p>
 
       <p className="mt-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
-        {
-          label
-        }
+        {label}
       </p>
     </div>
   );
@@ -5542,24 +5207,17 @@ function DetailRow({
   label,
   value,
 }: {
-  label:
-    string;
-
-  value:
-    string;
+  label: string;
+  value: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-stone-100 pb-4 last:border-0">
       <span className="text-xs text-stone-400">
-        {
-          label
-        }
+        {label}
       </span>
 
       <span className="text-right text-xs font-semibold text-stone-700">
-        {
-          value
-        }
+        {value}
       </span>
     </div>
   );
@@ -5570,30 +5228,17 @@ function Field({
   children,
   className = "",
 }: {
-  label:
-    string;
-
-  children:
-    ReactNode;
-
-  className?:
-    string;
+  label: string;
+  children: ReactNode;
+  className?: string;
 }) {
   return (
-    <div
-      className={
-        className
-      }
-    >
+    <div className={className}>
       <label className="mb-2 block text-[8px] font-black uppercase tracking-wider text-stone-400">
-        {
-          label
-        }
+        {label}
       </label>
 
-      {
-        children
-      }
+      {children}
     </div>
   );
 }
@@ -5601,24 +5246,19 @@ function Field({
 function StatusBadge({
   status,
 }: {
-  status:
-    ProductStatus;
+  status: ProductStatus;
 }) {
   return (
     <span
       className={`w-fit rounded-full px-3 py-1 text-[8px] font-black uppercase ${
-        status ===
-        "active"
+        status === "active"
           ? "bg-[#edf1e8] text-[#82936b]"
-          : status ===
-              "draft"
+          : status === "draft"
             ? "bg-amber-50 text-amber-600"
             : "bg-stone-100 text-stone-500"
       }`}
     >
-      {
-        status
-      }
+      {status}
     </span>
   );
 }
@@ -5626,14 +5266,12 @@ function StatusBadge({
 function OrderStatusBadge({
   status,
 }: {
-  status:
-    OrderStatus;
+  status: OrderStatus;
 }) {
   return (
     <span
       className={`rounded-full px-3 py-1 text-[8px] font-black uppercase ${
-        status ===
-        "new"
+        status === "new"
           ? "bg-blue-50 text-blue-600"
           : status ===
               "processing"
@@ -5647,21 +5285,18 @@ function OrderStatusBadge({
                 : "bg-red-50 text-red-500"
       }`}
     >
-      {
-        status ===
-        "new"
-          ? "New"
+      {status === "new"
+        ? "New"
+        : status ===
+            "processing"
+          ? "Processing"
           : status ===
-              "processing"
-            ? "Processing"
+              "dispatched"
+            ? "Dispatched"
             : status ===
-                "dispatched"
-              ? "Dispatched"
-              : status ===
-                  "delivered"
-                ? "Delivered"
-                : "Cancelled"
-      }
+                "delivered"
+              ? "Delivered"
+              : "Cancelled"}
     </span>
   );
 }
@@ -5669,14 +5304,12 @@ function OrderStatusBadge({
 function PaymentBadge({
   status,
 }: {
-  status:
-    PaymentStatus;
+  status: PaymentStatus;
 }) {
   return (
     <span
       className={`rounded-full px-3 py-1 text-[8px] font-black uppercase ${
-        status ===
-        "paid"
+        status === "paid"
           ? "bg-emerald-50 text-emerald-600"
           : status ===
               "pending"
@@ -5684,9 +5317,7 @@ function PaymentBadge({
             : "bg-red-50 text-red-500"
       }`}
     >
-      {
-        status
-      }
+      {status}
     </span>
   );
 }
@@ -5697,30 +5328,22 @@ function OrderRow({
   onAdvance,
   loading = false,
 }: {
-  order:
-    Order;
+  order: Order;
 
-  money:
-    (
-      value:
-        | number
-        | string
-    ) => string;
+  money: (
+    value: number | string
+  ) => string;
 
-  onAdvance:
-    () => void;
+  onAdvance: () => void;
 
-  loading?:
-    boolean;
+  loading?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl bg-stone-50 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-semibold">
-            {
-              order.number
-            }
+            {order.number}
           </p>
 
           <OrderStatusBadge
@@ -5731,44 +5354,29 @@ function OrderRow({
         </div>
 
         <p className="mt-2 text-xs text-stone-600">
-          {
-            order.customer
-          }
+          {order.customer}
         </p>
 
         <p className="mt-1 text-[10px] text-stone-400">
-          {
-            order.items
-          }{" "}
-          items ·{" "}
-          {
-            order.createdAt
-          }
+          {order.items} items ·{" "}
+          {order.createdAt}
         </p>
       </div>
 
       <div className="flex items-center justify-between gap-4 sm:justify-end">
         <p className="font-serif text-xl italic">
-          {money(
-            order.total
-          )}
+          {money(order.total)}
         </p>
 
         <button
           type="button"
-          disabled={
-            loading
-          }
-          onClick={
-            onAdvance
-          }
+          disabled={loading}
+          onClick={onAdvance}
           className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[8px] font-black uppercase text-stone-500 disabled:opacity-50"
         >
           {loading ? (
             <Loader2
-              size={
-                12
-              }
+              size={12}
               className="animate-spin"
             />
           ) : (
@@ -5782,9 +5390,7 @@ function OrderRow({
                   : "Complete"}
 
               <ChevronRight
-                size={
-                  12
-                }
+                size={12}
               />
             </>
           )}
@@ -5795,79 +5401,53 @@ function OrderRow({
 }
 
 function EmptyState({
-  icon:
-    Icon,
+  icon: Icon,
   title,
   text,
 }: {
-  icon:
-    any;
-
-  title:
-    string;
-
-  text:
-    string;
+  icon: any;
+  title: string;
+  text: string;
 }) {
   return (
     <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-10 text-center">
       <Icon
-        size={
-          24
-        }
+        size={24}
         className="mx-auto text-stone-300"
       />
 
       <p className="mt-4 text-sm font-semibold text-stone-600">
-        {
-          title
-        }
+        {title}
       </p>
 
       <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-stone-400">
-        {
-          text
-        }
+        {text}
       </p>
     </div>
   );
 }
 
 function ConnectionCard({
-  icon:
-    Icon,
+  icon: Icon,
   title,
   text,
 }: {
-  icon:
-    any;
-
-  title:
-    string;
-
-  text:
-    string;
+  icon: any;
+  title: string;
+  text: string;
 }) {
   return (
     <div className="rounded-2xl bg-stone-50 p-5">
       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#829473]">
-        <Icon
-          size={
-            15
-          }
-        />
+        <Icon size={15} />
       </div>
 
       <p className="mt-4 text-xs font-semibold">
-        {
-          title
-        }
+        {title}
       </p>
 
       <p className="mt-2 text-[10px] leading-5 text-stone-400">
-        {
-          text
-        }
+        {text}
       </p>
     </div>
   );
@@ -5879,39 +5459,26 @@ function ToggleSetting({
   enabled,
   onChange,
 }: {
-  title:
-    string;
-
-  text:
-    string;
-
-  enabled:
-    boolean;
-
-  onChange:
-    () => void;
+  title: string;
+  text: string;
+  enabled: boolean;
+  onChange: () => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-5 rounded-2xl bg-stone-50 p-5">
       <div>
         <p className="text-sm font-semibold text-stone-700">
-          {
-            title
-          }
+          {title}
         </p>
 
         <p className="mt-1 max-w-xl text-xs leading-5 text-stone-400">
-          {
-            text
-          }
+          {text}
         </p>
       </div>
 
       <button
         type="button"
-        onClick={
-          onChange
-        }
+        onClick={onChange}
         className={`relative h-8 w-14 shrink-0 rounded-full transition ${
           enabled
             ? "bg-stone-900"
@@ -5936,26 +5503,17 @@ function IntegrationCard({
   comingSoon = false,
   connected = false,
 }: {
-  name:
-    string;
-
-  text:
-    string;
-
-  comingSoon?:
-    boolean;
-
-  connected?:
-    boolean;
+  name: string;
+  text: string;
+  comingSoon?: boolean;
+  connected?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-stone-100 bg-stone-50 p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
           <Store
-            size={
-              15
-            }
+            size={15}
             className="text-stone-400"
           />
         </div>
@@ -5972,54 +5530,38 @@ function IntegrationCard({
       </div>
 
       <p className="mt-5 text-sm font-semibold">
-        {
-          name
-        }
+        {name}
       </p>
 
       <p className="mt-2 text-[10px] leading-5 text-stone-400">
-        {
-          text
-        }
+        {text}
       </p>
     </div>
   );
 }
 
 function MiniFeature({
-  icon:
-    Icon,
+  icon: Icon,
   title,
   text,
 }: {
-  icon:
-    any;
-
-  title:
-    string;
-
-  text:
-    string;
+  icon: any;
+  title: string;
+  text: string;
 }) {
   return (
     <div className="rounded-2xl bg-stone-50 p-5">
       <Icon
-        size={
-          16
-        }
+        size={16}
         className="mx-auto text-[#829473]"
       />
 
       <p className="mt-3 text-xs font-semibold">
-        {
-          title
-        }
+        {title}
       </p>
 
       <p className="mt-1 text-[9px] text-stone-400">
-        {
-          text
-        }
+        {text}
       </p>
     </div>
   );
@@ -6029,11 +5571,8 @@ function ModalShell({
   children,
   onClose,
 }: {
-  children:
-    ReactNode;
-
-  onClose:
-    () => void;
+  children: ReactNode;
+  onClose: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
@@ -6049,9 +5588,7 @@ function ModalShell({
         exit={{
           opacity: 0,
         }}
-        onClick={
-          onClose
-        }
+        onClick={onClose}
         className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
       />
 
@@ -6073,9 +5610,7 @@ function ModalShell({
         }}
         className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-stone-100 bg-white p-6 shadow-2xl sm:p-8"
       >
-        {
-          children
-        }
+        {children}
       </motion.div>
     </div>
   );

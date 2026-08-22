@@ -171,6 +171,40 @@ function getHealthClasses(
 }
 
 // ============================================================
+
+function getAccountString(
+  account: SocialAccount | undefined,
+  key: string
+) {
+  if (
+    !account
+  ) {
+    return null;
+  }
+
+  const value =
+    (
+      account as Record<
+        string,
+        unknown
+      >
+    )[key];
+
+  if (
+    typeof value !==
+      "string"
+  ) {
+    return null;
+  }
+
+  const cleaned =
+    value.trim();
+
+  return cleaned ||
+    null;
+}
+
+// ============================================================
 // COMPONENT
 // ============================================================
 
@@ -186,7 +220,9 @@ export default function SocialSettings({
     platform: SupportedPlatform
   ) {
     return socialAccounts.find(
-      (account) => {
+      (
+        account
+      ) => {
         const accountPlatform =
           String(
             account.platform ||
@@ -222,7 +258,6 @@ export default function SocialSettings({
 
   return (
     <div className="space-y-8">
-
       {/* =====================================================
           HEADER
       ===================================================== */}
@@ -247,7 +282,6 @@ export default function SocialSettings({
       ===================================================== */}
 
       <div className="rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
-
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
@@ -292,6 +326,24 @@ export default function SocialSettings({
                   platform
                 );
 
+              const displayName =
+                getAccountString(
+                  account,
+                  "display_name"
+                );
+
+              const pageName =
+                getAccountString(
+                  account,
+                  "page_name"
+                );
+
+              const instagramBusinessAccountId =
+                getAccountString(
+                  account,
+                  "instagram_business_account_id"
+                );
+
               return (
                 <div
                   key={
@@ -326,7 +378,7 @@ export default function SocialSettings({
                       )}
                     </div>
 
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p
                         className={`text-xs font-bold ${styles.title}`}
                       >
@@ -345,32 +397,40 @@ export default function SocialSettings({
 
                       {account && (
                         <div className="mt-3 space-y-1">
-                          {"display_name" in
-                            account &&
-                            account.display_name && (
-                              <p className="truncate text-[10px] font-medium text-stone-600">
-                                {
-                                  String(
-                                    account.display_name
-                                  )
-                                }
-                              </p>
-                            )}
+                          {displayName && (
+                            <p className="truncate text-[10px] font-medium text-stone-600">
+                              {
+                                displayName
+                              }
+                            </p>
+                          )}
 
-                          {"page_name" in
-                            account &&
-                            account.page_name && (
-                              <p className="truncate text-[9px] text-stone-400">
-                                Page:{" "}
-                                {
-                                  String(
-                                    account.page_name
-                                  )
-                                }
+                          {pageName && (
+                            <p className="truncate text-[9px] text-stone-400">
+                              Page:{" "}
+                              {
+                                pageName
+                              }
+                            </p>
+                          )}
+
+                          {platform ===
+                            "meta" &&
+                            instagramBusinessAccountId && (
+                              <p className="truncate text-[9px] font-medium text-emerald-600">
+                                Instagram Business linked
                               </p>
                             )}
                         </div>
                       )}
+
+                      {status ===
+                        "connected" &&
+                        !account && (
+                          <p className="mt-3 text-[9px] leading-4 text-stone-400">
+                            Connection found. Account details are still loading.
+                          </p>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -399,16 +459,6 @@ export default function SocialSettings({
             use.
           </p>
         </div>
-
-        {/*
-         * IMPORTANT:
-         *
-         * This component currently owns its own connection logic.
-         *
-         * The next file we need to fix is SocialConnections.tsx
-         * because that is what renders the actual Meta/Facebook
-         * connect card and button.
-         */}
 
         <SocialConnections />
       </div>

@@ -945,7 +945,7 @@ export default function ShopFrontPage() {
       /*
        * EXPECTED API:
        *
-       * app/api/storefront/contact/route.ts
+       * app/api/store-contact/route.ts
        *
        * The API should:
        *
@@ -960,7 +960,7 @@ export default function ShopFrontPage() {
 
       const response =
         await fetch(
-          "/api/storefront/contact",
+          "/api/store-contact",
           {
             method:
               "POST",

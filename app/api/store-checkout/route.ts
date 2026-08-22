@@ -75,6 +75,8 @@ type CheckoutRequest = {
 
   items: CheckoutCartItem[];
 
+  discountCode?: string;
+
   customer?: {
     name?: string;
     email?: string;
@@ -131,6 +133,58 @@ type StoreProductRow = {
   image_url: string | null;
 };
 
+type StoreDiscountRow = {
+  id: string;
+
+  organisation_id: string;
+
+  code: string;
+
+  discount_type: string;
+
+  value:
+    | number
+    | string;
+
+  minimum_order_amount:
+    | number
+    | string
+    | null;
+
+  maximum_discount_amount:
+    | number
+    | string
+    | null;
+
+  usage_limit:
+    | number
+    | null;
+
+  times_used:
+    | number
+    | null;
+
+  starts_at:
+    | string
+    | null;
+
+  expires_at:
+    | string
+    | null;
+
+  is_active:
+    | boolean
+    | null;
+
+  created_at:
+    | string
+    | null;
+
+  updated_at:
+    | string
+    | null;
+};
+
 type ValidatedLine = {
   product: StoreProductRow;
 
@@ -139,6 +193,12 @@ type ValidatedLine = {
   unitPrice: number;
 
   total: number;
+};
+
+type ValidatedDiscount = {
+  discount: StoreDiscountRow;
+
+  amount: number;
 };
 
 // ============================================================
@@ -188,6 +248,40 @@ function safeQuantity(
 
   return Math.floor(
     quantity
+  );
+}
+
+// ============================================================
+
+function safeNumber(
+  value: unknown,
+  fallback = 0
+) {
+  const number =
+    Number(
+      value
+    );
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+    return fallback;
+  }
+
+  return number;
+}
+
+// ============================================================
+
+function moneyRound(
+  value: number
+) {
+  return Number(
+    value.toFixed(
+      2
+    )
   );
 }
 
@@ -352,6 +446,381 @@ function isPhysicalProduct(
 }
 
 // ============================================================
+// DISCOUNT TYPE
+// ============================================================
+
+function isPercentageDiscount(
+  value: string
+) {
+  const type =
+    value
+      .trim()
+      .toLowerCase();
+
+  return [
+    "percentage",
+    "percent",
+    "percentage_off",
+    "percent_off",
+    "%",
+  ].includes(
+    type
+  );
+}
+
+// ============================================================
+
+function isFixedDiscount(
+  value: string
+) {
+  const type =
+    value
+      .trim()
+      .toLowerCase();
+
+  return [
+    "fixed",
+    "fixed_amount",
+    "fixed_value",
+    "amount",
+    "amount_off",
+    "value",
+  ].includes(
+    type
+  );
+}
+
+// ============================================================
+// VALIDATE DISCOUNT
+// ============================================================
+
+async function validateDiscount({
+  organisationId,
+  code,
+  subtotal,
+}: {
+  organisationId: string;
+
+  code: string;
+
+  subtotal: number;
+}): Promise<ValidatedDiscount> {
+  const normalisedCode =
+    cleanString(
+      code
+    ).toUpperCase();
+
+  if (
+    !normalisedCode
+  ) {
+    throw new Error(
+      "Enter a discount code."
+    );
+  }
+
+  // ==========================================================
+  // FIND CODE
+  //
+  // ilike makes WELCOME10 / welcome10 / Welcome10 work.
+  // ==========================================================
+
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_discounts"
+      )
+      .select(
+        `
+          id,
+          organisation_id,
+          code,
+          discount_type,
+          value,
+          minimum_order_amount,
+          maximum_discount_amount,
+          usage_limit,
+          times_used,
+          starts_at,
+          expires_at,
+          is_active,
+          created_at,
+          updated_at
+        `
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .ilike(
+        "code",
+        normalisedCode
+      )
+      .limit(
+        1
+      )
+      .maybeSingle();
+
+  if (
+    error
+  ) {
+    console.error(
+      "Discount lookup failed:",
+      error
+    );
+
+    throw new Error(
+      "The discount code could not be checked."
+    );
+  }
+
+  if (
+    !data
+  ) {
+    throw new Error(
+      "This discount code is invalid."
+    );
+  }
+
+  const discount =
+    data as StoreDiscountRow;
+
+  // ==========================================================
+  // ACTIVE
+  // ==========================================================
+
+  if (
+    discount.is_active !==
+    true
+  ) {
+    throw new Error(
+      "This discount code is no longer active."
+    );
+  }
+
+  // ==========================================================
+  // START DATE
+  // ==========================================================
+
+  const now =
+    new Date();
+
+  if (
+    discount.starts_at
+  ) {
+    const startsAt =
+      new Date(
+        discount.starts_at
+      );
+
+    if (
+      !Number.isNaN(
+        startsAt.getTime()
+      ) &&
+      now <
+        startsAt
+    ) {
+      throw new Error(
+        "This discount code is not active yet."
+      );
+    }
+  }
+
+  // ==========================================================
+  // EXPIRY
+  // ==========================================================
+
+  if (
+    discount.expires_at
+  ) {
+    const expiresAt =
+      new Date(
+        discount.expires_at
+      );
+
+    if (
+      !Number.isNaN(
+        expiresAt.getTime()
+      ) &&
+      now >
+        expiresAt
+    ) {
+      throw new Error(
+        "This discount code has expired."
+      );
+    }
+  }
+
+  // ==========================================================
+  // USAGE LIMIT
+  // ==========================================================
+
+  const usageLimit =
+    discount.usage_limit;
+
+  const timesUsed =
+    discount.times_used ||
+    0;
+
+  if (
+    usageLimit !==
+      null &&
+    usageLimit >
+      0 &&
+    timesUsed >=
+      usageLimit
+  ) {
+    throw new Error(
+      "This discount code has reached its usage limit."
+    );
+  }
+
+  // ==========================================================
+  // MINIMUM ORDER
+  // ==========================================================
+
+  const minimumOrder =
+    safeNumber(
+      discount.minimum_order_amount,
+      0
+    );
+
+  if (
+    minimumOrder >
+      0 &&
+    subtotal <
+      minimumOrder
+  ) {
+    throw new Error(
+      `This discount requires a minimum spend of £${minimumOrder.toFixed(
+        2
+      )}.`
+    );
+  }
+
+  // ==========================================================
+  // VALUE
+  // ==========================================================
+
+  const value =
+    safeNumber(
+      discount.value,
+      0
+    );
+
+  if (
+    value <=
+    0
+  ) {
+    throw new Error(
+      "This discount code has an invalid value."
+    );
+  }
+
+  // ==========================================================
+  // CALCULATE DISCOUNT
+  // ==========================================================
+
+  let discountAmount =
+    0;
+
+  if (
+    isPercentageDiscount(
+      discount.discount_type
+    )
+  ) {
+    if (
+      value >
+      100
+    ) {
+      throw new Error(
+        "This percentage discount has an invalid value."
+      );
+    }
+
+    discountAmount =
+      subtotal *
+      (
+        value /
+        100
+      );
+  } else if (
+    isFixedDiscount(
+      discount.discount_type
+    )
+  ) {
+    discountAmount =
+      value;
+  } else {
+    console.error(
+      "Unknown discount type:",
+      discount.discount_type
+    );
+
+    throw new Error(
+      "This discount code has an unsupported discount type."
+    );
+  }
+
+  // ==========================================================
+  // MAXIMUM DISCOUNT CAP
+  // ==========================================================
+
+  const maximumDiscount =
+    safeNumber(
+      discount.maximum_discount_amount,
+      0
+    );
+
+  if (
+    maximumDiscount >
+      0
+  ) {
+    discountAmount =
+      Math.min(
+        discountAmount,
+        maximumDiscount
+      );
+  }
+
+  // ==========================================================
+  // NEVER DISCOUNT BELOW £0
+  // ==========================================================
+
+  discountAmount =
+    Math.min(
+      discountAmount,
+      subtotal
+    );
+
+  discountAmount =
+    Math.max(
+      0,
+      moneyRound(
+        discountAmount
+      )
+    );
+
+  if (
+    discountAmount <=
+    0
+  ) {
+    throw new Error(
+      "This discount code does not apply to this order."
+    );
+  }
+
+  return {
+    discount,
+
+    amount:
+      discountAmount,
+  };
+}
+
+// ============================================================
 // POST
 // ============================================================
 
@@ -376,6 +845,11 @@ export async function POST(
         body.storeSlug
       ).toLowerCase();
 
+    const requestedDiscountCode =
+      cleanString(
+        body.discountCode
+      ).toUpperCase();
+
     const requestedItems =
       Array.isArray(
         body.items
@@ -396,7 +870,8 @@ export async function POST(
             "Store slug is required.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
@@ -415,7 +890,8 @@ export async function POST(
             "Your basket is empty.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
@@ -464,7 +940,8 @@ export async function POST(
             "The store could not be loaded.",
         },
         {
-          status: 500,
+          status:
+            500,
         }
       );
     }
@@ -478,7 +955,8 @@ export async function POST(
             "Store not found.",
         },
         {
-          status: 404,
+          status:
+            404,
         }
       );
     }
@@ -500,7 +978,8 @@ export async function POST(
             "This store is not currently accepting orders.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
@@ -510,9 +989,6 @@ export async function POST(
 
     // ========================================================
     // NORMALISE BASKET
-    //
-    // If the browser sends the same product more than once,
-    // combine the quantities.
     // ========================================================
 
     const quantityByProduct =
@@ -548,8 +1024,10 @@ export async function POST(
         (
           quantityByProduct.get(
             productId
-          ) || 0
-        ) + quantity
+          ) ||
+          0
+        ) +
+          quantity
       );
     }
 
@@ -568,7 +1046,8 @@ export async function POST(
             "Your basket contains no valid items.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
@@ -576,10 +1055,7 @@ export async function POST(
     // ========================================================
     // LOAD PRODUCTS
     //
-    // IMPORTANT:
-    // Prices are ALWAYS loaded from Supabase.
-    //
-    // We never trust prices sent from the browser.
+    // DATABASE IS SOURCE OF TRUTH.
     // ========================================================
 
     const {
@@ -635,7 +1111,8 @@ export async function POST(
             "The products in your basket could not be verified.",
         },
         {
-          status: 500,
+          status:
+            500,
         }
       );
     }
@@ -680,7 +1157,8 @@ export async function POST(
               "One of the products in your basket is no longer available.",
           },
           {
-            status: 400,
+            status:
+              400,
           }
         );
       }
@@ -699,7 +1177,8 @@ export async function POST(
               "Invalid product.",
           },
           {
-            status: 400,
+            status:
+              400,
           }
         );
       }
@@ -720,7 +1199,8 @@ export async function POST(
               `${product.name} is no longer available.`,
           },
           {
-            status: 400,
+            status:
+              400,
           }
         );
       }
@@ -732,7 +1212,8 @@ export async function POST(
       const quantity =
         quantityByProduct.get(
           product.id
-        ) || 0;
+        ) ||
+        0;
 
       if (
         quantity <=
@@ -766,7 +1247,8 @@ export async function POST(
                 `${product.name} is sold out.`,
             },
             {
-              status: 400,
+              status:
+                400,
             }
           );
         }
@@ -782,7 +1264,8 @@ export async function POST(
               } currently available.`,
           },
           {
-            status: 400,
+            status:
+              400,
           }
         );
       }
@@ -809,19 +1292,16 @@ export async function POST(
               `${product.name} does not currently have a valid checkout price.`,
           },
           {
-            status: 400,
+            status:
+              400,
           }
         );
       }
 
       const lineTotal =
-        Number(
-          (
-            unitPrice *
-            quantity
-          ).toFixed(
-            2
-          )
+        moneyRound(
+          unitPrice *
+          quantity
         );
 
       validatedLines.push(
@@ -848,60 +1328,97 @@ export async function POST(
             "Your basket contains no available products.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
 
     // ========================================================
-    // ORDER TOTALS
+    // SUBTOTAL
     // ========================================================
 
     const subtotal =
-      Number(
-        validatedLines
-          .reduce(
-            (
-              runningTotal,
-              line
-            ) =>
-              runningTotal +
-              line.total,
-            0
-          )
-          .toFixed(
-            2
-          )
+      moneyRound(
+        validatedLines.reduce(
+          (
+            runningTotal,
+            line
+          ) =>
+            runningTotal +
+            line.total,
+          0
+        )
       );
 
-    /*
-     * IMPORTANT:
-     *
-     * Stripe promotion codes are enabled further down.
-     *
-     * The actual Stripe discount is therefore calculated by
-     * Stripe Checkout after the customer enters their code.
-     *
-     * We initially create the TOTS order with a discount of 0.
-     *
-     * Your Stripe webhook can update the final order values
-     * after payment.
-     */
+    // ========================================================
+    // VALIDATE TOTS DISCOUNT
+    // ========================================================
 
-    const discountAmount =
+    let appliedDiscount:
+      StoreDiscountRow |
+      null =
+      null;
+
+    let discountAmount =
       0;
+
+    if (
+      requestedDiscountCode
+    ) {
+      try {
+        const result =
+          await validateDiscount({
+            organisationId,
+
+            code:
+              requestedDiscountCode,
+
+            subtotal,
+          });
+
+        appliedDiscount =
+          result.discount;
+
+        discountAmount =
+          result.amount;
+      } catch (
+        discountError
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              discountError instanceof
+              Error
+                ? discountError.message
+                : "This discount code could not be applied.",
+          },
+          {
+            status:
+              400,
+          }
+        );
+      }
+    }
+
+    // ========================================================
+    // SHIPPING
+    // ========================================================
 
     const shippingAmount =
       0;
 
+    // ========================================================
+    // FINAL TOTAL
+    // ========================================================
+
     const total =
-      Number(
-        (
+      moneyRound(
+        Math.max(
+          0,
           subtotal -
-          discountAmount +
-          shippingAmount
-        ).toFixed(
-          2
+            discountAmount +
+            shippingAmount
         )
       );
 
@@ -1004,7 +1521,8 @@ export async function POST(
             "Your order could not be created.",
         },
         {
-          status: 500,
+          status:
+            500,
         }
       );
     }
@@ -1064,11 +1582,6 @@ export async function POST(
         orderItemsError
       );
 
-      /*
-       * store_order_items should use
-       * ON DELETE CASCADE from store_orders.
-       */
-
       await supabaseAdmin
         .from(
           "store_orders"
@@ -1088,7 +1601,8 @@ export async function POST(
             "Your order items could not be created.",
         },
         {
-          status: 500,
+          status:
+            500,
         }
       );
     }
@@ -1110,10 +1624,6 @@ export async function POST(
                 line.product.name,
             };
 
-          // ==================================================
-          // DESCRIPTION
-          // ==================================================
-
           if (
             line.product.description
           ) {
@@ -1123,12 +1633,6 @@ export async function POST(
                 500
               );
           }
-
-          // ==================================================
-          // IMAGE
-          //
-          // Stripe only accepts valid public image URLs.
-          // ==================================================
 
           if (
             line.product.image_url?.startsWith(
@@ -1201,33 +1705,17 @@ export async function POST(
     const sessionParams:
       Stripe.Checkout.SessionCreateParams =
       {
-        // ====================================================
-        // PAYMENT MODE
-        // ====================================================
-
         mode:
           "payment",
 
-        // ====================================================
-        // PRODUCTS
-        // ====================================================
-
         line_items:
           stripeLineItems,
-
-        // ====================================================
-        // REDIRECTS
-        // ====================================================
 
         success_url:
           successUrl,
 
         cancel_url:
           cancelUrl,
-
-        // ====================================================
-        // TOTS ORDER METADATA
-        // ====================================================
 
         metadata: {
           order_id:
@@ -1241,15 +1729,20 @@ export async function POST(
 
           store_slug:
             storeSlug,
-        },
 
-        // ====================================================
-        // PAYMENT INTENT METADATA
-        //
-        // This is important because refund/cancellation
-        // events often contain the PaymentIntent rather than
-        // the Checkout Session.
-        // ====================================================
+          discount_id:
+            appliedDiscount?.id ||
+            "",
+
+          discount_code:
+            appliedDiscount?.code ||
+            "",
+
+          discount_amount:
+            discountAmount.toFixed(
+              2
+            ),
+        },
 
         payment_intent_data: {
           metadata: {
@@ -1264,19 +1757,24 @@ export async function POST(
 
             store_slug:
               storeSlug,
+
+            discount_id:
+              appliedDiscount?.id ||
+              "",
+
+            discount_code:
+              appliedDiscount?.code ||
+              "",
+
+            discount_amount:
+              discountAmount.toFixed(
+                2
+              ),
           },
         },
 
-        // ====================================================
-        // BILLING ADDRESS
-        // ====================================================
-
         billing_address_collection:
           "auto",
-
-        // ====================================================
-        // PHONE NUMBER
-        // ====================================================
 
         phone_number_collection: {
           enabled:
@@ -1284,21 +1782,76 @@ export async function POST(
         },
 
         // ====================================================
-        // DISCOUNT / PROMOTION CODES
+        // IMPORTANT
         //
-        // THIS IS THE IMPORTANT CHANGE.
+        // We are NOT using Stripe promotion codes.
         //
-        // Stripe Checkout will now display:
-        //
-        // "Add promotion code"
-        //
-        // The customer can enter any active Stripe promotion
-        // code associated with this Stripe account.
+        // TOTS-OS owns and validates the code itself.
         // ====================================================
 
         allow_promotion_codes:
-          true,
+          false,
       };
+
+    // ========================================================
+    // APPLY TOTS DISCOUNT TO STRIPE
+    //
+    // We create an exact one-use Stripe coupon representing
+    // the discount calculated by TOTS.
+    //
+    // This works for:
+    //
+    // - 10% discount
+    // - £5 discount
+    // - percentage discount with max cap
+    //
+    // Stripe receives the final exact amount to deduct.
+    // ========================================================
+
+    if (
+      appliedDiscount &&
+      discountAmount >
+        0
+    ) {
+      const coupon =
+        await stripe.coupons.create({
+          amount_off:
+            priceToPence(
+              discountAmount
+            ),
+
+          currency:
+            "gbp",
+
+          duration:
+            "once",
+
+          name:
+            appliedDiscount.code,
+
+          metadata: {
+            tots_discount_id:
+              appliedDiscount.id,
+
+            tots_discount_code:
+              appliedDiscount.code,
+
+            organisation_id:
+              organisationId,
+
+            order_id:
+              orderData.id,
+          },
+        });
+
+      sessionParams.discounts =
+        [
+          {
+            coupon:
+              coupon.id,
+          },
+        ];
+    }
 
     // ========================================================
     // PRE-FILL CUSTOMER EMAIL
@@ -1346,11 +1899,6 @@ export async function POST(
         "Stripe session creation failed:",
         stripeError
       );
-
-      /*
-       * Stripe checkout failed before the customer could pay,
-       * so remove the pending TOTS order.
-       */
 
       await supabaseAdmin
         .from(
@@ -1415,6 +1963,10 @@ export async function POST(
           orderData.order_number,
 
         subtotal,
+
+        discountCode:
+          appliedDiscount?.code ||
+          null,
 
         discountAmount,
 

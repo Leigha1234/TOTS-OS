@@ -772,7 +772,7 @@ export default function Clarity() {
           setOpen(true)
         }
         aria-label="Open Clarity AI assistant"
-        className="group fixed right-5 top-5 z-[80] flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-stone-900 text-white shadow-[0_15px_45px_rgba(28,25,23,0.3)] md:right-6 md:top-6"
+        className="group fixed bottom-20 right-5 z-[80] flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-stone-900 text-white shadow-[0_15px_45px_rgba(28,25,23,0.3)] md:bottom-6 md:right-6"
       >
         <motion.div
           animate={{

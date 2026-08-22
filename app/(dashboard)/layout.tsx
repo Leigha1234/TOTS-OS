@@ -260,7 +260,10 @@ function DashboardLayoutInner({
           link.href
         )
       )
-      .slice(0, 3);
+      .slice(
+        0,
+        3
+      );
 
   // ==========================================================
   // LOCK BODY WHEN MOBILE MENU IS OPEN
@@ -417,7 +420,24 @@ function DashboardLayoutInner({
         </nav>
 
         {/* ====================================================
+            CLARITY ASSISTANT
+
+            Kept BEFORE the mobile overlay so the mobile
+            menu is rendered above it.
+        ==================================================== */}
+
+        <Clarity />
+
+        {/* ====================================================
+            CLARITY PRODUCT TOUR
+        ==================================================== */}
+
+        <ClarityTourOverlay />
+
+        {/* ====================================================
             MOBILE FULL-SCREEN MENU
+
+            Very high z-index so this is always above Clarity.
         ==================================================== */}
 
         <AnimatePresence>
@@ -440,19 +460,32 @@ function DashboardLayoutInner({
               className="
                 fixed
                 inset-0
-                z-[200]
+                z-[5000]
                 overflow-y-auto
                 bg-[#fcfaf7]
                 md:hidden
               "
             >
-              <div className="min-h-full p-5 pb-24">
+              <div className="relative min-h-full p-5 pb-24">
 
                 {/* ============================================
                     MOBILE MENU HEADER
                 ============================================ */}
 
-                <div className="mb-6 flex items-center justify-between">
+                <div
+                  className="
+                    relative
+                    z-[6000]
+                    mb-6
+                    flex
+                    items-center
+                    justify-between
+                  "
+                >
+                  {/* ==========================================
+                      LOGO
+                  ========================================== */}
+
                   <div className="flex items-center gap-3">
 
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -471,13 +504,30 @@ function DashboardLayoutInner({
                       MOBILE HEADER ACTIONS
                   ========================================== */}
 
-                  <div className="flex items-center gap-2">
-
+                  <div
+                    className="
+                      relative
+                      z-[7000]
+                      flex
+                      items-center
+                      gap-2
+                    "
+                  >
                     {/* ========================================
                         MOBILE NOTIFICATION BELL
                     ======================================== */}
 
-                    <div className="relative z-[220]">
+                    <div
+                      className="
+                        relative
+                        z-[8000]
+                        flex
+                        h-11
+                        w-11
+                        items-center
+                        justify-center
+                      "
+                    >
                       <NotificationBell />
                     </div>
 
@@ -496,6 +546,7 @@ function DashboardLayoutInner({
                         flex
                         h-11
                         w-11
+                        shrink-0
                         items-center
                         justify-center
                         rounded-[1.25rem]
@@ -506,6 +557,7 @@ function DashboardLayoutInner({
                         transition-transform
                         active:scale-95
                       "
+                      aria-label="Close menu"
                     >
                       <X
                         size={20}
@@ -516,22 +568,37 @@ function DashboardLayoutInner({
                 </div>
 
                 {/* ============================================
-                    MOBILE NOTIFICATION LABEL
+                    NOTIFICATION INFORMATION
                 ============================================ */}
 
-                <div className="mb-6 rounded-[1.5rem] border border-stone-200 bg-white px-4 py-3 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
+                <div
+                  className="
+                    relative
+                    z-[100]
+                    mb-6
+                    rounded-[1.5rem]
+                    border
+                    border-stone-200
+                    bg-white
+                    px-4
+                    py-3
+                    shadow-sm
+                  "
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
                       <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
                         Notifications
                       </p>
 
-                      <p className="mt-1 text-xs font-semibold text-stone-700">
-                        Orders, deadlines, payments and business updates.
+                      <p className="mt-1 text-xs font-semibold leading-5 text-stone-700">
+                        Orders, deadlines,
+                        payments and business
+                        updates.
                       </p>
                     </div>
 
-                    <div className="ml-4 h-2 w-2 shrink-0 rounded-full bg-[#a9b897]" />
+                    <div className="h-2 w-2 shrink-0 rounded-full bg-[#a9b897]" />
                   </div>
                 </div>
 
@@ -541,7 +608,7 @@ function DashboardLayoutInner({
 
                 <div
                   data-tour="mobile-system-menu"
-                  className="space-y-5"
+                  className="relative z-[50] space-y-5"
                 >
                   {mobileSections.map(
                     (
@@ -659,18 +726,6 @@ function DashboardLayoutInner({
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* ====================================================
-            EXISTING CLARITY ASSISTANT
-        ==================================================== */}
-
-        <Clarity />
-
-        {/* ====================================================
-            CLARITY PRODUCT TOUR
-        ==================================================== */}
-
-        <ClarityTourOverlay />
       </main>
     </div>
   );
@@ -693,7 +748,9 @@ function MobileNavItem({
 }) {
   return (
     <Link
-      href={href}
+      href={
+        href
+      }
       data-tour={`mobile-nav-${label
         .toLowerCase()
         .replaceAll(
@@ -717,7 +774,9 @@ function MobileNavItem({
       }}
     >
       <Icon
-        size={22}
+        size={
+          22
+        }
         strokeWidth={
           isActive
             ? 2.5
@@ -739,7 +798,9 @@ function MobileNavItem({
           }
         `}
       >
-        {label}
+        {
+          label
+        }
       </span>
 
       {isActive && (

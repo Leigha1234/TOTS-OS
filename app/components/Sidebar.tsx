@@ -840,10 +840,11 @@ export default function Sidebar() {
     <aside
       className={`
         relative
-        z-50
+        z-[300]
         flex
         h-[100dvh]
         flex-col
+        overflow-visible
         border-r
         border-stone-200
         bg-stone-50
@@ -937,18 +938,118 @@ export default function Sidebar() {
         )}
 
         {/* ===================================================
-            HEADER ACTIONS
+            COLLAPSE CONTROL
         =================================================== */}
 
         {!collapsed && (
-          <div className="ml-2 flex shrink-0 items-center gap-1.5">
-            {/* ===============================================
-                NOTIFICATION BELL
-            =============================================== */}
+          <button
+            type="button"
+            onClick={() =>
+              setCollapsed(
+                true
+              )
+            }
+            title="Collapse sidebar"
+            className="
+              flex
+              h-9
+              w-9
+              shrink-0
+              items-center
+              justify-center
+              rounded-xl
+              text-stone-400
+              transition
+              hover:bg-white
+              hover:text-stone-800
+              hover:shadow-sm
+            "
+          >
+            <PanelLeftClose
+              size={17}
+              strokeWidth={1.7}
+            />
+          </button>
+        )}
+      </div>
+
+      {/* =====================================================
+          NOTIFICATIONS
+
+          Moved out of the header.
+
+          This gives NotificationBell its own row and more
+          space for the dropdown to open without being squeezed
+          against the logo or collapse button.
+      ===================================================== */}
+
+      {!collapsed ? (
+        <div
+          className="
+            relative
+            z-[500]
+            shrink-0
+            px-3
+            pb-3
+          "
+        >
+          <div
+            className="
+              flex
+              min-h-12
+              items-center
+              justify-between
+              rounded-2xl
+              border
+              border-stone-200
+              bg-white
+              px-3
+              py-2
+              shadow-sm
+            "
+          >
+            <div className="min-w-0">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
+                Notifications
+              </p>
+
+              <p className="mt-0.5 truncate text-[10px] font-medium text-stone-600">
+                Business updates
+              </p>
+            </div>
 
             <div
               className="
                 relative
+                z-[600]
+                ml-3
+                flex
+                h-10
+                w-10
+                shrink-0
+                items-center
+                justify-center
+              "
+            >
+              <NotificationBell />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="
+            relative
+            z-[500]
+            shrink-0
+            px-3
+            pb-3
+          "
+        >
+          <div className="flex justify-center">
+            <div
+              className="
+                relative
+                z-[600]
                 flex
                 h-10
                 w-10
@@ -958,58 +1059,16 @@ export default function Sidebar() {
             >
               <NotificationBell />
             </div>
-
-            {/* ===============================================
-                COLLAPSE SIDEBAR
-            =============================================== */}
-
-            <button
-              type="button"
-              onClick={() =>
-                setCollapsed(
-                  true
-                )
-              }
-              title="Collapse sidebar"
-              className="
-                flex
-                h-9
-                w-9
-                items-center
-                justify-center
-                rounded-xl
-                text-stone-400
-                transition
-                hover:bg-white
-                hover:text-stone-800
-                hover:shadow-sm
-              "
-            >
-              <PanelLeftClose
-                size={17}
-                strokeWidth={1.7}
-              />
-            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* =====================================================
-          COLLAPSED ACTIONS
+          COLLAPSED EXPAND CONTROL
       ===================================================== */}
 
       {collapsed && (
-        <div className="shrink-0 space-y-2 px-3 pb-3">
-          {/* NOTIFICATIONS */}
-
-          <div className="flex justify-center">
-            <div className="relative flex h-10 w-10 items-center justify-center">
-              <NotificationBell />
-            </div>
-          </div>
-
-          {/* EXPAND */}
-
+        <div className="shrink-0 px-3 pb-3">
           <button
             type="button"
             onClick={() =>
@@ -1053,7 +1112,7 @@ export default function Sidebar() {
           ${
             isCompact
               ? "mt-1 overflow-y-auto pb-2"
-              : "mt-3 overflow-y-auto pb-4"
+              : "mt-2 overflow-y-auto pb-4"
           }
         `}
       >

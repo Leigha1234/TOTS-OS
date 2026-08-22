@@ -38,8 +38,6 @@ import {
   useSettings,
 } from "@/app/context/SettingsContext";
 
-import NotificationBell from "@/app/components/NotificationBell";
-
 // ============================================================
 // TYPES
 // ============================================================
@@ -972,88 +970,6 @@ export default function Sidebar() {
           </button>
         )}
       </div>
-
-      {/* =====================================================
-          NOTIFICATIONS
-
-          Moved out of the header.
-
-          This gives NotificationBell its own row and more
-          space for the dropdown to open without being squeezed
-          against the logo or collapse button.
-      ===================================================== */}
-
-      {!collapsed ? (
-        <div
-          className="
-            relative
-            z-[500]
-            shrink-0
-            px-3
-            pb-3
-          "
-        >
-          <div
-            className="
-              flex
-              min-h-12
-              items-center
-              justify-between
-              rounded-2xl
-              border
-              border-stone-200
-              bg-white
-              px-3
-              py-2
-              shadow-sm
-            "
-          >
-         
-
-            <div
-              className="
-                relative
-                z-[600]
-                ml-3
-                flex
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-              "
-            >
-              <NotificationBell />
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div
-          className="
-            relative
-            z-[500]
-            shrink-0
-            px-3
-            pb-3
-          "
-        >
-          <div className="flex justify-center">
-            <div
-              className="
-                relative
-                z-[600]
-                flex
-                h-10
-                w-10
-                items-center
-                justify-center
-              "
-            >
-              <NotificationBell />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* =====================================================
           COLLAPSED EXPAND CONTROL

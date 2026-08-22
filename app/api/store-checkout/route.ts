@@ -19,7 +19,7 @@ const stripeSecretKey =
   process.env.STRIPE_SECRET_KEY;
 
 // ============================================================
-// CLIENTS
+// VALIDATE ENVIRONMENT
 // ============================================================
 
 if (!supabaseUrl) {
@@ -39,6 +39,10 @@ if (!stripeSecretKey) {
     "STRIPE_SECRET_KEY is missing"
   );
 }
+
+// ============================================================
+// CLIENTS
+// ============================================================
 
 const supabaseAdmin =
   createClient(
@@ -80,22 +84,29 @@ type CheckoutRequest = {
 
 type StoreSettingsRow = {
   id: string;
+
   organisation_id: string;
+
   slug: string;
+
   store_name: string | null;
+
   is_live: boolean | null;
 };
 
 type StoreProductRow = {
   id: string;
+
   organisation_id: string;
 
   name: string;
+
   slug: string;
 
   description: string | null;
 
   sku: string | null;
+
   category: string | null;
 
   price:
@@ -122,8 +133,11 @@ type StoreProductRow = {
 
 type ValidatedLine = {
   product: StoreProductRow;
+
   quantity: number;
+
   unitPrice: number;
+
   total: number;
 };
 
@@ -144,6 +158,8 @@ function cleanString(
   return value.trim();
 }
 
+// ============================================================
+
 function cleanEmail(
   value: unknown
 ) {
@@ -152,11 +168,15 @@ function cleanEmail(
   ).toLowerCase();
 }
 
+// ============================================================
+
 function safeQuantity(
   value: unknown
 ) {
   const quantity =
-    Number(value);
+    Number(
+      value
+    );
 
   if (
     !Number.isFinite(
@@ -171,6 +191,8 @@ function safeQuantity(
   );
 }
 
+// ============================================================
+
 function priceToPence(
   value: number
 ) {
@@ -178,6 +200,8 @@ function priceToPence(
     value * 100
   );
 }
+
+// ============================================================
 
 function generateOrderNumber() {
   const timestamp =
@@ -193,6 +217,8 @@ function generateOrderNumber() {
 
   return `TOTS-${timestamp}-${random}`;
 }
+
+// ============================================================
 
 function getBaseUrl(
   req: Request
@@ -245,6 +271,10 @@ function getBaseUrl(
   return "https://www.tots-os.co.uk";
 }
 
+// ============================================================
+// INVENTORY
+// ============================================================
+
 function getAvailableQuantity(
   product: StoreProductRow
 ) {
@@ -271,6 +301,10 @@ function getAvailableQuantity(
 
   return null;
 }
+
+// ============================================================
+// PHYSICAL PRODUCT CHECK
+// ============================================================
 
 function isPhysicalProduct(
   product: StoreProductRow
@@ -331,7 +365,7 @@ export async function POST(
 
   try {
     // ========================================================
-    // REQUEST
+    // REQUEST BODY
     // ========================================================
 
     const body =
@@ -349,6 +383,10 @@ export async function POST(
         ? body.items
         : [];
 
+    // ========================================================
+    // VALIDATE STORE SLUG
+    // ========================================================
+
     if (
       !storeSlug
     ) {
@@ -362,6 +400,10 @@ export async function POST(
         }
       );
     }
+
+    // ========================================================
+    // VALIDATE BASKET
+    // ========================================================
 
     if (
       requestedItems.length ===
@@ -379,12 +421,13 @@ export async function POST(
     }
 
     // ========================================================
-    // STORE
+    // LOAD STORE
     // ========================================================
 
     const {
       data:
         storeData,
+
       error:
         storeError,
     } =
@@ -443,6 +486,10 @@ export async function POST(
     const store =
       storeData as StoreSettingsRow;
 
+    // ========================================================
+    // STORE MUST BE LIVE
+    // ========================================================
+
     if (
       store.is_live !==
       true
@@ -464,7 +511,8 @@ export async function POST(
     // ========================================================
     // NORMALISE BASKET
     //
-    // If somehow the same product is sent twice, combine it.
+    // If the browser sends the same product more than once,
+    // combine the quantities.
     // ========================================================
 
     const quantityByProduct =
@@ -489,7 +537,8 @@ export async function POST(
 
       if (
         !productId ||
-        quantity <= 0
+        quantity <=
+          0
       ) {
         continue;
       }
@@ -525,15 +574,18 @@ export async function POST(
     }
 
     // ========================================================
-    // LOAD PRODUCTS FROM DATABASE
+    // LOAD PRODUCTS
     //
-    // This is the source of truth.
-    // Never trust prices sent by the browser.
+    // IMPORTANT:
+    // Prices are ALWAYS loaded from Supabase.
+    //
+    // We never trust prices sent from the browser.
     // ========================================================
 
     const {
       data:
         productRows,
+
       error:
         productError,
     } =
@@ -595,7 +647,7 @@ export async function POST(
       ) as StoreProductRow[];
 
     // ========================================================
-    // VALIDATE EVERY PRODUCT
+    // VALIDATE PRODUCTS
     // ========================================================
 
     const validatedLines:
@@ -615,6 +667,10 @@ export async function POST(
             productId
         );
 
+      // ======================================================
+      // PRODUCT EXISTS
+      // ======================================================
+
       if (
         !product
       ) {
@@ -628,6 +684,10 @@ export async function POST(
           }
         );
       }
+
+      // ======================================================
+      // PRODUCT BELONGS TO STORE
+      // ======================================================
 
       if (
         product.organisation_id !==
@@ -644,15 +704,20 @@ export async function POST(
         );
       }
 
+      // ======================================================
+      // PRODUCT ACTIVE
+      // ======================================================
+
       if (
         product.is_active ===
-        false ||
+          false ||
         product.status !==
           "active"
       ) {
         return NextResponse.json(
           {
-            error: `${product.name} is no longer available.`,
+            error:
+              `${product.name} is no longer available.`,
           },
           {
             status: 400,
@@ -660,16 +725,25 @@ export async function POST(
         );
       }
 
+      // ======================================================
+      // QUANTITY
+      // ======================================================
+
       const quantity =
         quantityByProduct.get(
           product.id
         ) || 0;
 
       if (
-        quantity <= 0
+        quantity <=
+        0
       ) {
         continue;
       }
+
+      // ======================================================
+      // STOCK
+      // ======================================================
 
       const available =
         getAvailableQuantity(
@@ -688,7 +762,8 @@ export async function POST(
         ) {
           return NextResponse.json(
             {
-              error: `${product.name} is sold out.`,
+              error:
+                `${product.name} is sold out.`,
             },
             {
               status: 400,
@@ -698,17 +773,23 @@ export async function POST(
 
         return NextResponse.json(
           {
-            error: `Only ${available} of ${product.name} ${
-              available === 1
-                ? "is"
-                : "are"
-            } currently available.`,
+            error:
+              `Only ${available} of ${product.name} ${
+                available ===
+                1
+                  ? "is"
+                  : "are"
+              } currently available.`,
           },
           {
             status: 400,
           }
         );
       }
+
+      // ======================================================
+      // PRICE
+      // ======================================================
 
       const unitPrice =
         Number(
@@ -719,11 +800,13 @@ export async function POST(
         !Number.isFinite(
           unitPrice
         ) ||
-        unitPrice <= 0
+        unitPrice <=
+          0
       ) {
         return NextResponse.json(
           {
-            error: `${product.name} does not currently have a valid checkout price.`,
+            error:
+              `${product.name} does not currently have a valid checkout price.`,
           },
           {
             status: 400,
@@ -736,14 +819,19 @@ export async function POST(
           (
             unitPrice *
             quantity
-          ).toFixed(2)
+          ).toFixed(
+            2
+          )
         );
 
       validatedLines.push(
         {
           product,
+
           quantity,
+
           unitPrice,
+
           total:
             lineTotal,
         }
@@ -766,7 +854,7 @@ export async function POST(
     }
 
     // ========================================================
-    // TOTALS
+    // ORDER TOTALS
     // ========================================================
 
     const subtotal =
@@ -774,17 +862,32 @@ export async function POST(
         validatedLines
           .reduce(
             (
-              total,
+              runningTotal,
               line
             ) =>
-              total +
+              runningTotal +
               line.total,
             0
           )
-          .toFixed(2)
+          .toFixed(
+            2
+          )
       );
 
-    // Discounts and shipping will slot into this later.
+    /*
+     * IMPORTANT:
+     *
+     * Stripe promotion codes are enabled further down.
+     *
+     * The actual Stripe discount is therefore calculated by
+     * Stripe Checkout after the customer enters their code.
+     *
+     * We initially create the TOTS order with a discount of 0.
+     *
+     * Your Stripe webhook can update the final order values
+     * after payment.
+     */
+
     const discountAmount =
       0;
 
@@ -797,7 +900,9 @@ export async function POST(
           subtotal -
           discountAmount +
           shippingAmount
-        ).toFixed(2)
+        ).toFixed(
+          2
+        )
       );
 
     // ========================================================
@@ -823,15 +928,20 @@ export async function POST(
       null;
 
     // ========================================================
-    // CREATE ORDER
+    // ORDER NUMBER
     // ========================================================
 
     const orderNumber =
       generateOrderNumber();
 
+    // ========================================================
+    // CREATE STORE ORDER
+    // ========================================================
+
     const {
       data:
         orderData,
+
       error:
         orderError,
     } =
@@ -903,7 +1013,7 @@ export async function POST(
       orderData.id;
 
     // ========================================================
-    // CREATE ORDER ITEMS
+    // CREATE STORE ORDER ITEMS
     // ========================================================
 
     const orderItems =
@@ -954,9 +1064,11 @@ export async function POST(
         orderItemsError
       );
 
-      // Because store_order_items uses
-      // ON DELETE CASCADE, deleting the order
-      // safely clears anything attached to it.
+      /*
+       * store_order_items should use
+       * ON DELETE CASCADE from store_orders.
+       */
+
       await supabaseAdmin
         .from(
           "store_orders"
@@ -998,6 +1110,10 @@ export async function POST(
                 line.product.name,
             };
 
+          // ==================================================
+          // DESCRIPTION
+          // ==================================================
+
           if (
             line.product.description
           ) {
@@ -1008,9 +1124,12 @@ export async function POST(
               );
           }
 
-          /*
-           * Only pass an image if it is a valid HTTPS URL.
-           */
+          // ==================================================
+          // IMAGE
+          //
+          // Stripe only accepts valid public image URLs.
+          // ==================================================
+
           if (
             line.product.image_url?.startsWith(
               "https://"
@@ -1043,7 +1162,7 @@ export async function POST(
       );
 
     // ========================================================
-    // SHIPPING REQUIRED?
+    // DOES THIS ORDER REQUIRE SHIPPING?
     // ========================================================
 
     const requiresShipping =
@@ -1057,7 +1176,7 @@ export async function POST(
       );
 
     // ========================================================
-    // SITE URLS
+    // SITE URL
     // ========================================================
 
     const baseUrl =
@@ -1076,23 +1195,39 @@ export async function POST(
       )}?checkout=cancelled`;
 
     // ========================================================
-    // CREATE STRIPE CHECKOUT
+    // STRIPE CHECKOUT SESSION
     // ========================================================
 
     const sessionParams:
       Stripe.Checkout.SessionCreateParams =
       {
+        // ====================================================
+        // PAYMENT MODE
+        // ====================================================
+
         mode:
           "payment",
 
+        // ====================================================
+        // PRODUCTS
+        // ====================================================
+
         line_items:
           stripeLineItems,
+
+        // ====================================================
+        // REDIRECTS
+        // ====================================================
 
         success_url:
           successUrl,
 
         cancel_url:
           cancelUrl,
+
+        // ====================================================
+        // TOTS ORDER METADATA
+        // ====================================================
 
         metadata: {
           order_id:
@@ -1107,6 +1242,14 @@ export async function POST(
           store_slug:
             storeSlug,
         },
+
+        // ====================================================
+        // PAYMENT INTENT METADATA
+        //
+        // This is important because refund/cancellation
+        // events often contain the PaymentIntent rather than
+        // the Checkout Session.
+        // ====================================================
 
         payment_intent_data: {
           metadata: {
@@ -1124,20 +1267,41 @@ export async function POST(
           },
         },
 
+        // ====================================================
+        // BILLING ADDRESS
+        // ====================================================
+
         billing_address_collection:
           "auto",
+
+        // ====================================================
+        // PHONE NUMBER
+        // ====================================================
 
         phone_number_collection: {
           enabled:
             true,
         },
 
+        // ====================================================
+        // DISCOUNT / PROMOTION CODES
+        //
+        // THIS IS THE IMPORTANT CHANGE.
+        //
+        // Stripe Checkout will now display:
+        //
+        // "Add promotion code"
+        //
+        // The customer can enter any active Stripe promotion
+        // code associated with this Stripe account.
+        // ====================================================
+
         allow_promotion_codes:
-          false,
+          true,
       };
 
     // ========================================================
-    // CUSTOMER EMAIL
+    // PRE-FILL CUSTOMER EMAIL
     // ========================================================
 
     if (
@@ -1164,7 +1328,7 @@ export async function POST(
     }
 
     // ========================================================
-    // STRIPE SESSION
+    // CREATE STRIPE SESSION
     // ========================================================
 
     let session:
@@ -1184,9 +1348,10 @@ export async function POST(
       );
 
       /*
-       * Don't leave a ghost pending order behind
-       * when Stripe checkout itself couldn't start.
+       * Stripe checkout failed before the customer could pay,
+       * so remove the pending TOTS order.
        */
+
       await supabaseAdmin
         .from(
           "store_orders"
@@ -1204,7 +1369,7 @@ export async function POST(
     }
 
     // ========================================================
-    // VALIDATE STRIPE URL
+    // STRIPE MUST RETURN CHECKOUT URL
     // ========================================================
 
     if (
@@ -1234,7 +1399,8 @@ export async function POST(
 
     return NextResponse.json(
       {
-        success: true,
+        success:
+          true,
 
         checkoutUrl:
           session.url,
@@ -1249,6 +1415,10 @@ export async function POST(
           orderData.order_number,
 
         subtotal,
+
+        discountAmount,
+
+        shippingAmount,
 
         total,
       },
@@ -1267,10 +1437,10 @@ export async function POST(
       error
     );
 
-    /*
-     * Last-resort cleanup if an unexpected failure occurs
-     * after an order was created.
-     */
+    // ========================================================
+    // LAST-RESORT ORDER CLEANUP
+    // ========================================================
+
     if (
       createdOrderId
     ) {
@@ -1294,6 +1464,10 @@ export async function POST(
       }
     }
 
+    // ========================================================
+    // ERROR RESPONSE
+    // ========================================================
+
     return NextResponse.json(
       {
         error:
@@ -1303,7 +1477,8 @@ export async function POST(
             : "Checkout could not be started.",
       },
       {
-        status: 500,
+        status:
+          500,
 
         headers: {
           "Cache-Control":

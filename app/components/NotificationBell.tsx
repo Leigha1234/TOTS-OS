@@ -415,10 +415,23 @@ export default function NotificationBell() {
       ref={
         containerRef
       }
-      className="relative z-[160]"
+      className="
+        relative
+        z-[600]
+        flex
+        h-11
+        w-11
+        shrink-0
+        items-center
+        justify-center
+      "
     >
       {/* ======================================================
           BELL
+
+          IMPORTANT:
+          No fixed positioning here.
+          DashboardLayout decides where this sits.
       ====================================================== */}
 
       <button
@@ -437,22 +450,47 @@ export default function NotificationBell() {
               !current
           )
         }
-        className={`relative flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition-all duration-200 active:scale-95 ${
-          open
-            ? "border-stone-300 bg-stone-900 text-white shadow-md"
-            : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-900"
-        }`}
+        className={`
+          relative
+          flex
+          h-11
+          w-11
+          shrink-0
+          items-center
+          justify-center
+
+          rounded-2xl
+
+          border
+
+          shadow-sm
+
+          backdrop-blur-xl
+
+          transition-all
+          duration-200
+
+          active:scale-95
+
+          ${
+            open
+              ? "border-stone-300 bg-stone-900 text-white shadow-lg"
+              : "border-stone-200 bg-white/95 text-stone-600 hover:border-stone-300 hover:text-stone-900"
+          }
+        `}
       >
         <Bell
           size={
-            17
+            18
           }
           strokeWidth={
             1.8
           }
         />
 
-        {/* BADGE */}
+        {/* ====================================================
+            BADGE
+        ==================================================== */}
 
         {unreadCount >
           0 && (
@@ -465,7 +503,30 @@ export default function NotificationBell() {
               scale:
                 1,
             }}
-            className="absolute -right-1.5 -top-1.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-stone-50 bg-red-500 px-1 text-[7px] font-black text-white"
+            className="
+              absolute
+              -right-1.5
+              -top-1.5
+
+              flex
+              min-h-[19px]
+              min-w-[19px]
+              items-center
+              justify-center
+
+              rounded-full
+
+              border-2
+              border-[#fcfaf7]
+
+              bg-red-500
+
+              px-1
+
+              text-[7px]
+              font-black
+              text-white
+            "
           >
             {unreadCount >
             99
@@ -518,23 +579,28 @@ export default function NotificationBell() {
             }}
             className="
               absolute
-              left-0
-              top-[50px]
-              z-[1000]
+
+              right-0
+              top-[56px]
+
+              z-[1200]
+
               flex
-              max-h-[min(620px,calc(100vh-90px))]
+              max-h-[min(620px,calc(100vh-96px))]
               w-[calc(100vw-2rem)]
               max-w-[410px]
               flex-col
+
               overflow-hidden
+
               rounded-[2rem]
+
               border
               border-stone-200
-              bg-white
-              shadow-[0_30px_80px_rgba(28,25,23,0.18)]
 
-              md:left-auto
-              md:right-0
+              bg-white
+
+              shadow-[0_30px_80px_rgba(28,25,23,0.18)]
             "
           >
             {/* =================================================
@@ -572,6 +638,7 @@ export default function NotificationBell() {
                       false
                     )
                   }
+                  aria-label="Close notifications"
                   className="rounded-xl p-2 text-stone-300 transition hover:bg-stone-50 hover:text-stone-700"
                 >
                   <X
@@ -582,7 +649,9 @@ export default function NotificationBell() {
                 </button>
               </div>
 
-              {/* TOOLBAR */}
+              {/* =================================================
+                  TOOLBAR
+              ================================================= */}
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 {unreadCount >
@@ -654,7 +723,9 @@ export default function NotificationBell() {
             ================================================= */}
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {/* LOADING */}
+              {/* =================================================
+                  LOADING
+              ================================================= */}
 
               {loading && (
                 <div className="flex min-h-[260px] flex-col items-center justify-center p-8">
@@ -671,7 +742,9 @@ export default function NotificationBell() {
                 </div>
               )}
 
-              {/* ERROR */}
+              {/* =================================================
+                  ERROR
+              ================================================= */}
 
               {!loading &&
                 error && (
@@ -709,7 +782,9 @@ export default function NotificationBell() {
                 </div>
               )}
 
-              {/* EMPTY */}
+              {/* =================================================
+                  EMPTY
+              ================================================= */}
 
               {!loading &&
                 !error &&
@@ -848,10 +923,18 @@ function NotificationItem({
           : "bg-[#fcfdfb]"
       }`}
     >
+      {/* ======================================================
+          UNREAD INDICATOR
+      ====================================================== */}
+
       {!notification
         .is_read && (
         <span className="absolute left-0 top-0 h-full w-[3px] bg-[#a9b897]" />
       )}
+
+      {/* ======================================================
+          MAIN NOTIFICATION
+      ====================================================== */}
 
       <button
         type="button"
@@ -865,7 +948,18 @@ function NotificationItem({
         {/* ICON */}
 
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${style.wrapper} ${style.icon}`}
+          className={`
+            flex
+            h-10
+            w-10
+            shrink-0
+            items-center
+            justify-center
+            rounded-xl
+
+            ${style.wrapper}
+            ${style.icon}
+          `}
         >
           <Icon
             size={
@@ -877,7 +971,9 @@ function NotificationItem({
           />
         </div>
 
-        {/* BODY */}
+        {/* ====================================================
+            BODY
+        ==================================================== */}
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
@@ -939,12 +1035,30 @@ function NotificationItem({
           QUICK ACTIONS
       ====================================================== */}
 
-      <div className="absolute right-3 top-3 flex items-center gap-1 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
+      <div
+        className="
+          absolute
+          right-3
+          top-3
+
+          flex
+          items-center
+          gap-1
+
+          opacity-100
+
+          transition
+
+          md:opacity-0
+          md:group-hover:opacity-100
+        "
+      >
         {!notification
           .is_read && (
           <button
             type="button"
             title="Mark as read"
+            aria-label="Mark notification as read"
             onClick={(
               event
             ) => {
@@ -967,6 +1081,7 @@ function NotificationItem({
         <button
           type="button"
           title="Delete notification"
+          aria-label="Delete notification"
           onClick={(
             event
           ) => {

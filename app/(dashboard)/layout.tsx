@@ -417,9 +417,6 @@ function DashboardLayoutInner({
     >
       {/* ======================================================
           DESKTOP SIDEBAR
-
-          Desktop notification bell is entirely handled by
-          Sidebar.tsx.
       ====================================================== */}
 
       <aside
@@ -449,6 +446,64 @@ function DashboardLayoutInner({
         "
       >
         {/* ====================================================
+            GLOBAL TOP-RIGHT ACTIONS
+
+            Clarity sits LEFT.
+            Notifications sit RIGHT.
+
+            Both are positioned together so they cannot overlap.
+        ==================================================== */}
+
+        <div
+          className="
+            pointer-events-none
+            fixed
+            right-4
+            top-4
+            z-[500]
+
+            flex
+            items-center
+            gap-3
+
+            sm:right-5
+            sm:top-5
+
+            md:right-8
+            md:top-8
+          "
+        >
+          {/* ================================================
+              CLARITY
+          ================================================ */}
+
+          <div
+            className="
+              pointer-events-auto
+            "
+          >
+            <Clarity />
+          </div>
+
+          {/* ================================================
+              NOTIFICATIONS
+
+              Desktop/global bell.
+              Hidden while mobile full-screen menu is open.
+          ================================================ */}
+
+          {!mobileMenuOpen && (
+            <div
+              className="
+                pointer-events-auto
+              "
+            >
+              <NotificationBell />
+            </div>
+          )}
+        </div>
+
+        {/* ====================================================
             SCROLLABLE PAGE CONTENT
         ==================================================== */}
 
@@ -458,8 +513,10 @@ function DashboardLayoutInner({
             flex-1
             overflow-x-hidden
             overflow-y-auto
+
             p-4
             pb-32
+
             md:p-12
             md:pb-12
           "
@@ -572,15 +629,6 @@ function DashboardLayoutInner({
         </nav>
 
         {/* ====================================================
-            CLARITY ASSISTANT
-
-            Clarity is intentionally rendered BEFORE the
-            mobile menu overlay.
-        ==================================================== */}
-
-        <Clarity />
-
-        {/* ====================================================
             CLARITY PRODUCT TOUR
         ==================================================== */}
 
@@ -588,8 +636,6 @@ function DashboardLayoutInner({
 
         {/* ====================================================
             MOBILE FULL-SCREEN MENU
-
-            Notification bell only exists here for mobile.
         ==================================================== */}
 
         <AnimatePresence>

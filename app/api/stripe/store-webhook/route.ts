@@ -21,6 +21,14 @@ function requireEnv(name: string): string {
 
 // ============================================================
 // ENVIRONMENT
+//
+// These are required for the route itself to function.
+//
+// IMPORTANT:
+// STRIPE_STORE_WEBHOOK_SECRET is intentionally NOT resolved
+// here. Next.js imports route files during `next build`, so
+// resolving that secret at module scope can break the entire
+// build if the local environment does not contain it.
 // ============================================================
 
 const supabaseUrl = requireEnv(
@@ -33,10 +41,6 @@ const supabaseServiceRoleKey = requireEnv(
 
 const stripeSecretKey = requireEnv(
   "STRIPE_SECRET_KEY"
-);
-
-const stripeWebhookSecret = requireEnv(
-  "STRIPE_STORE_WEBHOOK_SECRET"
 );
 
 // ============================================================
@@ -412,8 +416,6 @@ function getShippingAddress(
 
 // ============================================================
 // SHIPPING ADDRESS TEXT
-//
-// Used by CRM + customer records.
 // ============================================================
 
 function getShippingAddressText(
@@ -429,24 +431,27 @@ function getShippingAddressText(
     return null;
   }
 
-  return [
-    shipping.address.line1,
-    shipping.address.line2,
-    shipping.address.city,
-    shipping.address.state,
-    shipping.address.postal_code,
-    shipping.address.country,
-  ]
-    .map((value) =>
-      asString(value)
-    )
-    .filter(
-      (
-        value
-      ): value is string =>
-        Boolean(value)
-    )
-    .join(", ") || null;
+  return (
+    [
+      shipping.address.line1,
+      shipping.address.line2,
+      shipping.address.city,
+      shipping.address.state,
+      shipping.address.postal_code,
+      shipping.address.country,
+    ]
+      .map((value) =>
+        asString(value)
+      )
+      .filter(
+        (
+          value
+        ): value is string =>
+          Boolean(value)
+      )
+      .join(", ") ||
+    null
+  );
 }
 
 // ============================================================
@@ -710,7 +715,11 @@ async function createCustomer({
   }
 
   console.log(
-    `[TOTS CRM] Created customer ${data.id} for ${email || name || "store customer"}.`
+    `[TOTS CRM] Created customer ${data.id} for ${
+      email ||
+      name ||
+      "store customer"
+    }.`
   );
 
   return data as CustomerRow;
@@ -837,10 +846,6 @@ async function findOrCreateCustomer({
   phone: string | null;
   address: string | null;
 }) {
-  // ==========================================================
-  // 1. ORDER ALREADY HAS CUSTOMER_ID
-  // ==========================================================
-
   const existingOrderCustomerId =
     asString(
       order.customer_id
@@ -873,10 +878,6 @@ async function findOrCreateCustomer({
     }
   }
 
-  // ==========================================================
-  // 2. FIND BY EMAIL
-  // ==========================================================
-
   if (email) {
     const customer =
       await findCustomerByEmail({
@@ -904,10 +905,6 @@ async function findOrCreateCustomer({
       });
     }
   }
-
-  // ==========================================================
-  // 3. CREATE NEW CUSTOMER
-  // ==========================================================
 
   return createCustomer({
     organisationId:
@@ -1205,10 +1202,6 @@ async function findOrCreateCrmContact({
   phone: string | null;
   address: string | null;
 }) {
-  // ==========================================================
-  // 1. CONTACT ALREADY LINKED TO CUSTOMER
-  // ==========================================================
-
   const customerContact =
     await findContactByCustomerId({
       organisationId:
@@ -1235,10 +1228,6 @@ async function findOrCreateCrmContact({
       address,
     });
   }
-
-  // ==========================================================
-  // 2. EXISTING CONTACT BY EMAIL
-  // ==========================================================
 
   if (email) {
     const emailContact =
@@ -1271,10 +1260,6 @@ async function findOrCreateCrmContact({
       });
     }
   }
-
-  // ==========================================================
-  // 3. CREATE CONTACT
-  // ==========================================================
 
   return createCrmContact({
     customerId:
@@ -1361,8 +1346,6 @@ async function syncOrderToCrm({
   customerAddress:
     string | null;
 }) {
-  // Need at least some usable customer data.
-
   if (
     !customerEmail &&
     !customerName
@@ -1373,10 +1356,6 @@ async function syncOrderToCrm({
 
     return null;
   }
-
-  // ==========================================================
-  // CUSTOMER
-  // ==========================================================
 
   const customer =
     await findOrCreateCustomer({
@@ -1395,20 +1374,12 @@ async function syncOrderToCrm({
         customerAddress,
     });
 
-  // ==========================================================
-  // LINK ORDER
-  // ==========================================================
-
   await linkOrderToCustomer({
     order,
 
     customerId:
       customer.id,
   });
-
-  // ==========================================================
-  // CRM CONTACT
-  // ==========================================================
 
   const contact =
     await findOrCreateCrmContact({
@@ -1518,8 +1489,6 @@ async function reduceOrderStock(
 
     const product =
       productData as StoreProductRow;
-
-    // Services/digital products.
 
     if (
       product.track_inventory ===
@@ -1718,10 +1687,6 @@ async function completeStoreOrder(
   session:
     Stripe.Checkout.Session
 ) {
-  // ==========================================================
-  // ORDER ID
-  // ==========================================================
-
   const orderId =
     asString(
       session
@@ -1738,10 +1703,6 @@ async function completeStoreOrder(
     return;
   }
 
-  // ==========================================================
-  // LOAD ORDER
-  // ==========================================================
-
   const order =
     await getOrder(
       orderId
@@ -1755,13 +1716,6 @@ async function completeStoreOrder(
 
     return;
   }
-
-  // ==========================================================
-  // CUSTOMER DATA
-  //
-  // Do this before checking existing payment state so an
-  // already-paid order can still repair its CRM connection.
-  // ==========================================================
 
   const customerName =
     getCustomerName(
@@ -1846,7 +1800,7 @@ async function completeStoreOrder(
   }
 
   // ==========================================================
-  // STRIPE TOTAL
+  // TOTAL
   // ==========================================================
 
   const stripeTotal =
@@ -1861,9 +1815,6 @@ async function completeStoreOrder(
 
   // ==========================================================
   // INVENTORY
-  //
-  // Must complete before marking order paid so Stripe retries
-  // the event if inventory processing throws unexpectedly.
   // ==========================================================
 
   await reduceOrderStock(
@@ -1871,7 +1822,7 @@ async function completeStoreOrder(
   );
 
   // ==========================================================
-  // MARK PAID
+  // MARK ORDER PAID
   // ==========================================================
 
   const markedPaid =
@@ -1901,10 +1852,6 @@ async function completeStoreOrder(
     `[TOTS STORE] Order ${order.order_number} marked paid.`
   );
 
-  // ==========================================================
-  // RELOAD LATEST ORDER
-  // ==========================================================
-
   const updatedOrder =
     await getOrder(
       order.id
@@ -1916,9 +1863,6 @@ async function completeStoreOrder(
 
   // ==========================================================
   // CRM SYNC
-  //
-  // Non-fatal. A CRM problem must not make Stripe consider
-  // the successful payment webhook failed.
   // ==========================================================
 
   try {
@@ -2050,6 +1994,45 @@ export async function POST(
   req: Request
 ) {
   // ==========================================================
+  // WEBHOOK SECRET
+  //
+  // IMPORTANT:
+  // This MUST remain inside POST().
+  //
+  // Putting requireEnv("STRIPE_STORE_WEBHOOK_SECRET") at module
+  // scope causes `next build` to fail when the local machine
+  // doesn't have the Stripe webhook signing secret.
+  // ==========================================================
+
+  const stripeWebhookSecret =
+    process.env
+      .STRIPE_STORE_WEBHOOK_SECRET
+      ?.trim();
+
+  if (
+    !stripeWebhookSecret
+  ) {
+    console.error(
+      "[TOTS STORE WEBHOOK] STRIPE_STORE_WEBHOOK_SECRET is not configured."
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Stripe store webhook secret is not configured.",
+      },
+      {
+        status: 500,
+
+        headers: {
+          "Cache-Control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+  // ==========================================================
   // STRIPE SIGNATURE
   // ==========================================================
 
@@ -2070,6 +2053,11 @@ export async function POST(
       },
       {
         status: 400,
+
+        headers: {
+          "Cache-Control":
+            "no-store",
+        },
       }
     );
   }
@@ -2077,11 +2065,12 @@ export async function POST(
   // ==========================================================
   // RAW BODY
   //
-  // Do NOT call req.json().
-  // Stripe signature verification requires the original body.
+  // Never use req.json() here.
+  // Stripe verifies the exact raw request body.
   // ==========================================================
 
-  let body: string;
+  let body:
+    string;
 
   try {
     body =
@@ -2101,12 +2090,17 @@ export async function POST(
       },
       {
         status: 400,
+
+        headers: {
+          "Cache-Control":
+            "no-store",
+        },
       }
     );
   }
 
   // ==========================================================
-  // VERIFY EVENT
+  // VERIFY STRIPE EVENT
   // ==========================================================
 
   let event:
@@ -2137,6 +2131,11 @@ export async function POST(
       },
       {
         status: 400,
+
+        headers: {
+          "Cache-Control":
+            "no-store",
+        },
       }
     );
   }
@@ -2236,7 +2235,8 @@ export async function POST(
 
     return NextResponse.json(
       {
-        received: true,
+        received:
+          true,
 
         event:
           event.type,
@@ -2245,7 +2245,8 @@ export async function POST(
           event.id,
       },
       {
-        status: 200,
+        status:
+          200,
 
         headers: {
           "Cache-Control":
@@ -2262,10 +2263,10 @@ export async function POST(
     );
 
     /*
-     * HTTP 500 causes Stripe to retry the webhook.
+     * Returning HTTP 500 is intentional here.
      *
-     * That's what we want when important order processing
-     * such as stock/payment state fails.
+     * Stripe will retry the webhook if important processing
+     * such as payment state or inventory management fails.
      */
 
     return NextResponse.json(
@@ -2283,7 +2284,8 @@ export async function POST(
           event.id,
       },
       {
-        status: 500,
+        status:
+          500,
 
         headers: {
           "Cache-Control":

@@ -1,49 +1,173 @@
 import "./globals.css";
 
-import { SettingsProvider } from "@/app/context/SettingsContext";
-import { Toaster } from "react-hot-toast";
-import { Inter } from "next/font/google";
-import type { Metadata } from "next";
+import {
+  SettingsProvider,
+} from "@/app/context/SettingsContext";
+
+import ServiceWorkerRegister from "@/app/components/ServiceWorkerRegister";
+
+import {
+  Toaster,
+} from "react-hot-toast";
+
+import {
+  Inter,
+} from "next/font/google";
+
+import type {
+  Metadata,
+  Viewport,
+} from "next";
 
 // ============================================================
 // FONT
 // ============================================================
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
+const inter =
+  Inter({
+    subsets: [
+      "latin",
+    ],
+
+    variable:
+      "--font-inter",
+  });
+
+// ============================================================
+// VIEWPORT
+// ============================================================
+
+export const viewport: Viewport =
+  {
+    width:
+      "device-width",
+
+    initialScale:
+      1,
+
+    maximumScale:
+      1,
+
+    viewportFit:
+      "cover",
+
+    themeColor:
+      "#a9b897",
+  };
 
 // ============================================================
 // METADATA
 // ============================================================
 
-export const metadata: Metadata = {
-  title: "TOTS-OS",
+export const metadata: Metadata =
+  {
+    title: {
+      default:
+        "TOTS-OS",
 
-  description:
-    "All in one productivity suite for the modern business.",
+      template:
+        "%s | TOTS-OS",
+    },
 
-  icons: {
-    icon: [
-      {
-        url: "/icon.png?v=4",
-        type: "image/png",
-        sizes: "1024x1024",
-      },
-    ],
+    description:
+      "All in one productivity suite for the modern business.",
 
-    shortcut: "/icon.png?v=4",
+    applicationName:
+      "TOTS-OS",
 
-    apple: [
-      {
-        url: "/icon.png?v=4",
-        sizes: "1024x1024",
-        type: "image/png",
-      },
-    ],
-  },
-};
+    manifest:
+      "/manifest.webmanifest",
+
+    // ========================================================
+    // APPLE / IOS PWA
+    // ========================================================
+
+    appleWebApp: {
+      capable:
+        true,
+
+      title:
+        "TOTS-OS",
+
+      statusBarStyle:
+        "default",
+    },
+
+    // ========================================================
+    // ICONS
+    // ========================================================
+
+    icons: {
+      icon: [
+        {
+          url:
+            "/icon.png?v=4",
+
+          type:
+            "image/png",
+
+          sizes:
+            "1024x1024",
+        },
+
+        {
+          url:
+            "/icons/icon-192.png",
+
+          type:
+            "image/png",
+
+          sizes:
+            "192x192",
+        },
+
+        {
+          url:
+            "/icons/icon-512.png",
+
+          type:
+            "image/png",
+
+          sizes:
+            "512x512",
+        },
+      ],
+
+      shortcut:
+        "/icon.png?v=4",
+
+      apple: [
+        {
+          url:
+            "/icons/icon-192.png",
+
+          sizes:
+            "192x192",
+
+          type:
+            "image/png",
+        },
+      ],
+    },
+
+    // ========================================================
+    // EXTRA APP METADATA
+    // ========================================================
+
+    other: {
+      "mobile-web-app-capable":
+        "yes",
+
+      "apple-mobile-web-app-capable":
+        "yes",
+
+      "apple-mobile-web-app-status-bar-style":
+        "default",
+
+      "apple-mobile-web-app-title":
+        "TOTS-OS",
+    },
+  };
 
 // ============================================================
 // ROOT LAYOUT
@@ -52,7 +176,8 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children:
+    React.ReactNode;
 }>) {
   return (
     <html
@@ -60,6 +185,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* ==================================================
+            FAVICON
+        ================================================== */}
+
         <link
           rel="icon"
           type="image/png"
@@ -72,9 +201,43 @@ export default function RootLayout({
           href="/icon.png?v=4"
         />
 
+        {/* ==================================================
+            PWA / APP
+        ================================================== */}
+
+        <link
+          rel="manifest"
+          href="/manifest.webmanifest"
+        />
+
         <link
           rel="apple-touch-icon"
-          href="/icon.png?v=4"
+          href="/icons/icon-192.png"
+        />
+
+        <meta
+          name="mobile-web-app-capable"
+          content="yes"
+        />
+
+        <meta
+          name="apple-mobile-web-app-capable"
+          content="yes"
+        />
+
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="default"
+        />
+
+        <meta
+          name="apple-mobile-web-app-title"
+          content="TOTS-OS"
+        />
+
+        <meta
+          name="theme-color"
+          content="#a9b897"
         />
 
         {/* ==================================================
@@ -155,14 +318,24 @@ export default function RootLayout({
                   var url =
                     "https://analytics.tiktok.com/i18n/pixel/events.js";
 
-                  ttq._i = ttq._i || {};
-                  ttq._i[pixelId] = [];
-                  ttq._i[pixelId]._u = url;
+                  ttq._i =
+                    ttq._i || {};
 
-                  ttq._t = ttq._t || {};
-                  ttq._t[pixelId] = +new Date();
+                  ttq._i[pixelId] =
+                    [];
 
-                  ttq._o = ttq._o || {};
+                  ttq._i[pixelId]._u =
+                    url;
+
+                  ttq._t =
+                    ttq._t || {};
+
+                  ttq._t[pixelId] =
+                    +new Date();
+
+                  ttq._o =
+                    ttq._o || {};
+
                   ttq._o[pixelId] =
                     options || {};
 
@@ -174,7 +347,8 @@ export default function RootLayout({
                   script.type =
                     "text/javascript";
 
-                  script.async = true;
+                  script.async =
+                    true;
 
                   script.src =
                     url +
@@ -212,9 +386,23 @@ export default function RootLayout({
       <body
         className={`${inter.variable} antialiased selection:bg-[#a9b897]/30`}
       >
+        {/* ==================================================
+            SERVICE WORKER
+        ================================================== */}
+
+        <ServiceWorkerRegister />
+
+        {/* ==================================================
+            APP
+        ================================================== */}
+
         <SettingsProvider>
           {children}
         </SettingsProvider>
+
+        {/* ==================================================
+            TOASTS
+        ================================================== */}
 
         <Toaster />
       </body>

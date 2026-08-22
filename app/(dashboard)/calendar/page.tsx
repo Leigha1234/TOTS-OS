@@ -44,6 +44,7 @@ import {
   addMonths,
   addWeeks,
   eachDayOfInterval,
+  endOfDay,
   endOfMonth,
   endOfWeek,
   format,
@@ -53,6 +54,7 @@ import {
   isSameDay,
   isSameMonth,
   isValid,
+  startOfDay,
   startOfMonth,
   startOfWeek,
   subMonths,
@@ -81,7 +83,6 @@ interface CalendarEvent {
   tags?: string;
 
   user_id?: string | null;
-
   organisation_id?: string | null;
 
   startAt?: Date | null;
@@ -89,12 +90,14 @@ interface CalendarEvent {
 
   repeat?: string;
 
+  is_all_day?: boolean;
+  color?: string;
+
   sourceType?:
     | "event"
     | "task"
     | "note";
 
-  // Virtual recurring-instance metadata
   seriesId?: string;
 
   isRecurringOccurrence?: boolean;
@@ -208,15 +211,100 @@ const WEEK_DAYS: WeekDay[] = [
   },
 ];
 
-/**
- * All available times in 10-minute intervals.
- *
- * 00:00
- * 00:10
- * 00:20
- * ...
- * 23:50
- */
+// ============================================================
+// EVENT COLOURS
+// ============================================================
+
+const EVENT_COLORS = [
+  {
+    id: "sage",
+    label: "Sage",
+    dot: "#829473",
+    background: "#E4EADF",
+    text: "#4F6147",
+    border: "#A9B897",
+  },
+
+  {
+    id: "pink",
+    label: "Pink",
+    dot: "#D98FA3",
+    background: "#F8E2E8",
+    text: "#9B5266",
+    border: "#E9AEBE",
+  },
+
+  {
+    id: "blue",
+    label: "Blue",
+    dot: "#7198BD",
+    background: "#E1EDF7",
+    text: "#496F93",
+    border: "#9DBBD5",
+  },
+
+  {
+    id: "purple",
+    label: "Purple",
+    dot: "#9B87BD",
+    background: "#ECE6F5",
+    text: "#6E598F",
+    border: "#BCAED3",
+  },
+
+  {
+    id: "orange",
+    label: "Orange",
+    dot: "#D89A62",
+    background: "#FAEADB",
+    text: "#9B6437",
+    border: "#E6B88D",
+  },
+
+  {
+    id: "red",
+    label: "Red",
+    dot: "#CA7772",
+    background: "#F8E2E0",
+    text: "#914D49",
+    border: "#DFA09C",
+  },
+
+  {
+    id: "yellow",
+    label: "Yellow",
+    dot: "#C7A650",
+    background: "#F8F0D5",
+    text: "#806A2E",
+    border: "#DFC77E",
+  },
+
+  {
+    id: "stone",
+    label: "Stone",
+    dot: "#78716C",
+    background: "#EBE9E7",
+    text: "#57534E",
+    border: "#A8A29E",
+  },
+] as const;
+
+function getEventColour(
+  colour?: string | null
+) {
+  return (
+    EVENT_COLORS.find(
+      (option) =>
+        option.id === colour
+    ) ||
+    EVENT_COLORS[0]
+  );
+}
+
+// ============================================================
+// 10 MINUTE TIMES
+// ============================================================
+
 const TIME_OPTIONS = Array.from(
   {
     length: 24 * 6,
@@ -281,7 +369,8 @@ const DEFAULT_BOOKING_PAGE: BookingPage = {
   timezone:
     Intl.DateTimeFormat()
       .resolvedOptions()
-      .timeZone || "Europe/London",
+      .timeZone ||
+    "Europe/London",
 
   availability: {
     mon: [
@@ -355,7 +444,7 @@ function slugify(
 }
 
 // ============================================================
-// NORMALISE TIME TO NEAREST 10 MINUTES
+// SNAP TIME TO 10 MINUTES
 // ============================================================
 
 function snapTimeStringToTen(
@@ -550,6 +639,74 @@ function safeDate(
 }
 
 // ============================================================
+// DATE BETWEEN
+// ============================================================
+
+function dateFallsInsideEvent(
+  date: Date,
+  event: CalendarEvent
+) {
+  if (
+    !event.startAt ||
+    !isValid(
+      event.startAt
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    !event.is_all_day ||
+    !event.endAt
+  ) {
+    return isSameDay(
+      event.startAt,
+      date
+    );
+  }
+
+  const testDate =
+    startOfDay(
+      date
+    );
+
+  const start =
+    startOfDay(
+      event.startAt
+    );
+
+  const end =
+    endOfDay(
+      event.endAt
+    );
+
+  return (
+    (
+      isAfter(
+        testDate,
+        start
+      ) ||
+      isEqual(
+        testDate,
+        start
+      )
+    ) &&
+    (
+      isBefore(
+        testDate,
+        end
+      ) ||
+      isEqual(
+        testDate,
+        startOfDay(
+          end
+        )
+      )
+    )
+  );
+}
+
+// ============================================================
 // RECURRING EVENT EXPANSION
 // ============================================================
 
@@ -565,7 +722,6 @@ function expandRecurringEvents(
     (
       event
     ) => {
-      // Tasks and notes do not use the repeat system here.
       if (
         event.sourceType !==
           "event" ||
@@ -585,13 +741,9 @@ function expandRecurringEvents(
         event.repeat ||
         "none";
 
-      // --------------------------------------------------------
-      // NORMAL NON-REPEATING EVENT
-      // --------------------------------------------------------
-
       if (
         repeat ===
-        "none" ||
+          "none" ||
         !repeat
       ) {
         expanded.push(
@@ -627,10 +779,6 @@ function expandRecurringEvents(
       let safetyCount =
         0;
 
-      /**
-       * Generate instances from the original start date
-       * up until the currently requested calendar range.
-       */
       while (
         (
           isBefore(
@@ -645,44 +793,53 @@ function expandRecurringEvents(
         safetyCount <
           1500
       ) {
-        const occurrenceIsInsideRange =
-          (
-            isAfter(
-              occurrence,
-              rangeStart
-            ) ||
-            isEqual(
-              occurrence,
-              rangeStart
-            )
-          ) &&
-          (
-            isBefore(
-              occurrence,
-              rangeEnd
-            ) ||
-            isEqual(
-              occurrence,
-              rangeEnd
-            )
-          );
+        const occurrenceEnd =
+          duration >
+          0
+            ? new Date(
+                occurrence.getTime() +
+                  duration
+              )
+            : null;
+
+        const occurrenceOverlapsRange =
+          occurrenceEnd
+            ? (
+                occurrence <=
+                  rangeEnd &&
+                occurrenceEnd >=
+                  rangeStart
+              )
+            : (
+                (
+                  isAfter(
+                    occurrence,
+                    rangeStart
+                  ) ||
+                  isEqual(
+                    occurrence,
+                    rangeStart
+                  )
+                ) &&
+                (
+                  isBefore(
+                    occurrence,
+                    rangeEnd
+                  ) ||
+                  isEqual(
+                    occurrence,
+                    rangeEnd
+                  )
+                )
+              );
 
         if (
-          occurrenceIsInsideRange
+          occurrenceOverlapsRange
         ) {
           const occurrenceStart =
             new Date(
               occurrence
             );
-
-          const occurrenceEnd =
-            duration >
-            0
-              ? new Date(
-                  occurrenceStart.getTime() +
-                    duration
-                )
-              : null;
 
           expanded.push({
             ...event,
@@ -708,10 +865,6 @@ function expandRecurringEvents(
               occurrenceEnd,
           });
         }
-
-        // ------------------------------------------------------
-        // MOVE TO NEXT OCCURRENCE
-        // ------------------------------------------------------
 
         if (
           repeat ===
@@ -775,7 +928,7 @@ function cloneWindows(
 
 export default function CalendarPage() {
   // ==========================================================
-  // PRIMARY PAGE STATE
+  // PRIMARY STATE
   // ==========================================================
 
   const [
@@ -902,9 +1055,7 @@ export default function CalendarPage() {
     formTitle,
     setFormTitle,
   ] =
-    useState(
-      ""
-    );
+    useState("");
 
   const [
     formDate,
@@ -929,17 +1080,13 @@ export default function CalendarPage() {
     formEndDate,
     setFormEndDate,
   ] =
-    useState(
-      ""
-    );
+    useState("");
 
   const [
     formEndTime,
     setFormEndTime,
   ] =
-    useState(
-      ""
-    );
+    useState("");
 
   const [
     formRepeat,
@@ -950,52 +1097,56 @@ export default function CalendarPage() {
     );
 
   const [
+    formAllDay,
+    setFormAllDay,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    formColor,
+    setFormColor,
+  ] =
+    useState(
+      "sage"
+    );
+
+  const [
     formLocation,
     setFormLocation,
   ] =
-    useState(
-      ""
-    );
+    useState("");
 
   const [
     formLink,
     setFormLink,
   ] =
-    useState(
-      ""
-    );
+    useState("");
 
   const [
     formGuests,
     setFormGuests,
   ] =
-    useState(
-      ""
-    );
+    useState("");
 
   const [
     formInternalTeam,
     setFormInternalTeam,
   ] =
-    useState(
-      ""
-    );
+    useState("");
 
   const [
     formTags,
     setFormTags,
   ] =
-    useState(
-      ""
-    );
+    useState("");
 
   const [
     formDescription,
     setFormDescription,
   ] =
-    useState(
-      ""
-    );
+    useState("");
 
   const [
     attachedFileName,
@@ -1070,9 +1221,7 @@ export default function CalendarPage() {
     siteOrigin,
     setSiteOrigin,
   ] =
-    useState(
-      ""
-    );
+    useState("");
 
   const [
     copiedLink,
@@ -1128,6 +1277,15 @@ export default function CalendarPage() {
           repeat:
             event?.repeat ||
             "none",
+
+          is_all_day:
+            Boolean(
+              event?.is_all_day
+            ),
+
+          color:
+            event?.color ||
+            "sage",
 
           startAt:
             startRaw &&
@@ -1249,9 +1407,7 @@ export default function CalendarPage() {
                 .from(
                   "events"
                 )
-                .select(
-                  "*"
-                )
+                .select("*")
                 .eq(
                   "user_id",
                   user.id
@@ -1261,9 +1417,7 @@ export default function CalendarPage() {
                 .from(
                   "tasks"
                 )
-                .select(
-                  "*"
-                )
+                .select("*")
                 .eq(
                   "user_id",
                   user.id
@@ -1273,9 +1427,7 @@ export default function CalendarPage() {
                 .from(
                   "tasks"
                 )
-                .select(
-                  "*"
-                )
+                .select("*")
                 .eq(
                   "assigned_to",
                   user.id
@@ -1285,9 +1437,7 @@ export default function CalendarPage() {
                 .from(
                   "notes"
                 )
-                .select(
-                  "*"
-                )
+                .select("*")
                 .eq(
                   "user_id",
                   user.id
@@ -1297,9 +1447,7 @@ export default function CalendarPage() {
                 .from(
                   "notes"
                 )
-                .select(
-                  "*"
-                )
+                .select("*")
                 .eq(
                   "assigned_to",
                   user.id
@@ -1412,6 +1560,12 @@ export default function CalendarPage() {
 
                     repeat:
                       "none",
+
+                    is_all_day:
+                      false,
+
+                    color:
+                      "sage",
 
                     startAt:
                       start,
@@ -1527,6 +1681,12 @@ export default function CalendarPage() {
 
                     repeat:
                       "none",
+
+                    is_all_day:
+                      false,
+
+                    color:
+                      "yellow",
 
                     startAt:
                       start,
@@ -1650,9 +1810,7 @@ export default function CalendarPage() {
               .from(
                 "booking_pages"
               )
-              .select(
-                "*"
-              )
+              .select("*")
               .eq(
                 "user_id",
                 userId
@@ -1739,7 +1897,7 @@ export default function CalendarPage() {
   );
 
   // ==========================================================
-  // MONTH CALENDAR RANGE
+  // CALENDAR RANGE
   // ==========================================================
 
   const calendarRangeStart =
@@ -1785,7 +1943,7 @@ export default function CalendarPage() {
     );
 
   // ==========================================================
-  // EXPAND RECURRING EVENTS FOR MONTH
+  // RECURRING MONTH EVENTS
   // ==========================================================
 
   const expandedCalendarEvents =
@@ -1804,7 +1962,7 @@ export default function CalendarPage() {
     );
 
   // ==========================================================
-  // EXPAND RECURRING EVENTS FOR OVERVIEW
+  // OVERVIEW RANGE
   // ==========================================================
 
   const overviewRangeStart =
@@ -1853,7 +2011,7 @@ export default function CalendarPage() {
     );
 
   // ==========================================================
-  // GET EVENTS FOR DAY
+  // DAY EVENTS
   // ==========================================================
 
   const getDayEvents =
@@ -1865,35 +2023,42 @@ export default function CalendarPage() {
           .filter(
             (
               event
-            ) => {
-              if (
-                !event.startAt ||
-                !isValid(
-                  event.startAt
-                )
-              ) {
-                return false;
-              }
-
-              return isSameDay(
-                event.startAt,
-                date
-              );
-            }
+            ) =>
+              dateFallsInsideEvent(
+                date,
+                event
+              )
           )
           .sort(
             (
               a,
               b
-            ) =>
-              (
-                a.startAt?.getTime() ||
-                0
-              ) -
-              (
-                b.startAt?.getTime() ||
-                0
-              )
+            ) => {
+              if (
+                a.is_all_day &&
+                !b.is_all_day
+              ) {
+                return -1;
+              }
+
+              if (
+                !a.is_all_day &&
+                b.is_all_day
+              ) {
+                return 1;
+              }
+
+              return (
+                (
+                  a.startAt?.getTime() ||
+                  0
+                ) -
+                (
+                  b.startAt?.getTime() ||
+                  0
+                )
+              );
+            }
           );
       },
       [
@@ -1913,27 +2078,41 @@ export default function CalendarPage() {
             (
               event
             ) =>
-              Boolean(
-                event.startAt &&
-                  isSameDay(
-                    event.startAt,
-                    new Date()
-                  )
+              dateFallsInsideEvent(
+                new Date(),
+                event
               )
           )
           .sort(
             (
               a,
               b
-            ) =>
-              (
-                a.startAt?.getTime() ||
-                0
-              ) -
-              (
-                b.startAt?.getTime() ||
-                0
-              )
+            ) => {
+              if (
+                a.is_all_day &&
+                !b.is_all_day
+              ) {
+                return -1;
+              }
+
+              if (
+                !a.is_all_day &&
+                b.is_all_day
+              ) {
+                return 1;
+              }
+
+              return (
+                (
+                  a.startAt?.getTime() ||
+                  0
+                ) -
+                (
+                  b.startAt?.getTime() ||
+                  0
+                )
+              );
+            }
           );
       },
       [
@@ -1955,12 +2134,28 @@ export default function CalendarPage() {
           .filter(
             (
               event
-            ) =>
-              Boolean(
-                event.startAt &&
-                  event.startAt >=
-                    now
-              )
+            ) => {
+              if (
+                !event.startAt
+              ) {
+                return false;
+              }
+
+              if (
+                event.is_all_day &&
+                dateFallsInsideEvent(
+                  now,
+                  event
+                )
+              ) {
+                return true;
+              }
+
+              return (
+                event.startAt >=
+                now
+              );
+            }
           )
           .sort(
             (
@@ -1987,7 +2182,7 @@ export default function CalendarPage() {
     );
 
   // ==========================================================
-  // AVAILABLE DAY COUNT
+  // BOOKING DATA
   // ==========================================================
 
   const availableDayCount =
@@ -2019,13 +2214,15 @@ export default function CalendarPage() {
       : "";
 
   // ==========================================================
-  // GET ORIGINAL EVENT FROM A RECURRING INSTANCE
+  // BASE RECURRING EVENT
   // ==========================================================
 
   const getBaseEvent =
     useCallback(
       (
-        event: CalendarEvent | null
+        event:
+          | CalendarEvent
+          | null
       ) => {
         if (
           !event
@@ -2077,7 +2274,7 @@ export default function CalendarPage() {
     };
 
   // ==========================================================
-  // NEW EVENT
+  // CREATE EVENT
   // ==========================================================
 
   const openCreateEvent =
@@ -2103,7 +2300,6 @@ export default function CalendarPage() {
         )
       );
 
-      // Always starts at :00
       setFormTime(
         "09:00"
       );
@@ -2118,6 +2314,14 @@ export default function CalendarPage() {
 
       setFormRepeat(
         "none"
+      );
+
+      setFormAllDay(
+        false
+      );
+
+      setFormColor(
+        "sage"
       );
 
       setFormLocation(
@@ -2169,11 +2373,6 @@ export default function CalendarPage() {
         return;
       }
 
-      /**
-       * If the user clicked Tuesday's copy of a Daily event,
-       * edit the original series rather than changing the series
-       * start date to Tuesday.
-       */
       const eventToEdit =
         getBaseEvent(
           selectedEvent
@@ -2210,6 +2409,17 @@ export default function CalendarPage() {
           ""
       );
 
+      setFormAllDay(
+        Boolean(
+          eventToEdit.is_all_day
+        )
+      );
+
+      setFormColor(
+        eventToEdit.color ||
+          "sage"
+      );
+
       setFormDate(
         eventToEdit.startAt
           ? format(
@@ -2240,7 +2450,8 @@ export default function CalendarPage() {
       );
 
       setFormEndTime(
-        eventToEdit.endAt
+        eventToEdit.endAt &&
+        !eventToEdit.is_all_day
           ? formatDateTimeToTen(
               eventToEdit.endAt
             )
@@ -2321,30 +2532,58 @@ export default function CalendarPage() {
             ?.organisation_id ||
           null;
 
-        const safeStartTime =
-          snapTimeStringToTen(
-            formTime
-          );
+        let startISO:
+          string;
 
-        const safeEndTime =
-          formEndTime
-            ? snapTimeStringToTen(
-                formEndTime
-              )
-            : "";
+        let endISO:
+          string | null;
 
-        const startISO =
-          new Date(
-            `${formDate}T${safeStartTime}:00`
-          ).toISOString();
+        // ======================================================
+        // ALL DAY DATE STORAGE
+        // ======================================================
 
-        const endISO =
-          formEndDate &&
-          safeEndTime
-            ? new Date(
-                `${formEndDate}T${safeEndTime}:00`
-              ).toISOString()
-            : null;
+        if (
+          formAllDay
+        ) {
+          startISO =
+            new Date(
+              `${formDate}T00:00:00`
+            ).toISOString();
+
+          const chosenEndDate =
+            formEndDate ||
+            formDate;
+
+          endISO =
+            new Date(
+              `${chosenEndDate}T23:59:59`
+            ).toISOString();
+        } else {
+          const safeStartTime =
+            snapTimeStringToTen(
+              formTime
+            );
+
+          const safeEndTime =
+            formEndTime
+              ? snapTimeStringToTen(
+                  formEndTime
+                )
+              : "";
+
+          startISO =
+            new Date(
+              `${formDate}T${safeStartTime}:00`
+            ).toISOString();
+
+          endISO =
+            formEndDate &&
+            safeEndTime
+              ? new Date(
+                  `${formEndDate}T${safeEndTime}:00`
+                ).toISOString()
+              : null;
+        }
 
         if (
           endISO &&
@@ -2386,6 +2625,7 @@ export default function CalendarPage() {
             ) ||
             selectedEvent;
 
+          // TASK
           if (
             originalEvent.sourceType ===
             "task"
@@ -2427,7 +2667,10 @@ export default function CalendarPage() {
             ) {
               throw updateError;
             }
-          } else if (
+          }
+
+          // NOTE
+          else if (
             originalEvent.sourceType ===
             "note"
           ) {
@@ -2467,7 +2710,10 @@ export default function CalendarPage() {
             ) {
               throw updateError;
             }
-          } else {
+          }
+
+          // EVENT
+          else {
             const eventId =
               selectedEvent.seriesId ||
               selectedEvent.id;
@@ -2506,6 +2752,12 @@ export default function CalendarPage() {
 
                   repeat:
                     formRepeat,
+
+                  is_all_day:
+                    formAllDay,
+
+                  color:
+                    formColor,
                 })
                 .eq(
                   "id",
@@ -2533,7 +2785,7 @@ export default function CalendarPage() {
         }
 
         // ======================================================
-        // CREATE
+        // CREATE EVENT
         // ======================================================
 
         const {
@@ -2570,6 +2822,12 @@ export default function CalendarPage() {
 
               repeat:
                 formRepeat,
+
+              is_all_day:
+                formAllDay,
+
+              color:
+                formColor,
 
               user_id:
                 user.id,
@@ -2898,10 +3156,6 @@ export default function CalendarPage() {
                 last.end
               );
 
-            /**
-             * Next block starts 10 minutes
-             * after the last block.
-             */
             const suggestedStart =
               Math.min(
                 lastEnd +
@@ -2910,9 +3164,6 @@ export default function CalendarPage() {
                   40
               );
 
-            /**
-             * Default new window = two hours.
-             */
             const suggestedEnd =
               Math.min(
                 suggestedStart +
@@ -3085,7 +3336,7 @@ export default function CalendarPage() {
     };
 
   // ==========================================================
-  // VALIDATE BOOKING
+  // VALIDATE AVAILABILITY
   // ==========================================================
 
   const validateAvailability =
@@ -3264,7 +3515,8 @@ export default function CalendarPage() {
           duration_minutes:
             Number(
               bookingPage.duration_minutes
-            ) || 30,
+            ) ||
+            30,
 
           location_type:
             bookingPage.location_type,
@@ -3283,22 +3535,26 @@ export default function CalendarPage() {
           buffer_before_minutes:
             Number(
               bookingPage.buffer_before_minutes
-            ) || 0,
+            ) ||
+            0,
 
           buffer_after_minutes:
             Number(
               bookingPage.buffer_after_minutes
-            ) || 0,
+            ) ||
+            0,
 
           min_notice_hours:
             Number(
               bookingPage.min_notice_hours
-            ) || 0,
+            ) ||
+            0,
 
           max_days_ahead:
             Number(
               bookingPage.max_days_ahead
-            ) || 30,
+            ) ||
+            30,
 
           timezone:
             bookingPage.timezone ||
@@ -3327,9 +3583,7 @@ export default function CalendarPage() {
                   "user_id",
               }
             )
-            .select(
-              "*"
-            )
+            .select("*")
             .maybeSingle();
 
         if (
@@ -3434,8 +3688,11 @@ export default function CalendarPage() {
   // ==========================================================
 
   const tabs: {
-    label: MainTab;
-    icon: any;
+    label:
+      MainTab;
+
+    icon:
+      any;
   }[] = [
     {
       label:
@@ -3476,9 +3733,7 @@ export default function CalendarPage() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] pb-24 text-stone-900">
-      {/* ======================================================
-          ERROR
-      ====================================================== */}
+      {/* ERROR */}
 
       {error && (
         <div className="fixed left-1/2 top-4 z-[2000] -translate-x-1/2 rounded-xl bg-red-500 px-5 py-3 text-xs font-semibold text-white shadow-xl">
@@ -3503,9 +3758,8 @@ export default function CalendarPage() {
 
             <p className="mt-5 max-w-2xl text-sm leading-6 text-stone-500">
               Manage your schedule,
-              availability and the
-              way customers book
-              time with your
+              availability and the way
+              customers book time with your
               business.
             </p>
           </div>
@@ -3519,9 +3773,7 @@ export default function CalendarPage() {
               className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
             >
               <RefreshCw
-                size={
-                  13
-                }
+                size={13}
                 className={
                   isLoading
                     ? "animate-spin"
@@ -3546,9 +3798,7 @@ export default function CalendarPage() {
               className="flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#a9b897]"
             >
               <Plus
-                size={
-                  14
-                }
+                size={14}
               />
 
               Add Event
@@ -3593,9 +3843,7 @@ export default function CalendarPage() {
                     }`}
                   >
                     <Icon
-                      size={
-                        14
-                      }
+                      size={14}
                     />
 
                     {
@@ -3627,9 +3875,7 @@ export default function CalendarPage() {
               <div className="flex items-start gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#a9b897]/10 text-[#829473]">
                   <Sparkles
-                    size={
-                      18
-                    }
+                    size={18}
                   />
                 </div>
 
@@ -3760,8 +4006,8 @@ export default function CalendarPage() {
                     </p>
 
                     <p className="mt-1 text-xs text-stone-400">
-                      Your calendar
-                      is clear today.
+                      Your calendar is
+                      clear today.
                     </p>
                   </div>
                 ) : (
@@ -3865,9 +4111,7 @@ export default function CalendarPage() {
                         className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
                       >
                         <Copy
-                          size={
-                            12
-                          }
+                          size={12}
                         />
 
                         {copiedLink
@@ -3960,9 +4204,7 @@ export default function CalendarPage() {
                   className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 bg-white"
                 >
                   <ChevronLeft
-                    size={
-                      16
-                    }
+                    size={16}
                   />
                 </button>
 
@@ -3998,9 +4240,7 @@ export default function CalendarPage() {
                   className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 bg-white"
                 >
                   <ChevronRight
-                    size={
-                      16
-                    }
+                    size={16}
                   />
                 </button>
               </div>
@@ -4012,6 +4252,8 @@ export default function CalendarPage() {
               </div>
             ) : (
               <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white">
+                {/* DAYS */}
+
                 <div className="grid grid-cols-7 border-b border-stone-100 bg-stone-50">
                   {[
                     "Sun",
@@ -4038,6 +4280,8 @@ export default function CalendarPage() {
                     )
                   )}
                 </div>
+
+                {/* CELLS */}
 
                 <div className="grid grid-cols-7">
                   {daysGrid.map(
@@ -4077,7 +4321,7 @@ export default function CalendarPage() {
                               day
                             );
                           }}
-                          className={`min-h-[110px] border-b border-r border-stone-100 p-2 text-left transition sm:min-h-[140px] sm:p-3 ${
+                          className={`min-h-[115px] border-b border-r border-stone-100 p-2 text-left transition sm:min-h-[145px] sm:p-3 ${
                             !isSameMonth(
                               day,
                               currentMonth
@@ -4119,54 +4363,89 @@ export default function CalendarPage() {
                               .map(
                                 (
                                   event
-                                ) => (
-                                  <div
-                                    key={
-                                      event.id
-                                    }
-                                    onClick={(
-                                      clickEvent
-                                    ) => {
-                                      clickEvent.stopPropagation();
+                                ) => {
+                                  const colour =
+                                    getEventColour(
+                                      event.color
+                                    );
 
-                                      openEvent(
-                                        event
-                                      );
-                                    }}
-                                    className={`truncate rounded-lg px-2 py-1.5 text-[7px] font-bold ${
-                                      event.sourceType ===
-                                      "task"
-                                        ? "bg-[#a9b897]/15 text-[#6f8064]"
-                                        : event.sourceType ===
-                                            "note"
-                                          ? "bg-amber-50 text-amber-700"
-                                          : event.isRecurringOccurrence
-                                            ? "bg-[#ebe6dc] text-stone-700"
-                                            : "bg-stone-100 text-stone-600"
-                                    }`}
-                                  >
-                                    <span>
-                                      {event.startAt
-                                        ? `${format(
-                                            event.startAt,
-                                            "HH:mm"
-                                          )} `
-                                        : ""}
+                                  const isEvent =
+                                    event.sourceType ===
+                                    "event";
 
-                                      {
-                                        event.title
+                                  return (
+                                    <div
+                                      key={
+                                        event.id
                                       }
+                                      onClick={(
+                                        clickEvent
+                                      ) => {
+                                        clickEvent.stopPropagation();
 
-                                      {event.isRecurringOccurrence &&
-                                        " ↻"}
-                                    </span>
-                                  </div>
-                                )
+                                        openEvent(
+                                          event
+                                        );
+                                      }}
+                                      className={`flex cursor-pointer items-center gap-1.5 truncate rounded-lg border-l-[3px] px-2 py-1.5 text-[7px] font-bold shadow-sm transition hover:brightness-[0.97] ${
+                                        event.sourceType ===
+                                        "task"
+                                          ? "border-[#829473] bg-[#dfe8da] text-[#53644b]"
+                                          : event.sourceType ===
+                                              "note"
+                                            ? "border-amber-400 bg-amber-100 text-amber-800"
+                                            : ""
+                                      }`}
+                                      style={
+                                        isEvent
+                                          ? {
+                                              backgroundColor:
+                                                colour.background,
+
+                                              color:
+                                                colour.text,
+
+                                              borderLeftColor:
+                                                colour.dot,
+                                            }
+                                          : undefined
+                                      }
+                                    >
+                                      {isEvent && (
+                                        <span
+                                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                          style={{
+                                            backgroundColor:
+                                              colour.dot,
+                                          }}
+                                        />
+                                      )}
+
+                                      <span className="truncate">
+                                        {event.is_all_day
+                                          ? "All day · "
+                                          : event.startAt
+                                            ? `${format(
+                                                event.startAt,
+                                                "HH:mm"
+                                              )} `
+                                            : ""}
+
+                                        {
+                                          event.title
+                                        }
+
+                                        {event.isRecurringOccurrence &&
+                                          " ↻"}
+                                      </span>
+                                    </div>
+                                  );
+                                }
                               )}
 
                             {dayEvents.length >
                               4 && (
-                              <p className="px-1 text-[7px] text-stone-400">
+                              <p className="px-1 text-[7px] font-semibold text-stone-400">
                                 +
                                 {dayEvents.length -
                                   4}{" "}
@@ -4203,23 +4482,18 @@ export default function CalendarPage() {
                   </p>
 
                   <h2 className="mt-1 text-3xl font-serif italic text-stone-800">
-                    Let customers
-                    book you
+                    Let customers book you
                   </h2>
 
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
-                    Create a simple
-                    public booking
-                    page without
-                    giving customers
-                    access to your
-                    actual calendar.
+                    Create a simple public
+                    booking page without
+                    giving customers access
+                    to your actual calendar.
                   </p>
 
                   <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <FormField
-                      label="Booking Name"
-                    >
+                    <FormField label="Booking Name">
                       <input
                         value={
                           bookingPage.title
@@ -4245,9 +4519,7 @@ export default function CalendarPage() {
                       />
                     </FormField>
 
-                    <FormField
-                      label="Booking Link"
-                    >
+                    <FormField label="Booking Link">
                       <input
                         value={
                           bookingPage.slug
@@ -4273,9 +4545,7 @@ export default function CalendarPage() {
                       />
                     </FormField>
 
-                    <FormField
-                      label="Meeting Length"
-                    >
+                    <FormField label="Meeting Length">
                       <select
                         value={
                           bookingPage.duration_minutes
@@ -4334,9 +4604,7 @@ export default function CalendarPage() {
                       </select>
                     </FormField>
 
-                    <FormField
-                      label="Timezone"
-                    >
+                    <FormField label="Timezone">
                       <input
                         value={
                           bookingPage.timezone
@@ -4363,9 +4631,7 @@ export default function CalendarPage() {
                   </div>
 
                   <div className="mt-5">
-                    <FormField
-                      label="Description"
-                    >
+                    <FormField label="Description">
                       <textarea
                         value={
                           bookingPage.description
@@ -4401,14 +4667,11 @@ export default function CalendarPage() {
                   </p>
 
                   <h2 className="mt-1 text-2xl font-serif italic text-stone-800">
-                    Where will you
-                    meet?
+                    Where will you meet?
                   </h2>
 
                   <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormField
-                      label="Meeting Type"
-                    >
+                    <FormField label="Meeting Type">
                       <select
                         value={
                           bookingPage.location_type
@@ -4453,9 +4716,7 @@ export default function CalendarPage() {
                       "video" ||
                       bookingPage.location_type ===
                         "both") && (
-                      <FormField
-                        label="Video Provider"
-                      >
+                      <FormField label="Video Provider">
                         <select
                           value={
                             bookingPage.video_provider
@@ -4505,9 +4766,7 @@ export default function CalendarPage() {
                       "video" ||
                       bookingPage.location_type ===
                         "both") && (
-                      <FormField
-                        label="Meeting Link"
-                      >
+                      <FormField label="Meeting Link">
                         <input
                           value={
                             bookingPage.video_link
@@ -4538,9 +4797,7 @@ export default function CalendarPage() {
                       "in_person" ||
                       bookingPage.location_type ===
                         "both") && (
-                      <FormField
-                        label="Location"
-                      >
+                      <FormField label="Location">
                         <input
                           value={
                             bookingPage.location_value
@@ -4779,21 +5036,19 @@ export default function CalendarPage() {
                   </div>
                 </div>
 
-                {/* LIVE STATUS */}
+                {/* LIVE */}
 
                 <div className="rounded-[2rem] border border-stone-200 bg-white p-6">
                   <div className="flex items-center justify-between gap-5">
                     <div>
                       <p className="text-sm font-semibold text-stone-700">
-                        Accept public
-                        bookings
+                        Accept public bookings
                       </p>
 
                       <p className="mt-1 text-xs text-stone-400">
-                        Disable this
-                        without
-                        deleting your
-                        booking page.
+                        Disable this without
+                        deleting your booking
+                        page.
                       </p>
                     </div>
 
@@ -4879,9 +5134,7 @@ export default function CalendarPage() {
                           className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 px-5 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500"
                         >
                           <Copy
-                            size={
-                              12
-                            }
+                            size={12}
                           />
 
                           {copiedLink
@@ -4900,9 +5153,7 @@ export default function CalendarPage() {
                           Open
 
                           <ExternalLink
-                            size={
-                              12
-                            }
+                            size={12}
                           />
                         </a>
                       </div>
@@ -4928,17 +5179,14 @@ export default function CalendarPage() {
                   </p>
 
                   <h2 className="mt-1 text-3xl font-serif italic text-stone-800">
-                    When can people
-                    book you?
+                    When can people book you?
                   </h2>
 
                   <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-                    These hours
-                    control your
+                    These hours control your
                     public booking
-                    availability.
-                    Times are set in
-                    ten-minute
+                    availability. Times are
+                    available in ten-minute
                     intervals.
                   </p>
                 </div>
@@ -5164,9 +5412,7 @@ export default function CalendarPage() {
                                         className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-400 hover:text-red-500"
                                       >
                                         <Minus
-                                          size={
-                                            14
-                                          }
+                                          size={14}
                                         />
                                       </button>
                                     </div>
@@ -5185,9 +5431,7 @@ export default function CalendarPage() {
                                   className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-[#829473]"
                                 >
                                   <Plus
-                                    size={
-                                      12
-                                    }
+                                    size={12}
                                   />
 
                                   Add Time
@@ -5212,9 +5456,7 @@ export default function CalendarPage() {
                                     className="flex items-center gap-2 rounded-xl px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400"
                                   >
                                     <Copy
-                                      size={
-                                        12
-                                      }
+                                      size={12}
                                     />
 
                                     Copy to weekdays
@@ -5360,9 +5602,7 @@ export default function CalendarPage() {
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50"
                 >
                   <X
-                    size={
-                      16
-                    }
+                    size={16}
                   />
                 </button>
               </div>
@@ -5374,30 +5614,89 @@ export default function CalendarPage() {
               {viewMode ===
                 "VIEW" ? (
                 <div className="space-y-5">
-                  <div className="rounded-2xl bg-stone-50 p-5">
-                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
-                      When
-                    </p>
+                  {/* DATE CARD */}
+
+                  <div
+                    className="rounded-2xl border p-5"
+                    style={
+                      selectedEvent?.sourceType ===
+                      "event"
+                        ? {
+                            backgroundColor:
+                              getEventColour(
+                                selectedEvent.color
+                              ).background,
+
+                            borderColor:
+                              getEventColour(
+                                selectedEvent.color
+                              ).border,
+                          }
+                        : undefined
+                    }
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-500">
+                        When
+                      </p>
+
+                      {selectedEvent?.sourceType ===
+                        "event" && (
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{
+                            backgroundColor:
+                              getEventColour(
+                                selectedEvent.color
+                              ).dot,
+                          }}
+                        />
+                      )}
+                    </div>
 
                     <p className="mt-2 text-sm font-semibold text-stone-700">
                       {selectedEvent?.startAt
-                        ? format(
-                            selectedEvent.startAt,
-                            "EEEE d MMMM yyyy 'at' HH:mm"
-                          )
+                        ? selectedEvent.is_all_day
+                          ? `${format(
+                              selectedEvent.startAt,
+                              "EEEE d MMMM yyyy"
+                            )} · All day`
+                          : format(
+                              selectedEvent.startAt,
+                              "EEEE d MMMM yyyy 'at' HH:mm"
+                            )
                         : "No date"}
                     </p>
 
-                    {selectedEvent?.endAt && (
-                      <p className="mt-1 text-xs text-stone-400">
-                        Until{" "}
-                        {format(
-                          selectedEvent.endAt,
-                          "EEEE d MMMM yyyy 'at' HH:mm"
-                        )}
-                      </p>
-                    )}
+                    {selectedEvent?.endAt &&
+                      !selectedEvent.is_all_day && (
+                        <p className="mt-1 text-xs text-stone-500">
+                          Until{" "}
+                          {format(
+                            selectedEvent.endAt,
+                            "EEEE d MMMM yyyy 'at' HH:mm"
+                          )}
+                        </p>
+                      )}
+
+                    {selectedEvent?.endAt &&
+                      selectedEvent.is_all_day &&
+                      selectedEvent.startAt &&
+                      !isSameDay(
+                        selectedEvent.startAt,
+                        selectedEvent.endAt
+                      ) && (
+                        <p className="mt-1 text-xs text-stone-500">
+                          Through{" "}
+                          {format(
+                            selectedEvent.endAt,
+                            "EEEE d MMMM yyyy"
+                          )}
+                        </p>
+                      )}
                   </div>
+
+                  {/* REPEAT */}
 
                   {selectedEvent?.repeat &&
                     selectedEvent.repeat !==
@@ -5418,16 +5717,16 @@ export default function CalendarPage() {
                         </p>
 
                         <p className="mt-1 text-xs leading-5 text-stone-400">
-                          This is part
-                          of a repeating
-                          event series.
-                          Editing or
-                          deleting it
-                          changes the
-                          whole series.
+                          This is part of a
+                          repeating event
+                          series. Editing or
+                          deleting it changes
+                          the whole series.
                         </p>
                       </div>
                     )}
+
+                  {/* DESCRIPTION */}
 
                   {selectedEvent?.description && (
                     <div className="rounded-2xl bg-stone-50 p-5">
@@ -5443,6 +5742,8 @@ export default function CalendarPage() {
                     </div>
                   )}
 
+                  {/* LINK */}
+
                   {selectedEvent?.meeting_link && (
                     <a
                       href={
@@ -5454,18 +5755,14 @@ export default function CalendarPage() {
                     >
                       <span className="flex items-center gap-2">
                         <Video
-                          size={
-                            16
-                          }
+                          size={16}
                         />
 
                         Join meeting
                       </span>
 
                       <ArrowUpRight
-                        size={
-                          15
-                        }
+                        size={15}
                       />
                     </a>
                   )}
@@ -5503,13 +5800,13 @@ export default function CalendarPage() {
                 </div>
               ) : (
                 /* ==================================================
-                   CREATE / EDIT MODE
+                   CREATE / EDIT
                 ================================================== */
 
                 <div className="space-y-4">
-                  <FormField
-                    label="Title"
-                  >
+                  {/* TITLE */}
+
+                  <FormField label="Title">
                     <input
                       value={
                         formTitle
@@ -5528,12 +5825,157 @@ export default function CalendarPage() {
                     />
                   </FormField>
 
-                  {/* DATE / TIME */}
+                  {/* =================================================
+                      EVENT COLOUR
+                  ================================================= */}
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <FormField
-                      label="Start Date"
-                    >
+                  <FormField label="Event Colour">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {EVENT_COLORS.map(
+                        (
+                          colour
+                        ) => {
+                          const active =
+                            formColor ===
+                            colour.id;
+
+                          return (
+                            <button
+                              key={
+                                colour.id
+                              }
+                              type="button"
+                              onClick={() =>
+                                setFormColor(
+                                  colour.id
+                                )
+                              }
+                              className={`flex items-center gap-2 rounded-xl border p-3 text-left transition ${
+                                active
+                                  ? "ring-2 ring-stone-900/10"
+                                  : "hover:border-stone-300"
+                              }`}
+                              style={{
+                                borderColor:
+                                  active
+                                    ? colour.border
+                                    : "#f0efec",
+
+                                backgroundColor:
+                                  active
+                                    ? colour.background
+                                    : "white",
+                              }}
+                            >
+                              <span
+                                className="h-3 w-3 shrink-0 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    colour.dot,
+                                }}
+                              />
+
+                              <span
+                                className="truncate text-[8px] font-black uppercase tracking-[0.08em]"
+                                style={{
+                                  color:
+                                    active
+                                      ? colour.text
+                                      : "#78716c",
+                                }}
+                              >
+                                {
+                                  colour.label
+                                }
+                              </span>
+                            </button>
+                          );
+                        }
+                      )}
+                    </div>
+                  </FormField>
+
+                  {/* =================================================
+                      ALL DAY
+                  ================================================= */}
+
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-stone-700">
+                          All day
+                        </p>
+
+                        <p className="mt-1 text-[10px] text-stone-400">
+                          Show this event
+                          without a specific
+                          time.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next =
+                            !formAllDay;
+
+                          setFormAllDay(
+                            next
+                          );
+
+                          if (
+                            next
+                          ) {
+                            setFormTime(
+                              "00:00"
+                            );
+
+                            if (
+                              !formEndDate
+                            ) {
+                              setFormEndDate(
+                                formDate
+                              );
+                            }
+
+                            setFormEndTime(
+                              ""
+                            );
+                          } else {
+                            setFormTime(
+                              "09:00"
+                            );
+                          }
+                        }}
+                        className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                          formAllDay
+                            ? "bg-[#829473]"
+                            : "bg-stone-200"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-all ${
+                            formAllDay
+                              ? "left-7"
+                              : "left-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* =================================================
+                      DATES
+                  ================================================= */}
+
+                  <div
+                    className={`grid gap-3 ${
+                      formAllDay
+                        ? "grid-cols-1 sm:grid-cols-2"
+                        : "grid-cols-2"
+                    }`}
+                  >
+                    <FormField label="Start Date">
                       <input
                         type="date"
                         value={
@@ -5541,63 +5983,80 @@ export default function CalendarPage() {
                         }
                         onChange={(
                           event
-                        ) =>
-                          setFormDate(
+                        ) => {
+                          const value =
                             event
                               .target
-                              .value
-                          )
-                        }
+                              .value;
+
+                          setFormDate(
+                            value
+                          );
+
+                          if (
+                            formAllDay &&
+                            (
+                              !formEndDate ||
+                              formEndDate <
+                                value
+                            )
+                          ) {
+                            setFormEndDate(
+                              value
+                            );
+                          }
+                        }}
                         className="form-input"
                       />
                     </FormField>
 
-                    <FormField
-                      label="Start Time"
-                    >
-                      <select
-                        value={
-                          formTime
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setFormTime(
+                    {!formAllDay && (
+                      <FormField label="Start Time">
+                        <select
+                          value={
+                            formTime
+                          }
+                          onChange={(
                             event
-                              .target
-                              .value
-                          )
-                        }
-                        className="form-input"
-                      >
-                        {TIME_OPTIONS.map(
-                          (
-                            time
-                          ) => (
-                            <option
-                              key={
-                                time
-                              }
-                              value={
-                                time
-                              }
-                            >
-                              {
-                                time
-                              }
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </FormField>
+                          ) =>
+                            setFormTime(
+                              event
+                                .target
+                                .value
+                            )
+                          }
+                          className="form-input"
+                        >
+                          {TIME_OPTIONS.map(
+                            (
+                              time
+                            ) => (
+                              <option
+                                key={
+                                  time
+                                }
+                                value={
+                                  time
+                                }
+                              >
+                                {
+                                  time
+                                }
+                              </option>
+                            )
+                          )}
+                        </select>
+                      </FormField>
+                    )}
 
-                    <FormField
-                      label="End Date"
-                    >
+                    <FormField label="End Date">
                       <input
                         type="date"
                         value={
                           formEndDate
+                        }
+                        min={
+                          formDate
                         }
                         onChange={(
                           event
@@ -5612,55 +6071,55 @@ export default function CalendarPage() {
                       />
                     </FormField>
 
-                    <FormField
-                      label="End Time"
-                    >
-                      <select
-                        value={
-                          formEndTime
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setFormEndTime(
+                    {!formAllDay && (
+                      <FormField label="End Time">
+                        <select
+                          value={
+                            formEndTime
+                          }
+                          onChange={(
                             event
-                              .target
-                              .value
-                          )
-                        }
-                        className="form-input"
-                      >
-                        <option value="">
-                          No end time
-                        </option>
+                          ) =>
+                            setFormEndTime(
+                              event
+                                .target
+                                .value
+                            )
+                          }
+                          className="form-input"
+                        >
+                          <option value="">
+                            No end time
+                          </option>
 
-                        {TIME_OPTIONS.map(
-                          (
-                            time
-                          ) => (
-                            <option
-                              key={
-                                time
-                              }
-                              value={
-                                time
-                              }
-                            >
-                              {
-                                time
-                              }
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </FormField>
+                          {TIME_OPTIONS.map(
+                            (
+                              time
+                            ) => (
+                              <option
+                                key={
+                                  time
+                                }
+                                value={
+                                  time
+                                }
+                              >
+                                {
+                                  time
+                                }
+                              </option>
+                            )
+                          )}
+                        </select>
+                      </FormField>
+                    )}
                   </div>
 
-                  {/* REPEAT */}
+                  {/* =================================================
+                      REPEAT
+                  ================================================= */}
 
-                  <FormField
-                    label="Repeat Event"
-                  >
+                  <FormField label="Repeat Event">
                     <select
                       value={
                         formRepeat
@@ -5699,9 +6158,7 @@ export default function CalendarPage() {
                     <div className="rounded-xl border border-[#a9b897]/20 bg-[#a9b897]/5 px-4 py-3">
                       <div className="flex items-start gap-3">
                         <RefreshCw
-                          size={
-                            13
-                          }
+                          size={13}
                           className="mt-0.5 shrink-0 text-[#829473]"
                         />
 
@@ -5726,9 +6183,7 @@ export default function CalendarPage() {
 
                   {/* LOCATION */}
 
-                  <FormField
-                    label="Location"
-                  >
+                  <FormField label="Location">
                     <input
                       value={
                         formLocation
@@ -5747,16 +6202,12 @@ export default function CalendarPage() {
                     />
                   </FormField>
 
-                  {/* MEETING LINK */}
+                  {/* LINK */}
 
-                  <FormField
-                    label="Meeting Link"
-                  >
+                  <FormField label="Meeting Link">
                     <div className="relative">
                       <LinkIcon
-                        size={
-                          14
-                        }
+                        size={14}
                         className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
                       />
 
@@ -5781,14 +6232,10 @@ export default function CalendarPage() {
 
                   {/* GUESTS */}
 
-                  <FormField
-                    label="Guests"
-                  >
+                  <FormField label="Guests">
                     <div className="relative">
                       <Mail
-                        size={
-                          14
-                        }
+                        size={14}
                         className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
                       />
 
@@ -5811,16 +6258,12 @@ export default function CalendarPage() {
                     </div>
                   </FormField>
 
-                  {/* INTERNAL TEAM */}
+                  {/* TEAM */}
 
-                  <FormField
-                    label="Internal Team"
-                  >
+                  <FormField label="Internal Team">
                     <div className="relative">
                       <Users
-                        size={
-                          14
-                        }
+                        size={14}
                         className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
                       />
 
@@ -5845,14 +6288,10 @@ export default function CalendarPage() {
 
                   {/* TAGS */}
 
-                  <FormField
-                    label="Tags"
-                  >
+                  <FormField label="Tags">
                     <div className="relative">
                       <Tag
-                        size={
-                          14
-                        }
+                        size={14}
                         className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
                       />
 
@@ -5877,9 +6316,7 @@ export default function CalendarPage() {
 
                   {/* NOTES */}
 
-                  <FormField
-                    label="Notes"
-                  >
+                  <FormField label="Notes">
                     <textarea
                       value={
                         formDescription
@@ -5918,9 +6355,7 @@ export default function CalendarPage() {
                     className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 bg-stone-50 p-4 text-xs text-stone-500"
                   >
                     <Paperclip
-                      size={
-                        14
-                      }
+                      size={14}
                     />
 
                     {attachedFileName ||
@@ -5941,16 +6376,12 @@ export default function CalendarPage() {
                   >
                     {isSubmitting ? (
                       <Loader2
-                        size={
-                          14
-                        }
+                        size={14}
                         className="animate-spin"
                       />
                     ) : (
                       <Send
-                        size={
-                          13
-                        }
+                        size={13}
                       />
                     )}
 
@@ -5987,60 +6418,41 @@ export default function CalendarPage() {
 
         .form-input {
           width: 100%;
-
-          border:
-            1px solid
-            #f0efec;
-
-          background:
-            #faf9f6;
-
-          border-radius:
-            0.75rem;
-
-          padding:
-            0.9rem 1rem;
-
-          font-size:
-            0.8rem;
-
-          outline:
-            none;
-
-          transition:
-            0.2s ease;
-
-          color:
-            #44403c;
+          border: 1px solid #f0efec;
+          background: #faf9f6;
+          border-radius: 0.75rem;
+          padding: 0.9rem 1rem;
+          font-size: 0.8rem;
+          outline: none;
+          transition: 0.2s ease;
+          color: #44403c;
         }
 
         .form-input:focus {
-          border-color:
-            #a9b897;
-
-          background:
-            white;
+          border-color: #a9b897;
+          background: white;
+          box-shadow:
+            0 0 0 3px
+            rgba(
+              169,
+              184,
+              151,
+              0.12
+            );
         }
 
         select.form-input {
-          cursor:
-            pointer;
-
-          appearance:
-            auto;
+          cursor: pointer;
+          appearance: auto;
         }
 
         .no-scrollbar::-webkit-scrollbar {
-          display:
-            none;
+          display: none;
         }
 
         .no-scrollbar {
-          -ms-overflow-style:
-            none;
-
-          scrollbar-width:
-            none;
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </div>
@@ -6088,9 +6500,7 @@ function StatCard({
   return (
     <div className="rounded-[1.7rem] border border-stone-200 bg-white p-5">
       <Icon
-        size={
-          18
-        }
+        size={18}
         className="mb-6 text-stone-300"
       />
 
@@ -6140,89 +6550,185 @@ function ScheduleRow({
   event: CalendarEvent;
   onClick: () => void;
 }) {
+  const colour =
+    getEventColour(
+      event.color
+    );
+
+  const isNormalEvent =
+    event.sourceType ===
+    "event";
+
   return (
     <button
       type="button"
       onClick={
         onClick
       }
-      className="flex w-full items-center justify-between gap-4 rounded-2xl bg-stone-50 p-4 text-left transition hover:bg-stone-100"
+      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-transparent p-4 text-left transition hover:-translate-y-[1px] hover:shadow-sm"
+      style={
+        isNormalEvent
+          ? {
+              backgroundColor:
+                colour.background,
+
+              borderColor:
+                colour.border,
+            }
+          : {
+              backgroundColor:
+                "#fafaf9",
+            }
+      }
     >
       <div className="flex min-w-0 items-center gap-4">
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
             event.sourceType ===
             "task"
-              ? "bg-[#a9b897]/15 text-[#829473]"
+              ? "bg-[#a9b897]/20 text-[#829473]"
               : event.sourceType ===
                   "note"
-                ? "bg-amber-50 text-amber-600"
-                : event.isRecurringOccurrence
-                  ? "bg-[#ebe6dc] text-stone-600"
-                  : "bg-white text-stone-500"
+                ? "bg-amber-100 text-amber-700"
+                : ""
           }`}
+          style={
+            isNormalEvent
+              ? {
+                  backgroundColor:
+                    colour.dot,
+
+                  color:
+                    "white",
+                }
+              : undefined
+          }
         >
           {event.sourceType ===
           "event" ? (
             event.isRecurringOccurrence ? (
               <RefreshCw
-                size={
-                  15
-                }
+                size={15}
               />
             ) : (
               <CalendarDays
-                size={
-                  15
-                }
+                size={15}
               />
             )
           ) : event.sourceType ===
             "task" ? (
             <Check
-              size={
-                15
-              }
+              size={15}
             />
           ) : (
             <Tag
-              size={
-                15
-              }
+              size={15}
             />
           )}
         </div>
 
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-semibold text-stone-700">
+            <p
+              className="truncate text-sm font-semibold"
+              style={
+                isNormalEvent
+                  ? {
+                      color:
+                        colour.text,
+                    }
+                  : {
+                      color:
+                        "#44403c",
+                    }
+              }
+            >
               {event.title ||
                 "Untitled"}
             </p>
 
+            {event.is_all_day && (
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.1em]"
+                style={
+                  isNormalEvent
+                    ? {
+                        backgroundColor:
+                          "rgba(255,255,255,.6)",
+
+                        color:
+                          colour.text,
+                      }
+                    : undefined
+                }
+              >
+                All Day
+              </span>
+            )}
+
             {event.isRecurringOccurrence && (
-              <span className="shrink-0 rounded-full bg-[#a9b897]/10 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-[#829473]">
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em]"
+                style={{
+                  backgroundColor:
+                    isNormalEvent
+                      ? "rgba(255,255,255,.6)"
+                      : "#e4eadf",
+
+                  color:
+                    isNormalEvent
+                      ? colour.text
+                      : "#829473",
+                }}
+              >
                 Repeats
               </span>
             )}
           </div>
 
-          <p className="mt-1 text-[10px] text-stone-400">
+          <p
+            className="mt-1 text-[10px]"
+            style={{
+              color:
+                isNormalEvent
+                  ? colour.text
+                  : "#a8a29e",
+
+              opacity:
+                isNormalEvent
+                  ? 0.7
+                  : 1,
+            }}
+          >
             {event.startAt
-              ? format(
-                  event.startAt,
-                  "EEE d MMM • HH:mm"
-                )
+              ? event.is_all_day
+                ? `${format(
+                    event.startAt,
+                    "EEE d MMM"
+                  )} • All day`
+                : format(
+                    event.startAt,
+                    "EEE d MMM • HH:mm"
+                  )
               : "No date"}
           </p>
         </div>
       </div>
 
       <ChevronRight
-        size={
-          15
-        }
-        className="shrink-0 text-stone-300"
+        size={15}
+        className="shrink-0"
+        style={{
+          color:
+            isNormalEvent
+              ? colour.text
+              : "#d6d3d1",
+
+          opacity:
+            isNormalEvent
+              ? 0.55
+              : 1,
+        }}
       />
     </button>
   );

@@ -88,9 +88,21 @@ type Product = {
 
   price: number;
   compare_at_price: number | null;
+
+  /**
+   * UI-friendly property.
+   *
+   * IMPORTANT:
+   * Database column is cost_price.
+   */
   cost: number;
 
+  stock: number;
   inventory_quantity: number;
+
+  low_stock_threshold: number;
+
+  track_inventory: boolean;
 
   status: ProductStatus;
 
@@ -98,7 +110,9 @@ type Product = {
   images: string[];
 
   featured: boolean;
+
   sort_order: number | null;
+
   is_active: boolean;
 
   created_at: string | null;
@@ -109,18 +123,23 @@ type Product = {
 
 type Order = {
   id: string;
+
   organisation_id: string;
 
   number: string;
+
   customer: string;
+
   email: string;
 
   total: number;
 
   status: OrderStatus;
+
   paymentStatus: PaymentStatus;
 
   items: number;
+
   createdAt: string;
 
   raw: Record<string, unknown>;
@@ -128,24 +147,31 @@ type Order = {
 
 type StoreSettingsRow = {
   id: string;
+
   organisation_id: string;
+
   slug: string;
 
   store_name: string | null;
+
   store_description: string | null;
 
   hero_title: string | null;
+
   hero_text: string | null;
 
   announcement: string | null;
+
   accent_colour: string | null;
 
   shipping_text: string | null;
+
   support_email: string | null;
 
   is_live: boolean | null;
 
   created_at?: string | null;
+
   updated_at?: string | null;
 };
 
@@ -153,29 +179,41 @@ type ProductForm = {
   id?: string;
 
   name: string;
+
   slug: string;
+
   sku: string;
+
   category: string;
+
   description: string;
 
   price: string;
+
   compareAtPrice: string;
+
   cost: string;
+
   stock: string;
 
   imageUrl: string;
 
   featured: boolean;
+
+  trackInventory: boolean;
+
   status: ProductStatus;
 };
 
 type StockAdjustState = {
   product: Product;
+
   quantity: string;
 };
 
 type OrganisationContext = {
   organisationId: string;
+
   organisationName: string;
 };
 
@@ -185,16 +223,29 @@ type OrganisationContext = {
 
 const EMPTY_PRODUCT_FORM: ProductForm = {
   name: "",
+
   slug: "",
+
   sku: "",
+
   category: "General",
+
   description: "",
+
   price: "",
+
   compareAtPrice: "",
+
   cost: "",
+
   stock: "",
+
   imageUrl: "",
+
   featured: false,
+
+  trackInventory: true,
+
   status: "active",
 };
 
@@ -202,7 +253,9 @@ const EMPTY_PRODUCT_FORM: ProductForm = {
 // HELPERS
 // ============================================================
 
-function firstString(...values: unknown[]) {
+function firstString(
+  ...values: unknown[]
+) {
   for (const value of values) {
     if (
       typeof value === "string" &&
@@ -215,7 +268,9 @@ function firstString(...values: unknown[]) {
   return null;
 }
 
-function firstNumber(...values: unknown[]) {
+function firstNumber(
+  ...values: unknown[]
+) {
   for (const value of values) {
     if (
       typeof value === "number" &&
@@ -228,9 +283,12 @@ function firstNumber(...values: unknown[]) {
       typeof value === "string" &&
       value.trim() !== ""
     ) {
-      const parsed = Number(value);
+      const parsed =
+        Number(value);
 
-      if (Number.isFinite(parsed)) {
+      if (
+        Number.isFinite(parsed)
+      ) {
         return parsed;
       }
     }
@@ -243,15 +301,21 @@ function safeBoolean(
   value: unknown,
   fallback = false
 ) {
-  if (typeof value === "boolean") {
+  if (
+    typeof value === "boolean"
+  ) {
     return value;
   }
 
   return fallback;
 }
 
-function safeStringArray(value: unknown) {
-  if (!Array.isArray(value)) {
+function safeStringArray(
+  value: unknown
+) {
+  if (
+    !Array.isArray(value)
+  ) {
     return [];
   }
 
@@ -260,25 +324,48 @@ function safeStringArray(value: unknown) {
       (item) =>
         typeof item === "string"
     )
-    .map((item) => item.trim())
+    .map(
+      (item) =>
+        item.trim()
+    )
     .filter(Boolean);
 }
 
-function createSlug(value: string) {
+function createSlug(
+  value: string
+) {
   return value
     .trim()
     .toLowerCase()
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(
+      /['’]/g,
+      ""
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      "-"
+    )
+    .replace(
+      /^-+|-+$/g,
+      ""
+    );
 }
 
-function generateSku(name: string) {
+function generateSku(
+  name: string
+) {
   const prefix =
     name
-      .replace(/[^a-zA-Z0-9]/g, "")
-      .slice(0, 4)
-      .toUpperCase() || "PROD";
+      .replace(
+        /[^a-zA-Z0-9]/g,
+        ""
+      )
+      .slice(
+        0,
+        4
+      )
+      .toUpperCase() ||
+    "PROD";
 
   return `${prefix}-${Date.now()
     .toString()
@@ -288,11 +375,16 @@ function generateSku(name: string) {
 function normaliseOrderStatus(
   value: unknown
 ): OrderStatus {
-  const status = String(value || "")
-    .trim()
-    .toLowerCase();
+  const status =
+    String(
+      value || ""
+    )
+      .trim()
+      .toLowerCase();
 
-  if (status === "processing") {
+  if (
+    status === "processing"
+  ) {
     return "processing";
   }
 
@@ -324,9 +416,12 @@ function normaliseOrderStatus(
 function normalisePaymentStatus(
   value: unknown
 ): PaymentStatus {
-  const status = String(value || "")
-    .trim()
-    .toLowerCase();
+  const status =
+    String(
+      value || ""
+    )
+      .trim()
+      .toLowerCase();
 
   if (
     status === "paid" ||
@@ -347,7 +442,9 @@ function normalisePaymentStatus(
   return "pending";
 }
 
-function formatDate(value: unknown) {
+function formatDate(
+  value: unknown
+) {
   if (
     typeof value !== "string" ||
     !value
@@ -355,9 +452,14 @@ function formatDate(value: unknown) {
     return "—";
   }
 
-  const date = new Date(value);
+  const date =
+    new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return value;
   }
 
@@ -365,7 +467,9 @@ function formatDate(value: unknown) {
     "en-GB",
     {
       day: "numeric",
+
       month: "short",
+
       year: "numeric",
     }
   ).format(date);
@@ -379,7 +483,8 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
   const {
     data: authData,
     error: authError,
-  } = await supabase.auth.getUser();
+  } =
+    await supabase.auth.getUser();
 
   if (
     authError ||
@@ -390,7 +495,8 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
     );
   }
 
-  const user = authData.user;
+  const user =
+    authData.user;
 
   // ==========================================================
   // USER ORGANISATIONS
@@ -400,32 +506,52 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
     const {
       data: membershipRows,
       error,
-    } = await supabase
-      .from("user_organisations")
-      .select("*")
-      .eq("user_id", user.id)
-      .limit(1);
+    } =
+      await supabase
+        .from(
+          "user_organisations"
+        )
+        .select("*")
+        .eq(
+          "user_id",
+          user.id
+        )
+        .limit(1);
 
     if (!error) {
       const membership =
         membershipRows?.[0] as
-          | Record<string, unknown>
+          | Record<
+              string,
+              unknown
+            >
           | undefined;
 
       const membershipOrgId =
         firstString(
-          membership?.organisation_id,
-          membership?.organization_id
+          membership
+            ?.organisation_id,
+
+          membership
+            ?.organization_id
         );
 
-      if (membershipOrgId) {
+      if (
+        membershipOrgId
+      ) {
         const {
           data: organisation,
-        } = await supabase
-          .from("organisations")
-          .select("*")
-          .eq("id", membershipOrgId)
-          .maybeSingle();
+        } =
+          await supabase
+            .from(
+              "organisations"
+            )
+            .select("*")
+            .eq(
+              "id",
+              membershipOrgId
+            )
+            .maybeSingle();
 
         return {
           organisationId:
@@ -434,8 +560,11 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
           organisationName:
             firstString(
               organisation?.name,
-              organisation?.company_name
-            ) || "My Business",
+
+              organisation
+                ?.company_name
+            ) ||
+            "My Business",
         };
       }
     }
@@ -453,26 +582,43 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
   try {
     const {
       data: profile,
-    } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
+    } =
+      await supabase
+        .from(
+          "profiles"
+        )
+        .select("*")
+        .eq(
+          "id",
+          user.id
+        )
+        .maybeSingle();
 
     const profileOrgId =
       firstString(
-        profile?.organisation_id,
-        profile?.organization_id
+        profile
+          ?.organisation_id,
+
+        profile
+          ?.organization_id
       );
 
-    if (profileOrgId) {
+    if (
+      profileOrgId
+    ) {
       const {
         data: organisation,
-      } = await supabase
-        .from("organisations")
-        .select("*")
-        .eq("id", profileOrgId)
-        .maybeSingle();
+      } =
+        await supabase
+          .from(
+            "organisations"
+          )
+          .select("*")
+          .eq(
+            "id",
+            profileOrgId
+          )
+          .maybeSingle();
 
       return {
         organisationId:
@@ -481,8 +627,11 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
         organisationName:
           firstString(
             organisation?.name,
-            organisation?.company_name
-          ) || "My Business",
+
+            organisation
+              ?.company_name
+          ) ||
+          "My Business",
       };
     }
   } catch (error) {
@@ -499,31 +648,51 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
   try {
     const {
       data: memberRows,
-    } = await supabase
-      .from("organisation_members")
-      .select("*")
-      .eq("user_id", user.id)
-      .limit(1);
+    } =
+      await supabase
+        .from(
+          "organisation_members"
+        )
+        .select("*")
+        .eq(
+          "user_id",
+          user.id
+        )
+        .limit(1);
 
     const member =
       memberRows?.[0] as
-        | Record<string, unknown>
+        | Record<
+            string,
+            unknown
+          >
         | undefined;
 
     const memberOrgId =
       firstString(
-        member?.organisation_id,
-        member?.organization_id
+        member
+          ?.organisation_id,
+
+        member
+          ?.organization_id
       );
 
-    if (memberOrgId) {
+    if (
+      memberOrgId
+    ) {
       const {
         data: organisation,
-      } = await supabase
-        .from("organisations")
-        .select("*")
-        .eq("id", memberOrgId)
-        .maybeSingle();
+      } =
+        await supabase
+          .from(
+            "organisations"
+          )
+          .select("*")
+          .eq(
+            "id",
+            memberOrgId
+          )
+          .maybeSingle();
 
       return {
         organisationId:
@@ -532,8 +701,11 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
         organisationName:
           firstString(
             organisation?.name,
-            organisation?.company_name
-          ) || "My Business",
+
+            organisation
+              ?.company_name
+          ) ||
+          "My Business",
       };
     }
   } catch (error) {
@@ -553,35 +725,49 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
 // ============================================================
 
 export default function StorePage() {
+  // ==========================================================
+  // CORE
+  // ==========================================================
+
   const [
     activeTab,
     setActiveTab,
-  ] = useState<StoreTab>("Overview");
+  ] =
+    useState<StoreTab>(
+      "Overview"
+    );
 
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     refreshing,
     setRefreshing,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     pageError,
     setPageError,
-  ] = useState<string | null>(null);
+  ] =
+    useState<
+      string | null
+    >(null);
 
   const [
     organisationId,
     setOrganisationId,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     organisationName,
     setOrganisationName,
-  ] = useState("");
+  ] =
+    useState("");
 
   // ==========================================================
   // SETTINGS
@@ -598,57 +784,70 @@ export default function StorePage() {
   const [
     storeName,
     setStoreName,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     storeDescription,
     setStoreDescription,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     heroTitle,
     setHeroTitle,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     heroText,
     setHeroText,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     announcement,
     setAnnouncement,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     accentColour,
     setAccentColour,
-  ] = useState("#A9B897");
+  ] =
+    useState(
+      "#A9B897"
+    );
 
   const [
     shippingText,
     setShippingText,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     supportEmail,
     setSupportEmail,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     slug,
     setSlug,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     storeLive,
     setStoreLive,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     savingSettings,
     setSavingSettings,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   // ==========================================================
   // PRODUCTS
@@ -657,17 +856,22 @@ export default function StorePage() {
   const [
     products,
     setProducts,
-  ] = useState<Product[]>([]);
+  ] =
+    useState<Product[]>(
+      []
+    );
 
   const [
     productSearch,
     setProductSearch,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     showProductModal,
     setShowProductModal,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     productForm,
@@ -680,15 +884,16 @@ export default function StorePage() {
   const [
     savingProduct,
     setSavingProduct,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     deletingProductId,
     setDeletingProductId,
   ] =
-    useState<string | null>(
-      null
-    );
+    useState<
+      string | null
+    >(null);
 
   // ==========================================================
   // INVENTORY
@@ -697,7 +902,8 @@ export default function StorePage() {
   const [
     lowStockThreshold,
     setLowStockThreshold,
-  ] = useState("8");
+  ] =
+    useState("8");
 
   const [
     stockAdjust,
@@ -710,7 +916,8 @@ export default function StorePage() {
   const [
     savingStock,
     setSavingStock,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   // ==========================================================
   // ORDERS
@@ -719,20 +926,24 @@ export default function StorePage() {
   const [
     orders,
     setOrders,
-  ] = useState<Order[]>([]);
+  ] =
+    useState<Order[]>(
+      []
+    );
 
   const [
     orderSearch,
     setOrderSearch,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     updatingOrderId,
     setUpdatingOrderId,
   ] =
-    useState<string | null>(
-      null
-    );
+    useState<
+      string | null
+    >(null);
 
   // ==========================================================
   // LOCAL OPTIONS
@@ -741,17 +952,20 @@ export default function StorePage() {
   const [
     currency,
     setCurrency,
-  ] = useState("GBP");
+  ] =
+    useState("GBP");
 
   const [
     orderNotifications,
     setOrderNotifications,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     autoCreateContacts,
     setAutoCreateContacts,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   // ==========================================================
   // LOAD DATA
@@ -771,6 +985,10 @@ export default function StorePage() {
         setPageError(null);
 
         try {
+          // ===================================================
+          // ORGANISATION
+          // ===================================================
+
           const context =
             await resolveOrganisationContext();
 
@@ -792,22 +1010,29 @@ export default function StorePage() {
           const {
             data: settingsRows,
             error: settingsError,
-          } = await supabase
-            .from("store_settings")
-            .select("*")
-            .eq(
-              "organisation_id",
-              orgId
-            )
-            .limit(1);
+          } =
+            await supabase
+              .from(
+                "store_settings"
+              )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .limit(1);
 
-          if (settingsError) {
+          if (
+            settingsError
+          ) {
             throw settingsError;
           }
 
           const settings =
-            (settingsRows?.[0] ||
-              null) as StoreSettingsRow | null;
+            (
+              settingsRows?.[0] ||
+              null
+            ) as StoreSettingsRow | null;
 
           setStoreSettings(
             settings
@@ -862,7 +1087,8 @@ export default function StorePage() {
           );
 
           setStoreLive(
-            settings?.is_live === true
+            settings?.is_live ===
+              true
           );
 
           // ===================================================
@@ -872,27 +1098,72 @@ export default function StorePage() {
           const {
             data: productRows,
             error: productError,
-          } = await supabase
-            .from("store_products")
-            .select("*")
-            .eq(
-              "organisation_id",
-              orgId
-            )
-            .order(
-              "sort_order",
-              {
-                ascending: true,
-                nullsFirst: false,
-              }
-            );
+          } =
+            await supabase
+              .from(
+                "store_products"
+              )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .order(
+                "sort_order",
+                {
+                  ascending:
+                    true,
+                }
+              );
 
-          if (productError) {
+          if (
+            productError
+          ) {
             throw productError;
           }
 
           // ===================================================
+          // ORDERS
+          //
+          // IMPORTANT:
+          // store_orders uses fulfilment_status, NOT status.
+          // ===================================================
+
+          const {
+            data: orderRows,
+            error: orderError,
+          } =
+            await supabase
+              .from(
+                "store_orders"
+              )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .order(
+                "created_at",
+                {
+                  ascending:
+                    false,
+                }
+              );
+
+          if (
+            orderError
+          ) {
+            throw orderError;
+          }
+
+          // ===================================================
           // ORDER ITEMS
+          //
+          // IMPORTANT:
+          // store_order_items DOES NOT HAVE organisation_id.
+          //
+          // We therefore load items using the IDs of this
+          // organisation's orders.
           // ===================================================
 
           let orderItems:
@@ -901,37 +1172,68 @@ export default function StorePage() {
               unknown
             >[] = [];
 
-          const {
-            data: itemRows,
-            error:
-              orderItemsError,
-          } = await supabase
-            .from(
-              "store_order_items"
+          const orderIds =
+            (
+              orderRows ||
+              []
             )
-            .select("*")
-            .eq(
-              "organisation_id",
-              orgId
-            );
+              .map(
+                (row) =>
+                  firstString(
+                    row.id
+                  )
+              )
+              .filter(
+                (
+                  value
+                ): value is string =>
+                  Boolean(value)
+              );
 
           if (
-            orderItemsError
+            orderIds.length >
+            0
           ) {
-            console.warn(
-              "Order item stats unavailable:",
+            const {
+              data: itemRows,
+              error:
+                orderItemsError,
+            } =
+              await supabase
+                .from(
+                  "store_order_items"
+                )
+                .select("*")
+                .in(
+                  "order_id",
+                  orderIds
+                );
+
+            if (
               orderItemsError
-            );
-          } else {
-            orderItems =
-              (itemRows ||
-                []) as Record<
-                string,
-                unknown
-              >[];
+            ) {
+              console.warn(
+                "Order item stats unavailable:",
+                orderItemsError
+              );
+            } else {
+              orderItems =
+                (
+                  itemRows ||
+                  []
+                ) as Record<
+                  string,
+                  unknown
+                >[];
+            }
           }
 
-          const cleanedProducts: Product[] =
+          // ===================================================
+          // CLEAN PRODUCTS
+          // ===================================================
+
+          const cleanedProducts:
+            Product[] =
             (
               productRows ||
               []
@@ -951,8 +1253,7 @@ export default function StorePage() {
                   orderItems.filter(
                     (item) =>
                       firstString(
-                        item.product_id,
-                        item.store_product_id
+                        item.product_id
                       ) === id
                   );
 
@@ -984,23 +1285,21 @@ export default function StorePage() {
 
                       const unit =
                         firstNumber(
-                          item.unit_price,
-                          item.price,
-                          item.product_price
+                          item.unit_price
                         );
 
                       const lineTotal =
                         firstNumber(
-                          item.total,
-                          item.line_total,
-                          item.total_amount
+                          item.total
                         );
 
                       return (
                         total +
-                        (lineTotal ||
+                        (
+                          lineTotal ||
                           unit *
-                            quantity)
+                            quantity
+                        )
                       );
                     },
                     0
@@ -1011,14 +1310,16 @@ export default function StorePage() {
                     row.status
                   );
 
-                let status: ProductStatus =
+                let status:
+                  ProductStatus =
                   "active";
 
                 if (
                   rawStatus ===
                   "draft"
                 ) {
-                  status = "draft";
+                  status =
+                    "draft";
                 }
 
                 if (
@@ -1034,15 +1335,27 @@ export default function StorePage() {
                     false &&
                   !rawStatus
                 ) {
-                  status = "draft";
+                  status =
+                    "draft";
                 }
 
                 const name =
                   firstString(
-                    row.name,
-                    row.title
+                    row.name
                   ) ||
                   "Untitled product";
+
+                const inventoryQuantity =
+                  firstNumber(
+                    row.inventory_quantity,
+                    row.stock
+                  );
+
+                const stock =
+                  firstNumber(
+                    row.stock,
+                    row.inventory_quantity
+                  );
 
                 return {
                   id,
@@ -1059,12 +1372,15 @@ export default function StorePage() {
                     firstString(
                       row.slug
                     ) ||
-                    createSlug(name),
+                    createSlug(
+                      name
+                    ),
 
                   sku:
                     firstString(
                       row.sku
-                    ) || "—",
+                    ) ||
+                    "—",
 
                   category:
                     firstString(
@@ -1075,7 +1391,8 @@ export default function StorePage() {
                   description:
                     firstString(
                       row.description
-                    ) || "",
+                    ) ||
+                    "",
 
                   price:
                     firstNumber(
@@ -1092,18 +1409,31 @@ export default function StorePage() {
                           row.compare_at_price
                         ),
 
+                  // ============================================
+                  // FIX:
+                  // Database column is cost_price.
+                  // ============================================
+
                   cost:
                     firstNumber(
-                      row.cost,
-                      row.cost_price,
-                      row.unit_cost
+                      row.cost_price
                     ),
 
+                  stock,
+
                   inventory_quantity:
+                    inventoryQuantity,
+
+                  low_stock_threshold:
                     firstNumber(
-                      row.inventory_quantity,
-                      row.stock,
-                      row.quantity
+                      row.low_stock_threshold,
+                      5
+                    ),
+
+                  track_inventory:
+                    safeBoolean(
+                      row.track_inventory,
+                      true
                     ),
 
                   status,
@@ -1140,6 +1470,7 @@ export default function StorePage() {
                     ),
 
                   orders,
+
                   revenue,
                 };
               }
@@ -1150,31 +1481,11 @@ export default function StorePage() {
           );
 
           // ===================================================
-          // ORDERS
+          // CLEAN ORDERS
           // ===================================================
 
-          const {
-            data: orderRows,
-            error: orderError,
-          } = await supabase
-            .from("store_orders")
-            .select("*")
-            .eq(
-              "organisation_id",
-              orgId
-            )
-            .order(
-              "created_at",
-              {
-                ascending: false,
-              }
-            );
-
-          if (orderError) {
-            throw orderError;
-          }
-
-          const cleanedOrders: Order[] =
+          const cleanedOrders:
+            Order[] =
             (
               orderRows ||
               []
@@ -1194,9 +1505,9 @@ export default function StorePage() {
                   orderItems.filter(
                     (item) =>
                       firstString(
-                        item.order_id,
-                        item.store_order_id
-                      ) === orderId
+                        item.order_id
+                      ) ===
+                      orderId
                   );
 
                 const itemCount =
@@ -1214,7 +1525,8 @@ export default function StorePage() {
                   );
 
                 return {
-                  id: orderId,
+                  id:
+                    orderId,
 
                   organisation_id:
                     String(
@@ -1224,72 +1536,57 @@ export default function StorePage() {
 
                   number:
                     firstString(
-                      row.order_number,
-                      row.number,
-                      row.reference
+                      row.order_number
                     ) ||
                     `#${orderId
-                      .slice(0, 6)
+                      .slice(
+                        0,
+                        6
+                      )
                       .toUpperCase()}`,
 
                   customer:
                     firstString(
-                      row.customer_name,
-                      row.name,
-                      row.full_name,
-                      row.shipping_name
+                      row.customer_name
                     ) ||
                     "Customer",
 
                   email:
                     firstString(
-                      row.customer_email,
-                      row.email
-                    ) || "—",
+                      row.customer_email
+                    ) ||
+                    "—",
 
                   total:
                     firstNumber(
-                      row.total,
-                      row.total_amount,
-                      row.amount,
-                      row.grand_total
+                      row.total
                     ),
+
+                  // ============================================
+                  // FIX:
+                  // Database uses fulfilment_status.
+                  // ============================================
 
                   status:
                     normaliseOrderStatus(
-                      firstString(
-                        row.status,
-                        row.fulfilment_status,
-                        row.fulfillment_status
-                      )
+                      row.fulfilment_status
                     ),
 
                   paymentStatus:
                     normalisePaymentStatus(
-                      firstString(
-                        row.payment_status,
-                        row.stripe_payment_status,
-                        row.payment_state
-                      )
+                      row.payment_status
                     ),
 
                   items:
-                    itemCount ||
-                    firstNumber(
-                      row.items,
-                      row.item_count,
-                      row.total_items
-                    ),
+                    itemCount,
 
                   createdAt:
                     formatDate(
-                      firstString(
-                        row.created_at,
-                        row.ordered_at
-                      )
+                      row.created_at
                     ),
 
-                  raw: row,
+                  raw:
+                    row,
                 };
               }
             );
@@ -1297,7 +1594,9 @@ export default function StorePage() {
           setOrders(
             cleanedOrders
           );
-        } catch (error: any) {
+        } catch (
+          error: any
+        ) {
           console.error(
             "Store load failed:",
             error
@@ -1308,84 +1607,137 @@ export default function StorePage() {
               "We couldn't load your commerce workspace."
           );
         } finally {
-          setLoading(false);
-          setRefreshing(false);
+          setLoading(
+            false
+          );
+
+          setRefreshing(
+            false
+          );
         }
       },
       []
     );
 
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  // ==========================================================
+  // INITIAL LOAD
+  // ==========================================================
+
+  useEffect(
+    () => {
+      void loadData();
+    },
+    [
+      loadData,
+    ]
+  );
 
   // ==========================================================
   // REALTIME DATABASE SYNC
   // ==========================================================
 
-  useEffect(() => {
-    if (!organisationId) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (
+        !organisationId
+      ) {
+        return;
+      }
 
-    const channel =
-      supabase
-        .channel(
-          `commerce-${organisationId}`
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table:
-              "store_products",
-            filter:
-              `organisation_id=eq.${organisationId}`,
-          },
-          () => {
-            void loadData(true);
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table:
-              "store_settings",
-            filter:
-              `organisation_id=eq.${organisationId}`,
-          },
-          () => {
-            void loadData(true);
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table:
-              "store_orders",
-            filter:
-              `organisation_id=eq.${organisationId}`,
-          },
-          () => {
-            void loadData(true);
-          }
-        )
-        .subscribe();
+      const channel =
+        supabase
+          .channel(
+            `commerce-${organisationId}`
+          )
 
-    return () => {
-      void supabase.removeChannel(
-        channel
-      );
-    };
-  }, [
-    organisationId,
-    loadData,
-  ]);
+          // ===================================================
+          // PRODUCTS
+          // ===================================================
+
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+
+              schema:
+                "public",
+
+              table:
+                "store_products",
+
+              filter:
+                `organisation_id=eq.${organisationId}`,
+            },
+            () => {
+              void loadData(
+                true
+              );
+            }
+          )
+
+          // ===================================================
+          // SETTINGS
+          // ===================================================
+
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+
+              schema:
+                "public",
+
+              table:
+                "store_settings",
+
+              filter:
+                `organisation_id=eq.${organisationId}`,
+            },
+            () => {
+              void loadData(
+                true
+              );
+            }
+          )
+
+          // ===================================================
+          // ORDERS
+          // ===================================================
+
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+
+              schema:
+                "public",
+
+              table:
+                "store_orders",
+
+              filter:
+                `organisation_id=eq.${organisationId}`,
+            },
+            () => {
+              void loadData(
+                true
+              );
+            }
+          )
+
+          .subscribe();
+
+      return () => {
+        void supabase.removeChannel(
+          channel
+        );
+      };
+    },
+    [
+      organisationId,
+      loadData,
+    ]
+  );
 
   // ==========================================================
   // METRICS
@@ -1403,30 +1755,35 @@ export default function StorePage() {
             product.revenue,
           0
         ),
-      [products]
+      [
+        products,
+      ]
     );
 
   const totalOrders =
-    useMemo(() => {
-      const productOrderTotal =
-        products.reduce(
-          (
-            total,
-            product
-          ) =>
-            total +
-            product.orders,
-          0
-        );
+    useMemo(
+      () => {
+        const productOrderTotal =
+          products.reduce(
+            (
+              total,
+              product
+            ) =>
+              total +
+              product.orders,
+            0
+          );
 
-      return (
-        productOrderTotal ||
-        orders.length
-      );
-    }, [
-      products,
-      orders,
-    ]);
+        return (
+          productOrderTotal ||
+          orders.length
+        );
+      },
+      [
+        products,
+        orders,
+      ]
+    );
 
   const paidOrders =
     useMemo(
@@ -1436,7 +1793,9 @@ export default function StorePage() {
             order.paymentStatus ===
             "paid"
         ),
-      [orders]
+      [
+        orders,
+      ]
     );
 
   const orderRevenue =
@@ -1451,7 +1810,9 @@ export default function StorePage() {
             order.total,
           0
         ),
-      [paidOrders]
+      [
+        paidOrders,
+      ]
     );
 
   const displayRevenue =
@@ -1459,10 +1820,12 @@ export default function StorePage() {
     totalRevenue;
 
   const averageOrderValue =
-    paidOrders.length > 0
+    paidOrders.length >
+    0
       ? orderRevenue /
         paidOrders.length
-      : totalOrders > 0
+      : totalOrders >
+          0
         ? totalRevenue /
           totalOrders
         : 0;
@@ -1471,16 +1834,24 @@ export default function StorePage() {
     useMemo(
       () =>
         products.filter(
-          (product) =>
-            product.inventory_quantity <=
-              Number(
-                lowStockThreshold ||
-                  0
-              ) &&
-            product.inventory_quantity <
-              900 &&
-            product.status ===
-              "active"
+          (product) => {
+            if (
+              product.track_inventory ===
+              false
+            ) {
+              return false;
+            }
+
+            return (
+              product.inventory_quantity <=
+                Number(
+                  lowStockThreshold ||
+                    0
+                ) &&
+              product.status ===
+                "active"
+            );
+          }
         ),
       [
         products,
@@ -1500,13 +1871,17 @@ export default function StorePage() {
               order.status
             )
         ),
-      [orders]
+      [
+        orders,
+      ]
     );
 
   const bestSellers =
     useMemo(
       () =>
-        [...products]
+        [
+          ...products,
+        ]
           .sort(
             (
               first,
@@ -1528,95 +1903,134 @@ export default function StorePage() {
               );
             }
           )
-          .slice(0, 4),
-      [products]
+          .slice(
+            0,
+            4
+          ),
+      [
+        products,
+      ]
     );
 
   const filteredProducts =
-    useMemo(() => {
-      const value =
-        productSearch
-          .trim()
-          .toLowerCase();
+    useMemo(
+      () => {
+        const value =
+          productSearch
+            .trim()
+            .toLowerCase();
 
-      if (!value) {
-        return products;
-      }
+        if (
+          !value
+        ) {
+          return products;
+        }
 
-      return products.filter(
-        (product) =>
-          product.name
-            .toLowerCase()
-            .includes(value) ||
-          product.sku
-            .toLowerCase()
-            .includes(value) ||
-          product.category
-            .toLowerCase()
-            .includes(value)
-      );
-    }, [
-      products,
-      productSearch,
-    ]);
+        return products.filter(
+          (product) =>
+            product.name
+              .toLowerCase()
+              .includes(
+                value
+              ) ||
+            product.sku
+              .toLowerCase()
+              .includes(
+                value
+              ) ||
+            product.category
+              .toLowerCase()
+              .includes(
+                value
+              )
+        );
+      },
+      [
+        products,
+        productSearch,
+      ]
+    );
 
   const filteredOrders =
-    useMemo(() => {
-      const value =
-        orderSearch
-          .trim()
-          .toLowerCase();
+    useMemo(
+      () => {
+        const value =
+          orderSearch
+            .trim()
+            .toLowerCase();
 
-      if (!value) {
-        return orders;
-      }
+        if (
+          !value
+        ) {
+          return orders;
+        }
 
-      return orders.filter(
-        (order) =>
-          order.number
-            .toLowerCase()
-            .includes(value) ||
-          order.customer
-            .toLowerCase()
-            .includes(value) ||
-          order.email
-            .toLowerCase()
-            .includes(value)
-      );
-    }, [
-      orders,
-      orderSearch,
-    ]);
+        return orders.filter(
+          (order) =>
+            order.number
+              .toLowerCase()
+              .includes(
+                value
+              ) ||
+            order.customer
+              .toLowerCase()
+              .includes(
+                value
+              ) ||
+            order.email
+              .toLowerCase()
+              .includes(
+                value
+              )
+        );
+      },
+      [
+        orders,
+        orderSearch,
+      ]
+    );
 
   // ==========================================================
   // MONEY
   // ==========================================================
 
   function money(
-    value: number | string
+    value:
+      | number
+      | string
   ) {
     try {
       return new Intl.NumberFormat(
         "en-GB",
         {
-          style: "currency",
+          style:
+            "currency",
+
           currency:
-            currency || "GBP",
+            currency ||
+            "GBP",
+
           maximumFractionDigits:
             2,
         }
       ).format(
-        Number(value || 0)
+        Number(
+          value ||
+            0
+        )
       );
     } catch {
       return `£${Number(
-        value || 0
-      ).toFixed(2)}`;
+        value ||
+          0
+      ).toFixed(
+        2
+      )}`;
     }
   }
 
   // ==========================================================
-  // PRODUCTS
+  // PRODUCT MODAL
   // ==========================================================
 
   function openNewProduct() {
@@ -1624,22 +2038,27 @@ export default function StorePage() {
       ...EMPTY_PRODUCT_FORM,
     });
 
-    setShowProductModal(true);
+    setShowProductModal(
+      true
+    );
   }
 
   function openEditProduct(
     product: Product
   ) {
     setProductForm({
-      id: product.id,
+      id:
+        product.id,
 
-      name: product.name,
+      name:
+        product.name,
 
       slug:
         product.slug,
 
       sku:
-        product.sku === "—"
+        product.sku ===
+        "—"
           ? ""
           : product.sku,
 
@@ -1679,11 +2098,16 @@ export default function StorePage() {
       featured:
         product.featured,
 
+      trackInventory:
+        product.track_inventory,
+
       status:
         product.status,
     });
 
-    setShowProductModal(true);
+    setShowProductModal(
+      true
+    );
   }
 
   // ==========================================================
@@ -1691,24 +2115,32 @@ export default function StorePage() {
   // ==========================================================
 
   async function saveProduct() {
-    if (savingProduct) {
+    if (
+      savingProduct
+    ) {
       return;
     }
 
-    if (!organisationId) {
+    if (
+      !organisationId
+    ) {
       alert(
         "Organisation could not be found."
       );
+
       return;
     }
 
     const name =
       productForm.name.trim();
 
-    if (!name) {
+    if (
+      !name
+    ) {
       alert(
         "Enter a product name."
       );
+
       return;
     }
 
@@ -1718,10 +2150,13 @@ export default function StorePage() {
           name
       );
 
-    if (!productSlug) {
+    if (
+      !productSlug
+    ) {
       alert(
         "The product needs a valid slug."
       );
+
       return;
     }
 
@@ -1731,12 +2166,16 @@ export default function StorePage() {
       );
 
     if (
-      !Number.isFinite(price) ||
-      price < 0
+      !Number.isFinite(
+        price
+      ) ||
+      price <
+        0
     ) {
       alert(
         "Enter a valid price."
       );
+
       return;
     }
 
@@ -1748,19 +2187,24 @@ export default function StorePage() {
         : null;
 
     if (
-      compareAtPrice !== null &&
-      (!Number.isFinite(
-        compareAtPrice
-      ) ||
-        compareAtPrice < 0)
+      compareAtPrice !==
+        null &&
+      (
+        !Number.isFinite(
+          compareAtPrice
+        ) ||
+        compareAtPrice <
+          0
+      )
     ) {
       alert(
         "Enter a valid compare-at price."
       );
+
       return;
     }
 
-    const cost =
+    const costPrice =
       productForm.cost.trim()
         ? Number(
             productForm.cost
@@ -1768,38 +2212,49 @@ export default function StorePage() {
         : 0;
 
     if (
-      !Number.isFinite(cost) ||
-      cost < 0
+      !Number.isFinite(
+        costPrice
+      ) ||
+      costPrice <
+        0
     ) {
       alert(
         "Enter a valid cost price."
       );
+
       return;
     }
 
     const stock =
-      Math.max(
-        0,
-        Math.floor(
-          Number(
-            productForm.stock ||
-              0
+      productForm.trackInventory
+        ? Math.max(
+            0,
+            Math.floor(
+              Number(
+                productForm.stock ||
+                  0
+              )
+            )
           )
-        )
-      );
+        : 0;
 
-    setSavingProduct(true);
+    setSavingProduct(
+      true
+    );
 
     try {
-      // Check another product in this organisation
-      // does not already use this slug.
+      // =======================================================
+      // UNIQUE PRODUCT SLUG
+      // =======================================================
 
       let slugQuery =
         supabase
           .from(
             "store_products"
           )
-          .select("id")
+          .select(
+            "id"
+          )
           .eq(
             "organisation_id",
             organisationId
@@ -1809,7 +2264,9 @@ export default function StorePage() {
             productSlug
           );
 
-      if (productForm.id) {
+      if (
+        productForm.id
+      ) {
         slugQuery =
           slugQuery.neq(
             "id",
@@ -1827,7 +2284,9 @@ export default function StorePage() {
           1
         );
 
-      if (slugCheckError) {
+      if (
+        slugCheckError
+      ) {
         throw slugCheckError;
       }
 
@@ -1840,12 +2299,21 @@ export default function StorePage() {
           "Another product already uses this product URL. Change the product slug."
         );
 
-        setSavingProduct(
-          false
-        );
-
         return;
       }
+
+      // =======================================================
+      // PRODUCT PAYLOAD
+      //
+      // IMPORTANT:
+      // Schema:
+      //   cost_price
+      //   stock
+      //   inventory_quantity
+      //   track_inventory
+      //
+      // NOT cost.
+      // =======================================================
 
       const payload = {
         organisation_id:
@@ -1858,7 +2326,9 @@ export default function StorePage() {
 
         sku:
           productForm.sku.trim() ||
-          generateSku(name),
+          generateSku(
+            name
+          ),
 
         category:
           productForm.category.trim() ||
@@ -1873,10 +2343,24 @@ export default function StorePage() {
         compare_at_price:
           compareAtPrice,
 
-        cost,
+        // ============================================
+        // FIXED DATABASE COLUMN
+        // ============================================
+
+        cost_price:
+          costPrice,
+
+        // ============================================
+        // KEEP BOTH STOCK COLUMNS SYNCHRONISED
+        // ============================================
+
+        stock,
 
         inventory_quantity:
           stock,
+
+        track_inventory:
+          productForm.trackInventory,
 
         image_url:
           productForm.imageUrl.trim() ||
@@ -1896,52 +2380,82 @@ export default function StorePage() {
           new Date().toISOString(),
       };
 
-      if (productForm.id) {
+      // =======================================================
+      // UPDATE
+      // =======================================================
+
+      if (
+        productForm.id
+      ) {
         const {
           data,
           error,
-        } = await supabase
-          .from(
-            "store_products"
-          )
-          .update(payload)
-          .eq(
-            "id",
-            productForm.id
-          )
-          .eq(
-            "organisation_id",
-            organisationId
-          )
-          .select("id")
-          .maybeSingle();
+        } =
+          await supabase
+            .from(
+              "store_products"
+            )
+            .update(
+              payload
+            )
+            .eq(
+              "id",
+              productForm.id
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .select(
+              "id"
+            )
+            .maybeSingle();
 
-        if (error) {
+        if (
+          error
+        ) {
           throw error;
         }
 
-        if (!data) {
+        if (
+          !data
+        ) {
           throw new Error(
             "The product was not updated. Check your store_products RLS UPDATE policy."
           );
         }
-      } else {
+      }
+
+      // =======================================================
+      // INSERT
+      // =======================================================
+
+      else {
         const {
           data,
           error,
-        } = await supabase
-          .from(
-            "store_products"
-          )
-          .insert(payload)
-          .select("id")
-          .single();
+        } =
+          await supabase
+            .from(
+              "store_products"
+            )
+            .insert(
+              payload
+            )
+            .select(
+              "id"
+            )
+            .single();
 
-        if (error) {
+        if (
+          error
+        ) {
           throw error;
         }
 
-        if (!data) {
+        if (
+          !data
+        ) {
           throw new Error(
             "The product was not created."
           );
@@ -1956,8 +2470,12 @@ export default function StorePage() {
         ...EMPTY_PRODUCT_FORM,
       });
 
-      await loadData(true);
-    } catch (error: any) {
+      await loadData(
+        true
+      );
+    } catch (
+      error: any
+    ) {
       console.error(
         "Product save failed:",
         error
@@ -1997,33 +2515,44 @@ export default function StorePage() {
       const {
         data,
         error,
-      } = await supabase
-        .from(
-          "store_products"
-        )
-        .delete()
-        .eq(
-          "id",
-          product.id
-        )
-        .eq(
-          "organisation_id",
-          organisationId
-        )
-        .select("id");
+      } =
+        await supabase
+          .from(
+            "store_products"
+          )
+          .delete()
+          .eq(
+            "id",
+            product.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .select(
+            "id"
+          );
 
-      if (error) {
+      if (
+        error
+      ) {
         throw error;
       }
 
-      if (!data?.length) {
+      if (
+        !data?.length
+      ) {
         throw new Error(
           "The product was not deleted. Check your store_products RLS DELETE policy."
         );
       }
 
-      await loadData(true);
-    } catch (error: any) {
+      await loadData(
+        true
+      );
+    } catch (
+      error: any
+    ) {
       console.error(
         "Delete product failed:",
         error
@@ -2076,48 +2605,70 @@ export default function StorePage() {
         )
       );
 
-    setSavingStock(true);
+    setSavingStock(
+      true
+    );
 
     try {
       const {
         data,
         error,
-      } = await supabase
-        .from(
-          "store_products"
-        )
-        .update({
-          inventory_quantity:
-            quantity,
+      } =
+        await supabase
+          .from(
+            "store_products"
+          )
+          .update({
+            // ============================================
+            // KEEP BOTH STOCK COLUMNS SYNCHRONISED
+            // ============================================
 
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq(
-          "id",
-          stockAdjust.product.id
-        )
-        .eq(
-          "organisation_id",
-          organisationId
-        )
-        .select("id")
-        .maybeSingle();
+            stock:
+              quantity,
 
-      if (error) {
+            inventory_quantity:
+              quantity,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            stockAdjust.product.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .select(
+            "id"
+          )
+          .maybeSingle();
+
+      if (
+        error
+      ) {
         throw error;
       }
 
-      if (!data) {
+      if (
+        !data
+      ) {
         throw new Error(
           "Stock was not updated. Check your store_products RLS UPDATE policy."
         );
       }
 
-      setStockAdjust(null);
+      setStockAdjust(
+        null
+      );
 
-      await loadData(true);
-    } catch (error: any) {
+      await loadData(
+        true
+      );
+    } catch (
+      error: any
+    ) {
       console.error(
         "Stock update failed:",
         error
@@ -2128,7 +2679,9 @@ export default function StorePage() {
           "Stock could not be updated."
       );
     } finally {
-      setSavingStock(false);
+      setSavingStock(
+        false
+      );
     }
   }
 
@@ -2155,7 +2708,8 @@ export default function StorePage() {
       order.status;
 
     if (
-      order.status === "new"
+      order.status ===
+      "new"
     ) {
       nextStatus =
         "processing";
@@ -2181,36 +2735,57 @@ export default function StorePage() {
       const {
         data,
         error,
-      } = await supabase
-        .from("store_orders")
-        .update({
-          status: nextStatus,
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq(
-          "id",
-          order.id
-        )
-        .eq(
-          "organisation_id",
-          organisationId
-        )
-        .select("id")
-        .maybeSingle();
+      } =
+        await supabase
+          .from(
+            "store_orders"
+          )
+          .update({
+            // ============================================
+            // FIX:
+            // Your DB column is fulfilment_status,
+            // NOT status.
+            // ============================================
 
-      if (error) {
+            fulfilment_status:
+              nextStatus,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            order.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .select(
+            "id"
+          )
+          .maybeSingle();
+
+      if (
+        error
+      ) {
         throw error;
       }
 
-      if (!data) {
+      if (
+        !data
+      ) {
         throw new Error(
           "The order could not be updated. Check the store_orders RLS UPDATE policy."
         );
       }
 
-      await loadData(true);
-    } catch (error: any) {
+      await loadData(
+        true
+      );
+    } catch (
+      error: any
+    ) {
       console.error(
         "Order update failed:",
         error
@@ -2232,18 +2807,25 @@ export default function StorePage() {
   // ==========================================================
 
   async function saveStoreSettings() {
-    if (savingSettings) {
+    if (
+      savingSettings
+    ) {
       return;
     }
 
-    if (!organisationId) {
+    if (
+      !organisationId
+    ) {
       return;
     }
 
-    if (!storeName.trim()) {
+    if (
+      !storeName.trim()
+    ) {
       alert(
         "Give your store a name."
       );
+
       return;
     }
 
@@ -2253,18 +2835,24 @@ export default function StorePage() {
           storeName
       );
 
-    if (!resolvedSlug) {
+    if (
+      !resolvedSlug
+    ) {
       alert(
         "Enter a valid store URL slug."
       );
+
       return;
     }
 
-    setSavingSettings(true);
+    setSavingSettings(
+      true
+    );
 
     try {
-      // Make sure another organisation does not
-      // already own this public shop slug.
+      // =======================================================
+      // CHECK STORE SLUG
+      // =======================================================
 
       let slugQuery =
         supabase
@@ -2279,7 +2867,9 @@ export default function StorePage() {
             resolvedSlug
           );
 
-      if (storeSettings?.id) {
+      if (
+        storeSettings?.id
+      ) {
         slugQuery =
           slugQuery.neq(
             "id",
@@ -2295,20 +2885,19 @@ export default function StorePage() {
           1
         );
 
-      if (slugError) {
+      if (
+        slugError
+      ) {
         throw slugError;
       }
 
       if (
         slugRows &&
-        slugRows.length > 0
+        slugRows.length >
+          0
       ) {
         alert(
           "That storefront URL is already being used. Choose another store URL."
-        );
-
-        setSavingSettings(
-          false
         );
 
         return;
@@ -2359,31 +2948,40 @@ export default function StorePage() {
           new Date().toISOString(),
       };
 
-      if (storeSettings?.id) {
+      if (
+        storeSettings?.id
+      ) {
         const {
           data,
           error,
-        } = await supabase
-          .from(
-            "store_settings"
-          )
-          .update(payload)
-          .eq(
-            "id",
-            storeSettings.id
-          )
-          .eq(
-            "organisation_id",
-            organisationId
-          )
-          .select("*")
-          .maybeSingle();
+        } =
+          await supabase
+            .from(
+              "store_settings"
+            )
+            .update(
+              payload
+            )
+            .eq(
+              "id",
+              storeSettings.id
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .select("*")
+            .maybeSingle();
 
-        if (error) {
+        if (
+          error
+        ) {
           throw error;
         }
 
-        if (!data) {
+        if (
+          !data
+        ) {
           throw new Error(
             "Store settings were not updated. Check the store_settings RLS UPDATE policy."
           );
@@ -2392,19 +2990,26 @@ export default function StorePage() {
         const {
           data,
           error,
-        } = await supabase
-          .from(
-            "store_settings"
-          )
-          .insert(payload)
-          .select("*")
-          .single();
+        } =
+          await supabase
+            .from(
+              "store_settings"
+            )
+            .insert(
+              payload
+            )
+            .select("*")
+            .single();
 
-        if (error) {
+        if (
+          error
+        ) {
           throw error;
         }
 
-        if (!data) {
+        if (
+          !data
+        ) {
           throw new Error(
             "Store settings were not created."
           );
@@ -2415,12 +3020,16 @@ export default function StorePage() {
         resolvedSlug
       );
 
-      await loadData(true);
+      await loadData(
+        true
+      );
 
       alert(
         "Store settings saved. Your storefront is now using the updated settings."
       );
-    } catch (error: any) {
+    } catch (
+      error: any
+    ) {
       console.error(
         "Store settings save failed:",
         error
@@ -2447,7 +3056,9 @@ export default function StorePage() {
       : null;
 
   async function copyStorefrontUrl() {
-    if (!storefrontUrl) {
+    if (
+      !storefrontUrl
+    ) {
       return;
     }
 
@@ -2466,37 +3077,66 @@ export default function StorePage() {
         "Store URL copied."
       );
     } catch {
-      alert(url);
+      alert(
+        url
+      );
     }
   }
+
+  // ==========================================================
+  // TABS
+  // ==========================================================
 
   const tabs: {
     label: StoreTab;
     icon: any;
   }[] = [
     {
-      label: "Overview",
-      icon: Store,
+      label:
+        "Overview",
+
+      icon:
+        Store,
     },
+
     {
-      label: "Products",
-      icon: Package,
+      label:
+        "Products",
+
+      icon:
+        Package,
     },
+
     {
-      label: "Orders",
-      icon: ShoppingBag,
+      label:
+        "Orders",
+
+      icon:
+        ShoppingBag,
     },
+
     {
-      label: "Inventory",
-      icon: Boxes,
+      label:
+        "Inventory",
+
+      icon:
+        Boxes,
     },
+
     {
-      label: "Discounts",
-      icon: BadgePercent,
+      label:
+        "Discounts",
+
+      icon:
+        BadgePercent,
     },
+
     {
-      label: "Settings",
-      icon: Settings,
+      label:
+        "Settings",
+
+      icon:
+        Settings,
     },
   ];
 
@@ -2504,7 +3144,9 @@ export default function StorePage() {
   // LOADING
   // ==========================================================
 
-  if (loading) {
+  if (
+    loading
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2]">
         <div className="text-center">
@@ -2525,7 +3167,9 @@ export default function StorePage() {
   // ERROR
   // ==========================================================
 
-  if (pageError) {
+  if (
+    pageError
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
         <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-10 text-center">
@@ -2535,8 +3179,7 @@ export default function StorePage() {
           />
 
           <h1 className="mt-5 font-serif text-4xl italic">
-            Commerce couldn&apos;t
-            load
+            Commerce couldn&apos;t load
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-stone-500">
@@ -2567,12 +3210,19 @@ export default function StorePage() {
 
   return (
     <main className="min-h-screen bg-[#f7f5f2] pb-28 text-stone-900">
-      {/* HEADER */}
+
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
       <header className="mx-auto max-w-[1400px] px-4 pb-7 pt-10 sm:px-6 lg:px-8 lg:pt-14">
+
         <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+
           <div>
+
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2">
+
               <ShoppingBag
                 size={13}
                 className="text-[#829473]"
@@ -2581,20 +3231,15 @@ export default function StorePage() {
               <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
                 TOTS Commerce
               </span>
+
             </div>
 
             <h1 className="max-w-4xl font-serif text-5xl italic leading-none tracking-tight text-stone-900 sm:text-6xl lg:text-7xl">
-              Your store,
-              connected to your
-              business.
+              Your store, connected to your business.
             </h1>
 
             <p className="mt-5 max-w-2xl text-sm leading-6 text-stone-500">
-              Manage products,
-              orders, stock and
-              your public
-              storefront alongside
-              the rest of TOTS-OS.
+              Manage products, orders, stock and your public storefront alongside the rest of TOTS-OS.
             </p>
 
             {organisationName && (
@@ -2602,12 +3247,16 @@ export default function StorePage() {
                 {organisationName}
               </p>
             )}
+
           </div>
 
           <div className="flex flex-wrap gap-2">
+
             {storefrontUrl && (
               <a
-                href={storefrontUrl}
+                href={
+                  storefrontUrl
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500 no-underline"
@@ -2622,7 +3271,9 @@ export default function StorePage() {
 
             <button
               type="button"
-              disabled={refreshing}
+              disabled={
+                refreshing
+              }
               onClick={() =>
                 void loadData(
                   true
@@ -2649,21 +3300,33 @@ export default function StorePage() {
               }
               className="flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#a9b897]"
             >
-              <Plus size={14} />
+              <Plus
+                size={14}
+              />
 
               New Product
             </button>
+
           </div>
+
         </div>
+
       </header>
 
-      {/* NAV */}
+      {/* =====================================================
+          NAV
+      ===================================================== */}
 
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+
         <div className="no-scrollbar overflow-x-auto">
+
           <div className="flex min-w-max gap-1 rounded-2xl border border-stone-200 bg-white p-1.5">
+
             {tabs.map(
-              (tab) => {
+              (
+                tab
+              ) => {
                 const Icon =
                   tab.icon;
 
@@ -2692,130 +3355,150 @@ export default function StorePage() {
                       size={14}
                     />
 
-                    {tab.label}
+                    {
+                      tab.label
+                    }
                   </button>
                 );
               }
             )}
+
           </div>
+
         </div>
+
       </div>
 
-      {/* CONTENT */}
+      {/* =====================================================
+          CONTENT
+      ===================================================== */}
 
       <section className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
+
         <AnimatePresence
           mode="wait"
         >
-          {/* OVERVIEW */}
+
+          {/* ==================================================
+              OVERVIEW
+          ================================================== */}
 
           {activeTab ===
             "Overview" && (
             <motion.div
               key="overview"
               initial={{
-                opacity: 0,
-                y: 8,
+                opacity:
+                  0,
+
+                y:
+                  8,
               }}
               animate={{
-                opacity: 1,
-                y: 0,
+                opacity:
+                  1,
+
+                y:
+                  0,
               }}
               exit={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               className="space-y-6"
             >
+
               <Panel>
+
                 <div className="flex items-start gap-4">
+
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#a9b897]/10 text-[#829473]">
+
                     <Sparkles
                       size={18}
                     />
+
                   </div>
 
                   <div className="min-w-0 flex-1">
+
                     <SectionEyebrow>
-                      TOTS Commerce
-                      Summary
+                      TOTS Commerce Summary
                     </SectionEyebrow>
 
                     {orders.length ||
                     products.length ? (
                       <p className="mt-2 max-w-4xl text-lg leading-8 text-stone-700">
-                        Your store
-                        currently has{" "}
+
+                        Your store currently has{" "}
+
                         <strong>
                           {
                             products.length
                           }{" "}
                           products
                         </strong>
+
                         ,{" "}
+
                         <strong>
                           {
                             openOrders.length
                           }{" "}
                           active orders
-                        </strong>{" "}
-                        and{" "}
+                        </strong>
+
+                        {" "}and{" "}
+
                         <strong>
                           {
                             lowStockProducts.length
                           }{" "}
                           stock warnings
                         </strong>
-                        . Paid order
-                        value currently
-                        visible is{" "}
+
+                        . Paid order value currently visible is{" "}
+
                         <strong>
                           {money(
                             displayRevenue
                           )}
                         </strong>
+
                         .
+
                       </p>
                     ) : (
                       <p className="mt-2 max-w-4xl text-lg leading-8 text-stone-700">
-                        Your commerce
-                        workspace is
-                        ready. Start by
-                        adding your
-                        first product
-                        and finishing
-                        your storefront
-                        settings.
+                        Your commerce workspace is ready. Start by adding your first product and finishing your storefront settings.
                       </p>
                     )}
+
                   </div>
+
                 </div>
+
               </Panel>
 
               {!storeSettings && (
                 <div className="rounded-[2rem] border border-[#dce4d2] bg-[#f1f5ec] p-6 md:p-8">
+
                   <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+
                     <div>
+
                       <SectionEyebrow>
-                        Storefront
-                        setup
+                        Storefront setup
                       </SectionEyebrow>
 
                       <h2 className="mt-2 font-serif text-3xl italic">
-                        Finish setting
-                        up your online
-                        store.
+                        Finish setting up your online store.
                       </h2>
 
                       <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-                        Add your store
-                        name, public
-                        URL,
-                        description
-                        and branding
-                        before putting
-                        the storefront
-                        live.
+                        Add your store name, public URL, description and branding before putting the storefront live.
                       </p>
+
                     </div>
 
                     <button
@@ -2833,11 +3516,14 @@ export default function StorePage() {
                         size={13}
                       />
                     </button>
+
                   </div>
+
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+
                 <StoreMetric
                   icon={
                     CircleDollarSign
@@ -2877,20 +3563,25 @@ export default function StorePage() {
                     lowStockProducts.length
                   )}
                 />
+
               </div>
 
               <div className="grid gap-6 lg:grid-cols-12">
+
                 <Panel className="lg:col-span-7">
+
                   <div className="mb-6 flex items-center justify-between">
+
                     <div>
+
                       <SectionEyebrow>
                         Fulfilment
                       </SectionEyebrow>
 
                       <h2 className="mt-1 font-serif text-2xl italic">
-                        Orders needing
-                        attention
+                        Orders needing attention
                       </h2>
+
                     </div>
 
                     <button
@@ -2904,6 +3595,7 @@ export default function StorePage() {
                     >
                       View all
                     </button>
+
                   </div>
 
                   {!openOrders.length ? (
@@ -2916,10 +3608,16 @@ export default function StorePage() {
                     />
                   ) : (
                     <div className="space-y-3">
+
                       {openOrders
-                        .slice(0, 4)
+                        .slice(
+                          0,
+                          4
+                        )
                         .map(
-                          (order) => (
+                          (
+                            order
+                          ) => (
                             <OrderRow
                               key={
                                 order.id
@@ -2942,11 +3640,14 @@ export default function StorePage() {
                             />
                           )
                         )}
+
                     </div>
                   )}
+
                 </Panel>
 
                 <Panel className="lg:col-span-5">
+
                   <SectionEyebrow>
                     Store Snapshot
                   </SectionEyebrow>
@@ -2956,6 +3657,7 @@ export default function StorePage() {
                   </h2>
 
                   <div className="mt-6 space-y-4">
+
                     <DetailRow
                       label="Storefront"
                       value={
@@ -2998,14 +3700,21 @@ export default function StorePage() {
                         ).length
                       )}
                     />
+
                   </div>
+
                 </Panel>
+
               </div>
 
               <div className="grid gap-6 lg:grid-cols-2">
+
                 <Panel>
+
                   <div className="mb-6 flex items-center justify-between">
+
                     <div>
+
                       <SectionEyebrow>
                         Performance
                       </SectionEyebrow>
@@ -3013,6 +3722,7 @@ export default function StorePage() {
                       <h2 className="mt-1 font-serif text-2xl italic">
                         Best sellers
                       </h2>
+
                     </div>
 
                     <button
@@ -3026,6 +3736,7 @@ export default function StorePage() {
                     >
                       Products
                     </button>
+
                   </div>
 
                   {!bestSellers.length ? (
@@ -3038,6 +3749,7 @@ export default function StorePage() {
                     />
                   ) : (
                     <div className="space-y-3">
+
                       {bestSellers.map(
                         (
                           product,
@@ -3049,15 +3761,19 @@ export default function StorePage() {
                             }
                             className="flex items-center gap-4 rounded-2xl bg-stone-50 p-4"
                           >
+
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-400">
                               <span className="font-serif text-lg italic">
                                 #
-                                {index +
-                                  1}
+                                {
+                                  index +
+                                  1
+                                }
                               </span>
                             </div>
 
                             <div className="min-w-0 flex-1">
+
                               <p className="truncate text-sm font-semibold">
                                 {
                                   product.name
@@ -3070,6 +3786,7 @@ export default function StorePage() {
                                 }{" "}
                                 items sold
                               </p>
+
                             </div>
 
                             <p className="font-serif text-lg italic">
@@ -3077,14 +3794,18 @@ export default function StorePage() {
                                 product.revenue
                               )}
                             </p>
+
                           </div>
                         )
                       )}
+
                     </div>
                   )}
+
                 </Panel>
 
                 <Panel>
+
                   <SectionEyebrow>
                     Inventory
                   </SectionEyebrow>
@@ -3094,14 +3815,18 @@ export default function StorePage() {
                   </h2>
 
                   <div className="mt-6">
+
                     {!lowStockProducts.length ? (
                       <EmptyState
-                        icon={Check}
+                        icon={
+                          Check
+                        }
                         title="Stock looks healthy"
                         text="Nothing is currently below your low-stock threshold."
                       />
                     ) : (
                       <div className="space-y-3">
+
                         {lowStockProducts.map(
                           (
                             product
@@ -3119,6 +3844,7 @@ export default function StorePage() {
                               className="flex w-full items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left"
                             >
                               <div>
+
                                 <p className="text-sm font-semibold text-stone-700">
                                   {
                                     product.name
@@ -3129,40 +3855,45 @@ export default function StorePage() {
                                   {
                                     product.inventory_quantity
                                   }{" "}
-                                  left in
-                                  stock
+                                  left in stock
                                 </p>
+
                               </div>
 
                               <AlertTriangle
-                                size={
-                                  16
-                                }
+                                size={16}
                                 className="text-amber-500"
                               />
+
                             </button>
                           )
                         )}
+
                       </div>
                     )}
+
                   </div>
+
                 </Panel>
+
               </div>
 
               <Panel>
+
                 <SectionEyebrow>
                   Connected Business
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-2xl italic">
-                  Commerce inside
-                  the rest of
-                  TOTS-OS
+                  Commerce inside the rest of TOTS-OS
                 </h2>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-4">
+
                   <ConnectionCard
-                    icon={Users}
+                    icon={
+                      Users
+                    }
                     title="Customers"
                     text="Store customers can become CRM contacts instead of living in another system."
                   />
@@ -3190,27 +3921,38 @@ export default function StorePage() {
                     title="Clarity"
                     text="Use sales, stock and customer activity as business context."
                   />
+
                 </div>
+
               </Panel>
+
             </motion.div>
           )}
 
-          {/* PRODUCTS */}
+          {/* ==================================================
+              PRODUCTS
+          ================================================== */}
 
           {activeTab ===
             "Products" && (
             <motion.div
               key="products"
               initial={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               animate={{
-                opacity: 1,
+                opacity:
+                  1,
               }}
             >
+
               <Panel>
+
                 <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+
                   <div>
+
                     <SectionEyebrow>
                       Catalogue
                     </SectionEyebrow>
@@ -3220,19 +3962,15 @@ export default function StorePage() {
                     </h2>
 
                     <p className="mt-2 text-sm text-stone-500">
-                      Products
-                      created here
-                      are the same
-                      database
-                      products used
-                      by your public
-                      TOTS
-                      storefront.
+                      Products created here are the same database products used by your public TOTS storefront.
                     </p>
+
                   </div>
 
                   <div className="flex flex-col gap-2 sm:flex-row">
+
                     <div className="relative">
+
                       <Search
                         size={14}
                         className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
@@ -3246,14 +3984,13 @@ export default function StorePage() {
                           event
                         ) =>
                           setProductSearch(
-                            event
-                              .target
-                              .value
+                            event.target.value
                           )
                         }
                         placeholder="Search products..."
                         className="w-full rounded-xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-4 text-xs outline-none sm:w-64"
                       />
+
                     </div>
 
                     <button
@@ -3269,31 +4006,42 @@ export default function StorePage() {
 
                       New Product
                     </button>
+
                   </div>
+
                 </div>
 
                 <div className="mt-8 overflow-hidden rounded-2xl border border-stone-100">
+
                   <div className="hidden grid-cols-[minmax(0,1.7fr)_1fr_.7fr_.7fr_.8fr_90px] gap-4 border-b bg-stone-50 px-5 py-4 text-[8px] font-black uppercase tracking-wider text-stone-400 md:grid">
+
                     <span>
                       Product
                     </span>
+
                     <span>
                       Category
                     </span>
+
                     <span>
                       Price
                     </span>
+
                     <span>
                       Stock
                     </span>
+
                     <span>
                       Status
                     </span>
+
                     <span />
+
                   </div>
 
                   {!filteredProducts.length ? (
                     <div className="p-12">
+
                       <EmptyState
                         icon={
                           Package
@@ -3304,6 +4052,7 @@ export default function StorePage() {
 
                       {!productSearch && (
                         <div className="mt-5 text-center">
+
                           <button
                             type="button"
                             onClick={
@@ -3312,16 +4061,15 @@ export default function StorePage() {
                             className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-wider text-white"
                           >
                             <Plus
-                              size={
-                                13
-                              }
+                              size={13}
                             />
 
-                            Add first
-                            product
+                            Add first product
                           </button>
+
                         </div>
                       )}
+
                     </div>
                   ) : (
                     filteredProducts.map(
@@ -3334,8 +4082,11 @@ export default function StorePage() {
                           }
                           className="grid gap-4 border-b border-stone-100 px-5 py-5 last:border-0 md:grid-cols-[minmax(0,1.7fr)_1fr_.7fr_.7fr_.8fr_90px] md:items-center"
                         >
+
                           <div className="flex min-w-0 items-center gap-3">
+
                             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-50 text-stone-300">
+
                               {product.image_url ? (
                                 <img
                                   src={
@@ -3348,15 +4099,16 @@ export default function StorePage() {
                                 />
                               ) : (
                                 <ImageIcon
-                                  size={
-                                    17
-                                  }
+                                  size={17}
                                 />
                               )}
+
                             </div>
 
                             <div className="min-w-0">
+
                               <div className="flex items-center gap-2">
+
                                 <p className="truncate text-sm font-semibold text-stone-700">
                                   {
                                     product.name
@@ -3368,6 +4120,7 @@ export default function StorePage() {
                                     Featured
                                   </span>
                                 )}
+
                               </div>
 
                               <p className="mt-1 text-[10px] text-stone-400">
@@ -3375,7 +4128,9 @@ export default function StorePage() {
                                   product.sku
                                 }
                               </p>
+
                             </div>
+
                           </div>
 
                           <p className="text-xs text-stone-500">
@@ -3390,33 +4145,38 @@ export default function StorePage() {
                             )}
                           </p>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openStockAdjust(
-                                product
-                              )
-                            }
-                            className="w-fit text-left"
-                          >
-                            <p className="text-xs font-semibold">
-                              {
-                                product.inventory_quantity
+                          {product.track_inventory ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openStockAdjust(
+                                  product
+                                )
                               }
-                            </p>
+                              className="w-fit text-left"
+                            >
 
-                            {product.inventory_quantity <=
-                              Number(
-                                lowStockThreshold
-                              ) &&
-                              product.inventory_quantity <
-                                900 && (
+                              <p className="text-xs font-semibold">
+                                {
+                                  product.inventory_quantity
+                                }
+                              </p>
+
+                              {product.inventory_quantity <=
+                                Number(
+                                  lowStockThreshold
+                                ) && (
                                 <p className="mt-1 text-[9px] text-amber-600">
-                                  Low
-                                  stock
+                                  Low stock
                                 </p>
                               )}
-                          </button>
+
+                            </button>
+                          ) : (
+                            <p className="text-[9px] font-semibold uppercase tracking-wide text-stone-400">
+                              Unlimited
+                            </p>
+                          )}
 
                           <StatusBadge
                             status={
@@ -3425,6 +4185,7 @@ export default function StorePage() {
                           />
 
                           <div className="flex gap-1 md:justify-end">
+
                             <button
                               type="button"
                               onClick={() =>
@@ -3435,9 +4196,7 @@ export default function StorePage() {
                               className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-50 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
                             >
                               <Edit3
-                                size={
-                                  13
-                                }
+                                size={13}
                               />
                             </button>
 
@@ -3454,47 +4213,56 @@ export default function StorePage() {
                               }
                               className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-400 disabled:opacity-50"
                             >
+
                               {deletingProductId ===
                               product.id ? (
                                 <Loader2
-                                  size={
-                                    13
-                                  }
+                                  size={13}
                                   className="animate-spin"
                                 />
                               ) : (
                                 <Trash2
-                                  size={
-                                    13
-                                  }
+                                  size={13}
                                 />
                               )}
+
                             </button>
+
                           </div>
+
                         </div>
                       )
                     )
                   )}
+
                 </div>
+
               </Panel>
+
             </motion.div>
           )}
 
-          {/* ORDERS */}
+          {/* ==================================================
+              ORDERS
+          ================================================== */}
 
           {activeTab ===
             "Orders" && (
             <motion.div
               key="orders"
               initial={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               animate={{
-                opacity: 1,
+                opacity:
+                  1,
               }}
               className="space-y-6"
             >
+
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+
                 <StoreMetric
                   icon={
                     ShoppingBag
@@ -3506,7 +4274,9 @@ export default function StorePage() {
                 />
 
                 <StoreMetric
-                  icon={Package}
+                  icon={
+                    Package
+                  }
                   label="Open"
                   value={String(
                     openOrders.length
@@ -3532,11 +4302,15 @@ export default function StorePage() {
                     orderRevenue
                   )}
                 />
+
               </div>
 
               <Panel>
+
                 <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+
                   <div>
+
                     <SectionEyebrow>
                       Fulfilment
                     </SectionEyebrow>
@@ -3546,15 +4320,13 @@ export default function StorePage() {
                     </h2>
 
                     <p className="mt-2 text-sm text-stone-500">
-                      Orders placed
-                      through the
-                      TOTS storefront
-                      will appear
-                      here.
+                      Orders placed through the TOTS storefront will appear here.
                     </p>
+
                   </div>
 
                   <div className="relative">
+
                     <Search
                       size={14}
                       className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
@@ -3568,19 +4340,20 @@ export default function StorePage() {
                         event
                       ) =>
                         setOrderSearch(
-                          event
-                            .target
-                            .value
+                          event.target.value
                         )
                       }
                       placeholder="Search orders..."
                       className="w-full rounded-xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-4 text-xs outline-none sm:w-72"
                     />
+
                   </div>
+
                 </div>
 
                 {!filteredOrders.length ? (
                   <div className="mt-8">
+
                     <EmptyState
                       icon={
                         ShoppingBag
@@ -3588,29 +4361,36 @@ export default function StorePage() {
                       title="No orders yet"
                       text="Once customers place orders on your storefront, they will appear here for fulfilment."
                     />
+
                   </div>
                 ) : (
                   <div className="mt-8 space-y-3">
+
                     {filteredOrders.map(
-                      (order) => (
+                      (
+                        order
+                      ) => (
                         <div
                           key={
                             order.id
                           }
                           className="rounded-2xl border border-stone-100 bg-stone-50 p-5"
                         >
+
                           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+
                             <div className="flex items-start gap-4">
+
                               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-stone-400">
                                 <ShoppingBag
-                                  size={
-                                    16
-                                  }
+                                  size={16}
                                 />
                               </div>
 
                               <div>
+
                                 <div className="flex flex-wrap items-center gap-2">
+
                                   <p className="text-sm font-semibold">
                                     {
                                       order.number
@@ -3628,6 +4408,7 @@ export default function StorePage() {
                                       order.paymentStatus
                                     }
                                   />
+
                                 </div>
 
                                 <p className="mt-2 text-xs font-medium text-stone-600">
@@ -3644,16 +4425,18 @@ export default function StorePage() {
                                   {
                                     order.items
                                   }{" "}
-                                  items
-                                  ·{" "}
+                                  items ·{" "}
                                   {
                                     order.createdAt
                                   }
                                 </p>
+
                               </div>
+
                             </div>
 
                             <div className="flex items-center justify-between gap-4 md:justify-end">
+
                               <p className="font-serif text-2xl italic">
                                 {money(
                                   order.total
@@ -3697,39 +4480,51 @@ export default function StorePage() {
                                 className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-400"
                               >
                                 <Eye
-                                  size={
-                                    14
-                                  }
+                                  size={14}
                                 />
                               </button>
+
                             </div>
+
                           </div>
+
                         </div>
                       )
                     )}
+
                   </div>
                 )}
+
               </Panel>
+
             </motion.div>
           )}
 
-          {/* INVENTORY */}
+          {/* ==================================================
+              INVENTORY
+          ================================================== */}
 
           {activeTab ===
             "Inventory" && (
             <motion.div
               key="inventory"
               initial={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               animate={{
-                opacity: 1,
+                opacity:
+                  1,
               }}
               className="space-y-6"
             >
+
               <Panel>
+
                 <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+
                   <div>
+
                     <SectionEyebrow>
                       Stock Control
                     </SectionEyebrow>
@@ -3739,23 +4534,19 @@ export default function StorePage() {
                     </h2>
 
                     <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-                      Stock levels
-                      here are
-                      written directly
-                      to the same
-                      products used
-                      by the public
-                      storefront.
+                      Stock levels here are written directly to the same products used by the public storefront.
                     </p>
+
                   </div>
 
                   <div className="rounded-2xl bg-stone-50 px-5 py-4">
+
                     <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
-                      Low stock
-                      threshold
+                      Low stock threshold
                     </p>
 
                     <div className="mt-2 flex items-center gap-2">
+
                       <input
                         type="number"
                         min="0"
@@ -3766,9 +4557,7 @@ export default function StorePage() {
                           event
                         ) =>
                           setLowStockThreshold(
-                            event
-                              .target
-                              .value
+                            event.target.value
                           )
                         }
                         className="w-20 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs outline-none"
@@ -3777,30 +4566,45 @@ export default function StorePage() {
                       <span className="text-xs text-stone-400">
                         units
                       </span>
+
                     </div>
+
                   </div>
+
                 </div>
+
               </Panel>
 
               {!products.length ? (
                 <EmptyState
-                  icon={Boxes}
+                  icon={
+                    Boxes
+                  }
                   title="Nothing to track yet"
                   text="Create products first and their inventory will appear here."
                 />
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+
                   {products.map(
-                    (product) => {
+                    (
+                      product
+                    ) => {
+                      const inventoryTracked =
+                        product.track_inventory !==
+                        false;
+
                       const low =
+                        inventoryTracked &&
                         product.inventory_quantity <=
-                        Number(
-                          lowStockThreshold
-                        );
+                          Number(
+                            lowStockThreshold
+                          );
 
                       const soldOut =
+                        inventoryTracked &&
                         product.inventory_quantity <=
-                        0;
+                          0;
 
                       return (
                         <div
@@ -3815,16 +4619,20 @@ export default function StorePage() {
                                 : "border-stone-200"
                           }`}
                         >
+
                           <div className="flex items-start justify-between gap-4">
+
                             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-stone-50 text-stone-400">
                               <Boxes
-                                size={
-                                  17
-                                }
+                                size={17}
                               />
                             </div>
 
-                            {soldOut ? (
+                            {!inventoryTracked ? (
+                              <span className="rounded-full bg-blue-50 px-3 py-1 text-[8px] font-black uppercase text-blue-500">
+                                Unlimited
+                              </span>
+                            ) : soldOut ? (
                               <span className="rounded-full bg-red-50 px-3 py-1 text-[8px] font-black uppercase text-red-500">
                                 Sold out
                               </span>
@@ -3837,6 +4645,7 @@ export default function StorePage() {
                                 Healthy
                               </span>
                             )}
+
                           </div>
 
                           <h3 className="mt-6 text-sm font-semibold">
@@ -3852,58 +4661,76 @@ export default function StorePage() {
                           </p>
 
                           <div className="mt-7 flex items-end justify-between">
+
                             <div>
+
                               <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
                                 Available
                               </p>
 
                               <p className="mt-1 font-serif text-4xl italic">
-                                {
-                                  product.inventory_quantity
-                                }
+                                {inventoryTracked
+                                  ? product.inventory_quantity
+                                  : "∞"}
                               </p>
+
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openStockAdjust(
-                                  product
-                                )
-                              }
-                              className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[8px] font-black uppercase text-stone-500"
-                            >
-                              Adjust
-                            </button>
+                            {inventoryTracked && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openStockAdjust(
+                                    product
+                                  )
+                                }
+                                className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[8px] font-black uppercase text-stone-500"
+                              >
+                                Adjust
+                              </button>
+                            )}
+
                           </div>
+
                         </div>
                       );
                     }
                   )}
+
                 </div>
               )}
+
             </motion.div>
           )}
 
-          {/* DISCOUNTS */}
+          {/* ==================================================
+              DISCOUNTS
+          ================================================== */}
 
           {activeTab ===
             "Discounts" && (
             <motion.div
               key="discounts"
               initial={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               animate={{
-                opacity: 1,
+                opacity:
+                  1,
               }}
             >
+
               <Panel>
+
                 <div className="flex min-h-[450px] flex-col items-center justify-center text-center">
+
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#edf1e8] text-[#82936b]">
+
                     <BadgePercent
                       size={22}
                     />
+
                   </div>
 
                   <SectionEyebrow className="mt-6">
@@ -3911,23 +4738,19 @@ export default function StorePage() {
                   </SectionEyebrow>
 
                   <h2 className="mt-2 font-serif text-4xl italic">
-                    Discount codes
-                    are next.
+                    Discount codes are next.
                   </h2>
 
                   <p className="mt-3 max-w-lg text-sm leading-7 text-stone-500">
-                    Add a dedicated
-                    discount table
-                    next so codes,
-                    usage limits,
-                    expiry dates and
-                    order discounts
-                    are persistent.
+                    Add a dedicated discount table so codes, usage limits, expiry dates and order discounts are persistent.
                   </p>
 
                   <div className="mt-7 grid w-full max-w-2xl gap-3 sm:grid-cols-3">
+
                     <MiniFeature
-                      icon={Tag}
+                      icon={
+                        Tag
+                      }
                       title="Codes"
                       text="WELCOME10"
                     />
@@ -3947,32 +4770,43 @@ export default function StorePage() {
                       title="Usage"
                       text="Track redemptions"
                     />
+
                   </div>
+
                 </div>
+
               </Panel>
+
             </motion.div>
           )}
 
-          {/* SETTINGS */}
+          {/* ==================================================
+              SETTINGS
+          ================================================== */}
 
           {activeTab ===
             "Settings" && (
             <motion.div
               key="settings"
               initial={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               animate={{
-                opacity: 1,
+                opacity:
+                  1,
               }}
               className="space-y-6"
             >
+
               <Panel>
+
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+
                   <div>
+
                     <SectionEyebrow>
-                      Public
-                      Storefront
+                      Public Storefront
                     </SectionEyebrow>
 
                     <h2 className="mt-1 font-serif text-3xl italic">
@@ -3980,24 +4814,24 @@ export default function StorePage() {
                     </h2>
 
                     <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-                      These settings
-                      are stored in
-                      your
-                      store_settings
-                      row and control
-                      the public
-                      store at{" "}
+                      These settings are stored in your store_settings row and control the public store at{" "}
+
                       <strong>
                         /shop/
-                        {slug ||
-                          "your-store"}
+                        {
+                          slug ||
+                          "your-store"
+                        }
                       </strong>
+
                       .
                     </p>
+
                   </div>
 
                   {storefrontUrl && (
                     <div className="flex flex-wrap gap-2">
+
                       <button
                         type="button"
                         onClick={() =>
@@ -4023,17 +4857,20 @@ export default function StorePage() {
                         Open store
 
                         <ExternalLink
-                          size={
-                            12
-                          }
+                          size={12}
                         />
                       </a>
+
                     </div>
                   )}
+
                 </div>
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
-                  <Field label="Store Name">
+
+                  <Field
+                    label="Store Name"
+                  >
                     <input
                       value={
                         storeName
@@ -4042,9 +4879,7 @@ export default function StorePage() {
                         event
                       ) =>
                         setStoreName(
-                          event
-                            .target
-                            .value
+                          event.target.value
                         )
                       }
                       className="store-input"
@@ -4052,32 +4887,40 @@ export default function StorePage() {
                     />
                   </Field>
 
-                  <Field label="Store URL">
+                  <Field
+                    label="Store URL"
+                  >
+
                     <div className="flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+
                       <span className="flex items-center border-r border-stone-200 px-3 text-[10px] text-stone-400">
                         /shop/
                       </span>
 
                       <input
-                        value={slug}
+                        value={
+                          slug
+                        }
                         onChange={(
                           event
                         ) =>
                           setSlug(
                             createSlug(
-                              event
-                                .target
-                                .value
+                              event.target.value
                             )
                           )
                         }
                         className="min-w-0 flex-1 bg-transparent px-3 py-3 text-xs outline-none"
                         placeholder="my-business"
                       />
+
                     </div>
+
                   </Field>
 
-                  <Field label="Support Email">
+                  <Field
+                    label="Support Email"
+                  >
                     <input
                       type="email"
                       value={
@@ -4087,9 +4930,7 @@ export default function StorePage() {
                         event
                       ) =>
                         setSupportEmail(
-                          event
-                            .target
-                            .value
+                          event.target.value
                         )
                       }
                       className="store-input"
@@ -4097,8 +4938,12 @@ export default function StorePage() {
                     />
                   </Field>
 
-                  <Field label="Accent Colour">
+                  <Field
+                    label="Accent Colour"
+                  >
+
                     <div className="flex gap-2">
+
                       <input
                         type="color"
                         value={
@@ -4108,9 +4953,7 @@ export default function StorePage() {
                           event
                         ) =>
                           setAccentColour(
-                            event
-                              .target
-                              .value
+                            event.target.value
                           )
                         }
                         className="h-[48px] w-14 cursor-pointer rounded-xl border border-stone-200 bg-white p-1"
@@ -4124,14 +4967,14 @@ export default function StorePage() {
                           event
                         ) =>
                           setAccentColour(
-                            event
-                              .target
-                              .value
+                            event.target.value
                           )
                         }
                         className="store-input"
                       />
+
                     </div>
+
                   </Field>
 
                   <Field
@@ -4146,9 +4989,7 @@ export default function StorePage() {
                         event
                       ) =>
                         setStoreDescription(
-                          event
-                            .target
-                            .value
+                          event.target.value
                         )
                       }
                       rows={4}
@@ -4157,7 +4998,9 @@ export default function StorePage() {
                     />
                   </Field>
 
-                  <Field label="Hero Title">
+                  <Field
+                    label="Hero Title"
+                  >
                     <input
                       value={
                         heroTitle
@@ -4166,9 +5009,7 @@ export default function StorePage() {
                         event
                       ) =>
                         setHeroTitle(
-                          event
-                            .target
-                            .value
+                          event.target.value
                         )
                       }
                       className="store-input"
@@ -4176,7 +5017,9 @@ export default function StorePage() {
                     />
                   </Field>
 
-                  <Field label="Announcement">
+                  <Field
+                    label="Announcement"
+                  >
                     <input
                       value={
                         announcement
@@ -4185,9 +5028,7 @@ export default function StorePage() {
                         event
                       ) =>
                         setAnnouncement(
-                          event
-                            .target
-                            .value
+                          event.target.value
                         )
                       }
                       className="store-input"
@@ -4207,9 +5048,7 @@ export default function StorePage() {
                         event
                       ) =>
                         setHeroText(
-                          event
-                            .target
-                            .value
+                          event.target.value
                         )
                       }
                       rows={3}
@@ -4229,9 +5068,7 @@ export default function StorePage() {
                         event
                       ) =>
                         setShippingText(
-                          event
-                            .target
-                            .value
+                          event.target.value
                         )
                       }
                       className="store-input"
@@ -4239,7 +5076,9 @@ export default function StorePage() {
                     />
                   </Field>
 
-                  <Field label="Currency">
+                  <Field
+                    label="Currency"
+                  >
                     <select
                       value={
                         currency
@@ -4248,9 +5087,7 @@ export default function StorePage() {
                         event
                       ) =>
                         setCurrency(
-                          event
-                            .target
-                            .value
+                          event.target.value
                         )
                       }
                       className="store-input"
@@ -4269,7 +5106,9 @@ export default function StorePage() {
                     </select>
                   </Field>
 
-                  <Field label="Low Stock Warning">
+                  <Field
+                    label="Low Stock Warning"
+                  >
                     <input
                       type="number"
                       min="0"
@@ -4280,34 +5119,27 @@ export default function StorePage() {
                         event
                       ) =>
                         setLowStockThreshold(
-                          event
-                            .target
-                            .value
+                          event.target.value
                         )
                       }
                       className="store-input"
                     />
                   </Field>
+
                 </div>
 
                 <div className="mt-7 flex flex-col gap-4 rounded-2xl bg-stone-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+
                   <div>
+
                     <p className="text-sm font-semibold text-stone-700">
-                      Public
-                      storefront
+                      Public storefront
                     </p>
 
                     <p className="mt-1 text-xs leading-5 text-stone-400">
-                      Save after
-                      changing this
-                      switch. The
-                      public
-                      storefront can
-                      use is_live to
-                      decide whether
-                      the store is
-                      accessible.
+                      Save after changing this switch. The public storefront uses is_live to decide whether the store is accessible.
                     </p>
+
                   </div>
 
                   <button
@@ -4334,6 +5166,7 @@ export default function StorePage() {
                       }`}
                     />
                   </button>
+
                 </div>
 
                 <button
@@ -4346,6 +5179,7 @@ export default function StorePage() {
                   }
                   className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50 sm:w-auto sm:px-7"
                 >
+
                   {savingSettings ? (
                     <Loader2
                       size={14}
@@ -4362,21 +5196,23 @@ export default function StorePage() {
                     : storeSettings
                       ? "Save Store"
                       : "Create Store"}
+
                 </button>
+
               </Panel>
 
               <Panel>
+
                 <SectionEyebrow>
                   TOTS Integration
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-2xl italic">
-                  Connect commerce
-                  to the rest of the
-                  business
+                  Connect commerce to the rest of the business
                 </h2>
 
                 <div className="mt-7 space-y-4">
+
                   <ToggleSetting
                     title="Create CRM contacts from customers"
                     text="When a new customer places an order, create or match them inside Contacts."
@@ -4408,20 +5244,23 @@ export default function StorePage() {
                       )
                     }
                   />
+
                 </div>
+
               </Panel>
 
               <Panel>
+
                 <SectionEyebrow>
                   TOTS Storefront
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-2xl italic">
-                  Your selling
-                  channel
+                  Your selling channel
                 </h2>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-3">
+
                   <IntegrationCard
                     name="TOTS Storefront"
                     text="Your hosted storefront is built directly into TOTS-OS."
@@ -4432,8 +5271,8 @@ export default function StorePage() {
 
                   <IntegrationCard
                     name="Stripe"
-                    text="Checkout and payment processing will connect here."
-                    comingSoon
+                    text="Stripe Checkout is used for secure storefront payments."
+                    connected
                   />
 
                   <IntegrationCard
@@ -4441,28 +5280,41 @@ export default function StorePage() {
                     text="Let businesses point their own domain at their TOTS storefront."
                     comingSoon
                   />
+
                 </div>
+
               </Panel>
+
             </motion.div>
           )}
+
         </AnimatePresence>
+
       </section>
 
-      {/* PRODUCT MODAL */}
+      {/* =====================================================
+          PRODUCT MODAL
+      ===================================================== */}
 
       <AnimatePresence>
+
         {showProductModal && (
           <ModalShell
             onClose={() => {
-              if (!savingProduct) {
+              if (
+                !savingProduct
+              ) {
                 setShowProductModal(
                   false
                 );
               }
             }}
           >
+
             <div className="flex items-start justify-between gap-4">
+
               <div>
+
                 <SectionEyebrow>
                   Catalogue
                 </SectionEyebrow>
@@ -4472,6 +5324,7 @@ export default function StorePage() {
                     ? "Edit product"
                     : "New product"}
                 </h2>
+
               </div>
 
               <button
@@ -4486,11 +5339,15 @@ export default function StorePage() {
                 }
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50 disabled:opacity-50"
               >
-                <X size={15} />
+                <X
+                  size={15}
+                />
               </button>
+
             </div>
 
             <div className="mt-7 grid gap-4 md:grid-cols-2">
+
               <Field
                 label="Product Name"
                 className="md:col-span-2"
@@ -4503,8 +5360,7 @@ export default function StorePage() {
                     event
                   ) => {
                     const value =
-                      event.target
-                        .value;
+                      event.target.value;
 
                     setProductForm(
                       (
@@ -4512,15 +5368,18 @@ export default function StorePage() {
                       ) => ({
                         ...previous,
 
-                        name: value,
+                        name:
+                          value,
 
                         slug:
                           !previous.id &&
-                          (!previous.slug ||
+                          (
+                            !previous.slug ||
                             previous.slug ===
                               createSlug(
                                 previous.name
-                              ))
+                              )
+                          )
                             ? createSlug(
                                 value
                               )
@@ -4537,7 +5396,9 @@ export default function StorePage() {
                 label="Product URL"
                 className="md:col-span-2"
               >
+
                 <div className="flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+
                   <span className="flex items-center border-r border-stone-200 px-3 text-[10px] text-stone-400">
                     product/
                   </span>
@@ -4557,9 +5418,7 @@ export default function StorePage() {
 
                           slug:
                             createSlug(
-                              event
-                                .target
-                                .value
+                              event.target.value
                             ),
                         })
                       )
@@ -4567,10 +5426,14 @@ export default function StorePage() {
                     placeholder="classic-canvas-tote"
                     className="min-w-0 flex-1 bg-transparent px-3 py-3 text-xs outline-none"
                   />
+
                 </div>
+
               </Field>
 
-              <Field label="SKU">
+              <Field
+                label="SKU"
+              >
                 <input
                   value={
                     productForm.sku
@@ -4585,8 +5448,7 @@ export default function StorePage() {
                         ...previous,
 
                         sku:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4595,7 +5457,9 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field label="Category">
+              <Field
+                label="Category"
+              >
                 <input
                   value={
                     productForm.category
@@ -4610,8 +5474,7 @@ export default function StorePage() {
                         ...previous,
 
                         category:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4619,7 +5482,9 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field label="Sale Price">
+              <Field
+                label="Sale Price"
+              >
                 <input
                   type="number"
                   min="0"
@@ -4637,8 +5502,7 @@ export default function StorePage() {
                         ...previous,
 
                         price:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4647,7 +5511,9 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field label="Compare At Price">
+              <Field
+                label="Compare At Price"
+              >
                 <input
                   type="number"
                   min="0"
@@ -4665,8 +5531,7 @@ export default function StorePage() {
                         ...previous,
 
                         compareAtPrice:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4675,7 +5540,9 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field label="Cost Price">
+              <Field
+                label="Cost Price"
+              >
                 <input
                   type="number"
                   min="0"
@@ -4693,8 +5560,7 @@ export default function StorePage() {
                         ...previous,
 
                         cost:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4703,11 +5569,16 @@ export default function StorePage() {
                 />
               </Field>
 
-              <Field label="Stock">
+              <Field
+                label="Stock"
+              >
                 <input
                   type="number"
                   min="0"
                   step="1"
+                  disabled={
+                    !productForm.trackInventory
+                  }
                   value={
                     productForm.stock
                   }
@@ -4721,17 +5592,18 @@ export default function StorePage() {
                         ...previous,
 
                         stock:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
                   placeholder="20"
-                  className="store-input"
+                  className="store-input disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </Field>
 
-              <Field label="Status">
+              <Field
+                label="Status"
+              >
                 <select
                   value={
                     productForm.status
@@ -4746,8 +5618,7 @@ export default function StorePage() {
                         ...previous,
 
                         status:
-                          event.target
-                            .value as ProductStatus,
+                          event.target.value as ProductStatus,
                       })
                     )
                   }
@@ -4767,10 +5638,56 @@ export default function StorePage() {
                 </select>
               </Field>
 
+              <div className="flex items-center justify-between rounded-xl bg-stone-50 p-4">
+
+                <div>
+
+                  <p className="text-sm font-semibold text-stone-700">
+                    Track inventory
+                  </p>
+
+                  <p className="mt-1 text-[10px] text-stone-400">
+                    Turn this off for services or unlimited digital products.
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        trackInventory:
+                          !previous.trackInventory,
+                      })
+                    )
+                  }
+                  className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                    productForm.trackInventory
+                      ? "bg-[#a9b897]"
+                      : "bg-stone-200"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition ${
+                      productForm.trackInventory
+                        ? "left-7"
+                        : "left-1"
+                    }`}
+                  />
+                </button>
+
+              </div>
+
               <Field
                 label="Image URL"
                 className="md:col-span-2"
               >
+
                 <input
                   value={
                     productForm.imageUrl
@@ -4785,8 +5702,7 @@ export default function StorePage() {
                         ...previous,
 
                         imageUrl:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4796,6 +5712,7 @@ export default function StorePage() {
 
                 {productForm.imageUrl && (
                   <div className="mt-3 overflow-hidden rounded-2xl border border-stone-100 bg-stone-50">
+
                     <img
                       src={
                         productForm.imageUrl
@@ -4803,8 +5720,10 @@ export default function StorePage() {
                       alt="Product preview"
                       className="h-52 w-full object-cover"
                     />
+
                   </div>
                 )}
+
               </Field>
 
               <Field
@@ -4825,8 +5744,7 @@ export default function StorePage() {
                         ...previous,
 
                         description:
-                          event.target
-                            .value,
+                          event.target.value,
                       })
                     )
                   }
@@ -4837,17 +5755,17 @@ export default function StorePage() {
               </Field>
 
               <div className="flex items-center justify-between rounded-xl bg-stone-50 p-4 md:col-span-2">
+
                 <div>
+
                   <p className="text-sm font-semibold text-stone-700">
-                    Featured
-                    product
+                    Featured product
                   </p>
 
                   <p className="mt-1 text-[10px] text-stone-400">
-                    Highlight this
-                    product on the
-                    storefront.
+                    Highlight this product on the storefront.
                   </p>
+
                 </div>
 
                 <button
@@ -4878,7 +5796,9 @@ export default function StorePage() {
                     }`}
                   />
                 </button>
+
               </div>
+
             </div>
 
             <button
@@ -4891,6 +5811,7 @@ export default function StorePage() {
               }
               className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50"
             >
+
               {savingProduct ? (
                 <Loader2
                   size={14}
@@ -4911,26 +5832,37 @@ export default function StorePage() {
                 : productForm.id
                   ? "Save Product"
                   : "Create Product"}
+
             </button>
+
           </ModalShell>
         )}
+
       </AnimatePresence>
 
-      {/* STOCK MODAL */}
+      {/* =====================================================
+          STOCK MODAL
+      ===================================================== */}
 
       <AnimatePresence>
+
         {stockAdjust && (
           <ModalShell
             onClose={() => {
-              if (!savingStock) {
+              if (
+                !savingStock
+              ) {
                 setStockAdjust(
                   null
                 );
               }
             }}
           >
+
             <div className="flex items-start justify-between gap-4">
+
               <div>
+
                 <SectionEyebrow>
                   Inventory
                 </SectionEyebrow>
@@ -4941,11 +5873,10 @@ export default function StorePage() {
 
                 <p className="mt-2 text-sm text-stone-500">
                   {
-                    stockAdjust
-                      .product
-                      .name
+                    stockAdjust.product.name
                   }
                 </p>
+
               </div>
 
               <button
@@ -4960,22 +5891,25 @@ export default function StorePage() {
                 }
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50 disabled:opacity-50"
               >
-                <X size={15} />
+                <X
+                  size={15}
+                />
               </button>
+
             </div>
 
             <div className="mt-7 rounded-2xl bg-stone-50 p-5">
+
               <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
                 Current stock
               </p>
 
               <p className="mt-2 font-serif text-4xl italic">
                 {
-                  stockAdjust
-                    .product
-                    .inventory_quantity
+                  stockAdjust.product.inventory_quantity
                 }
               </p>
+
             </div>
 
             <Field
@@ -5000,9 +5934,7 @@ export default function StorePage() {
                             ...previous,
 
                             quantity:
-                              event
-                                .target
-                                .value,
+                              event.target.value,
                           }
                         : previous
                   )
@@ -5012,16 +5944,21 @@ export default function StorePage() {
             </Field>
 
             <div className="mt-4 grid grid-cols-4 gap-2">
+
               {[
                 -5,
                 -1,
                 1,
                 5,
               ].map(
-                (amount) => (
+                (
+                  amount
+                ) => (
                   <button
                     type="button"
-                    key={amount}
+                    key={
+                      amount
+                    }
                     onClick={() =>
                       setStockAdjust(
                         (
@@ -5053,12 +5990,14 @@ export default function StorePage() {
                     }
                     className="rounded-xl border border-stone-200 bg-stone-50 py-3 text-xs font-semibold text-stone-500"
                   >
-                    {amount > 0
+                    {amount >
+                    0
                       ? `+${amount}`
                       : amount}
                   </button>
                 )
               )}
+
             </div>
 
             <button
@@ -5071,6 +6010,7 @@ export default function StorePage() {
               }
               className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50"
             >
+
               {savingStock ? (
                 <Loader2
                   size={14}
@@ -5085,12 +6025,17 @@ export default function StorePage() {
               {savingStock
                 ? "Saving..."
                 : "Update Stock"}
+
             </button>
+
           </ModalShell>
         )}
+
       </AnimatePresence>
 
-      {/* STYLES */}
+      {/* =====================================================
+          STYLES
+      ===================================================== */}
 
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap");
@@ -5136,6 +6081,7 @@ export default function StorePage() {
           scrollbar-width: none;
         }
       `}</style>
+
     </main>
   );
 }
@@ -5148,130 +6094,195 @@ function Panel({
   children,
   className = "",
 }: {
-  children: ReactNode;
-  className?: string;
+  children:
+    ReactNode;
+
+  className?:
+    string;
 }) {
   return (
     <div
       className={`rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8 ${className}`}
     >
-      {children}
+      {
+        children
+      }
     </div>
   );
 }
+
+// ============================================================
 
 function SectionEyebrow({
   children,
   className = "",
 }: {
-  children: ReactNode;
-  className?: string;
+  children:
+    ReactNode;
+
+  className?:
+    string;
 }) {
   return (
     <p
       className={`text-[9px] font-black uppercase tracking-[0.2em] text-[#829473] ${className}`}
     >
-      {children}
+      {
+        children
+      }
     </p>
   );
 }
 
+// ============================================================
+
 function StoreMetric({
-  icon: Icon,
+  icon:
+    Icon,
   value,
   label,
 }: {
-  icon: any;
-  value: string;
-  label: string;
+  icon:
+    any;
+
+  value:
+    string;
+
+  label:
+    string;
 }) {
   return (
     <div className="rounded-[1.7rem] border border-stone-200 bg-white p-5">
+
       <Icon
         size={18}
         className="mb-6 text-stone-300"
       />
 
       <p className="font-serif text-2xl italic text-stone-800 sm:text-3xl">
-        {value}
+        {
+          value
+        }
       </p>
 
       <p className="mt-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
-        {label}
+        {
+          label
+        }
       </p>
+
     </div>
   );
 }
+
+// ============================================================
 
 function DetailRow({
   label,
   value,
 }: {
-  label: string;
-  value: string;
+  label:
+    string;
+
+  value:
+    string;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-stone-100 pb-4 last:border-0">
+
       <span className="text-xs text-stone-400">
-        {label}
+        {
+          label
+        }
       </span>
 
       <span className="text-right text-xs font-semibold text-stone-700">
-        {value}
+        {
+          value
+        }
       </span>
+
     </div>
   );
 }
+
+// ============================================================
 
 function Field({
   label,
   children,
   className = "",
 }: {
-  label: string;
-  children: ReactNode;
-  className?: string;
+  label:
+    string;
+
+  children:
+    ReactNode;
+
+  className?:
+    string;
 }) {
   return (
-    <div className={className}>
+    <div
+      className={
+        className
+      }
+    >
+
       <label className="mb-2 block text-[8px] font-black uppercase tracking-wider text-stone-400">
-        {label}
+        {
+          label
+        }
       </label>
 
-      {children}
+      {
+        children
+      }
+
     </div>
   );
 }
 
+// ============================================================
+
 function StatusBadge({
   status,
 }: {
-  status: ProductStatus;
+  status:
+    ProductStatus;
 }) {
   return (
     <span
       className={`w-fit rounded-full px-3 py-1 text-[8px] font-black uppercase ${
-        status === "active"
+        status ===
+        "active"
           ? "bg-[#edf1e8] text-[#82936b]"
-          : status === "draft"
+          : status ===
+              "draft"
             ? "bg-amber-50 text-amber-600"
             : "bg-stone-100 text-stone-500"
       }`}
     >
-      {status}
+      {
+        status
+      }
     </span>
   );
 }
 
+// ============================================================
+
 function OrderStatusBadge({
   status,
 }: {
-  status: OrderStatus;
+  status:
+    OrderStatus;
 }) {
   return (
     <span
       className={`rounded-full px-3 py-1 text-[8px] font-black uppercase ${
-        status === "new"
+        status ===
+        "new"
           ? "bg-blue-50 text-blue-600"
           : status ===
               "processing"
@@ -5285,7 +6296,8 @@ function OrderStatusBadge({
                 : "bg-red-50 text-red-500"
       }`}
     >
-      {status === "new"
+      {status ===
+      "new"
         ? "New"
         : status ===
             "processing"
@@ -5301,15 +6313,19 @@ function OrderStatusBadge({
   );
 }
 
+// ============================================================
+
 function PaymentBadge({
   status,
 }: {
-  status: PaymentStatus;
+  status:
+    PaymentStatus;
 }) {
   return (
     <span
       className={`rounded-full px-3 py-1 text-[8px] font-black uppercase ${
-        status === "paid"
+        status ===
+        "paid"
           ? "bg-emerald-50 text-emerald-600"
           : status ===
               "pending"
@@ -5317,10 +6333,14 @@ function PaymentBadge({
             : "bg-red-50 text-red-500"
       }`}
     >
-      {status}
+      {
+        status
+      }
     </span>
   );
 }
+
+// ============================================================
 
 function OrderRow({
   order,
@@ -5328,22 +6348,33 @@ function OrderRow({
   onAdvance,
   loading = false,
 }: {
-  order: Order;
+  order:
+    Order;
 
-  money: (
-    value: number | string
-  ) => string;
+  money:
+    (
+      value:
+        | number
+        | string
+    ) => string;
 
-  onAdvance: () => void;
+  onAdvance:
+    () => void;
 
-  loading?: boolean;
+  loading?:
+    boolean;
 }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl bg-stone-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+
       <div>
+
         <div className="flex flex-wrap items-center gap-2">
+
           <p className="text-sm font-semibold">
-            {order.number}
+            {
+              order.number
+            }
           </p>
 
           <OrderStatusBadge
@@ -5351,29 +6382,46 @@ function OrderRow({
               order.status
             }
           />
+
         </div>
 
         <p className="mt-2 text-xs text-stone-600">
-          {order.customer}
+          {
+            order.customer
+          }
         </p>
 
         <p className="mt-1 text-[10px] text-stone-400">
-          {order.items} items ·{" "}
-          {order.createdAt}
+          {
+            order.items
+          }{" "}
+          items ·{" "}
+          {
+            order.createdAt
+          }
         </p>
+
       </div>
 
       <div className="flex items-center justify-between gap-4 sm:justify-end">
+
         <p className="font-serif text-xl italic">
-          {money(order.total)}
+          {money(
+            order.total
+          )}
         </p>
 
         <button
           type="button"
-          disabled={loading}
-          onClick={onAdvance}
+          disabled={
+            loading
+          }
+          onClick={
+            onAdvance
+          }
           className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[8px] font-black uppercase text-stone-500 disabled:opacity-50"
         >
+
           {loading ? (
             <Loader2
               size={12}
@@ -5394,64 +6442,99 @@ function OrderRow({
               />
             </>
           )}
+
         </button>
+
       </div>
+
     </div>
   );
 }
 
+// ============================================================
+
 function EmptyState({
-  icon: Icon,
+  icon:
+    Icon,
   title,
   text,
 }: {
-  icon: any;
-  title: string;
-  text: string;
+  icon:
+    any;
+
+  title:
+    string;
+
+  text:
+    string;
 }) {
   return (
     <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-10 text-center">
+
       <Icon
         size={24}
         className="mx-auto text-stone-300"
       />
 
       <p className="mt-4 text-sm font-semibold text-stone-600">
-        {title}
+        {
+          title
+        }
       </p>
 
       <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-stone-400">
-        {text}
+        {
+          text
+        }
       </p>
+
     </div>
   );
 }
 
+// ============================================================
+
 function ConnectionCard({
-  icon: Icon,
+  icon:
+    Icon,
   title,
   text,
 }: {
-  icon: any;
-  title: string;
-  text: string;
+  icon:
+    any;
+
+  title:
+    string;
+
+  text:
+    string;
 }) {
   return (
     <div className="rounded-2xl bg-stone-50 p-5">
+
       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#829473]">
-        <Icon size={15} />
+        <Icon
+          size={15}
+        />
       </div>
 
       <p className="mt-4 text-xs font-semibold">
-        {title}
+        {
+          title
+        }
       </p>
 
       <p className="mt-2 text-[10px] leading-5 text-stone-400">
-        {text}
+        {
+          text
+        }
       </p>
+
     </div>
   );
 }
+
+// ============================================================
 
 function ToggleSetting({
   title,
@@ -5459,26 +6542,42 @@ function ToggleSetting({
   enabled,
   onChange,
 }: {
-  title: string;
-  text: string;
-  enabled: boolean;
-  onChange: () => void;
+  title:
+    string;
+
+  text:
+    string;
+
+  enabled:
+    boolean;
+
+  onChange:
+    () => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-5 rounded-2xl bg-stone-50 p-5">
+
       <div>
+
         <p className="text-sm font-semibold text-stone-700">
-          {title}
+          {
+            title
+          }
         </p>
 
         <p className="mt-1 max-w-xl text-xs leading-5 text-stone-400">
-          {text}
+          {
+            text
+          }
         </p>
+
       </div>
 
       <button
         type="button"
-        onClick={onChange}
+        onClick={
+          onChange
+        }
         className={`relative h-8 w-14 shrink-0 rounded-full transition ${
           enabled
             ? "bg-stone-900"
@@ -5493,9 +6592,12 @@ function ToggleSetting({
           }`}
         />
       </button>
+
     </div>
   );
 }
+
+// ============================================================
 
 function IntegrationCard({
   name,
@@ -5503,14 +6605,23 @@ function IntegrationCard({
   comingSoon = false,
   connected = false,
 }: {
-  name: string;
-  text: string;
-  comingSoon?: boolean;
-  connected?: boolean;
+  name:
+    string;
+
+  text:
+    string;
+
+  comingSoon?:
+    boolean;
+
+  connected?:
+    boolean;
 }) {
   return (
     <div className="rounded-2xl border border-stone-100 bg-stone-50 p-5">
+
       <div className="flex items-start justify-between gap-3">
+
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
           <Store
             size={15}
@@ -5527,91 +6638,140 @@ function IntegrationCard({
             Coming soon
           </span>
         ) : null}
+
       </div>
 
       <p className="mt-5 text-sm font-semibold">
-        {name}
+        {
+          name
+        }
       </p>
 
       <p className="mt-2 text-[10px] leading-5 text-stone-400">
-        {text}
+        {
+          text
+        }
       </p>
+
     </div>
   );
 }
 
+// ============================================================
+
 function MiniFeature({
-  icon: Icon,
+  icon:
+    Icon,
   title,
   text,
 }: {
-  icon: any;
-  title: string;
-  text: string;
+  icon:
+    any;
+
+  title:
+    string;
+
+  text:
+    string;
 }) {
   return (
     <div className="rounded-2xl bg-stone-50 p-5">
+
       <Icon
         size={16}
         className="mx-auto text-[#829473]"
       />
 
       <p className="mt-3 text-xs font-semibold">
-        {title}
+        {
+          title
+        }
       </p>
 
       <p className="mt-1 text-[9px] text-stone-400">
-        {text}
+        {
+          text
+        }
       </p>
+
     </div>
   );
 }
+
+// ============================================================
 
 function ModalShell({
   children,
   onClose,
 }: {
-  children: ReactNode;
-  onClose: () => void;
+  children:
+    ReactNode;
+
+  onClose:
+    () => void;
 }) {
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+
       <motion.button
         type="button"
         aria-label="Close modal"
         initial={{
-          opacity: 0,
+          opacity:
+            0,
         }}
         animate={{
-          opacity: 1,
+          opacity:
+            1,
         }}
         exit={{
-          opacity: 0,
+          opacity:
+            0,
         }}
-        onClick={onClose}
+        onClick={
+          onClose
+        }
         className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
       />
 
       <motion.div
         initial={{
-          opacity: 0,
-          scale: 0.97,
-          y: 12,
+          opacity:
+            0,
+
+          scale:
+            0.97,
+
+          y:
+            12,
         }}
         animate={{
-          opacity: 1,
-          scale: 1,
-          y: 0,
+          opacity:
+            1,
+
+          scale:
+            1,
+
+          y:
+            0,
         }}
         exit={{
-          opacity: 0,
-          scale: 0.97,
-          y: 12,
+          opacity:
+            0,
+
+          scale:
+            0.97,
+
+          y:
+            12,
         }}
         className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-stone-100 bg-white p-6 shadow-2xl sm:p-8"
       >
-        {children}
+        {
+          children
+        }
       </motion.div>
+
     </div>
   );
 }

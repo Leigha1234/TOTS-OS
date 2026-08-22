@@ -3,36 +3,606 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const MAX_ATTEMPTS = 5;
 
-// TikTok FILE_UPLOAD chunk limits.
-//
-// Files up to 64 MB are easiest and safest to send
-// as one single chunk:
-//
-// video_size === chunk_size
-// total_chunk_count === 1
-//
-// Larger files are divided into chunks between
-// approximately 5 MB and 64 MB.
+// ============================================================
+// META
+// ============================================================
+
+const DEFAULT_META_GRAPH_VERSION = "v25.0";
+
+// ============================================================
+// TIKTOK FILE_UPLOAD LIMITS
+// ============================================================
+
 const TIKTOK_MIN_CHUNK_SIZE = 5_000_000;
 const TIKTOK_MAX_CHUNK_SIZE = 64_000_000;
 
-// TikTok Content Posting API maximum video size.
 const TIKTOK_MAX_VIDEO_SIZE =
   4 * 1024 * 1024 * 1024;
 
-// ==================================================
-// CRON ENDPOINT
-// ==================================================
+// ============================================================
+// TYPES
+// ============================================================
 
-export async function GET(request: Request) {
-  // ==================================================
+type MetaConnection = {
+  id: string;
+
+  user_id: string;
+
+  platform: string;
+
+  access_token:
+    | string
+    | null;
+
+  expires_at:
+    | string
+    | null;
+
+  page_id:
+    | string
+    | null;
+
+  page_name:
+    | string
+    | null;
+
+  page_access_token:
+    | string
+    | null;
+
+  instagram_business_account_id:
+    | string
+    | null;
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function getMetaGraphVersion() {
+  const configured =
+    process.env
+      .META_GRAPH_API_VERSION
+      ?.trim();
+
+  if (configured) {
+    return configured.startsWith("v")
+      ? configured
+      : `v${configured}`;
+  }
+
+  return DEFAULT_META_GRAPH_VERSION;
+}
+
+// ============================================================
+
+function cleanString(
+  value: unknown
+) {
+  if (
+    typeof value !==
+    "string"
+  ) {
+    return "";
+  }
+
+  return value.trim();
+}
+
+// ============================================================
+
+function tokenExpired(
+  expiresAt:
+    | string
+    | null
+    | undefined
+) {
+  if (!expiresAt) {
+    return false;
+  }
+
+  const timestamp =
+    new Date(
+      expiresAt
+    ).getTime();
+
+  if (
+    Number.isNaN(
+      timestamp
+    )
+  ) {
+    return false;
+  }
+
+  return (
+    timestamp <=
+    Date.now()
+  );
+}
+
+// ============================================================
+// META CONNECTION
+// ============================================================
+
+async function getMetaConnection({
+  supabase,
+  userId,
+}: {
+  supabase: any;
+
+  userId: string;
+}) {
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from(
+        "social_accounts"
+      )
+      .select(
+        `
+          id,
+          user_id,
+          platform,
+          access_token,
+          expires_at,
+          page_id,
+          page_name,
+          page_access_token,
+          instagram_business_account_id
+        `
+      )
+      .eq(
+        "user_id",
+        userId
+      )
+      .eq(
+        "platform",
+        "meta"
+      )
+      .maybeSingle();
+
+  if (error) {
+    console.error(
+      "[CRON META] Connection lookup failed:",
+      error
+    );
+
+    throw new Error(
+      `Meta connection lookup failed: ${error.message}`
+    );
+  }
+
+  if (!data) {
+    throw new Error(
+      "Meta is not connected. Reconnect Meta in Settings."
+    );
+  }
+
+  const connection =
+    data as unknown as
+      MetaConnection;
+
+  if (
+    !connection.access_token
+  ) {
+    throw new Error(
+      "Meta connection is missing its access token. Reconnect Meta in Settings."
+    );
+  }
+
+  if (
+    tokenExpired(
+      connection.expires_at
+    )
+  ) {
+    throw new Error(
+      "Meta connection has expired. Reconnect Meta in Settings."
+    );
+  }
+
+  return connection;
+}
+
+// ============================================================
+// FACEBOOK PUBLISH
+// ============================================================
+
+async function publishFacebookPost({
+  connection,
+  message,
+  mediaUrl,
+}: {
+  connection:
+    MetaConnection;
+
+  message:
+    string;
+
+  mediaUrl:
+    string;
+}) {
+  if (
+    !connection.page_id
+  ) {
+    throw new Error(
+      "Facebook Page ID is missing. Reconnect Meta in Settings."
+    );
+  }
+
+  if (
+    !connection
+      .page_access_token
+  ) {
+    throw new Error(
+      "Facebook Page access token is missing. Reconnect Meta in Settings."
+    );
+  }
+
+  const graphVersion =
+    getMetaGraphVersion();
+
+  // ==========================================================
+  // FACEBOOK IMAGE POST
+  // ==========================================================
+
+  if (
+    mediaUrl
+  ) {
+    const response =
+      await fetch(
+        `https://graph.facebook.com/${graphVersion}/${connection.page_id}/photos`,
+        {
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify({
+              url:
+                mediaUrl,
+
+              caption:
+                message,
+
+              published:
+                true,
+
+              access_token:
+                connection
+                  .page_access_token,
+            }),
+
+          cache:
+            "no-store",
+        }
+      );
+
+    const result =
+      await safeJsonResponse(
+        response
+      );
+
+    if (
+      !response.ok
+    ) {
+      console.error(
+        "[CRON META] Facebook image post failed:",
+        result
+      );
+
+      throw new Error(
+        `Facebook publish failed: ${
+          getMetaErrorMessage(
+            result
+          )
+        }`
+      );
+    }
+
+    return {
+      destination:
+        "facebook",
+
+      type:
+        "image",
+
+      id:
+        result?.post_id ??
+        result?.id ??
+        null,
+
+      response:
+        result,
+    };
+  }
+
+  // ==========================================================
+  // FACEBOOK TEXT POST
+  // ==========================================================
+
+  const response =
+    await fetch(
+      `https://graph.facebook.com/${graphVersion}/${connection.page_id}/feed`,
+      {
+        method:
+          "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify({
+            message,
+
+            access_token:
+              connection
+                .page_access_token,
+          }),
+
+        cache:
+          "no-store",
+      }
+    );
+
+  const result =
+    await safeJsonResponse(
+      response
+    );
+
+  if (
+    !response.ok
+  ) {
+    console.error(
+      "[CRON META] Facebook text post failed:",
+      result
+    );
+
+    throw new Error(
+      `Facebook publish failed: ${
+        getMetaErrorMessage(
+          result
+        )
+      }`
+    );
+  }
+
+  return {
+    destination:
+      "facebook",
+
+    type:
+      "text",
+
+    id:
+      result?.id ??
+      null,
+
+    response:
+      result,
+  };
+}
+
+// ============================================================
+// INSTAGRAM PUBLISH
+// ============================================================
+
+async function publishInstagramPost({
+  connection,
+  message,
+  mediaUrl,
+}: {
+  connection:
+    MetaConnection;
+
+  message:
+    string;
+
+  mediaUrl:
+    string;
+}) {
+  if (
+    !connection
+      .instagram_business_account_id
+  ) {
+    throw new Error(
+      "No Instagram Business or Creator account is linked to this Meta connection."
+    );
+  }
+
+  if (
+    !connection
+      .page_access_token
+  ) {
+    throw new Error(
+      "Instagram publishing token is missing. Reconnect Meta in Settings."
+    );
+  }
+
+  if (
+    !mediaUrl
+  ) {
+    throw new Error(
+      "Instagram post is missing media_url."
+    );
+  }
+
+  const graphVersion =
+    getMetaGraphVersion();
+
+  // ==========================================================
+  // CREATE MEDIA CONTAINER
+  // ==========================================================
+
+  const containerResponse =
+    await fetch(
+      `https://graph.facebook.com/${graphVersion}/${connection.instagram_business_account_id}/media`,
+      {
+        method:
+          "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify({
+            image_url:
+              mediaUrl,
+
+            caption:
+              message,
+
+            access_token:
+              connection
+                .page_access_token,
+          }),
+
+        cache:
+          "no-store",
+      }
+    );
+
+  const containerData =
+    await safeJsonResponse(
+      containerResponse
+    );
+
+  if (
+    !containerResponse.ok ||
+    !containerData?.id
+  ) {
+    console.error(
+      "[CRON META] Instagram media creation failed:",
+      containerData
+    );
+
+    throw new Error(
+      `Instagram media creation failed: ${
+        getMetaErrorMessage(
+          containerData
+        )
+      }`
+    );
+  }
+
+  // ==========================================================
+  // PUBLISH MEDIA CONTAINER
+  // ==========================================================
+
+  const publishResponse =
+    await fetch(
+      `https://graph.facebook.com/${graphVersion}/${connection.instagram_business_account_id}/media_publish`,
+      {
+        method:
+          "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify({
+            creation_id:
+              containerData.id,
+
+            access_token:
+              connection
+                .page_access_token,
+          }),
+
+        cache:
+          "no-store",
+      }
+    );
+
+  const publishData =
+    await safeJsonResponse(
+      publishResponse
+    );
+
+  if (
+    !publishResponse.ok ||
+    !publishData?.id
+  ) {
+    console.error(
+      "[CRON META] Instagram publishing failed:",
+      publishData
+    );
+
+    throw new Error(
+      `Instagram publish failed: ${
+        getMetaErrorMessage(
+          publishData
+        )
+      }`
+    );
+  }
+
+  return {
+    destination:
+      "instagram",
+
+    type:
+      "image",
+
+    creationId:
+      containerData.id,
+
+    id:
+      publishData.id,
+
+    response:
+      publishData,
+  };
+}
+
+// ============================================================
+// META ERROR MESSAGE
+// ============================================================
+
+function getMetaErrorMessage(
+  value: any
+) {
+  return (
+    value?.error?.message ||
+    value?.message ||
+    JSON.stringify(
+      value
+    ) ||
+    "Unknown Meta error"
+  );
+}
+
+// ============================================================
+// CRON ENDPOINT
+// ============================================================
+
+export async function GET(
+  request: Request
+) {
+  // ==========================================================
   // 1. VERIFY CRON REQUEST
-  // ==================================================
+  // ==========================================================
 
   const authHeader =
-    request.headers.get("authorization");
+    request.headers.get(
+      "authorization"
+    );
 
   if (
     authHeader !==
@@ -41,14 +611,15 @@ export async function GET(request: Request) {
     return new NextResponse(
       "Unauthorized",
       {
-        status: 401,
+        status:
+          401,
       }
     );
   }
 
-  // ==================================================
+  // ==========================================================
   // 2. SUPABASE
-  // ==================================================
+  // ==========================================================
 
   const supabaseUrl =
     process.env
@@ -64,12 +635,15 @@ export async function GET(request: Request) {
   ) {
     return NextResponse.json(
       {
-        processed: 0,
+        processed:
+          0,
+
         error:
           "Missing Supabase environment variables",
       },
       {
-        status: 500,
+        status:
+          500,
       }
     );
   }
@@ -77,93 +651,124 @@ export async function GET(request: Request) {
   const supabase =
     createClient(
       supabaseUrl,
-      serviceRoleKey
+      serviceRoleKey,
+      {
+        auth: {
+          persistSession:
+            false,
+
+          autoRefreshToken:
+            false,
+        },
+      }
     );
 
   const now =
-    new Date().toISOString();
+    new Date()
+      .toISOString();
 
-  // ==================================================
+  // ==========================================================
   // 3. FETCH DUE POSTS
-  //
-  // scheduled:
-  //   has not yet been submitted
-  //
-  // processing:
-  //   TikTok accepted upload and we're waiting for
-  //   TikTok to finish processing it.
-  // ==================================================
+  // ==========================================================
 
   const {
-    data: queue,
-    error: queueError,
-  } = await supabase
-    .from("socials")
-    .select("*")
-    .in("status", [
-      "scheduled",
-      "processing",
-    ])
-    .lte(
-      "scheduled_for",
-      now
-    )
-    .lt(
-      "attempts",
-      MAX_ATTEMPTS
-    )
-    .order(
-      "scheduled_for",
-      {
-        ascending: true,
-      }
-    )
-    .limit(20);
+    data:
+      queue,
 
-  if (queueError) {
+    error:
+      queueError,
+  } =
+    await supabase
+      .from(
+        "socials"
+      )
+      .select("*")
+      .in(
+        "status",
+        [
+          "scheduled",
+          "processing",
+        ]
+      )
+      .lte(
+        "scheduled_for",
+        now
+      )
+      .lt(
+        "attempts",
+        MAX_ATTEMPTS
+      )
+      .order(
+        "scheduled_for",
+        {
+          ascending:
+            true,
+        }
+      )
+      .limit(
+        20
+      );
+
+  if (
+    queueError
+  ) {
     console.error(
-      "Queue fetch error:",
+      "[CRON SOCIAL] Queue fetch error:",
       queueError
     );
 
     return NextResponse.json(
       {
-        processed: 0,
+        processed:
+          0,
+
         error:
           queueError.message,
       },
       {
-        status: 500,
+        status:
+          500,
       }
     );
   }
 
   if (
     !queue ||
-    queue.length === 0
+    queue.length ===
+      0
   ) {
     return NextResponse.json({
-      processed: 0,
+      processed:
+        0,
     });
   }
 
-  let processed = 0;
+  let processed =
+    0;
 
-  // ==================================================
+  // ==========================================================
   // 4. PROCESS QUEUE
-  // ==================================================
+  // ==========================================================
 
-  for (const post of queue) {
+  for (
+    const post of
+    queue
+  ) {
     const platform =
-      String(
-        post.platform || ""
+      cleanString(
+        post.platform
       ).toLowerCase();
 
+    let attempt =
+      Number(
+        post.attempts ??
+        0
+      );
+
     try {
-      // ==============================================
-      // TIKTOK:
-      // CHECK AN EXISTING PROCESSING POST
-      // ==============================================
+      // ======================================================
+      // TIKTOK STATUS CHECK
+      // ======================================================
 
       if (
         platform ===
@@ -173,15 +778,16 @@ export async function GET(request: Request) {
         post.platform_post_id
       ) {
         const result =
-          await checkTikTokPostStatus(
-            {
-              supabase,
-              post,
-            }
-          );
+          await checkTikTokPostStatus({
+            supabase,
+
+            post,
+          });
 
         await supabase
-          .from("socials")
+          .from(
+            "socials"
+          )
           .update({
             status:
               result.status,
@@ -189,7 +795,8 @@ export async function GET(request: Request) {
             posted_at:
               result.status ===
               "published"
-                ? new Date().toISOString()
+                ? new Date()
+                    .toISOString()
                 : null,
 
             platform_post_id:
@@ -209,33 +816,37 @@ export async function GET(request: Request) {
               null,
 
             last_attempt_at:
-              new Date().toISOString(),
+              new Date()
+                .toISOString(),
           })
           .eq(
             "id",
             post.id
           );
 
-        processed += 1;
+        processed +=
+          1;
+
         continue;
       }
 
-      // ==============================================
+      // ======================================================
       // NEW PUBLISHING ATTEMPT
-      // ==============================================
+      // ======================================================
 
-      const attempt =
-        (post.attempts ??
-          0) + 1;
+      attempt += 1;
 
       await supabase
-        .from("socials")
+        .from(
+          "socials"
+        )
         .update({
           attempts:
             attempt,
 
           last_attempt_at:
-            new Date().toISOString(),
+            new Date()
+              .toISOString(),
 
           last_error:
             null,
@@ -248,32 +859,47 @@ export async function GET(request: Request) {
           post.id
         );
 
-      const fullMessage = [
-        post.caption || "",
-        post.hashtags || "",
-      ]
-        .filter(Boolean)
-        .join("\n\n");
+      const fullMessage =
+        [
+          post.caption ||
+            "",
 
-      // ==================================================
+          post.hashtags ||
+            "",
+        ]
+          .filter(
+            Boolean
+          )
+          .join(
+            "\n\n"
+          );
+
+      const mediaUrl =
+        cleanString(
+          post.media_url
+        );
+
+      // ======================================================
       // TIKTOK
-      // ==================================================
+      // ======================================================
 
       if (
         platform ===
         "tiktok"
       ) {
         const result =
-          await publishTikTokPost(
-            {
-              supabase,
-              post,
-              fullMessage,
-            }
-          );
+          await publishTikTokPost({
+            supabase,
+
+            post,
+
+            fullMessage,
+          });
 
         await supabase
-          .from("socials")
+          .from(
+            "socials"
+          )
           .update({
             status:
               result.status,
@@ -297,297 +923,430 @@ export async function GET(request: Request) {
             posted_at:
               result.status ===
               "published"
-                ? new Date().toISOString()
+                ? new Date()
+                    .toISOString()
                 : null,
 
             last_attempt_at:
-              new Date().toISOString(),
+              new Date()
+                .toISOString(),
           })
           .eq(
             "id",
             post.id
           );
 
-        processed += 1;
+        processed +=
+          1;
+
         continue;
       }
 
-      // ==================================================
-      // OTHER PLATFORM TOKEN LOOKUP
-      // ==================================================
-
-      const {
-        data: dynamicToken,
-        error: tokenError,
-      } = await supabase
-        .from(
-          "social_tokens"
-        )
-        .select(
-          "access_token, platform_account_id"
-        )
-        .eq(
-          "user_id",
-          post.user_id
-        )
-        .eq(
-          "platform",
-          platform
-        )
-        .maybeSingle();
+      // ======================================================
+      // META / FACEBOOK / INSTAGRAM
+      // ======================================================
 
       if (
-        tokenError ||
-        !dynamicToken
-          ?.access_token
+        platform ===
+          "meta" ||
+        platform ===
+          "facebook" ||
+        platform ===
+          "instagram"
       ) {
-        throw new Error(
-          `Missing social token for ${platform}`
+        if (
+          !post.user_id
+        ) {
+          throw new Error(
+            "Social post has no user_id."
+          );
+        }
+
+        const connection =
+          await getMetaConnection({
+            supabase,
+
+            userId:
+              post.user_id,
+          });
+
+        // ====================================================
+        // DESTINATION RULES
+        //
+        // facebook:
+        //   Facebook only
+        //
+        // instagram:
+        //   Instagram only
+        //
+        // meta:
+        //   Facebook always.
+        //   Instagram too when media exists and a linked
+        //   Instagram professional account is available.
+        // ====================================================
+
+        const publishFacebook =
+          platform ===
+            "facebook" ||
+          platform ===
+            "meta";
+
+        const publishInstagram =
+          platform ===
+            "instagram" ||
+          (
+            platform ===
+              "meta" &&
+            Boolean(
+              mediaUrl
+            ) &&
+            Boolean(
+              connection
+                .instagram_business_account_id
+            )
+          );
+
+        const results: Record<
+          string,
+          unknown
+        > = {};
+
+        const errors: Array<{
+          destination:
+            string;
+
+          error:
+            string;
+        }> = [];
+
+        // ====================================================
+        // FACEBOOK
+        // ====================================================
+
+        if (
+          publishFacebook
+        ) {
+          try {
+            const result =
+              await publishFacebookPost({
+                connection,
+
+                message:
+                  fullMessage,
+
+                mediaUrl,
+              });
+
+            results.facebook =
+              result;
+          } catch (
+            error
+          ) {
+            const message =
+              error instanceof
+                Error
+                ? error.message
+                : "Facebook publishing failed.";
+
+            console.error(
+              "[CRON META] Facebook publish failed:",
+              message
+            );
+
+            errors.push({
+              destination:
+                "facebook",
+
+              error:
+                message,
+            });
+          }
+        }
+
+        // ====================================================
+        // INSTAGRAM
+        // ====================================================
+
+        if (
+          publishInstagram
+        ) {
+          try {
+            const result =
+              await publishInstagramPost({
+                connection,
+
+                message:
+                  fullMessage,
+
+                mediaUrl,
+              });
+
+            results.instagram =
+              result;
+          } catch (
+            error
+          ) {
+            const message =
+              error instanceof
+                Error
+                ? error.message
+                : "Instagram publishing failed.";
+
+            console.error(
+              "[CRON META] Instagram publish failed:",
+              message
+            );
+
+            errors.push({
+              destination:
+                "instagram",
+
+              error:
+                message,
+            });
+          }
+        }
+
+        // ====================================================
+        // EVERYTHING FAILED
+        // ====================================================
+
+        if (
+          Object.keys(
+            results
+          ).length ===
+            0
+        ) {
+          const message =
+            errors
+              .map(
+                (
+                  item
+                ) =>
+                  `${item.destination}: ${item.error}`
+              )
+              .join(
+                " | "
+              ) ||
+            "Meta publishing failed.";
+
+          throw new Error(
+            message
+          );
+        }
+
+        // ====================================================
+        // GET PLATFORM POST ID
+        // ====================================================
+
+        const facebookResult =
+          results.facebook as
+            | {
+                id?:
+                  string;
+
+                response?: {
+                  id?:
+                    string;
+
+                  post_id?:
+                    string;
+                };
+              }
+            | undefined;
+
+        const instagramResult =
+          results.instagram as
+            | {
+                id?:
+                  string;
+              }
+            | undefined;
+
+        const platformPostId =
+          facebookResult
+            ?.id ||
+          facebookResult
+            ?.response
+            ?.post_id ||
+          facebookResult
+            ?.response
+            ?.id ||
+          instagramResult
+            ?.id ||
+          null;
+
+        // ====================================================
+        // PARTIAL FAILURE
+        //
+        // We still mark the queued item published because at
+        // least one requested platform succeeded.
+        //
+        // Any secondary failure remains visible in last_error.
+        // ====================================================
+
+        const warning =
+          errors.length >
+          0
+            ? errors
+                .map(
+                  (
+                    item
+                  ) =>
+                    `${item.destination}: ${item.error}`
+                )
+                .join(
+                  " | "
+                )
+            : null;
+
+        await supabase
+          .from(
+            "socials"
+          )
+          .update({
+            status:
+              "published",
+
+            posted_at:
+              new Date()
+                .toISOString(),
+
+            platform_post_id:
+              platformPostId,
+
+            platform_response: {
+              results,
+
+              errors,
+
+              facebook:
+                publishFacebook,
+
+              instagram:
+                publishInstagram,
+            },
+
+            last_error:
+              warning,
+
+            error:
+              warning,
+
+            last_attempt_at:
+              new Date()
+                .toISOString(),
+          })
+          .eq(
+            "id",
+            post.id
+          );
+
+        console.log(
+          "[CRON META] ✅ Meta publishing complete:",
+          {
+            postId:
+              post.id,
+
+            userId:
+              post.user_id,
+
+            pageId:
+              connection.page_id,
+
+            pageName:
+              connection.page_name,
+
+            instagramBusinessAccountId:
+              connection
+                .instagram_business_account_id,
+
+            publishFacebook,
+
+            publishInstagram,
+
+            results,
+
+            errors,
+          }
         );
-      }
 
-      const token =
-        dynamicToken.access_token;
+        processed +=
+          1;
 
-      const accountId =
-        dynamicToken
-          .platform_account_id;
-
-      // ==================================================
-      // FACEBOOK
-      // ==================================================
-
-      if (
-        platform ===
-        "facebook"
-      ) {
-        if (!accountId) {
-          throw new Error(
-            "Missing Facebook account ID"
-          );
-        }
-
-        const fbRes =
-          await fetch(
-            `https://graph.facebook.com/v18.0/${accountId}/feed`,
-            {
-              method:
-                "POST",
-
-              body:
-                new URLSearchParams(
-                  {
-                    message:
-                      fullMessage,
-
-                    link:
-                      post.media_url ||
-                      "",
-
-                    access_token:
-                      token,
-                  }
-                ),
-            }
-          );
-
-        const fbData =
-          await safeJsonResponse(
-            fbRes
-          );
-
-        if (!fbRes.ok) {
-          throw new Error(
-            `Facebook publish failed: ${JSON.stringify(
-              fbData
-            )}`
-          );
-        }
-
-        await supabase
-          .from("socials")
-          .update({
-            status:
-              "published",
-
-            posted_at:
-              new Date().toISOString(),
-
-            platform_post_id:
-              fbData?.id ??
-              null,
-
-            platform_response:
-              fbData ??
-              null,
-
-            last_error:
-              null,
-
-            error:
-              null,
-          })
-          .eq(
-            "id",
-            post.id
-          );
-
-        processed += 1;
         continue;
       }
 
-      // ==================================================
-      // INSTAGRAM
-      // ==================================================
-
-      if (
-        platform ===
-        "instagram"
-      ) {
-        if (!accountId) {
-          throw new Error(
-            "Missing Instagram account ID"
-          );
-        }
-
-        if (
-          !post.media_url
-        ) {
-          throw new Error(
-            "Instagram post is missing media_url"
-          );
-        }
-
-        // ----------------------------------------------
-        // CREATE MEDIA CONTAINER
-        // ----------------------------------------------
-
-        const containerRes =
-          await fetch(
-            `https://graph.facebook.com/v18.0/${accountId}/media`,
-            {
-              method:
-                "POST",
-
-              body:
-                new URLSearchParams(
-                  {
-                    image_url:
-                      post.media_url,
-
-                    caption:
-                      fullMessage,
-
-                    access_token:
-                      token,
-                  }
-                ),
-            }
-          );
-
-        const containerData =
-          await safeJsonResponse(
-            containerRes
-          );
-
-        if (
-          !containerRes.ok ||
-          !containerData?.id
-        ) {
-          throw new Error(
-            `Instagram media creation failed: ${JSON.stringify(
-              containerData
-            )}`
-          );
-        }
-
-        // ----------------------------------------------
-        // PUBLISH MEDIA CONTAINER
-        // ----------------------------------------------
-
-        const publishRes =
-          await fetch(
-            `https://graph.facebook.com/v18.0/${accountId}/media_publish`,
-            {
-              method:
-                "POST",
-
-              body:
-                new URLSearchParams(
-                  {
-                    creation_id:
-                      containerData.id,
-
-                    access_token:
-                      token,
-                  }
-                ),
-            }
-          );
-
-        const publishData =
-          await safeJsonResponse(
-            publishRes
-          );
-
-        if (
-          !publishRes.ok
-        ) {
-          throw new Error(
-            `Instagram publish failed: ${JSON.stringify(
-              publishData
-            )}`
-          );
-        }
-
-        await supabase
-          .from("socials")
-          .update({
-            status:
-              "published",
-
-            posted_at:
-              new Date().toISOString(),
-
-            platform_post_id:
-              publishData?.id ??
-              null,
-
-            platform_response:
-              publishData ??
-              null,
-
-            last_error:
-              null,
-
-            error:
-              null,
-          })
-          .eq(
-            "id",
-            post.id
-          );
-
-        processed += 1;
-        continue;
-      }
-
-      // ==================================================
+      // ======================================================
       // PINTEREST
-      // ==================================================
+      //
+      // Pinterest still uses the legacy social_tokens table
+      // until its OAuth connection is migrated.
+      // ======================================================
 
       if (
         platform ===
         "pinterest"
       ) {
-        if (!accountId) {
+        const {
+          data:
+            dynamicToken,
+
+          error:
+            tokenError,
+        } =
+          await supabase
+            .from(
+              "social_tokens"
+            )
+            .select(
+              "access_token, platform_account_id"
+            )
+            .eq(
+              "user_id",
+              post.user_id
+            )
+            .eq(
+              "platform",
+              "pinterest"
+            )
+            .maybeSingle();
+
+        if (
+          tokenError
+        ) {
+          throw new Error(
+            `Pinterest token lookup failed: ${tokenError.message}`
+          );
+        }
+
+        if (
+          !dynamicToken
+            ?.access_token
+        ) {
+          throw new Error(
+            "Missing Pinterest social token"
+          );
+        }
+
+        const token =
+          dynamicToken
+            .access_token;
+
+        const accountId =
+          dynamicToken
+            .platform_account_id;
+
+        if (
+          !accountId
+        ) {
           throw new Error(
             "Missing Pinterest board ID"
           );
         }
 
         if (
-          !post.media_url
+          !mediaUrl
         ) {
           throw new Error(
             "Pinterest post is missing media_url"
@@ -610,30 +1369,27 @@ export async function GET(request: Request) {
               },
 
               body:
-                JSON.stringify(
-                  {
-                    link:
-                      "https://tots-os.co.uk",
+                JSON.stringify({
+                  link:
+                    "https://tots-os.co.uk",
 
-                    title:
-                      "Shared via TOTS-OS",
+                  title:
+                    "Shared via TOTS-OS",
 
-                    description:
-                      fullMessage,
+                  description:
+                    fullMessage,
 
-                    board_id:
-                      accountId,
+                  board_id:
+                    accountId,
 
-                    media_source:
-                      {
-                        source_type:
-                          "image_url",
+                  media_source: {
+                    source_type:
+                      "image_url",
 
-                        url:
-                          post.media_url,
-                      },
-                  }
-                ),
+                    url:
+                      mediaUrl,
+                  },
+                }),
             }
           );
 
@@ -653,13 +1409,16 @@ export async function GET(request: Request) {
         }
 
         await supabase
-          .from("socials")
+          .from(
+            "socials"
+          )
           .update({
             status:
               "published",
 
             posted_at:
-              new Date().toISOString(),
+              new Date()
+                .toISOString(),
 
             platform_post_id:
               result?.id ??
@@ -680,49 +1439,85 @@ export async function GET(request: Request) {
             post.id
           );
 
-        processed += 1;
+        processed +=
+          1;
+
         continue;
       }
 
+      // ======================================================
+      // LINKEDIN
+      //
+      // Don't let an accidental LinkedIn queue item fall into
+      // the old token system.
+      // ======================================================
+
+      if (
+        platform ===
+        "linkedin"
+      ) {
+        throw new Error(
+          "LinkedIn scheduled publishing is not implemented yet."
+        );
+      }
+
       throw new Error(
-        `Unsupported platform: ${platform}`
+        `Unsupported platform: ${
+          platform ||
+          "unknown"
+        }`
       );
-    } catch (error) {
+    } catch (
+      error
+    ) {
       const message =
-        error instanceof Error
+        error instanceof
+          Error
           ? error.message
-          : String(error);
+          : String(
+              error
+            );
 
       console.error(
-        `Cron publish error for post ${post.id}:`,
+        `[CRON SOCIAL] Publish error for post ${post.id}:`,
         error
       );
 
-      // Processing posts are status-checks rather than
-      // new upload attempts, so don't artificially add
-      // another attempt here.
-      const attempt =
+      // ======================================================
+      // FAILURE STATE
+      // ======================================================
+
+      /*
+       * New publishing attempts were already incremented above.
+       *
+       * Processing TikTok status checks were not.
+       */
+
+      const effectiveAttempt =
         post.status ===
         "processing"
-          ? post.attempts ??
-            0
-          : (post.attempts ??
-              0) + 1;
+          ? Number(
+              post.attempts ??
+              0
+            )
+          : attempt;
 
       const finalFailure =
-        attempt >=
+        effectiveAttempt >=
         MAX_ATTEMPTS;
 
       await supabase
-        .from("socials")
+        .from(
+          "socials"
+        )
         .update({
           status:
             finalFailure
               ? "failed"
               : post.status ===
-                "processing"
-              ? "processing"
-              : "scheduled",
+                  "processing"
+                ? "processing"
+                : "scheduled",
 
           last_error:
             message,
@@ -731,14 +1526,16 @@ export async function GET(request: Request) {
             message,
 
           last_attempt_at:
-            new Date().toISOString(),
+            new Date()
+              .toISOString(),
         })
         .eq(
           "id",
           post.id
         );
 
-      processed += 1;
+      processed +=
+        1;
     }
   }
 
@@ -747,24 +1544,31 @@ export async function GET(request: Request) {
   });
 }
 
-// ==================================================
+// ============================================================
 // TIKTOK DIRECT POST
-// ==================================================
+// ============================================================
 
 async function publishTikTokPost({
   supabase,
   post,
   fullMessage,
 }: {
-  supabase: any;
-  post: any;
-  fullMessage: string;
-}) {
-  // ==================================================
-  // VALIDATE POST
-  // ==================================================
+  supabase:
+    any;
 
-  if (!post.user_id) {
+  post:
+    any;
+
+  fullMessage:
+    string;
+}) {
+  // ==========================================================
+  // VALIDATE POST
+  // ==========================================================
+
+  if (
+    !post.user_id
+  ) {
     throw new Error(
       "TikTok post has no user_id"
     );
@@ -778,34 +1582,38 @@ async function publishTikTokPost({
     );
   }
 
-  // ==================================================
+  // ==========================================================
   // GET TIKTOK CONNECTION
-  // ==================================================
+  // ==========================================================
 
   const {
-    data: connection,
-    error: connectionError,
-  } = await supabase
-    .from(
-      "social_accounts"
-    )
-    .select(
-      `
-        access_token,
-        refresh_token,
-        expires_at,
-        platform_user_id
-      `
-    )
-    .eq(
-      "user_id",
-      post.user_id
-    )
-    .eq(
-      "platform",
-      "tiktok"
-    )
-    .maybeSingle();
+    data:
+      connection,
+
+    error:
+      connectionError,
+  } =
+    await supabase
+      .from(
+        "social_accounts"
+      )
+      .select(
+        `
+          access_token,
+          refresh_token,
+          expires_at,
+          platform_user_id
+        `
+      )
+      .eq(
+        "user_id",
+        post.user_id
+      )
+      .eq(
+        "platform",
+        "tiktok"
+      )
+      .maybeSingle();
 
   if (
     connectionError ||
@@ -813,9 +1621,10 @@ async function publishTikTokPost({
       ?.access_token
   ) {
     console.error(
-      "TikTok connection lookup failed:",
+      "[TIKTOK] Connection lookup failed:",
       {
         connectionError,
+
         hasConnection:
           Boolean(
             connection
@@ -828,13 +1637,24 @@ async function publishTikTokPost({
     );
   }
 
-  const accessToken =
-    connection.access_token;
+  if (
+    tokenExpired(
+      connection.expires_at
+    )
+  ) {
+    throw new Error(
+      "TikTok access token has expired. Reconnect TikTok."
+    );
+  }
 
-  // ==================================================
+  const accessToken =
+    connection
+      .access_token;
+
+  // ==========================================================
   // STEP 1
   // QUERY CREATOR INFO
-  // ==================================================
+  // ==========================================================
 
   const creatorResponse =
     await fetch(
@@ -850,6 +1670,9 @@ async function publishTikTokPost({
           "Content-Type":
             "application/json; charset=UTF-8",
         },
+
+        cache:
+          "no-store",
       }
     );
 
@@ -859,21 +1682,15 @@ async function publishTikTokPost({
     );
 
   console.log(
-    "TikTok creator info response:",
+    "[TIKTOK] Creator info response:",
     creatorData
   );
 
-  /*
-   * TikTok returns:
-   *
-   * error.code === "ok"
-   *
-   * on a successful response.
-   */
   if (
     !creatorResponse.ok ||
     creatorData?.error
-      ?.code !== "ok"
+      ?.code !==
+      "ok"
   ) {
     throw new Error(
       `TikTok creator info failed: ${JSON.stringify(
@@ -885,7 +1702,8 @@ async function publishTikTokPost({
   const privacyOptions:
     | string[]
     | undefined =
-    creatorData?.data
+    creatorData
+      ?.data
       ?.privacy_level_options;
 
   if (
@@ -898,13 +1716,6 @@ async function publishTikTokPost({
     );
   }
 
-  // ==================================================
-  // PRIVACY
-  //
-  // During sandbox / unaudited testing, SELF_ONLY is
-  // generally the appropriate option when available.
-  // ==================================================
-
   const privacyLevel =
     privacyOptions.includes(
       "SELF_ONLY"
@@ -913,29 +1724,27 @@ async function publishTikTokPost({
       : privacyOptions[0];
 
   console.log(
-    "TikTok selected privacy level:",
+    "[TIKTOK] Selected privacy level:",
     privacyLevel
   );
 
-  // ==================================================
+  // ==========================================================
   // STEP 2
-  // DOWNLOAD VIDEO FROM SUPABASE
-  //
-  // We download the file ourselves and then send it to
-  // TikTok using FILE_UPLOAD.
-  //
-  // This avoids TikTok's PULL_FROM_URL domain ownership
-  // requirement.
-  // ==================================================
+  // DOWNLOAD VIDEO
+  // ==========================================================
 
   console.log(
-    "Downloading video before TikTok FILE_UPLOAD:",
+    "[TIKTOK] Downloading video:",
     post.media_url
   );
 
   const videoResponse =
     await fetch(
-      post.media_url
+      post.media_url,
+      {
+        cache:
+          "no-store",
+      }
     );
 
   if (
@@ -947,7 +1756,8 @@ async function publishTikTokPost({
   }
 
   const videoArrayBuffer =
-    await videoResponse.arrayBuffer();
+    await videoResponse
+      .arrayBuffer();
 
   const videoBytes =
     new Uint8Array(
@@ -955,9 +1765,12 @@ async function publishTikTokPost({
     );
 
   const videoSize =
-    videoBytes.byteLength;
+    videoBytes
+      .byteLength;
 
-  if (!videoSize) {
+  if (
+    !videoSize
+  ) {
     throw new Error(
       "Downloaded TikTok video is empty"
     );
@@ -973,33 +1786,35 @@ async function publishTikTokPost({
   }
 
   const contentType =
-    getTikTokVideoMimeType(
-      {
-        mediaUrl:
-          post.media_url,
+    getTikTokVideoMimeType({
+      mediaUrl:
+        post.media_url,
 
-        responseContentType:
-          videoResponse.headers.get(
+      responseContentType:
+        videoResponse
+          .headers
+          .get(
             "content-type"
           ),
-      }
-    );
+    });
 
   console.log(
-    "TikTok video downloaded:",
+    "[TIKTOK] Video downloaded:",
     {
       videoSize,
+
       contentType,
     }
   );
 
-  // ==================================================
+  // ==========================================================
   // STEP 3
-  // CALCULATE FILE_UPLOAD CHUNKS
-  // ==================================================
+  // CHUNKS
+  // ==========================================================
 
   const {
     chunkSize,
+
     totalChunkCount,
   } =
     calculateTikTokChunks(
@@ -1007,18 +1822,20 @@ async function publishTikTokPost({
     );
 
   console.log(
-    "TikTok upload chunk configuration:",
+    "[TIKTOK] Upload chunks:",
     {
       videoSize,
+
       chunkSize,
+
       totalChunkCount,
     }
   );
 
-  // ==================================================
+  // ==========================================================
   // STEP 4
-  // INITIALIZE DIRECT POST USING FILE_UPLOAD
-  // ==================================================
+  // INITIALISE FILE UPLOAD
+  // ==========================================================
 
   const initResponse =
     await fetch(
@@ -1036,58 +1853,59 @@ async function publishTikTokPost({
         },
 
         body:
-          JSON.stringify(
-            {
-              post_info: {
-                title:
-                  fullMessage.substring(
-                    0,
-                    2200
-                  ),
-
-                privacy_level:
-                  privacyLevel,
-
-                disable_comment:
-                  Boolean(
-                    creatorData
-                      ?.data
-                      ?.comment_disabled
-                  ),
-
-                disable_duet:
-                  Boolean(
-                    creatorData
-                      ?.data
-                      ?.duet_disabled
-                  ),
-
-                disable_stitch:
-                  Boolean(
-                    creatorData
-                      ?.data
-                      ?.stitch_disabled
-                  ),
-
-                video_cover_timestamp_ms:
+          JSON.stringify({
+            post_info: {
+              title:
+                fullMessage.substring(
                   0,
-              },
+                  2200
+                ),
 
-              source_info: {
-                source:
-                  "FILE_UPLOAD",
+              privacy_level:
+                privacyLevel,
 
-                video_size:
-                  videoSize,
+              disable_comment:
+                Boolean(
+                  creatorData
+                    ?.data
+                    ?.comment_disabled
+                ),
 
-                chunk_size:
-                  chunkSize,
+              disable_duet:
+                Boolean(
+                  creatorData
+                    ?.data
+                    ?.duet_disabled
+                ),
 
-                total_chunk_count:
-                  totalChunkCount,
-              },
-            }
-          ),
+              disable_stitch:
+                Boolean(
+                  creatorData
+                    ?.data
+                    ?.stitch_disabled
+                ),
+
+              video_cover_timestamp_ms:
+                0,
+            },
+
+            source_info: {
+              source:
+                "FILE_UPLOAD",
+
+              video_size:
+                videoSize,
+
+              chunk_size:
+                chunkSize,
+
+              total_chunk_count:
+                totalChunkCount,
+            },
+          }),
+
+        cache:
+          "no-store",
       }
     );
 
@@ -1097,7 +1915,7 @@ async function publishTikTokPost({
     );
 
   console.log(
-    "TikTok FILE_UPLOAD init response:",
+    "[TIKTOK] FILE_UPLOAD init response:",
     {
       status:
         initResponse.status,
@@ -1113,7 +1931,8 @@ async function publishTikTokPost({
   if (
     !initResponse.ok ||
     initData?.error
-      ?.code !== "ok"
+      ?.code !==
+      "ok"
   ) {
     throw new Error(
       `TikTok publish init failed: ${JSON.stringify(
@@ -1123,14 +1942,18 @@ async function publishTikTokPost({
   }
 
   const publishId =
-    initData?.data
+    initData
+      ?.data
       ?.publish_id;
 
   const uploadUrl =
-    initData?.data
+    initData
+      ?.data
       ?.upload_url;
 
-  if (!publishId) {
+  if (
+    !publishId
+  ) {
     throw new Error(
       `TikTok did not return a publish_id: ${JSON.stringify(
         initData
@@ -1138,7 +1961,9 @@ async function publishTikTokPost({
     );
   }
 
-  if (!uploadUrl) {
+  if (
+    !uploadUrl
+  ) {
     throw new Error(
       `TikTok did not return an upload_url for FILE_UPLOAD: ${JSON.stringify(
         initData
@@ -1146,48 +1971,33 @@ async function publishTikTokPost({
     );
   }
 
-  console.log(
-    "TikTok FILE_UPLOAD initialized:",
-    {
-      publishId,
-
-      uploadUrlReceived:
-        Boolean(
-          uploadUrl
-        ),
-    }
-  );
-
-  // ==================================================
+  // ==========================================================
   // STEP 5
-  // UPLOAD VIDEO BINARY
-  // ==================================================
+  // UPLOAD BINARY
+  // ==========================================================
 
-  await uploadVideoToTikTok(
-    {
-      uploadUrl,
-      videoBytes,
-      videoSize,
-      chunkSize,
-      totalChunkCount,
-      contentType,
-    }
-  );
+  await uploadVideoToTikTok({
+    uploadUrl,
+
+    videoBytes,
+
+    videoSize,
+
+    chunkSize,
+
+    totalChunkCount,
+
+    contentType,
+  });
 
   console.log(
-    "TikTok video binary upload complete:",
+    "[TIKTOK] Video upload complete:",
     {
       publishId,
+
       videoSize,
     }
   );
-
-  // ==================================================
-  // TikTok now handles publishing asynchronously.
-  //
-  // Save the publish_id and mark as processing.
-  // A future worker execution will query status/fetch.
-  // ==================================================
 
   return {
     status:
@@ -1218,12 +2028,14 @@ async function publishTikTokPost({
 
       creator: {
         username:
-          creatorData?.data
+          creatorData
+            ?.data
             ?.creator_username ??
           null,
 
         nickname:
-          creatorData?.data
+          creatorData
+            ?.data
             ?.creator_nickname ??
           null,
 
@@ -1240,9 +2052,9 @@ async function publishTikTokPost({
   };
 }
 
-// ==================================================
+// ============================================================
 // TIKTOK VIDEO UPLOAD
-// ==================================================
+// ============================================================
 
 async function uploadVideoToTikTok({
   uploadUrl,
@@ -1252,18 +2064,31 @@ async function uploadVideoToTikTok({
   totalChunkCount,
   contentType,
 }: {
-  uploadUrl: string;
-  videoBytes: Uint8Array;
-  videoSize: number;
-  chunkSize: number;
-  totalChunkCount: number;
-  contentType: string;
+  uploadUrl:
+    string;
+
+  videoBytes:
+    Uint8Array;
+
+  videoSize:
+    number;
+
+  chunkSize:
+    number;
+
+  totalChunkCount:
+    number;
+
+  contentType:
+    string;
 }) {
   for (
-    let chunkIndex = 0;
+    let chunkIndex =
+      0;
     chunkIndex <
     totalChunkCount;
-    chunkIndex += 1
+    chunkIndex +=
+      1
   ) {
     const startByte =
       chunkIndex *
@@ -1271,7 +2096,8 @@ async function uploadVideoToTikTok({
 
     const isLastChunk =
       chunkIndex ===
-      totalChunkCount - 1;
+      totalChunkCount -
+        1;
 
     const endExclusive =
       isLastChunk
@@ -1279,6 +2105,7 @@ async function uploadVideoToTikTok({
         : Math.min(
             startByte +
               chunkSize,
+
             videoSize
           );
 
@@ -1292,7 +2119,8 @@ async function uploadVideoToTikTok({
     }
 
     const lastByte =
-      endExclusive - 1;
+      endExclusive -
+      1;
 
     const chunk =
       videoBytes.slice(
@@ -1309,13 +2137,14 @@ async function uploadVideoToTikTok({
     ) {
       throw new Error(
         `TikTok upload chunk ${
-          chunkIndex + 1
+          chunkIndex +
+          1
         } is empty`
       );
     }
 
     console.log(
-      "Uploading TikTok chunk:",
+      "[TIKTOK] Uploading chunk:",
       {
         chunk:
           chunkIndex +
@@ -1338,7 +2167,9 @@ async function uploadVideoToTikTok({
 
     const blob =
       new Blob(
-        [chunk],
+        [
+          chunk,
+        ],
         {
           type:
             contentType,
@@ -1371,10 +2202,11 @@ async function uploadVideoToTikTok({
       );
 
     const uploadText =
-      await uploadResponse.text();
+      await uploadResponse
+        .text();
 
     console.log(
-      "TikTok chunk upload response:",
+      "[TIKTOK] Chunk response:",
       {
         chunk:
           chunkIndex +
@@ -1394,22 +2226,13 @@ async function uploadVideoToTikTok({
       }
     );
 
-    /*
-     * Expected TikTok behaviour:
-     *
-     * 206:
-     * intermediate chunk accepted
-     *
-     * 201:
-     * final chunk / full upload accepted
-     */
-
     if (
       !uploadResponse.ok
     ) {
       throw new Error(
         `TikTok video upload failed on chunk ${
-          chunkIndex + 1
+          chunkIndex +
+          1
         }/${totalChunkCount}: HTTP ${
           uploadResponse.status
         } ${
@@ -1425,7 +2248,7 @@ async function uploadVideoToTikTok({
         206
     ) {
       console.warn(
-        "TikTok intermediate chunk returned unexpected HTTP status:",
+        "[TIKTOK] Intermediate chunk returned unexpected status:",
         {
           status:
             uploadResponse.status,
@@ -1445,7 +2268,7 @@ async function uploadVideoToTikTok({
         201
     ) {
       console.warn(
-        "TikTok final chunk returned unexpected HTTP status:",
+        "[TIKTOK] Final chunk returned unexpected status:",
         {
           status:
             uploadResponse.status,
@@ -1461,18 +2284,23 @@ async function uploadVideoToTikTok({
   }
 }
 
-// ==================================================
+// ============================================================
 // TIKTOK STATUS CHECK
-// ==================================================
+// ============================================================
 
 async function checkTikTokPostStatus({
   supabase,
   post,
 }: {
-  supabase: any;
-  post: any;
+  supabase:
+    any;
+
+  post:
+    any;
 }) {
-  if (!post.user_id) {
+  if (
+    !post.user_id
+  ) {
     throw new Error(
       "TikTok post has no user_id"
     );
@@ -1487,24 +2315,32 @@ async function checkTikTokPostStatus({
   }
 
   const {
-    data: connection,
-    error: connectionError,
-  } = await supabase
-    .from(
-      "social_accounts"
-    )
-    .select(
-      "access_token, platform_user_id"
-    )
-    .eq(
-      "user_id",
-      post.user_id
-    )
-    .eq(
-      "platform",
-      "tiktok"
-    )
-    .maybeSingle();
+    data:
+      connection,
+
+    error:
+      connectionError,
+  } =
+    await supabase
+      .from(
+        "social_accounts"
+      )
+      .select(
+        `
+          access_token,
+          expires_at,
+          platform_user_id
+        `
+      )
+      .eq(
+        "user_id",
+        post.user_id
+      )
+      .eq(
+        "platform",
+        "tiktok"
+      )
+      .maybeSingle();
 
   if (
     connectionError ||
@@ -1513,6 +2349,16 @@ async function checkTikTokPostStatus({
   ) {
     throw new Error(
       "TikTok account is not connected"
+    );
+  }
+
+  if (
+    tokenExpired(
+      connection.expires_at
+    )
+  ) {
+    throw new Error(
+      "TikTok access token has expired. Reconnect TikTok."
     );
   }
 
@@ -1532,12 +2378,13 @@ async function checkTikTokPostStatus({
         },
 
         body:
-          JSON.stringify(
-            {
-              publish_id:
-                post.platform_post_id,
-            }
-          ),
+          JSON.stringify({
+            publish_id:
+              post.platform_post_id,
+          }),
+
+        cache:
+          "no-store",
       }
     );
 
@@ -1547,7 +2394,7 @@ async function checkTikTokPostStatus({
     );
 
   console.log(
-    "TikTok publish status:",
+    "[TIKTOK] Publish status:",
     {
       postId:
         post.id,
@@ -1566,7 +2413,8 @@ async function checkTikTokPostStatus({
   if (
     !response.ok ||
     data?.error
-      ?.code !== "ok"
+      ?.code !==
+      "ok"
   ) {
     throw new Error(
       `TikTok status check failed: ${JSON.stringify(
@@ -1576,30 +2424,24 @@ async function checkTikTokPostStatus({
   }
 
   const tikTokStatus =
-    data?.data?.status;
+    data
+      ?.data
+      ?.status;
 
-  // ==============================================
-  // PUBLISH COMPLETE
-  // ==============================================
+  // ==========================================================
+  // COMPLETE
+  // ==========================================================
 
   if (
     tikTokStatus ===
     "PUBLISH_COMPLETE"
   ) {
-    /*
-     * TikTok has historically exposed this property
-     * with the spelling:
-     *
-     * publicaly_available_post_id
-     *
-     * Support both that and the logically-correct
-     * spelling so we're resilient to API changes.
-     */
-
     const postIds =
-      data?.data
+      data
+        ?.data
         ?.publicaly_available_post_id ??
-      data?.data
+      data
+        ?.data
         ?.publicly_available_post_id;
 
     const actualPostId =
@@ -1611,17 +2453,8 @@ async function checkTikTokPostStatus({
         ? String(
             postIds[0]
           )
-        : post.platform_post_id;
-
-    console.log(
-      "TikTok publishing complete:",
-      {
-        publishId:
-          post.platform_post_id,
-
-        actualPostId,
-      }
-    );
+        : post
+            .platform_post_id;
 
     return {
       status:
@@ -1638,31 +2471,19 @@ async function checkTikTokPostStatus({
     };
   }
 
-  // ==============================================
+  // ==========================================================
   // FAILED
-  // ==============================================
+  // ==========================================================
 
   if (
     tikTokStatus ===
     "FAILED"
   ) {
     const failReason =
-      data?.data
+      data
+        ?.data
         ?.fail_reason ||
       "TikTok publishing failed";
-
-    console.error(
-      "TikTok publishing failed:",
-      {
-        publishId:
-          post.platform_post_id,
-
-        failReason,
-
-        response:
-          data,
-      }
-    );
 
     return {
       status:
@@ -1672,33 +2493,17 @@ async function checkTikTokPostStatus({
         data,
 
       platformPostId:
-        post.platform_post_id,
+        post
+          .platform_post_id,
 
       error:
         failReason,
     };
   }
 
-  // ==============================================
+  // ==========================================================
   // STILL PROCESSING
-  //
-  // Common examples:
-  //
-  // PROCESSING_UPLOAD
-  // PROCESSING_DOWNLOAD
-  // SEND_TO_USER_INBOX
-  // ==============================================
-
-  console.log(
-    "TikTok is still processing:",
-    {
-      publishId:
-        post.platform_post_id,
-
-      status:
-        tikTokStatus,
-    }
-  );
+  // ==========================================================
 
   return {
     status:
@@ -1708,19 +2513,21 @@ async function checkTikTokPostStatus({
       data,
 
     platformPostId:
-      post.platform_post_id,
+      post
+        .platform_post_id,
 
     error:
       null,
   };
 }
 
-// ==================================================
+// ============================================================
 // CHUNK CALCULATION
-// ==================================================
+// ============================================================
 
 function calculateTikTokChunks(
-  videoSize: number
+  videoSize:
+    number
 ) {
   if (
     !Number.isFinite(
@@ -1733,37 +2540,6 @@ function calculateTikTokChunks(
       `Invalid TikTok video size: ${videoSize}`
     );
   }
-
-  /*
-   * ==================================================
-   * CRITICAL FIX
-   * ==================================================
-   *
-   * For a file that fits inside TikTok's maximum
-   * individual chunk size, upload the ENTIRE file as
-   * one chunk.
-   *
-   * Example from your current test:
-   *
-   * videoSize:
-   * 18,786,404
-   *
-   * OLD / INVALID:
-   *
-   * chunkSize:
-   * 10,000,000
-   *
-   * totalChunkCount:
-   * 1
-   *
-   * NEW / CORRECT:
-   *
-   * chunkSize:
-   * 18,786,404
-   *
-   * totalChunkCount:
-   * 1
-   */
 
   if (
     videoSize <=
@@ -1778,39 +2554,16 @@ function calculateTikTokChunks(
     };
   }
 
-  /*
-   * ==================================================
-   * FILES LARGER THAN 64 MB
-   * ==================================================
-   *
-   * Determine how many chunks are needed if no chunk
-   * may exceed our configured 64 MB limit.
-   */
-
   const totalChunkCount =
     Math.ceil(
       videoSize /
-        TIKTOK_MAX_CHUNK_SIZE
+      TIKTOK_MAX_CHUNK_SIZE
     );
-
-  /*
-   * Divide the complete video as evenly as possible.
-   *
-   * Using floor here means:
-   *
-   * normal chunks = chunkSize
-   * final chunk    = remaining bytes
-   *
-   * The final chunk can therefore be a few bytes larger
-   * than the earlier chunks, but it will remain below the
-   * 64 MB maximum because totalChunkCount was calculated
-   * using ceil(videoSize / maxChunkSize).
-   */
 
   const chunkSize =
     Math.floor(
       videoSize /
-        totalChunkCount
+      totalChunkCount
     );
 
   if (
@@ -1834,8 +2587,10 @@ function calculateTikTokChunks(
   const finalChunkSize =
     videoSize -
     chunkSize *
-      (totalChunkCount -
-        1);
+      (
+        totalChunkCount -
+        1
+      );
 
   if (
     finalChunkSize >
@@ -1857,26 +2612,31 @@ function calculateTikTokChunks(
 
   return {
     chunkSize,
+
     totalChunkCount,
   };
 }
 
-// ==================================================
+// ============================================================
 // MIME TYPE
-// ==================================================
+// ============================================================
 
 function getTikTokVideoMimeType({
   mediaUrl,
   responseContentType,
 }: {
-  mediaUrl: string;
+  mediaUrl:
+    string;
+
   responseContentType:
     | string
     | null;
 }) {
   const headerMime =
     responseContentType
-      ?.split(";")[0]
+      ?.split(
+        ";"
+      )[0]
       ?.trim()
       ?.toLowerCase();
 
@@ -1894,7 +2654,9 @@ function getTikTokVideoMimeType({
   const cleanUrl =
     mediaUrl
       .toLowerCase()
-      .split("?")[0];
+      .split(
+        "?"
+      )[0];
 
   if (
     cleanUrl.endsWith(
@@ -1931,17 +2693,21 @@ function getTikTokVideoMimeType({
   );
 }
 
-// ==================================================
+// ============================================================
 // SAFE JSON PARSER
-// ==================================================
+// ============================================================
 
 async function safeJsonResponse(
-  response: Response
-) {
+  response:
+    Response
+): Promise<any> {
   const text =
-    await response.text();
+    await response
+      .text();
 
-  if (!text) {
+  if (
+    !text
+  ) {
     return null;
   }
 

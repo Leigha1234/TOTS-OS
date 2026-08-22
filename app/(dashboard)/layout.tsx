@@ -2,26 +2,12 @@
 
 import {
   useEffect,
-  useRef,
   useState,
+  type ReactNode,
 } from "react";
 
 import Link from "next/link";
-
-import {
-  AlertCircle,
-  Bell,
-  Check,
-  CheckCheck,
-  ChevronRight,
-  CircleAlert,
-  Info,
-  Loader2,
-  Package,
-  ReceiptText,
-  Trash2,
-  X,
-} from "lucide-react";
+import { usePathname } from "next/navigation";
 
 import {
   AnimatePresence,
@@ -29,108 +15,273 @@ import {
 } from "framer-motion";
 
 import {
-  useNotifications,
-  type Notification,
-} from "@/app/hooks/useNotifications";
+  Briefcase,
+  Calendar,
+  Globe,
+  LayoutDashboard,
+  Megaphone,
+  Menu,
+  Settings,
+  StickyNote,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+
+import Sidebar from "@/app/components/Sidebar";
+import Footer from "@/app/components/Footer";
+import Clarity from "@/app/components/Clarity";
+import NotificationBell from "@/app/components/NotificationBell";
+
+import { useSettings } from "@/app/context/SettingsContext";
+
+import {
+  ClarityTourProvider,
+} from "./claritytour/ClarityTourProvider";
+
+import ClarityTourOverlay from "./claritytour/ClarityTourOverlay";
 
 // ============================================================
-// NOTIFICATION BELL
+// TYPES
 // ============================================================
 
-export default function NotificationBell() {
+type DashboardLayoutProps = {
+  children: ReactNode;
+};
+
+type DashboardLink = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+type MobileNavSection = {
+  title?: string;
+  links: DashboardLink[];
+};
+
+// ============================================================
+// DASHBOARD LAYOUT
+// ============================================================
+
+export default function DashboardLayout({
+  children,
+}: DashboardLayoutProps) {
+  return (
+    <ClarityTourProvider>
+      <DashboardLayoutInner>
+        {children}
+      </DashboardLayoutInner>
+    </ClarityTourProvider>
+  );
+}
+
+// ============================================================
+// DASHBOARD LAYOUT INNER
+// ============================================================
+
+function DashboardLayoutInner({
+  children,
+}: DashboardLayoutProps) {
   const [
-    open,
-    setOpen,
+    mobileMenuOpen,
+    setMobileMenuOpen,
   ] = useState(false);
 
-  const wrapperRef =
-    useRef<HTMLDivElement | null>(
-      null
-    );
+  const pathname =
+    usePathname();
 
   const {
-    notifications,
-    unreadCount,
-    loading,
-    error,
-    refresh,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
-  } = useNotifications();
+    mobileNav = [
+      "/dashboard",
+      "/clarity",
+      "/calendar",
+    ],
+
+    fontFamily = "Inter",
+  } = useSettings();
 
   // ==========================================================
-  // CLOSE WHEN CLICKING OUTSIDE
+  // ALL LINKS
   // ==========================================================
 
-  useEffect(() => {
-    function handleClickOutside(
-      event: MouseEvent
-    ) {
-      if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(
-          event.target as Node
+  const allLinks: DashboardLink[] = [
+    {
+      href: "/dashboard",
+      label: "Home",
+      icon: LayoutDashboard,
+    },
+
+    {
+      href: "/calendar",
+      label: "Calendar",
+      icon: Calendar,
+    },
+
+    {
+      href: "/crm",
+      label: "Contacts",
+      icon: Users,
+    },
+
+    {
+      href: "/notes",
+      label: "Notes",
+      icon: StickyNote,
+    },
+
+    {
+      href: "/campaigns",
+      label: "Campaigns",
+      icon: Megaphone,
+    },
+
+    {
+      href: "/projects",
+      label: "Projects",
+      icon: Briefcase,
+    },
+
+    {
+      href: "/social",
+      label: "Social",
+      icon: Globe,
+    },
+
+    {
+      href: "/payments",
+      label: "Finance",
+      icon: Briefcase,
+    },
+
+    {
+      href: "/settings",
+      label: "Settings",
+      icon: Settings,
+    },
+  ];
+
+  // ==========================================================
+  // MOBILE SECTIONS
+  // ==========================================================
+
+  const mobileSections: MobileNavSection[] = [
+    {
+      links: [
+        {
+          href: "/dashboard",
+          label: "Home",
+          icon: LayoutDashboard,
+        },
+      ],
+    },
+
+    {
+      title: "My Business",
+
+      links: [
+        {
+          href: "/crm",
+          label: "Contacts",
+          icon: Users,
+        },
+
+        {
+          href: "/campaigns",
+          label: "Campaigns",
+          icon: Megaphone,
+        },
+
+        {
+          href: "/social",
+          label: "Social",
+          icon: Globe,
+        },
+
+        {
+          href: "/payments",
+          label: "Finance",
+          icon: Briefcase,
+        },
+
+        {
+          href: "/notes",
+          label: "Notes",
+          icon: StickyNote,
+        },
+      ],
+    },
+
+    {
+      title: "Clients & Projects",
+
+      links: [
+        {
+          href: "/projects",
+          label: "Workspace",
+          icon: Briefcase,
+        },
+      ],
+    },
+
+    {
+      title: "Planning",
+
+      links: [
+        {
+          href: "/calendar",
+          label: "Calendar",
+          icon: Calendar,
+        },
+      ],
+    },
+
+    {
+      title: "Settings",
+
+      links: [
+        {
+          href: "/settings",
+          label: "Settings",
+          icon: Settings,
+        },
+      ],
+    },
+  ];
+
+  // ==========================================================
+  // PINNED MOBILE LINKS
+  // ==========================================================
+
+  const pinnedMobileLinks =
+    allLinks
+      .filter((link) =>
+        mobileNav?.includes(
+          link.href
         )
-      ) {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
-
-    return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
-    };
-  }, []);
+      )
+      .slice(0, 3);
 
   // ==========================================================
-  // CLOSE WITH ESCAPE
+  // LOCK BODY WHEN MOBILE MENU IS OPEN
   // ==========================================================
 
-  useEffect(() => {
-    function handleKeyDown(
-      event: KeyboardEvent
-    ) {
-      if (
-        event.key ===
-        "Escape"
-      ) {
-        setOpen(false);
-      }
-    }
+  useEffect(
+    () => {
+      document.body.style.overflow =
+        mobileMenuOpen
+          ? "hidden"
+          : "";
 
-    document.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
-
-    return () => {
-      document.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
-    };
-  }, []);
-
-  // ==========================================================
-  // REFRESH WHEN OPENED
-  // ==========================================================
-
-  useEffect(() => {
-    if (open) {
-      refresh();
-    }
-  }, [
-    open,
-    refresh,
-  ]);
+      return () => {
+        document.body.style.overflow =
+          "";
+      };
+    },
+    [
+      mobileMenuOpen,
+    ]
+  );
 
   // ==========================================================
   // RENDER
@@ -138,1023 +289,517 @@ export default function NotificationBell() {
 
   return (
     <div
-      ref={wrapperRef}
-      className="relative"
+      className="flex h-screen w-full overflow-hidden bg-[#fcfaf7]"
+      style={{
+        fontFamily:
+          `'${fontFamily}', sans-serif`,
+      }}
     >
-      {/* ======================================================
-          BELL BUTTON
-      ====================================================== */}
+      {/* =========================================
+          DESKTOP SIDEBAR
+      ========================================= */}
 
-      <button
-        type="button"
-        onClick={() =>
-          setOpen(
-            (current) =>
-              !current
-          )
-        }
-        aria-label="Notifications"
-        aria-expanded={open}
+      <aside
+        data-tour="dashboard-navigation"
         className="
           relative
-          flex
-          h-11
-          w-11
-          items-center
-          justify-center
-          rounded-2xl
-          border
-          border-stone-200
-          bg-white/95
-          text-stone-700
-          shadow-sm
-          backdrop-blur-xl
-          transition-all
-          duration-200
-          hover:-translate-y-0.5
-          hover:border-stone-300
-          hover:bg-white
-          hover:shadow-md
-          active:translate-y-0
-          active:scale-95
+          hidden
+          h-full
+          flex-shrink-0
+          md:block
         "
       >
-        <Bell
-          size={19}
-          strokeWidth={1.8}
-        />
+        <Sidebar />
 
-        {/* ====================================================
-            UNREAD BADGE
-        ==================================================== */}
+        {/* =====================================
+            DESKTOP NOTIFICATION BELL
 
-        {unreadCount > 0 && (
-          <span
+            This sits directly to the RIGHT
+            of the sidebar.
+        ===================================== */}
+
+        <div
+          className="
+            pointer-events-auto
+            absolute
+            left-full
+            top-6
+            z-[180]
+            ml-4
+          "
+        >
+          <NotificationBell />
+        </div>
+      </aside>
+
+      {/* =========================================
+          MAIN CONTENT AREA
+      ========================================= */}
+
+      <main className="relative flex h-full min-w-0 flex-1 flex-col">
+
+        {/* =========================================
+            MOBILE NOTIFICATION BELL
+
+            Desktop version is attached to sidebar.
+            This only appears below md.
+        ========================================= */}
+
+        <div
+          className="
+            pointer-events-none
+            fixed
+            right-4
+            top-4
+            z-[160]
+            md:hidden
+          "
+        >
+          <div className="pointer-events-auto">
+            <NotificationBell />
+          </div>
+        </div>
+
+        {/* =========================================
+            SCROLLABLE PAGE CONTENT
+        ========================================= */}
+
+        <div
+          data-tour="dashboard-content"
+          className="
+            flex-1
+            overflow-x-hidden
+            overflow-y-auto
+            p-4
+            pb-32
+
+            md:p-12
+            md:pb-12
+          "
+        >
+          {children}
+
+          <Footer />
+        </div>
+
+        {/* =========================================
+            MOBILE BOTTOM NAV
+        ========================================= */}
+
+        <nav
+          data-tour="mobile-navigation"
+          className="
+            fixed
+            bottom-0
+            left-0
+            right-0
+            z-[90]
+
+            flex
+            h-14
+            items-center
+            justify-between
+
+            border-t
+            border-stone-100
+
+            bg-white/90
+
+            px-3
+            pb-safe
+
+            backdrop-blur-2xl
+
+            md:hidden
+          "
+        >
+          {pinnedMobileLinks.map(
+            (
+              link
+            ) => (
+              <MobileNavItem
+                key={
+                  link.href
+                }
+                href={
+                  link.href
+                }
+                icon={
+                  link.icon
+                }
+                label={
+                  link.label
+                }
+                isActive={
+                  pathname ===
+                    link.href ||
+                  pathname.startsWith(
+                    `${link.href}/`
+                  )
+                }
+              />
+            )
+          )}
+
+          <button
+            type="button"
+            onClick={() =>
+              setMobileMenuOpen(
+                true
+              )
+            }
             className="
-              absolute
-              -right-1
-              -top-1
               flex
-              min-h-[18px]
-              min-w-[18px]
+              flex-col
               items-center
-              justify-center
-              rounded-full
-              bg-stone-900
-              px-1
-              text-[9px]
-              font-black
-              leading-none
-              text-white
-              shadow-sm
-              ring-2
-              ring-[#fcfaf7]
+              gap-1
+
+              text-stone-400
+
+              transition-colors
+              active:scale-90
             "
           >
-            {unreadCount >
-            99
-              ? "99+"
-              : unreadCount}
-          </span>
-        )}
-      </button>
+            <Menu
+              size={18}
+              strokeWidth={1.5}
+            />
 
-      {/* ======================================================
-          NOTIFICATION PANEL
-      ====================================================== */}
+            <span className="text-[7px] font-black uppercase tracking-tighter">
+              More
+            </span>
+          </button>
+        </nav>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{
-              opacity: 0,
-              y: -8,
-              scale: 0.98,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              scale: 1,
-            }}
-            exit={{
-              opacity: 0,
-              y: -8,
-              scale: 0.98,
-            }}
-            transition={{
-              duration: 0.16,
-              ease: "easeOut",
-            }}
-            className="
-              absolute
-              right-0
-              top-full
-              z-[300]
-              mt-3
-              w-[min(390px,calc(100vw-2rem))]
-              overflow-hidden
-              rounded-[1.75rem]
-              border
-              border-stone-200
-              bg-white
-              shadow-[0_24px_70px_rgba(28,25,23,0.18)]
-            "
-          >
-            {/* ==================================================
-                HEADER
-            ================================================== */}
+        {/* =========================================
+            MOBILE FULL-SCREEN MENU
+        ========================================= */}
 
-            <div
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{
+                y: "100%",
+              }}
+              animate={{
+                y: 0,
+              }}
+              exit={{
+                y: "100%",
+              }}
+              transition={{
+                type: "spring",
+                damping: 30,
+                stiffness: 300,
+              }}
               className="
-                flex
-                items-start
-                justify-between
-                gap-4
-                border-b
-                border-stone-100
-                px-5
-                py-4
+                fixed
+                inset-0
+                z-[200]
+
+                overflow-y-auto
+
+                bg-[#fcfaf7]
               "
             >
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-black tracking-tight text-stone-900">
-                    Notifications
-                  </h2>
+              <div className="min-h-full p-5 pb-24">
 
-                  {unreadCount >
-                    0 && (
-                    <span
-                      className="
-                        rounded-full
-                        bg-stone-100
-                        px-2
-                        py-0.5
-                        text-[9px]
-                        font-black
-                        uppercase
-                        tracking-wider
-                        text-stone-600
-                      "
-                    >
-                      {
-                        unreadCount
-                      }{" "}
-                      new
+                {/* =====================================
+                    MOBILE MENU HEADER
+                ===================================== */}
+
+                <div className="mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/icon.png"
+                      alt="TOTS-OS"
+                      className="h-9 w-9 rounded-xl object-contain"
+                    />
+
+                    <span className="font-serif text-2xl italic tracking-tighter text-stone-900">
+                      TOTS-OS
                     </span>
-                  )}
-                </div>
+                  </div>
 
-                <p className="mt-1 text-[11px] leading-relaxed text-stone-400">
-                  Updates from
-                  across your
-                  business.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1">
-                {unreadCount >
-                  0 && (
                   <button
                     type="button"
                     onClick={() =>
-                      markAllAsRead()
+                      setMobileMenuOpen(
+                        false
+                      )
                     }
-                    title="Mark all as read"
                     className="
-                      flex
-                      h-8
-                      w-8
-                      items-center
-                      justify-center
-                      rounded-xl
-                      text-stone-400
-                      transition-colors
-                      hover:bg-stone-100
-                      hover:text-stone-800
+                      rounded-[1.25rem]
+
+                      border
+                      border-stone-200
+
+                      bg-white
+
+                      p-3
+
+                      shadow-sm
+
+                      transition-transform
+
+                      active:scale-95
                     "
                   >
-                    <CheckCheck
-                      size={
-                        16
-                      }
+                    <X
+                      size={20}
+                      className="text-stone-900"
                     />
                   </button>
-                )}
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpen(
-                      false
-                    )
-                  }
-                  aria-label="Close notifications"
-                  className="
-                    flex
-                    h-8
-                    w-8
-                    items-center
-                    justify-center
-                    rounded-xl
-                    text-stone-400
-                    transition-colors
-                    hover:bg-stone-100
-                    hover:text-stone-800
-                  "
-                >
-                  <X
-                    size={
-                      16
-                    }
-                  />
-                </button>
-              </div>
-            </div>
+                {/* =====================================
+                    MOBILE NOTIFICATION ACCESS
+                ===================================== */}
 
-            {/* ==================================================
-                LOADING
-            ================================================== */}
-
-            {loading &&
-            notifications.length ===
-              0 ? (
-              <div className="flex min-h-[220px] flex-col items-center justify-center px-6 text-center">
-                <Loader2
-                  size={22}
-                  className="mb-3 animate-spin text-stone-400"
-                />
-
-                <p className="text-xs font-bold text-stone-700">
-                  Loading
-                  notifications...
-                </p>
-              </div>
-            ) : error ? (
-              /* =================================================
-                 ERROR
-              ================================================= */
-
-              <div className="p-5">
-                <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle
-                      size={18}
-                      className="mt-0.5 shrink-0 text-red-500"
-                    />
-
-                    <div className="min-w-0">
-                      <p className="text-xs font-black text-red-700">
+                <div className="mb-6 rounded-[1.5rem] border border-stone-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
                         Notifications
-                        unavailable
                       </p>
 
-                      <p className="mt-1 break-words text-[11px] leading-relaxed text-red-600">
-                        {error}
+                      <p className="mt-1 text-xs font-bold text-stone-700">
+                        Business updates
                       </p>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          refresh()
-                        }
-                        className="mt-3 text-[10px] font-black uppercase tracking-wider text-red-700"
-                      >
-                        Try again
-                      </button>
                     </div>
+
+                    <NotificationBell />
                   </div>
                 </div>
-              </div>
-            ) : notifications.length ===
-              0 ? (
-              /* =================================================
-                 EMPTY
-              ================================================= */
 
-              <div className="flex min-h-[240px] flex-col items-center justify-center px-8 text-center">
+                {/* =====================================
+                    MOBILE MENU LINKS
+                ===================================== */}
+
                 <div
-                  className="
-                    mb-4
-                    flex
-                    h-12
-                    w-12
-                    items-center
-                    justify-center
-                    rounded-2xl
-                    bg-stone-100
-                    text-stone-400
-                  "
+                  data-tour="mobile-system-menu"
+                  className="space-y-5"
                 >
-                  <Bell
-                    size={
-                      20
-                    }
-                  />
+                  {mobileSections.map(
+                    (
+                      section,
+                      index
+                    ) => (
+                      <div
+                        key={
+                          section.title ||
+                          `mobile-section-${index}`
+                        }
+                      >
+                        {section.title && (
+                          <p className="mb-2 px-1 text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                            {
+                              section.title
+                            }
+                          </p>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {section.links.map(
+                            (
+                              link
+                            ) => {
+                              const Icon =
+                                link.icon;
+
+                              const isActive =
+                                pathname ===
+                                  link.href ||
+                                pathname.startsWith(
+                                  `${link.href}/`
+                                );
+
+                              return (
+                                <Link
+                                  key={
+                                    link.href
+                                  }
+                                  href={
+                                    link.href
+                                  }
+                                  onClick={() =>
+                                    setMobileMenuOpen(
+                                      false
+                                    )
+                                  }
+                                  data-tour={`nav-${link.label
+                                    .toLowerCase()
+                                    .replaceAll(
+                                      " ",
+                                      "-"
+                                    )}`}
+                                  className={`
+                                    flex
+                                    h-20
+                                    flex-col
+                                    justify-between
+
+                                    rounded-[1.4rem]
+
+                                    border
+
+                                    p-3
+
+                                    transition-all
+                                    duration-300
+
+                                    ${
+                                      isActive
+                                        ? "scale-[1.01] border-stone-200 bg-white shadow-md"
+                                        : "border-stone-100 bg-white/60 hover:bg-white active:scale-95"
+                                    }
+                                  `}
+                                >
+                                  <div
+                                    style={{
+                                      color:
+                                        isActive
+                                          ? "var(--brand-primary)"
+                                          : "#d6d3d1",
+                                    }}
+                                  >
+                                    <Icon
+                                      size={18}
+                                      strokeWidth={1.5}
+                                    />
+                                  </div>
+
+                                  <span
+                                    className={`
+                                      text-[7px]
+                                      font-black
+                                      uppercase
+                                      tracking-[0.18em]
+
+                                      ${
+                                        isActive
+                                          ? "text-stone-900"
+                                          : "text-stone-400"
+                                      }
+                                    `}
+                                  >
+                                    {
+                                      link.label
+                                    }
+                                  </span>
+                                </Link>
+                              );
+                            }
+                          )}
+                        </div>
+                      </div>
+                    )
+                  )}
                 </div>
-
-                <p className="text-sm font-black text-stone-800">
-                  You&apos;re
-                  all caught up
-                </p>
-
-                <p className="mt-1 max-w-[230px] text-[11px] leading-relaxed text-stone-400">
-                  Important
-                  updates,
-                  reminders and
-                  business
-                  activity will
-                  appear here.
-                </p>
               </div>
-            ) : (
-              /* =================================================
-                 NOTIFICATION LIST
-              ================================================= */
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-              <div
-                className="
-                  max-h-[min(520px,70vh)]
-                  overflow-y-auto
-                  overscroll-contain
-                "
-              >
-                {notifications.map(
-                  (
-                    notification
-                  ) => (
-                    <NotificationRow
-                      key={
-                        notification.id
-                      }
-                      notification={
-                        notification
-                      }
-                      onRead={() =>
-                        markAsRead(
-                          notification.id
-                        )
-                      }
-                      onDelete={() =>
-                        deleteNotification(
-                          notification.id
-                        )
-                      }
-                      onClose={() =>
-                        setOpen(
-                          false
-                        )
-                      }
-                    />
-                  )
-                )}
-              </div>
-            )}
+        {/* =========================================
+            EXISTING CLARITY ASSISTANT
+        ========================================= */}
 
-            {/* ==================================================
-                FOOTER
-            ================================================== */}
+        <Clarity />
 
-            {!loading &&
-              !error &&
-              notifications.length >
-                0 && (
-                <div
-                  className="
-                    border-t
-                    border-stone-100
-                    bg-stone-50/70
-                    px-5
-                    py-3
-                    text-center
-                  "
-                >
-                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400">
-                    TOTS-OS
-                    Business
-                    Notifications
-                  </p>
-                </div>
-              )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* =========================================
+            CLARITY PRODUCT TOUR
+        ========================================= */}
+
+        <ClarityTourOverlay />
+      </main>
     </div>
   );
 }
 
 // ============================================================
-// NOTIFICATION ROW
+// MOBILE NAV ITEM
 // ============================================================
 
-function NotificationRow({
-  notification,
-  onRead,
-  onDelete,
-  onClose,
+function MobileNavItem({
+  href,
+  icon: Icon,
+  label,
+  isActive,
 }: {
-  notification: Notification;
+  href: string;
 
-  onRead: () => void;
+  icon: LucideIcon;
 
-  onDelete: () => void;
+  label: string;
 
-  onClose: () => void;
+  isActive: boolean;
 }) {
-  const isRead =
-    Boolean(
-      notification.read
-    );
-
-  const link =
-    notification.link ||
-    getDefaultLink(
-      notification
-    );
-
-  const content = (
-    <div
-      className={`
-        group
-        relative
+  return (
+    <Link
+      href={href}
+      data-tour={`mobile-nav-${label
+        .toLowerCase()
+        .replaceAll(
+          " ",
+          "-"
+        )}`}
+      className="
         flex
-        gap-3
-        border-b
-        border-stone-100
-        px-5
-        py-4
-        transition-colors
+        flex-col
+        items-center
+        gap-1
 
-        ${
-          isRead
-            ? "bg-white hover:bg-stone-50"
-            : "bg-[#fcfaf7] hover:bg-[#faf7f2]"
-        }
-      `}
+        transition-all
+        duration-300
+
+        active:scale-90
+      "
+      style={{
+        color:
+          isActive
+            ? "var(--brand-primary)"
+            : "#d6d3d1",
+      }}
     >
-      {/* ======================================================
-          ICON
-      ====================================================== */}
+      <Icon
+        size={22}
+        strokeWidth={
+          isActive
+            ? 2.5
+            : 1.5
+        }
+      />
 
-      <div
+      <span
         className={`
-          mt-0.5
-          flex
-          h-9
-          w-9
-          shrink-0
-          items-center
-          justify-center
-          rounded-xl
+          text-[7px]
+          font-black
+          uppercase
+          tracking-tighter
 
           ${
-            getNotificationStyle(
-              notification
-            )
+            isActive
+              ? "opacity-100"
+              : "opacity-60"
           }
         `}
       >
-        <NotificationIcon
-          notification={
-            notification
-          }
-        />
-      </div>
+        {label}
+      </span>
 
-      {/* ======================================================
-          CONTENT
-      ====================================================== */}
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p
-                className={`
-                  truncate
-                  text-[12px]
-                  leading-tight
-                  text-stone-900
-
-                  ${
-                    isRead
-                      ? "font-bold"
-                      : "font-black"
-                  }
-                `}
-              >
-                {
-                  notification.title
-                }
-              </p>
-
-              {!isRead && (
-                <span
-                  className="
-                    h-1.5
-                    w-1.5
-                    shrink-0
-                    rounded-full
-                    bg-stone-900
-                  "
-                />
-              )}
-            </div>
-
-            <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-stone-500">
-              {
-                notification.message
-              }
-            </p>
-
-            <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-stone-300">
-              {formatNotificationTime(
-                notification.created_at
-              )}
-            </p>
-          </div>
-
-          {link && (
-            <ChevronRight
-              size={
-                15
-              }
-              className="
-                mt-1
-                shrink-0
-                text-stone-300
-                transition-transform
-                group-hover:translate-x-0.5
-                group-hover:text-stone-500
-              "
-            />
-          )}
-        </div>
-      </div>
-
-      {/* ======================================================
-          ACTIONS
-      ====================================================== */}
-
-      <div
-        className="
-          absolute
-          bottom-2
-          right-3
-          flex
-          items-center
-          gap-1
-          opacity-0
-          transition-opacity
-          group-hover:opacity-100
-        "
-      >
-        {!isRead && (
-          <button
-            type="button"
-            title="Mark as read"
-            onClick={(
-              event
-            ) => {
-              event.preventDefault();
-              event.stopPropagation();
-
-              onRead();
-            }}
-            className="
-              flex
-              h-7
-              w-7
-              items-center
-              justify-center
-              rounded-lg
-              bg-white
-              text-stone-400
-              shadow-sm
-              transition-colors
-              hover:text-stone-900
-            "
-          >
-            <Check
-              size={
-                13
-              }
-            />
-          </button>
-        )}
-
-        <button
-          type="button"
-          title="Delete notification"
-          onClick={(
-            event
-          ) => {
-            event.preventDefault();
-            event.stopPropagation();
-
-            onDelete();
+      {isActive && (
+        <motion.div
+          layoutId="activeTabIndicator"
+          className="mt-0.5 h-1 w-1 rounded-full"
+          style={{
+            backgroundColor:
+              "var(--brand-primary)",
           }}
-          className="
-            flex
-            h-7
-            w-7
-            items-center
-            justify-center
-            rounded-lg
-            bg-white
-            text-stone-400
-            shadow-sm
-            transition-colors
-            hover:text-red-500
-          "
-        >
-          <Trash2
-            size={
-              13
-            }
-          />
-        </button>
-      </div>
-    </div>
-  );
-
-  // ==========================================================
-  // CLICKABLE NOTIFICATION
-  // ==========================================================
-
-  if (link) {
-    return (
-      <Link
-        href={link}
-        onClick={() => {
-          if (
-            !isRead
-          ) {
-            onRead();
-          }
-
-          onClose();
-        }}
-        className="block"
-      >
-        {content}
-      </Link>
-    );
-  }
-
-  // ==========================================================
-  // NON CLICKABLE NOTIFICATION
-  // ==========================================================
-
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        if (
-          !isRead
-        ) {
-          onRead();
-        }
-      }}
-      className="block w-full text-left"
-    >
-      {content}
-    </button>
-  );
-}
-
-// ============================================================
-// NOTIFICATION ICON
-// ============================================================
-
-function NotificationIcon({
-  notification,
-}: {
-  notification: Notification;
-}) {
-  const category =
-    getNotificationCategory(
-      notification
-    );
-
-  if (
-    category ===
-    "shop"
-  ) {
-    return (
-      <Package
-        size={16}
-        strokeWidth={1.8}
-      />
-    );
-  }
-
-  if (
-    category ===
-    "invoice"
-  ) {
-    return (
-      <ReceiptText
-        size={16}
-        strokeWidth={1.8}
-      />
-    );
-  }
-
-  switch (
-    notification.type
-  ) {
-    case "error":
-      return (
-        <AlertCircle
-          size={16}
-          strokeWidth={1.8}
         />
-      );
-
-    case "warning":
-      return (
-        <CircleAlert
-          size={16}
-          strokeWidth={1.8}
-        />
-      );
-
-    case "success":
-      return (
-        <Check
-          size={16}
-          strokeWidth={2}
-        />
-      );
-
-    default:
-      return (
-        <Info
-          size={16}
-          strokeWidth={1.8}
-        />
-      );
-  }
-}
-
-// ============================================================
-// NOTIFICATION STYLE
-// ============================================================
-
-function getNotificationStyle(
-  notification: Notification
-) {
-  const category =
-    getNotificationCategory(
-      notification
-    );
-
-  if (
-    category ===
-    "shop"
-  ) {
-    return "bg-violet-50 text-violet-600";
-  }
-
-  if (
-    category ===
-    "invoice"
-  ) {
-    return "bg-amber-50 text-amber-600";
-  }
-
-  switch (
-    notification.type
-  ) {
-    case "success":
-      return "bg-emerald-50 text-emerald-600";
-
-    case "error":
-      return "bg-red-50 text-red-600";
-
-    case "warning":
-      return "bg-amber-50 text-amber-600";
-
-    default:
-      return "bg-blue-50 text-blue-600";
-  }
-}
-
-// ============================================================
-// NOTIFICATION CATEGORY
-// ============================================================
-
-function getNotificationCategory(
-  notification: Notification
-) {
-  const metadata =
-    notification.metadata &&
-    typeof notification.metadata ===
-      "object"
-      ? notification.metadata
-      : {};
-
-  const category =
-    typeof metadata.category ===
-    "string"
-      ? metadata.category.toLowerCase()
-      : "";
-
-  const source =
-    typeof metadata.source ===
-    "string"
-      ? metadata.source.toLowerCase()
-      : "";
-
-  const title =
-    (
-      notification.title ||
-      ""
-    ).toLowerCase();
-
-  if (
-    category.includes(
-      "shop"
-    ) ||
-    source.includes(
-      "shop"
-    ) ||
-    title.includes(
-      "order"
-    ) ||
-    title.includes(
-      "purchase"
-    )
-  ) {
-    return "shop";
-  }
-
-  if (
-    category.includes(
-      "invoice"
-    ) ||
-    source.includes(
-      "invoice"
-    ) ||
-    title.includes(
-      "invoice"
-    )
-  ) {
-    return "invoice";
-  }
-
-  return "general";
-}
-
-// ============================================================
-// DEFAULT LINK
-// ============================================================
-
-function getDefaultLink(
-  notification: Notification
-) {
-  const category =
-    getNotificationCategory(
-      notification
-    );
-
-  const metadata =
-    notification.metadata &&
-    typeof notification.metadata ===
-      "object"
-      ? notification.metadata
-      : {};
-
-  const platform =
-    typeof metadata.platform ===
-    "string"
-      ? metadata.platform.toLowerCase()
-      : "";
-
-  if (
-    category ===
-    "shop"
-  ) {
-    return "/store";
-  }
-
-  if (
-    category ===
-    "invoice"
-  ) {
-    return "/payments";
-  }
-
-  if (
-    platform
-  ) {
-    return "/social";
-  }
-
-  return null;
-}
-
-// ============================================================
-// TIME FORMATTER
-// ============================================================
-
-function formatNotificationTime(
-  value:
-    string |
-    null |
-    undefined
-) {
-  if (
-    !value
-  ) {
-    return "Just now";
-  }
-
-  const date =
-    new Date(
-      value
-    );
-
-  const timestamp =
-    date.getTime();
-
-  if (
-    Number.isNaN(
-      timestamp
-    )
-  ) {
-    return "";
-  }
-
-  const difference =
-    Date.now() -
-    timestamp;
-
-  const seconds =
-    Math.floor(
-      difference /
-      1000
-    );
-
-  if (
-    seconds <
-    60
-  ) {
-    return "Just now";
-  }
-
-  const minutes =
-    Math.floor(
-      seconds /
-      60
-    );
-
-  if (
-    minutes <
-    60
-  ) {
-    return `${minutes}m ago`;
-  }
-
-  const hours =
-    Math.floor(
-      minutes /
-      60
-    );
-
-  if (
-    hours <
-    24
-  ) {
-    return `${hours}h ago`;
-  }
-
-  const days =
-    Math.floor(
-      hours /
-      24
-    );
-
-  if (
-    days ===
-    1
-  ) {
-    return "Yesterday";
-  }
-
-  if (
-    days <
-    7
-  ) {
-    return `${days}d ago`;
-  }
-
-  return date.toLocaleDateString(
-    "en-GB",
-    {
-      day: "numeric",
-      month: "short",
-    }
+      )}
+    </Link>
   );
 }

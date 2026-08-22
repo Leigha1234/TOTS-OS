@@ -2192,243 +2192,371 @@ export default function TotsOSLanding() {
             8px;
         }
 
-        /* =====================================================
-           HERO
-        ===================================================== */
+       /* =====================================================
+   HERO
+===================================================== */
 
-        .tots-hero {
-          padding:
-            165px 20px
-            90px;
+.tots-hero {
+  width: 100%;
+  min-height: 690px;
 
-          position:
-            relative;
-        }
+  padding:
+    165px 20px
+    90px;
 
-        .tots-hero::before {
-          content:
-            "";
+  position: relative;
 
-          position:
-            absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-          width:
-            480px;
+  overflow: hidden;
+}
 
-          height:
-            480px;
+.tots-hero::before {
+  content: "";
 
-          top:
-            20px;
+  position: absolute;
 
-          left:
-            50%;
+  width: 560px;
+  height: 560px;
 
-          transform:
-            translateX(
-              -50%
-            );
+  top: 30px;
+  left: 50%;
 
-          border-radius:
-            50%;
+  transform:
+    translateX(-50%);
 
-          background:
-            rgba(
-              198,
-              157,
-              105,
-              .12
-            );
+  border-radius: 50%;
 
-          filter:
-            blur(
-              120px
-            );
+  background:
+    rgba(
+      198,
+      157,
+      105,
+      .12
+    );
 
-          pointer-events:
-            none;
-        }
+  filter:
+    blur(120px);
 
-        .tots-hero-inner {
-          width:
-            min(
-              1060px,
-              100%
-            );
+  pointer-events: none;
+}
 
-          margin:
-            0 auto;
+.tots-hero-inner {
+  width: 100%;
+  max-width: 1060px;
 
-          position:
-            relative;
+  margin-left: auto;
+  margin-right: auto;
 
-          text-align:
-            center;
-        }
+  padding: 0;
 
-        .hero-pill {
-          display:
-            inline-flex;
+  position: relative;
+  z-index: 2;
 
-          align-items:
-            center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 
-          gap:
-            8px;
+  text-align: center;
+}
 
-          padding:
-            9px 14px;
+.tots-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-          border:
-            1px solid
-            rgba(
-              198,
-              157,
-              105,
-              .26
-            );
+  gap: 8px;
 
-          border-radius:
-            999px;
+  padding:
+    9px 14px;
 
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              .45
-            );
+  border:
+    1px solid
+    rgba(
+      198,
+      157,
+      105,
+      .26
+    );
 
-          color:
-            var(--charcoal-soft);
+  border-radius: 999px;
 
-          font-size:
-            11px;
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      .45
+    );
 
-          font-weight:
-            600;
-        }
+  color:
+    var(--charcoal-soft);
 
-        .hero-pill svg {
-          color:
-            var(--tan-dark);
-        }
+  font-size: 11px;
+  font-weight: 600;
 
-        .tots-hero h1 {
-          max-width:
-            1000px;
+  text-align: center;
+}
 
-          margin:
-            29px auto
-            0;
+.tots-hero-pill svg {
+  color:
+    var(--tan-dark);
+}
 
-          font-size:
-            clamp(
-              3.4rem,
-              7vw,
-              7rem
-            );
+.tots-hero h1 {
+  width: 100%;
 
-          font-weight:
-            500;
+  max-width: 1000px;
 
-          line-height:
-            .97;
-        }
+  margin:
+    29px auto
+    0 !important;
 
-        .hero-accent {
-          display:
-            block;
+  padding: 0;
 
-          color:
-            var(--tan-dark);
-        }
+  color:
+    var(--charcoal);
 
-        .hero-copy {
-          max-width:
-            750px;
+  font-size:
+    clamp(
+      3.4rem,
+      7vw,
+      7rem
+    );
 
-          margin:
-            28px auto
-            0;
+  font-weight: 500;
 
-          color:
-            var(--muted);
+  line-height: .97;
 
-          font-size:
-            clamp(
-              15px,
-              1.5vw,
-              18px
-            );
+  text-align: center !important;
+}
 
-          line-height:
-            1.7;
-        }
+.tots-hero-accent {
+  display: block;
 
-        .hero-copy strong {
-          color:
-            var(--charcoal);
+  width: 100%;
 
-          font-weight:
-            600;
-        }
+  color:
+    var(--tan-dark);
 
-        .hero-actions {
-          margin-top:
-            34px;
+  text-align: center;
+}
 
-          display:
-            flex;
+.tots-hero-copy {
+  width: 100%;
 
-          justify-content:
-            center;
+  max-width: 790px;
 
-          gap:
-            10px;
+  margin:
+    28px auto
+    0 !important;
 
-          flex-wrap:
-            wrap;
-        }
+  padding: 0;
 
-        .hero-note {
-          margin-top:
-            18px;
+  color:
+    var(--muted);
 
-          display:
-            flex;
+  font-size:
+    clamp(
+      15px,
+      1.5vw,
+      18px
+    );
 
-          justify-content:
-            center;
+  line-height: 1.7;
 
-          gap:
-            18px;
+  text-align: center !important;
+}
 
-          flex-wrap:
-            wrap;
+.tots-hero-copy strong {
+  color:
+    var(--charcoal);
 
-          color:
-            var(--muted);
+  font-weight: 600;
+}
 
-          font-size:
-            11px;
-        }
+.tots-hero-actions {
+  width: 100%;
 
-        .hero-note span {
-          display:
-            inline-flex;
+  margin:
+    34px auto
+    0;
 
-          align-items:
-            center;
+  display: flex;
 
-          gap:
-            6px;
-        }
+  align-items: center;
+  justify-content: center;
 
-        .hero-note svg {
-          color:
-            var(--tan-dark);
-        }
+  gap: 10px;
+
+  flex-wrap: wrap;
+
+  text-align: center;
+}
+
+.tots-hero-note {
+  width: 100%;
+
+  margin:
+    18px auto
+    0;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap:
+    18px;
+
+  flex-wrap: wrap;
+
+  color:
+    var(--muted);
+
+  font-size: 11px;
+
+  text-align: center;
+}
+
+.tots-hero-note span {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+}
+
+.tots-hero-note svg {
+  color:
+    var(--tan-dark);
+}
+
+
+/* =====================================================
+   HERO — MOBILE
+===================================================== */
+
+@media (
+  max-width:
+  760px
+) {
+
+  .tots-hero {
+    min-height: auto;
+
+    padding:
+      125px 17px
+      65px;
+  }
+
+  .tots-hero-inner {
+    width: 100%;
+
+    max-width: 100%;
+
+    margin:
+      0 auto;
+
+    align-items:
+      center;
+
+    text-align:
+      center;
+  }
+
+  .tots-hero h1 {
+    width: 100%;
+
+    max-width: 600px;
+
+    margin:
+      24px auto
+      0 !important;
+
+    font-size:
+      clamp(
+        3rem,
+        13vw,
+        4.6rem
+      );
+
+    text-align:
+      center !important;
+  }
+
+  .tots-hero-copy {
+    width: 100%;
+
+    max-width: 540px;
+
+    margin:
+      22px auto
+      0 !important;
+
+    font-size: 15px;
+
+    text-align:
+      center !important;
+  }
+
+  .tots-hero-actions {
+    width: 100%;
+
+    max-width: 520px;
+
+    margin:
+      28px auto
+      0;
+
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+
+  .tots-hero-actions a {
+    width: 100%;
+  }
+
+  .tots-hero-note {
+    max-width: 500px;
+
+    margin:
+      17px auto
+      0;
+
+    gap:
+      8px 12px;
+
+    font-size: 9px;
+  }
+
+}
+
+
+@media (
+  max-width:
+  480px
+) {
+
+  .tots-hero h1 {
+    font-size:
+      clamp(
+        2.8rem,
+        13vw,
+        3.7rem
+      );
+  }
+
+  .tots-hero-pill {
+    font-size: 9px;
+  }
+
+}
 
         /* =====================================================
            TRUST

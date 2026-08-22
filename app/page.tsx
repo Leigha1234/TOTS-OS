@@ -9,19 +9,23 @@ import {
 import {
   ArrowRight,
   ArrowUpRight,
+  BriefcaseBusiness,
   CalendarDays,
   Check,
   ChevronDown,
   ChevronRight,
   CircleDollarSign,
   ContactRound,
+  FileText,
   FolderKanban,
   Gauge,
   ImageIcon,
+  Inbox,
   Layers3,
   LayoutDashboard,
   LockKeyhole,
   LogIn,
+  Mail,
   Megaphone,
   Menu,
   MessageSquareText,
@@ -93,6 +97,13 @@ type DemoKey =
   | "workspace"
   | "calendar"
   | "settings";
+
+type TourStep = {
+  key: string;
+  eyebrow: string;
+  title: string;
+  text: string;
+};
 
 /* ============================================================
    GLOBAL CONTENT
@@ -289,37 +300,37 @@ const DEMO_NAV: {
     key: "contacts",
     label: "Contacts",
     icon: Users,
-    group: "Business",
+    group: "My business",
   },
   {
     key: "campaigns",
     label: "Campaigns",
     icon: Megaphone,
-    group: "Business",
+    group: "My business",
   },
   {
     key: "social",
     label: "Social",
     icon: MessageSquareText,
-    group: "Business",
+    group: "My business",
   },
   {
     key: "finance",
-    label: "Finances",
+    label: "Finance",
     icon: CircleDollarSign,
-    group: "Business",
+    group: "My business",
   },
   {
     key: "notes",
     label: "Notes",
     icon: NotebookPen,
-    group: "Business",
+    group: "My business",
   },
   {
     key: "workspace",
-    label: "Projects",
-    icon: FolderKanban,
-    group: "Clients",
+    label: "Workspace",
+    icon: BriefcaseBusiness,
+    group: "Clients & projects",
   },
   {
     key: "calendar",
@@ -339,21 +350,21 @@ const DEMO_CONTACTS = [
   {
     name: "Ava Stone",
     org: "Halstead & Co",
-    tag: "Strategic partner",
-  },
-  {
-    name: "Leo Bennett",
-    org: "Halstead & Co",
     tag: "Client",
   },
   {
-    name: "Priya N.",
+    name: "Leo Bennett",
     org: "Northfield Studio",
     tag: "Client",
   },
   {
-    name: "Tom R.",
+    name: "Priya N.",
     org: "Marlow Fitness",
+    tag: "Lead",
+  },
+  {
+    name: "Tom R.",
+    org: "Bright House",
     tag: "Client",
   },
 ];
@@ -361,19 +372,57 @@ const DEMO_CONTACTS = [
 const DEMO_CAMPAIGNS = [
   {
     name: "Summer launch",
-    list: "VIP clients",
+    list: "Newsletter",
     status: "Sent",
     sent: 128,
     opens: 74,
     clicks: 19,
   },
   {
-    name: "Autumn preview",
-    list: "Newsletter",
+    name: "Client update",
+    list: "Active clients",
     status: "Draft",
     sent: 0,
     opens: 0,
     clicks: 0,
+  },
+];
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    key: "dashboard",
+    eyebrow: "01 · Your dashboard",
+    title: "Start every day knowing what matters.",
+    text:
+      "Your home dashboard brings together business health, open work, projects, revenue, your calendar and the things that need your attention.",
+  },
+  {
+    key: "clients",
+    eyebrow: "02 · Clients",
+    title: "Keep the whole client relationship connected.",
+    text:
+      "Instead of searching through emails, notes and messages, TOTS-OS keeps your contacts, clients and the work connected to them in one place.",
+  },
+  {
+    key: "projects",
+    eyebrow: "03 · Projects",
+    title: "See the work, not just another to-do list.",
+    text:
+      "Projects bring tasks, deadlines, client information, files, notes and financial context together so you can see how delivery is actually progressing.",
+  },
+  {
+    key: "finance",
+    eyebrow: "04 · Finance",
+    title: "Know where the money stands.",
+    text:
+      "Invoices, quotes, expenses and your wider financial position sit alongside the work that created them.",
+  },
+  {
+    key: "clarity",
+    eyebrow: "05 · Meet Clarity",
+    title: "Ask your business what needs your attention.",
+    text:
+      "Clarity is the AI PA inside TOTS-OS. It can use the information already in your workspace to help surface priorities, overdue work, upcoming deadlines and important client actions.",
   },
 ];
 
@@ -404,7 +453,6 @@ function Logo({
       {showWordmark && (
         <span className="tots-logo-copy">
           <strong>TOTS-OS</strong>
-
           <small>
             by The Organised Types
           </small>
@@ -486,9 +534,7 @@ function DemoStat({
   return (
     <div className="demo-stat">
       <span>{label}</span>
-
       <strong>{value}</strong>
-
       {note && (
         <small>{note}</small>
       )}
@@ -496,58 +542,158 @@ function DemoStat({
   );
 }
 
-function DemoPanel({
-  title,
-  eyebrow,
-  children,
+function DemoNav({
+  active,
+  setActive,
 }: {
-  title: string;
-  eyebrow: string;
-  children: ReactNode;
+  active: DemoKey;
+  setActive: (
+    key: DemoKey
+  ) => void;
 }) {
+  let previousGroup =
+    "__start__";
+
   return (
-    <div className="demo-panel">
-      <span className="demo-label">
-        {eyebrow}
-      </span>
+    <aside className="real-demo-sidebar">
+      <div className="real-demo-logo">
+        <Logo
+          size={47}
+          showWordmark={false}
+        />
+      </div>
 
-      <h4>{title}</h4>
+      <div className="real-demo-nav">
+        {DEMO_NAV.map(
+          (
+            item
+          ) => {
+            const Icon =
+              item.icon;
 
-      {children}
-    </div>
+            const showGroup =
+              item.group &&
+              item.group !==
+                previousGroup;
+
+            previousGroup =
+              item.group;
+
+            return (
+              <div
+                key={
+                  item.key
+                }
+              >
+                {showGroup && (
+                  <div className="real-demo-group">
+                    {
+                      item.group
+                    }
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActive(
+                      item.key
+                    )
+                  }
+                  className={
+                    active ===
+                    item.key
+                      ? "active"
+                      : ""
+                  }
+                >
+                  <Icon
+                    size={16}
+                  />
+
+                  <span>
+                    {
+                      item.label
+                    }
+                  </span>
+                </button>
+              </div>
+            );
+          }
+        )}
+      </div>
+
+      <div className="real-demo-sidebar-bottom">
+        <button
+          type="button"
+          onClick={() =>
+            setActive(
+              "settings"
+            )
+          }
+          className={
+            active ===
+            "settings"
+              ? "active"
+              : ""
+          }
+        >
+          <SettingsIcon
+            size={16}
+          />
+          Settings
+        </button>
+      </div>
+    </aside>
   );
 }
 
 /* ============================================================
-   DEMO VIEWS
+   HOME DEMO — MATCHES REAL TOTS-OS
 ============================================================ */
 
 function DemoHome() {
   return (
-    <>
-      <div className="demo-page-head">
+    <div className="real-home">
+      <div className="real-home-top">
         <div>
-          <span className="demo-label">
-            Wednesday · 19 August
-          </span>
+          <div className="real-date">
+            <span />
+            Saturday, 22 August 2026
+          </div>
 
           <h3>
-            Good afternoon.
+            Good morning.
           </h3>
 
           <p>
-            Here&apos;s what&apos;s
+            Here&apos;s everything
             happening across your
             business.
           </p>
         </div>
 
-        <div className="demo-spark">
-          <Sparkles size={15} />
+        <div className="clarity-alert">
+          <div className="clarity-alert-icon">
+            <Sparkles
+              size={14}
+            />
+          </div>
+
+          <div>
+            <span>
+              Clarity says
+            </span>
+
+            <strong>
+              Your workload needs
+              attention
+            </strong>
+          </div>
         </div>
       </div>
 
-      <div className="demo-stats demo-six">
+      <div className="real-kpis">
         <DemoStat
           label="Health"
           value="82%"
@@ -569,177 +715,638 @@ function DemoHome() {
         />
 
         <DemoStat
-          label="Invoices"
+          label="Invoices due"
           value="2"
         />
 
         <DemoStat
           label="Revenue"
           value="£8,240"
-          note="+11.4%"
         />
       </div>
 
-      <div className="demo-grid">
-        <DemoPanel
-          eyebrow="Today"
-          title="Your priorities"
-        >
-          <div className="demo-list">
+      <div className="home-main-grid">
+        <div className="focus-card">
+          <div className="focus-top">
+            <div>
+              <span className="real-card-kicker">
+                Focus
+              </span>
+
+              <h4>
+                Today&apos;s
+                priorities
+              </h4>
+            </div>
+
+            <span className="risk-pill">
+              High risk
+            </span>
+          </div>
+
+          <p>
+            Activity is elevated.
+            Focus on delivery,
+            overdue work and
+            anything affecting
+            cash flow first.
+          </p>
+
+          <div className="priority-rows">
             {[
-              "Send the Halstead proposal",
-              "Review campaign performance",
-              "Approve this week's content",
+              "Focus on the highest-impact open tasks",
+              "Check upcoming meetings and deadlines",
+              "Review active project delivery",
             ].map(
               (
                 item,
                 index
               ) => (
                 <div
-                  className="demo-row"
-                  key={item}
+                  className="priority-row"
+                  key={
+                    item
+                  }
                 >
-                  <span className="demo-number">
-                    {index + 1}
+                  <span>
+                    {
+                      index +
+                      1
+                    }
                   </span>
 
-                  <span>
-                    {item}
-                  </span>
+                  {
+                    item
+                  }
                 </div>
               )
             )}
           </div>
-        </DemoPanel>
 
-        <DemoPanel
-          eyebrow="Clarity"
-          title="Worth your attention"
-        >
-          <p className="demo-muted">
-            One invoice is overdue and
-            your website project has
-            three tasks due this week.
-          </p>
+          <button
+            type="button"
+            className="sage-action"
+          >
+            View Clarity brief
+            <ArrowRight
+              size={13}
+            />
+          </button>
+        </div>
 
-          <div className="demo-clarity">
-            <Sparkles size={14} />
+        <div className="coming-card">
+          <div className="coming-head">
+            <h4>
+              <CalendarDays
+                size={16}
+              />
+              Coming up
+            </h4>
 
-            Ask Clarity what to
-            prioritise.
+            <span>
+              Calendar
+            </span>
           </div>
-        </DemoPanel>
+
+          <div className="event-list">
+            {[
+              {
+                day:
+                  "MON",
+                time:
+                  "09:00",
+                title:
+                  "Client strategy call",
+              },
+              {
+                day:
+                  "MON",
+                time:
+                  "13:00",
+                title:
+                  "Content planning",
+              },
+              {
+                day:
+                  "TUE",
+                time:
+                  "10:30",
+                title:
+                  "Website approval",
+              },
+              {
+                day:
+                  "WED",
+                time:
+                  "09:00",
+                title:
+                  "Project delivery review",
+              },
+            ].map(
+              (
+                event
+              ) => (
+                <div
+                  className="event-row"
+                  key={`${event.day}-${event.time}-${event.title}`}
+                >
+                  <div className="event-date">
+                    <strong>
+                      {
+                        event.day
+                      }
+                    </strong>
+
+                    <span>
+                      {
+                        event.time
+                      }
+                    </span>
+                  </div>
+
+                  <div className="event-title">
+                    {
+                      event.title
+                    }
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+
+        <div className="snapshot-card">
+          <span className="snapshot-kicker">
+            Snapshot
+          </span>
+
+          <h4>
+            Business now
+          </h4>
+
+          <div className="snapshot-revenue">
+            <span>
+              Paid revenue
+            </span>
+
+            <strong>
+              £8,240
+            </strong>
+          </div>
+
+          <div className="snapshot-line" />
+
+          <div className="snapshot-grid">
+            <div>
+              <span>
+                Team
+              </span>
+
+              <strong>
+                2
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Emails
+              </span>
+
+              <strong>
+                16
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Projects
+              </span>
+
+              <strong>
+                4
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Events
+              </span>
+
+              <strong>
+                9
+              </strong>
+            </div>
+          </div>
+        </div>
       </div>
-    </>
+
+      <div className="work-queue-card">
+        <div className="work-queue-head">
+          <div>
+            <span className="real-card-kicker">
+              Work queue
+            </span>
+
+            <h4>
+              Priority tasks
+            </h4>
+          </div>
+
+          <div className="quick-task">
+            <span>
+              Add task...
+            </span>
+
+            <button
+              type="button"
+            >
+              <Plus
+                size={13}
+              />
+            </button>
+          </div>
+        </div>
+
+        <div className="task-strip">
+          {[
+            "Approve client proposal",
+            "Review website changes",
+            "Prepare campaign content",
+            "Send invoice reminder",
+            "Schedule launch post",
+          ].map(
+            (
+              item,
+              index
+            ) => (
+              <div
+                className="task-chip"
+                key={
+                  item
+                }
+              >
+                <span className="task-check" />
+
+                <strong>
+                  {
+                    item
+                  }
+                </strong>
+
+                {index ===
+                  0 && (
+                  <small>
+                    High
+                  </small>
+                )}
+              </div>
+            )
+          )}
+        </div>
+
+        <button
+          type="button"
+          className="sage-action"
+        >
+          View all 12 tasks
+          <ArrowRight
+            size={13}
+          />
+        </button>
+      </div>
+
+      <div className="bottom-dashboard-grid">
+        <div className="mini-dashboard-card">
+          <div className="mini-dashboard-title">
+            <h4>
+              <BriefcaseBusiness
+                size={17}
+              />
+              Projects
+            </h4>
+
+            <button
+              type="button"
+            >
+              View all
+            </button>
+          </div>
+
+          <div className="mini-project">
+            <div>
+              <strong>
+                Website
+                redesign
+              </strong>
+
+              <span>
+                7 open tasks
+              </span>
+            </div>
+
+            <span className="mini-progress">
+              68%
+            </span>
+          </div>
+
+          <div className="mini-project">
+            <div>
+              <strong>
+                Launch
+                campaign
+              </strong>
+
+              <span>
+                4 open tasks
+              </span>
+            </div>
+
+            <span className="mini-progress">
+              42%
+            </span>
+          </div>
+        </div>
+
+        <div className="mini-dashboard-card">
+          <div className="mini-dashboard-title">
+            <h4>
+              <FileText
+                size={17}
+              />
+              Notes
+            </h4>
+
+            <button
+              type="button"
+            >
+              View all
+            </button>
+          </div>
+
+          <div className="note-preview">
+            <strong>
+              Launch ideas
+            </strong>
+
+            <span>
+              Content, offers
+              and post-launch
+              notes...
+            </span>
+          </div>
+
+          <div className="note-preview">
+            <strong>
+              Client
+              feedback
+            </strong>
+
+            <span>
+              Website changes
+              requested...
+            </span>
+          </div>
+        </div>
+
+        <div className="mini-dashboard-card">
+          <div className="mini-dashboard-title">
+            <h4>
+              <Mail
+                size={17}
+              />
+              Recent emails
+            </h4>
+
+            <span className="email-count">
+              3
+            </span>
+          </div>
+
+          <div className="email-preview">
+            <div className="email-avatar">
+              A
+            </div>
+
+            <div>
+              <strong>
+                Ava
+              </strong>
+
+              <span>
+                Website
+                approval
+              </span>
+            </div>
+          </div>
+
+          <div className="email-preview">
+            <div className="email-avatar">
+              M
+            </div>
+
+            <div>
+              <strong>
+                Mia
+              </strong>
+
+              <span>
+                Project
+                update
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
+/* ============================================================
+   OTHER DEMO VIEWS
+============================================================ */
+
 function DemoContacts() {
   return (
-    <>
-      <div className="demo-page-head">
+    <div className="inside-page">
+      <div className="inside-page-head">
         <div>
-          <span className="demo-label">
-            CRM
+          <span className="real-date">
+            <span />
+            My business
           </span>
 
           <h3>
             Contacts
           </h3>
+
+          <p>
+            Keep every client,
+            lead and relationship
+            organised.
+          </p>
         </div>
 
-        <div className="demo-search">
-          <Search size={14} />
-          Search
+        <button
+          type="button"
+          className="inside-primary"
+        >
+          <Plus
+            size={14}
+          />
+          New contact
+        </button>
+      </div>
+
+      <div className="inside-toolbar">
+        <div className="inside-search">
+          <Search
+            size={14}
+          />
+
+          Search contacts
+        </div>
+
+        <div className="inside-filter">
+          All contacts
+          <ChevronDown
+            size={13}
+          />
         </div>
       </div>
 
-      <div className="demo-list demo-margin">
+      <div className="contact-table">
+        <div className="contact-table-head">
+          <span>
+            Contact
+          </span>
+
+          <span>
+            Business
+          </span>
+
+          <span>
+            Type
+          </span>
+
+          <span>
+            Status
+          </span>
+        </div>
+
         {DEMO_CONTACTS.map(
           (
             contact
           ) => (
             <div
-              className="demo-contact"
-              key={contact.name}
+              className="contact-table-row"
+              key={
+                contact.name
+              }
             >
-              <div className="demo-avatar">
-                {contact.name.charAt(
-                  0
-                )}
-              </div>
+              <div className="contact-person">
+                <div className="demo-avatar">
+                  {contact.name.charAt(
+                    0
+                  )}
+                </div>
 
-              <div className="demo-grow">
                 <strong>
-                  {contact.name}
+                  {
+                    contact.name
+                  }
                 </strong>
-
-                <span>
-                  {contact.org} ·{" "}
-                  {contact.tag}
-                </span>
               </div>
 
-              <ChevronRight
-                size={15}
-              />
+              <span>
+                {
+                  contact.org
+                }
+              </span>
+
+              <span className="sage-tag">
+                {
+                  contact.tag
+                }
+              </span>
+
+              <span className="status-dot">
+                <i />
+                Active
+              </span>
             </div>
           )
         )}
       </div>
-    </>
+    </div>
   );
 }
 
 function DemoCampaigns() {
   return (
-    <>
-      <div className="demo-page-head">
+    <div className="inside-page">
+      <div className="inside-page-head">
         <div>
-          <span className="demo-label">
+          <span className="real-date">
+            <span />
             Marketing
           </span>
 
           <h3>
             Campaigns
           </h3>
+
+          <p>
+            Plan, build and keep
+            track of your email
+            campaigns.
+          </p>
         </div>
 
         <button
           type="button"
-          className="demo-button"
+          className="inside-primary"
         >
-          <Plus size={13} />
+          <Plus
+            size={14}
+          />
           New campaign
         </button>
       </div>
 
-      <div className="demo-grid demo-margin">
+      <div className="campaign-grid">
         {DEMO_CAMPAIGNS.map(
           (
             campaign
           ) => (
             <div
-              className="demo-panel"
-              key={campaign.name}
+              className="campaign-card"
+              key={
+                campaign.name
+              }
             >
-              <div className="demo-between">
+              <div className="campaign-top">
                 <div>
-                  <strong>
-                    {campaign.name}
-                  </strong>
+                  <span className="real-card-kicker">
+                    {
+                      campaign.status
+                    }
+                  </span>
 
-                  <p className="demo-muted">
-                    {campaign.list}
-                  </p>
+                  <h4>
+                    {
+                      campaign.name
+                    }
+                  </h4>
                 </div>
 
-                <span className="demo-badge">
-                  {campaign.status}
+                <span className="sage-tag">
+                  {
+                    campaign.list
+                  }
                 </span>
               </div>
 
-              <div className="demo-stats demo-three">
+              <div className="campaign-metrics">
                 <DemoStat
                   label="Sent"
                   value={String(
@@ -765,391 +1372,577 @@ function DemoCampaigns() {
           )
         )}
       </div>
-    </>
+    </div>
   );
 }
 
 function DemoSocial() {
   return (
-    <>
-      <div className="demo-page-head">
+    <div className="inside-page">
+      <div className="inside-page-head">
         <div>
-          <span className="demo-label">
+          <span className="real-date">
+            <span />
             Content
           </span>
 
           <h3>
             Social
           </h3>
+
+          <p>
+            Plan content alongside
+            everything else in the
+            business.
+          </p>
         </div>
 
         <button
           type="button"
-          className="demo-button"
+          className="inside-primary"
         >
-          <Sparkles size={13} />
-          Ideas
+          <Plus
+            size={14}
+          />
+          New post
         </button>
       </div>
 
-      <div className="demo-grid demo-margin">
-        <div className="demo-upload">
-          <ImageIcon size={24} />
-
-          <strong>
-            Add content
-          </strong>
-
-          <span>
-            Upload an image or
-            video
+      <div className="social-layout">
+        <div className="social-composer">
+          <span className="real-card-kicker">
+            Create
           </span>
+
+          <h4>
+            New social post
+          </h4>
+
+          <div className="social-dropzone">
+            <ImageIcon
+              size={24}
+            />
+
+            <strong>
+              Add your
+              content
+            </strong>
+
+            <span>
+              Image or video
+            </span>
+          </div>
         </div>
 
-        <DemoPanel
-          eyebrow="Publishing"
-          title="Connected platforms"
-        >
-          <div className="demo-list">
-            {[
-              "Instagram",
-              "TikTok",
-              "Facebook",
-              "LinkedIn",
-            ].map(
-              (
-                platform,
-                index
-              ) => (
-                <div
-                  className="demo-row"
-                  key={platform}
-                >
-                  <span className="demo-grow">
-                    {platform}
-                  </span>
+        <div className="social-calendar">
+          <span className="real-card-kicker">
+            Upcoming
+          </span>
 
-                  <span
-                    className={`demo-toggle ${
-                      index < 2
-                        ? "on"
-                        : ""
-                    }`}
-                  >
-                    <span />
-                  </span>
+          <h4>
+            Scheduled content
+          </h4>
+
+          {[
+            "Launch behind the scenes",
+            "Client spotlight",
+            "Feature walkthrough",
+          ].map(
+            (
+              post,
+              index
+            ) => (
+              <div
+                className="scheduled-post"
+                key={
+                  post
+                }
+              >
+                <span>
+                  {index +
+                    1}
+                </span>
+
+                <div>
+                  <strong>
+                    {
+                      post
+                    }
+                  </strong>
+
+                  <small>
+                    {
+                      index ===
+                      0
+                        ? "Today · 18:00"
+                        : "This week"
+                    }
+                  </small>
                 </div>
-              )
-            )}
-          </div>
-        </DemoPanel>
+              </div>
+            )
+          )}
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
 function DemoFinance() {
   return (
-    <>
-      <div className="demo-page-head">
+    <div className="inside-page">
+      <div className="inside-page-head">
         <div>
-          <span className="demo-label">
-            Overview
+          <span className="real-date">
+            <span />
+            Money
           </span>
 
           <h3>
-            Finances
+            Finance
           </h3>
+
+          <p>
+            See sales, expenses,
+            invoices and cash
+            position together.
+          </p>
         </div>
 
         <button
           type="button"
-          className="demo-button"
+          className="inside-primary"
         >
-          <RefreshCw size={13} />
-          Refresh
+          <Plus
+            size={14}
+          />
+          New invoice
         </button>
       </div>
 
-      <div className="demo-tabs">
-        {[
-          "Overview",
-          "Sales",
-          "Expenses",
-          "Tax & VAT",
-          "Payroll",
-        ].map(
-          (
-            item,
-            index
-          ) => (
-            <span
-              className={
-                index === 0
-                  ? "active"
-                  : ""
-              }
-              key={item}
-            >
-              {item}
-            </span>
-          )
-        )}
-      </div>
-
-      <div className="demo-finance-card">
-        <span className="demo-label light">
-          Financial overview
+      <div className="finance-tabs">
+        <span className="active">
+          Overview
         </span>
 
-        <h4>
-          Your position at a
-          glance
-        </h4>
+        <span>
+          Sales
+        </span>
 
-        <div className="demo-stats demo-four">
-          <DemoStat
-            label="Net position"
-            value="£4,120"
-          />
+        <span>
+          Expenses
+        </span>
 
-          <DemoStat
-            label="Outstanding"
-            value="£1,860"
-          />
+        <span>
+          Tax & VAT
+        </span>
 
-          <DemoStat
-            label="VAT"
-            value="£640"
-          />
+        <span>
+          Payroll
+        </span>
+      </div>
 
-          <DemoStat
-            label="Tax"
-            value="£1,050"
-          />
+      <div className="finance-overview">
+        <div className="finance-dark">
+          <span className="snapshot-kicker">
+            Financial
+            overview
+          </span>
+
+          <h4>
+            Your position
+          </h4>
+
+          <strong className="finance-big">
+            £8,240
+          </strong>
+
+          <span className="finance-small">
+            paid revenue this
+            period
+          </span>
+        </div>
+
+        <div className="finance-metric-card">
+          <span>
+            Outstanding
+          </span>
+
+          <strong>
+            £1,860
+          </strong>
+
+          <small>
+            2 invoices
+          </small>
+        </div>
+
+        <div className="finance-metric-card">
+          <span>
+            Expenses
+          </span>
+
+          <strong>
+            £1,240
+          </strong>
+
+          <small>
+            this period
+          </small>
+        </div>
+
+        <div className="finance-metric-card">
+          <span>
+            Tax estimate
+          </span>
+
+          <strong>
+            £1,050
+          </strong>
+
+          <small>
+            current
+            projection
+          </small>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
 function DemoNotes() {
   return (
-    <>
-      <div className="demo-page-head">
+    <div className="inside-page">
+      <div className="inside-page-head">
         <div>
-          <span className="demo-label">
+          <span className="real-date">
+            <span />
             Organisation
           </span>
 
           <h3>
-            Notes & Tasks
+            Notes
           </h3>
+
+          <p>
+            Keep useful business
+            information somewhere
+            it can actually be
+            found again.
+          </p>
         </div>
+
+        <button
+          type="button"
+          className="inside-primary"
+        >
+          <Plus
+            size={14}
+          />
+          New note
+        </button>
       </div>
 
-      <div className="demo-kanban">
+      <div className="notes-grid">
         {[
           {
-            name: "To do",
-            tasks: [
-              "Send proposal",
-              "Create launch content",
-            ],
+            title:
+              "Launch ideas",
+            text:
+              "Content concepts, offers, launch messaging and campaign ideas.",
           },
           {
-            name:
-              "In progress",
-            tasks: [
-              "Website refresh",
-            ],
+            title:
+              "Client feedback",
+            text:
+              "Requested website changes and notes from the latest review.",
           },
           {
-            name: "Done",
-            tasks: [
-              "Client onboarding",
-            ],
+            title:
+              "Brain dump",
+            text:
+              "Ideas to revisit, feature thoughts and things to organise later.",
           },
         ].map(
           (
-            column
+            note
           ) => (
             <div
-              className="demo-kanban-column"
-              key={column.name}
+              className="note-card"
+              key={
+                note.title
+              }
             >
-              <span className="demo-label">
-                {column.name}
-              </span>
+              <NotebookPen
+                size={18}
+              />
 
-              {column.tasks.map(
-                (
-                  task
-                ) => (
-                  <div
-                    className="demo-task"
-                    key={task}
-                  >
-                    <strong>
-                      {task}
-                    </strong>
+              <h4>
+                {
+                  note.title
+                }
+              </h4>
 
-                    <small>
-                      TOTS-OS
-                    </small>
-                  </div>
-                )
-              )}
+              <p>
+                {
+                  note.text
+                }
+              </p>
             </div>
           )
         )}
       </div>
-    </>
+    </div>
   );
 }
 
 function DemoWorkspace() {
   return (
-    <>
-      <div className="demo-page-head">
+    <div className="inside-page">
+      <div className="inside-page-head">
         <div>
-          <span className="demo-label">
-            Workspace
+          <span className="real-date">
+            <span />
+            Clients &
+            projects
           </span>
 
           <h3>
-            Clients & Projects
+            Workspace
           </h3>
+
+          <p>
+            See client work,
+            deadlines and project
+            progress in one place.
+          </p>
         </div>
 
         <button
           type="button"
-          className="demo-button"
+          className="inside-primary"
         >
-          <Plus size={13} />
+          <Plus
+            size={14}
+          />
           New project
         </button>
       </div>
 
-      <div className="demo-stats demo-four">
+      <div className="workspace-stats">
         <DemoStat
-          label="Projects"
+          label="Active projects"
           value="4"
         />
 
         <DemoStat
-          label="Clients"
-          value="6"
+          label="Open tasks"
+          value="12"
         />
 
         <DemoStat
-          label="Overdue"
-          value="1"
+          label="Due this week"
+          value="5"
         />
 
         <DemoStat
-          label="Value"
+          label="Project value"
           value="£6,400"
         />
       </div>
 
-      <div className="demo-list demo-margin">
+      <div className="project-list">
         {[
-          "Website redesign",
-          "Autumn campaign",
-          "Brand refresh",
+          {
+            title:
+              "Website redesign",
+            client:
+              "Halstead & Co",
+            progress:
+              68,
+          },
+          {
+            title:
+              "Launch campaign",
+            client:
+              "Northfield Studio",
+            progress:
+              42,
+          },
+          {
+            title:
+              "Brand refresh",
+            client:
+              "Marlow Fitness",
+            progress:
+              86,
+          },
         ].map(
           (
             project
           ) => (
             <div
-              className="demo-row"
-              key={project}
+              className="project-row"
+              key={
+                project.title
+              }
             >
-              <FolderKanban
-                size={14}
-              />
+              <div className="project-icon">
+                <BriefcaseBusiness
+                  size={17}
+                />
+              </div>
 
-              <span className="demo-grow">
-                {project}
-              </span>
+              <div className="project-copy">
+                <strong>
+                  {
+                    project.title
+                  }
+                </strong>
 
-              <ChevronRight
-                size={14}
-              />
+                <span>
+                  {
+                    project.client
+                  }
+                </span>
+              </div>
+
+              <div className="project-progress-wrap">
+                <div className="project-progress-bar">
+                  <span
+                    style={{
+                      width: `${project.progress}%`,
+                    }}
+                  />
+                </div>
+
+                <small>
+                  {
+                    project.progress
+                  }
+                  %
+                </small>
+              </div>
             </div>
           )
         )}
       </div>
-    </>
+    </div>
   );
 }
 
 function DemoCalendar() {
   return (
-    <>
-      <div className="demo-page-head">
+    <div className="inside-page">
+      <div className="inside-page-head">
         <div>
-          <span className="demo-label">
+          <span className="real-date">
+            <span />
             Planning
           </span>
 
           <h3>
             Calendar
           </h3>
+
+          <p>
+            Meetings, deadlines,
+            bookings and project
+            events together.
+          </p>
         </div>
 
         <button
           type="button"
-          className="demo-button"
+          className="inside-primary"
         >
-          <Plus size={13} />
+          <Plus
+            size={14}
+          />
           Add event
         </button>
       </div>
 
-      <div className="demo-stats demo-four">
-        <DemoStat
-          label="Today"
-          value="1"
-        />
+      <div className="calendar-demo">
+        <div className="calendar-days">
+          {[
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+          ].map(
+            (
+              day,
+              index
+            ) => (
+              <div
+                className="calendar-day"
+                key={
+                  day
+                }
+              >
+                <span>
+                  {
+                    day
+                  }
+                </span>
 
-        <DemoStat
-          label="Upcoming"
-          value="5"
-        />
+                <strong>
+                  {
+                    24 +
+                    index
+                  }
+                </strong>
+              </div>
+            )
+          )}
+        </div>
 
-        <DemoStat
-          label="Booking days"
-          value="4"
-        />
+        <div className="calendar-events">
+          <div className="calendar-event sage">
+            09:00 · Client
+            strategy call
+          </div>
 
-        <DemoStat
-          label="Booking page"
-          value="Live"
-        />
+          <div className="calendar-event">
+            11:30 · Project
+            review
+          </div>
+
+          <div className="calendar-event dark">
+            14:00 · Content
+            planning
+          </div>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
 function DemoSettings() {
   return (
-    <>
-      <div className="demo-page-head">
+    <div className="inside-page">
+      <div className="inside-page-head">
         <div>
-          <span className="demo-label">
+          <span className="real-date">
+            <span />
             Workspace
           </span>
 
           <h3>
             Settings
           </h3>
+
+          <p>
+            Manage your business
+            and workspace setup.
+          </p>
         </div>
       </div>
 
-      <div className="demo-panel demo-margin">
-        <span className="demo-label">
+      <div className="settings-card">
+        <span className="real-card-kicker">
           Business
         </span>
 
@@ -1157,29 +1950,29 @@ function DemoSettings() {
           Workspace settings
         </h4>
 
-        <div className="demo-grid">
+        <div className="settings-fields">
           <div>
-            <span className="demo-label">
+            <label>
               Business name
-            </span>
+            </label>
 
-            <div className="demo-field">
+            <div className="setting-field">
               Your Business
             </div>
           </div>
 
           <div>
-            <span className="demo-label">
+            <label>
               Email
-            </span>
+            </label>
 
-            <div className="demo-field">
+            <div className="setting-field">
               hello@yourbusiness.com
             </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -1202,7 +1995,11 @@ const DEMO_VIEWS: Record<
    PRODUCT DEMO
 ============================================================ */
 
-function ProductDemo() {
+function ProductDemo({
+  onStartTour,
+}: {
+  onStartTour: () => void;
+}) {
   const [
     active,
     setActive,
@@ -1220,85 +2017,23 @@ function ProductDemo() {
         className="demo-shell"
         id="demo"
       >
-        <div className="demo-browser">
-          <div className="demo-browser-top">
-            <div className="demo-dots">
-              <span />
-              <span />
-              <span />
-            </div>
+        <div className="real-demo-frame">
+          <div className="real-demo-app">
+            <DemoNav
+              active={active}
+              setActive={
+                setActive
+              }
+            />
 
-            <div className="demo-address">
-              <LockKeyhole
-                size={11}
-              />
-
-              tots-os.co.uk
-            </div>
-
-            <span className="demo-live">
-              <span />
-              Demo
-            </span>
-          </div>
-
-          <div className="demo-body">
-            <aside className="demo-sidebar">
-              <div className="demo-sidebar-logo">
-                <Logo
-                  size={30}
-                  showWordmark={
-                    false
-                  }
-                />
-              </div>
-
-              <div className="demo-nav">
-                {DEMO_NAV.map(
-                  (
-                    item
-                  ) => {
-                    const Icon =
-                      item.icon;
-
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() =>
-                          setActive(
-                            item.key
-                          )
-                        }
-                        className={
-                          active ===
-                          item.key
-                            ? "active"
-                            : ""
-                        }
-                      >
-                        <Icon
-                          size={15}
-                        />
-
-                        <span>
-                          {item.label}
-                        </span>
-                      </button>
-                    );
-                  }
-                )}
-              </div>
-            </aside>
-
-            <main className="demo-content">
+            <main className="real-demo-content">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={active}
                   initial={{
                     opacity:
                       0,
-                    y: 6,
+                    y: 4,
                   }}
                   animate={{
                     opacity:
@@ -1311,7 +2046,7 @@ function ProductDemo() {
                   }}
                   transition={{
                     duration:
-                      0.2,
+                      0.18,
                   }}
                 >
                   <ActiveView />
@@ -1322,12 +2057,20 @@ function ProductDemo() {
         </div>
 
         <div className="demo-mobile-tabs">
-          {DEMO_NAV.map(
+          {DEMO_NAV.filter(
+            (
+              item
+            ) =>
+              item.key !==
+              "settings"
+          ).map(
             (
               item
             ) => (
               <button
-                key={item.key}
+                key={
+                  item.key
+                }
                 type="button"
                 onClick={() =>
                   setActive(
@@ -1341,7 +2084,9 @@ function ProductDemo() {
                     : ""
                 }
               >
-                {item.label}
+                {
+                  item.label
+                }
               </button>
             )
           )}
@@ -1350,39 +2095,587 @@ function ProductDemo() {
         <div className="demo-cta">
           <div>
             <span>
-              Ready to make it
-              yours?
+              Want the guided
+              version?
             </span>
 
             <h3>
-              Put your actual
-              business inside
-              TOTS-OS.
+              Take the free
+              TOTS-OS tour.
             </h3>
 
             <p>
-              Create your account,
-              add your clients and
-              start bringing the
-              everyday running of
-              your business into
-              one place.
+              We&apos;ll walk you
+              through the
+              dashboard, clients,
+              projects, finances
+              and Clarity AI
+              before you decide
+              whether to sign up.
             </p>
           </div>
 
-          <a
-            href={SIGNUP_URL}
-            className="button-primary button-large"
-          >
-            Start free
+          <div className="demo-cta-actions">
+            <button
+              type="button"
+              onClick={
+                onStartTour
+              }
+              className="button-primary button-large"
+            >
+              <Play
+                size={15}
+              />
 
-            <ArrowRight
-              size={16}
-            />
-          </a>
+              Take free tour
+            </button>
+
+            <a
+              href={
+                SIGNUP_URL
+              }
+              className="button-secondary button-large"
+            >
+              Start free
+
+              <ArrowRight
+                size={16}
+              />
+            </a>
+          </div>
         </div>
       </div>
     </Reveal>
+  );
+}
+
+/* ============================================================
+   GUIDED TOUR
+============================================================ */
+
+function GuidedTour({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [
+    step,
+    setStep,
+  ] =
+    useState(
+      0
+    );
+
+  const [
+    finished,
+    setFinished,
+  ] =
+    useState(
+      false
+    );
+
+  const current =
+    TOUR_STEPS[
+      step
+    ];
+
+  const tourActiveKey: DemoKey =
+    step === 0
+      ? "home"
+      : step === 1
+      ? "contacts"
+      : step === 2
+      ? "workspace"
+      : step === 3
+      ? "finance"
+      : "home";
+
+  const TourView =
+    DEMO_VIEWS[
+      tourActiveKey
+    ];
+
+  function closeTour() {
+    setStep(
+      0
+    );
+
+    setFinished(
+      false
+    );
+
+    onClose();
+
+    setTimeout(
+      () => {
+        window.scrollTo({
+          top: 0,
+          behavior:
+            "smooth",
+        });
+      },
+      100
+    );
+  }
+
+  function next() {
+    if (
+      step <
+      TOUR_STEPS.length -
+        1
+    ) {
+      setStep(
+        (
+          old
+        ) =>
+          old +
+          1
+      );
+    } else {
+      setFinished(
+        true
+      );
+    }
+  }
+
+  function previous() {
+    if (
+      step >
+      0
+    ) {
+      setStep(
+        (
+          old
+        ) =>
+          old -
+          1
+      );
+    }
+  }
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="tour-overlay"
+          initial={{
+            opacity:
+              0,
+          }}
+          animate={{
+            opacity:
+              1,
+          }}
+          exit={{
+            opacity:
+              0,
+          }}
+        >
+          <motion.div
+            className="tour-window"
+            initial={{
+              opacity:
+                0,
+              scale:
+                0.97,
+              y: 20,
+            }}
+            animate={{
+              opacity:
+                1,
+              scale:
+                1,
+              y: 0,
+            }}
+            exit={{
+              opacity:
+                0,
+              scale:
+                0.98,
+            }}
+          >
+            <div className="tour-topbar">
+              <div className="tour-brand">
+                <Logo
+                  size={
+                    34
+                  }
+                />
+
+                <span className="tour-free-pill">
+                  Free tour
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="tour-close"
+                onClick={
+                  closeTour
+                }
+                aria-label="Close tour"
+              >
+                <X
+                  size={
+                    18
+                  }
+                />
+              </button>
+            </div>
+
+            {!finished ? (
+              <>
+                <div className="tour-layout">
+                  <div className="tour-product">
+                    <div className="tour-mini-app">
+                      <DemoNav
+                        active={
+                          tourActiveKey
+                        }
+                        setActive={() =>
+                          undefined
+                        }
+                      />
+
+                      <div className="tour-demo-content">
+                        {step ===
+                        4 ? (
+                          <div className="tour-clarity-screen">
+                            <div className="tour-clarity-head">
+                              <div>
+                                <span className="real-date">
+                                  <span />
+                                  Clarity AI
+                                </span>
+
+                                <h3>
+                                  Good
+                                  morning.
+                                </h3>
+
+                                <p>
+                                  Ask
+                                  Clarity
+                                  what
+                                  needs
+                                  your
+                                  attention.
+                                </p>
+                              </div>
+
+                              <div className="clarity-orb">
+                                <Sparkles
+                                  size={
+                                    22
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            <div className="tour-chat">
+                              <div className="tour-user-message">
+                                What
+                                should
+                                I focus
+                                on
+                                today?
+                              </div>
+
+                              <div className="tour-ai-message">
+                                <div className="tour-ai-label">
+                                  <Sparkles
+                                    size={
+                                      13
+                                    }
+                                  />
+                                  Clarity
+                                </div>
+
+                                <p>
+                                  I&apos;d
+                                  focus
+                                  on
+                                  these
+                                  three
+                                  things
+                                  first.
+                                  Your
+                                  website
+                                  project
+                                  has
+                                  the
+                                  nearest
+                                  deadline
+                                  and one
+                                  invoice
+                                  is now
+                                  overdue.
+                                </p>
+
+                                <div className="tour-ai-priority">
+                                  <span>
+                                    1
+                                  </span>
+
+                                  <div>
+                                    <strong>
+                                      Finish
+                                      website
+                                      approval
+                                    </strong>
+
+                                    <small>
+                                      Due
+                                      tomorrow
+                                    </small>
+                                  </div>
+                                </div>
+
+                                <div className="tour-ai-priority">
+                                  <span>
+                                    2
+                                  </span>
+
+                                  <div>
+                                    <strong>
+                                      Chase
+                                      outstanding
+                                      invoice
+                                    </strong>
+
+                                    <small>
+                                      £860
+                                      overdue
+                                    </small>
+                                  </div>
+                                </div>
+
+                                <div className="tour-ai-priority">
+                                  <span>
+                                    3
+                                  </span>
+
+                                  <div>
+                                    <strong>
+                                      Approve
+                                      scheduled
+                                      content
+                                    </strong>
+
+                                    <small>
+                                      3
+                                      posts
+                                      waiting
+                                    </small>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <TourView />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <aside className="tour-guide">
+                    <div className="tour-progress">
+                      {TOUR_STEPS.map(
+                        (
+                          _,
+                          index
+                        ) => (
+                          <span
+                            key={
+                              index
+                            }
+                            className={
+                              index <=
+                              step
+                                ? "active"
+                                : ""
+                            }
+                          />
+                        )
+                      )}
+                    </div>
+
+                    <span className="tour-eyebrow">
+                      {
+                        current.eyebrow
+                      }
+                    </span>
+
+                    <h2>
+                      {
+                        current.title
+                      }
+                    </h2>
+
+                    <p>
+                      {
+                        current.text
+                      }
+                    </p>
+
+                    {step ===
+                      4 && (
+                      <div className="tour-callout">
+                        <Sparkles
+                          size={
+                            16
+                          }
+                        />
+
+                        <div>
+                          <strong>
+                            This is
+                            where
+                            TOTS-OS
+                            becomes
+                            more than
+                            another
+                            dashboard.
+                          </strong>
+
+                          <span>
+                            Clarity
+                            can work
+                            with the
+                            context
+                            already
+                            inside
+                            your
+                            business
+                            workspace.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="tour-controls">
+                      <button
+                        type="button"
+                        className="tour-back"
+                        onClick={
+                          previous
+                        }
+                        disabled={
+                          step ===
+                          0
+                        }
+                      >
+                        Back
+                      </button>
+
+                      <button
+                        type="button"
+                        className="tour-next"
+                        onClick={
+                          next
+                        }
+                      >
+                        {step ===
+                        TOUR_STEPS.length -
+                          1
+                          ? "Finish tour"
+                          : "Next"}
+
+                        <ArrowRight
+                          size={
+                            14
+                          }
+                        />
+                      </button>
+                    </div>
+
+                    <span className="tour-step-count">
+                      {step +
+                        1}{" "}
+                      of{" "}
+                      {
+                        TOUR_STEPS.length
+                      }
+                    </span>
+                  </aside>
+                </div>
+              </>
+            ) : (
+              <div className="tour-finish">
+                <div className="tour-finish-icon">
+                  <Sparkles
+                    size={
+                      24
+                    }
+                  />
+                </div>
+
+                <span className="tour-eyebrow">
+                  Tour complete
+                </span>
+
+                <h2>
+                  Ready to put
+                  your business
+                  inside
+                  TOTS-OS?
+                </h2>
+
+                <p>
+                  Start your
+                  14-day free
+                  trial and turn
+                  the demo you
+                  just explored
+                  into your own
+                  connected
+                  business
+                  workspace.
+                </p>
+
+                <div className="tour-finish-actions">
+                  <a
+                    href={
+                      SIGNUP_URL
+                    }
+                    className="button-primary button-large"
+                  >
+                    Start my
+                    free trial
+
+                    <ArrowRight
+                      size={
+                        16
+                      }
+                    />
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={
+                      closeTour
+                    }
+                    className="button-secondary button-large"
+                  >
+                    Maybe later
+                  </button>
+                </div>
+
+                <span className="tour-finish-note">
+                  14 days free ·
+                  no commitment ·
+                  no card required
+                  to explore
+                </span>
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -1407,11 +2700,19 @@ export default function TotsOSLanding() {
       number | null
     >(0);
 
+  const [
+    tourOpen,
+    setTourOpen,
+  ] =
+    useState(
+      false
+    );
+
   return (
     <div className="tots-root">
       <style>{`
 
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Manrope:wght@400;500;600;700&display=swap');
 
         html {
           scroll-behavior: smooth;
@@ -1434,6 +2735,14 @@ export default function TotsOSLanding() {
           --tan: #c69d69;
           --tan-dark: #a77d4d;
           --tan-soft: #eadcc9;
+
+          --sage: #aebf98;
+          --sage-dark: #899d73;
+          --sage-light: #edf1e7;
+
+          --app-bg: #fbfaf7;
+          --app-border: #e5e3dc;
+          --app-text: #22211f;
 
           --border:
             rgba(
@@ -1461,14 +2770,9 @@ export default function TotsOSLanding() {
             );
 
           min-height: 100vh;
-
           overflow-x: hidden;
-
-          background:
-            var(--cream);
-
-          color:
-            var(--charcoal);
+          background: var(--cream);
+          color: var(--charcoal);
 
           font-family:
             'DM Sans',
@@ -1476,8 +2780,7 @@ export default function TotsOSLanding() {
         }
 
         .tots-root * {
-          box-sizing:
-            border-box;
+          box-sizing: border-box;
         }
 
         .tots-root h1,
@@ -1499,8 +2802,7 @@ export default function TotsOSLanding() {
           letter-spacing:
             -0.045em;
 
-          line-height:
-            1.05;
+          line-height: 1.05;
         }
 
         .tots-root a {
@@ -1513,12 +2815,15 @@ export default function TotsOSLanding() {
             transparent;
         }
 
+        .tots-root button {
+          font-family: inherit;
+        }
+
         .tots-root ::selection {
           background:
             var(--tan);
 
-          color:
-            white;
+          color: white;
         }
 
         /* =====================================================
@@ -1572,8 +2877,7 @@ export default function TotsOSLanding() {
           align-items:
             center;
 
-          gap:
-            9px;
+          gap: 9px;
 
           color:
             var(--charcoal-soft);
@@ -1592,11 +2896,8 @@ export default function TotsOSLanding() {
         }
 
         .tots-eyebrow > span {
-          width:
-            7px;
-
-          height:
-            7px;
+          width: 7px;
+          height: 7px;
 
           border-radius:
             50%;
@@ -1741,6 +3042,9 @@ export default function TotsOSLanding() {
           font-weight:
             600;
 
+          cursor:
+            pointer;
+
           transition:
             transform .2s ease,
             background .2s ease,
@@ -1784,11 +3088,11 @@ export default function TotsOSLanding() {
 
           color:
             var(--charcoal);
+        }
 
-          backdrop-filter:
-            blur(
-              10px
-            );
+        button.button-secondary {
+          cursor:
+            pointer;
         }
 
         .button-secondary:hover {
@@ -1825,14 +3129,9 @@ export default function TotsOSLanding() {
           position:
             fixed;
 
-          top:
-            0;
-
-          left:
-            0;
-
-          right:
-            0;
+          top: 0;
+          left: 0;
+          right: 0;
 
           z-index:
             80;
@@ -2222,9 +3521,6 @@ export default function TotsOSLanding() {
           margin:
             0 auto;
 
-          padding:
-            0;
-
           position:
             relative;
 
@@ -2300,15 +3596,9 @@ export default function TotsOSLanding() {
 
           line-height:
             1.2;
-
-          text-align:
-            center;
         }
 
         .tots-hero-pill svg {
-          flex-shrink:
-            0;
-
           color:
             var(--tan-dark);
         }
@@ -2323,12 +3613,6 @@ export default function TotsOSLanding() {
           margin:
             30px auto
             0 !important;
-
-          padding:
-            0;
-
-          color:
-            var(--charcoal);
 
           font-size:
             clamp(
@@ -2378,9 +3662,6 @@ export default function TotsOSLanding() {
             28px auto
             0 !important;
 
-          padding:
-            0;
-
           color:
             var(--muted);
 
@@ -2428,9 +3709,11 @@ export default function TotsOSLanding() {
 
           flex-wrap:
             wrap;
+        }
 
-          text-align:
-            center;
+        .tots-hero-actions button {
+          font-family:
+            inherit;
         }
 
         .tots-hero-note {
@@ -2461,12 +3744,6 @@ export default function TotsOSLanding() {
 
           font-size:
             11px;
-
-          line-height:
-            1;
-
-          text-align:
-            center;
         }
 
         .tots-hero-note span {
@@ -2487,9 +3764,6 @@ export default function TotsOSLanding() {
         }
 
         .tots-hero-note svg {
-          flex-shrink:
-            0;
-
           color:
             var(--tan-dark);
         }
@@ -2597,7 +3871,7 @@ export default function TotsOSLanding() {
         }
 
         /* =====================================================
-           PAIN / CALM
+           CALM
         ===================================================== */
 
         .calm-section {
@@ -2880,9 +4154,6 @@ export default function TotsOSLanding() {
         }
 
         .transform-row svg {
-          flex-shrink:
-            0;
-
           color:
             var(--tan-dark);
         }
@@ -3001,7 +4272,7 @@ export default function TotsOSLanding() {
         }
 
         /* =====================================================
-           DEMO
+           DEMO SECTION
         ===================================================== */
 
         .demo-section-head {
@@ -3031,188 +4302,128 @@ export default function TotsOSLanding() {
             55px;
         }
 
-        .demo-browser {
+        .real-demo-frame {
           overflow:
             hidden;
 
           border:
             1px solid
-            var(--border-strong);
+            #dedcd5;
 
           border-radius:
-            25px;
+            26px;
 
           background:
-            white;
+            #ffffff;
 
           box-shadow:
-            var(--shadow);
-        }
-
-        .demo-browser-top {
-          height:
-            45px;
-
-          padding:
-            0 15px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            10px;
-
-          border-bottom:
-            1px solid
-            var(--border);
-
-          background:
-            #eeeae2;
-        }
-
-        .demo-dots {
-          display:
-            flex;
-
-          gap:
-            5px;
-        }
-
-        .demo-dots span {
-          width:
-            7px;
-
-          height:
-            7px;
-
-          border-radius:
-            50%;
-
-          background:
+            0 35px 80px
             rgba(
-              55,
-              55,
-              53,
-              .2
+              40,
+              39,
+              35,
+              .11
             );
         }
 
-        .demo-address {
-          margin:
-            0 auto;
-
-          padding:
-            6px 12px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            5px;
-
-          border-radius:
-            999px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              .7
-            );
-
-          color:
-            var(--muted);
-
-          font-size:
-            9px;
-        }
-
-        .demo-live {
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            5px;
-
-          color:
-            var(--tan-dark);
-
-          font-size:
-            9px;
-
-          text-transform:
-            uppercase;
-        }
-
-        .demo-live span {
-          width:
-            6px;
-
+        .real-demo-app {
           height:
-            6px;
-
-          border-radius:
-            50%;
-
-          background:
-            var(--tan);
-        }
-
-        .demo-body {
-          min-height:
-            540px;
+            710px;
 
           display:
             grid;
 
           grid-template-columns:
-            185px 1fr;
+            165px
+            minmax(
+              0,
+              1fr
+            );
+
+          background:
+            var(--app-bg);
         }
 
-        .demo-sidebar {
-          padding:
-            17px 12px;
+        /* =====================================================
+           DEMO SIDEBAR
+        ===================================================== */
+
+        .real-demo-sidebar {
+          height:
+            100%;
+
+          position:
+            relative;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
 
           border-right:
             1px solid
-            var(--border);
+            var(--app-border);
 
           background:
-            #faf8f4;
+            #fff;
         }
 
-        .demo-sidebar-logo {
+        .real-demo-logo {
+          height:
+            82px;
+
           padding:
-            0 5px;
-        }
-
-        .demo-nav {
-          margin-top:
-            24px;
+            14px;
 
           display:
-            grid;
+            flex;
 
-          gap:
-            4px;
+          align-items:
+            center;
+
+          border-bottom:
+            1px solid
+            transparent;
         }
 
-        .demo-nav button {
+        .real-demo-nav {
+          padding:
+            8px 8px
+            80px;
+        }
+
+        .real-demo-group {
+          margin:
+            18px 8px
+            8px;
+
+          color:
+            #aaa79f;
+
+          font-size:
+            7px;
+
+          font-weight:
+            600;
+
+          letter-spacing:
+            .18em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .real-demo-nav button,
+        .real-demo-sidebar-bottom button {
           width:
             100%;
 
+          min-height:
+            35px;
+
           padding:
-            10px 11px;
+            0 9px;
 
           display:
             flex;
@@ -3227,47 +4438,94 @@ export default function TotsOSLanding() {
             0;
 
           border-radius:
-            10px;
+            9px;
 
           background:
             transparent;
 
           color:
-            #6f6c66;
-
-          font-family:
-            inherit;
+            #5f5c56;
 
           font-size:
-            11px;
+            9px;
+
+          text-align:
+            left;
 
           cursor:
             pointer;
 
-          text-align:
-            left;
+          transition:
+            .18s ease;
         }
 
-        .demo-nav button.active {
+        .real-demo-nav button svg,
+        .real-demo-sidebar-bottom button svg {
+          color:
+            #6c6961;
+        }
+
+        .real-demo-nav button:hover {
           background:
-            var(--tan-soft);
+            #f4f3ee;
+        }
+
+        .real-demo-nav button.active,
+        .real-demo-sidebar-bottom button.active {
+          background:
+            var(--sage);
 
           color:
-            var(--charcoal);
+            white;
         }
 
-        .demo-content {
+        .real-demo-nav button.active svg,
+        .real-demo-sidebar-bottom button.active svg {
+          color:
+            white;
+        }
+
+        .real-demo-sidebar-bottom {
+          margin-top:
+            auto;
+
+          padding:
+            10px 8px
+            14px;
+
+          border-top:
+            1px solid
+            var(--app-border);
+
+          background:
+            white;
+        }
+
+        /* =====================================================
+           DEMO CONTENT
+        ===================================================== */
+
+        .real-demo-content {
           min-width:
             0;
 
+          overflow:
+            auto;
+
           padding:
-            28px;
+            40px 50px
+            50px;
 
           background:
-            #f7f5ef;
+            var(--app-bg);
         }
 
-        .demo-page-head {
+        .real-home {
+          width:
+            100%;
+        }
+
+        .real-home-top {
           display:
             flex;
 
@@ -3278,21 +4536,1134 @@ export default function TotsOSLanding() {
             space-between;
 
           gap:
-            15px;
-
-          flex-wrap:
-            wrap;
+            20px;
         }
 
-        .demo-label {
+        .real-date {
+          display:
+            inline-flex;
+
+          align-items:
+            center;
+
+          gap:
+            7px;
+
           color:
-            #99958c;
+            #9b978e;
+
+          font-size:
+            7px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .18em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .real-date > span {
+          width:
+            6px;
+
+          height:
+            6px;
+
+          border-radius:
+            50%;
+
+          background:
+            var(--sage);
+        }
+
+        .real-home-top h3,
+        .inside-page-head h3,
+        .tour-clarity-head h3 {
+          margin-top:
+            7px !important;
+
+          font-family:
+            'DM Sans',
+            sans-serif !important;
+
+          color:
+            var(--app-text);
+
+          font-size:
+            22px;
+
+          font-style:
+            italic;
+
+          font-weight:
+            400;
+
+          letter-spacing:
+            -.04em;
+
+          line-height:
+            1;
+        }
+
+        .real-home-top > div:first-child > p,
+        .inside-page-head > div > p,
+        .tour-clarity-head p {
+          margin-top:
+            7px !important;
+
+          color:
+            #aaa79f;
+
+          font-size:
+            8px;
+
+          line-height:
+            1.45;
+        }
+
+        .clarity-alert {
+          min-width:
+            205px;
+
+          padding:
+            11px 13px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            10px;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            13px;
+
+          background:
+            white;
+        }
+
+        .clarity-alert-icon {
+          width:
+            28px;
+
+          height:
+            28px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            8px;
+
+          background:
+            var(--sage-light);
+
+          color:
+            var(--sage-dark);
+        }
+
+        .clarity-alert span {
+          display:
+            block;
+
+          color:
+            #9f9b93;
+
+          font-size:
+            6px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .16em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .clarity-alert strong {
+          display:
+            block;
+
+          margin-top:
+            3px;
+
+          color:
+            #4e4b46;
 
           font-size:
             8px;
 
           font-weight:
             600;
+        }
+
+        /* =====================================================
+           REAL KPI CARDS
+        ===================================================== */
+
+        .real-kpis,
+        .workspace-stats {
+          margin-top:
+            18px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            repeat(
+              6,
+              1fr
+            );
+
+          gap:
+            8px;
+        }
+
+        .workspace-stats {
+          grid-template-columns:
+            repeat(
+              4,
+              1fr
+            );
+        }
+
+        .demo-stat {
+          min-width:
+            0;
+
+          min-height:
+            67px;
+
+          padding:
+            13px;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            12px;
+
+          background:
+            white;
+        }
+
+        .demo-stat > span {
+          display:
+            block;
+
+          overflow:
+            hidden;
+
+          color:
+            #96928a;
+
+          font-size:
+            6px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .13em;
+
+          text-overflow:
+            ellipsis;
+
+          text-transform:
+            uppercase;
+
+          white-space:
+            nowrap;
+        }
+
+        .demo-stat > strong {
+          display:
+            block;
+
+          margin-top:
+            8px;
+
+          color:
+            #24231f;
+
+          font-family:
+            'DM Sans',
+            sans-serif;
+
+          font-size:
+            17px;
+
+          font-style:
+            italic;
+
+          font-weight:
+            400;
+        }
+
+        .demo-stat small {
+          color:
+            var(--sage-dark);
+
+          font-size:
+            7px;
+        }
+
+        /* =====================================================
+           MAIN HOME GRID
+        ===================================================== */
+
+        .home-main-grid {
+          margin-top:
+            14px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            1.45fr
+            1.15fr
+            .85fr;
+
+          gap:
+            10px;
+        }
+
+        .focus-card,
+        .coming-card {
+          min-height:
+            285px;
+
+          padding:
+            16px;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            18px;
+
+          background:
+            white;
+        }
+
+        .real-card-kicker,
+        .snapshot-kicker {
+          display:
+            block;
+
+          color:
+            var(--sage-dark);
+
+          font-size:
+            6px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .17em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .focus-top {
+          display:
+            flex;
+
+          align-items:
+            flex-start;
+
+          justify-content:
+            space-between;
+
+          gap:
+            10px;
+        }
+
+        .focus-card h4,
+        .coming-card h4,
+        .work-queue-card h4,
+        .snapshot-card h4,
+        .mini-dashboard-card h4,
+        .inside-page h4 {
+          margin-top:
+            5px;
+
+          font-family:
+            'DM Sans',
+            sans-serif;
+
+          color:
+            #24231f;
+
+          font-size:
+            18px;
+
+          font-style:
+            italic;
+
+          font-weight:
+            400;
+
+          letter-spacing:
+            -.04em;
+        }
+
+        .focus-card > p {
+          max-width:
+            90%;
+
+          margin-top:
+            11px !important;
+
+          color:
+            #aaa69f;
+
+          font-size:
+            8px;
+
+          line-height:
+            1.6;
+        }
+
+        .risk-pill {
+          padding:
+            7px 9px;
+
+          border-radius:
+            999px;
+
+          background:
+            #fff1ef;
+
+          color:
+            #ff4d48;
+
+          font-size:
+            6px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .11em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .priority-rows {
+          margin-top:
+            15px;
+
+          display:
+            grid;
+
+          gap:
+            6px;
+        }
+
+        .priority-row {
+          min-height:
+            34px;
+
+          padding:
+            7px 9px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            9px;
+
+          border-radius:
+            9px;
+
+          background:
+            #f7f6f2;
+
+          color:
+            #4e4b46;
+
+          font-size:
+            8px;
+
+          font-weight:
+            500;
+        }
+
+        .priority-row > span {
+          width:
+            18px;
+
+          height:
+            18px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          flex-shrink:
+            0;
+
+          border-radius:
+            50%;
+
+          background:
+            #22211f;
+
+          color:
+            white;
+
+          font-size:
+            6px;
+        }
+
+        .sage-action {
+          margin-top:
+            12px;
+
+          min-height:
+            31px;
+
+          padding:
+            0 13px;
+
+          display:
+            inline-flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          gap:
+            6px;
+
+          border:
+            0;
+
+          border-radius:
+            999px;
+
+          background:
+            var(--sage);
+
+          color:
+            white;
+
+          font-size:
+            7px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .12em;
+
+          text-transform:
+            uppercase;
+
+          cursor:
+            pointer;
+        }
+
+        .coming-head {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            10px;
+        }
+
+        .coming-head h4 {
+          margin:
+            0;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            7px;
+        }
+
+        .coming-head h4 svg {
+          color:
+            var(--sage);
+        }
+
+        .coming-head > span {
+          padding:
+            8px 13px;
+
+          border-radius:
+            999px;
+
+          background:
+            var(--sage);
+
+          color:
+            white;
+
+          font-size:
+            7px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .12em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .event-list {
+          margin-top:
+            13px;
+
+          display:
+            grid;
+
+          gap:
+            6px;
+        }
+
+        .event-row {
+          min-height:
+            39px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            48px 1fr;
+
+          align-items:
+            center;
+
+          border-radius:
+            10px;
+
+          background:
+            #f7f6f2;
+        }
+
+        .event-date {
+          padding:
+            0 8px;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-right:
+            1px solid
+            #e6e3dc;
+        }
+
+        .event-date strong {
+          color:
+            var(--sage-dark);
+
+          font-size:
+            6px;
+        }
+
+        .event-date span {
+          margin-top:
+            2px;
+
+          color:
+            #79766f;
+
+          font-size:
+            6px;
+        }
+
+        .event-title {
+          padding:
+            0 10px;
+
+          color:
+            #4d4a44;
+
+          font-size:
+            8px;
+
+          font-weight:
+            600;
+        }
+
+        .snapshot-card {
+          min-height:
+            285px;
+
+          padding:
+            17px;
+
+          border-radius:
+            18px;
+
+          background:
+            #201f1c;
+
+          color:
+            white;
+        }
+
+        .snapshot-card .snapshot-kicker {
+          color:
+            var(--sage);
+        }
+
+        .snapshot-card h4 {
+          color:
+            white;
+        }
+
+        .snapshot-revenue {
+          margin-top:
+            18px;
+        }
+
+        .snapshot-revenue span,
+        .snapshot-grid span {
+          display:
+            block;
+
+          color:
+            rgba(
+              255,
+              255,
+              255,
+              .45
+            );
+
+          font-size:
+            6px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .14em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .snapshot-revenue strong {
+          display:
+            block;
+
+          margin-top:
+            7px;
+
+          font-size:
+            18px;
+
+          font-style:
+            italic;
+
+          font-weight:
+            400;
+        }
+
+        .snapshot-line {
+          height:
+            1px;
+
+          margin:
+            13px 0;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              .12
+            );
+        }
+
+        .snapshot-grid {
+          display:
+            grid;
+
+          grid-template-columns:
+            1fr 1fr;
+
+          gap:
+            17px 12px;
+        }
+
+        .snapshot-grid strong {
+          display:
+            block;
+
+          margin-top:
+            7px;
+
+          font-size:
+            14px;
+
+          font-weight:
+            600;
+        }
+
+        /* =====================================================
+           WORK QUEUE
+        ===================================================== */
+
+        .work-queue-card {
+          margin-top:
+            14px;
+
+          padding:
+            15px;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            18px;
+
+          background:
+            white;
+        }
+
+        .work-queue-head {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            15px;
+        }
+
+        .quick-task {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            7px;
+        }
+
+        .quick-task > span {
+          width:
+            130px;
+
+          min-height:
+            31px;
+
+          padding:
+            0 12px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            999px;
+
+          color:
+            #a8a49c;
+
+          font-size:
+            7px;
+        }
+
+        .quick-task button {
+          width:
+            31px;
+
+          height:
+            31px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border:
+            0;
+
+          border-radius:
+            8px;
+
+          background:
+            #aaa9a4;
+
+          color:
+            white;
+        }
+
+        .task-strip {
+          margin-top:
+            10px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            repeat(
+              5,
+              minmax(
+                0,
+                1fr
+              )
+            );
+
+          gap:
+            6px;
+        }
+
+        .task-chip {
+          min-width:
+            0;
+
+          min-height:
+            35px;
+
+          padding:
+            7px 8px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            7px;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            8px;
+
+          background:
+            #faf9f6;
+        }
+
+        .task-check {
+          width:
+            13px;
+
+          height:
+            13px;
+
+          flex-shrink:
+            0;
+
+          border:
+            1px solid
+            #d7d4cc;
+
+          border-radius:
+            3px;
+
+          background:
+            white;
+        }
+
+        .task-chip strong {
+          overflow:
+            hidden;
+
+          color:
+            #5a5650;
+
+          font-size:
+            7px;
+
+          font-weight:
+            600;
+
+          text-overflow:
+            ellipsis;
+
+          white-space:
+            nowrap;
+        }
+
+        .task-chip small {
+          margin-left:
+            auto;
+
+          color:
+            #ff4c48;
+
+          font-size:
+            5px;
+
+          font-weight:
+            700;
+
+          text-transform:
+            uppercase;
+        }
+
+        /* =====================================================
+           BOTTOM DASHBOARD
+        ===================================================== */
+
+        .bottom-dashboard-grid {
+          margin-top:
+            14px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            repeat(
+              3,
+              1fr
+            );
+
+          gap:
+            10px;
+        }
+
+        .mini-dashboard-card {
+          min-height:
+            180px;
+
+          padding:
+            15px;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            18px;
+
+          background:
+            white;
+        }
+
+        .mini-dashboard-title {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            10px;
+        }
+
+        .mini-dashboard-title h4 {
+          margin:
+            0;
+
+          display:
+            inline-flex;
+
+          align-items:
+            center;
+
+          gap:
+            7px;
+        }
+
+        .mini-dashboard-title h4 svg {
+          color:
+            var(--sage);
+        }
+
+        .mini-dashboard-title button {
+          padding:
+            7px 12px;
+
+          border:
+            0;
+
+          border-radius:
+            999px;
+
+          background:
+            var(--sage);
+
+          color:
+            white;
+
+          font-size:
+            6px;
+
+          font-weight:
+            700;
 
           letter-spacing:
             .1em;
@@ -3301,40 +5672,94 @@ export default function TotsOSLanding() {
             uppercase;
         }
 
-        .demo-page-head h3 {
+        .mini-project,
+        .note-preview,
+        .email-preview {
           margin-top:
-            4px;
+            10px;
+
+          padding:
+            9px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            9px;
+
+          border-radius:
+            9px;
+
+          background:
+            #f7f6f2;
+        }
+
+        .mini-project strong,
+        .note-preview strong,
+        .email-preview strong {
+          display:
+            block;
 
           color:
-            #353532;
+            #4d4943;
 
           font-size:
-            27px;
+            8px;
+        }
+
+        .mini-project span,
+        .note-preview span,
+        .email-preview span {
+          display:
+            block;
+
+          margin-top:
+            2px;
+
+          color:
+            #a4a098;
+
+          font-size:
+            6px;
+        }
+
+        .mini-progress {
+          color:
+            var(--sage-dark)
+            !important;
+
+          font-size:
+            8px !important;
 
           font-weight:
-            600;
+            700;
         }
 
-        .demo-page-head p {
-          margin-top:
-            5px;
-
+        .email-count {
           color:
-            #858179;
+            #aaa69e;
 
           font-size:
-            11px;
-
-          line-height:
-            1.5;
+            7px;
         }
 
-        .demo-spark {
+        .email-preview {
+          justify-content:
+            flex-start;
+        }
+
+        .email-avatar {
           width:
-            34px;
+            25px;
 
           height:
-            34px;
+            25px;
 
           display:
             flex;
@@ -3349,112 +5774,324 @@ export default function TotsOSLanding() {
             50%;
 
           background:
-            var(--charcoal);
+            var(--sage-light);
 
           color:
-            var(--tan);
+            var(--sage-dark);
+
+          font-size:
+            8px;
+
+          font-weight:
+            700;
         }
 
-        .demo-stats {
-          margin-top:
-            18px;
+        /* =====================================================
+           OTHER DEMO PAGES
+        ===================================================== */
 
+        .inside-page {
+          width:
+            100%;
+        }
+
+        .inside-page-head {
           display:
-            grid;
+            flex;
+
+          align-items:
+            flex-start;
+
+          justify-content:
+            space-between;
 
           gap:
-            8px;
+            20px;
         }
 
-        .demo-six {
-          grid-template-columns:
-            repeat(
-              6,
-              1fr
-            );
-        }
+        .inside-primary {
+          min-height:
+            34px;
 
-        .demo-four {
-          grid-template-columns:
-            repeat(
-              4,
-              1fr
-            );
-        }
-
-        .demo-three {
-          grid-template-columns:
-            repeat(
-              3,
-              1fr
-            );
-        }
-
-        .demo-stat {
           padding:
-            12px;
+            0 13px;
+
+          display:
+            inline-flex;
+
+          align-items:
+            center;
+
+          gap:
+            7px;
+
+          border:
+            0;
+
+          border-radius:
+            999px;
+
+          background:
+            #22211f;
+
+          color:
+            white;
+
+          font-size:
+            8px;
+
+          font-weight:
+            600;
+
+          cursor:
+            pointer;
+        }
+
+        .inside-toolbar {
+          margin-top:
+            25px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            10px;
+        }
+
+        .inside-search,
+        .inside-filter {
+          min-height:
+            35px;
+
+          padding:
+            0 12px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            7px;
 
           border:
             1px solid
-            rgba(
-              55,
-              55,
-              53,
-              .08
-            );
+            var(--app-border);
 
           border-radius:
-            12px;
+            10px;
+
+          background:
+            white;
+
+          color:
+            #9a968e;
+
+          font-size:
+            8px;
+        }
+
+        .inside-search {
+          width:
+            min(
+              300px,
+              60%
+            );
+        }
+
+        .contact-table {
+          margin-top:
+            14px;
+
+          overflow:
+            hidden;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            15px;
 
           background:
             white;
         }
 
-        .demo-stat span {
+        .contact-table-head,
+        .contact-table-row {
           display:
-            block;
+            grid;
+
+          grid-template-columns:
+            1.4fr
+            1fr
+            .8fr
+            .7fr;
+
+          align-items:
+            center;
+
+          gap:
+            15px;
+        }
+
+        .contact-table-head {
+          padding:
+            11px 14px;
+
+          border-bottom:
+            1px solid
+            var(--app-border);
 
           color:
-            #97938b;
+            #a29e96;
 
           font-size:
-            8px;
+            6px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .12em;
 
           text-transform:
             uppercase;
         }
 
-        .demo-stat strong {
-          display:
-            block;
+        .contact-table-row {
+          min-height:
+            58px;
 
-          margin-top:
-            6px;
+          padding:
+            10px 14px;
 
-          color:
-            #393936;
-
-          font-size:
-            17px;
-        }
-
-        .demo-stat small {
-          display:
-            block;
-
-          margin-top:
-            3px;
+          border-bottom:
+            1px solid
+            #efede8;
 
           color:
-            var(--tan-dark);
+            #6e6a63;
 
           font-size:
             8px;
         }
 
-        .demo-grid {
+        .contact-table-row:last-child {
+          border-bottom:
+            0;
+        }
+
+        .contact-person {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            9px;
+        }
+
+        .demo-avatar {
+          width:
+            30px;
+
+          height:
+            30px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            50%;
+
+          background:
+            var(--sage-light);
+
+          color:
+            var(--sage-dark);
+
+          font-size:
+            9px;
+
+          font-weight:
+            700;
+        }
+
+        .contact-person strong {
+          color:
+            #4e4a44;
+
+          font-size:
+            8px;
+        }
+
+        .sage-tag {
+          width:
+            fit-content;
+
+          padding:
+            6px 8px;
+
+          border-radius:
+            999px;
+
+          background:
+            var(--sage-light);
+
+          color:
+            var(--sage-dark);
+
+          font-size:
+            6px;
+
+          font-weight:
+            700;
+        }
+
+        .status-dot {
+          display:
+            inline-flex;
+
+          align-items:
+            center;
+
+          gap:
+            5px;
+        }
+
+        .status-dot i {
+          width:
+            6px;
+
+          height:
+            6px;
+
+          border-radius:
+            50%;
+
+          background:
+            var(--sage);
+        }
+
+        .campaign-grid,
+        .notes-grid {
           margin-top:
-            12px;
+            25px;
 
           display:
             grid;
@@ -3463,330 +6100,34 @@ export default function TotsOSLanding() {
             1fr 1fr;
 
           gap:
-            10px;
+            12px;
         }
 
-        .demo-panel {
+        .campaign-card,
+        .note-card,
+        .settings-card,
+        .social-composer,
+        .social-calendar {
           padding:
-            17px;
+            18px;
 
           border:
             1px solid
-            rgba(
-              55,
-              55,
-              53,
-              .08
-            );
+            var(--app-border);
 
           border-radius:
-            15px;
-
-          background:
-            white;
-        }
-
-        .demo-panel h4 {
-          margin-top:
-            4px;
-
-          color:
-            #393936;
-
-          font-size:
             16px;
 
-          letter-spacing:
-            -.02em;
-        }
-
-        .demo-list {
-          margin-top:
-            12px;
-
-          display:
-            grid;
-
-          gap:
-            7px;
-        }
-
-        .demo-row {
-          min-height:
-            41px;
-
-          padding:
-            9px 11px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            9px;
-
-          border-radius:
-            10px;
-
-          background:
-            #f6f3ed;
-
-          color:
-            #68655f;
-
-          font-size:
-            11px;
-        }
-
-        .demo-number {
-          width:
-            20px;
-
-          height:
-            20px;
-
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          border-radius:
-            50%;
-
-          background:
-            var(--charcoal);
-
-          color:
-            white;
-
-          font-size:
-            8px;
-        }
-
-        .demo-muted {
-          margin-top:
-            10px !important;
-
-          color:
-            #817d75;
-
-          font-size:
-            11px;
-
-          line-height:
-            1.6;
-        }
-
-        .demo-clarity {
-          margin-top:
-            15px;
-
-          padding:
-            11px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            8px;
-
-          border-radius:
-            10px;
-
-          background:
-            var(--tan-soft);
-
-          color:
-            #805e38;
-
-          font-size:
-            10px;
-
-          font-weight:
-            600;
-        }
-
-        .demo-search {
-          padding:
-            8px 11px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            6px;
-
-          border:
-            1px solid
-            rgba(
-              55,
-              55,
-              53,
-              .1
-            );
-
-          border-radius:
-            999px;
-
-          background:
-            white;
-
-          color:
-            #8d8981;
-
-          font-size:
-            10px;
-        }
-
-        .demo-margin {
-          margin-top:
-            18px;
-        }
-
-        .demo-contact {
-          padding:
-            11px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            11px;
-
-          border:
-            1px solid
-            rgba(
-              55,
-              55,
-              53,
-              .08
-            );
-
-          border-radius:
-            12px;
-
           background:
             white;
         }
 
-        .demo-avatar {
-          width:
-            34px;
-
-          height:
-            34px;
-
+        .campaign-top {
           display:
             flex;
 
           align-items:
-            center;
-
-          justify-content:
-            center;
-
-          border-radius:
-            50%;
-
-          background:
-            var(--tan-soft);
-
-          color:
-            #75532f;
-
-          font-size:
-            12px;
-
-          font-weight:
-            700;
-        }
-
-        .demo-grow {
-          flex:
-            1;
-
-          min-width:
-            0;
-        }
-
-        .demo-contact strong {
-          display:
-            block;
-
-          color:
-            #3d3d39;
-
-          font-size:
-            11px;
-        }
-
-        .demo-contact span {
-          display:
-            block;
-
-          margin-top:
-            2px;
-
-          color:
-            #8a867e;
-
-          font-size:
-            9px;
-        }
-
-        .demo-button {
-          padding:
-            8px 11px;
-
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          gap:
-            6px;
-
-          border:
-            0;
-
-          border-radius:
-            999px;
-
-          background:
-            var(--charcoal);
-
-          color:
-            white;
-
-          font-family:
-            inherit;
-
-          font-size:
-            9px;
-
-          cursor:
-            pointer;
-        }
-
-        .demo-between {
-          display:
-            flex;
+            flex-start;
 
           justify-content:
             space-between;
@@ -3795,40 +6136,43 @@ export default function TotsOSLanding() {
             12px;
         }
 
-        .demo-between strong {
-          color:
-            #41413e;
+        .campaign-metrics {
+          margin-top:
+            18px;
 
-          font-size:
+          display:
+            grid;
+
+          grid-template-columns:
+            repeat(
+              3,
+              1fr
+            );
+
+          gap:
+            7px;
+        }
+
+        .social-layout {
+          margin-top:
+            25px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            1fr 1fr;
+
+          gap:
             12px;
         }
 
-        .demo-badge {
-          height:
-            fit-content;
-
-          padding:
-            5px 8px;
-
-          border-radius:
-            999px;
-
-          background:
-            var(--tan-soft);
-
-          color:
-            #78542d;
-
-          font-size:
-            7px;
-
-          text-transform:
-            uppercase;
-        }
-
-        .demo-upload {
+        .social-dropzone {
           min-height:
-            185px;
+            220px;
+
+          margin-top:
+            15px;
 
           display:
             flex;
@@ -3847,48 +6191,559 @@ export default function TotsOSLanding() {
 
           border:
             1px dashed
-            rgba(
-              55,
-              55,
-              53,
-              .2
+            #d5d2ca;
+
+          border-radius:
+            13px;
+
+          background:
+            #faf9f6;
+
+          color:
+            #aaa69e;
+        }
+
+        .social-dropzone strong {
+          color:
+            #55514b;
+
+          font-size:
+            9px;
+        }
+
+        .social-dropzone span {
+          font-size:
+            7px;
+        }
+
+        .scheduled-post {
+          margin-top:
+            10px;
+
+          padding:
+            11px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            10px;
+
+          border-radius:
+            10px;
+
+          background:
+            #f7f6f2;
+        }
+
+        .scheduled-post > span {
+          width:
+            23px;
+
+          height:
+            23px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            50%;
+
+          background:
+            var(--sage);
+
+          color:
+            white;
+
+          font-size:
+            7px;
+        }
+
+        .scheduled-post strong,
+        .scheduled-post small {
+          display:
+            block;
+        }
+
+        .scheduled-post strong {
+          color:
+            #504c46;
+
+          font-size:
+            8px;
+        }
+
+        .scheduled-post small {
+          margin-top:
+            2px;
+
+          color:
+            #aaa69e;
+
+          font-size:
+            6px;
+        }
+
+        .finance-tabs {
+          margin-top:
+            20px;
+
+          display:
+            flex;
+
+          gap:
+            7px;
+
+          flex-wrap:
+            wrap;
+        }
+
+        .finance-tabs span {
+          padding:
+            8px 12px;
+
+          border-radius:
+            999px;
+
+          color:
+            #918d84;
+
+          font-size:
+            7px;
+        }
+
+        .finance-tabs span.active {
+          background:
+            #22211f;
+
+          color:
+            white;
+        }
+
+        .finance-overview {
+          margin-top:
+            18px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            1.4fr
+            repeat(
+              3,
+              1fr
             );
+
+          gap:
+            10px;
+        }
+
+        .finance-dark,
+        .finance-metric-card {
+          min-height:
+            180px;
+
+          padding:
+            17px;
+
+          border-radius:
+            16px;
+        }
+
+        .finance-dark {
+          background:
+            #22211f;
+
+          color:
+            white;
+        }
+
+        .finance-dark .snapshot-kicker {
+          color:
+            var(--sage);
+        }
+
+        .finance-dark h4 {
+          color:
+            white;
+        }
+
+        .finance-big {
+          display:
+            block;
+
+          margin-top:
+            30px;
+
+          font-size:
+            27px;
+
+          font-style:
+            italic;
+
+          font-weight:
+            400;
+        }
+
+        .finance-small {
+          display:
+            block;
+
+          margin-top:
+            5px;
+
+          color:
+            rgba(
+              255,
+              255,
+              255,
+              .45
+            );
+
+          font-size:
+            7px;
+        }
+
+        .finance-metric-card {
+          border:
+            1px solid
+            var(--app-border);
+
+          background:
+            white;
+        }
+
+        .finance-metric-card > span {
+          color:
+            #9f9b92;
+
+          font-size:
+            6px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .12em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .finance-metric-card strong {
+          display:
+            block;
+
+          margin-top:
+            35px;
+
+          font-size:
+            21px;
+
+          font-style:
+            italic;
+
+          font-weight:
+            400;
+        }
+
+        .finance-metric-card small {
+          display:
+            block;
+
+          margin-top:
+            5px;
+
+          color:
+            #aaa69e;
+
+          font-size:
+            7px;
+        }
+
+        .note-card {
+          min-height:
+            180px;
+        }
+
+        .note-card svg {
+          color:
+            var(--sage-dark);
+        }
+
+        .note-card p {
+          margin-top:
+            10px !important;
+
+          color:
+            #99958d;
+
+          font-size:
+            8px;
+
+          line-height:
+            1.65;
+        }
+
+        .project-list {
+          margin-top:
+            15px;
+
+          overflow:
+            hidden;
+
+          border:
+            1px solid
+            var(--app-border);
 
           border-radius:
             15px;
 
           background:
-            rgba(
-              255,
-              255,
-              255,
-              .55
-            );
-
-          color:
-            #8e8a81;
-
-          font-size:
-            10px;
+            white;
         }
 
-        .demo-upload strong {
-          color:
-            #4b4b47;
-
-          font-size:
-            12px;
-        }
-
-        .demo-toggle {
-          width:
-            31px;
-
-          height:
-            18px;
+        .project-row {
+          min-height:
+            70px;
 
           padding:
-            2px;
+            12px 14px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            11px;
+
+          border-bottom:
+            1px solid
+            #efede8;
+        }
+
+        .project-row:last-child {
+          border-bottom:
+            0;
+        }
+
+        .project-icon {
+          width:
+            34px;
+
+          height:
+            34px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            10px;
+
+          background:
+            var(--sage-light);
+
+          color:
+            var(--sage-dark);
+        }
+
+        .project-copy {
+          min-width:
+            130px;
+        }
+
+        .project-copy strong,
+        .project-copy span {
+          display:
+            block;
+        }
+
+        .project-copy strong {
+          color:
+            #4d4943;
+
+          font-size:
+            8px;
+        }
+
+        .project-copy span {
+          margin-top:
+            3px;
+
+          color:
+            #aaa69e;
+
+          font-size:
+            6px;
+        }
+
+        .project-progress-wrap {
+          margin-left:
+            auto;
+
+          width:
+            220px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            8px;
+        }
+
+        .project-progress-bar {
+          height:
+            5px;
+
+          flex:
+            1;
+
+          overflow:
+            hidden;
+
+          border-radius:
+            999px;
+
+          background:
+            #eceae4;
+        }
+
+        .project-progress-bar span {
+          height:
+            100%;
+
+          display:
+            block;
+
+          border-radius:
+            inherit;
+
+          background:
+            var(--sage);
+        }
+
+        .project-progress-wrap small {
+          width:
+            25px;
+
+          color:
+            #827e76;
+
+          font-size:
+            6px;
+        }
+
+        .calendar-demo {
+          margin-top:
+            25px;
+
+          padding:
+            18px;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            16px;
+
+          background:
+            white;
+        }
+
+        .calendar-days {
+          display:
+            grid;
+
+          grid-template-columns:
+            repeat(
+              5,
+              1fr
+            );
+
+          gap:
+            7px;
+        }
+
+        .calendar-day {
+          padding:
+            11px;
+
+          border-radius:
+            10px;
+
+          background:
+            #f7f6f2;
+
+          text-align:
+            center;
+        }
+
+        .calendar-day span,
+        .calendar-day strong {
+          display:
+            block;
+        }
+
+        .calendar-day span {
+          color:
+            #9e9a91;
+
+          font-size:
+            6px;
+
+          text-transform:
+            uppercase;
+        }
+
+        .calendar-day strong {
+          margin-top:
+            5px;
+
+          color:
+            #47433e;
+
+          font-size:
+            13px;
+        }
+
+        .calendar-events {
+          margin-top:
+            15px;
+
+          display:
+            grid;
+
+          gap:
+            8px;
+        }
+
+        .calendar-event {
+          min-height:
+            38px;
+
+          padding:
+            0 12px;
 
           display:
             flex;
@@ -3897,145 +6752,40 @@ export default function TotsOSLanding() {
             center;
 
           border-radius:
-            999px;
+            9px;
 
           background:
-            #ddd9d0;
-        }
-
-        .demo-toggle span {
-          width:
-            14px;
-
-          height:
-            14px;
-
-          border-radius:
-            50%;
-
-          background:
-            white;
-        }
-
-        .demo-toggle.on {
-          justify-content:
-            flex-end;
-
-          background:
-            var(--tan);
-        }
-
-        .demo-tabs {
-          margin-top:
-            15px;
-
-          display:
-            flex;
-
-          gap:
-            5px;
-
-          flex-wrap:
-            wrap;
-        }
-
-        .demo-tabs span {
-          padding:
-            7px 10px;
-
-          border-radius:
-            999px;
+            #f3f1eb;
 
           color:
-            #938f87;
+            #625e57;
 
           font-size:
             8px;
         }
 
-        .demo-tabs span.active {
+        .calendar-event.sage {
           background:
-            var(--charcoal);
+            var(--sage-light);
+
+          color:
+            #647653;
+        }
+
+        .calendar-event.dark {
+          background:
+            #22211f;
 
           color:
             white;
         }
 
-        .demo-finance-card {
+        .settings-card {
           margin-top:
-            17px;
-
-          padding:
-            20px;
-
-          border-radius:
-            16px;
-
-          background:
-            var(--charcoal);
-
-          color:
-            white;
+            25px;
         }
 
-        .demo-finance-card h4 {
-          margin-top:
-            5px;
-
-          color:
-            white;
-
-          font-size:
-            18px;
-        }
-
-        .demo-finance-card
-        .demo-stat {
-          border-color:
-            rgba(
-              255,
-              255,
-              255,
-              .08
-            );
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              .05
-            );
-        }
-
-        .demo-finance-card
-        .demo-stat strong {
-          color:
-            white;
-        }
-
-        .demo-finance-card
-        .demo-stat span {
-          color:
-            rgba(
-              255,
-              255,
-              255,
-              .45
-            );
-        }
-
-        .demo-label.light {
-          color:
-            rgba(
-              255,
-              255,
-              255,
-              .45
-            );
-        }
-
-        .demo-kanban {
+        .settings-fields {
           margin-top:
             18px;
 
@@ -4043,108 +6793,62 @@ export default function TotsOSLanding() {
             grid;
 
           grid-template-columns:
-            repeat(
-              3,
-              1fr
-            );
+            1fr 1fr;
 
           gap:
-            9px;
-        }
-
-        .demo-kanban-column {
-          padding:
-            11px;
-
-          border:
-            1px solid
-            rgba(
-              55,
-              55,
-              53,
-              .08
-            );
-
-          border-radius:
-            12px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              .45
-            );
-        }
-
-        .demo-task {
-          margin-top:
-            9px;
-
-          padding:
-            11px;
-
-          border:
-            1px solid
-            rgba(
-              55,
-              55,
-              53,
-              .07
-            );
-
-          border-radius:
             10px;
-
-          background:
-            white;
         }
 
-        .demo-task strong {
+        .settings-fields label {
           display:
             block;
 
           color:
-            #444440;
+            #9e9a92;
 
           font-size:
-            10px;
+            6px;
+
+          font-weight:
+            700;
+
+          text-transform:
+            uppercase;
         }
 
-        .demo-task small {
-          display:
-            block;
-
+        .setting-field {
           margin-top:
-            4px;
+            6px;
+
+          min-height:
+            38px;
+
+          padding:
+            0 11px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            9px;
 
           color:
-            #99958c;
+            #6b675f;
 
           font-size:
             8px;
         }
 
-        .demo-field {
-          margin-top:
-            6px;
-
-          padding:
-            10px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            9px;
-
-          color:
-            #77736c;
-
-          font-size:
-            10px;
-        }
+        /* =====================================================
+           MOBILE DEMO TABS
+        ===================================================== */
 
         .demo-mobile-tabs {
           margin-top:
@@ -4180,9 +6884,6 @@ export default function TotsOSLanding() {
           color:
             var(--muted);
 
-          font-family:
-            inherit;
-
           font-size:
             9px;
 
@@ -4190,21 +6891,20 @@ export default function TotsOSLanding() {
             pointer;
         }
 
-        .demo-mobile-tabs
-        button.active {
+        .demo-mobile-tabs button.active {
           border-color:
             rgba(
-              198,
-              157,
-              105,
+              142,
+              163,
+              119,
               .5
             );
 
           background:
-            var(--tan-soft);
+            var(--sage-light);
 
           color:
-            #76532f;
+            #6c7e5a;
         }
 
         .demo-cta {
@@ -4229,9 +6929,9 @@ export default function TotsOSLanding() {
           border:
             1px solid
             rgba(
-              198,
-              157,
-              105,
+              142,
+              163,
+              119,
               .28
             );
 
@@ -4239,13 +6939,12 @@ export default function TotsOSLanding() {
             24px;
 
           background:
-            #fffaf3;
+            #f8faf4;
         }
 
-        .demo-cta > div
-        > span {
+        .demo-cta > div:first-child > span {
           color:
-            var(--tan-dark);
+            var(--sage-dark);
 
           font-size:
             10px;
@@ -4270,7 +6969,7 @@ export default function TotsOSLanding() {
 
         .demo-cta p {
           max-width:
-            650px;
+            640px;
 
           margin-top:
             9px;
@@ -4283,6 +6982,876 @@ export default function TotsOSLanding() {
 
           line-height:
             1.65;
+        }
+
+        .demo-cta-actions {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            8px;
+
+          flex-shrink:
+            0;
+        }
+
+        /* =====================================================
+           GUIDED TOUR
+        ===================================================== */
+
+        .tour-overlay {
+          position:
+            fixed;
+
+          inset:
+            0;
+
+          z-index:
+            1000;
+
+          padding:
+            20px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          background:
+            rgba(
+              24,
+              24,
+              22,
+              .72
+            );
+
+          backdrop-filter:
+            blur(
+              15px
+            );
+        }
+
+        .tour-window {
+          width:
+            min(
+              1380px,
+              100%
+            );
+
+          height:
+            min(
+              850px,
+              calc(
+                100vh -
+                40px
+              )
+            );
+
+          overflow:
+            hidden;
+
+          border:
+            1px solid
+            rgba(
+              255,
+              255,
+              255,
+              .1
+            );
+
+          border-radius:
+            28px;
+
+          background:
+            #f7f5ef;
+
+          box-shadow:
+            0 40px 120px
+            rgba(
+              0,
+              0,
+              0,
+              .3
+            );
+        }
+
+        .tour-topbar {
+          height:
+            70px;
+
+          padding:
+            0 22px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          border-bottom:
+            1px solid
+            #e3e0d8;
+
+          background:
+            #faf8f3;
+        }
+
+        .tour-brand {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            12px;
+        }
+
+        .tour-free-pill {
+          padding:
+            6px 10px;
+
+          border-radius:
+            999px;
+
+          background:
+            var(--sage-light);
+
+          color:
+            var(--sage-dark);
+
+          font-size:
+            8px;
+
+          font-weight:
+            700;
+
+          text-transform:
+            uppercase;
+        }
+
+        .tour-close {
+          width:
+            38px;
+
+          height:
+            38px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border:
+            1px solid
+            #ddd9d1;
+
+          border-radius:
+            50%;
+
+          background:
+            white;
+
+          color:
+            #4a4741;
+
+          cursor:
+            pointer;
+        }
+
+        .tour-layout {
+          height:
+            calc(
+              100% -
+              70px
+            );
+
+          display:
+            grid;
+
+          grid-template-columns:
+            minmax(
+              0,
+              1fr
+            )
+            360px;
+        }
+
+        .tour-product {
+          min-width:
+            0;
+
+          overflow:
+            auto;
+
+          padding:
+            22px;
+
+          background:
+            #eeece6;
+        }
+
+        .tour-mini-app {
+          min-width:
+            900px;
+
+          min-height:
+            650px;
+
+          display:
+            grid;
+
+          grid-template-columns:
+            145px
+            1fr;
+
+          overflow:
+            hidden;
+
+          border:
+            1px solid
+            #ddd9d1;
+
+          border-radius:
+            18px;
+
+          background:
+            var(--app-bg);
+        }
+
+        .tour-mini-app
+        .real-demo-sidebar {
+          min-height:
+            650px;
+        }
+
+        .tour-demo-content {
+          padding:
+            32px 38px;
+
+          background:
+            var(--app-bg);
+        }
+
+        .tour-guide {
+          padding:
+            34px;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          border-left:
+            1px solid
+            #e0ddd6;
+
+          background:
+            #fff;
+        }
+
+        .tour-progress {
+          display:
+            grid;
+
+          grid-template-columns:
+            repeat(
+              5,
+              1fr
+            );
+
+          gap:
+            5px;
+        }
+
+        .tour-progress span {
+          height:
+            3px;
+
+          border-radius:
+            999px;
+
+          background:
+            #ece9e2;
+        }
+
+        .tour-progress span.active {
+          background:
+            var(--sage);
+        }
+
+        .tour-eyebrow {
+          display:
+            block;
+
+          margin-top:
+            35px;
+
+          color:
+            var(--sage-dark);
+
+          font-size:
+            9px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .14em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .tour-guide h2,
+        .tour-finish h2 {
+          margin-top:
+            14px;
+
+          color:
+            #252421;
+
+          font-size:
+            34px;
+
+          font-weight:
+            500;
+
+          line-height:
+            1.08;
+        }
+
+        .tour-guide > p,
+        .tour-finish > p {
+          margin-top:
+            17px;
+
+          color:
+            #7d7971;
+
+          font-size:
+            14px;
+
+          line-height:
+            1.75;
+        }
+
+        .tour-callout {
+          margin-top:
+            22px;
+
+          padding:
+            15px;
+
+          display:
+            flex;
+
+          gap:
+            10px;
+
+          border:
+            1px solid
+            #dce4d2;
+
+          border-radius:
+            15px;
+
+          background:
+            var(--sage-light);
+
+          color:
+            #60724e;
+        }
+
+        .tour-callout strong,
+        .tour-callout span {
+          display:
+            block;
+        }
+
+        .tour-callout strong {
+          font-size:
+            11px;
+        }
+
+        .tour-callout span {
+          margin-top:
+            5px;
+
+          font-size:
+            10px;
+
+          line-height:
+            1.55;
+        }
+
+        .tour-controls {
+          margin-top:
+            auto;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            10px;
+        }
+
+        .tour-back,
+        .tour-next {
+          min-height:
+            43px;
+
+          padding:
+            0 17px;
+
+          border-radius:
+            999px;
+
+          font-size:
+            11px;
+
+          font-weight:
+            600;
+
+          cursor:
+            pointer;
+        }
+
+        .tour-back {
+          border:
+            1px solid
+            #dfdcd5;
+
+          background:
+            white;
+
+          color:
+            #77736c;
+        }
+
+        .tour-back:disabled {
+          opacity:
+            .35;
+
+          cursor:
+            default;
+        }
+
+        .tour-next {
+          margin-left:
+            auto;
+
+          display:
+            inline-flex;
+
+          align-items:
+            center;
+
+          gap:
+            8px;
+
+          border:
+            1px solid
+            #252421;
+
+          background:
+            #252421;
+
+          color:
+            white;
+        }
+
+        .tour-step-count {
+          margin-top:
+            15px;
+
+          color:
+            #a19d95;
+
+          font-size:
+            9px;
+
+          text-align:
+            right;
+        }
+
+        /* =====================================================
+           TOUR CLARITY SCREEN
+        ===================================================== */
+
+        .tour-clarity-screen {
+          padding:
+            5px 0;
+        }
+
+        .tour-clarity-head {
+          display:
+            flex;
+
+          align-items:
+            flex-start;
+
+          justify-content:
+            space-between;
+
+          gap:
+            20px;
+        }
+
+        .clarity-orb {
+          width:
+            46px;
+
+          height:
+            46px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            14px;
+
+          background:
+            #22211f;
+
+          color:
+            var(--sage);
+        }
+
+        .tour-chat {
+          max-width:
+            720px;
+
+          margin:
+            35px auto
+            0;
+        }
+
+        .tour-user-message {
+          width:
+            fit-content;
+
+          max-width:
+            70%;
+
+          margin-left:
+            auto;
+
+          padding:
+            13px 15px;
+
+          border:
+            1px solid
+            var(--app-border);
+
+          border-radius:
+            15px 15px
+            4px 15px;
+
+          background:
+            white;
+
+          color:
+            #5d5952;
+
+          font-size:
+            10px;
+        }
+
+        .tour-ai-message {
+          max-width:
+            88%;
+
+          margin-top:
+            12px;
+
+          padding:
+            16px;
+
+          border:
+            1px solid
+            #dce4d2;
+
+          border-radius:
+            4px 15px
+            15px 15px;
+
+          background:
+            #f3f6ee;
+        }
+
+        .tour-ai-label {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            6px;
+
+          color:
+            var(--sage-dark);
+
+          font-size:
+            8px;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .1em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .tour-ai-message > p {
+          margin-top:
+            9px;
+
+          color:
+            #625e57;
+
+          font-size:
+            10px;
+
+          line-height:
+            1.65;
+        }
+
+        .tour-ai-priority {
+          margin-top:
+            8px;
+
+          padding:
+            9px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            9px;
+
+          border:
+            1px solid
+            #e0e5d9;
+
+          border-radius:
+            9px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              .72
+            );
+        }
+
+        .tour-ai-priority > span {
+          width:
+            22px;
+
+          height:
+            22px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            50%;
+
+          background:
+            var(--sage);
+
+          color:
+            white;
+
+          font-size:
+            7px;
+        }
+
+        .tour-ai-priority strong,
+        .tour-ai-priority small {
+          display:
+            block;
+        }
+
+        .tour-ai-priority strong {
+          color:
+            #514d47;
+
+          font-size:
+            8px;
+        }
+
+        .tour-ai-priority small {
+          margin-top:
+            2px;
+
+          color:
+            #99958d;
+
+          font-size:
+            6px;
+        }
+
+        /* =====================================================
+           TOUR FINISH
+        ===================================================== */
+
+        .tour-finish {
+          height:
+            calc(
+              100% -
+              70px
+            );
+
+          padding:
+            50px 30px;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          text-align:
+            center;
+
+          background:
+            radial-gradient(
+              circle at center,
+              #f2f5ed,
+              #f8f6f1
+              55%,
+              #f3f0e9
+            );
+        }
+
+        .tour-finish-icon {
+          width:
+            58px;
+
+          height:
+            58px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            18px;
+
+          background:
+            #22211f;
+
+          color:
+            var(--sage);
+        }
+
+        .tour-finish .tour-eyebrow {
+          margin-top:
+            24px;
+        }
+
+        .tour-finish h2 {
+          max-width:
+            650px;
+
+          font-size:
+            clamp(
+              2.7rem,
+              5vw,
+              4.7rem
+            );
+
+          text-align:
+            center;
+        }
+
+        .tour-finish > p {
+          max-width:
+            560px;
+        }
+
+        .tour-finish-actions {
+          margin-top:
+            28px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          gap:
+            9px;
+
+          flex-wrap:
+            wrap;
+        }
+
+        .tour-finish-note {
+          margin-top:
+            17px;
+
+          color:
+            #9c988f;
+
+          font-size:
+            9px;
         }
 
         /* =====================================================
@@ -5154,9 +8723,6 @@ export default function TotsOSLanding() {
         }
 
         .price-feature svg {
-          flex-shrink:
-            0;
-
           color:
             var(--tan-dark);
         }
@@ -5285,9 +8851,6 @@ export default function TotsOSLanding() {
 
           color:
             var(--charcoal);
-
-          font-family:
-            inherit;
 
           font-size:
             14px;
@@ -5655,19 +9218,77 @@ export default function TotsOSLanding() {
               45px;
           }
 
-          .connected-layout,
-          .about-layout,
-          .faq-layout {
-            gap:
-              45px;
-          }
-
           .why-grid,
           .feature-grid,
           .security-grid,
           .pricing-grid {
             grid-template-columns:
               1fr 1fr;
+          }
+
+          .real-demo-app {
+            grid-template-columns:
+              125px
+              minmax(
+                0,
+                1fr
+              );
+
+            height:
+              660px;
+          }
+
+          .real-demo-content {
+            padding:
+              30px 25px;
+          }
+
+          .home-main-grid {
+            grid-template-columns:
+              1fr 1fr;
+          }
+
+          .snapshot-card {
+            grid-column:
+              1 / -1;
+
+            min-height:
+              auto;
+          }
+
+          .snapshot-grid {
+            grid-template-columns:
+              repeat(
+                4,
+                1fr
+              );
+          }
+
+          .task-strip {
+            grid-template-columns:
+              repeat(
+                3,
+                1fr
+              );
+          }
+
+          .bottom-dashboard-grid {
+            grid-template-columns:
+              1fr 1fr;
+          }
+
+          .finance-overview {
+            grid-template-columns:
+              1fr 1fr;
+          }
+
+          .tour-layout {
+            grid-template-columns:
+              minmax(
+                0,
+                1fr
+              )
+              320px;
           }
 
         }
@@ -5746,23 +9367,9 @@ export default function TotsOSLanding() {
               70px;
           }
 
-          .tots-hero-inner {
-            width:
-              100%;
-
-            max-width:
-              100%;
-
-            margin:
-              0 auto;
-          }
-
           .tots-hero-title {
             max-width:
               620px;
-
-            margin-top:
-              25px !important;
 
             font-size:
               clamp(
@@ -5770,31 +9377,19 @@ export default function TotsOSLanding() {
                 12vw,
                 4.5rem
               ) !important;
-
-            line-height:
-              .98 !important;
           }
 
           .tots-hero-copy {
             max-width:
               550px;
 
-            margin-top:
-              22px !important;
-
             font-size:
               15px;
           }
 
           .tots-hero-actions {
-            width:
-              100%;
-
             max-width:
               520px;
-
-            margin-top:
-              28px;
 
             flex-direction:
               column;
@@ -5803,56 +9398,15 @@ export default function TotsOSLanding() {
               stretch;
           }
 
-          .tots-hero-actions a {
+          .tots-hero-actions a,
+          .tots-hero-actions button {
             width:
               100%;
-          }
-
-          .tots-hero-note {
-            max-width:
-              520px;
-
-            margin-top:
-              18px;
-
-            gap:
-              10px 14px;
-
-            font-size:
-              10px;
-          }
-
-          .trusted-section {
-            padding:
-              0 15px
-              55px;
-          }
-
-          .trusted-card {
-            padding:
-              20px 14px;
-          }
-
-          .calm-section {
-            padding:
-              55px 15px;
           }
 
           .calm-card {
             padding:
               48px 20px;
-
-            border-radius:
-              25px;
-          }
-
-          .calm-card h2 {
-            font-size:
-              clamp(
-                2.2rem,
-                10vw,
-                3.4rem
-              );
           }
 
           .transform-grid,
@@ -5864,73 +9418,17 @@ export default function TotsOSLanding() {
               1fr;
           }
 
-          .transform-card,
-          .feature-card,
-          .why-card,
-          .security-card,
-          .price-card {
-            padding:
-              23px;
+          .real-demo-frame {
+            overflow-x:
+              auto;
           }
 
-          .demo-body {
+          .real-demo-app {
+            width:
+              920px;
+
             grid-template-columns:
-              57px 1fr;
-
-            min-height:
-              500px;
-          }
-
-          .demo-sidebar {
-            padding:
-              14px 8px;
-          }
-
-          .demo-sidebar-logo {
-            padding:
-              0;
-          }
-
-          .demo-nav button {
-            padding:
-              9px;
-
-            justify-content:
-              center;
-          }
-
-          .demo-nav button span {
-            display:
-              none;
-          }
-
-          .demo-content {
-            padding:
-              16px;
-          }
-
-          .demo-page-head h3 {
-            font-size:
-              21px;
-          }
-
-          .demo-six,
-          .demo-four {
-            grid-template-columns:
-              repeat(
-                2,
-                1fr
-              );
-          }
-
-          .demo-grid {
-            grid-template-columns:
-              1fr;
-          }
-
-          .demo-kanban {
-            grid-template-columns:
-              1fr;
+              130px 790px;
           }
 
           .demo-cta {
@@ -5944,7 +9442,16 @@ export default function TotsOSLanding() {
               stretch;
           }
 
-          .demo-cta a {
+          .demo-cta-actions {
+            flex-direction:
+              column;
+
+            align-items:
+              stretch;
+          }
+
+          .demo-cta-actions a,
+          .demo-cta-actions button {
             width:
               100%;
           }
@@ -5957,28 +9464,6 @@ export default function TotsOSLanding() {
           .clarity-card {
             padding:
               30px 20px;
-
-            border-radius:
-              25px;
-          }
-
-          .clarity-title {
-            font-size:
-              clamp(
-                2.7rem,
-                12vw,
-                4rem
-              );
-          }
-
-          .price-card {
-            min-height:
-              auto;
-          }
-
-          .price-description {
-            min-height:
-              0;
           }
 
           .about-card {
@@ -6004,6 +9489,118 @@ export default function TotsOSLanding() {
           .footer-grid {
             grid-template-columns:
               1fr 1fr;
+          }
+
+          .tour-overlay {
+            padding:
+              8px;
+          }
+
+          .tour-window {
+            height:
+              calc(
+                100vh -
+                16px
+              );
+
+            border-radius:
+              20px;
+          }
+
+          .tour-layout {
+            height:
+              calc(
+                100% -
+                60px
+              );
+
+            display:
+              flex;
+
+            flex-direction:
+              column;
+          }
+
+          .tour-topbar {
+            height:
+              60px;
+
+            padding:
+              0 14px;
+          }
+
+          .tour-product {
+            height:
+              52%;
+
+            flex-shrink:
+              0;
+
+            padding:
+              12px;
+          }
+
+          .tour-guide {
+            min-height:
+              48%;
+
+            padding:
+              20px;
+
+            border-left:
+              0;
+
+            border-top:
+              1px solid
+              #e0ddd6;
+
+            overflow:
+              auto;
+          }
+
+          .tour-guide .tour-eyebrow {
+            margin-top:
+              18px;
+          }
+
+          .tour-guide h2 {
+            font-size:
+              26px;
+          }
+
+          .tour-guide > p {
+            font-size:
+              12px;
+          }
+
+          .tour-controls {
+            margin-top:
+              20px;
+          }
+
+          .tour-finish {
+            height:
+              calc(
+                100% -
+                60px
+              );
+
+            padding:
+              30px 18px;
+          }
+
+          .tour-finish-actions {
+            width:
+              100%;
+
+            flex-direction:
+              column;
+          }
+
+          .tour-finish-actions a,
+          .tour-finish-actions button {
+            width:
+              100%;
           }
 
         }
@@ -6033,9 +9630,6 @@ export default function TotsOSLanding() {
           }
 
           .tots-hero-pill {
-            padding:
-              8px 12px;
-
             font-size:
               9px;
           }
@@ -6058,25 +9652,6 @@ export default function TotsOSLanding() {
 
             font-size:
               14px;
-
-            line-height:
-              1.65;
-          }
-
-          .tots-hero-note {
-            max-width:
-              380px;
-
-            gap:
-              8px 12px;
-
-            font-size:
-              9px;
-          }
-
-          .tots-logo-copy strong {
-            font-size:
-              11px;
           }
 
           .trusted-list span {
@@ -6085,48 +9660,6 @@ export default function TotsOSLanding() {
 
             padding:
               7px 9px;
-          }
-
-          .demo-browser {
-            border-radius:
-              18px;
-          }
-
-          .demo-browser-top {
-            height:
-              40px;
-          }
-
-          .demo-address {
-            font-size:
-              7px;
-          }
-
-          .demo-live {
-            display:
-              none;
-          }
-
-          .demo-content {
-            padding:
-              12px;
-          }
-
-          .demo-six,
-          .demo-four,
-          .demo-three {
-            grid-template-columns:
-              1fr 1fr;
-          }
-
-          .demo-stat {
-            padding:
-              9px;
-          }
-
-          .demo-stat strong {
-            font-size:
-              14px;
           }
 
           .footer-grid {
@@ -6163,10 +9696,16 @@ export default function TotsOSLanding() {
                 item
               ) => (
                 <a
-                  key={item.href}
-                  href={item.href}
+                  key={
+                    item.href
+                  }
+                  href={
+                    item.href
+                  }
                 >
-                  {item.label}
+                  {
+                    item.label
+                  }
                 </a>
               )
             )}
@@ -6174,24 +9713,32 @@ export default function TotsOSLanding() {
 
           <div className="tots-nav-actions">
             <a
-              href={SIGNUP_URL}
+              href={
+                SIGNUP_URL
+              }
               className="button-secondary"
             >
               <LogIn
-                size={14}
+                size={
+                  14
+                }
               />
 
               Log in
             </a>
 
             <a
-              href={SIGNUP_URL}
+              href={
+                SIGNUP_URL
+              }
               className="button-primary"
             >
               Start free
 
               <ArrowRight
-                size={14}
+                size={
+                  14
+                }
               />
             </a>
           </div>
@@ -6206,7 +9753,11 @@ export default function TotsOSLanding() {
             }
             aria-label="Open menu"
           >
-            <Menu size={18} />
+            <Menu
+              size={
+                18
+              }
+            />
           </button>
         </div>
       </header>
@@ -6220,29 +9771,38 @@ export default function TotsOSLanding() {
           <motion.div
             className="mobile-overlay"
             initial={{
-              opacity: 0,
+              opacity:
+                0,
             }}
             animate={{
-              opacity: 1,
+              opacity:
+                1,
             }}
             exit={{
-              opacity: 0,
+              opacity:
+                0,
             }}
           >
             <motion.div
               className="mobile-menu"
               initial={{
-                y: -20,
-                opacity: 0,
+                y:
+                  -20,
+                opacity:
+                  0,
               }}
               animate={{
-                y: 0,
-                opacity: 1,
+                y:
+                  0,
+                opacity:
+                  1,
               }}
             >
               <div className="mobile-menu-head">
                 <Logo
-                  size={35}
+                  size={
+                    35
+                  }
                 />
 
                 <button
@@ -6259,7 +9819,11 @@ export default function TotsOSLanding() {
                   }
                   aria-label="Close menu"
                 >
-                  <X size={18} />
+                  <X
+                    size={
+                      18
+                    }
+                  />
                 </button>
               </div>
 
@@ -6269,18 +9833,26 @@ export default function TotsOSLanding() {
                     item
                   ) => (
                     <a
-                      key={item.href}
-                      href={item.href}
+                      key={
+                        item.href
+                      }
+                      href={
+                        item.href
+                      }
                       onClick={() =>
                         setMobileMenuOpen(
                           false
                         )
                       }
                     >
-                      {item.label}
+                      {
+                        item.label
+                      }
 
                       <ArrowUpRight
-                        size={15}
+                        size={
+                          15
+                        }
                       />
                     </a>
                   )
@@ -6288,8 +9860,26 @@ export default function TotsOSLanding() {
               </div>
 
               <div className="mobile-actions">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => {
+                    setMobileMenuOpen(
+                      false
+                    );
+
+                    setTourOpen(
+                      true
+                    );
+                  }}
+                >
+                  Take free tour
+                </button>
+
                 <a
-                  href={SIGNUP_URL}
+                  href={
+                    SIGNUP_URL
+                  }
                   className="button-primary"
                 >
                   Start my free
@@ -6297,7 +9887,9 @@ export default function TotsOSLanding() {
                 </a>
 
                 <a
-                  href={SIGNUP_URL}
+                  href={
+                    SIGNUP_URL
+                  }
                   className="button-secondary"
                 >
                   Log in
@@ -6316,12 +9908,16 @@ export default function TotsOSLanding() {
         <div className="tots-hero-inner">
           <motion.div
             initial={{
-              opacity: 0,
-              y: 10,
+              opacity:
+                0,
+              y:
+                10,
             }}
             animate={{
-              opacity: 1,
-              y: 0,
+              opacity:
+                1,
+              y:
+                0,
             }}
             transition={{
               duration:
@@ -6330,7 +9926,9 @@ export default function TotsOSLanding() {
             className="tots-hero-pill"
           >
             <Sparkles
-              size={13}
+              size={
+                13
+              }
             />
 
             One calmer place to
@@ -6340,12 +9938,16 @@ export default function TotsOSLanding() {
           <motion.h1
             className="tots-hero-title"
             initial={{
-              opacity: 0,
-              y: 20,
+              opacity:
+                0,
+              y:
+                20,
             }}
             animate={{
-              opacity: 1,
-              y: 0,
+              opacity:
+                1,
+              y:
+                0,
             }}
             transition={{
               duration:
@@ -6364,12 +9966,16 @@ export default function TotsOSLanding() {
           <motion.p
             className="tots-hero-copy"
             initial={{
-              opacity: 0,
-              y: 18,
+              opacity:
+                0,
+              y:
+                18,
             }}
             animate={{
-              opacity: 1,
-              y: 0,
+              opacity:
+                1,
+              y:
+                0,
             }}
             transition={{
               duration:
@@ -6395,12 +10001,16 @@ export default function TotsOSLanding() {
           <motion.div
             className="tots-hero-actions"
             initial={{
-              opacity: 0,
-              y: 16,
+              opacity:
+                0,
+              y:
+                16,
             }}
             animate={{
-              opacity: 1,
-              y: 0,
+              opacity:
+                1,
+              y:
+                0,
             }}
             transition={{
               duration:
@@ -6410,35 +10020,59 @@ export default function TotsOSLanding() {
             }}
           >
             <a
-              href={SIGNUP_URL}
+              href={
+                SIGNUP_URL
+              }
               className="button-primary button-large"
             >
               Start my free trial
 
               <ArrowRight
-                size={16}
+                size={
+                  16
+                }
               />
             </a>
+
+            <button
+              type="button"
+              onClick={() =>
+                setTourOpen(
+                  true
+                )
+              }
+              className="button-secondary button-large"
+            >
+              <Play
+                size={
+                  14
+                }
+              />
+
+              Take the free tour
+            </button>
 
             <a
               href="#demo"
               className="button-secondary button-large"
             >
-              <Play size={14} />
-
-              Explore TOTS-OS
+              Explore demo
             </a>
           </motion.div>
 
           <motion.div
             className="tots-hero-note"
             initial={{
-              opacity: 0,
-              y: 12,
+              opacity:
+                0,
+              y:
+                12,
             }}
             animate={{
-              opacity: 1,
-              y: 0,
+              opacity:
+                1,
+              y:
+                0,
             }}
             transition={{
               duration:
@@ -6448,17 +10082,29 @@ export default function TotsOSLanding() {
             }}
           >
             <span>
-              <Check size={12} />
+              <Check
+                size={
+                  12
+                }
+              />
               14 days free
             </span>
 
             <span>
-              <Check size={12} />
+              <Check
+                size={
+                  12
+                }
+              />
               No commitment
             </span>
 
             <span>
-              <Check size={12} />
+              <Check
+                size={
+                  12
+                }
+              />
               Set up in minutes
             </span>
           </motion.div>
@@ -6466,7 +10112,7 @@ export default function TotsOSLanding() {
       </section>
 
       {/* ======================================================
-          TRUSTED BY
+          TRUSTED
       ====================================================== */}
 
       <section className="trusted-section">
@@ -6483,9 +10129,13 @@ export default function TotsOSLanding() {
                   name
                 ) => (
                   <span
-                    key={name}
+                    key={
+                      name
+                    }
                   >
-                    {name}
+                    {
+                      name
+                    }
                   </span>
                 )
               )}
@@ -6539,17 +10189,21 @@ export default function TotsOSLanding() {
                   item
                 ) => (
                   <span
-                    key={item}
+                    key={
+                      item
+                    }
                   >
-                    {item}
+                    {
+                      item
+                    }
                   </span>
                 )
               )}
             </div>
 
             <div className="calm-line">
-              TOTS-OS gives it
-              all one calm home.
+              TOTS-OS gives it all
+              one calm home.
             </div>
           </div>
         </Reveal>
@@ -6566,8 +10220,8 @@ export default function TotsOSLanding() {
         <div className="tots-container">
           <Reveal>
             <Eyebrow>
-              One business.
-              One place.
+              One business. One
+              place.
             </Eyebrow>
 
             <h2 className="section-title">
@@ -6617,11 +10271,19 @@ export default function TotsOSLanding() {
                     ) => (
                       <div
                         className="transform-row"
-                        key={item}
+                        key={
+                          item
+                        }
                       >
-                        <X size={14} />
+                        <X
+                          size={
+                            14
+                          }
+                        />
 
-                        {item}
+                        {
+                          item
+                        }
                       </div>
                     )
                   )}
@@ -6630,7 +10292,9 @@ export default function TotsOSLanding() {
             </Reveal>
 
             <Reveal
-              delay={0.08}
+              delay={
+                0.08
+              }
             >
               <div className="transform-card good">
                 <span>
@@ -6656,13 +10320,19 @@ export default function TotsOSLanding() {
                     ) => (
                       <div
                         className="transform-row"
-                        key={item}
+                        key={
+                          item
+                        }
                       >
                         <Check
-                          size={14}
+                          size={
+                            14
+                          }
                         />
 
-                        {item}
+                        {
+                          item
+                        }
                       </div>
                     )
                   )}
@@ -6707,7 +10377,9 @@ export default function TotsOSLanding() {
 
                 return (
                   <Reveal
-                    key={item.title}
+                    key={
+                      item.title
+                    }
                     delay={
                       index *
                       0.06
@@ -6716,16 +10388,22 @@ export default function TotsOSLanding() {
                     <div className="why-card">
                       <div className="why-icon">
                         <Icon
-                          size={19}
+                          size={
+                            19
+                          }
                         />
                       </div>
 
                       <h3>
-                        {item.title}
+                        {
+                          item.title
+                        }
                       </h3>
 
                       <p>
-                        {item.text}
+                        {
+                          item.text
+                        }
                       </p>
                     </div>
                   </Reveal>
@@ -6740,33 +10418,40 @@ export default function TotsOSLanding() {
           DEMO
       ====================================================== */}
 
-      <section
-        className="tots-section soft"
-      >
+      <section className="tots-section soft">
         <div className="tots-container">
           <Reveal>
             <div className="demo-section-head">
               <Eyebrow>
-                See it yourself
+                See the real
+                workspace
               </Eyebrow>
 
               <h2 className="section-title">
-                Have a look
-                around.
+                Have a proper
+                look around.
               </h2>
 
               <p className="section-copy">
+                This demo follows
+                the same layout and
+                design as the real
+                TOTS-OS workspace.
                 Click through the
-                workspace and see
-                what running your
-                business from one
-                organised place can
-                actually look like.
+                sidebar to explore
+                the different
+                areas.
               </p>
             </div>
           </Reveal>
 
-          <ProductDemo />
+          <ProductDemo
+            onStartTour={() =>
+              setTourOpen(
+                true
+              )
+            }
+          />
         </div>
       </section>
 
@@ -6811,7 +10496,9 @@ export default function TotsOSLanding() {
 
                 return (
                   <Reveal
-                    key={feature.id}
+                    key={
+                      feature.id
+                    }
                     delay={
                       (index %
                         3) *
@@ -6821,16 +10508,22 @@ export default function TotsOSLanding() {
                     <div className="feature-card">
                       <div className="feature-icon">
                         <Icon
-                          size={20}
+                          size={
+                            20
+                          }
                         />
                       </div>
 
                       <h3>
-                        {feature.title}
+                        {
+                          feature.title
+                        }
                       </h3>
 
                       <p>
-                        {feature.text}
+                        {
+                          feature.text
+                        }
                       </p>
                     </div>
                   </Reveal>
@@ -6849,8 +10542,7 @@ export default function TotsOSLanding() {
         <div className="tots-container connected-layout">
           <Reveal>
             <Eyebrow>
-              Connected by
-              design
+              Connected by design
             </Eyebrow>
 
             <h2 className="section-title">
@@ -6872,7 +10564,9 @@ export default function TotsOSLanding() {
           </Reveal>
 
           <Reveal
-            delay={0.1}
+            delay={
+              0.1
+            }
           >
             <div className="connection-grid">
               {[
@@ -6922,14 +10616,20 @@ export default function TotsOSLanding() {
                   return (
                     <div
                       className="connection-item"
-                      key={item.label}
+                      key={
+                        item.label
+                      }
                     >
                       <Icon
-                        size={21}
+                        size={
+                          21
+                        }
                       />
 
                       <span>
-                        {item.label}
+                        {
+                          item.label
+                        }
                       </span>
                     </div>
                   );
@@ -6986,29 +10686,62 @@ export default function TotsOSLanding() {
                   ) => (
                     <div
                       className="clarity-point"
-                      key={item}
+                      key={
+                        item
+                      }
                     >
                       <div className="clarity-check">
                         <Check
-                          size={12}
+                          size={
+                            12
+                          }
                         />
                       </div>
 
-                      {item}
+                      {
+                        item
+                      }
                     </div>
                   )
                 )}
               </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setTourOpen(
+                    true
+                  )
+                }
+                className="button-primary"
+                style={{
+                  marginTop:
+                    28,
+                }}
+              >
+                <Sparkles
+                  size={
+                    14
+                  }
+                />
+
+                Take the Clarity
+                tour
+              </button>
             </Reveal>
 
             <Reveal
-              delay={0.1}
+              delay={
+                0.1
+              }
             >
               <div className="clarity-demo">
                 <div className="clarity-demo-head">
                   <div className="clarity-brand">
                     <Sparkles
-                      size={14}
+                      size={
+                        14
+                      }
                     />
 
                     Clarity
@@ -7102,29 +10835,6 @@ export default function TotsOSLanding() {
                     </div>
                   </div>
                 </div>
-
-                <div className="clarity-message">
-                  Which client
-                  needs the most
-                  attention?
-                </div>
-
-                <div className="clarity-response">
-                  <span>
-                    Clarity
-                  </span>
-
-                  <p>
-                    Halstead
-                    &amp; Co has
-                    an overdue
-                    payment and
-                    two open
-                    project tasks.
-                    I&apos;d start
-                    there.
-                  </p>
-                </div>
               </div>
             </Reveal>
           </div>
@@ -7155,7 +10865,9 @@ export default function TotsOSLanding() {
             <Reveal>
               <div className="security-card">
                 <LockKeyhole
-                  size={22}
+                  size={
+                    22
+                  }
                 />
 
                 <h3>
@@ -7176,11 +10888,15 @@ export default function TotsOSLanding() {
             </Reveal>
 
             <Reveal
-              delay={0.05}
+              delay={
+                0.05
+              }
             >
               <div className="security-card">
                 <ShieldCheck
-                  size={22}
+                  size={
+                    22
+                  }
                 />
 
                 <h3>
@@ -7201,11 +10917,15 @@ export default function TotsOSLanding() {
             </Reveal>
 
             <Reveal
-              delay={0.1}
+              delay={
+                0.1
+              }
             >
               <div className="security-card">
                 <RefreshCw
-                  size={22}
+                  size={
+                    22
+                  }
                 />
 
                 <h3>
@@ -7257,7 +10977,9 @@ export default function TotsOSLanding() {
 
             <div className="trial-pill">
               <Check
-                size={12}
+                size={
+                  12
+                }
               />
 
               14 days free · no
@@ -7272,7 +10994,9 @@ export default function TotsOSLanding() {
                 index
               ) => (
                 <Reveal
-                  key={plan.name}
+                  key={
+                    plan.name
+                  }
                   delay={
                     index *
                     0.06
@@ -7287,19 +11011,26 @@ export default function TotsOSLanding() {
                   >
                     <div className="price-head">
                       <span className="price-name">
-                        {plan.name}
+                        {
+                          plan.name
+                        }
                       </span>
 
                       {plan.badge && (
                         <span className="price-badge">
-                          {plan.badge}
+                          {
+                            plan.badge
+                          }
                         </span>
                       )}
                     </div>
 
                     <div className="price-figure">
                       <span className="price-amount">
-                        £{plan.price}
+                        £
+                        {
+                          plan.price
+                        }
                       </span>
 
                       <span className="price-period">
@@ -7308,7 +11039,9 @@ export default function TotsOSLanding() {
                     </div>
 
                     <p className="price-description">
-                      {plan.description}
+                      {
+                        plan.description
+                      }
                     </p>
 
                     <div className="price-features">
@@ -7318,14 +11051,20 @@ export default function TotsOSLanding() {
                         ) => (
                           <div
                             className="price-feature"
-                            key={feature}
+                            key={
+                              feature
+                            }
                           >
                             <Check
-                              size={13}
+                              size={
+                                13
+                              }
                             />
 
                             <span>
-                              {feature}
+                              {
+                                feature
+                              }
                             </span>
                           </div>
                         )
@@ -7334,7 +11073,9 @@ export default function TotsOSLanding() {
 
                     <div className="price-action">
                       <a
-                        href={SIGNUP_URL}
+                        href={
+                          SIGNUP_URL
+                        }
                         className={
                           plan.featured
                             ? "button-primary"
@@ -7344,7 +11085,9 @@ export default function TotsOSLanding() {
                         Start free
 
                         <ArrowRight
-                          size={14}
+                          size={
+                            14
+                          }
                         />
                       </a>
 
@@ -7395,13 +11138,15 @@ export default function TotsOSLanding() {
           </Reveal>
 
           <Reveal
-            delay={0.08}
+            delay={
+              0.08
+            }
           >
             <div className="about-card">
               <p>
-                We&apos;re Sam
-                and Leigha, the
-                team behind The
+                We&apos;re Sam and
+                Leigha, the team
+                behind The
                 Organised Types.
               </p>
 
@@ -7466,7 +11211,9 @@ export default function TotsOSLanding() {
                 return (
                   <div
                     className="faq-item"
-                    key={faq.q}
+                    key={
+                      faq.q
+                    }
                   >
                     <button
                       className="faq-button"
@@ -7480,7 +11227,9 @@ export default function TotsOSLanding() {
                       }
                     >
                       <span>
-                        {faq.q}
+                        {
+                          faq.q
+                        }
                       </span>
 
                       <motion.span
@@ -7492,7 +11241,9 @@ export default function TotsOSLanding() {
                         }}
                       >
                         <ChevronDown
-                          size={17}
+                          size={
+                            17
+                          }
                         />
                       </motion.span>
                     </button>
@@ -7524,7 +11275,9 @@ export default function TotsOSLanding() {
                               0,
                           }}
                         >
-                          {faq.a}
+                          {
+                            faq.a
+                          }
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -7546,7 +11299,9 @@ export default function TotsOSLanding() {
             <div className="final-card">
               <div className="final-icon">
                 <Sparkles
-                  size={23}
+                  size={
+                    23
+                  }
                 />
               </div>
 
@@ -7573,27 +11328,38 @@ export default function TotsOSLanding() {
 
               <div className="final-actions">
                 <a
-                  href={SIGNUP_URL}
+                  href={
+                    SIGNUP_URL
+                  }
                   className="button-primary button-large"
                 >
                   Start my free
                   trial
 
                   <ArrowRight
-                    size={16}
+                    size={
+                      16
+                    }
                   />
                 </a>
 
-                <a
-                  href="#demo"
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTourOpen(
+                      true
+                    )
+                  }
                   className="button-secondary button-large"
                 >
                   <Play
-                    size={14}
+                    size={
+                      14
+                    }
                   />
 
-                  Explore demo
-                </a>
+                  Take free tour
+                </button>
               </div>
 
               <p className="final-note">
@@ -7614,7 +11380,9 @@ export default function TotsOSLanding() {
         <div className="footer-grid">
           <div>
             <Logo
-              size={40}
+              size={
+                40
+              }
             />
 
             <p className="footer-copy">
@@ -7655,16 +11423,25 @@ export default function TotsOSLanding() {
             </h5>
 
             <div className="footer-links">
-              <a href={SIGNUP_URL}>
+              <a
+                href={
+                  SIGNUP_URL
+                }
+              >
                 Log in
               </a>
 
-              <a href={SIGNUP_URL}>
+              <a
+                href={
+                  SIGNUP_URL
+                }
+              >
                 Create account
               </a>
 
               <a href="/manage-subscription">
-                Manage subscription
+                Manage
+                subscription
               </a>
             </div>
           </div>
@@ -7704,6 +11481,21 @@ export default function TotsOSLanding() {
           </span>
         </div>
       </footer>
+
+      {/* ======================================================
+          GUIDED FREE TOUR
+      ====================================================== */}
+
+      <GuidedTour
+        open={
+          tourOpen
+        }
+        onClose={() =>
+          setTourOpen(
+            false
+          )
+        }
+      />
     </div>
   );
 }

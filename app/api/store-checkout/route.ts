@@ -520,8 +520,6 @@ async function validateDiscount({
 
   // ==========================================================
   // FIND CODE
-  //
-  // ilike makes WELCOME10 / welcome10 / Welcome10 work.
   // ==========================================================
 
   const {
@@ -832,6 +830,11 @@ export async function POST(
     | null =
     null;
 
+  let createdCouponId:
+    | string
+    | null =
+    null;
+
   try {
     // ========================================================
     // REQUEST BODY
@@ -1054,8 +1057,6 @@ export async function POST(
 
     // ========================================================
     // LOAD PRODUCTS
-    //
-    // DATABASE IS SOURCE OF TRUTH.
     // ========================================================
 
     const {
@@ -1144,10 +1145,6 @@ export async function POST(
             productId
         );
 
-      // ======================================================
-      // PRODUCT EXISTS
-      // ======================================================
-
       if (
         !product
       ) {
@@ -1162,10 +1159,6 @@ export async function POST(
           }
         );
       }
-
-      // ======================================================
-      // PRODUCT BELONGS TO STORE
-      // ======================================================
 
       if (
         product.organisation_id !==
@@ -1182,10 +1175,6 @@ export async function POST(
           }
         );
       }
-
-      // ======================================================
-      // PRODUCT ACTIVE
-      // ======================================================
 
       if (
         product.is_active ===
@@ -1204,10 +1193,6 @@ export async function POST(
           }
         );
       }
-
-      // ======================================================
-      // QUANTITY
-      // ======================================================
 
       const quantity =
         quantityByProduct.get(
@@ -1531,7 +1516,7 @@ export async function POST(
       orderData.id;
 
     // ========================================================
-    // CREATE STORE ORDER ITEMS
+    // CREATE ORDER ITEMS
     // ========================================================
 
     const orderItems =
@@ -1666,7 +1651,7 @@ export async function POST(
       );
 
     // ========================================================
-    // DOES THIS ORDER REQUIRE SHIPPING?
+    // SHIPPING REQUIRED?
     // ========================================================
 
     const requiresShipping =
@@ -1700,6 +1685,19 @@ export async function POST(
 
     // ========================================================
     // STRIPE CHECKOUT SESSION
+    //
+    // IMPORTANT:
+    //
+    // DO NOT add allow_promotion_codes here.
+    //
+    // TOTS-OS validates its own discount codes and applies
+    // them using sessionParams.discounts below.
+    //
+    // Stripe does not allow:
+    //
+    // allow_promotion_codes + discounts
+    //
+    // on the same Checkout Session.
     // ========================================================
 
     const sessionParams:
@@ -1780,32 +1778,25 @@ export async function POST(
           enabled:
             true,
         },
-
-        // ====================================================
-        // IMPORTANT
-        //
-        // We are NOT using Stripe promotion codes.
-        //
-        // TOTS-OS owns and validates the code itself.
-        // ====================================================
-
-        allow_promotion_codes:
-          false,
       };
 
     // ========================================================
     // APPLY TOTS DISCOUNT TO STRIPE
     //
-    // We create an exact one-use Stripe coupon representing
-    // the discount calculated by TOTS.
+    // Example:
     //
-    // This works for:
+    // £795 subtotal
+    // WELCOME10 = 10%
     //
-    // - 10% discount
-    // - £5 discount
-    // - percentage discount with max cap
+    // TOTS calculates £79.50.
     //
-    // Stripe receives the final exact amount to deduct.
+    // Stripe receives an exact £79.50 one-time coupon.
+    //
+    // Expected Stripe total:
+    //
+    // £795.00
+    // - £79.50
+    // = £715.50
     // ========================================================
 
     if (
@@ -1844,6 +1835,9 @@ export async function POST(
           },
         });
 
+      createdCouponId =
+        coupon.id;
+
       sessionParams.discounts =
         [
           {
@@ -1854,7 +1848,7 @@ export async function POST(
     }
 
     // ========================================================
-    // PRE-FILL CUSTOMER EMAIL
+    // CUSTOMER EMAIL
     // ========================================================
 
     if (
@@ -1900,6 +1894,10 @@ export async function POST(
         stripeError
       );
 
+      // ======================================================
+      // CLEAN UP PENDING ORDER
+      // ======================================================
+
       await supabaseAdmin
         .from(
           "store_orders"
@@ -1913,11 +1911,35 @@ export async function POST(
       createdOrderId =
         null;
 
+      // ======================================================
+      // CLEAN UP TEMPORARY STRIPE COUPON
+      // ======================================================
+
+      if (
+        createdCouponId
+      ) {
+        try {
+          await stripe.coupons.del(
+            createdCouponId
+          );
+        } catch (
+          couponCleanupError
+        ) {
+          console.error(
+            "Stripe coupon cleanup failed:",
+            couponCleanupError
+          );
+        }
+
+        createdCouponId =
+          null;
+      }
+
       throw stripeError;
     }
 
     // ========================================================
-    // STRIPE MUST RETURN CHECKOUT URL
+    // CHECKOUT URL REQUIRED
     // ========================================================
 
     if (
@@ -1935,6 +1957,26 @@ export async function POST(
 
       createdOrderId =
         null;
+
+      if (
+        createdCouponId
+      ) {
+        try {
+          await stripe.coupons.del(
+            createdCouponId
+          );
+        } catch (
+          couponCleanupError
+        ) {
+          console.error(
+            "Stripe coupon cleanup failed:",
+            couponCleanupError
+          );
+        }
+
+        createdCouponId =
+          null;
+      }
 
       throw new Error(
         "Stripe did not return a checkout URL."
@@ -1990,7 +2032,7 @@ export async function POST(
     );
 
     // ========================================================
-    // LAST-RESORT ORDER CLEANUP
+    // LAST RESORT ORDER CLEANUP
     // ========================================================
 
     if (
@@ -2012,6 +2054,27 @@ export async function POST(
         console.error(
           "Checkout order cleanup failed:",
           cleanupError
+        );
+      }
+    }
+
+    // ========================================================
+    // LAST RESORT COUPON CLEANUP
+    // ========================================================
+
+    if (
+      createdCouponId
+    ) {
+      try {
+        await stripe.coupons.del(
+          createdCouponId
+        );
+      } catch (
+        couponCleanupError
+      ) {
+        console.error(
+          "Stripe coupon cleanup failed:",
+          couponCleanupError
         );
       }
     }

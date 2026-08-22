@@ -21,6 +21,22 @@ const stripeSecretKey =
 const stripeWebhookSecret =
   process.env.STRIPE_STORE_WEBHOOK_SECRET;
 
+if (!stripeWebhookSecret) {
+  console.error(
+    "STRIPE_STORE_WEBHOOK_SECRET is not configured."
+  );
+
+  return NextResponse.json(
+    {
+      error:
+        "Stripe webhook secret is not configured.",
+    },
+    {
+      status: 500,
+    }
+  );
+}
+
 // ============================================================
 // VALIDATE ENV
 // ============================================================

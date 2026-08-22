@@ -1899,9 +1899,6 @@ export default function StorePage() {
                     "General",
 
                   description:
-                    firstString(
-                      row.description
-                    ) ||
                     "",
 
                   price:
@@ -2141,9 +2138,6 @@ export default function StorePage() {
                     "",
 
                   description:
-                    firstString(
-                      row.description
-                    ) ||
                     "",
 
                   discount_type:
@@ -2189,7 +2183,7 @@ export default function StorePage() {
                       0,
                       Math.floor(
                         firstNumber(
-                          row.usage_count
+                          row.times_used
                         )
                       )
                     ),
@@ -3856,26 +3850,18 @@ export default function StorePage() {
 
         code,
 
-        description:
-          discountForm.description.trim() ||
-          null,
-
         discount_type:
           discountForm.discountType,
 
         value,
 
         minimum_order_amount:
-          Math.max(
-            0,
-            minimumOrder
-          ),
+          minimumOrder > 0
+            ? minimumOrder
+            : null,
 
         maximum_discount_amount:
-          discountForm.discountType ===
-            "percentage"
-            ? maximumDiscount
-            : null,
+          maximumDiscount,
 
         usage_limit:
           usageLimit,

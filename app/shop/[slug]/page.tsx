@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Instagram,
   Loader2,
+  LockKeyhole,
   Mail,
   MapPin,
   Menu,
@@ -26,11 +27,13 @@ import {
   Plus,
   Search,
   Send,
+  ShieldCheck,
   ShoppingBag,
   ShoppingCart,
   Sparkles,
   Store,
   Tag,
+  Trash2,
   Truck,
   X,
 } from "lucide-react";
@@ -167,11 +170,8 @@ type CheckoutApiResponse = {
 // CONSTANTS
 // ============================================================
 
-const STOREFRONT_REQUEST_TIMEOUT_MS =
-  30000;
-
-const CONTACT_REQUEST_TIMEOUT_MS =
-  20000;
+const STOREFRONT_REQUEST_TIMEOUT_MS = 30000;
+const CONTACT_REQUEST_TIMEOUT_MS = 20000;
 
 // ============================================================
 // HELPERS
@@ -180,25 +180,19 @@ const CONTACT_REQUEST_TIMEOUT_MS =
 function formatCurrency(
   value?: number | string | null
 ) {
-  return new Intl.NumberFormat(
-    "en-GB",
-    {
-      style: "currency",
-      currency: "GBP",
-    }
-  ).format(
-    Number(value || 0)
-  );
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+  }).format(Number(value || 0));
 }
 
 function normaliseColour(
   value?: string | null,
   fallback = "#a9b897"
 ) {
-  const trimmed =
-    String(
-      value || ""
-    ).trim();
+  const trimmed = String(
+    value || ""
+  ).trim();
 
   if (
     /^#[0-9A-Fa-f]{6}$/.test(
@@ -359,9 +353,7 @@ function isServiceProduct(
     "service",
     "social media",
     "business support",
-  ].includes(
-    category
-  );
+  ].includes(category);
 }
 
 function isDigitalProduct(
@@ -387,6 +379,28 @@ function isDigitalProduct(
   );
 }
 
+function getProductTypeLabel(
+  product: Product
+) {
+  if (
+    isServiceProduct(
+      product
+    )
+  ) {
+    return "Service";
+  }
+
+  if (
+    isDigitalProduct(
+      product
+    )
+  ) {
+    return "Digital";
+  }
+
+  return "Product";
+}
+
 function getProductActionLabel(
   product: Product
 ) {
@@ -395,7 +409,7 @@ function getProductActionLabel(
       product
     )
   ) {
-    return "Choose service";
+    return "Add service";
   }
 
   if (
@@ -403,7 +417,7 @@ function getProductActionLabel(
       product
     )
   ) {
-    return "Get this";
+    return "Add to basket";
   }
 
   return "Add to basket";
@@ -522,7 +536,7 @@ export default function ShopFrontPage() {
     useState(false);
 
   // ==========================================================
-  // CONTACT FORM
+  // CONTACT
   // ==========================================================
 
   const [
@@ -593,7 +607,7 @@ export default function ShopFrontPage() {
     );
 
   // ==========================================================
-  // DISCOUNT CODE
+  // DISCOUNTS
   // ==========================================================
 
   const [
@@ -627,21 +641,14 @@ export default function ShopFrontPage() {
           !slug ||
           !slug.trim()
         ) {
-          setStore(
-            null
-          );
-
-          setProducts(
-            []
-          );
+          setStore(null);
+          setProducts([]);
 
           setError(
             "No store was specified."
           );
 
-          setLoading(
-            false
-          );
+          setLoading(false);
 
           return;
         }
@@ -654,13 +661,9 @@ export default function ShopFrontPage() {
         requestControllerRef.current =
           controller;
 
-        setLoading(
-          true
-        );
+        setLoading(true);
 
-        setError(
-          null
-        );
+        setError(null);
 
         setProductLoadWarning(
           null
@@ -862,9 +865,7 @@ export default function ShopFrontPage() {
               : null
           );
 
-          setError(
-            null
-          );
+          setError(null);
         } catch (
           loadError: unknown
         ) {
@@ -878,17 +879,9 @@ export default function ShopFrontPage() {
               return;
             }
 
-            console.warn(
-              "[TOTS STORE] Storefront request timed out."
-            );
+            setStore(null);
 
-            setStore(
-              null
-            );
-
-            setProducts(
-              []
-            );
+            setProducts([]);
 
             setError(
               "The store is taking longer than expected. Please try again."
@@ -902,29 +895,16 @@ export default function ShopFrontPage() {
             loadError
           );
 
-          setStore(
-            null
-          );
+          setStore(null);
 
-          setProducts(
-            []
-          );
+          setProducts([]);
 
-          if (
+          setError(
             loadError instanceof
-            TypeError
-          ) {
-            setError(
-              "We couldn't connect to the store. Please check your connection and try again."
-            );
-          } else {
-            setError(
-              loadError instanceof
-                Error
-                ? loadError.message
-                : "We couldn't load this store right now."
-            );
-          }
+              Error
+              ? loadError.message
+              : "We couldn't load this store right now."
+          );
         } finally {
           if (
             timeoutId
@@ -938,9 +918,7 @@ export default function ShopFrontPage() {
             requestControllerRef.current ===
             controller
           ) {
-            setLoading(
-              false
-            );
+            setLoading(false);
           }
         }
       },
@@ -950,7 +928,7 @@ export default function ShopFrontPage() {
     );
 
   // ==========================================================
-  // LOAD ON SLUG CHANGE
+  // INITIAL LOAD
   // ==========================================================
 
   useEffect(
@@ -969,7 +947,7 @@ export default function ShopFrontPage() {
   );
 
   // ==========================================================
-  // CONTACT MESSAGE
+  // CONTACT
   // ==========================================================
 
   async function sendContactMessage() {
@@ -1030,17 +1008,11 @@ export default function ShopFrontPage() {
     contactControllerRef.current =
       controller;
 
-    setSendingMessage(
-      true
-    );
+    setSendingMessage(true);
 
-    setMessageError(
-      null
-    );
+    setMessageError(null);
 
-    setMessageSent(
-      false
-    );
+    setMessageSent(false);
 
     const timeoutId =
       setTimeout(
@@ -1135,21 +1107,13 @@ export default function ShopFrontPage() {
         );
       }
 
-      setMessageSent(
-        true
-      );
+      setMessageSent(true);
 
-      setContactName(
-        ""
-      );
+      setContactName("");
 
-      setContactEmail(
-        ""
-      );
+      setContactEmail("");
 
-      setContactMessage(
-        ""
-      );
+      setContactMessage("");
     } catch (
       sendError: unknown
     ) {
@@ -1160,11 +1124,6 @@ export default function ShopFrontPage() {
           "Sending took too long. Please try again."
         );
       } else {
-        console.error(
-          "[TOTS STORE] Contact message failed:",
-          sendError
-        );
-
         setMessageError(
           sendError instanceof
             Error
@@ -1181,25 +1140,17 @@ export default function ShopFrontPage() {
         contactControllerRef.current ===
         controller
       ) {
-        setSendingMessage(
-          false
-        );
+        setSendingMessage(false);
       }
     }
   }
 
   function openContactDrawer() {
-    setMessageSent(
-      false
-    );
+    setMessageSent(false);
 
-    setMessageError(
-      null
-    );
+    setMessageError(null);
 
-    setContactOpen(
-      true
-    );
+    setContactOpen(true);
   }
 
   // ==========================================================
@@ -1302,7 +1253,7 @@ export default function ShopFrontPage() {
     );
 
   // ==========================================================
-  // FEATURED PRODUCTS
+  // FEATURED
   // ==========================================================
 
   const featuredProducts =
@@ -1382,6 +1333,25 @@ export default function ShopFrontPage() {
       ]
     );
 
+  const cartContainsPhysicalProduct =
+    useMemo(
+      () =>
+        cartLines.some(
+          (
+            line
+          ) =>
+            !isServiceProduct(
+              line.product
+            ) &&
+            !isDigitalProduct(
+              line.product
+            )
+        ),
+      [
+        cartLines,
+      ]
+    );
+
   // ==========================================================
   // CART ACTIONS
   // ==========================================================
@@ -1397,9 +1367,7 @@ export default function ShopFrontPage() {
       return;
     }
 
-    setCheckoutError(
-      null
-    );
+    setCheckoutError(null);
 
     setCart(
       (previous) => {
@@ -1453,18 +1421,14 @@ export default function ShopFrontPage() {
       }
     );
 
-    setCartOpen(
-      true
-    );
+    setCartOpen(true);
   }
 
   function setQuantity(
     productId: string,
     quantity: number
   ) {
-    setCheckoutError(
-      null
-    );
+    setCheckoutError(null);
 
     setCart(
       (previous) => {
@@ -1508,27 +1472,12 @@ export default function ShopFrontPage() {
         ) {
           safeQuantity =
             Math.min(
-              quantity,
+              safeQuantity,
               Math.max(
                 available,
                 0
               )
             );
-        }
-
-        if (
-          safeQuantity <=
-          0
-        ) {
-          const next = {
-            ...previous,
-          };
-
-          delete next[
-            productId
-          ];
-
-          return next;
         }
 
         return {
@@ -1545,8 +1494,28 @@ export default function ShopFrontPage() {
     );
   }
 
+  function removeFromCart(
+    productId: string
+  ) {
+    setCheckoutError(null);
+
+    setCart(
+      (previous) => {
+        const next = {
+          ...previous,
+        };
+
+        delete next[
+          productId
+        ];
+
+        return next;
+      }
+    );
+  }
+
   // ==========================================================
-  // DISCOUNT CODE
+  // DISCOUNT
   // ==========================================================
 
   function applyDiscountCode() {
@@ -1555,20 +1524,14 @@ export default function ShopFrontPage() {
         discountCode
       );
 
-    setCheckoutError(
-      null
-    );
+    setCheckoutError(null);
 
-    setDiscountMessage(
-      null
-    );
+    setDiscountMessage(null);
 
     if (
       !code
     ) {
-      setAppliedDiscountCode(
-        ""
-      );
+      setAppliedDiscountCode("");
 
       setDiscountMessage(
         "Enter a discount code first."
@@ -1577,55 +1540,25 @@ export default function ShopFrontPage() {
       return;
     }
 
-    setDiscountCode(
-      code
-    );
+    setDiscountCode(code);
 
     setAppliedDiscountCode(
       code
     );
 
-    /*
-     * The checkout API is the source of truth.
-     *
-     * We deliberately DO NOT calculate the discount in the
-     * browser because somebody could manipulate the page.
-     *
-     * /api/store-checkout will verify:
-     *
-     * - whether the code exists
-     * - whether it belongs to this organisation
-     * - active/inactive state
-     * - start date
-     * - expiry date
-     * - minimum spend
-     * - maximum redemptions
-     * - percentage/fixed discount
-     *
-     * before Stripe is opened.
-     */
-
     setDiscountMessage(
-      `${code} will be checked when you continue to checkout.`
+      "We'll verify this code securely when you continue."
     );
   }
 
   function removeDiscountCode() {
-    setDiscountCode(
-      ""
-    );
+    setDiscountCode("");
 
-    setAppliedDiscountCode(
-      ""
-    );
+    setAppliedDiscountCode("");
 
-    setDiscountMessage(
-      null
-    );
+    setDiscountMessage(null);
 
-    setCheckoutError(
-      null
-    );
+    setCheckoutError(null);
   }
 
   // ==========================================================
@@ -1642,13 +1575,9 @@ export default function ShopFrontPage() {
       return;
     }
 
-    setCheckingOut(
-      true
-    );
+    setCheckingOut(true);
 
-    setCheckoutError(
-      null
-    );
+    setCheckoutError(null);
 
     try {
       const items =
@@ -1663,14 +1592,6 @@ export default function ShopFrontPage() {
               line.quantity,
           })
         );
-
-      /*
-       * Always use the current field value if there is one.
-       *
-       * This means someone can type WELCOME10 and immediately
-       * press Continue to checkout without having to press the
-       * Apply button first.
-       */
 
       const resolvedDiscountCode =
         normaliseDiscountCode(
@@ -1698,21 +1619,10 @@ export default function ShopFrontPage() {
 
             body:
               JSON.stringify({
-                /*
-                 * storeSlug + items are the important
-                 * values expected by your checkout API.
-                 */
-
                 storeSlug:
                   store.slug,
 
                 items,
-
-                /*
-                 * Your custom TOTS discount code.
-                 *
-                 * The server validates it against Supabase.
-                 */
 
                 discountCode:
                   resolvedDiscountCode ||
@@ -1757,11 +1667,6 @@ export default function ShopFrontPage() {
       if (
         !response.ok
       ) {
-        /*
-         * If the API rejected a discount code, leave the basket
-         * open and surface that exact error underneath the code.
-         */
-
         throw new Error(
           data?.error ||
             data?.message ||
@@ -1777,22 +1682,10 @@ export default function ShopFrontPage() {
       if (
         !checkoutUrl
       ) {
-        console.error(
-          "[TOTS STORE] Checkout response:",
-          data
-        );
-
         throw new Error(
           "Stripe checkout was created, but no checkout URL was returned."
         );
       }
-
-      /*
-       * Redirect to the Stripe session created by the server.
-       *
-       * At this point any custom discount has already been
-       * validated and included in the Stripe checkout session.
-       */
 
       window.location.href =
         checkoutUrl;
@@ -1811,9 +1704,7 @@ export default function ShopFrontPage() {
           : "Checkout could not be started."
       );
     } finally {
-      setCheckingOut(
-        false
-      );
+      setCheckingOut(false);
     }
   }
 
@@ -1828,7 +1719,10 @@ export default function ShopFrontPage() {
     );
 
   const secondary =
-    `${primary}16`;
+    `${primary}12`;
+
+  const strongerSecondary =
+    `${primary}20`;
 
   const storeName =
     store?.store_name ||
@@ -1843,19 +1737,21 @@ export default function ShopFrontPage() {
     loading
   ) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f5f0] px-5">
+      <div className="flex min-h-screen items-center justify-center bg-[#f8f7f3] px-5">
         <div className="text-center">
-          <Loader2
-            className="mx-auto animate-spin text-stone-500"
-            size={28}
-          />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+            <Loader2
+              className="animate-spin text-stone-400"
+              size={22}
+            />
+          </div>
 
-          <p className="mt-4 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
+          <p className="mt-5 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
             Opening store
           </p>
 
-          <p className="mt-2 text-[9px] text-stone-300">
-            Just a moment
+          <p className="mt-2 text-xs text-stone-400">
+            Getting everything ready for you.
           </p>
         </div>
       </div>
@@ -1871,8 +1767,8 @@ export default function ShopFrontPage() {
     error
   ) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f5f0] px-5">
-        <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-9 text-center shadow-sm">
+      <div className="flex min-h-screen items-center justify-center bg-[#f8f7f3] px-5">
+        <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-10 text-center shadow-sm">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-500">
             <Store
               size={22}
@@ -1880,7 +1776,7 @@ export default function ShopFrontPage() {
           </div>
 
           <h1 className="mt-6 font-serif text-4xl italic text-stone-900">
-            Store unavailable
+            We couldn&apos;t open this store.
           </h1>
 
           <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-stone-500">
@@ -1893,7 +1789,7 @@ export default function ShopFrontPage() {
             onClick={() =>
               void loadStore()
             }
-            className="mt-7 inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-800"
+            className="mt-7 inline-flex items-center gap-2 rounded-full bg-stone-900 px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-800"
           >
             Try again
 
@@ -1927,22 +1823,23 @@ export default function ShopFrontPage() {
       ===================================================== */}
 
       <div
-        className="px-4 py-2 text-center text-[8px] font-black uppercase tracking-[0.18em] text-white"
+        className="px-4 py-2.5 text-center text-[8px] font-black uppercase tracking-[0.2em] text-white"
         style={{
           background:
             primary,
         }}
       >
         {store.announcement ||
-          "Independent business · Powered by TOTS-OS"}
+          "Shop securely with us online"}
       </div>
 
       {/* =====================================================
           HEADER
       ===================================================== */}
 
-      <header className="sticky top-0 z-40 border-b border-stone-200 bg-[#f8f7f3]/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-[#f8f7f3]/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-[72px] max-w-[1360px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+
           <button
             type="button"
             aria-label="Open menu"
@@ -1951,7 +1848,7 @@ export default function ShopFrontPage() {
                 true
               )
             }
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 bg-white lg:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-stone-200 bg-white lg:hidden"
           >
             <Menu
               size={16}
@@ -1963,46 +1860,48 @@ export default function ShopFrontPage() {
             className="flex min-w-0 items-center gap-3 no-underline"
           >
             {store.logo_url ? (
-              <img
-                src={
-                  store.logo_url
-                }
-                alt={`${storeName} logo`}
-                className="h-9 w-9 rounded-xl object-contain"
-              />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-white">
+                <img
+                  src={
+                    store.logo_url
+                  }
+                  alt={`${storeName} logo`}
+                  className="h-full w-full object-contain p-1"
+                />
+              </div>
             ) : (
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-white"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white"
                 style={{
                   background:
                     primary,
                 }}
               >
                 <Store
-                  size={15}
+                  size={17}
                 />
               </div>
             )}
 
             <div className="min-w-0">
-              <p className="truncate text-xs font-black uppercase tracking-[0.14em] text-stone-900">
+              <p className="truncate text-sm font-black tracking-[-0.01em] text-stone-900">
                 {
                   storeName
                 }
               </p>
 
               <p className="mt-0.5 hidden text-[9px] text-stone-400 sm:block">
-                Shop · Services · Resources
+                Online store
               </p>
             </div>
           </a>
 
-          <nav className="hidden items-center gap-7 lg:flex">
+          <nav className="hidden items-center gap-8 lg:flex">
             <a
               href="#shop"
               className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
             >
-              Explore
+              Shop
             </a>
 
             {featuredProducts.length >
@@ -2029,18 +1928,19 @@ export default function ShopFrontPage() {
               }
               className="text-xs font-semibold text-stone-500 transition hover:text-stone-900"
             >
-              Talk to us
+              Contact
             </button>
           </nav>
 
           <button
             type="button"
+            aria-label={`Open basket with ${cartCount} items`}
             onClick={() =>
               setCartOpen(
                 true
               )
             }
-            className="relative flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-white px-4 text-xs font-semibold shadow-sm"
+            className="relative flex h-11 items-center gap-2 rounded-full border border-stone-200 bg-white px-4 text-xs font-bold text-stone-700 shadow-sm transition hover:border-stone-300 hover:shadow-md"
           >
             <ShoppingBag
               size={15}
@@ -2053,7 +1953,7 @@ export default function ShopFrontPage() {
             {cartCount >
               0 && (
               <span
-                className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[8px] font-black text-white"
+                className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[8px] font-black text-white"
                 style={{
                   background:
                     primary,
@@ -2073,7 +1973,8 @@ export default function ShopFrontPage() {
       ===================================================== */}
 
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[100] bg-stone-900/40 p-4 backdrop-blur-sm lg:hidden">
+        <div className="fixed inset-0 z-[150] bg-stone-950/40 backdrop-blur-sm lg:hidden">
+
           <button
             type="button"
             aria-label="Close menu"
@@ -2085,10 +1986,13 @@ export default function ShopFrontPage() {
             }
           />
 
-          <div className="relative ml-auto w-full max-w-sm rounded-[1.75rem] bg-white p-5 shadow-2xl">
+          <aside className="absolute left-0 top-0 h-full w-[88%] max-w-sm bg-white p-6 shadow-2xl">
+
             <div className="flex items-center justify-between">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
-                Explore
+              <p className="text-sm font-black text-stone-900">
+                {
+                  storeName
+                }
               </p>
 
               <button
@@ -2106,57 +2010,40 @@ export default function ShopFrontPage() {
               </button>
             </div>
 
-            <div className="mt-5 grid gap-2">
-              <a
+            <div className="mt-8 space-y-2">
+
+              <MobileMenuLink
                 href="#shop"
+                label="Shop everything"
                 onClick={() =>
                   setMobileMenuOpen(
                     false
                   )
                 }
-                className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3.5 text-sm font-semibold no-underline"
-              >
-                Shop
-
-                <ArrowRight
-                  size={14}
-                />
-              </a>
+              />
 
               {featuredProducts.length >
                 0 && (
-                <a
+                <MobileMenuLink
                   href="#featured"
+                  label="Featured"
                   onClick={() =>
                     setMobileMenuOpen(
                       false
                     )
                   }
-                  className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3.5 text-sm font-semibold no-underline"
-                >
-                  Featured
-
-                  <ArrowRight
-                    size={14}
-                  />
-                </a>
+                />
               )}
 
-              <a
+              <MobileMenuLink
                 href="#about"
+                label="About us"
                 onClick={() =>
                   setMobileMenuOpen(
                     false
                   )
                 }
-                className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3.5 text-sm font-semibold no-underline"
-              >
-                About
-
-                <ArrowRight
-                  size={14}
-                />
-              </a>
+              />
 
               <button
                 type="button"
@@ -2167,20 +2054,21 @@ export default function ShopFrontPage() {
 
                   openContactDrawer();
                 }}
-                className="flex items-center justify-between rounded-xl px-4 py-3.5 text-left text-sm font-semibold text-white"
+                className="mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left text-sm font-bold text-white"
                 style={{
                   background:
                     primary,
                 }}
               >
-                Talk to us
+                Get in touch
 
                 <MessageCircle
-                  size={14}
+                  size={15}
                 />
               </button>
             </div>
-          </div>
+
+          </aside>
         </div>
       )}
 
@@ -2190,17 +2078,21 @@ export default function ShopFrontPage() {
 
       <section
         id="top"
-        className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-6"
+        className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pt-7"
       >
-        <div className="mx-auto max-w-[1320px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm lg:rounded-[2.5rem]">
-          <div className="grid lg:grid-cols-[1.12fr_.88fr]">
-            <div className="flex items-center p-7 sm:p-10 lg:p-12 xl:p-14">
+        <div className="mx-auto max-w-[1360px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-[0_16px_50px_rgba(28,25,23,0.04)] lg:rounded-[2.5rem]">
+
+          <div className="grid lg:grid-cols-[1.08fr_.92fr]">
+
+            <div className="flex min-h-[490px] items-center p-7 sm:p-10 lg:p-14 xl:p-16">
+
               <div className="max-w-2xl">
+
                 <div
-                  className="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-[8px] font-black uppercase tracking-[0.18em]"
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[8px] font-black uppercase tracking-[0.18em]"
                   style={{
                     background:
-                      `${primary}1c`,
+                      strongerSecondary,
 
                     color:
                       primary,
@@ -2216,27 +2108,28 @@ export default function ShopFrontPage() {
                   }
                 </div>
 
-                <h1 className="font-serif text-[3.1rem] italic leading-[0.95] tracking-tight text-stone-900 sm:text-6xl lg:text-7xl">
+                <h1 className="mt-6 max-w-[720px] font-serif text-[3.4rem] italic leading-[0.92] tracking-[-0.035em] text-stone-900 sm:text-6xl lg:text-[4.5rem]">
                   {store.hero_title ||
-                    `A simpler way to shop ${storeName}.`}
+                    `Everything you need, all in one place.`}
                 </h1>
 
-                <p className="mt-5 max-w-xl text-sm leading-7 text-stone-500 sm:text-[15px]">
+                <p className="mt-6 max-w-xl text-sm leading-7 text-stone-500 sm:text-[15px]">
                   {store.hero_text ||
                     store.store_description ||
-                    "Explore services, resources and products designed to make business feel simpler."}
+                    `Explore products and services from ${storeName}.`}
                 </p>
 
-                <div className="mt-7 flex flex-wrap gap-3">
+                <div className="mt-8 flex flex-wrap gap-3">
+
                   <a
                     href="#shop"
-                    className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-white no-underline transition hover:opacity-90"
+                    className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-white no-underline shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                     style={{
                       background:
                         primary,
                     }}
                   >
-                    Explore everything
+                    Shop now
 
                     <ArrowRight
                       size={13}
@@ -2248,124 +2141,177 @@ export default function ShopFrontPage() {
                     onClick={
                       openContactDrawer
                     }
-                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600"
+                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
                   >
-                    Talk to us
-
-                    <MessageCircle
-                      size={13}
-                    />
+                    Ask a question
                   </button>
+
                 </div>
 
-                <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-[9px] text-stone-400">
-                  <span className="flex items-center gap-2">
-                    <Check
-                      size={11}
-                      style={{
-                        color:
-                          primary,
-                      }}
-                    />
+                <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 border-t border-stone-100 pt-6">
 
-                    Independent business
-                  </span>
+                  <TrustItem
+                    icon={
+                      <ShieldCheck
+                        size={13}
+                      />
+                    }
+                    text="Secure payment"
+                    primary={
+                      primary
+                    }
+                  />
 
-                  <span className="flex items-center gap-2">
-                    <Check
-                      size={11}
-                      style={{
-                        color:
-                          primary,
-                      }}
-                    />
+                  <TrustItem
+                    icon={
+                      <MessageCircle
+                        size={13}
+                      />
+                    }
+                    text="Direct support"
+                    primary={
+                      primary
+                    }
+                  />
 
-                    Secure checkout
-                  </span>
+                  <TrustItem
+                    icon={
+                      <ShoppingBag
+                        size={13}
+                      />
+                    }
+                    text="Independent business"
+                    primary={
+                      primary
+                    }
+                  />
 
-                  <span className="flex items-center gap-2">
-                    <Check
-                      size={11}
-                      style={{
-                        color:
-                          primary,
-                      }}
-                    />
-
-                    Direct support
-                  </span>
                 </div>
               </div>
             </div>
 
             <div
-              className="relative min-h-[260px] overflow-hidden lg:min-h-[440px]"
+              className="relative min-h-[340px] overflow-hidden lg:min-h-[520px]"
               style={{
                 background:
                   secondary,
               }}
             >
-              {featuredProducts[0] &&
-              getProductImage(
-                featuredProducts[0]
-              ) ? (
-                <div className="absolute inset-0 flex items-center justify-center p-8 sm:p-10 lg:p-12">
-                  <div className="relative h-full max-h-[390px] w-full max-w-[310px] overflow-hidden rounded-[1.75rem] bg-white shadow-[0_22px_60px_rgba(0,0,0,0.12)]">
-                    <img
-                      src={
-                        getProductImage(
-                          featuredProducts[0]
-                        )!
-                      }
-                      alt={
-                        featuredProducts[0]
-                          .name
-                      }
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div
-                    className="flex h-28 w-28 items-center justify-center rounded-[2rem] text-white shadow-xl"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    {store.logo_url ? (
+              <div
+                className="absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-40 blur-3xl"
+                style={{
+                  background:
+                    primary,
+                }}
+              />
+
+              <div className="absolute inset-0 flex items-center justify-center p-7 sm:p-10 lg:p-12">
+
+                {featuredProducts[0] &&
+                getProductImage(
+                  featuredProducts[0]
+                ) ? (
+                  <div className="relative w-full max-w-[390px]">
+
+                    <div className="absolute -left-6 top-10 h-[82%] w-full rotate-[-4deg] rounded-[2rem] bg-white/55" />
+
+                    <div className="relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-white shadow-[0_30px_90px_rgba(28,25,23,0.16)]">
+
                       <img
                         src={
-                          store.logo_url
+                          getProductImage(
+                            featuredProducts[0]
+                          )!
                         }
-                        alt={`${storeName} logo`}
-                        className="h-20 w-20 object-contain"
+                        alt={
+                          featuredProducts[0]
+                            .name
+                        }
+                        className="h-full w-full object-cover"
                       />
-                    ) : (
-                      <ShoppingBag
-                        size={38}
-                      />
-                    )}
+
+                      <div className="absolute inset-x-4 bottom-4 rounded-2xl bg-white/95 p-4 shadow-lg backdrop-blur">
+
+                        <p className="text-[8px] font-black uppercase tracking-[0.16em] text-stone-400">
+                          Featured
+                        </p>
+
+                        <div className="mt-1 flex items-end justify-between gap-3">
+
+                          <p className="line-clamp-1 text-sm font-bold text-stone-800">
+                            {
+                              featuredProducts[0]
+                                .name
+                            }
+                          </p>
+
+                          <p className="shrink-0 font-serif text-xl italic">
+                            {formatCurrency(
+                              featuredProducts[0]
+                                .price
+                            )}
+                          </p>
+
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center">
+
+                    <div
+                      className="mx-auto flex h-28 w-28 items-center justify-center rounded-[2rem] text-white shadow-xl"
+                      style={{
+                        background:
+                          primary,
+                      }}
+                    >
+                      {store.logo_url ? (
+                        <img
+                          src={
+                            store.logo_url
+                          }
+                          alt={`${storeName} logo`}
+                          className="h-20 w-20 object-contain"
+                        />
+                      ) : (
+                        <ShoppingBag
+                          size={38}
+                        />
+                      )}
+                    </div>
+
+                    <p className="mt-5 text-sm font-bold text-stone-700">
+                      {
+                        storeName
+                      }
+                    </p>
+                  </div>
+                )}
+
+              </div>
             </div>
+
           </div>
         </div>
       </section>
 
       {/* =====================================================
-          CATEGORY CHIPS
+          CATEGORY BAR
       ===================================================== */}
 
       {categories.length >
         1 && (
         <section className="px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[1320px]">
-            <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
+
+          <div className="mx-auto max-w-[1360px]">
+
+            <div className="no-scrollbar flex gap-2 overflow-x-auto py-3">
+
               {categories.map(
-                (item) => (
+                (
+                  item
+                ) => (
                   <button
                     type="button"
                     key={
@@ -2385,7 +2331,7 @@ export default function ShopFrontPage() {
                             "smooth",
                         });
                     }}
-                    className="shrink-0 rounded-full border px-4 py-2 text-[8px] font-black uppercase tracking-[0.13em] transition"
+                    className="shrink-0 rounded-full border px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] transition"
                     style={
                       category ===
                       item
@@ -2417,6 +2363,7 @@ export default function ShopFrontPage() {
                   </button>
                 )
               )}
+
             </div>
           </div>
         </section>
@@ -2430,46 +2377,21 @@ export default function ShopFrontPage() {
         0 && (
         <section
           id="featured"
-          className="px-4 py-10 sm:px-6 lg:px-8"
+          className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
         >
-          <div className="mx-auto max-w-[1320px]">
-            <div className="mb-6 flex items-end justify-between gap-4">
-              <div>
-                <p
-                  className="text-[8px] font-black uppercase tracking-[0.22em]"
-                  style={{
-                    color:
-                      primary,
-                  }}
-                >
-                  Start here
-                </p>
+          <div className="mx-auto max-w-[1360px]">
 
-                <h2 className="mt-2 font-serif text-4xl italic tracking-tight text-stone-900 sm:text-5xl">
-                  A few favourites.
-                </h2>
+            <SectionHeading
+              eyebrow="Popular right now"
+              title="Featured picks."
+              description={`A few popular choices from ${storeName}.`}
+              primary={
+                primary
+              }
+            />
 
-                <p className="mt-2 text-xs text-stone-400">
-                  Popular ways to work with{" "}
-                  {
-                    storeName
-                  }.
-                </p>
-              </div>
+            <div className="mt-8 grid gap-5 lg:grid-cols-3">
 
-              <a
-                href="#shop"
-                className="hidden items-center gap-2 text-xs font-semibold text-stone-500 no-underline sm:flex"
-              >
-                See all
-
-                <ArrowRight
-                  size={13}
-                />
-              </a>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
               {featuredProducts.map(
                 (
                   product
@@ -2493,6 +2415,7 @@ export default function ShopFrontPage() {
                   />
                 )
               )}
+
             </div>
           </div>
         </section>
@@ -2504,34 +2427,27 @@ export default function ShopFrontPage() {
 
       <section
         id="shop"
-        className="px-4 py-10 sm:px-6 lg:px-8 lg:py-14"
+        className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
       >
-        <div className="mx-auto max-w-[1320px]">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p
-                className="text-[8px] font-black uppercase tracking-[0.22em]"
-                style={{
-                  color:
-                    primary,
-                }}
-              >
-                Explore
-              </p>
+        <div className="mx-auto max-w-[1360px]">
 
-              <h2 className="mt-2 font-serif text-4xl italic tracking-tight text-stone-900 sm:text-5xl">
-                Find what your business needs.
-              </h2>
+          <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
 
-              <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-                Websites, branding, coaching, resources and more — all in one place.
-              </p>
-            </div>
+            <SectionHeading
+              eyebrow="Browse the store"
+              title="Find what you need."
+              description="Browse everything available, or use the filters to narrow things down."
+              primary={
+                primary
+              }
+            />
 
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="relative">
+            <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+
+              <div className="relative flex-1 lg:w-[300px]">
+
                 <Search
-                  size={13}
+                  size={14}
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
                 />
 
@@ -2546,14 +2462,33 @@ export default function ShopFrontPage() {
                       event.target.value
                     )
                   }
-                  placeholder="What are you looking for?"
-                  className="w-full rounded-full border border-stone-200 bg-white py-3 pl-10 pr-5 text-xs outline-none transition focus:border-stone-400 sm:w-72"
+                  placeholder="Search products..."
+                  className="h-12 w-full rounded-2xl border border-stone-200 bg-white pl-11 pr-4 text-xs text-stone-700 outline-none transition focus:border-stone-400 focus:shadow-sm"
                 />
+
+                {search && (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() =>
+                      setSearch(
+                        ""
+                      )
+                    }
+                    className="absolute right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-stone-100 text-stone-400"
+                  >
+                    <X
+                      size={11}
+                    />
+                  </button>
+                )}
+
               </div>
 
               {categories.length >
                 1 && (
                 <div className="relative">
+
                   <select
                     value={
                       category
@@ -2565,7 +2500,7 @@ export default function ShopFrontPage() {
                         event.target.value
                       )
                     }
-                    className="w-full appearance-none rounded-full border border-stone-200 bg-white py-3 pl-5 pr-10 text-xs font-semibold text-stone-600 outline-none sm:w-52"
+                    className="h-12 w-full appearance-none rounded-2xl border border-stone-200 bg-white pl-4 pr-10 text-xs font-semibold text-stone-600 outline-none sm:w-52"
                   >
                     {categories.map(
                       (
@@ -2591,23 +2526,25 @@ export default function ShopFrontPage() {
                     size={12}
                     className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-stone-400"
                   />
+
                 </div>
               )}
+
             </div>
           </div>
 
-          <div className="mt-5 flex items-center justify-between">
-            <p className="text-[10px] text-stone-400">
-              Showing{" "}
-              <strong className="text-stone-600">
+          <div className="mt-6 flex items-center justify-between border-b border-stone-200 pb-4">
+
+            <p className="text-xs text-stone-400">
+              <strong className="font-bold text-stone-700">
                 {
                   visibleProducts.length
                 }
               </strong>{" "}
               {visibleProducts.length ===
               1
-                ? "option"
-                : "options"}
+                ? "result"
+                : "results"}
             </p>
 
             {(search ||
@@ -2616,23 +2553,23 @@ export default function ShopFrontPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setSearch(
-                    ""
-                  );
+                  setSearch("");
 
                   setCategory(
                     "All"
                   );
                 }}
-                className="text-[9px] font-bold text-stone-500 underline"
+                className="text-[9px] font-black uppercase tracking-[0.12em] text-stone-500"
               >
-                Clear filters
+                Reset filters
               </button>
             )}
+
           </div>
 
           {productLoadWarning && (
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+
               <p className="text-xs font-semibold text-amber-700">
                 {
                   productLoadWarning
@@ -2648,12 +2585,14 @@ export default function ShopFrontPage() {
               >
                 Try again
               </button>
+
             </div>
           )}
 
           {visibleProducts.length >
           0 ? (
-            <div className="mt-7 grid gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
               {visibleProducts.map(
                 (
                   product
@@ -2676,39 +2615,31 @@ export default function ShopFrontPage() {
                   />
                 )
               )}
+
             </div>
           ) : products.length ===
             0 ? (
-            <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-16 text-center">
-              <Package
-                className="mx-auto text-stone-300"
-                size={26}
-              />
-
-              <p className="mt-4 text-sm font-semibold text-stone-600">
-                More coming soon
-              </p>
-
-              <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-stone-400">
-                There&apos;s nothing published here just yet.
-              </p>
-            </div>
+            <EmptyState
+              icon={
+                <Package
+                  size={26}
+                />
+              }
+              title="Nothing here yet."
+              description="New products and services will appear here when they're published."
+            />
           ) : (
-            <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-16 text-center">
-              <Search
-                className="mx-auto text-stone-300"
-                size={26}
-              />
-
-              <p className="mt-4 text-sm font-semibold text-stone-600">
-                Nothing matched that
-              </p>
-
-              <p className="mt-2 text-xs text-stone-400">
-                Try another search or reset your filters.
-              </p>
-            </div>
+            <EmptyState
+              icon={
+                <Search
+                  size={26}
+                />
+              }
+              title="No matches found."
+              description="Try another search term or clear your filters."
+            />
           )}
+
         </div>
       </section>
 
@@ -2718,122 +2649,14 @@ export default function ShopFrontPage() {
 
       <section
         id="about"
-        className="px-4 py-10 sm:px-6 lg:px-8"
+        className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
       >
-        <div className="mx-auto grid max-w-[1320px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white lg:grid-cols-[1.2fr_.8fr]">
-          <div className="p-8 sm:p-10 lg:p-12">
-            <p
-              className="text-[8px] font-black uppercase tracking-[0.22em]"
-              style={{
-                color:
-                  primary,
-              }}
-            >
-              Behind the store
-            </p>
+        <div className="mx-auto max-w-[1360px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white">
 
-            <h2 className="mt-3 max-w-xl font-serif text-4xl italic tracking-tight sm:text-5xl">
-              Made by a real business, for real businesses.
-            </h2>
+          <div className="grid lg:grid-cols-[1.1fr_.9fr]">
 
-            <p className="mt-5 max-w-xl whitespace-pre-line text-sm leading-7 text-stone-500">
-              {store.store_description ||
-                `Welcome to ${storeName}. Everything here has been created to make running your business easier, clearer and a little less overwhelming.`}
-            </p>
+            <div className="p-8 sm:p-10 lg:p-14">
 
-            <div className="mt-6 flex flex-wrap gap-2">
-              {store.website_url && (
-                <a
-                  href={
-                    store.website_url
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full border border-stone-200 px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-stone-600 no-underline"
-                >
-                  Visit our website
-
-                  <ExternalLink
-                    size={12}
-                  />
-                </a>
-              )}
-
-              <button
-                type="button"
-                onClick={
-                  openContactDrawer
-                }
-                className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-white"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                Talk to us
-
-                <MessageCircle
-                  size={12}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div
-            className="flex min-h-[250px] items-center justify-center p-8"
-            style={{
-              background:
-                secondary,
-            }}
-          >
-            <div className="text-center">
-              {store.logo_url ? (
-                <img
-                  src={
-                    store.logo_url
-                  }
-                  alt={`${storeName} logo`}
-                  className="mx-auto max-h-24 max-w-[180px] object-contain"
-                />
-              ) : (
-                <div
-                  className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl text-white"
-                  style={{
-                    background:
-                      primary,
-                  }}
-                >
-                  <Store
-                    size={28}
-                  />
-                </div>
-              )}
-
-              <p className="mt-4 text-sm font-semibold text-stone-700">
-                {
-                  storeName
-                }
-              </p>
-
-              <p className="mt-1 text-[9px] uppercase tracking-[0.13em] text-stone-400">
-                Independent business
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================================
-          CONTACT
-      ===================================================== */}
-
-      <section
-        id="contact"
-        className="px-4 pb-14 pt-5 sm:px-6 lg:px-8 lg:pb-16"
-      >
-        <div className="mx-auto max-w-[1320px] rounded-[2rem] bg-stone-900 p-8 text-white sm:p-10 lg:p-12">
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-            <div>
               <p
                 className="text-[8px] font-black uppercase tracking-[0.22em]"
                 style={{
@@ -2841,15 +2664,140 @@ export default function ShopFrontPage() {
                     primary,
                 }}
               >
-                Not sure what you need?
+                About us
               </p>
 
-              <h2 className="mt-3 max-w-2xl font-serif text-4xl italic tracking-tight sm:text-5xl">
-                Talk to us before you buy.
+              <h2 className="mt-4 max-w-xl font-serif text-4xl italic tracking-[-0.02em] text-stone-900 sm:text-5xl">
+                The people behind{" "}
+                {
+                  storeName
+                }.
               </h2>
 
-              <p className="mt-3 max-w-xl text-sm leading-7 text-stone-400">
-                Questions about a service, package or product? Send us a message and we&apos;ll help point you in the right direction.
+              <p className="mt-5 max-w-xl whitespace-pre-line text-sm leading-7 text-stone-500">
+                {store.store_description ||
+                  `Welcome to ${storeName}. We're an independent business creating products and services designed to make things easier for our customers.`}
+              </p>
+
+              <div className="mt-7 flex flex-wrap gap-2">
+
+                {store.website_url && (
+                  <a
+                    href={
+                      store.website_url
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 px-5 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-stone-600 no-underline transition hover:bg-stone-50"
+                  >
+                    Visit website
+
+                    <ExternalLink
+                      size={12}
+                    />
+                  </a>
+                )}
+
+                <button
+                  type="button"
+                  onClick={
+                    openContactDrawer
+                  }
+                  className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-white"
+                  style={{
+                    background:
+                      primary,
+                  }}
+                >
+                  Contact us
+
+                  <MessageCircle
+                    size={12}
+                  />
+                </button>
+
+              </div>
+            </div>
+
+            <div
+              className="flex min-h-[300px] items-center justify-center p-10"
+              style={{
+                background:
+                  secondary,
+              }}
+            >
+
+              <div className="text-center">
+
+                {store.logo_url ? (
+                  <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-[2rem] bg-white p-4 shadow-sm">
+                    <img
+                      src={
+                        store.logo_url
+                      }
+                      alt={`${storeName} logo`}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] text-white"
+                    style={{
+                      background:
+                        primary,
+                    }}
+                  >
+                    <Store
+                      size={30}
+                    />
+                  </div>
+                )}
+
+                <p className="mt-5 text-base font-bold text-stone-700">
+                  {
+                    storeName
+                  }
+                </p>
+
+                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.17em] text-stone-400">
+                  Independent business
+                </p>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          CONTACT CTA
+      ===================================================== */}
+
+      <section className="px-4 pb-16 pt-4 sm:px-6 lg:px-8">
+
+        <div className="mx-auto max-w-[1360px] overflow-hidden rounded-[2rem] bg-stone-900 p-8 text-white sm:p-10 lg:p-14">
+
+          <div className="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
+
+            <div>
+
+              <p
+                className="text-[8px] font-black uppercase tracking-[0.22em]"
+                style={{
+                  color:
+                    primary,
+                }}
+              >
+                Need some help?
+              </p>
+
+              <h2 className="mt-4 max-w-2xl font-serif text-4xl italic tracking-[-0.02em] sm:text-5xl">
+                Not sure what to choose?
+              </h2>
+
+              <p className="mt-4 max-w-xl text-sm leading-7 text-stone-400">
+                Send us a message before you order and we&apos;ll help point you in the right direction.
               </p>
 
               <button
@@ -2857,61 +2805,54 @@ export default function ShopFrontPage() {
                 onClick={
                   openContactDrawer
                 }
-                className="mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.15em] text-white"
+                className="mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.15em] text-white"
                 style={{
                   background:
                     primary,
                 }}
               >
-                Send us a message
+                Talk to us
 
-                <MessageCircle
+                <ArrowRight
                   size={13}
                 />
               </button>
             </div>
 
-            <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:min-w-[440px]">
-              {store.email && (
-                <a
-                  href={`mailto:${store.email}`}
-                  className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4 no-underline transition hover:bg-white/10"
-                >
-                  <Mail
-                    size={15}
-                    style={{
-                      color:
-                        primary,
-                    }}
-                  />
+            <div className="grid gap-2 sm:grid-cols-2 lg:w-[440px]">
 
-                  <span className="truncate text-xs">
-                    {
-                      store.email
-                    }
-                  </span>
-                </a>
+              {store.email && (
+                <ContactItem
+                  href={`mailto:${store.email}`}
+                  icon={
+                    <Mail
+                      size={15}
+                    />
+                  }
+                  label={
+                    store.email
+                  }
+                  primary={
+                    primary
+                  }
+                />
               )}
 
               {store.phone && (
-                <a
+                <ContactItem
                   href={`tel:${store.phone}`}
-                  className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4 no-underline transition hover:bg-white/10"
-                >
-                  <Phone
-                    size={15}
-                    style={{
-                      color:
-                        primary,
-                    }}
-                  />
-
-                  <span className="truncate text-xs">
-                    {
-                      store.phone
-                    }
-                  </span>
-                </a>
+                  icon={
+                    <Phone
+                      size={15}
+                    />
+                  }
+                  label={
+                    store.phone
+                  }
+                  primary={
+                    primary
+                  }
+                />
               )}
 
               {store.address && (
@@ -2924,7 +2865,7 @@ export default function ShopFrontPage() {
                     }}
                   />
 
-                  <span className="text-xs">
+                  <span className="text-xs text-stone-300">
                     {
                       store.address
                     }
@@ -2933,28 +2874,25 @@ export default function ShopFrontPage() {
               )}
 
               {store.instagram_url && (
-                <a
+                <ContactItem
                   href={
                     store.instagram_url
                   }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4 no-underline transition hover:bg-white/10"
-                >
-                  <Instagram
-                    size={15}
-                    style={{
-                      color:
-                        primary,
-                    }}
-                  />
-
-                  <span className="text-xs">
-                    Instagram
-                  </span>
-                </a>
+                  external
+                  icon={
+                    <Instagram
+                      size={15}
+                    />
+                  }
+                  label="Instagram"
+                  primary={
+                    primary
+                  }
+                />
               )}
+
             </div>
+
           </div>
         </div>
       </section>
@@ -2963,33 +2901,37 @@ export default function ShopFrontPage() {
           FOOTER
       ===================================================== */}
 
-      <footer className="border-t border-stone-200 bg-white px-4 py-7 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-[1320px] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <footer className="border-t border-stone-200 bg-white px-4 py-8 sm:px-6 lg:px-8">
+
+        <div className="mx-auto flex max-w-[1360px] flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+
           <div className="flex items-center gap-3">
+
             {store.logo_url ? (
               <img
                 src={
                   store.logo_url
                 }
                 alt={`${storeName} logo`}
-                className="h-8 w-8 rounded-lg object-contain"
+                className="h-9 w-9 rounded-xl object-contain"
               />
             ) : (
               <div
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-white"
                 style={{
                   background:
                     primary,
                 }}
               >
                 <Store
-                  size={13}
+                  size={14}
                 />
               </div>
             )}
 
             <div>
-              <p className="text-xs font-semibold text-stone-700">
+
+              <p className="text-xs font-bold text-stone-700">
                 {
                   storeName
                 }
@@ -3002,20 +2944,34 @@ export default function ShopFrontPage() {
                   storeName
                 }
               </p>
+
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-[8px] text-stone-400">
-            <Sparkles
-              size={10}
-              style={{
-                color:
-                  primary,
-              }}
-            />
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[8px] text-stone-400">
 
-            Powered by TOTS-OS
+            <span className="flex items-center gap-1.5">
+              <LockKeyhole
+                size={10}
+              />
+
+              Secure checkout
+            </span>
+
+            <span className="flex items-center gap-1.5">
+              <Sparkles
+                size={10}
+                style={{
+                  color:
+                    primary,
+                }}
+              />
+
+              Powered by TOTS-OS
+            </span>
+
           </div>
+
         </div>
       </footer>
 
@@ -3030,7 +2986,7 @@ export default function ShopFrontPage() {
           onClick={
             openContactDrawer
           }
-          className="fixed bottom-5 right-5 z-[80] flex items-center gap-2 rounded-full px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.14em] text-white shadow-[0_16px_40px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5"
+          className="fixed bottom-5 right-5 z-[80] flex h-12 items-center gap-2 rounded-full px-5 text-[9px] font-black uppercase tracking-[0.14em] text-white shadow-[0_16px_45px_rgba(0,0,0,0.2)] transition hover:-translate-y-0.5"
           style={{
             background:
               primary,
@@ -3040,7 +2996,9 @@ export default function ShopFrontPage() {
             size={15}
           />
 
-          Talk to us
+          <span className="hidden sm:inline">
+            Need help?
+          </span>
         </button>
       )}
 
@@ -3049,10 +3007,11 @@ export default function ShopFrontPage() {
       ===================================================== */}
 
       {contactOpen && (
-        <div className="fixed inset-0 z-[140] bg-stone-900/35 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[170] bg-stone-950/40 backdrop-blur-sm">
+
           <button
             type="button"
-            aria-label="Close message panel"
+            aria-label="Close contact panel"
             className="absolute inset-0"
             onClick={() => {
               if (
@@ -3065,16 +3024,20 @@ export default function ShopFrontPage() {
             }}
           />
 
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[470px] flex-col bg-white shadow-2xl">
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-2xl">
+
             <div
-              className="border-b border-stone-100 px-6 pb-6 pt-7"
+              className="border-b border-stone-100 px-6 pb-7 pt-7"
               style={{
                 background:
                   secondary,
               }}
             >
-              <div className="flex items-start justify-between gap-4">
+
+              <div className="flex items-start justify-between gap-5">
+
                 <div>
+
                   <div
                     className="flex h-11 w-11 items-center justify-center rounded-2xl text-white"
                     style={{
@@ -3094,7 +3057,10 @@ export default function ShopFrontPage() {
                         primary,
                     }}
                   >
-                    Talk to us
+                    Contact{" "}
+                    {
+                      storeName
+                    }
                   </p>
 
                   <h2 className="mt-2 font-serif text-4xl italic leading-none text-stone-900">
@@ -3102,8 +3068,9 @@ export default function ShopFrontPage() {
                   </h2>
 
                   <p className="mt-3 max-w-sm text-xs leading-6 text-stone-500">
-                    Ask about a service, product, package or anything else. Your message will come straight through to the TOTS-OS inbox.
+                    Send us a message and we&apos;ll get back to you as soon as we can.
                   </p>
+
                 </div>
 
                 <button
@@ -3122,12 +3089,15 @@ export default function ShopFrontPage() {
                     size={15}
                   />
                 </button>
+
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
+
               {messageSent ? (
-                <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
+                <div className="flex min-h-[430px] flex-col items-center justify-center text-center">
+
                   <div
                     className="flex h-16 w-16 items-center justify-center rounded-2xl text-white"
                     style={{
@@ -3145,7 +3115,7 @@ export default function ShopFrontPage() {
                   </h3>
 
                   <p className="mt-3 max-w-xs text-sm leading-6 text-stone-500">
-                    Thanks for getting in touch. Your message has been sent through to the TOTS-OS inbox.
+                    Thanks for getting in touch. We&apos;ll get back to you as soon as possible.
                   </p>
 
                   <button
@@ -3167,68 +3137,45 @@ export default function ShopFrontPage() {
                   >
                     Done
                   </button>
+
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <div>
-                    <label
-                      htmlFor="store-contact-name"
-                      className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
-                    >
-                      Your name
-                    </label>
 
-                    <input
-                      id="store-contact-name"
-                      value={
-                        contactName
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setContactName(
-                          event.target.value
-                        )
-                      }
-                      placeholder="Your name"
-                      autoComplete="name"
-                      className="store-contact-input"
-                    />
-                  </div>
+                  <StoreInput
+                    label="Your name"
+                    id="store-contact-name"
+                    value={
+                      contactName
+                    }
+                    onChange={
+                      setContactName
+                    }
+                    placeholder="Your name"
+                    autoComplete="name"
+                  />
 
-                  <div>
-                    <label
-                      htmlFor="store-contact-email"
-                      className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
-                    >
-                      Email address
-                    </label>
-
-                    <input
-                      id="store-contact-email"
-                      type="email"
-                      value={
-                        contactEmail
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setContactEmail(
-                          event.target.value
-                        )
-                      }
-                      placeholder="you@example.com"
-                      autoComplete="email"
-                      className="store-contact-input"
-                    />
-                  </div>
+                  <StoreInput
+                    label="Email address"
+                    id="store-contact-email"
+                    type="email"
+                    value={
+                      contactEmail
+                    }
+                    onChange={
+                      setContactEmail
+                    }
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                  />
 
                   <div>
+
                     <label
                       htmlFor="store-contact-message"
                       className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
                     >
-                      What can we help with?
+                      How can we help?
                     </label>
 
                     <textarea
@@ -3243,19 +3190,22 @@ export default function ShopFrontPage() {
                           event.target.value
                         )
                       }
-                      placeholder="Tell us what you're looking for..."
+                      placeholder="Tell us what you'd like to know..."
                       rows={7}
                       className="store-contact-input resize-none"
                     />
+
                   </div>
 
                   {messageError && (
                     <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+
                       <p className="text-xs leading-5 text-red-600">
                         {
                           messageError
                         }
                       </p>
+
                     </div>
                   )}
 
@@ -3267,7 +3217,7 @@ export default function ShopFrontPage() {
                     onClick={() =>
                       void sendContactMessage()
                     }
-                    className="flex w-full items-center justify-center gap-2 rounded-xl py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                     style={{
                       background:
                         primary,
@@ -3294,8 +3244,10 @@ export default function ShopFrontPage() {
                   </button>
 
                   <div className="rounded-2xl bg-stone-50 p-4">
+
                     <div className="flex items-start gap-3">
-                      <Sparkles
+
+                      <ShieldCheck
                         size={14}
                         className="mt-0.5 shrink-0"
                         style={{
@@ -3305,14 +3257,15 @@ export default function ShopFrontPage() {
                       />
 
                       <p className="text-[10px] leading-5 text-stone-400">
-                        Your message is linked to{" "}
+                        Your message goes directly to{" "}
                         <strong className="font-semibold text-stone-600">
                           {
                             storeName
                           }
-                        </strong>{" "}
-                        so the team can see exactly which storefront you contacted them from.
+                        </strong>
+                        .
                       </p>
+
                     </div>
                   </div>
 
@@ -3334,19 +3287,22 @@ export default function ShopFrontPage() {
                       </a>
                     </p>
                   )}
+
                 </div>
               )}
+
             </div>
           </aside>
         </div>
       )}
 
       {/* =====================================================
-          CART
+          CART DRAWER
       ===================================================== */}
 
       {cartOpen && (
-        <div className="fixed inset-0 z-[120] bg-stone-900/35 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[160] bg-stone-950/40 backdrop-blur-sm">
+
           <button
             type="button"
             aria-label="Close basket"
@@ -3362,67 +3318,75 @@ export default function ShopFrontPage() {
             }}
           />
 
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-2xl">
 
-            {/* =================================================
-                CART HEADER
-            ================================================= */}
+            {/* HEADER */}
 
-            <div className="flex items-center justify-between border-b border-stone-100 px-5 py-5">
-              <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
-                  Your basket
-                </p>
+            <div className="border-b border-stone-100 px-5 py-5 sm:px-6">
 
-                <h3 className="mt-1 font-serif text-2xl italic">
-                  {
-                    cartCount
-                  }{" "}
-                  {cartCount ===
-                  1
-                    ? "item"
-                    : "items"}
-                </h3>
+              <div className="flex items-center justify-between">
+
+                <div>
+
+                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
+                    Your basket
+                  </p>
+
+                  <div className="mt-1 flex items-baseline gap-2">
+
+                    <h3 className="font-serif text-3xl italic">
+                      {
+                        cartCount
+                      }{" "}
+                      {cartCount ===
+                      1
+                        ? "item"
+                        : "items"}
+                    </h3>
+
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    checkingOut
+                  }
+                  onClick={() =>
+                    setCartOpen(
+                      false
+                    )
+                  }
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100 text-stone-500 disabled:opacity-50"
+                >
+                  <X
+                    size={16}
+                  />
+                </button>
+
               </div>
-
-              <button
-                type="button"
-                disabled={
-                  checkingOut
-                }
-                onClick={() =>
-                  setCartOpen(
-                    false
-                  )
-                }
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100 disabled:opacity-50"
-              >
-                <X
-                  size={15}
-                />
-              </button>
             </div>
 
-            {/* =================================================
-                CART ITEMS
-            ================================================= */}
+            {/* ITEMS */}
 
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+
               {cartLines.length ===
               0 ? (
-                <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-400">
+                <div className="flex h-full min-h-[420px] flex-col items-center justify-center text-center">
+
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-stone-100 text-stone-400">
                     <ShoppingCart
-                      size={21}
+                      size={22}
                     />
                   </div>
 
-                  <p className="mt-5 text-sm font-semibold text-stone-700">
-                    Nothing here yet
-                  </p>
+                  <h4 className="mt-5 font-serif text-3xl italic text-stone-800">
+                    Your basket is empty.
+                  </h4>
 
                   <p className="mt-2 max-w-xs text-xs leading-5 text-stone-400">
-                    Pick something from the store and it&apos;ll appear here.
+                    Browse the store and add something you love.
                   </p>
 
                   <button
@@ -3432,13 +3396,15 @@ export default function ShopFrontPage() {
                         false
                       )
                     }
-                    className="mt-5 rounded-full bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                    className="mt-6 rounded-full bg-stone-900 px-6 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
                   >
-                    Keep browsing
+                    Continue shopping
                   </button>
+
                 </div>
               ) : (
                 <div className="space-y-3">
+
                   {cartLines.map(
                     (
                       line
@@ -3458,141 +3424,170 @@ export default function ShopFrontPage() {
                           key={
                             line.product.id
                           }
-                          className="flex gap-3 rounded-2xl border border-stone-100 bg-stone-50 p-3"
+                          className="rounded-2xl border border-stone-100 bg-stone-50 p-3"
                         >
-                          <div className="h-16 w-14 shrink-0 overflow-hidden rounded-xl bg-white">
-                            {image ? (
-                              <img
-                                src={
-                                  image
-                                }
-                                alt={
-                                  line.product.name
-                                }
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-stone-300">
-                                <Package
-                                  size={18}
+
+                          <div className="flex gap-3">
+
+                            <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white">
+
+                              {image ? (
+                                <img
+                                  src={
+                                    image
+                                  }
+                                  alt={
+                                    line.product.name
+                                  }
+                                  className="h-full w-full object-cover"
                                 />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-semibold text-stone-700">
-                              {
-                                line.product.name
-                              }
-                            </p>
-
-                            <p className="mt-1 text-[10px] text-stone-500">
-                              {formatCurrency(
-                                line.product.price
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-stone-300">
+                                  <Package
+                                    size={18}
+                                  />
+                                </div>
                               )}
-                            </p>
 
-                            <div className="mt-2 flex items-center gap-2">
-                              <button
-                                type="button"
-                                disabled={
-                                  checkingOut
-                                }
-                                onClick={() =>
-                                  setQuantity(
-                                    line.product.id,
-                                    line.quantity -
-                                      1
-                                  )
-                                }
-                                className="flex h-6 w-6 items-center justify-center rounded-full bg-white disabled:opacity-40"
-                              >
-                                <Minus
-                                  size={10}
-                                />
-                              </button>
-
-                              <span className="min-w-5 text-center text-[10px] font-semibold">
-                                {
-                                  line.quantity
-                                }
-                              </span>
-
-                              <button
-                                type="button"
-                                disabled={
-                                  checkingOut ||
-                                  (
-                                    maxStock !==
-                                      null &&
-                                    line.quantity >=
-                                      maxStock
-                                  )
-                                }
-                                onClick={() =>
-                                  setQuantity(
-                                    line.product.id,
-                                    line.quantity +
-                                      1
-                                  )
-                                }
-                                className="flex h-6 w-6 items-center justify-center rounded-full bg-white disabled:cursor-not-allowed disabled:opacity-30"
-                              >
-                                <Plus
-                                  size={10}
-                                />
-                              </button>
                             </div>
-                          </div>
 
-                          <div className="shrink-0 text-right">
-                            <p className="text-xs font-semibold text-stone-700">
-                              {formatCurrency(
-                                Number(
-                                  line.product.price ||
-                                    0
-                                ) *
-                                  line.quantity
-                              )}
-                            </p>
+                            <div className="min-w-0 flex-1">
+
+                              <div className="flex items-start justify-between gap-3">
+
+                                <div className="min-w-0">
+
+                                  <p className="truncate text-xs font-bold text-stone-700">
+                                    {
+                                      line.product.name
+                                    }
+                                  </p>
+
+                                  <p className="mt-1 text-[9px] text-stone-400">
+                                    {getProductTypeLabel(
+                                      line.product
+                                    )}
+                                  </p>
+
+                                </div>
+
+                                <button
+                                  type="button"
+                                  aria-label={`Remove ${line.product.name}`}
+                                  disabled={
+                                    checkingOut
+                                  }
+                                  onClick={() =>
+                                    removeFromCart(
+                                      line.product.id
+                                    )
+                                  }
+                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-stone-400 transition hover:text-red-500 disabled:opacity-40"
+                                >
+                                  <Trash2
+                                    size={11}
+                                  />
+                                </button>
+
+                              </div>
+
+                              <div className="mt-3 flex items-center justify-between">
+
+                                <div className="flex items-center rounded-full border border-stone-200 bg-white p-1">
+
+                                  <button
+                                    type="button"
+                                    aria-label="Decrease quantity"
+                                    disabled={
+                                      checkingOut
+                                    }
+                                    onClick={() =>
+                                      setQuantity(
+                                        line.product.id,
+                                        line.quantity -
+                                          1
+                                      )
+                                    }
+                                    className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-40"
+                                  >
+                                    <Minus
+                                      size={10}
+                                    />
+                                  </button>
+
+                                  <span className="min-w-7 text-center text-[10px] font-bold">
+                                    {
+                                      line.quantity
+                                    }
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    aria-label="Increase quantity"
+                                    disabled={
+                                      checkingOut ||
+                                      (
+                                        maxStock !==
+                                          null &&
+                                        line.quantity >=
+                                          maxStock
+                                      )
+                                    }
+                                    onClick={() =>
+                                      setQuantity(
+                                        line.product.id,
+                                        line.quantity +
+                                          1
+                                      )
+                                    }
+                                    className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-30"
+                                  >
+                                    <Plus
+                                      size={10}
+                                    />
+                                  </button>
+
+                                </div>
+
+                                <div className="text-right">
+
+                                  <p className="font-serif text-xl italic text-stone-800">
+                                    {formatCurrency(
+                                      Number(
+                                        line.product.price ||
+                                          0
+                                      ) *
+                                        line.quantity
+                                    )}
+                                  </p>
+
+                                </div>
+
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
                     }
                   )}
+
                 </div>
               )}
+
             </div>
 
-            {/* =================================================
-                CART FOOTER
-            ================================================= */}
+            {/* FOOTER */}
 
-            <div className="border-t border-stone-100 bg-white p-5">
+            {cartLines.length >
+              0 && (
+              <div className="border-t border-stone-100 bg-white px-5 pb-5 pt-5 sm:px-6">
 
-              {/* SUBTOTAL */}
+                {/* DISCOUNT */}
 
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-stone-400">
-                  Subtotal
-                </span>
+                <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4">
 
-                <strong className="font-serif text-2xl italic text-stone-900">
-                  {formatCurrency(
-                    cartTotal
-                  )}
-                </strong>
-              </div>
-
-              {/* =================================================
-                  DISCOUNT CODE
-              ================================================= */}
-
-              {cartLines.length >
-                0 && (
-                <div className="mt-4 rounded-2xl border border-stone-100 bg-stone-50 p-4">
                   <div className="flex items-center gap-2">
+
                     <Tag
                       size={13}
                       style={{
@@ -3602,16 +3597,20 @@ export default function ShopFrontPage() {
                     />
 
                     <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-500">
-                      Discount code
+                      Have a discount code?
                     </p>
+
                   </div>
 
                   {appliedDiscountCode ? (
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3">
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-stone-100 bg-white px-4 py-3">
+
                       <div className="min-w-0">
+
                         <div className="flex items-center gap-2">
+
                           <div
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white"
+                            className="flex h-5 w-5 items-center justify-center rounded-full text-white"
                             style={{
                               background:
                                 primary,
@@ -3622,16 +3621,18 @@ export default function ShopFrontPage() {
                             />
                           </div>
 
-                          <p className="truncate text-xs font-bold text-stone-700">
+                          <p className="truncate text-xs font-black text-stone-700">
                             {
                               appliedDiscountCode
                             }
                           </p>
+
                         </div>
 
                         <p className="mt-1 pl-7 text-[9px] text-stone-400">
-                          Code ready to be verified.
+                          Ready to be verified at checkout.
                         </p>
+
                       </div>
 
                       <button
@@ -3642,13 +3643,15 @@ export default function ShopFrontPage() {
                         onClick={
                           removeDiscountCode
                         }
-                        className="shrink-0 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400 underline disabled:opacity-40"
+                        className="text-[8px] font-black uppercase tracking-[0.12em] text-stone-400 underline disabled:opacity-40"
                       >
                         Remove
                       </button>
+
                     </div>
                   ) : (
                     <div className="mt-3 flex gap-2">
+
                       <input
                         type="text"
                         value={
@@ -3684,12 +3687,12 @@ export default function ShopFrontPage() {
                             applyDiscountCode();
                           }
                         }}
-                        placeholder="WELCOME10"
+                        placeholder="Enter code"
                         autoComplete="off"
                         spellCheck={
                           false
                         }
-                        className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
+                        className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-4 py-3 text-xs font-bold uppercase tracking-[0.06em] text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
                       />
 
                       <button
@@ -3701,10 +3704,11 @@ export default function ShopFrontPage() {
                         onClick={
                           applyDiscountCode
                         }
-                        className="shrink-0 rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        className="shrink-0 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-40"
                       >
                         Apply
                       </button>
+
                     </div>
                   )}
 
@@ -3715,95 +3719,169 @@ export default function ShopFrontPage() {
                       }
                     </p>
                   )}
+
                 </div>
-              )}
 
-              {/* SHIPPING */}
+                {/* SHIPPING / DELIVERY */}
 
-              {store.shipping_text && (
-                <div className="mt-3 flex items-start gap-2 rounded-xl bg-stone-50 p-3">
-                  <Truck
-                    size={12}
-                    className="mt-0.5 shrink-0"
-                    style={{
-                      color:
-                        primary,
-                    }}
+                <div className="mt-4">
+
+                  {store.shipping_text ? (
+                    <div className="flex items-start gap-3 rounded-2xl bg-stone-50 p-4">
+
+                      <Truck
+                        size={14}
+                        className="mt-0.5 shrink-0"
+                        style={{
+                          color:
+                            primary,
+                        }}
+                      />
+
+                      <p className="text-[10px] leading-5 text-stone-500">
+                        {
+                          store.shipping_text
+                        }
+                      </p>
+
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3 rounded-2xl bg-stone-50 p-4">
+
+                      {cartContainsPhysicalProduct ? (
+                        <Truck
+                          size={14}
+                          className="mt-0.5 shrink-0"
+                          style={{
+                            color:
+                              primary,
+                          }}
+                        />
+                      ) : (
+                        <Check
+                          size={14}
+                          className="mt-0.5 shrink-0"
+                          style={{
+                            color:
+                              primary,
+                          }}
+                        />
+                      )}
+
+                      <p className="text-[10px] leading-5 text-stone-500">
+                        {cartContainsPhysicalProduct
+                          ? "Delivery details will be confirmed during checkout."
+                          : "No shipping required for these items."}
+                      </p>
+
+                    </div>
+                  )}
+
+                </div>
+
+                {/* ERROR */}
+
+                {checkoutError && (
+                  <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+
+                    <p className="text-[10px] font-semibold leading-5 text-red-600">
+                      {
+                        checkoutError
+                      }
+                    </p>
+
+                    {appliedDiscountCode && (
+                      <button
+                        type="button"
+                        onClick={
+                          removeDiscountCode
+                        }
+                        className="mt-2 text-[8px] font-black uppercase tracking-[0.12em] text-red-500 underline"
+                      >
+                        Remove discount code
+                      </button>
+                    )}
+
+                  </div>
+                )}
+
+                {/* TOTAL */}
+
+                <div className="mt-5 border-t border-stone-100 pt-5">
+
+                  <div className="flex items-center justify-between">
+
+                    <div>
+
+                      <p className="text-[9px] font-semibold text-stone-400">
+                        Subtotal
+                      </p>
+
+                      <p className="mt-1 text-[8px] text-stone-300">
+                        Discounts applied at checkout
+                      </p>
+
+                    </div>
+
+                    <strong className="font-serif text-3xl italic text-stone-900">
+                      {formatCurrency(
+                        cartTotal
+                      )}
+                    </strong>
+
+                  </div>
+
+                </div>
+
+                {/* CHECKOUT */}
+
+                <button
+                  type="button"
+                  disabled={
+                    checkingOut
+                  }
+                  onClick={() =>
+                    void startCheckout()
+                  }
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.17em] text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{
+                    background:
+                      primary,
+                  }}
+                >
+                  {checkingOut ? (
+                    <>
+                      <Loader2
+                        size={13}
+                        className="animate-spin"
+                      />
+
+                      Preparing checkout...
+                    </>
+                  ) : (
+                    <>
+                      Checkout securely
+
+                      <ArrowRight
+                        size={13}
+                      />
+                    </>
+                  )}
+                </button>
+
+                <div className="mt-3 flex items-center justify-center gap-2 text-[8px] text-stone-400">
+
+                  <LockKeyhole
+                    size={10}
                   />
 
-                  <p className="text-[9px] leading-4 text-stone-500">
-                    {
-                      store.shipping_text
-                    }
-                  </p>
+                  Secure payment powered by Stripe
+
                 </div>
-              )}
 
-              {/* CHECKOUT ERROR */}
+              </div>
+            )}
 
-              {checkoutError && (
-                <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-                  <p className="text-[10px] font-medium leading-5 text-red-600">
-                    {
-                      checkoutError
-                    }
-                  </p>
-
-                  {appliedDiscountCode && (
-                    <p className="mt-1 text-[9px] leading-4 text-red-400">
-                      Check that the discount code is valid, active and meets any minimum spend requirements.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* CHECKOUT BUTTON */}
-
-              <button
-                type="button"
-                disabled={
-                  !cartLines.length ||
-                  checkingOut
-                }
-                onClick={() =>
-                  void startCheckout()
-                }
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-4 text-[9px] font-black uppercase tracking-[0.17em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                {checkingOut ? (
-                  <>
-                    <Loader2
-                      size={13}
-                      className="animate-spin"
-                    />
-
-                    Checking basket...
-                  </>
-                ) : (
-                  <>
-                    Continue to checkout
-
-                    <ArrowRight
-                      size={13}
-                    />
-                  </>
-                )}
-              </button>
-
-              <p className="mt-3 text-center text-[8px] leading-4 text-stone-400">
-                Secure checkout powered by TOTS-OS and Stripe.
-              </p>
-
-              {appliedDiscountCode && (
-                <p className="mt-1 text-center text-[8px] leading-4 text-stone-400">
-                  Your discount will be verified before payment.
-                </p>
-              )}
-            </div>
           </aside>
         </div>
       )}
@@ -3866,22 +3944,26 @@ function ProductCard({
     price >
       0;
 
-  const service =
-    isServiceProduct(
+  const typeLabel =
+    getProductTypeLabel(
       product
     );
 
-  const digital =
-    isDigitalProduct(
-      product
-    );
+  const saving =
+    onSale
+      ? compareAt -
+        price
+      : 0;
 
   return (
-    <article className="group min-w-0 overflow-hidden rounded-[1.55rem] border border-stone-200 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(0,0,0,0.06)]">
+    <article className="group flex min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-stone-200 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(28,25,23,0.08)]">
+
+      {/* IMAGE */}
+
       <div
-        className={`relative overflow-hidden bg-stone-100 ${
+        className={`relative overflow-hidden bg-[#f2f0ec] ${
           featuredLayout
-            ? "aspect-[16/9]"
+            ? "aspect-[16/11]"
             : "aspect-[4/3]"
         }`}
       >
@@ -3894,20 +3976,21 @@ function ProductCard({
               product.name
             }
             loading="lazy"
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+            className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-stone-300">
             <Package
-              size={28}
+              size={30}
             />
           </div>
         )}
 
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+
           {product.featured && (
             <span
-              className="rounded-full px-2.5 py-1 text-[6px] font-black uppercase tracking-[0.13em] text-white"
+              className="rounded-full px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.13em] text-white shadow-sm"
               style={{
                 background:
                   primary,
@@ -3918,119 +4001,413 @@ function ProductCard({
           )}
 
           {onSale && (
-            <span className="rounded-full bg-stone-900 px-2.5 py-1 text-[6px] font-black uppercase tracking-[0.13em] text-white">
-              Offer
+            <span className="rounded-full bg-stone-900 px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.13em] text-white shadow-sm">
+              Save{" "}
+              {formatCurrency(
+                saving
+              )}
             </span>
           )}
 
           {outOfStock && (
-            <span className="rounded-full bg-white px-2.5 py-1 text-[6px] font-black uppercase tracking-[0.13em] text-stone-600 shadow-sm">
+            <span className="rounded-full bg-white px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.13em] text-stone-500 shadow-sm">
               Unavailable
             </span>
           )}
+
+        </div>
+
+        <div className="absolute bottom-3 right-3">
+
+          <span className="rounded-full bg-white/90 px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.12em] text-stone-500 shadow-sm backdrop-blur">
+            {
+              typeLabel
+            }
+          </span>
+
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="flex items-center justify-between gap-3">
-          <p
-            className="text-[7px] font-black uppercase tracking-[0.15em]"
-            style={{
-              color:
-                primary,
-            }}
-          >
-            {product.category ||
-              "Product"}
-          </p>
+      {/* CONTENT */}
 
-          {service ? (
-            <span className="text-[7px] font-bold uppercase tracking-[0.12em] text-stone-300">
-              Service
-            </span>
-          ) : digital ? (
-            <span className="text-[7px] font-bold uppercase tracking-[0.12em] text-stone-300">
-              Digital
-            </span>
-          ) : null}
-        </div>
+      <div className="flex flex-1 flex-col p-5">
 
-        <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-stone-800">
+        <p
+          className="text-[7px] font-black uppercase tracking-[0.16em]"
+          style={{
+            color:
+              primary,
+          }}
+        >
+          {product.category ||
+            "General"}
+        </p>
+
+        <h3 className="mt-2 line-clamp-2 text-[15px] font-bold leading-5 text-stone-800">
           {
             product.name
           }
         </h3>
 
-        {product.description && (
-          <p className="mt-2 line-clamp-2 min-h-[40px] text-[10px] leading-5 text-stone-400">
+        {product.description ? (
+          <p className="mt-2 line-clamp-2 min-h-[42px] text-[10px] leading-5 text-stone-400">
             {
               product.description
             }
           </p>
+        ) : (
+          <div className="min-h-[50px]" />
         )}
 
-        <div className="mt-4 flex items-end justify-between gap-3">
-          <div>
-            <p className="font-serif text-[1.65rem] italic leading-none text-stone-900">
-              {formatCurrency(
-                product.price
-              )}
-            </p>
+        <div className="mt-auto pt-5">
 
-            {onSale && (
-              <p className="mt-1 text-[9px] text-stone-400 line-through">
-                {formatCurrency(
-                  compareAt
+          <div className="flex items-end justify-between gap-3">
+
+            <div>
+
+              <div className="flex items-end gap-2">
+
+                <p className="font-serif text-[1.8rem] italic leading-none text-stone-900">
+                  {formatCurrency(
+                    product.price
+                  )}
+                </p>
+
+                {onSale && (
+                  <p className="pb-0.5 text-[9px] text-stone-400 line-through">
+                    {formatCurrency(
+                      compareAt
+                    )}
+                  </p>
                 )}
-              </p>
-            )}
+
+              </div>
+
+              {lowStock &&
+                available !==
+                  null && (
+                  <p className="mt-2 text-[7px] font-black uppercase tracking-[0.12em] text-amber-600">
+                    Only{" "}
+                    {
+                      available
+                    }{" "}
+                    left
+                  </p>
+                )}
+
+            </div>
           </div>
 
-          {lowStock &&
-            available !==
-              null && (
-              <p className="text-[7px] font-black uppercase tracking-[0.12em] text-amber-600">
-                Only{" "}
-                {
-                  available
-                }{" "}
-                left
-              </p>
-            )}
-        </div>
-
-        <button
-          type="button"
-          disabled={
-            outOfStock
-          }
-          onClick={
-            onAdd
-          }
-          className="mt-4 flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          style={{
-            background:
+          <button
+            type="button"
+            disabled={
               outOfStock
-                ? "#d6d3d1"
-                : primary,
-          }}
-        >
-          <span className="text-[8px] font-black uppercase tracking-[0.13em]">
-            {outOfStock
-              ? "Unavailable"
-              : getProductActionLabel(
-                  product
-                )}
-          </span>
+            }
+            onClick={
+              onAdd
+            }
+            className="mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-3.5 text-left text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              background:
+                outOfStock
+                  ? "#d6d3d1"
+                  : primary,
+            }}
+          >
+            <span className="text-[8px] font-black uppercase tracking-[0.13em]">
+              {outOfStock
+                ? "Unavailable"
+                : getProductActionLabel(
+                    product
+                  )}
+            </span>
 
-          {!outOfStock && (
-            <ArrowRight
-              size={12}
-            />
-          )}
-        </button>
+            {!outOfStock && (
+              <ArrowRight
+                size={12}
+              />
+            )}
+          </button>
+
+        </div>
       </div>
     </article>
+  );
+}
+
+// ============================================================
+// SECTION HEADING
+// ============================================================
+
+function SectionHeading({
+  eyebrow,
+  title,
+  description,
+  primary,
+}: {
+  eyebrow: string;
+  title: string;
+  description?: string;
+  primary: string;
+}) {
+  return (
+    <div>
+
+      <p
+        className="text-[8px] font-black uppercase tracking-[0.22em]"
+        style={{
+          color:
+            primary,
+        }}
+      >
+        {
+          eyebrow
+        }
+      </p>
+
+      <h2 className="mt-2 font-serif text-4xl italic tracking-[-0.025em] text-stone-900 sm:text-5xl">
+        {
+          title
+        }
+      </h2>
+
+      {description && (
+        <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+          {
+            description
+          }
+        </p>
+      )}
+
+    </div>
+  );
+}
+
+// ============================================================
+// TRUST ITEM
+// ============================================================
+
+function TrustItem({
+  icon,
+  text,
+  primary,
+}: {
+  icon: React.ReactNode;
+  text: string;
+  primary: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-[9px] font-semibold text-stone-400">
+
+      <span
+        style={{
+          color:
+            primary,
+        }}
+      >
+        {
+          icon
+        }
+      </span>
+
+      {
+        text
+      }
+
+    </div>
+  );
+}
+
+// ============================================================
+// CONTACT ITEM
+// ============================================================
+
+function ContactItem({
+  href,
+  icon,
+  label,
+  primary,
+  external = false,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  primary: string;
+  external?: boolean;
+}) {
+  return (
+    <a
+      href={
+        href
+      }
+      target={
+        external
+          ? "_blank"
+          : undefined
+      }
+      rel={
+        external
+          ? "noopener noreferrer"
+          : undefined
+      }
+      className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4 no-underline transition hover:bg-white/10"
+    >
+      <span
+        style={{
+          color:
+            primary,
+        }}
+      >
+        {
+          icon
+        }
+      </span>
+
+      <span className="truncate text-xs text-stone-300">
+        {
+          label
+        }
+      </span>
+    </a>
+  );
+}
+
+// ============================================================
+// MOBILE MENU LINK
+// ============================================================
+
+function MobileMenuLink({
+  href,
+  label,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <a
+      href={
+        href
+      }
+      onClick={
+        onClick
+      }
+      className="flex items-center justify-between rounded-2xl bg-stone-50 px-4 py-4 text-sm font-semibold text-stone-700 no-underline"
+    >
+      {
+        label
+      }
+
+      <ArrowRight
+        size={14}
+      />
+    </a>
+  );
+}
+
+// ============================================================
+// EMPTY STATE
+// ============================================================
+
+function EmptyState({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-20 text-center">
+
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-50 text-stone-300">
+        {
+          icon
+        }
+      </div>
+
+      <p className="mt-5 text-sm font-bold text-stone-600">
+        {
+          title
+        }
+      </p>
+
+      <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-stone-400">
+        {
+          description
+        }
+      </p>
+
+    </div>
+  );
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+
+function StoreInput({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  autoComplete,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (
+    value: string
+  ) => void;
+  placeholder?: string;
+  type?: string;
+  autoComplete?: string;
+}) {
+  return (
+    <div>
+
+      <label
+        htmlFor={
+          id
+        }
+        className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
+      >
+        {
+          label
+        }
+      </label>
+
+      <input
+        id={
+          id
+        }
+        type={
+          type
+        }
+        value={
+          value
+        }
+        onChange={(
+          event
+        ) =>
+          onChange(
+            event.target.value
+          )
+        }
+        placeholder={
+          placeholder
+        }
+        autoComplete={
+          autoComplete
+        }
+        className="store-contact-input"
+      />
+
+    </div>
   );
 }
 
@@ -4041,10 +4418,17 @@ function ProductCard({
 function StorefrontGlobalStyles() {
   return (
     <style jsx global>{`
-      @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;500;600;700;800&display=swap");
 
       html {
         scroll-behavior: smooth;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          Arial,
+          sans-serif;
       }
 
       .font-serif {
@@ -4067,8 +4451,8 @@ function StorefrontGlobalStyles() {
         width: 100%;
         border: 1px solid #e7e5e4;
         background: #fafaf9;
-        border-radius: 0.9rem;
-        padding: 0.9rem 1rem;
+        border-radius: 1rem;
+        padding: 0.95rem 1rem;
         font-size: 0.78rem;
         color: #44403c;
         outline: none;
@@ -4079,7 +4463,7 @@ function StorefrontGlobalStyles() {
       }
 
       .store-contact-input::placeholder {
-        color: #c4bfb9;
+        color: #b9b4ae;
       }
 
       .store-contact-input:focus {
@@ -4089,9 +4473,23 @@ function StorefrontGlobalStyles() {
           0 0 0 3px
           color-mix(
             in srgb,
-            var(--brand) 14%,
+            var(--brand) 12%,
             transparent
           );
+      }
+
+      button,
+      a,
+      input,
+      textarea,
+      select {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      @media (max-width: 640px) {
+        .font-serif {
+          text-wrap: balance;
+        }
       }
     `}</style>
   );

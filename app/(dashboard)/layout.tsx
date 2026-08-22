@@ -7,7 +7,10 @@ import {
 } from "react";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+
+import {
+  usePathname,
+} from "next/navigation";
 
 import {
   AnimatePresence,
@@ -33,7 +36,9 @@ import Footer from "@/app/components/Footer";
 import Clarity from "@/app/components/Clarity";
 import NotificationBell from "@/app/components/NotificationBell";
 
-import { useSettings } from "@/app/context/SettingsContext";
+import {
+  useSettings,
+} from "@/app/context/SettingsContext";
 
 import {
   ClarityTourProvider,
@@ -86,7 +91,10 @@ function DashboardLayoutInner({
   const [
     mobileMenuOpen,
     setMobileMenuOpen,
-  ] = useState(false);
+  ] =
+    useState(
+      false
+    );
 
   const pathname =
     usePathname();
@@ -98,156 +106,256 @@ function DashboardLayoutInner({
       "/calendar",
     ],
 
-    fontFamily = "Inter",
-  } = useSettings();
+    fontFamily =
+      "Inter",
+  } =
+    useSettings();
 
   // ==========================================================
   // ALL LINKS
   // ==========================================================
 
-  const allLinks: DashboardLink[] = [
-    {
-      href: "/dashboard",
-      label: "Home",
-      icon: LayoutDashboard,
-    },
+  const allLinks:
+    DashboardLink[] =
+    [
+      {
+        href:
+          "/dashboard",
 
-    {
-      href: "/calendar",
-      label: "Calendar",
-      icon: Calendar,
-    },
+        label:
+          "Home",
 
-    {
-      href: "/crm",
-      label: "Contacts",
-      icon: Users,
-    },
+        icon:
+          LayoutDashboard,
+      },
 
-    {
-      href: "/notes",
-      label: "Notes",
-      icon: StickyNote,
-    },
+      {
+        href:
+          "/calendar",
 
-    {
-      href: "/campaigns",
-      label: "Campaigns",
-      icon: Megaphone,
-    },
+        label:
+          "Calendar",
 
-    {
-      href: "/projects",
-      label: "Projects",
-      icon: Briefcase,
-    },
+        icon:
+          Calendar,
+      },
 
-    {
-      href: "/social",
-      label: "Social",
-      icon: Globe,
-    },
+      {
+        href:
+          "/crm",
 
-    {
-      href: "/payments",
-      label: "Finance",
-      icon: Briefcase,
-    },
+        label:
+          "Contacts",
 
-    {
-      href: "/settings",
-      label: "Settings",
-      icon: Settings,
-    },
-  ];
+        icon:
+          Users,
+      },
+
+      {
+        href:
+          "/notes",
+
+        label:
+          "Notes",
+
+        icon:
+          StickyNote,
+      },
+
+      {
+        href:
+          "/campaigns",
+
+        label:
+          "Campaigns",
+
+        icon:
+          Megaphone,
+      },
+
+      {
+        href:
+          "/projects",
+
+        label:
+          "Projects",
+
+        icon:
+          Briefcase,
+      },
+
+      {
+        href:
+          "/social",
+
+        label:
+          "Social",
+
+        icon:
+          Globe,
+      },
+
+      {
+        href:
+          "/payments",
+
+        label:
+          "Finance",
+
+        icon:
+          Briefcase,
+      },
+
+      {
+        href:
+          "/settings",
+
+        label:
+          "Settings",
+
+        icon:
+          Settings,
+      },
+    ];
 
   // ==========================================================
   // MOBILE SECTIONS
   // ==========================================================
 
-  const mobileSections: MobileNavSection[] = [
-    {
-      links: [
-        {
-          href: "/dashboard",
-          label: "Home",
-          icon: LayoutDashboard,
-        },
-      ],
-    },
+  const mobileSections:
+    MobileNavSection[] =
+    [
+      {
+        links: [
+          {
+            href:
+              "/dashboard",
 
-    {
-      title: "My Business",
+            label:
+              "Home",
 
-      links: [
-        {
-          href: "/crm",
-          label: "Contacts",
-          icon: Users,
-        },
+            icon:
+              LayoutDashboard,
+          },
+        ],
+      },
 
-        {
-          href: "/campaigns",
-          label: "Campaigns",
-          icon: Megaphone,
-        },
+      {
+        title:
+          "My Business",
 
-        {
-          href: "/social",
-          label: "Social",
-          icon: Globe,
-        },
+        links: [
+          {
+            href:
+              "/crm",
 
-        {
-          href: "/payments",
-          label: "Finance",
-          icon: Briefcase,
-        },
+            label:
+              "Contacts",
 
-        {
-          href: "/notes",
-          label: "Notes",
-          icon: StickyNote,
-        },
-      ],
-    },
+            icon:
+              Users,
+          },
 
-    {
-      title: "Clients & Projects",
+          {
+            href:
+              "/campaigns",
 
-      links: [
-        {
-          href: "/projects",
-          label: "Workspace",
-          icon: Briefcase,
-        },
-      ],
-    },
+            label:
+              "Campaigns",
 
-    {
-      title: "Planning",
+            icon:
+              Megaphone,
+          },
 
-      links: [
-        {
-          href: "/calendar",
-          label: "Calendar",
-          icon: Calendar,
-        },
-      ],
-    },
+          {
+            href:
+              "/social",
 
-    {
-      title: "Settings",
+            label:
+              "Social",
 
-      links: [
-        {
-          href: "/settings",
-          label: "Settings",
-          icon: Settings,
-        },
-      ],
-    },
-  ];
+            icon:
+              Globe,
+          },
+
+          {
+            href:
+              "/payments",
+
+            label:
+              "Finance",
+
+            icon:
+              Briefcase,
+          },
+
+          {
+            href:
+              "/notes",
+
+            label:
+              "Notes",
+
+            icon:
+              StickyNote,
+          },
+        ],
+      },
+
+      {
+        title:
+          "Clients & Projects",
+
+        links: [
+          {
+            href:
+              "/projects",
+
+            label:
+              "Workspace",
+
+            icon:
+              Briefcase,
+          },
+        ],
+      },
+
+      {
+        title:
+          "Planning",
+
+        links: [
+          {
+            href:
+              "/calendar",
+
+            label:
+              "Calendar",
+
+            icon:
+              Calendar,
+          },
+        ],
+      },
+
+      {
+        title:
+          "Settings",
+
+        links: [
+          {
+            href:
+              "/settings",
+
+            label:
+              "Settings",
+
+            icon:
+              Settings,
+          },
+        ],
+      },
+    ];
 
   // ==========================================================
   // PINNED MOBILE LINKS
@@ -255,10 +363,13 @@ function DashboardLayoutInner({
 
   const pinnedMobileLinks =
     allLinks
-      .filter((link) =>
-        mobileNav?.includes(
-          link.href
-        )
+      .filter(
+        (
+          link
+        ) =>
+          mobileNav?.includes(
+            link.href
+          )
       )
       .slice(
         0,
@@ -292,7 +403,13 @@ function DashboardLayoutInner({
 
   return (
     <div
-      className="flex h-screen w-full overflow-hidden bg-[#fcfaf7]"
+      className="
+        flex
+        h-screen
+        w-full
+        overflow-hidden
+        bg-[#fcfaf7]
+      "
       style={{
         fontFamily:
           `'${fontFamily}', sans-serif`,
@@ -301,12 +418,18 @@ function DashboardLayoutInner({
       {/* ======================================================
           DESKTOP SIDEBAR
 
-          Desktop NotificationBell lives inside Sidebar.tsx.
+          Desktop notification bell is entirely handled by
+          Sidebar.tsx.
       ====================================================== */}
 
       <aside
         data-tour="dashboard-navigation"
-        className="hidden h-full flex-shrink-0 md:block"
+        className="
+          hidden
+          h-full
+          flex-shrink-0
+          md:block
+        "
       >
         <Sidebar />
       </aside>
@@ -315,8 +438,16 @@ function DashboardLayoutInner({
           MAIN CONTENT AREA
       ====================================================== */}
 
-      <main className="relative flex h-full min-w-0 flex-1 flex-col">
-
+      <main
+        className="
+          relative
+          flex
+          h-full
+          min-w-0
+          flex-1
+          flex-col
+        "
+      >
         {/* ====================================================
             SCROLLABLE PAGE CONTENT
         ==================================================== */}
@@ -350,16 +481,22 @@ function DashboardLayoutInner({
             left-0
             right-0
             z-[90]
+
             flex
             h-14
             items-center
             justify-between
+
             border-t
             border-stone-100
+
             bg-white/90
+
             px-3
             pb-safe
+
             backdrop-blur-2xl
+
             md:hidden
           "
         >
@@ -403,17 +540,32 @@ function DashboardLayoutInner({
               flex-col
               items-center
               gap-1
+
               text-stone-400
+
               transition-colors
+
               active:scale-90
             "
+            aria-label="Open menu"
           >
             <Menu
-              size={18}
-              strokeWidth={1.5}
+              size={
+                18
+              }
+              strokeWidth={
+                1.5
+              }
             />
 
-            <span className="text-[7px] font-black uppercase tracking-tighter">
+            <span
+              className="
+                text-[7px]
+                font-black
+                uppercase
+                tracking-tighter
+              "
+            >
               More
             </span>
           </button>
@@ -422,8 +574,8 @@ function DashboardLayoutInner({
         {/* ====================================================
             CLARITY ASSISTANT
 
-            Kept BEFORE the mobile overlay so the mobile
-            menu is rendered above it.
+            Clarity is intentionally rendered BEFORE the
+            mobile menu overlay.
         ==================================================== */}
 
         <Clarity />
@@ -437,37 +589,54 @@ function DashboardLayoutInner({
         {/* ====================================================
             MOBILE FULL-SCREEN MENU
 
-            Very high z-index so this is always above Clarity.
+            Notification bell only exists here for mobile.
         ==================================================== */}
 
         <AnimatePresence>
           {mobileMenuOpen && (
             <motion.div
               initial={{
-                y: "100%",
+                y:
+                  "100%",
               }}
               animate={{
-                y: 0,
+                y:
+                  0,
               }}
               exit={{
-                y: "100%",
+                y:
+                  "100%",
               }}
               transition={{
-                type: "spring",
-                damping: 30,
-                stiffness: 300,
+                type:
+                  "spring",
+
+                damping:
+                  30,
+
+                stiffness:
+                  300,
               }}
               className="
                 fixed
                 inset-0
                 z-[5000]
+
                 overflow-y-auto
+
                 bg-[#fcfaf7]
+
                 md:hidden
               "
             >
-              <div className="relative min-h-full p-5 pb-24">
-
+              <div
+                className="
+                  relative
+                  min-h-full
+                  p-5
+                  pb-24
+                "
+              >
                 {/* ============================================
                     MOBILE MENU HEADER
                 ============================================ */}
@@ -476,7 +645,9 @@ function DashboardLayoutInner({
                   className="
                     relative
                     z-[6000]
+
                     mb-6
+
                     flex
                     items-center
                     justify-between
@@ -486,16 +657,35 @@ function DashboardLayoutInner({
                       LOGO
                   ========================================== */}
 
-                  <div className="flex items-center gap-3">
-
+                  <div
+                    className="
+                      flex
+                      items-center
+                      gap-3
+                    "
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
+
                     <img
                       src="/icon.png"
                       alt="TOTS-OS"
-                      className="h-9 w-9 rounded-xl object-contain"
+                      className="
+                        h-9
+                        w-9
+                        rounded-xl
+                        object-contain
+                      "
                     />
 
-                    <span className="font-serif text-2xl italic tracking-tighter text-stone-900">
+                    <span
+                      className="
+                        font-serif
+                        text-2xl
+                        italic
+                        tracking-tighter
+                        text-stone-900
+                      "
+                    >
                       TOTS-OS
                     </span>
                   </div>
@@ -508,6 +698,7 @@ function DashboardLayoutInner({
                     className="
                       relative
                       z-[7000]
+
                       flex
                       items-center
                       gap-2
@@ -521,6 +712,7 @@ function DashboardLayoutInner({
                       className="
                         relative
                         z-[8000]
+
                         flex
                         h-11
                         w-11
@@ -549,19 +741,29 @@ function DashboardLayoutInner({
                         shrink-0
                         items-center
                         justify-center
+
                         rounded-[1.25rem]
+
                         border
                         border-stone-200
+
                         bg-white
+
                         shadow-sm
+
                         transition-transform
+
                         active:scale-95
                       "
                       aria-label="Close menu"
                     >
                       <X
-                        size={20}
-                        className="text-stone-900"
+                        size={
+                          20
+                        }
+                        className="
+                          text-stone-900
+                        "
                       />
                     </button>
                   </div>
@@ -575,30 +777,71 @@ function DashboardLayoutInner({
                   className="
                     relative
                     z-[100]
+
                     mb-6
+
                     rounded-[1.5rem]
+
                     border
                     border-stone-200
+
                     bg-white
+
                     px-4
                     py-3
+
                     shadow-sm
                   "
                 >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                      gap-4
+                    "
+                  >
+                    <div
+                      className="
+                        min-w-0
+                      "
+                    >
+                      <p
+                        className="
+                          text-[8px]
+                          font-black
+                          uppercase
+                          tracking-[0.2em]
+                          text-stone-400
+                        "
+                      >
                         Notifications
                       </p>
 
-                      <p className="mt-1 text-xs font-semibold leading-5 text-stone-700">
+                      <p
+                        className="
+                          mt-1
+                          text-xs
+                          font-semibold
+                          leading-5
+                          text-stone-700
+                        "
+                      >
                         Orders, deadlines,
                         payments and business
                         updates.
                       </p>
                     </div>
 
-                    <div className="h-2 w-2 shrink-0 rounded-full bg-[#a9b897]" />
+                    <div
+                      className="
+                        h-2
+                        w-2
+                        shrink-0
+                        rounded-full
+                        bg-[#a9b897]
+                      "
+                    />
                   </div>
                 </div>
 
@@ -608,7 +851,11 @@ function DashboardLayoutInner({
 
                 <div
                   data-tour="mobile-system-menu"
-                  className="relative z-[50] space-y-5"
+                  className="
+                    relative
+                    z-[50]
+                    space-y-5
+                  "
                 >
                   {mobileSections.map(
                     (
@@ -622,14 +869,31 @@ function DashboardLayoutInner({
                         }
                       >
                         {section.title && (
-                          <p className="mb-2 px-1 text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                          <p
+                            className="
+                              mb-2
+                              px-1
+
+                              text-[8px]
+                              font-black
+                              uppercase
+                              tracking-[0.2em]
+                              text-stone-400
+                            "
+                          >
                             {
                               section.title
                             }
                           </p>
                         )}
 
-                        <div className="grid grid-cols-2 gap-2.5">
+                        <div
+                          className="
+                            grid
+                            grid-cols-2
+                            gap-2.5
+                          "
+                        >
                           {section.links.map(
                             (
                               link
@@ -668,9 +932,13 @@ function DashboardLayoutInner({
                                     h-20
                                     flex-col
                                     justify-between
+
                                     rounded-[1.4rem]
+
                                     border
+
                                     p-3
+
                                     transition-all
                                     duration-300
 
@@ -690,8 +958,12 @@ function DashboardLayoutInner({
                                     }}
                                   >
                                     <Icon
-                                      size={18}
-                                      strokeWidth={1.5}
+                                      size={
+                                        18
+                                      }
+                                      strokeWidth={
+                                        1.5
+                                      }
                                     />
                                   </div>
 
@@ -737,14 +1009,22 @@ function DashboardLayoutInner({
 
 function MobileNavItem({
   href,
-  icon: Icon,
+  icon:
+    Icon,
   label,
   isActive,
 }: {
-  href: string;
-  icon: LucideIcon;
-  label: string;
-  isActive: boolean;
+  href:
+    string;
+
+  icon:
+    LucideIcon;
+
+  label:
+    string;
+
+  isActive:
+    boolean;
 }) {
   return (
     <Link
@@ -762,8 +1042,10 @@ function MobileNavItem({
         flex-col
         items-center
         gap-1
+
         transition-all
         duration-300
+
         active:scale-90
       "
       style={{
@@ -806,7 +1088,12 @@ function MobileNavItem({
       {isActive && (
         <motion.div
           layoutId="activeTabIndicator"
-          className="mt-0.5 h-1 w-1 rounded-full"
+          className="
+            mt-0.5
+            h-1
+            w-1
+            rounded-full
+          "
           style={{
             backgroundColor:
               "var(--brand-primary)",
